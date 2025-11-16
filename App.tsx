@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { supabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus } from './types';
@@ -163,8 +162,17 @@ export const App: React.FC = () => {
         checkSession();
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-             if (event === 'SIGNED_IN') {
-                if (sessionForPasswordReset) return; // Ignore SIGNED_IN event during password recovery flow
+             if (event === 'PASSWORD_RECOVERY') {
+                if (session) {
+                    setSessionForPasswordReset(session);
+                }
+            } else if (event === 'SIGNED_IN') {
+                // During password recovery, a SIGNED_IN event is also fired.
+                // We must check the URL to prevent treating this as a normal login,
+                // which would hide the password reset modal.
+                if (window.location.hash.includes('type=recovery')) {
+                    return;
+                }
                 setIsLoading(true);
                 await loadAllData();
                 if (session?.user.id) {
@@ -179,10 +187,6 @@ export const App: React.FC = () => {
                 setInitialNotificationsShown(false);
                 setSnoozedNotifications([]);
                 setSessionForPasswordReset(null);
-            } else if (event === 'PASSWORD_RECOVERY') {
-                if (session) {
-                    setSessionForPasswordReset(session);
-                }
             }
         });
 
