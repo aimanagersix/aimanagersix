@@ -15,8 +15,6 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requiresMacWIFI: false,
         requiresMacCabo: false,
         requiresInventoryNumber: false,
-        requiresVPN: false,
-        requiresDDNS: false,
     });
     const [error, setError] = useState('');
 
@@ -28,8 +26,6 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requiresMacWIFI: typeToEdit.requiresMacWIFI || false,
                 requiresMacCabo: typeToEdit.requiresMacCabo || false,
                 requiresInventoryNumber: typeToEdit.requiresInventoryNumber || false,
-                requiresVPN: typeToEdit.requiresVPN || false,
-                requiresDDNS: typeToEdit.requiresDDNS || false,
             });
         }
     }, [typeToEdit]);
@@ -93,14 +89,6 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requiresInventoryNumber" checked={formData.requiresInventoryNumber} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Número de Inventário"</span>
-                        </label>
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" name="requiresVPN" checked={formData.requiresVPN} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
-                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Configuração VPN"</span>
-                        </label>
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" name="requiresDDNS" checked={formData.requiresDDNS} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
-                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Configuração DDNS"</span>
                         </label>
                     </div>
                 </div>
