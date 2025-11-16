@@ -214,11 +214,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 checked={formData.canLogin}
                                 onChange={handleChange}
                                 className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary disabled:bg-gray-800 disabled:cursor-not-allowed"
-                                disabled={!!collaboratorToEdit}
+                                disabled={!!collaboratorToEdit && !collaboratorToEdit.canLogin}
                             />
                              <label htmlFor="canLogin" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
                                 Permitir login na plataforma
-                                {collaboratorToEdit && <span className="text-xs block text-gray-400">(Não pode ser alterado na edição)</span>}
+                                {!!collaboratorToEdit && !collaboratorToEdit.canLogin && 
+                                    <span className="text-xs block text-yellow-400">(A ativação de login só é permitida na criação do utilizador.)</span>
+                                }
                             </label>
                         </div>
 
