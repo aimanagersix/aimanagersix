@@ -51,6 +51,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         telefoneInterno: '',
         telemovel: '',
         canLogin: false,
+        receivesNotifications: true,
         role: UserRole.Basic,
         status: CollaboratorStatus.Ativo,
     });
@@ -70,6 +71,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 telefoneInterno: collaboratorToEdit.telefoneInterno || '',
                 telemovel: collaboratorToEdit.telemovel || '',
                 canLogin: collaboratorToEdit.canLogin,
+                receivesNotifications: collaboratorToEdit.receivesNotifications ?? true,
                 role: collaboratorToEdit.role,
                 status: collaboratorToEdit.status || CollaboratorStatus.Ativo,
             });
@@ -82,6 +84,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 telefoneInterno: '',
                 telemovel: '',
                 canLogin: false,
+                receivesNotifications: true,
                 role: UserRole.Basic,
                 status: CollaboratorStatus.Ativo,
             });
@@ -202,8 +205,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 
                  <div className="border-t border-gray-600 pt-4 mt-4">
                     <h3 className="text-lg font-medium text-on-surface-dark mb-2">Credenciais e Permissões</h3>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center pt-2 md:pt-6">
+                     <div className="space-y-4">
+                        <div className="flex items-center">
                             <input
                                 type="checkbox"
                                 name="canLogin"
@@ -218,6 +221,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 {collaboratorToEdit && <span className="text-xs block text-gray-400">(Não pode ser alterado na edição)</span>}
                             </label>
                         </div>
+
                         {showPasswordField && (
                             <div>
                                 <label htmlFor="password" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Password Temporária</label>
@@ -253,22 +257,40 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 {errors.password && <p className="text-red-400 text-xs italic mt-1">{errors.password}</p>}
                             </div>
                         )}
-                        <div>
-                            <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Status</label>
-                            <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                {Object.values(CollaboratorStatus).map(status => (
-                                    <option key={status} value={status}>{status}</option>
-                                ))}
-                            </select>
-                        </div>
-                        {isAdmin && (
-                             <div>
-                                <label htmlFor="role" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Perfil</label>
-                                <select name="role" id="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                    {Object.values(UserRole).map(role => (
-                                        <option key={role} value={role}>{role}</option>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Status</label>
+                                <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                    {Object.values(CollaboratorStatus).map(status => (
+                                        <option key={status} value={status}>{status}</option>
                                     ))}
                                 </select>
+                            </div>
+                            {isAdmin && (
+                                <div>
+                                    <label htmlFor="role" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Perfil</label>
+                                    <select name="role" id="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                        {Object.values(UserRole).map(role => (
+                                            <option key={role} value={role}>{role}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                        {formData.canLogin && isAdmin && (
+                            <div className="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    name="receivesNotifications"
+                                    id="receivesNotifications"
+                                    checked={formData.receivesNotifications}
+                                    onChange={handleChange}
+                                    className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
+                                />
+                                <label htmlFor="receivesNotifications" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
+                                    Receber notificações da plataforma
+                                </label>
                             </div>
                         )}
                      </div>
