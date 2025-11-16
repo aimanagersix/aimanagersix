@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from './services/supabaseClient';
-import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus } from './types';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus, LicenseStatus } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
 import EquipmentDashboard from './components/Dashboard';
@@ -713,7 +713,28 @@ export const App: React.FC = () => {
                                 licenses={softwareLicenses}
                                 licenseAssignments={licenseAssignments}
                                 onEdit={canEdit ? (lic) => setModal({ type: 'license', data: lic }) : undefined}
-                                onDelete={isAdmin ? (id) => setConfirmation({ message: 'Tem a certeza que deseja excluir esta licença? Todas as suas atribuições serão removidas.', onConfirm: () => handleDelete('software_license', id, dataService.deleteSoftwareLicense, setSoftwareLicenses) }) : undefined}
+                                onDelete={isAdmin ? (id) => {
+                                    const isAssigned = licenseAssignments.some(a => a.softwareLicenseId === id);
+                                    if (isAssigned) {
+                                        setInfoModal({
+                                            title: "Ação Bloqueada",
+                                            content: "Esta licença não pode ser eliminada porque está atribuída a um ou mais equipamentos. Pode, no entanto, marcá-la como inativa."
+                                        });
+                                    } else {
+                                        setConfirmation({ 
+                                            message: 'Tem a certeza que deseja excluir esta licença? Esta ação não pode ser revertida.', 
+                                            onConfirm: () => handleDelete('software_license', id, dataService.deleteSoftwareLicense, setSoftwareLicenses) 
+                                        });
+                                    }
+                                } : undefined}
+                                onToggleStatus={isAdmin ? (id) => {
+                                    const license = softwareLicenses.find(l => l.id === id);
+                                    if (license) {
+                                        const currentStatus = license.status || LicenseStatus.Ativo;
+                                        const newStatus = currentStatus === LicenseStatus.Ativo ? LicenseStatus.Inativo : LicenseStatus.Ativo;
+                                        handleSave('software_license', { id, status: newStatus }, dataService.addSoftwareLicense, dataService.updateSoftwareLicense, setSoftwareLicenses);
+                                    }
+                                } : undefined}
                                 onGenerateReport={() => setIsReportModalOpen({type: 'licensing'})}
                             />,
                 buttonText: 'Adicionar Licença',
@@ -783,7 +804,17 @@ export const App: React.FC = () => {
                                     assignments={assignments}
                                     currentUser={currentUser}
                                     onEdit={canEdit ? (col) => setModal({ type: 'collaborator', data: col }) : undefined}
-                                    onDelete={isAdmin ? (id) => setConfirmation({ message: 'Tem a certeza que deseja excluir este colaborador?', onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) }) : undefined}
+                                    onDelete={isAdmin ? (id) => {
+                                        const hasActiveAssignments = assignments.some(a => a.collaboratorId === id && !a.returnDate);
+                                        if (hasActiveAssignments) {
+                                            setInfoModal({
+                                                title: "Ação Bloqueada",
+                                                content: "Este colaborador não pode ser eliminado porque tem equipamento ativo associado a si. Por favor, desassocie o equipamento primeiro."
+                                            });
+                                        } else {
+                                            setConfirmation({ message: 'Tem a certeza que deseja excluir este colaborador?', onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) });
+                                        }
+                                    } : undefined}
                                     onShowHistory={(col) => setModal({type: 'collaborator-history', data: col})}
                                     onShowDetails={(col) => setModal({ type: 'collaborator-details', data: col })}
                                     onGenerateReport={() => setIsReportModalOpen({type: 'collaborator'})}
@@ -792,6 +823,18 @@ export const App: React.FC = () => {
                                         const collaborator = collaborators.find(c => c.id === id);
                                         if (collaborator) {
                                             const newStatus = collaborator.status === CollaboratorStatus.Ativo ? CollaboratorStatus.Inativo : CollaboratorStatus.Ativo;
+                                            
+                                            if (newStatus === CollaboratorStatus.Inativo) {
+                                                const hasActiveAssignments = assignments.some(a => a.collaboratorId === id && !a.returnDate);
+                                                if (hasActiveAssignments) {
+                                                    setInfoModal({
+                                                        title: "Ação Bloqueada",
+                                                        content: "Este colaborador não pode ser inativado porque tem equipamento ativo associado a si. Por favor, desassocie o equipamento primeiro."
+                                                    });
+                                                    return;
+                                                }
+                                            }
+                                            
                                             handleSaveCollaborator({ ...collaborator, status: newStatus });
                                         }
                                     } : undefined}
@@ -806,7 +849,16 @@ export const App: React.FC = () => {
                                     brands={brands} 
                                     equipment={equipment}
                                     onEdit={canEdit ? (b) => setModal({ type: 'brand', data: b }) : undefined}
-                                    onDelete={isAdmin ? (id) => setConfirmation({ message: 'Tem a certeza que deseja excluir esta marca?', onConfirm: () => handleDelete('brand', id, dataService.deleteBrand, setBrands) }) : undefined}
+                                    onDelete={isAdmin ? (id) => {
+                                        if (equipment.some(e => e.brandId === id)) {
+                                            setInfoModal({
+                                                title: "Ação Bloqueada",
+                                                content: "Esta marca não pode ser eliminada pois está associada a um ou mais equipamentos. Por favor, altere ou remova esses equipamentos primeiro."
+                                            });
+                                        } else {
+                                            setConfirmation({ message: 'Tem a certeza que deseja excluir esta marca?', onConfirm: () => handleDelete('brand', id, dataService.deleteBrand, setBrands) });
+                                        }
+                                    } : undefined}
                                 />,
                     buttonText: 'Adicionar Marca',
                     onButtonClick: canEdit ? () => setModal({ type: 'brand' }) : undefined,
@@ -817,7 +869,16 @@ export const App: React.FC = () => {
                                     equipmentTypes={equipmentTypes} 
                                     equipment={equipment}
                                     onEdit={canEdit ? (et) => setModal({ type: 'equipment_type', data: et }) : undefined}
-                                    onDelete={isAdmin ? (id) => setConfirmation({ message: 'Tem a certeza que deseja excluir este tipo de equipamento?', onConfirm: () => handleDelete('equipment_type', id, dataService.deleteEquipmentType, setEquipmentTypes) }) : undefined}
+                                    onDelete={isAdmin ? (id) => {
+                                        if (equipment.some(e => e.typeId === id)) {
+                                            setInfoModal({
+                                                title: "Ação Bloqueada",
+                                                content: "Este tipo de equipamento não pode ser eliminado pois está associado a um ou mais equipamentos. Por favor, altere ou remova esses equipamentos primeiro."
+                                            });
+                                        } else {
+                                            setConfirmation({ message: 'Tem a certeza que deseja excluir este tipo de equipamento?', onConfirm: () => handleDelete('equipment_type', id, dataService.deleteEquipmentType, setEquipmentTypes) });
+                                        }
+                                    } : undefined}
                                 />,
                     buttonText: 'Adicionar Tipo',
                     onButtonClick: canEdit ? () => setModal({ type: 'equipment_type' }) : undefined,
