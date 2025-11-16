@@ -135,6 +135,7 @@ export const App: React.FC = () => {
                 setCurrentUser(userProfile);
                 setIsAuthenticated(true);
             } else {
+                // This case handles if a user exists in auth but not in the public profile table.
                 await supabase.auth.signOut();
                 setIsAuthenticated(false);
                 setCurrentUser(null);
@@ -145,6 +146,7 @@ export const App: React.FC = () => {
             setIsAuthenticated(false);
             setCurrentUser(null);
             setSessionForPasswordReset(null);
+            // Clear all data to ensure privacy on logout
             setEquipment([]);
             setInstituicoes([]);
             setEntidades([]);
@@ -162,44 +164,27 @@ export const App: React.FC = () => {
             setSnoozedNotifications([]);
         };
 
-        // 1. Check initial session state ONCE.
         setIsLoading(true);
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             try {
-                if (session) {
+                if (event === 'PASSWORD_RECOVERY' && session) {
+                    setSessionForPasswordReset(session);
+                } else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+                    // Avoid loading data if the user is on the password recovery page
                     if (!window.location.hash.includes('type=recovery')) {
                         await handleUserSession(session);
                     }
+                } else if (event === 'SIGNED_OUT') {
+                    clearUserState();
                 }
-            } catch (e) {
-                console.error("Erro ao carregar dados da sessão inicial:", e);
-                setLoadingError("Ocorreu um erro ao carregar os dados da sua sessão.");
+            } catch (error) {
+                console.error("Auth state change error:", error);
+                setLoadingError("Ocorreu um erro durante a autenticação.");
+                clearUserState(); // Ensure clean state on error
             } finally {
-                setIsLoading(false); // This is critical for fixing the infinite spinner.
-            }
-        });
-
-        // 2. Set up a listener for subsequent auth events.
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'PASSWORD_RECOVERY' && session) {
-                setSessionForPasswordReset(session);
-                setIsLoading(false); // Ensure spinner is off
-                return;
-            }
-
-            if (event === 'SIGNED_IN' && session) {
-                setIsLoading(true);
-                try {
-                    await handleUserSession(session);
-                } catch (e) {
-                    console.error("Erro ao fazer login:", e);
-                } finally {
-                    setIsLoading(false);
-                }
-            }
-            
-            if (event === 'SIGNED_OUT') {
-                clearUserState();
+                // This is the single point where the loading spinner is turned off after the initial check.
+                setIsLoading(false);
             }
         });
 
@@ -207,6 +192,7 @@ export const App: React.FC = () => {
             subscription?.unsubscribe();
         };
     }, []);
+
 
 
     // UI State
