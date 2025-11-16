@@ -233,7 +233,10 @@ export const App: React.FC = () => {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
-    const [snoozedNotifications, setSnoozedNotifications] = useState<string[]>([]);
+    const [snoozedNotifications, setSnoozedNotifications] = useState<string[]>(() => {
+        const saved = localStorage.getItem('snoozedNotifications');
+        return saved ? JSON.parse(saved) : [];
+    });
     const [initialNotificationsShown, setInitialNotificationsShown] = useState(false);
     const [isForgotPasswordModalOpen, setIsForgotPasswordModalOpen] = useState(false);
 
@@ -566,6 +569,29 @@ export const App: React.FC = () => {
         }
     }, [licenseAssignments]);
     
+    const handleToggleLicenseStatus = useCallback(async (id: string) => {
+        const license = softwareLicenses.find(l => l.id === id);
+        if (!license) return;
+
+        const newStatus = (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo ? LicenseStatus.Inativo : LicenseStatus.Ativo;
+        
+        try {
+            const updatedLicense = await dataService.updateSoftwareLicense(id, { status: newStatus });
+            setSoftwareLicenses(prev => prev.map(l => l.id === id ? updatedLicense : l));
+        } catch (error) {
+            console.error("Failed to toggle license status:", error);
+            alert("Ocorreu um erro ao alterar o estado da licença.");
+        }
+    }, [softwareLicenses]);
+
+    const handleSnoozeNotification = (id: string) => {
+        setSnoozedNotifications(prev => {
+            const newSnoozed = [...prev, id];
+            localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozed));
+            return newSnoozed;
+        });
+    };
+
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const equipmentTypeMap = useMemo(() => new Map(equipmentTypes.map(et => [et.id, et.name])), [equipmentTypes]);
     const assignedEquipmentIds = useMemo(() => new Set(assignments.filter(a => !a.returnDate).map(a => a.equipmentId)), [assignments]);
@@ -767,6 +793,7 @@ export const App: React.FC = () => {
                 onEdit={(lic) => setModal({ type: 'add_license', data: lic })}
                 onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta licença?', onConfirm: () => handleDelete('software_license', id, dataService.deleteSoftwareLicense, setSoftwareLicenses) })}
                 onGenerateReport={() => setIsReportModalOpen({ type: 'licensing' })}
+                onToggleStatus={handleToggleLicenseStatus}
             />,
             buttonText: 'Adicionar Licença',
             onButtonClick: () => setModal({ type: 'add_license' }),
@@ -906,7 +933,7 @@ export const App: React.FC = () => {
             {isTicketActivitiesModalOpen && selectedTicketForActivities && <TicketActivitiesModal ticket={selectedTicketForActivities} activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)} collaborators={collaborators} currentUser={currentUser} onClose={() => setIsTicketActivitiesModalOpen(false)} onAddActivity={(activity) => { const newActivity = { ...activity, id: crypto.randomUUID(), ticketId: selectedTicketForActivities.id, technicianId: currentUser.id, date: new Date().toISOString() }; handleSave('ticket_activity', newActivity, dataService.addTicketActivity, () => Promise.resolve(), setTicketActivities); }} />}
             {infoModal && <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>{infoModal.content}</InfoModal>}
             {confirmation && <ConfirmationModal title="Confirmar Ação" message={confirmation.message} onConfirm={confirmation.onConfirm} onClose={() => setConfirmation(null)} />}
-            {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={(id) => setSnoozedNotifications(prev => [...prev, id])} />}
+            {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={handleSnoozeNotification} />}
         </div>
     );
 };
