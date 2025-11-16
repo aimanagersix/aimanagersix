@@ -150,7 +150,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal }) => {
     const [formData, setFormData] = useState<Partial<Equipment>>({
-        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: '', vpnEnabled: false, ddnsAddress: '', ddnsUser: '', ddnsPassword: ''
+        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -177,10 +177,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 invoiceNumber: equipmentToEdit.invoiceNumber || '',
                 creationDate: equipmentToEdit.creationDate,
-                vpnEnabled: equipmentToEdit.vpnEnabled || false,
-                ddnsAddress: equipmentToEdit.ddnsAddress || '',
-                ddnsUser: equipmentToEdit.ddnsUser || '',
-                ddnsPassword: equipmentToEdit.ddnsPassword || '',
             });
         } else {
             setFormData({
@@ -195,10 +191,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 purchaseDate: new Date().toISOString().split('T')[0],
                 warrantyEndDate: '',
                 invoiceNumber: '',
-                vpnEnabled: false,
-                ddnsAddress: '',
-                ddnsUser: '',
-                ddnsPassword: '',
             });
         }
     }, [equipmentToEdit, brands, equipmentTypes]);
@@ -348,9 +340,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             macAddressWIFI: formData.macAddressWIFI || undefined,
             macAddressCabo: formData.macAddressCabo || undefined,
             warrantyEndDate: formData.warrantyEndDate || undefined,
-            ddnsAddress: formData.ddnsAddress || undefined,
-            ddnsUser: formData.ddnsUser || undefined,
-            ddnsPassword: formData.ddnsPassword || undefined,
         };
 
         if (equipmentToEdit) {
@@ -529,45 +518,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                     </div>
                     {errors.warrantyEndDate && <p className="text-red-400 text-xs italic mt-1">{errors.warrantyEndDate}</p>}
                 </div>
-
-                {(selectedType?.requiresVPN || selectedType?.requiresDDNS) && (
-                    <div className="border-t border-gray-600 pt-4 mt-4 space-y-4">
-                        {selectedType?.requiresVPN && (
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    name="vpnEnabled"
-                                    id="vpnEnabled"
-                                    checked={formData.vpnEnabled}
-                                    onChange={handleChange}
-                                    className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                                />
-                                <label htmlFor="vpnEnabled" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
-                                    VPN Ativada
-                                </label>
-                            </div>
-                        )}
-                        {selectedType?.requiresDDNS && (
-                            <>
-                                <h3 className="text-md font-medium text-on-surface-dark">Configuração DDNS</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label htmlFor="ddnsAddress" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço DDNS</label>
-                                        <input type="text" name="ddnsAddress" id="ddnsAddress" value={formData.ddnsAddress} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="ddnsUser" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Utilizador DDNS</label>
-                                        <input type="text" name="ddnsUser" id="ddnsUser" value={formData.ddnsUser} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="ddnsPassword" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Password DDNS</label>
-                                        <input type="password" name="ddnsPassword" id="ddnsPassword" value={formData.ddnsPassword} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
                 
                 {showKitButton && (
                     <div className="pt-4 mt-4 border-t border-gray-600">
@@ -591,5 +541,5 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         </Modal>
     );
 };
-
+export default AddEquipmentModal;
 export default AddEquipmentModal;
