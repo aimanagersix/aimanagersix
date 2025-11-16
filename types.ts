@@ -114,6 +114,7 @@ export interface Collaborator {
   canLogin: boolean;
   role: UserRole;
   status: CollaboratorStatus;
+  password?: string;
 }
 
 export interface Assignment {
