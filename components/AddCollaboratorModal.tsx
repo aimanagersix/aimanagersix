@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus } from '../types';
+import { FaMagic, FaEye, FaEyeSlash } from './common/Icons';
 
 const isPortuguesePhoneNumber = (phone: string): boolean => {
     if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
@@ -8,6 +9,30 @@ const isPortuguesePhoneNumber = (phone: string): boolean => {
     const regex = /^(2\d{8}|9[1236]\d{7})$/;
     return regex.test(cleaned);
 };
+
+const generateStrongPassword = (): string => {
+    const length = 12;
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const special = '@$!%*?&';
+    
+    // Ensure all character types are included
+    let password = '';
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += special[Math.floor(Math.random() * special.length)];
+    
+    const allChars = uppercase + lowercase + numbers + special;
+    for (let i = 4; i < length; i++) {
+        password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+    
+    // Shuffle the password to avoid a predictable pattern
+    return password.split('').sort(() => 0.5 - Math.random()).join('');
+};
+
 
 interface AddCollaboratorModalProps {
     onClose: () => void;
@@ -31,6 +56,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     });
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [showPassword, setShowPassword] = useState(false);
     
     const isAdmin = currentUser?.role === UserRole.Admin;
 
@@ -79,7 +105,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             if (!password.trim()) {
                 newErrors.password = "A password é obrigatória para novos colaboradores com acesso.";
             } else {
-                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+                const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
                 if (!passwordRegex.test(password)) {
                     newErrors.password = "A password deve ter no mínimo 6 caracteres, incluindo uma maiúscula, um número e um caracter especial (@$!%*?&).";
                 }
@@ -189,21 +215,41 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             />
                              <label htmlFor="canLogin" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
                                 Permitir login na plataforma
-                                {collaboratorToEdit && <span className="text-xs block text-gray-400">(Não pode ser alterado)</span>}
+                                {collaboratorToEdit && <span className="text-xs block text-gray-400">(Não pode ser alterado na edição)</span>}
                             </label>
                         </div>
                         {showPasswordField && (
                             <div>
                                 <label htmlFor="password" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Password Temporária</label>
-                                <input
-                                    type="password"
-                                    name="password"
-                                    id="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Defina uma password segura"
-                                    className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.password ? 'border-red-500' : 'border-gray-600'}`}
-                                />
+                                <div className="flex gap-2">
+                                    <div className="relative flex-grow">
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            name="password"
+                                            id="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="Defina uma password segura"
+                                            className={`w-full bg-gray-700 border text-white rounded-md p-2 pr-10 ${errors.password ? 'border-red-500' : 'border-gray-600'}`}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white"
+                                            aria-label={showPassword ? "Ocultar password" : "Mostrar password"}
+                                        >
+                                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                        </button>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPassword(generateStrongPassword())}
+                                        className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"
+                                        title="Sugerir password forte"
+                                    >
+                                        <FaMagic />
+                                    </button>
+                                </div>
                                 {errors.password && <p className="text-red-400 text-xs italic mt-1">{errors.password}</p>}
                             </div>
                         )}
