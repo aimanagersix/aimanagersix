@@ -105,14 +105,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                             </div>
                              {validationErrors.password && <p className="text-red-400 text-xs italic mt-2">{validationErrors.password}</p>}
                         </div>
-                        <div className="text-right mb-6">
-                            <button 
-                                type="button"
-                                onClick={onForgotPassword}
-                                className="text-sm text-brand-secondary hover:text-blue-400 focus:outline-none"
-                            >
-                                Esqueceu-se da password?
-                            </button>
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center">
+                                <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-brand-secondary focus:ring-brand-primary border-gray-600 rounded bg-gray-700"/>
+                                <label htmlFor="remember-me" className="ml-2 block text-sm text-on-surface-dark-secondary">
+                                    Lembrar-me
+                                </label>
+                            </div>
+                            <div className="text-sm">
+                                <button 
+                                    type="button"
+                                    onClick={onForgotPassword}
+                                    className="font-medium text-brand-secondary hover:text-blue-400 focus:outline-none"
+                                >
+                                    Esqueceu-se da password?
+                                </button>
+                            </div>
                         </div>
                         {error && <p className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs italic p-3 rounded mb-4 text-center">{error}</p>}
                         <div className="flex items-center justify-between">
