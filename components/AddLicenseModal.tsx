@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { SoftwareLicense } from '../types';
+import { SoftwareLicense, LicenseStatus } from '../types';
 
 interface AddLicenseModalProps {
     onClose: () => void;
@@ -17,6 +17,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         expiryDate: '',
         purchaseEmail: '',
         invoiceNumber: '',
+        status: LicenseStatus.Ativo,
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -30,6 +31,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                 expiryDate: licenseToEdit.expiryDate || '',
                 purchaseEmail: licenseToEdit.purchaseEmail || '',
                 invoiceNumber: licenseToEdit.invoiceNumber || '',
+                status: licenseToEdit.status || LicenseStatus.Ativo,
             });
         }
     }, [licenseToEdit]);
@@ -46,7 +48,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseInt(value, 10) : value }));
     };
@@ -103,6 +105,14 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                      <div>
                         <label htmlFor="invoiceNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura (Opcional)</label>
                         <input type="text" name="invoiceNumber" id="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600`} />
+                    </div>
+                     <div>
+                        <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Status</label>
+                        <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                            {Object.values(LicenseStatus).map(s => (
+                                <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label htmlFor="purchaseEmail" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email Associado à Compra (Opcional)</label>
