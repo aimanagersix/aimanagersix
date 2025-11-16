@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { SoftwareLicense, LicenseAssignment } from '../types';
+import { SoftwareLicense, LicenseAssignment, LicenseStatus } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
+import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
 interface LicenseDashboardProps {
@@ -10,10 +11,19 @@ interface LicenseDashboardProps {
   onClearInitialFilter?: () => void;
   onEdit?: (license: SoftwareLicense) => void;
   onDelete?: (id: string) => void;
+  onToggleStatus?: (id: string) => void;
   onGenerateReport?: () => void;
 }
 
-const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAssignments, onEdit, onDelete, onGenerateReport, initialFilter, onClearInitialFilter }) => {
+const getStatusClass = (status?: LicenseStatus) => {
+    switch (status) {
+        case LicenseStatus.Ativo: return 'bg-green-500/20 text-green-400';
+        case LicenseStatus.Inativo: return 'bg-gray-500/20 text-gray-400';
+        default: return 'bg-gray-500/20 text-gray-400';
+    }
+};
+
+const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAssignments, onEdit, onDelete, onGenerateReport, initialFilter, onClearInitialFilter, onToggleStatus }) => {
     
     const [filters, setFilters] = useState({ productName: '', licenseKey: '', status: '', invoiceNumber: '' });
     const [currentPage, setCurrentPage] = useState(1);
@@ -58,15 +68,24 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAs
             const keyMatch = filters.licenseKey === '' || license.licenseKey.toLowerCase().includes(filters.licenseKey.toLowerCase());
             const invoiceMatch = filters.invoiceNumber === '' || (license.invoiceNumber && license.invoiceNumber.toLowerCase().includes(filters.invoiceNumber.toLowerCase()));
 
-            if (filters.status) {
+            const statusMatch = (() => {
+                if (!filters.status) return true;
+
+                // Filter by new status property
+                if (filters.status === LicenseStatus.Ativo) return (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo;
+                if (filters.status === LicenseStatus.Inativo) return license.status === LicenseStatus.Inativo;
+
+                // Filter by seat usage
                 const usedSeats = usedSeatsMap.get(license.id) || 0;
                 const availableSeats = license.totalSeats - usedSeats;
                 if (filters.status === 'available' && availableSeats <= 0) return false;
                 if (filters.status === 'in_use' && usedSeats === 0) return false;
                 if (filters.status === 'depleted' && availableSeats > 0) return false;
-            }
+
+                return true;
+            })();
             
-            return nameMatch && keyMatch && invoiceMatch;
+            return nameMatch && keyMatch && invoiceMatch && statusMatch;
         });
     }, [licenses, filters, usedSeatsMap]);
 
@@ -98,7 +117,9 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAs
                     <input type="text" id="invoiceNumberFilter" name="invoiceNumber" value={filters.invoiceNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Fatura..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
                     <select id="statusFilter" name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
                         <option value="">Todos os Estados</option>
-                        <option value="available">Disponível</option>
+                        <option value={LicenseStatus.Ativo}>Ativo</option>
+                        <option value={LicenseStatus.Inativo}>Inativo</option>
+                        <option value="available">Com Vagas</option>
                         <option value="in_use">Em Uso</option>
                         <option value="depleted">Esgotado</option>
                     </select>
@@ -116,7 +137,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAs
                         <tr>
                             <th scope="col" className="px-6 py-3">Nome do Produto</th>
                             <th scope="col" className="px-6 py-3">Chave de Licença</th>
-                            <th scope="col" className="px-6 py-3">Nº Fatura</th>
+                            <th scope="col" className="px-6 py-3">Status</th>
                             <th scope="col" className="px-6 py-3 text-center">Uso (Total/Uso/Disp)</th>
                             <th scope="col" className="px-6 py-3">Datas</th>
                             <th scope="col" className="px-6 py-3 text-center">Ações</th>
@@ -126,11 +147,16 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAs
                         {paginatedLicenses.length > 0 ? paginatedLicenses.map((license) => {
                             const usedSeats = usedSeatsMap.get(license.id) || 0;
                             const availableSeats = license.totalSeats - usedSeats;
+                            const status = license.status || LicenseStatus.Ativo;
                             return (
                                 <tr key={license.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                                     <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{license.productName}</td>
                                     <td className="px-6 py-4 font-mono">{license.licenseKey}</td>
-                                    <td className="px-6 py-4">{license.invoiceNumber || '—'}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(status)}`}>
+                                            {status}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className="font-semibold text-white">{license.totalSeats}</span> / <span>{usedSeats}</span> / <span className={`font-bold ${availableSeats > 0 ? 'text-green-400' : 'text-red-400'}`}>{availableSeats}</span>
                                     </td>
@@ -140,6 +166,15 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAs
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex justify-center items-center gap-4">
+                                            {onToggleStatus && (
+                                                <button 
+                                                    onClick={() => onToggleStatus(license.id)} 
+                                                    className={`text-xl ${status === LicenseStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
+                                                    title={status === LicenseStatus.Ativo ? 'Inativar' : 'Ativar'}
+                                                >
+                                                    {status === LicenseStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
+                                                </button>
+                                            )}
                                             {onEdit && (
                                                 <button onClick={() => onEdit(license)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${license.productName}`}>
                                                     <EditIcon />
