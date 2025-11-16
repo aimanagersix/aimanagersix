@@ -170,6 +170,7 @@ export const App: React.FC = () => {
                 setCurrentUser(null);
                 setInitialNotificationsShown(false);
                 setSnoozedNotifications([]);
+                setSessionForPasswordReset(null);
             } else if (event === 'PASSWORD_RECOVERY') {
                 if (session) {
                     setSessionForPasswordReset(session);
@@ -285,6 +286,7 @@ export const App: React.FC = () => {
             // Editing existing collaborator
             if (collaboratorData.id) {
                 const { id, ...updates } = collaboratorData;
+                delete (updates as Partial<Collaborator>).password; // Ensure password is not updated
                 const updatedCollaborator = await dataService.updateCollaborator(id, updates);
                 // FIX: Merge the updated data with existing data to ensure the `id` is preserved in the object's type, resolving a potential type mismatch.
                 setCollaborators(prev => prev.map(c => c.id === id ? { ...c, ...updatedCollaborator } : c));
@@ -308,6 +310,7 @@ export const App: React.FC = () => {
                     const newCollaborator = {
                         ...collaboratorData,
                         id: authData.user.id,
+                        password: password, // Pass password to satisfy DB constraint
                     };
                     const addedCollaborator = await dataService.addCollaborator(newCollaborator);
                     setCollaborators(prev => [...prev, addedCollaborator]);
@@ -323,6 +326,7 @@ export const App: React.FC = () => {
                     const newCollaborator = {
                         ...collaboratorData,
                         id: crypto.randomUUID(),
+                        password: crypto.randomUUID(), // Use a random string as placeholder to satisfy NOT NULL constraint
                     };
                     const addedCollaborator = await dataService.addCollaborator(newCollaborator);
                     setCollaborators(prev => [...prev, addedCollaborator]);
@@ -558,7 +562,11 @@ export const App: React.FC = () => {
                 const existingCodes = new Set(collaborators.map(c => c.numeroMecanografico));
                 const recordsToAdd = data
                     .filter(item => !existingCodes.has(item.numeroMecanografico))
-                    .map(item => ({...item, id: crypto.randomUUID()}));
+                    .map(item => ({
+                        ...item,
+                        id: crypto.randomUUID(),
+                        password: item.password || crypto.randomUUID(), // Ensure password exists
+                    }));
                 
                 errorCount = data.length - recordsToAdd.length;
                 if (errorCount > 0) {
@@ -855,11 +863,14 @@ export const App: React.FC = () => {
          return <div className="flex items-center justify-center min-h-screen bg-background-dark text-red-400 p-8 text-center">{loadingError}</div>;
     }
 
+    if (sessionForPasswordReset) {
+        return <ResetPasswordModal session={sessionForPasswordReset} onClose={() => setSessionForPasswordReset(null)} />;
+    }
+
     if (!isAuthenticated) {
         return <>
             <LoginPage onLogin={handleLogin} onForgotPassword={() => setIsForgotPasswordModalOpen(true)} />
             {isForgotPasswordModalOpen && <ForgotPasswordModal onClose={() => setIsForgotPasswordModalOpen(false)} />}
-            {sessionForPasswordReset && <ResetPasswordModal session={sessionForPasswordReset} onClose={() => setSessionForPasswordReset(null)} />}
         </>;
     }
 
