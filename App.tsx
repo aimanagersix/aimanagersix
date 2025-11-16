@@ -127,88 +127,56 @@ export const App: React.FC = () => {
             setIsLoading(false);
             return;
         }
-
-        const checkSession = async () => {
-            setIsLoading(true);
+    
+        setIsLoading(true);
+    
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
-                
-                if (window.location.hash.includes('type=recovery')) {
-                    // Let the onAuthStateChange listener handle the password recovery flow.
-                    // The finally block will ensure isLoading is set to false.
+                if (event === 'PASSWORD_RECOVERY') {
+                    if (session) {
+                       setSessionForPasswordReset(session);
+                    }
+                    // The 'finally' block will handle isLoading. The modal will appear.
                     return;
                 }
     
-                if (error) {
-                    console.error("Error getting session:", error);
-                    setLoadingError("Erro ao verificar a sessão.");
-                } else if (session) {
+                if (session) { // This handles SIGNED_IN and INITIAL_SESSION with a session.
+                    
+                    // If this is a SIGNED_IN event triggered during password recovery,
+                    // we should let the PASSWORD_RECOVERY handler take precedence.
+                    if (window.location.hash.includes('type=recovery')) {
+                        return;
+                    }
+    
                     await loadAllData();
                     const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
+    
                     if (userProfile) {
                         setCurrentUser(userProfile);
                         setIsAuthenticated(true);
                     } else {
-                        // This case might happen if a user exists in auth but not in our public table
+                        // Stale auth user without a profile in our public table. Sign them out.
                         await supabase.auth.signOut();
                     }
-                } else {
-                     // Fetch only collaborators for login dropdown if needed, but not all data
-                     const collaboratorsData = await dataService.fetchData<Collaborator>('collaborator');
-                     setCollaborators(collaboratorsData);
+                } else { // This handles SIGNED_OUT and INITIAL_SESSION without a session.
+                    setIsAuthenticated(false);
+                    setCurrentUser(null);
+                    setInitialNotificationsShown(false);
+                    setSnoozedNotifications([]);
+                    setSessionForPasswordReset(null);
                 }
             } catch (error) {
-                console.error("Error during initial session check:", error);
-                setLoadingError("Ocorreu um erro ao carregar a sessão. Tente novamente.");
+                 console.error("Error during auth state change handling:", error);
+                 setLoadingError("Ocorreu um erro durante a autenticação. Tente recarregar a página.");
+                 setIsAuthenticated(false);
+                 setCurrentUser(null);
             } finally {
                 setIsLoading(false);
             }
-        };
-        
-        checkSession();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-             if (event === 'PASSWORD_RECOVERY') {
-                if (session) {
-                    setSessionForPasswordReset(session);
-                }
-            } else if (event === 'SIGNED_IN') {
-                // During password recovery, a SIGNED_IN event is also fired.
-                // We must check the URL to prevent treating this as a normal login,
-                // which would hide the password reset modal.
-                if (window.location.hash.includes('type=recovery')) {
-                    return;
-                }
-                setIsLoading(true);
-                try {
-                    await loadAllData();
-                    if (session?.user.id) {
-                        const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
-                        if (userProfile) {
-                            setCurrentUser(userProfile);
-                            setIsAuthenticated(true);
-                        } else {
-                            // User exists in auth but not in our collaborator table
-                            await supabase.auth.signOut();
-                        }
-                    }
-                } catch(error) {
-                    console.error("Error handling SIGNED_IN event:", error);
-                    setLoadingError("Ocorreu um erro ao iniciar sessão.");
-                } finally {
-                    setIsLoading(false);
-                }
-            } else if (event === 'SIGNED_OUT') {
-                setIsAuthenticated(false);
-                setCurrentUser(null);
-                setInitialNotificationsShown(false);
-                setSnoozedNotifications([]);
-                setSessionForPasswordReset(null);
-            }
         });
-
+    
         return () => {
-            authListener?.subscription.unsubscribe();
+            authListener.subscription.unsubscribe();
         };
     }, []);
 
