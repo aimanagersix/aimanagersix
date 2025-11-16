@@ -79,7 +79,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             if (!password.trim()) {
                 newErrors.password = "A password é obrigatória para novos colaboradores com acesso.";
             } else {
-                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+                const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
                 if (!passwordRegex.test(password)) {
                     newErrors.password = "A password deve ter no mínimo 6 caracteres, incluindo uma maiúscula, um número e um caracter especial (@$!%*?&).";
                 }
@@ -189,7 +189,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             />
                              <label htmlFor="canLogin" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
                                 Permitir login na plataforma
-                                {collaboratorToEdit && <span className="text-xs block text-gray-400">(Não pode ser alterado)</span>}
+                                {collaboratorToEdit && <span className="text-xs block text-gray-400">(Não pode ser alterado na edição)</span>}
                             </label>
                         </div>
                         {showPasswordField && (
