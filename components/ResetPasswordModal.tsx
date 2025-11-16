@@ -37,7 +37,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ onClose, sessio
 
     const handleResetSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
+        if (!validate() || !supabase) return;
         
         setIsLoading(true);
 
@@ -49,6 +49,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ onClose, sessio
             console.error("Password update error:", updateError);
         } else {
             setMessage('A sua password foi atualizada com sucesso! Pode agora fazer login com a nova password.');
+            await supabase.auth.signOut();
         }
     };
 
