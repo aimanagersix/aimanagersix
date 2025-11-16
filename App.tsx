@@ -16,6 +16,7 @@ import TicketDashboard from './components/TicketDashboard';
 import LicenseDashboard from './components/LicenseDashboard';
 import LoginPage from './components/LoginPage';
 import ForgotPasswordModal from './components/ForgotPasswordModal';
+import ResetPasswordModal from './components/ResetPasswordModal';
 import { ChatWidget } from './components/ChatWidget';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import AddEntidadeModal from './components/AddEntidadeModal';
@@ -41,6 +42,8 @@ import CollaboratorHistoryModal from './components/CollaboratorHistoryModal';
 import CollaboratorDetailModal from './components/CollaboratorDetailModal';
 import ConfigurationSetup from './components/ConfigurationSetup';
 import { PlusIcon, FaFileImport, SpinnerIcon } from './components/common/Icons';
+import { Session } from '@supabase/supabase-js';
+
 
 // Define an interface for tab configuration to ensure type safety.
 interface TabConfigItem {
@@ -72,6 +75,8 @@ export const App: React.FC = () => {
     // Auth State
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
+    const [sessionForPasswordReset, setSessionForPasswordReset] = useState<Session | null>(null);
+
 
     // Loading state
     const [isLoading, setIsLoading] = useState(true);
@@ -159,11 +164,16 @@ export const App: React.FC = () => {
                 }
                 setIsAuthenticated(true);
                 setIsLoading(false);
+                setSessionForPasswordReset(null); // Clear reset state on successful login
             } else if (event === 'SIGNED_OUT') {
                 setIsAuthenticated(false);
                 setCurrentUser(null);
                 setInitialNotificationsShown(false);
                 setSnoozedNotifications([]);
+            } else if (event === 'PASSWORD_RECOVERY') {
+                if (session) {
+                    setSessionForPasswordReset(session);
+                }
             }
         });
 
@@ -847,9 +857,10 @@ export const App: React.FC = () => {
 
     if (!isAuthenticated) {
         return <>
-            <LoginPage onLogin={handleLogin} onForgotPassword={() => setIsForgotPasswordModalOpen(true)} />;
+            <LoginPage onLogin={handleLogin} onForgotPassword={() => setIsForgotPasswordModalOpen(true)} />
             {isForgotPasswordModalOpen && <ForgotPasswordModal onClose={() => setIsForgotPasswordModalOpen(false)} />}
-        </>
+            {sessionForPasswordReset && <ResetPasswordModal session={sessionForPasswordReset} onClose={() => setSessionForPasswordReset(null)} />}
+        </>;
     }
 
     return (
