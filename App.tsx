@@ -285,9 +285,21 @@ export const App: React.FC = () => {
                 setData(prev => [...prev, newRecord]);
                 return newRecord;
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(`Failed to save ${type}:`, error);
-            alert(`Ocorreu um erro ao salvar os dados de ${type}. Por favor, tente novamente.`);
+            let userMessage = `Ocorreu um erro ao salvar os dados de ${type}. Por favor, tente novamente.`;
+            if (error && error.message) {
+                if (error.message.includes('violates foreign key constraint')) {
+                    userMessage = `Não foi possível salvar. Verifique se todos os itens associados (como Marcas, Tipos ou Entidades) ainda existem.`;
+                } else if (error.message.includes('violates unique constraint')) {
+                    userMessage = `Não foi possível salvar. Já existe um registo com um destes valores que deve ser único (ex: Número de Série ou Nº Mecanográfico).`;
+                } else if (error.message.includes('violates not-null constraint')) {
+                    userMessage = `Não foi possível salvar. Um campo obrigatório não foi preenchido. Por favor, verifique o formulário.`;
+                } else {
+                    userMessage = `Ocorreu um erro ao salvar: ${error.message}`;
+                }
+            }
+            alert(userMessage);
         }
     }, []);
     
