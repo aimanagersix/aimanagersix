@@ -23,26 +23,36 @@ const checkSupabase = () => {
 
 export const fetchData = async <T>(tableName: string): Promise<T[]> => {
     const sb = checkSupabase();
-    // A nomenclatura das tabelas no Supabase é em minúsculas e singular por convenção, mas o nosso SQL usa nomes específicos.
-    // O nome da tabela deve corresponder exatamente ao que está na base de dados.
     const { data, error } = await sb.from(tableName).select('*');
     handleSupabaseError(error, `a obter dados de ${tableName}`);
     return data as T[] ?? [];
 };
 
-const insertData = async <T extends {id: string}>(tableName: string, record: Partial<T>): Promise<T> => {
+export const fetchDataById = async <T>(tableName: string, id: string): Promise<T | null> => {
+    const sb = checkSupabase();
+    const { data, error } = await sb.from(tableName).select('*').eq('id', id).single();
+    handleSupabaseError(error, `a obter dados de ${tableName} com id ${id}`);
+    return data as T | null;
+};
+
+
+const insertData = async <T>(tableName: string, record: Partial<T>): Promise<T> => {
     const sb = checkSupabase();
     const { data, error } = await sb.from(tableName).insert(record as any).select();
     handleSupabaseError(error, `a inserir em ${tableName}`);
-    return data?.[0] as T;
+    if (!data) throw new Error("A inserção não retornou dados.");
+    return data[0] as T;
 };
+
 
 const updateData = async <T>(tableName: string, id: string, updates: Partial<T>): Promise<T> => {
     const sb = checkSupabase();
     const { data, error } = await sb.from(tableName).update(updates as any).eq('id', id).select();
     handleSupabaseError(error, `a atualizar em ${tableName}`);
-    return data?.[0] as T;
+    if (!data) throw new Error("A atualização não retornou dados.");
+    return data[0] as T;
 };
+
 
 export const deleteData = async (tableName: string, id: string): Promise<void> => {
     const sb = checkSupabase();
@@ -110,7 +120,7 @@ export const addMultipleEntidades = (records: Entidade[]) => {
 
 // Collaborator
 export const addCollaborator = (record: Collaborator) => insertData('collaborator', record);
-export const updateCollaborator = (id: string, updates: Partial<Collaborator>) => updateData('collaborator', id, updates);
+export const updateCollaborator = (id: string, updates: Partial<Omit<Collaborator, 'id'>>) => updateData('collaborator', id, updates);
 export const deleteCollaborator = (id: string) => deleteData('collaborator', id);
 export const addMultipleCollaborators = (records: Collaborator[]) => {
     const sb = checkSupabase();
