@@ -123,6 +123,23 @@ export const App: React.FC = () => {
         }
     }, []);
 
+    const handleLogin = async (email: string, password: string): Promise<{ success: boolean, error?: string }> => {
+        if (!supabase) return { success: false, error: 'Supabase not initialized' };
+        
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            console.error("Login error:", error);
+            if (error.message.includes('Invalid login credentials')) {
+                return { success: false, error: "Credenciais de login inválidas." };
+            }
+            if (error.message.includes('Email not confirmed')) {
+                return { success: false, error: "Email não confirmado. Por favor, verifique a sua caixa de entrada." };
+            }
+            return { success: false, error: "Ocorreu um erro ao fazer login." };
+        }
+        return { success: true };
+    };
+
     // Stage 1: Check for an active session. This is quick and removes the initial spinner.
     useEffect(() => {
         if (!supabase) {
@@ -528,662 +545,327 @@ export const App: React.FC = () => {
 
             // Perform additions
             if (assignmentsToAdd.length > 0) {
-                const { error } = await dataService.addMultipleLicenseAssignments(assignmentsToAdd);
+                const { data: addedAssignments, error } = await dataService.addMultipleLicenseAssignments(assignmentsToAdd);
                 if (error) throw error;
+                
+                // Atomically update state
+                setLicenseAssignments(prev => [
+                    ...prev.filter(a => !assignmentsToRemove.some(r => r.id === a.id)), // remove deleted ones
+                    ...addedAssignments, // add new ones
+                ]);
+
+            } else if (assignmentsToRemove.length > 0) {
+                // If only deletions happened
+                setLicenseAssignments(prev => prev.filter(a => !assignmentsToRemove.some(r => r.id === a.id)));
             }
             
-            // Refresh local state
-            const updatedAssignments = await dataService.fetchData<LicenseAssignment>('license_assignment');
-            setLicenseAssignments(updatedAssignments);
-
-            setModal({ type: null }); // Close modal on success
-
+            setModal({ type: null }); // Close modal
         } catch (error) {
-            console.error("Failed to save license assignments:", error);
-            alert("Ocorreu um erro ao salvar as atribuições de licença.");
+            console.error("Failed to update license assignments:", error);
+            alert("Ocorreu um erro ao atualizar as licenças atribuídas.");
         }
     }, [licenseAssignments]);
-
-
-    // --- Auth and Utility Callbacks ---
-    
-    const handleLogin = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-        if (!supabase) return { success: false, error: "Cliente Supabase não inicializado." };
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-            console.error("Login error:", error.message);
-            if (error.message.includes("Invalid login credentials")) {
-                return { success: false, error: "Credenciais inválidas." };
-            }
-            if (error.message.includes("Email not confirmed")) {
-                return { success: false, error: "Por favor, confirme o seu email antes de fazer login." };
-            }
-            return { success: false, error: "Ocorreu um erro ao fazer login." };
-        }
-        return { success: true };
-    };
-    
-    
-    const handleImport = useCallback(async (dataType: ImportConfig['dataType'], data: any[]): Promise<{ success: boolean; message: string }> => {
-        try {
-            let successCount = 0;
-            let errorCount = 0;
-            let errors: string[] = [];
-
-            if (dataType === 'instituicoes') {
-                 const newRecords = data.map(item => ({ ...item, id: crypto.randomUUID() }));
-                 const { error } = await dataService.addMultipleInstituicoes(newRecords);
-                 if (error) throw error;
-                 setInstituicoes(prev => [...prev, ...newRecords]);
-                 successCount = newRecords.length;
-            } else if (dataType === 'entidades') {
-                const newEntidades = data.map(item => ({...item, id: crypto.randomUUID()}));
-                const { error } = await dataService.addMultipleEntidades(newEntidades);
-                if (error) throw error;
-                setEntidades(prev => [...prev, ...newEntidades]);
-                successCount = newEntidades.length;
-            } else if (dataType === 'collaborators') {
-                const existingCodes = new Set(collaborators.map(c => c.numeroMecanografico));
-                const recordsToAdd = data
-                    .filter(item => !existingCodes.has(item.numeroMecanografico))
-                    .map(item => ({
-                        ...item,
-                        id: crypto.randomUUID(),
-                        password: item.password || crypto.randomUUID(), // Ensure password exists
-                    }));
-                
-                errorCount = data.length - recordsToAdd.length;
-                if (errorCount > 0) {
-                    errors.push(`${errorCount} registos ignorados por terem Nº Mecanográfico duplicado.`);
-                }
-                
-                if (recordsToAdd.length > 0) {
-                    const { error } = await dataService.addMultipleCollaborators(recordsToAdd);
-                    if (error) throw error;
-                    setCollaborators(prev => [...prev, ...recordsToAdd]);
-                    successCount = recordsToAdd.length;
-                }
-            }
-            
-            let message = `${successCount} registos importados com sucesso.`;
-            if(errorCount > 0) {
-                message += `\n${errors.join('\n')}`;
-            }
-
-            return { success: true, message: message };
-
-        } catch (error: any) {
-            console.error(`Failed to import ${dataType}:`, error);
-            return { success: false, message: `Erro: ${error.message}` };
-        }
-    }, [instituicoes, entidades, collaborators]);
-
-
-    // --- Memos for Derived Data ---
     
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const equipmentTypeMap = useMemo(() => new Map(equipmentTypes.map(et => [et.id, et.name])), [equipmentTypes]);
     const assignedEquipmentIds = useMemo(() => new Set(assignments.filter(a => !a.returnDate).map(a => a.equipmentId)), [assignments]);
-    
-    const unreadMessages = useMemo(() => {
-        if (!currentUser) return [];
-        return messages.filter(msg => msg.receiverId === currentUser.id && !msg.read);
+    const unreadMessagesCount = useMemo(() => {
+        if (!currentUser) return 0;
+        return messages.filter(msg => msg.receiverId === currentUser.id && !msg.read).length;
     }, [messages, currentUser]);
-    
-     const allExpiringWarranties = useMemo(() => {
-        const thirtyDaysFromNow = new Date();
-        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-        return equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) <= thirtyDaysFromNow);
-    }, [equipment]);
-
-    const allExpiringLicenses = useMemo(() => {
-        const thirtyDaysFromNow = new Date();
-        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-        return softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) <= thirtyDaysFromNow);
-    }, [softwareLicenses]);
 
     const expiringWarranties = useMemo(() => {
-        return allExpiringWarranties.filter(item => !snoozedNotifications.includes(item.id));
-    }, [allExpiringWarranties, snoozedNotifications]);
+        const today = new Date();
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+        
+        return equipment.filter(e => {
+            if (snoozedNotifications.includes(e.id)) return false;
+            if (!e.warrantyEndDate) return false;
+            const endDate = new Date(e.warrantyEndDate);
+            return endDate <= thirtyDaysFromNow;
+        });
+    }, [equipment, snoozedNotifications]);
 
     const expiringLicenses = useMemo(() => {
-        return allExpiringLicenses.filter(item => !snoozedNotifications.includes(item.id));
-    }, [allExpiringLicenses, snoozedNotifications]);
-    
-    const handleViewItem = useCallback((tab: string, filter: any) => {
-        setActiveTab(tab);
-        setInitialDashboardFilter(filter);
-        setIsNotificationsModalOpen(false); // Close notification modal after clicking
-    }, []);
-    
-    const handleSnoozeNotification = useCallback((id: string) => {
-        if (!currentUser) return;
-        const updatedSnoozed = Array.from(new Set([...snoozedNotifications, id]));
-        setSnoozedNotifications(updatedSnoozed);
-        localStorage.setItem(`snoozedNotifications_${currentUser.id}`, JSON.stringify(updatedSnoozed));
-    }, [snoozedNotifications, currentUser]);
-
+        const today = new Date();
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+        
+        return softwareLicenses.filter(l => {
+            if (snoozedNotifications.includes(l.id)) return false;
+            if (!l.expiryDate) return false;
+            const endDate = new Date(l.expiryDate);
+            return endDate <= thirtyDaysFromNow;
+        });
+    }, [softwareLicenses, snoozedNotifications]);
 
     useEffect(() => {
-        if (!isDataLoading && currentUser?.receivesNotifications && !initialNotificationsShown && (allExpiringWarranties.length > 0 || allExpiringLicenses.length > 0)) {
+        if (currentUser && !initialNotificationsShown && (expiringWarranties.length > 0 || expiringLicenses.length > 0)) {
             setIsNotificationsModalOpen(true);
             setInitialNotificationsShown(true);
         }
-    }, [isDataLoading, currentUser, initialNotificationsShown, allExpiringWarranties, allExpiringLicenses]);
-    
-    // --- UI Configuration ---
+    }, [currentUser, expiringWarranties, expiringLicenses, initialNotificationsShown]);
 
-    const tabConfig: Record<string, TabConfigItem> = useMemo(() => {
-        const canEdit = userPermissions.canEdit;
-        const isAdmin = currentUser?.role === UserRole.Admin;
-        
-        const config: Record<string, TabConfigItem> = {
-            'overview': { title: 'Visão Geral', component: <OverviewDashboard equipment={equipment} instituicoes={instituicoes} entidades={entidades} assignments={assignments} equipmentTypes={equipmentTypes} tickets={tickets} onViewItem={handleViewItem} /> },
-            'equipment.inventory': {
-                title: 'Inventário',
-                component: <EquipmentDashboard 
-                                equipment={equipment}
-                                brands={brands}
-                                equipmentTypes={equipmentTypes}
-                                brandMap={brandMap}
-                                equipmentTypeMap={equipmentTypeMap}
-                                assignedEquipmentIds={assignedEquipmentIds}
-                                assignments={assignments}
-                                collaborators={collaborators}
-                                entidades={entidades}
-                                initialFilter={initialDashboardFilter}
-                                onClearInitialFilter={() => setInitialDashboardFilter(null)}
-                                onAssign={(eq) => setModal({ type: 'assign', data: eq })}
-                                onAssignMultiple={(eqs) => setModal({ type: 'assign-multiple', data: eqs })}
-                                onUnassign={(id) => setConfirmation({ message: 'Tem a certeza de que deseja desassociar este equipamento?', onConfirm: () => handleUnassignEquipment(id) })}
-                                onUpdateStatus={handleUpdateEquipmentStatus}
-                                onShowHistory={(eq) => setModal({ type: 'history', data: eq })}
-                                onEdit={canEdit ? (eq) => setModal({ type: 'equipment', data: eq }) : undefined}
-                                onManageKeys={(eq) => setModal({ type: 'manage-keys', data: eq })}
-                                onGenerateReport={() => setIsReportModalOpen({type: 'equipment'})}
-                            />,
-                buttonText: 'Adicionar Equipamento',
-                onButtonClick: canEdit ? () => setModal({ type: 'equipment' }) : undefined,
-                secondaryButtonText: 'Criar Posto de Trabalho',
-                onSecondaryButtonClick: canEdit ? () => handleOpenKitModal(null) : undefined,
-            },
-            'licensing': {
-                 title: 'Licenciamento',
-                 component: <LicenseDashboard
-                                licenses={softwareLicenses}
-                                licenseAssignments={licenseAssignments}
-                                onEdit={canEdit ? (lic) => setModal({ type: 'license', data: lic }) : undefined}
-                                onDelete={isAdmin ? (id) => {
-                                    const isAssigned = licenseAssignments.some(a => a.softwareLicenseId === id);
-                                    if (isAssigned) {
-                                        setInfoModal({
-                                            title: "Ação Bloqueada",
-                                            content: "Esta licença não pode ser eliminada porque está atribuída a um ou mais equipamentos. Pode, no entanto, marcá-la como inativa."
-                                        });
-                                    } else {
-                                        setConfirmation({ 
-                                            message: 'Tem a certeza que deseja excluir esta licença? Esta ação não pode ser revertida.', 
-                                            onConfirm: () => handleDelete('software_license', id, dataService.deleteSoftwareLicense, setSoftwareLicenses) 
-                                        });
-                                    }
-                                } : undefined}
-                                onToggleStatus={isAdmin ? (id) => {
-                                    const license = softwareLicenses.find(l => l.id === id);
-                                    if (license) {
-                                        const currentStatus = license.status || LicenseStatus.Ativo;
-                                        const newStatus = currentStatus === LicenseStatus.Ativo ? LicenseStatus.Inativo : LicenseStatus.Ativo;
-                                        handleSave('software_license', { id, status: newStatus }, dataService.addSoftwareLicense, dataService.updateSoftwareLicense, setSoftwareLicenses);
-                                    }
-                                } : undefined}
-                                onGenerateReport={() => setIsReportModalOpen({type: 'licensing'})}
-                            />,
-                buttonText: 'Adicionar Licença',
-                onButtonClick: canEdit ? () => setModal({ type: 'license' }) : undefined,
-            },
-            'tickets': {
-                title: 'Tickets de Suporte',
-                component: <TicketDashboard 
-                                tickets={tickets}
-                                escolasDepartamentos={entidades}
-                                collaborators={collaborators}
-                                initialFilter={initialDashboardFilter}
-                                onClearInitialFilter={() => setInitialDashboardFilter(null)}
-                                onUpdateTicket={(ticket) => handleSave('ticket', ticket, dataService.addTicket, dataService.updateTicket, setTickets)}
-                                onEdit={canEdit ? (ticket) => setModal({ type: 'ticket', data: ticket }) : undefined}
-                                onOpenCloseTicketModal={(ticket) => setModal({ type: 'close-ticket', data: ticket })}
-                                onOpenActivities={(ticket) => {
-                                    setSelectedTicketForActivities(ticket);
-                                    setIsTicketActivitiesModalOpen(true);
-                                }}
-                            />,
-                buttonText: 'Novo Ticket',
-                onButtonClick: () => setModal({ type: 'ticket' }),
-            }
-        };
-        
-        if (userPermissions.viewScope === 'all') {
-             Object.assign(config, {
-                 'organizacao.instituicoes': {
-                    title: 'Instituições',
-                    component: <InstituicaoDashboard 
-                                    instituicoes={instituicoes} 
-                                    escolasDepartamentos={entidades}
-                                    onEdit={canEdit ? (inst) => setModal({ type: 'instituicao', data: inst }) : undefined}
-                                    onDelete={isAdmin ? (id) => setConfirmation({ message: 'Tem a certeza que deseja excluir esta instituição? Todas as entidades e equipamentos associados serão afetados.', onConfirm: () => handleDelete('instituicao', id, dataService.deleteInstituicao, setInstituicoes) }) : undefined}
-                                />,
-                    buttonText: 'Adicionar Instituição',
-                    onButtonClick: canEdit ? () => setModal({ type: 'instituicao' }) : undefined,
-                    onImportClick: isAdmin ? () => setModal({ type: 'import', data: { dataType: 'instituicoes', title: 'Importar Instituições', columnMap: { codigo: 'Código', name: 'Nome', email: 'Email', telefone: 'Telefone' }, templateFileName: 'template_instituicoes.xlsx' } }) : undefined,
-                },
-                'organizacao.entidades': {
-                    title: 'Entidades',
-                    component: <EntidadeDashboard 
-                                    escolasDepartamentos={entidades} 
-                                    instituicoes={instituicoes} 
-                                    collaborators={collaborators}
-                                    onEdit={canEdit ? (ent) => setModal({ type: 'entidade', data: ent }) : undefined}
-                                    onDelete={isAdmin ? (id) => setConfirmation({ message: 'Tem a certeza que deseja excluir esta entidade? Todos os colaboradores e equipamentos associados serão afetados.', onConfirm: () => handleDelete('entidade', id, dataService.deleteEntidade, setEntidades) }) : undefined}
-                                    onToggleStatus={isAdmin ? (id) => {
-                                        const entidade = entidades.find(e => e.id === id);
-                                        if (entidade) {
-                                            const newStatus = entidade.status === EntidadeStatus.Ativo ? EntidadeStatus.Inativo : EntidadeStatus.Ativo;
-                                            handleSave('entidade', { id, status: newStatus }, dataService.addEntidade, dataService.updateEntidade, setEntidades);
-                                        }
-                                    } : undefined}
-                                />,
-                    buttonText: 'Adicionar Entidade',
-                    onButtonClick: canEdit ? () => setModal({ type: 'entidade' }) : undefined,
-                    onImportClick: isAdmin ? () => setModal({ type: 'import', data: { dataType: 'entidades', title: 'Importar Entidades', columnMap: { instituicaoId: 'ID da Instituição', codigo: 'Código', name: 'Nome', description: 'Descrição', email: 'Email', responsavel: 'Responsável', telefone: 'Telefone', telemovel: 'Telemóvel', telefoneInterno: 'Telefone Interno' }, templateFileName: 'template_entidades.xlsx' } }) : undefined,
-                },
-                 'collaborators': {
-                    title: 'Colaboradores',
-                    component: <CollaboratorDashboard 
-                                    collaborators={collaborators} 
-                                    escolasDepartamentos={entidades}
-                                    equipment={equipment}
-                                    assignments={assignments}
-                                    currentUser={currentUser}
-                                    onEdit={canEdit ? (col) => setModal({ type: 'collaborator', data: col }) : undefined}
-                                    onDelete={isAdmin ? (id) => {
-                                        const hasActiveAssignments = assignments.some(a => a.collaboratorId === id && !a.returnDate);
-                                        if (hasActiveAssignments) {
-                                            setInfoModal({
-                                                title: "Ação Bloqueada",
-                                                content: "Este colaborador não pode ser eliminado porque tem equipamento ativo associado a si. Por favor, desassocie o equipamento primeiro."
-                                            });
-                                        } else {
-                                            setConfirmation({ message: 'Tem a certeza que deseja excluir este colaborador?', onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) });
-                                        }
-                                    } : undefined}
-                                    onShowHistory={(col) => setModal({type: 'collaborator-history', data: col})}
-                                    onShowDetails={(col) => setModal({ type: 'collaborator-details', data: col })}
-                                    onGenerateReport={() => setIsReportModalOpen({type: 'collaborator'})}
-                                    onStartChat={handleOpenChat}
-                                    onToggleStatus={isAdmin ? (id) => {
-                                        const collaborator = collaborators.find(c => c.id === id);
-                                        if (collaborator) {
-                                            const newStatus = collaborator.status === CollaboratorStatus.Ativo ? CollaboratorStatus.Inativo : CollaboratorStatus.Ativo;
-                                            
-                                            if (newStatus === CollaboratorStatus.Inativo) {
-                                                const hasActiveAssignments = assignments.some(a => a.collaboratorId === id && !a.returnDate);
-                                                if (hasActiveAssignments) {
-                                                    setInfoModal({
-                                                        title: "Ação Bloqueada",
-                                                        content: "Este colaborador não pode ser inativado porque tem equipamento ativo associado a si. Por favor, desassocie o equipamento primeiro."
-                                                    });
-                                                    return;
-                                                }
-                                            }
-                                            
-                                            handleSaveCollaborator({ ...collaborator, status: newStatus });
-                                        }
-                                    } : undefined}
-                                />,
-                    buttonText: 'Adicionar Colaborador',
-                    onButtonClick: canEdit ? () => setModal({ type: 'collaborator' }) : undefined,
-                    onImportClick: isAdmin ? () => setModal({ type: 'import', data: { dataType: 'collaborators', title: 'Importar Colaboradores', columnMap: { numeroMecanografico: 'Nº Mecanográfico', fullName: 'Nome Completo', entidadeId: 'ID da Entidade', email: 'Email', telefoneInterno: 'Telefone Interno', telemovel: 'Telemóvel', password: 'Password', canLogin: 'Pode Fazer Login (TRUE/FALSE)', role: 'Perfil (Admin, Normal, Basic, Utilizador)' }, templateFileName: 'template_colaboradores.xlsx' } }) : undefined,
-                },
-                 'equipment.brands': {
-                    title: 'Marcas',
-                    component: <BrandDashboard 
-                                    brands={brands} 
-                                    equipment={equipment}
-                                    onEdit={canEdit ? (b) => setModal({ type: 'brand', data: b }) : undefined}
-                                    onDelete={isAdmin ? (id) => {
-                                        if (equipment.some(e => e.brandId === id)) {
-                                            setInfoModal({
-                                                title: "Ação Bloqueada",
-                                                content: "Esta marca não pode ser eliminada pois está associada a um ou mais equipamentos. Por favor, altere ou remova esses equipamentos primeiro."
-                                            });
-                                        } else {
-                                            setConfirmation({ message: 'Tem a certeza que deseja excluir esta marca?', onConfirm: () => handleDelete('brand', id, dataService.deleteBrand, setBrands) });
-                                        }
-                                    } : undefined}
-                                />,
-                    buttonText: 'Adicionar Marca',
-                    onButtonClick: canEdit ? () => setModal({ type: 'brand' }) : undefined,
-                 },
-                 'equipment.types': {
-                    title: 'Tipos de Equipamento',
-                    component: <EquipmentTypeDashboard 
-                                    equipmentTypes={equipmentTypes} 
-                                    equipment={equipment}
-                                    onEdit={canEdit ? (et) => setModal({ type: 'equipment_type', data: et }) : undefined}
-                                    onDelete={isAdmin ? (id) => {
-                                        if (equipment.some(e => e.typeId === id)) {
-                                            setInfoModal({
-                                                title: "Ação Bloqueada",
-                                                content: "Este tipo de equipamento não pode ser eliminado pois está associado a um ou mais equipamentos. Por favor, altere ou remova esses equipamentos primeiro."
-                                            });
-                                        } else {
-                                            setConfirmation({ message: 'Tem a certeza que deseja excluir este tipo de equipamento?', onConfirm: () => handleDelete('equipment_type', id, dataService.deleteEquipmentType, setEquipmentTypes) });
-                                        }
-                                    } : undefined}
-                                />,
-                    buttonText: 'Adicionar Tipo',
-                    onButtonClick: canEdit ? () => setModal({ type: 'equipment_type' }) : undefined,
-                 }
-            });
-        }
-        
-        return config;
-        
-    }, [userPermissions, currentUser, equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, brands, brandMap, equipmentTypeMap, assignedEquipmentIds, collaborators, initialDashboardFilter, softwareLicenses, licenseAssignments, messages, handleViewItem, handleUnassignEquipment, handleUpdateEquipmentStatus, handleSave, handleSaveCollaborator, handleOpenChat]);
+    const tabConfig: Record<string, TabConfigItem> = {
+        'overview': {
+            title: 'Visão Geral',
+            component: <OverviewDashboard 
+                equipment={equipment}
+                instituicoes={instituicoes}
+                entidades={entidades}
+                assignments={assignments}
+                equipmentTypes={equipmentTypes}
+                tickets={tickets}
+                onViewItem={(tab, filter) => {
+                    setActiveTab(tab);
+                    setInitialDashboardFilter(filter);
+                }}
+            />,
+        },
+        'equipment.inventory': {
+            title: 'Equipamentos',
+            component: <EquipmentDashboard
+                equipment={equipment}
+                brands={brands}
+                equipmentTypes={equipmentTypes}
+                brandMap={brandMap}
+                equipmentTypeMap={equipmentTypeMap}
+                assignedEquipmentIds={assignedEquipmentIds}
+                assignments={assignments}
+                collaborators={collaborators}
+                entidades={entidades}
+                initialFilter={initialDashboardFilter}
+                onClearInitialFilter={() => setInitialDashboardFilter(null)}
+                onAssign={(eq) => setModal({ type: 'assign_equipment', data: eq })}
+                onAssignMultiple={(eqs) => setModal({ type: 'assign_multiple_equipment', data: eqs })}
+                onUnassign={(id) => setConfirmation({ message: 'Tem a certeza que quer desassociar este equipamento?', onConfirm: () => handleUnassignEquipment(id) })}
+                onUpdateStatus={handleUpdateEquipmentStatus}
+                onShowHistory={(eq) => setModal({ type: 'equipment_history', data: eq })}
+                onEdit={(eq) => setModal({ type: 'add_equipment', data: eq })}
+                onManageKeys={(eq) => setModal({ type: 'manage_licenses', data: eq })}
+                onGenerateReport={() => setIsReportModalOpen({ type: 'equipment' })}
+            />,
+            buttonText: 'Adicionar Equipamento',
+            onButtonClick: () => setModal({ type: 'add_equipment' }),
+            secondaryButtonText: 'Adicionar Posto de Trabalho',
+            onSecondaryButtonClick: () => setModal({ type: 'add_kit' }),
+            onGenerateReport: () => setIsReportModalOpen({ type: 'equipment' }),
+        },
+        'equipment.brands': {
+            title: 'Marcas',
+            component: <BrandDashboard 
+                brands={brands} 
+                equipment={equipment}
+                onEdit={(brand) => setModal({ type: 'add_brand', data: brand })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta marca?', onConfirm: () => handleDelete('brand', id, dataService.deleteBrand, setBrands) })}
+            />,
+            buttonText: 'Adicionar Marca',
+            onButtonClick: () => setModal({ type: 'add_brand' }),
+        },
+        'equipment.types': {
+            title: 'Tipos de Equipamento',
+            component: <EquipmentTypeDashboard 
+                equipmentTypes={equipmentTypes}
+                equipment={equipment}
+                onEdit={(type) => setModal({ type: 'add_equipment_type', data: type })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir este tipo?', onConfirm: () => handleDelete('equipment_type', id, dataService.deleteEquipmentType, setEquipmentTypes) })}
+            />,
+            buttonText: 'Adicionar Tipo',
+            onButtonClick: () => setModal({ type: 'add_equipment_type' }),
+        },
+        'organizacao.instituicoes': {
+            title: 'Instituições',
+            component: <InstituicaoDashboard 
+                instituicoes={instituicoes}
+                escolasDepartamentos={entidades}
+                onEdit={(inst) => setModal({ type: 'add_instituicao', data: inst })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta instituição?', onConfirm: () => handleDelete('instituicao', id, dataService.deleteInstituicao, setInstituicoes) })}
+            />,
+            buttonText: 'Adicionar Instituição',
+            onButtonClick: () => setModal({ type: 'add_instituicao' }),
+            onImportClick: () => setModal({ type: 'import', data: { dataType: 'instituicoes', title: 'Importar Instituições', columnMap: { codigo: 'Código', name: 'Nome', email: 'Email', telefone: 'Telefone'}, templateFileName: 'template_instituicoes.xlsx' } as ImportConfig }),
+        },
+        'organizacao.entidades': {
+            title: 'Entidades',
+            component: <EntidadeDashboard 
+                escolasDepartamentos={entidades}
+                instituicoes={instituicoes}
+                collaborators={collaborators}
+                onEdit={(ent) => setModal({ type: 'add_entidade', data: ent })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta entidade?', onConfirm: () => handleDelete('entidade', id, dataService.deleteEntidade, setEntidades) })}
+            />,
+            buttonText: 'Adicionar Entidade',
+            onButtonClick: () => setModal({ type: 'add_entidade' }),
+            onImportClick: () => setModal({ type: 'import', data: { dataType: 'entidades', title: 'Importar Entidades', columnMap: { instituicaoCodigo: 'Código Instituição', codigo: 'Código', name: 'Nome', description: 'Descrição', email: 'Email', responsavel: 'Responsável', telefone: 'Telefone', telemovel: 'Telemóvel', telefoneInterno: 'Telefone Interno', status: 'Status' }, templateFileName: 'template_entidades.xlsx' } as ImportConfig }),
+        },
+        'collaborators': {
+            title: 'Colaboradores',
+            component: <CollaboratorDashboard 
+                collaborators={collaborators}
+                escolasDepartamentos={entidades}
+                equipment={equipment}
+                assignments={assignments}
+                currentUser={currentUser}
+                onEdit={(col) => setModal({ type: 'add_collaborator', data: col })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir este colaborador?', onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) })}
+                onShowHistory={(col) => setModal({ type: 'collaborator_history', data: col })}
+                onShowDetails={(col) => setModal({ type: 'collaborator_detail', data: col })}
+                onStartChat={handleOpenChat}
+                onGenerateReport={() => setIsReportModalOpen({ type: 'collaborator' })}
+            />,
+            buttonText: 'Adicionar Colaborador',
+            onButtonClick: () => setModal({ type: 'add_collaborator' }),
+            onImportClick: () => setModal({ type: 'import', data: { dataType: 'collaborators', title: 'Importar Colaboradores', columnMap: { numeroMecanografico: 'Nº Mecanográfico', fullName: 'Nome Completo', entidadeCodigo: 'Código Entidade', email: 'Email', telefoneInterno: 'Telefone Interno', telemovel: 'Telemóvel', canLogin: 'Pode Fazer Login (TRUE/FALSE)', receivesNotifications: 'Recebe Notificações (TRUE/FALSE)', role: 'Perfil (Admin/Normal/Basic/Utilizador)', status: 'Status (Ativo/Inativo)', password: 'Password Temporária (para novos com login)' }, templateFileName: 'template_colaboradores.xlsx' } as ImportConfig }),
+        },
+        'licensing': {
+            title: 'Licenciamento',
+            component: <LicenseDashboard 
+                licenses={softwareLicenses}
+                licenseAssignments={licenseAssignments}
+                onEdit={(lic) => setModal({ type: 'add_license', data: lic })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta licença?', onConfirm: () => handleDelete('software_license', id, dataService.deleteSoftwareLicense, setSoftwareLicenses) })}
+                onGenerateReport={() => setIsReportModalOpen({ type: 'licensing' })}
+            />,
+            buttonText: 'Adicionar Licença',
+            onButtonClick: () => setModal({ type: 'add_license' }),
+        },
+        'tickets': {
+            title: 'Tickets de Suporte',
+            component: <TicketDashboard 
+                tickets={tickets}
+                escolasDepartamentos={entidades}
+                collaborators={collaborators}
+                initialFilter={initialDashboardFilter}
+                onClearInitialFilter={() => setInitialDashboardFilter(null)}
+                onEdit={(ticket) => setModal({ type: 'add_ticket', data: ticket })}
+                onOpenCloseTicketModal={(ticket) => setModal({ type: 'close_ticket', data: ticket })}
+                onOpenActivities={(ticket) => { setSelectedTicketForActivities(ticket); setIsTicketActivitiesModalOpen(true); }}
+            />,
+            buttonText: 'Novo Ticket',
+            onButtonClick: () => setModal({ type: 'add_ticket' }),
+        },
+    };
     
-    const currentDashboard = useMemo(() => {
-        return tabConfig[activeTab]?.component || <div className="text-center p-8">Separador não encontrado.</div>;
-    }, [activeTab, tabConfig]);
-    
-    const currentConfig = tabConfig[activeTab];
-    
-
-    const handleSaveKit = useCallback(async (items: Array<Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>>) => {
-        try {
-            // Find the highest inventory number
-            let maxInventoryNum = equipment.reduce((max, eq) => {
-                const num = parseInt(eq.inventoryNumber || '0', 10);
-                return isNaN(num) ? max : Math.max(max, num);
-            }, 0);
-
-            const now = new Date().toISOString();
-            const newEquipmentList: Equipment[] = items.map(item => {
-                const itemType = equipmentTypes.find(t => t.id === item.typeId);
-                let inventoryNumber = item.inventoryNumber;
-                if (itemType?.requiresInventoryNumber) {
-                    maxInventoryNum++;
-                    inventoryNumber = String(maxInventoryNum);
-                }
-                return {
-                    ...item,
-                    id: crypto.randomUUID(),
-                    creationDate: now,
-                    modifiedDate: now,
-                    status: EquipmentStatus.Stock,
-                    inventoryNumber,
-                } as Equipment;
-            });
-
-            const { data: addedEquipment, error } = await dataService.addMultipleEquipment(newEquipmentList);
-            if (error) throw error;
-            
-            setEquipment(prev => [...prev, ...addedEquipment]);
-            setModal({ type: null });
-
-        } catch (error) {
-            console.error("Failed to save kit:", error);
-            alert("Ocorreu um erro ao salvar o posto de trabalho.");
-        }
-    }, [equipment, equipmentTypes]);
-
-    const handleOpenKitModal = useCallback((initialData: Partial<Equipment> | null) => {
-        setModal({ type: 'add-kit', data: initialData });
-    }, []);
-    
-    
-    if (isSessionLoading) {
-        return <div className="flex items-center justify-center min-h-screen bg-background-dark"><SpinnerIcon className="h-10 w-10 animate-spin text-brand-secondary" /></div>;
+    if (isSessionLoading || isDataLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-background-dark text-white">
+                <SpinnerIcon className="animate-spin h-10 w-10 mr-4" />
+                <span>{isSessionLoading ? "A verificar sessão..." : "A carregar dados..."}</span>
+            </div>
+        );
     }
     
+    if (loadingError) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-background-dark text-red-400">
+                <p>{loadingError}</p>
+            </div>
+        );
+    }
+
     if (sessionForPasswordReset) {
-        return <ResetPasswordModal session={sessionForPasswordReset} onClose={() => { setSessionForPasswordReset(null); handleLogout(); }} />;
+        return <ResetPasswordModal session={sessionForPasswordReset} onClose={() => setSessionForPasswordReset(null)} />;
     }
 
     if (!isAuthenticated) {
-        return <>
-            <LoginPage onLogin={handleLogin} onForgotPassword={() => setIsForgotPasswordModalOpen(true)} />
-            {isForgotPasswordModalOpen && <ForgotPasswordModal onClose={() => setIsForgotPasswordModalOpen(false)} />}
-        </>;
+        return (
+            <>
+                <LoginPage 
+                    onLogin={handleLogin} 
+                    onForgotPassword={() => setIsForgotPasswordModalOpen(true)}
+                />
+                {isForgotPasswordModalOpen && <ForgotPasswordModal onClose={() => setIsForgotPasswordModalOpen(false)} />}
+            </>
+        );
     }
+    
+    const activeTabConfig = tabConfig[activeTab];
 
     return (
-        <div className="min-h-screen bg-background-dark">
+        <div className="min-h-screen bg-background-dark text-on-surface-dark">
             <Header
                 currentUser={currentUser}
                 activeTab={activeTab}
-                setActiveTab={(tab) => { setActiveTab(tab); setInitialDashboardFilter(null); }}
+                setActiveTab={setActiveTab}
                 onLogout={handleLogout}
                 tabConfig={tabConfig}
-                notificationCount={currentUser?.receivesNotifications ? (expiringWarranties.length + expiringLicenses.length) : 0}
-                onNotificationClick={() => currentUser?.receivesNotifications && setIsNotificationsModalOpen(true)}
+                notificationCount={expiringWarranties.length + expiringLicenses.length + unreadMessagesCount}
+                onNotificationClick={() => setIsNotificationsModalOpen(true)}
             />
             <main className="max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
-                {isDataLoading || !currentUser ? (
-                    <div className="flex items-center justify-center p-16">
-                        <SpinnerIcon className="h-10 w-10 animate-spin text-brand-secondary" />
-                    </div>
-                ) : loadingError ? (
-                    <div className="flex items-center justify-center bg-red-500/10 text-red-400 p-8 text-center rounded-lg border border-red-500/30">{loadingError}</div>
-                ) : (
-                    <>
-                        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                            <h1 className="text-2xl font-bold text-white">{currentConfig?.title}</h1>
-                            <div className="flex gap-2 flex-wrap">
-                       {currentConfig?.onButtonClick && (
-                            <button onClick={currentConfig.onButtonClick} className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                                <PlusIcon className="h-5 w-5" />
-                                {currentConfig.buttonText}
-                            </button>
-                        )}
-                        {currentConfig?.onSecondaryButtonClick && (
-                            <button onClick={currentConfig.onSecondaryButtonClick} className="flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
-                                {currentConfig.secondaryButtonText}
-                            </button>
-                        )}
-                        {currentConfig?.onImportClick && (
-                            <button onClick={currentConfig.onImportClick} className="flex items-center gap-2 px-4 py-2 text-sm bg-teal-600 text-white rounded-md hover:bg-teal-500 transition-colors">
-                                <FaFileImport className="h-5 w-5" />
+                <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+                    <h1 className="text-3xl font-bold text-white">{activeTabConfig?.title}</h1>
+                    <div className="flex gap-4">
+                        {activeTabConfig?.onImportClick && (
+                            <button
+                                onClick={activeTabConfig.onImportClick}
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
+                            >
+                                <FaFileImport />
                                 Importar
                             </button>
                         )}
+                        {activeTabConfig?.onSecondaryButtonClick && (
+                            <button
+                                onClick={activeTabConfig.onSecondaryButtonClick}
+                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors"
+                            >
+                                {activeTabConfig.secondaryButtonText}
+                            </button>
+                        )}
+                        {activeTabConfig?.onButtonClick && (
+                            <button
+                                onClick={activeTabConfig.onButtonClick}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors"
+                            >
+                                <PlusIcon />
+                                {activeTabConfig.buttonText}
+                            </button>
+                        )}
                     </div>
-                        </div>
-                        {currentDashboard}
-                    </>
-                )}
+                </div>
+
+                {activeTabConfig?.component}
             </main>
-            
-            {/* Modals Section */}
-            {modal.type === 'equipment' && <AddEquipmentModal 
-                onClose={() => setModal({ type: null })} 
-                onSave={(data) => handleSave('equipment', data, dataService.addEquipment, dataService.updateEquipment, setEquipment)}
-                brands={brands}
-                equipmentTypes={equipmentTypes}
-                equipmentToEdit={modal.data}
-                onSaveBrand={(data) => handleSave('brand', data, dataService.addBrand, dataService.updateBrand, setBrands)}
-                onSaveEquipmentType={(data) => handleSave('equipment_type', data, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)}
-                onOpenKitModal={handleOpenKitModal}
-            />}
-            {modal.type === 'add-kit' && <AddEquipmentKitModal
-                onClose={() => setModal({ type: null })}
-                onSaveKit={handleSaveKit}
-                brands={brands}
-                equipmentTypes={equipmentTypes}
-                initialData={modal.data}
-                onSaveEquipmentType={(data) => handleSave('equipment_type', data, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)}
-                equipment={equipment}
-            />}
-            {modal.type === 'instituicao' && <AddInstituicaoModal 
-                onClose={() => setModal({ type: null })} 
-                onSave={(data) => handleSave('instituicao', data, dataService.addInstituicao, dataService.updateInstituicao, setInstituicoes)}
-                instituicaoToEdit={modal.data}
-            />}
-            {modal.type === 'entidade' && <AddEntidadeModal 
-                onClose={() => setModal({ type: null })} 
-                onSave={(data) => handleSave('entidade', data, dataService.addEntidade, dataService.updateEntidade, setEntidades)}
-                entidadeToEdit={modal.data}
-                instituicoes={instituicoes}
-            />}
-            {modal.type === 'collaborator' && <AddCollaboratorModal 
-                onClose={() => setModal({ type: null })}
-                onSave={handleSaveCollaborator}
-                collaboratorToEdit={modal.data}
-                escolasDepartamentos={entidades}
-                currentUser={currentUser}
-            />}
-            {modal.type === 'brand' && <AddBrandModal 
-                onClose={() => setModal({ type: null })}
-                onSave={(data) => handleSave('brand', data, dataService.addBrand, dataService.updateBrand, setBrands)}
-                brandToEdit={modal.data}
-            />}
-            {modal.type === 'equipment_type' && <AddEquipmentTypeModal 
-                onClose={() => setModal({ type: null })}
-                onSave={(data) => handleSave('equipment_type', data, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)}
-                typeToEdit={modal.data}
-            />}
-            {modal.type === 'assign' && modal.data && <AssignEquipmentModal
-                equipment={modal.data}
-                brandMap={brandMap}
-                equipmentTypeMap={equipmentTypeMap}
-                escolasDepartamentos={entidades}
-                collaborators={collaborators}
-                onClose={() => setModal({ type: null })}
-                onAssign={handleAssignEquipment}
-            />}
-            {modal.type === 'assign-multiple' && modal.data && <AssignMultipleEquipmentModal
-                equipmentList={modal.data}
-                brandMap={brandMap}
-                equipmentTypeMap={equipmentTypeMap}
-                escolasDepartamentos={entidades}
-                collaborators={collaborators}
-                onClose={() => setModal({ type: null })}
-                onAssign={handleAssignMultipleEquipment}
-            />}
-            {modal.type === 'history' && modal.data && <EquipmentHistoryModal
-                equipment={modal.data}
-                assignments={assignments}
-                collaborators={collaborators}
-                escolasDepartamentos={entidades}
-                onClose={() => setModal({ type: null })}
-            />}
-             {modal.type === 'collaborator-history' && modal.data && <CollaboratorHistoryModal
-                collaborator={modal.data}
-                history={collaboratorHistory}
-                escolasDepartamentos={entidades}
-                onClose={() => setModal({ type: null })}
-            />}
-            {modal.type === 'collaborator-details' && modal.data && <CollaboratorDetailModal
-                collaborator={modal.data}
-                assignments={assignments}
-                equipment={equipment}
-                tickets={tickets}
-                brandMap={brandMap}
-                equipmentTypeMap={equipmentTypeMap}
-                onClose={() => setModal({ type: null })}
-                onShowHistory={(col) => setModal({type: 'collaborator-history', data: col})}
-                onStartChat={handleOpenChat}
-            />}
-            {modal.type === 'import' && <ImportModal
-                onClose={() => setModal({ type: null })}
-                onImport={handleImport}
-                config={modal.data}
-            />}
-            {modal.type === 'ticket' && <AddTicketModal
-                onClose={() => setModal({ type: null })}
-                onSave={(data) => handleSave('ticket', data, dataService.addTicket, dataService.updateTicket, setTickets)}
-                ticketToEdit={modal.data}
-                escolasDepartamentos={entidades}
-                collaborators={collaborators}
-                currentUser={currentUser}
-                userPermissions={userPermissions}
-            />}
-             {modal.type === 'license' && <AddLicenseModal
-                onClose={() => setModal({ type: null })}
-                onSave={(data) => handleSave('software_license', data, dataService.addSoftwareLicense, dataService.updateSoftwareLicense, setSoftwareLicenses)}
-                licenseToEdit={modal.data}
-            />}
-            {modal.type === 'manage-keys' && modal.data && <ManageAssignedLicensesModal
-                onClose={() => setModal({ type: null })}
-                onSave={handleSaveLicenseAssignments}
-                equipment={modal.data}
-                allLicenses={softwareLicenses}
-                allAssignments={licenseAssignments}
-            />}
-            {modal.type === 'close-ticket' && modal.data && <CloseTicketModal
-                ticket={modal.data}
-                collaborators={collaborators}
-                onClose={() => setModal({ type: null })}
-                onConfirm={(technicianId) => {
-                    handleSave('ticket', { ...modal.data, status: TicketStatus.Finished, finishDate: new Date().toISOString().split('T')[0], technicianId }, dataService.addTicket, dataService.updateTicket, setTickets);
-                    setModal({ type: null });
-                }}
-            />}
-            {isTicketActivitiesModalOpen && selectedTicketForActivities && (
-                <TicketActivitiesModal
-                    ticket={selectedTicketForActivities}
-                    activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)}
-                    collaborators={collaborators}
+            {currentUser && (
+                <ChatWidget
                     currentUser={currentUser}
-                    onClose={() => setIsTicketActivitiesModalOpen(false)}
-                    onAddActivity={({ description }) => handleSave('ticket_activity', { ticketId: selectedTicketForActivities.id, technicianId: currentUser!.id, date: new Date().toISOString(), description }, dataService.addTicketActivity, () => Promise.resolve(), setTicketActivities)}
+                    collaborators={collaborators}
+                    messages={messages}
+                    onSendMessage={handleSendMessage}
+                    onMarkMessagesAsRead={handleMarkMessagesAsRead}
+                    isOpen={isChatOpen}
+                    onToggle={() => setIsChatOpen(!isChatOpen)}
+                    activeChatCollaboratorId={activeChatCollaboratorId}
+                    onSelectConversation={(id) => setActiveChatCollaboratorId(id)}
+                    unreadMessagesCount={unreadMessagesCount}
                 />
-            )}
-             {isNotificationsModalOpen && (
-                <NotificationsModal 
-                    onClose={() => setIsNotificationsModalOpen(false)}
-                    expiringWarranties={expiringWarranties}
-                    expiringLicenses={expiringLicenses}
-                    onViewItem={handleViewItem}
-                    onSnooze={handleSnoozeNotification}
-                />
-            )}
-            {confirmation && <ConfirmationModal 
-                title="Confirmar Ação"
-                message={confirmation.message}
-                onClose={() => setConfirmation(null)}
-                onConfirm={confirmation.onConfirm}
-            />}
-            {isReportModalOpen.type && <ReportModal
-                type={isReportModalOpen.type}
-                onClose={() => setIsReportModalOpen({ type: null })}
-                equipment={equipment}
-                brandMap={brandMap}
-                equipmentTypeMap={equipmentTypeMap}
-                instituicoes={instituicoes}
-                escolasDepartamentos={entidades}
-                collaborators={collaborators}
-                assignments={assignments}
-                tickets={tickets}
-                softwareLicenses={softwareLicenses}
-                licenseAssignments={licenseAssignments}
-            />}
-            {infoModal && (
-                <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>
-                    {infoModal.content}
-                </InfoModal>
             )}
             
-            <ChatWidget
-                currentUser={currentUser}
-                collaborators={collaborators}
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                onMarkMessagesAsRead={handleMarkMessagesAsRead}
-                isOpen={isChatOpen}
-                onToggle={() => setIsChatOpen(!isChatOpen)}
-                activeChatCollaboratorId={activeChatCollaboratorId}
-                onSelectConversation={setActiveChatCollaboratorId}
-                unreadMessagesCount={unreadMessages.length}
-            />
+            {/* Modals */}
+            {modal.type === 'add_equipment' && <AddEquipmentModal onClose={() => setModal({ type: null })} onSave={(eq) => handleSave('equipment', eq, dataService.addEquipment, dataService.updateEquipment, setEquipment)} brands={brands} equipmentTypes={equipmentTypes} equipmentToEdit={modal.data} onSaveBrand={(brand) => handleSave('brand', brand, dataService.addBrand, dataService.updateBrand, setBrands)} onSaveEquipmentType={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} onOpenKitModal={(data) => setModal({ type: 'add_kit', data })} />}
+            {modal.type === 'add_entidade' && <AddEntidadeModal onClose={() => setModal({ type: null })} onSave={(ent) => handleSave('entidade', ent, dataService.addEntidade, dataService.updateEntidade, setEntidades)} entidadeToEdit={modal.data} instituicoes={instituicoes} />}
+            {modal.type === 'add_instituicao' && <AddInstituicaoModal onClose={() => setModal({ type: null })} onSave={(inst) => handleSave('instituicao', inst, dataService.addInstituicao, dataService.updateInstituicao, setInstituicoes)} instituicaoToEdit={modal.data} />}
+            {modal.type === 'add_collaborator' && <AddCollaboratorModal onClose={() => setModal({ type: null })} onSave={handleSaveCollaborator} escolasDepartamentos={entidades} collaboratorToEdit={modal.data} currentUser={currentUser} />}
+            {modal.type === 'add_equipment_type' && <AddEquipmentTypeModal onClose={() => setModal({ type: null })} onSave={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} typeToEdit={modal.data} />}
+            {modal.type === 'add_brand' && <AddBrandModal onClose={() => setModal({ type: null })} onSave={(brand) => handleSave('brand', brand, dataService.addBrand, dataService.updateBrand, setBrands)} brandToEdit={modal.data} />}
+            {modal.type === 'add_ticket' && <AddTicketModal onClose={() => setModal({ type: null })} onSave={(ticket) => handleSave('ticket', ticket, dataService.addTicket, dataService.updateTicket, setTickets)} ticketToEdit={modal.data} escolasDepartamentos={entidades} collaborators={collaborators} currentUser={currentUser} userPermissions={userPermissions} />}
+            {modal.type === 'add_license' && <AddLicenseModal onClose={() => setModal({ type: null })} onSave={(lic) => handleSave('software_license', lic, dataService.addSoftwareLicense, dataService.updateSoftwareLicense, setSoftwareLicenses)} licenseToEdit={modal.data} />}
+            {modal.type === 'close_ticket' && <CloseTicketModal ticket={modal.data} collaborators={collaborators} onClose={() => setModal({ type: null })} onConfirm={(technicianId) => { const updatedTicket = { ...modal.data, status: TicketStatus.Finished, finishDate: new Date().toISOString().split('T')[0], technicianId }; handleSave('ticket', updatedTicket, dataService.addTicket, dataService.updateTicket, setTickets); setModal({ type: null }); }} />}
+            {modal.type === 'assign_equipment' && <AssignEquipmentModal equipment={modal.data} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setModal({ type: null })} onAssign={handleAssignEquipment} />}
+            {modal.type === 'assign_multiple_equipment' && <AssignMultipleEquipmentModal equipmentList={modal.data} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setModal({ type: null })} onAssign={handleAssignMultipleEquipment} />}
+            {modal.type === 'equipment_history' && <EquipmentHistoryModal equipment={modal.data} assignments={assignments} collaborators={collaborators} escolasDepartamentos={entidades} onClose={() => setModal({ type: null })} />}
+            {modal.type === 'collaborator_history' && <CollaboratorHistoryModal collaborator={modal.data} history={collaboratorHistory} escolasDepartamentos={entidades} onClose={() => setModal({ type: null })} />}
+            {modal.type === 'collaborator_detail' && <CollaboratorDetailModal collaborator={modal.data} assignments={assignments} equipment={equipment} tickets={tickets} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} onClose={() => setModal({ type: null })} onShowHistory={(col) => setModal({ type: 'collaborator_history', data: col })} onStartChat={handleOpenChat} />}
+            {modal.type === 'manage_licenses' && <ManageAssignedLicensesModal equipment={modal.data} allLicenses={softwareLicenses} allAssignments={licenseAssignments} onClose={() => setModal({ type: null })} onSave={handleSaveLicenseAssignments} />}
+            {modal.type === 'add_kit' && <AddEquipmentKitModal onClose={() => setModal({ type: null })} onSaveKit={async (items) => { await dataService.addMultipleEquipment(items as Equipment[]); const allData = await dataService.fetchAllData(); setEquipment(allData.equipment); }} brands={brands} equipmentTypes={equipmentTypes} initialData={modal.data} onSaveEquipmentType={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} equipment={equipment} />}
+            
+            {isReportModalOpen.type && <ReportModal type={isReportModalOpen.type} onClose={() => setIsReportModalOpen({ type: null })} equipment={equipment} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} instituicoes={instituicoes} escolasDepartamentos={entidades} collaborators={collaborators} assignments={assignments} tickets={tickets} softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments} />}
+            {isTicketActivitiesModalOpen && selectedTicketForActivities && <TicketActivitiesModal ticket={selectedTicketForActivities} activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)} collaborators={collaborators} currentUser={currentUser} onClose={() => setIsTicketActivitiesModalOpen(false)} onAddActivity={(activity) => { const newActivity = { ...activity, id: crypto.randomUUID(), ticketId: selectedTicketForActivities.id, technicianId: currentUser.id, date: new Date().toISOString() }; handleSave('ticket_activity', newActivity, dataService.addTicketActivity, () => Promise.resolve(), setTicketActivities); }} />}
+            {infoModal && <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>{infoModal.content}</InfoModal>}
+            {confirmation && <ConfirmationModal title="Confirmar Ação" message={confirmation.message} onConfirm={confirmation.onConfirm} onClose={() => setConfirmation(null)} />}
+            {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={(id) => setSnoozedNotifications(prev => [...prev, id])} />}
         </div>
     );
 };
