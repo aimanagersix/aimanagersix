@@ -664,11 +664,11 @@ export const App: React.FC = () => {
 
 
     useEffect(() => {
-        if (!isLoading && isAuthenticated && !initialNotificationsShown && (allExpiringWarranties.length > 0 || allExpiringLicenses.length > 0)) {
+        if (!isLoading && isAuthenticated && currentUser?.receivesNotifications && !initialNotificationsShown && (allExpiringWarranties.length > 0 || allExpiringLicenses.length > 0)) {
             setIsNotificationsModalOpen(true);
             setInitialNotificationsShown(true);
         }
-    }, [isLoading, isAuthenticated, initialNotificationsShown, allExpiringWarranties, allExpiringLicenses]);
+    }, [isLoading, isAuthenticated, currentUser, initialNotificationsShown, allExpiringWarranties, allExpiringLicenses]);
     
     // --- UI Configuration ---
 
@@ -905,8 +905,8 @@ export const App: React.FC = () => {
                 setActiveTab={(tab) => { setActiveTab(tab); setInitialDashboardFilter(null); }}
                 onLogout={handleLogout}
                 tabConfig={tabConfig}
-                notificationCount={expiringWarranties.length + expiringLicenses.length}
-                onNotificationClick={() => setIsNotificationsModalOpen(true)}
+                notificationCount={currentUser?.receivesNotifications ? (expiringWarranties.length + expiringLicenses.length) : 0}
+                onNotificationClick={() => currentUser?.receivesNotifications && setIsNotificationsModalOpen(true)}
             />
             <main className="max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
                 <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
