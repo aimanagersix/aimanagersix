@@ -1,5 +1,6 @@
 
 
+
 export enum EquipmentStatus {
   Stock = 'Stock',
   Operational = 'Operacional',
@@ -19,8 +20,6 @@ export interface EquipmentType {
   requiresMacWIFI?: boolean;
   requiresMacCabo?: boolean;
   requiresInventoryNumber?: boolean;
-  requiresVPN?: boolean;
-  requiresDDNS?: boolean;
 }
 
 export interface Equipment {
@@ -39,10 +38,6 @@ export interface Equipment {
   creationDate: string;
   modifiedDate: string;
   status: EquipmentStatus;
-  vpnEnabled?: boolean;
-  ddnsAddress?: string;
-  ddnsUser?: string;
-  ddnsPassword?: string;
 }
 
 export interface SoftwareLicense {
@@ -112,6 +107,7 @@ export interface Collaborator {
   telemovel?: string;
   // Auth fields
   canLogin: boolean;
+  receivesNotifications: boolean;
   role: UserRole;
   status: CollaboratorStatus;
   password?: string;
