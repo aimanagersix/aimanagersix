@@ -1,0 +1,664 @@
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import Modal from './common/Modal';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment } from '../types';
+import { MailIcon, FaEye } from './common/Icons';
+import { FaFileCsv } from 'react-icons/fa';
+import PrintPreviewModal from './PrintPreviewModal';
+
+interface ReportModalProps {
+    type: 'equipment' | 'collaborator' | 'ticket' | 'licensing';
+    onClose: () => void;
+    equipment: Equipment[];
+    brandMap: Map<string, string>;
+    equipmentTypeMap: Map<string, string>;
+    instituicoes: Instituicao[];
+    escolasDepartamentos: Entidade[];
+    collaborators: Collaborator[];
+    assignments: Assignment[];
+    tickets: Ticket[];
+    softwareLicenses: SoftwareLicense[];
+    licenseAssignments: LicenseAssignment[];
+}
+
+const BarChart: React.FC<{ title: string; data: { name: string; value: number }[] }> = ({ title, data }) => {
+    const maxValue = useMemo(() => Math.max(...data.map(item => item.value), 0), [data]);
+
+    return (
+        <div className="bg-gray-900/50 p-6 rounded-lg shadow-lg">
+            <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+            <div className="space-y-3">
+                {data.length > 0 ? data.map((item, index) => (
+                    <div key={index} className="flex items-center">
+                        <div className="w-1/3 text-sm text-on-surface-dark-secondary truncate pr-2">{item.name}</div>
+                        <div className="w-2/3 flex items-center">
+                            <div className="w-full bg-gray-700 rounded-full h-4">
+                                <div
+                                    className="bg-brand-secondary h-4 rounded-full"
+                                    style={{ width: `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` }}
+                                ></div>
+                            </div>
+                            <span className="ml-3 font-semibold text-white text-sm">{item.value}</span>
+                        </div>
+                    </div>
+                )) : <p className="text-on-surface-dark-secondary text-sm">Nenhum dado disponível para os filtros selecionados.</p>}
+            </div>
+        </div>
+    );
+};
+
+
+const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, brandMap, equipmentTypeMap, instituicoes, escolasDepartamentos: entidades, collaborators, assignments, tickets, softwareLicenses, licenseAssignments }) => {
+    // Equipment Report State
+    const [reportLevel, setReportLevel] = useState<'entidade' | 'instituicao'>('entidade');
+    const [selectedInstituicaoId, setSelectedInstituicaoId] = useState<string>(instituicoes[0]?.id || '');
+    const [selectedEntidadeId, setSelectedEntidadeId] = useState<string>(entidades[0]?.id || '');
+    const [selectedCollaboratorId, setSelectedCollaboratorId] = useState<string>(''); // '' for All
+    
+    // Collaborator Report State
+    const [collabFilterEntidadeId, setCollabFilterEntidadeId] = useState<string>(''); // '' for All
+
+    // Ticket Report State
+    const [ticketDateFrom, setTicketDateFrom] = useState('');
+    const [ticketDateTo, setTicketDateTo] = useState('');
+
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const reportContentRef = useRef<HTMLDivElement>(null);
+    const [showEmailInstructions, setShowEmailInstructions] = useState(false);
+    
+    const instituicaoMap = useMemo(() => new Map(instituicoes.map(e => [e.id, e])), [instituicoes]);
+    const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+
+    const availableCollaborators = useMemo(() => {
+        if (!selectedEntidadeId) return [];
+        return collaborators.filter(c => c.entidadeId === selectedEntidadeId);
+    }, [selectedEntidadeId, collaborators]);
+
+    useEffect(() => {
+        setSelectedCollaboratorId('');
+    }, [selectedEntidadeId, reportLevel]);
+
+     const licenseReportData = useMemo(() => {
+        if (type !== 'licensing') return null;
+
+        const usedSeatsMap = licenseAssignments.reduce((acc, assignment) => {
+            acc.set(assignment.softwareLicenseId, (acc.get(assignment.softwareLicenseId) || 0) + 1);
+            return acc;
+        }, new Map<string, number>());
+
+        const items = softwareLicenses.map(license => {
+            const usedSeats = usedSeatsMap.get(license.id) || 0;
+            const availableSeats = license.totalSeats - usedSeats;
+            return { ...license, usedSeats, availableSeats };
+        }).sort((a,b) => a.productName.localeCompare(b.productName));
+
+        return {
+            type: 'licensing' as const,
+            items,
+        };
+
+    }, [type, softwareLicenses, licenseAssignments]);
+    
+    const ticketReportData = useMemo(() => {
+        if (type !== 'ticket') return null;
+
+        const filteredTickets = tickets.filter(ticket => {
+            const requestDate = new Date(ticket.requestDate);
+            const fromMatch = !ticketDateFrom || requestDate >= new Date(ticketDateFrom);
+            const toMatch = !ticketDateTo || requestDate <= new Date(ticketDateTo);
+            return fromMatch && toMatch;
+        });
+
+        const entidadeInstituicaoMap = new Map(entidades.map(e => [e.id, e.instituicaoId]));
+
+        const byEntidade = filteredTickets.reduce((acc, ticket) => {
+            const entidadeName = entidadeMap.get(ticket.entidadeId) || 'Desconhecido';
+            acc.set(entidadeName, (acc.get(entidadeName) || 0) + 1);
+            return acc;
+        }, new Map<string, number>());
+
+        const byInstituicao = filteredTickets.reduce((acc, ticket) => {
+            const instituicaoId = entidadeInstituicaoMap.get(ticket.entidadeId);
+            if (instituicaoId) {
+                const instituicaoName = instituicaoMap.get(instituicaoId)?.name || 'Desconhecido';
+                acc.set(instituicaoName, (acc.get(instituicaoName) || 0) + 1);
+            }
+            return acc;
+        }, new Map<string, number>());
+        
+        return {
+            type: 'ticket' as const,
+            byEntidade: Array.from(byEntidade.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value),
+            byInstituicao: Array.from(byInstituicao.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value),
+        };
+    }, [type, tickets, ticketDateFrom, ticketDateTo, entidades, instituicoes, entidadeMap, instituicaoMap]);
+
+    const collaboratorReportData = useMemo(() => {
+        if (type !== 'collaborator') return null;
+
+        const equipmentDetailsByCollaborator = assignments.reduce((acc, assignment) => {
+            if (!assignment.returnDate && assignment.collaboratorId) {
+                const eq = equipment.find(e => e.id === assignment.equipmentId);
+                if (eq) {
+                    if (!acc.has(assignment.collaboratorId)) {
+                        acc.set(assignment.collaboratorId, []);
+                    }
+                    acc.get(assignment.collaboratorId)!.push(eq);
+                }
+            }
+            return acc;
+        }, new Map<string, Equipment[]>());
+        
+        const filteredCollaborators = collabFilterEntidadeId
+            ? collaborators.filter(c => c.entidadeId === collabFilterEntidadeId)
+            : collaborators;
+
+        const items = filteredCollaborators.map(c => ({
+            collaborator: c,
+            equipmentList: equipmentDetailsByCollaborator.get(c.id) || [],
+            equipmentCount: (equipmentDetailsByCollaborator.get(c.id) || []).length
+        })).sort((a, b) => a.collaborator.fullName.localeCompare(b.collaborator.fullName));
+
+        const entidade = collabFilterEntidadeId ? entidades.find(e => e.id === collabFilterEntidadeId) : null;
+        
+        return {
+            type: 'collaborator' as const,
+            entidade,
+            items
+        };
+
+    }, [type, collabFilterEntidadeId, collaborators, entidades, assignments, equipment]);
+
+
+    const equipmentReportData = useMemo(() => {
+        if (type !== 'equipment') return null;
+        if (reportLevel === 'entidade') {
+            if (!selectedEntidadeId) return null;
+
+            const entidade = entidades.find(e => e.id === selectedEntidadeId);
+            if (!entidade) return null;
+
+            const instituicao = instituicaoMap.get(entidade.instituicaoId);
+
+            let entidadeAssignments = assignments.filter(a => a.entidadeId === selectedEntidadeId);
+
+            if (selectedCollaboratorId) {
+                entidadeAssignments = entidadeAssignments.filter(a => a.collaboratorId === selectedCollaboratorId);
+            }
+
+            const items = entidadeAssignments.map(assignment => {
+                const eq = equipment.find(e => e.id === assignment.equipmentId);
+                const col = assignment.collaboratorId ? collaborators.find(c => c.id === assignment.collaboratorId) : null;
+                return {
+                    equipment: eq,
+                    collaborator: col,
+                    assignedDate: assignment.assignedDate,
+                    returnDate: assignment.returnDate,
+                };
+            }).filter(item => item.equipment);
+
+            const collaborator = selectedCollaboratorId ? collaborators.find(c => c.id === selectedCollaboratorId) : null;
+
+            return {
+                type: 'entidade' as const,
+                instituicao,
+                entidade,
+                collaborator,
+                items
+            };
+        } else { // 'instituicao'
+            if (!selectedInstituicaoId) return null;
+            const instituicao = instituicoes.find(e => e.id === selectedInstituicaoId);
+            if (!instituicao) return null;
+            
+            const entidadesInInstituicao = entidades.filter(e => e.instituicaoId === selectedInstituicaoId);
+            const entidadesInInstituicaoIds = new Set(entidadesInInstituicao.map(e => e.id));
+
+            const instituicaoAssignments = assignments.filter(a => entidadesInInstituicaoIds.has(a.entidadeId));
+            
+            const items = instituicaoAssignments.map(assignment => {
+                const eq = equipment.find(e => e.id === assignment.equipmentId);
+                const col = assignment.collaboratorId ? collaborators.find(c => c.id === assignment.collaboratorId) : null;
+                const ent = entidades.find(e => e.id === assignment.entidadeId);
+                return { equipment: eq, collaborator: col, entidade: ent, assignment };
+            }).filter(item => item.equipment && item.entidade);
+
+            return {
+                type: 'instituicao' as const,
+                instituicao,
+                items,
+            };
+        }
+    }, [type, reportLevel, selectedInstituicaoId, selectedEntidadeId, selectedCollaboratorId, assignments, collaborators, instituicoes, equipment, entidades, instituicaoMap]);
+
+    const reportData = type === 'equipment' ? equipmentReportData : (type === 'collaborator' ? collaboratorReportData : type === 'licensing' ? licenseReportData : ticketReportData);
+
+    const handlePreview = () => {
+        if (reportContentRef.current) {
+            setIsPreviewOpen(true);
+        }
+    };
+    
+    const handleEmail = () => {
+        setShowEmailInstructions(true);
+    };
+
+    const openMailClient = () => {
+        if (!reportData) return;
+        
+        let subject = 'Relatório do Sistema de Gestão';
+        let body = 'Segue em anexo o relatório gerado a partir do sistema AIManager.\n\nPor favor, anexe o ficheiro PDF que guardou.\n\nAtenciosamente,';
+        let emailTo = 'geral@exemplo.com';
+
+        if(reportData.type === 'entidade') {
+            subject = `Relatório de Equipamentos - ${reportData.entidade.name}`;
+            emailTo = reportData.collaborator?.email || reportData.entidade.email;
+        } else if (reportData.type === 'instituicao') {
+            subject = `Relatório Consolidado de Equipamentos - ${reportData.instituicao.name}`;
+            emailTo = reportData.instituicao.email;
+        } else if (reportData.type === 'collaborator') {
+            const filterInfo = reportData.entidade ? ` para ${reportData.entidade.name}` : '';
+            subject = `Relatório de Colaboradores e Equipamentos${filterInfo}`;
+            emailTo = reportData.entidade ? reportData.entidade.email : (instituicoes[0]?.email || '');
+        } else if (reportData.type === 'licensing') {
+            subject = `Relatório de Licenciamento de Software`;
+            emailTo = instituicoes[0]?.email || '';
+        } else if (reportData.type === 'ticket') {
+            subject = `Relatório de Tickets de Suporte`;
+            emailTo = instituicoes[0]?.email || '';
+        }
+        
+        window.location.href = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        setShowEmailInstructions(false);
+    };
+
+    const escapeCsv = (value: string | undefined | null) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (/[",\n\r]/.test(str)) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
+
+    const handleExportCSV = () => {
+        if (!reportData) return;
+
+        let headers: string[] = [];
+        let rows: string[] = [];
+        let fileName = '';
+
+        if (reportData.type === 'entidade') {
+            headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
+            rows = reportData.items.map(item => [
+                escapeCsv(reportData.instituicao?.name), escapeCsv(reportData.entidade?.name), escapeCsv(brandMap.get(item.equipment?.brandId || '')),
+                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '')), escapeCsv(item.equipment?.serialNumber), escapeCsv(item.equipment?.inventoryNumber), escapeCsv(item.equipment?.invoiceNumber), escapeCsv(item.equipment?.description),
+                escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
+                escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), escapeCsv(item.collaborator?.email), escapeCsv(item.assignedDate), escapeCsv(item.returnDate),
+            ].join(','));
+            fileName = `relatorio_equip_${reportData.entidade.name.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
+        } else if (reportData.type === 'instituicao') {
+            headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
+            rows = reportData.items.map(item => [
+                escapeCsv(reportData.instituicao.name), 
+                escapeCsv(item.entidade?.name), 
+                escapeCsv(brandMap.get(item.equipment?.brandId || '')),
+                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '')), 
+                escapeCsv(item.equipment?.serialNumber), 
+                escapeCsv(item.equipment?.inventoryNumber),
+                escapeCsv(item.equipment?.invoiceNumber), 
+                escapeCsv(item.equipment?.description),
+                escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
+                escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), 
+                escapeCsv(item.collaborator?.email), 
+                escapeCsv(item.assignment.assignedDate), 
+                escapeCsv(item.assignment.returnDate),
+            ].join(','));
+             fileName = `relatorio_equip_${reportData.instituicao.name.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
+        } else if (reportData.type === 'collaborator') {
+             headers = ["Nº Mecanográfico", "Nome Completo", "Email", "Entidade", "Perfil", "Nº Equipamentos Ativos", "Lista de Equipamentos (Marca, Tipo, S/N, Inventário)"];
+             rows = reportData.items.map(item => [
+                escapeCsv(item.collaborator.numeroMecanografico),
+                escapeCsv(item.collaborator.fullName),
+                escapeCsv(item.collaborator.email),
+                escapeCsv(entidadeMap.get(item.collaborator.entidadeId)),
+                escapeCsv(item.collaborator.role),
+                String(item.equipmentCount),
+                escapeCsv(item.equipmentList.map(eq => `${brandMap.get(eq.brandId)}, ${equipmentTypeMap.get(eq.typeId)}, ${eq.serialNumber}, ${eq.inventoryNumber || 'N/A'}`).join('; '))
+            ].join(','));
+            const filterName = reportData.entidade ? reportData.entidade.name.replace(/\s+/g, '_').toLowerCase() : 'geral';
+            fileName = `relatorio_colabs_${filterName}_${new Date().toISOString().split('T')[0]}.csv`;
+        } else if (reportData.type === 'licensing') {
+            headers = ["Produto", "Chave de Licença", "Total", "Em Uso", "Disponível", "Data de Compra", "Data de Expiração"];
+            rows = reportData.items.map(item => [
+                escapeCsv(item.productName),
+                escapeCsv(item.licenseKey),
+                String(item.totalSeats),
+                String(item.usedSeats),
+                String(item.availableSeats),
+                escapeCsv(item.purchaseDate),
+                escapeCsv(item.expiryDate),
+            ].join(','));
+            fileName = `relatorio_licenciamento_${new Date().toISOString().split('T')[0]}.csv`;
+        } else if (reportData.type === 'ticket') {
+            headers = ["Tipo de Agrupamento", "Nome", "Total de Tickets"];
+            const instituicaoRows = reportData.byInstituicao.map(item => 
+                ["Por Instituição", escapeCsv(item.name), String(item.value)].join(',')
+            );
+            const entidadeRows = reportData.byEntidade.map(item => 
+                ["Por Entidade", escapeCsv(item.name), String(item.value)].join(',')
+            );
+            rows = [...instituicaoRows, ...entidadeRows];
+            const dateFilter = (ticketDateFrom || ticketDateTo) ? `${ticketDateFrom}_a_${ticketDateTo}` : 'geral';
+            fileName = `relatorio_tickets_${dateFilter}_${new Date().toISOString().split('T')[0]}.csv`;
+        }
+        
+        const csvContent = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+    
+    const renderEquipmentFilters = () => (
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+            <div>
+                <label htmlFor="reportLevelSelect" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Tipo de Relatório</label>
+                <select
+                    id="reportLevelSelect"
+                    value={reportLevel}
+                    onChange={(e) => setReportLevel(e.target.value as 'entidade' | 'instituicao')}
+                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                >
+                    <option value="entidade">Por Entidade</option>
+                    <option value="instituicao">Por Instituição</option>
+                </select>
+            </div>
+            {reportLevel === 'entidade' ? (
+                <>
+                    <div>
+                        <label htmlFor="entidadeSelect" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Selecione a Entidade:</label>
+                        <select id="entidadeSelect" value={selectedEntidadeId} onChange={(e) => setSelectedEntidadeId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                            {entidades.map(entidade => <option key={entidade.id} value={entidade.id}>{entidade.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="collaboratorSelect" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Colaborador (Opcional):</label>
+                        <select id="collaboratorSelect" value={selectedCollaboratorId} onChange={(e) => setSelectedCollaboratorId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" disabled={!selectedEntidadeId || availableCollaborators.length === 0}>
+                            <option value="">Todos os Colaboradores</option>
+                            {availableCollaborators.map(collaborator => <option key={collaborator.id} value={collaborator.id}>{collaborator.fullName}</option>)}
+                        </select>
+                    </div>
+                </>
+            ) : (
+                <div>
+                    <label htmlFor="instituicaoSelect" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Selecione a Instituição:</label>
+                    <select id="instituicaoSelect" value={selectedInstituicaoId} onChange={(e) => setSelectedInstituicaoId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                        {instituicoes.map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
+                    </select>
+                </div>
+            )}
+        </div>
+    );
+    
+    const renderCollaboratorFilters = () => (
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+             <div>
+                <label htmlFor="collabEntidadeSelect" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Entidade:</label>
+                <select id="collabEntidadeSelect" value={collabFilterEntidadeId} onChange={(e) => setCollabFilterEntidadeId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                    <option value="">Todas as Entidades</option>
+                    {entidades.map(entidade => <option key={entidade.id} value={entidade.id}>{entidade.name}</option>)}
+                </select>
+            </div>
+         </div>
+    );
+
+    const renderTicketFilters = () => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+            <div>
+                <label htmlFor="ticketDateFrom" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Período - De:</label>
+                <input type="date" id="ticketDateFrom" value={ticketDateFrom} onChange={e => setTicketDateFrom(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"/>
+            </div>
+            <div>
+                <label htmlFor="ticketDateTo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Até:</label>
+                <input type="date" id="ticketDateTo" value={ticketDateTo} onChange={e => setTicketDateTo(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"/>
+            </div>
+        </div>
+    );
+
+    const renderReportPreview = () => (
+         <div ref={reportContentRef} className="bg-gray-800 p-6 rounded-lg text-on-surface-dark-secondary">
+            {!reportData && <p>Selecione os filtros para gerar o relatório.</p>}
+
+            {/* Equipment Report: Entidade Level */}
+            {reportData?.type === 'entidade' && (
+                 <>
+                    <h3 className="text-xl font-bold text-white mb-2">Relatório de Equipamentos</h3>
+                    <p className="mb-1"><span className="font-semibold">Instituição:</span> {reportData.instituicao?.name}</p>
+                    <p className="mb-1"><span className="font-semibold">Entidade:</span> {reportData.entidade.name}</p>
+                    {reportData.collaborator && (<p className="mb-4"><span className="font-semibold">Colaborador:</span> {reportData.collaborator.fullName}</p>)}
+                    
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs uppercase bg-gray-700/50">
+                            <tr>
+                                <th className="px-4 py-2">Descrição</th>
+                                <th className="px-4 py-2">Nº Série</th>
+                                <th className="px-4 py-2">Nome na Rede</th>
+                                <th className="px-4 py-2">Nº Inventário</th>
+                                <th className="px-4 py-2">Colaborador</th>
+                                <th className="px-4 py-2">Data de Associação</th>
+                                <th className="px-4 py-2">Data de Fim</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportData.items.map((item, index) => (
+                                <tr key={index} className="border-b border-gray-700">
+                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId || '')} {equipmentTypeMap.get(item.equipment?.typeId || '')}</td>
+                                    <td className="px-4 py-2">{item.equipment?.serialNumber}</td>
+                                    <td className="px-4 py-2">{item.equipment?.nomeNaRede || '—'}</td>
+                                    <td className="px-4 py-2">{item.equipment?.inventoryNumber || '—'}</td>
+                                    <td className="px-4 py-2">{item.collaborator?.fullName || 'Atribuído à Localização'}</td>
+                                    <td className="px-4 py-2">{item.assignedDate}</td>
+                                    <td className="px-4 py-2">{item.returnDate || '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {reportData.items.length === 0 && <p className="text-center py-4">Nenhum equipamento encontrado com os filtros selecionados.</p>}
+                    {reportData.collaborator && (
+                        <div className="mt-16 text-center text-sm">
+                            <div className="inline-block">
+                                <p className="border-t border-gray-500 px-16 pt-2">
+                                    A Assinatura
+                                </p>
+                                <p className="text-xs text-on-surface-dark-secondary">
+                                    ({reportData.collaborator.fullName})
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+
+             {/* Equipment Report: Instituicao Level */}
+            {reportData?.type === 'instituicao' && (
+                 <>
+                    <h3 className="text-xl font-bold text-white mb-2">Relatório Consolidado de Equipamentos</h3>
+                    <p className="mb-4"><span className="font-semibold">Instituição:</span> {reportData.instituicao?.name}</p>
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs uppercase bg-gray-700/50">
+                            <tr>
+                                <th className="px-4 py-2">Descrição</th>
+                                <th className="px-4 py-2">Nº Série</th>
+                                <th className="px-4 py-2">Nome na Rede</th>
+                                <th className="px-4 py-2">Nº Inventário</th>
+                                <th className="px-4 py-2">Entidade</th>
+                                <th className="px-4 py-2">Colaborador</th>
+                                <th className="px-4 py-2">Data de Associação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportData.items.map((item, index) => (
+                                <tr key={index} className="border-b border-gray-700">
+                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId || '')} {equipmentTypeMap.get(item.equipment?.typeId || '')}</td>
+                                    <td className="px-4 py-2">{item.equipment?.serialNumber}</td>
+                                    <td className="px-4 py-2">{item.equipment?.nomeNaRede || '—'}</td>
+                                    <td className="px-4 py-2">{item.equipment?.inventoryNumber || '—'}</td>
+                                    <td className="px-4 py-2">{item.entidade?.name}</td>
+                                    <td className="px-4 py-2">{item.collaborator?.fullName || 'Atribuído à Localização'}</td>
+                                    <td className="px-4 py-2">{item.assignment.assignedDate}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {reportData.items.length === 0 && <p className="text-center py-4">Nenhum equipamento encontrado para esta instituição.</p>}
+                </>
+            )}
+
+            {/* Collaborator Report */}
+            {reportData?.type === 'collaborator' && (
+                <>
+                    <h3 className="text-xl font-bold text-white mb-2">Relatório de Colaboradores e Equipamentos</h3>
+                    {reportData.entidade && <p className="mb-4"><span className="font-semibold">Entidade:</span> {reportData.entidade.name}</p>}
+
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs uppercase bg-gray-700/50">
+                            <tr>
+                                <th className="px-4 py-2">Nome</th>
+                                <th className="px-4 py-2">Email</th>
+                                <th className="px-4 py-2">Entidade</th>
+                                <th className="px-4 py-2 text-center">Nº Equip.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                             {reportData.items.map((item, index) => (
+                                <React.Fragment key={index}>
+                                    <tr className="border-b border-gray-600 bg-gray-800/50">
+                                        <td className="px-4 py-3 text-on-surface-dark font-semibold">{item.collaborator.fullName}</td>
+                                        <td className="px-4 py-3">{item.collaborator.email}</td>
+                                        <td className="px-4 py-3">{entidadeMap.get(item.collaborator.entidadeId) || 'N/A'}</td>
+                                        <td className="px-4 py-3 text-center font-bold text-white">{item.equipmentCount}</td>
+                                    </tr>
+                                    {item.equipmentList.length > 0 && (
+                                        <tr className="border-b border-gray-700">
+                                            <td colSpan={4} className="px-4 py-3 pl-12 bg-surface-dark/50">
+                                                <h4 className="text-xs font-semibold text-on-surface-dark-secondary mb-2">Equipamentos Atribuídos:</h4>
+                                                <ul className="list-disc list-inside text-xs space-y-1">
+                                                {item.equipmentList.map(eq => (
+                                                    <li key={eq.id}>
+                                                        <span className="font-semibold text-on-surface-dark">{brandMap.get(eq.brandId)} {equipmentTypeMap.get(eq.typeId)}</span>
+                                                        <span className="text-on-surface-dark-secondary"> (S/N: {eq.serialNumber}, Inv: {eq.inventoryNumber || 'N/A'})</span>
+                                                    </li>
+                                                ))}
+                                                </ul>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </tbody>
+                    </table>
+                     {reportData.items.length === 0 && <p className="text-center py-4">Nenhum colaborador encontrado com os filtros selecionados.</p>}
+                </>
+            )}
+
+             {/* Ticket Report */}
+            {reportData?.type === 'ticket' && (
+                <div className="space-y-8">
+                    <h3 className="text-xl font-bold text-white mb-2">Relatório Gráfico de Tickets</h3>
+                    <BarChart title="Tickets por Instituição" data={reportData.byInstituicao} />
+                    <BarChart title="Tickets por Entidade" data={reportData.byEntidade} />
+                </div>
+            )}
+
+            {/* License Report */}
+            {reportData?.type === 'licensing' && (
+                <>
+                    <h3 className="text-xl font-bold text-white mb-2">Relatório de Licenciamento de Software</h3>
+                    <p className="mb-4"><span className="font-semibold">Data do Relatório:</span> {new Date().toLocaleDateString()}</p>
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs uppercase bg-gray-700/50">
+                            <tr>
+                                <th className="px-4 py-2">Produto</th>
+                                <th className="px-4 py-2">Chave</th>
+                                <th className="px-4 py-2 text-center">Total</th>
+                                <th className="px-4 py-2 text-center">Em Uso</th>
+                                <th className="px-4 py-2 text-center">Disponível</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportData.items.map((item) => (
+                                <tr key={item.id} className="border-b border-gray-700">
+                                    <td className="px-4 py-2 text-on-surface-dark font-medium">{item.productName}</td>
+                                    <td className="px-4 py-2 font-mono">{item.licenseKey}</td>
+                                    <td className="px-4 py-2 text-center">{item.totalSeats}</td>
+                                    <td className="px-4 py-2 text-center">{item.usedSeats}</td>
+                                    <td className={`px-4 py-2 text-center font-bold ${item.availableSeats > 0 ? 'text-green-400' : 'text-red-400'}`}>{item.availableSeats}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {reportData.items.length === 0 && <p className="text-center py-4">Nenhuma licença encontrada.</p>}
+                </>
+            )}
+         </div>
+    );
+
+
+    return (
+        <Modal title={type === 'equipment' ? 'Gerador de Relatórios de Equipamentos' : type === 'collaborator' ? 'Gerador de Relatórios de Colaboradores' : type === 'licensing' ? 'Relatório de Licenciamento' : 'Relatório de Tickets'} onClose={onClose}>
+            {showEmailInstructions && (
+                <div className="absolute inset-0 bg-black bg-opacity-80 flex justify-center items-center z-10 p-4 rounded-lg">
+                    <div className="bg-surface-dark p-6 rounded-xl shadow-2xl max-w-md w-full border border-gray-700">
+                        <h3 className="text-lg font-bold text-white mb-4">Enviar Relatório por Email</h3>
+                        <div className="text-on-surface-dark-secondary space-y-3 text-sm">
+                            <p><strong>Passo 1:</strong> Primeiro, precisa de guardar o relatório como PDF.</p>
+                            <p>Use o botão <strong className="text-brand-secondary">'Pré-visualizar'</strong> e, na janela de impressão, escolha a opção "Guardar como PDF".</p>
+                            <p><strong>Passo 2:</strong> Depois de guardar o ficheiro, clique em "Abrir Email" para redigir a sua mensagem e anexe o PDF.</p>
+                        </div>
+                        <div className="flex justify-end gap-4 pt-6 mt-4 border-t border-gray-700">
+                            <button onClick={() => setShowEmailInstructions(false)} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">
+                                Cancelar
+                            </button>
+                            <button onClick={openMailClient} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
+                                Abrir Email
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+             <div className="space-y-4">
+                
+                {type === 'equipment' ? renderEquipmentFilters() : type === 'collaborator' ? renderCollaboratorFilters() : type === 'ticket' ? renderTicketFilters() : null}
+
+                <div className="border-t border-gray-700 my-4 no-print"></div>
+
+                {renderReportPreview()}
+                
+                <div className="flex justify-end gap-4 pt-4 no-print">
+                    <button onClick={handleExportCSV} disabled={!reportData} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">
+                        <FaFileCsv /> Exportar CSV
+                    </button>
+                    <button onClick={handleEmail} disabled={!reportData} className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 disabled:opacity-50">
+                        <MailIcon /> Enviar por Email
+                    </button>
+                    <button onClick={handlePreview} disabled={!reportData} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
+                        <FaEye /> Pré-visualizar
+                    </button>
+                </div>
+            </div>
+            {isPreviewOpen && reportContentRef.current && (
+                <PrintPreviewModal 
+                    onClose={() => setIsPreviewOpen(false)}
+                    reportContentHtml={reportContentRef.current.innerHTML}
+                />
+            )}
+        </Modal>
+    );
+};
+
+export default ReportModal;

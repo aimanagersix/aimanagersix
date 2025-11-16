@@ -1,0 +1,181 @@
+
+
+import { supabase } from './supabaseClient';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment } from '../types';
+
+// Função auxiliar para lidar com erros do Supabase de forma consistente
+const handleSupabaseError = (error: any, context: string) => {
+    if (error) {
+        console.error(`Erro em ${context}:`, error);
+        throw new Error(`Erro do Supabase durante ${context}: ${error.message}`);
+    }
+};
+
+// Helper para garantir que o cliente Supabase está inicializado
+const checkSupabase = () => {
+    if (!supabase) {
+        throw new Error("Cliente Supabase não inicializado. Verifique as variáveis de ambiente.");
+    }
+    return supabase;
+};
+
+// --- Funções Genéricas de CRUD ---
+
+export const fetchData = async <T>(tableName: string): Promise<T[]> => {
+    const sb = checkSupabase();
+    // A nomenclatura das tabelas no Supabase é em minúsculas e singular por convenção, mas o nosso SQL usa nomes específicos.
+    // O nome da tabela deve corresponder exatamente ao que está na base de dados.
+    const { data, error } = await sb.from(tableName).select('*');
+    handleSupabaseError(error, `a obter dados de ${tableName}`);
+    return data as T[] ?? [];
+};
+
+const insertData = async <T extends {id: string}>(tableName: string, record: Partial<T>): Promise<T> => {
+    const sb = checkSupabase();
+    const { data, error } = await sb.from(tableName).insert(record as any).select();
+    handleSupabaseError(error, `a inserir em ${tableName}`);
+    return data?.[0] as T;
+};
+
+const updateData = async <T>(tableName: string, id: string, updates: Partial<T>): Promise<T> => {
+    const sb = checkSupabase();
+    const { data, error } = await sb.from(tableName).update(updates as any).eq('id', id).select();
+    handleSupabaseError(error, `a atualizar em ${tableName}`);
+    return data?.[0] as T;
+};
+
+export const deleteData = async (tableName: string, id: string): Promise<void> => {
+    const sb = checkSupabase();
+    const { error } = await sb.from(tableName).delete().eq('id', id);
+    handleSupabaseError(error, `a eliminar de ${tableName}`);
+};
+
+// --- Funções de Serviço Específicas ---
+
+export const fetchAllData = async () => {
+    const [
+        equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
+        assignments, tickets, ticketActivities, collaboratorHistory, messages,
+        softwareLicenses, licenseAssignments
+    ] = await Promise.all([
+        fetchData<Equipment>('equipment'),
+        fetchData<Instituicao>('instituicao'),
+        fetchData<Entidade>('entidade'),
+        fetchData<Collaborator>('collaborator'),
+        fetchData<EquipmentType>('equipment_type'),
+        fetchData<Brand>('brand'),
+        fetchData<Assignment>('assignment'),
+        fetchData<Ticket>('ticket'),
+        fetchData<TicketActivity>('ticket_activity'),
+        fetchData<CollaboratorHistory>('collaborator_history'),
+        fetchData<Message>('message'),
+        fetchData<SoftwareLicense>('software_license'),
+        fetchData<LicenseAssignment>('license_assignment'),
+    ]);
+
+    return {
+        equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
+        assignments, tickets, ticketActivities, collaboratorHistory, messages,
+        softwareLicenses, licenseAssignments
+    };
+};
+
+// Equipment
+export const addEquipment = (record: Equipment) => insertData('equipment', record);
+export const addMultipleEquipment = (records: Equipment[]) => {
+    const sb = checkSupabase();
+    return sb.from('equipment').insert(records).select();
+};
+export const updateEquipment = (id: string, updates: Partial<Equipment>) => updateData('equipment', id, updates);
+export const deleteEquipment = (id: string) => deleteData('equipment', id);
+
+// Instituicao
+export const addInstituicao = (record: Instituicao) => insertData('instituicao', record);
+export const updateInstituicao = (id: string, updates: Partial<Instituicao>) => updateData('instituicao', id, updates);
+export const deleteInstituicao = (id: string) => deleteData('instituicao', id);
+export const addMultipleInstituicoes = (records: Instituicao[]) => {
+    const sb = checkSupabase();
+    return sb.from('instituicao').insert(records).select();
+};
+
+// Entidade
+export const addEntidade = (record: Entidade) => insertData('entidade', record);
+export const updateEntidade = (id: string, updates: Partial<Entidade>) => updateData('entidade', id, updates);
+export const deleteEntidade = (id: string) => deleteData('entidade', id);
+export const addMultipleEntidades = (records: Entidade[]) => {
+    const sb = checkSupabase();
+    return sb.from('entidade').insert(records).select();
+};
+
+
+// Collaborator
+export const addCollaborator = (record: Collaborator) => insertData('collaborator', record);
+export const updateCollaborator = (id: string, updates: Partial<Collaborator>) => updateData('collaborator', id, updates);
+export const deleteCollaborator = (id: string) => deleteData('collaborator', id);
+export const addMultipleCollaborators = (records: Collaborator[]) => {
+    const sb = checkSupabase();
+    return sb.from('collaborator').insert(records).select();
+};
+
+// Assignment
+export const addAssignment = (record: Assignment) => insertData('assignment', record);
+export const addMultipleAssignments = (records: Assignment[]) => {
+    const sb = checkSupabase();
+    return sb.from('assignment').insert(records).select();
+};
+export const updateAssignment = (id: string, updates: Partial<Assignment>) => updateData('assignment', id, updates);
+
+// EquipmentType
+export const addEquipmentType = (record: EquipmentType) => insertData('equipment_type', record);
+export const updateEquipmentType = (id: string, updates: Partial<EquipmentType>) => updateData('equipment_type', id, updates);
+export const deleteEquipmentType = (id: string) => deleteData('equipment_type', id);
+
+// Brand
+export const addBrand = (record: Brand) => insertData('brand', record);
+export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('brand', id, updates);
+export const deleteBrand = (id: string) => deleteData('brand', id);
+
+// Ticket
+export const addTicket = (record: Ticket) => insertData('ticket', record);
+export const updateTicket = (id: string, updates: Partial<Ticket>) => updateData('ticket', id, updates);
+
+// TicketActivity
+export const addTicketActivity = (record: TicketActivity) => insertData('ticket_activity', record);
+
+// CollaboratorHistory
+export const addCollaboratorHistory = (record: CollaboratorHistory) => insertData('collaborator_history', record);
+export const updateCollaboratorHistory = (id: string, updates: Partial<CollaboratorHistory>) => updateData('collaborator_history', id, updates);
+
+// Message
+export const addMessage = (record: Message) => insertData('message', record);
+export const updateMessage = (id: string, updates: Partial<Message>) => updateData('message', id, updates);
+// Para 'marcar como lido', seria mais eficiente uma função que atualiza múltiplos
+export const markMessagesAsRead = (senderId: string, receiverId: string) => {
+    const sb = checkSupabase();
+    return sb.from('message')
+        .update({ read: true })
+        .eq('senderId', senderId)
+        .eq('receiverId', receiverId)
+        .eq('read', false);
+};
+
+
+// SoftwareLicense
+export const addSoftwareLicense = (record: SoftwareLicense) => insertData('software_license', record);
+export const updateSoftwareLicense = (id: string, updates: Partial<SoftwareLicense>) => updateData('software_license', id, updates);
+export const deleteSoftwareLicense = (id: string) => deleteData('software_license', id);
+
+// LicenseAssignment
+export const addLicenseAssignment = (record: LicenseAssignment) => insertData('license_assignment', record);
+export const addMultipleLicenseAssignments = (records: Omit<LicenseAssignment, 'id'>[]) => {
+    const sb = checkSupabase();
+    return sb.from('license_assignment').insert(records).select();
+};
+export const deleteLicenseAssignmentsByEquipment = (equipmentId: string) => {
+    const sb = checkSupabase();
+    return sb.from('license_assignment').delete().eq('equipmentId', equipmentId);
+};
+export const deleteLicenseAssignmentsByLicense = (licenseId: string) => {
+    const sb = checkSupabase();
+    return sb.from('license_assignment').delete().eq('softwareLicenseId', licenseId);
+};
