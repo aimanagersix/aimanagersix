@@ -680,7 +680,20 @@ export const App: React.FC = () => {
                 instituicoes={instituicoes}
                 escolasDepartamentos={entidades}
                 onEdit={(inst) => setModal({ type: 'add_instituicao', data: inst })}
-                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta instituição?', onConfirm: () => handleDelete('instituicao', id, dataService.deleteInstituicao, setInstituicoes) })}
+                onDelete={(id) => {
+                    const isReferenced = entidades.some(e => e.instituicaoId === id);
+                    if (isReferenced) {
+                        setInfoModal({
+                            title: "Ação Bloqueada",
+                            content: <p>Não é possível excluir esta instituição porque existem entidades associadas a ela. Por favor, remova ou reatribua as entidades primeiro.</p>
+                        });
+                    } else {
+                        setConfirmation({ 
+                            message: 'Tem a certeza que quer excluir esta instituição?', 
+                            onConfirm: () => handleDelete('instituicao', id, dataService.deleteInstituicao, setInstituicoes) 
+                        });
+                    }
+                }}
             />,
             buttonText: 'Adicionar Instituição',
             onButtonClick: () => setModal({ type: 'add_instituicao' }),
@@ -693,7 +706,35 @@ export const App: React.FC = () => {
                 instituicoes={instituicoes}
                 collaborators={collaborators}
                 onEdit={(ent) => setModal({ type: 'add_entidade', data: ent })}
-                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta entidade?', onConfirm: () => handleDelete('entidade', id, dataService.deleteEntidade, setEntidades) })}
+                onDelete={(id) => {
+                    const hasCollaborators = collaborators.some(c => c.entidadeId === id);
+                    const hasAssignments = assignments.some(a => a.entidadeId === id);
+                    const hasTickets = tickets.some(t => t.entidadeId === id);
+                    if (hasCollaborators || hasAssignments || hasTickets) {
+                        const reasons = [];
+                        if (hasCollaborators) reasons.push("Colaboradores");
+                        if (hasAssignments) reasons.push("Atribuições de equipamento");
+                        if (hasTickets) reasons.push("Tickets de suporte");
+
+                        setInfoModal({
+                            title: "Ação Bloqueada",
+                            content: (
+                                <div>
+                                    <p className="mb-2">Não é possível excluir esta entidade porque existem os seguintes registos associados a ela:</p>
+                                    <ul className="list-disc list-inside text-on-surface-dark-secondary">
+                                        {reasons.map(reason => <li key={reason}>{reason}</li>)}
+                                    </ul>
+                                    <p className="mt-3">Por favor, remova ou reatribua estes registos primeiro.</p>
+                                </div>
+                            )
+                        });
+                    } else {
+                        setConfirmation({ 
+                            message: 'Tem a certeza que quer excluir esta entidade?', 
+                            onConfirm: () => handleDelete('entidade', id, dataService.deleteEntidade, setEntidades) 
+                        });
+                    }
+                }}
             />,
             buttonText: 'Adicionar Entidade',
             onButtonClick: () => setModal({ type: 'add_entidade' }),
