@@ -39,7 +39,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         if (!formData.productName.trim()) newErrors.productName = "O nome do produto é obrigatório.";
         if (!formData.licenseKey.trim()) newErrors.licenseKey = "A chave de licença é obrigatória.";
         if (formData.totalSeats < 1) newErrors.totalSeats = "O total deve ser pelo menos 1.";
-        if (formData.purchaseEmail && !/\S+@\S+\.\S+/.test(formData.purchaseEmail)) {
+        if (formData.purchaseEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.purchaseEmail)) {
             newErrors.purchaseEmail = "O formato do email é inválido.";
         }
         setErrors(newErrors);

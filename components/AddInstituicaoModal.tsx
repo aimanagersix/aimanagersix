@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Instituicao } from '../types';
 
+const isPortuguesePhoneNumber = (phone: string): boolean => {
+    if (!phone || phone.trim() === '') return false;
+    const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
+    const regex = /^(2\d{8}|9[1236]\d{7})$/;
+    return regex.test(cleaned);
+};
+
 interface AddInstituicaoModalProps {
     onClose: () => void;
     onSave: (instituicao: Omit<Instituicao, 'id'> | Instituicao) => Promise<any>;
@@ -35,14 +42,14 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         
         if (!formData.email.trim()) {
             newErrors.email = "O email é obrigatório.";
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = "O formato do email é inválido.";
         }
         
         if (!formData.telefone.trim()) {
             newErrors.telefone = "O telefone é obrigatório.";
-        } else if (!/^\+?[0-9\s-()]+$/.test(formData.telefone)) {
-            newErrors.telefone = "Número de telefone inválido.";
+        } else if (!isPortuguesePhoneNumber(formData.telefone)) {
+            newErrors.telefone = "Número inválido. Deve ser um número português de 9 dígitos.";
         }
 
         setErrors(newErrors);

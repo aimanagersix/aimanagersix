@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus } from '../types';
 
+const isPortuguesePhoneNumber = (phone: string): boolean => {
+    if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
+    const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
+    const regex = /^(2\d{8}|9[1236]\d{7})$/;
+    return regex.test(cleaned);
+};
+
 interface AddCollaboratorModalProps {
     onClose: () => void;
     onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator) => Promise<any>;
@@ -65,7 +72,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         
         if (!formData.email.trim()) {
             newErrors.email = "O email é obrigatório.";
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = "O formato do email é inválido.";
         }
         
@@ -75,8 +82,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             newErrors.password = "A password deve ter pelo menos 6 caracteres.";
         }
         
-        if (formData.telemovel && !/^\+?[0-9\s-()]+$/.test(formData.telemovel)) {
-            newErrors.telemovel = "Número de telemóvel inválido.";
+        if (formData.telemovel.trim() && !isPortuguesePhoneNumber(formData.telemovel)) {
+            newErrors.telemovel = "Número de telemóvel inválido. Use um número português de 9 dígitos.";
         }
         if (formData.telefoneInterno && !/^\d+$/.test(formData.telefoneInterno)) {
             newErrors.telefoneInterno = "O telefone interno deve conter apenas números.";

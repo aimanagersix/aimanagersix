@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, EntidadeStatus } from '../types';
 
+const isPortuguesePhoneNumber = (phone: string): boolean => {
+    if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
+    const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
+    const regex = /^(2\d{8}|9[1236]\d{7})$/;
+    return regex.test(cleaned);
+};
+
 interface AddEntidadeModalProps {
     onClose: () => void;
     onSave: (entidade: Omit<Entidade, 'id'> | Entidade) => Promise<any>;
@@ -48,14 +55,14 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         if (!formData.codigo.trim()) newErrors.codigo = "O código é obrigatório.";
         if (!formData.email.trim()) {
             newErrors.email = "O email é obrigatório.";
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = "O formato do email é inválido.";
         }
-        if (formData.telefone && !/^\+?[0-9\s-()]+$/.test(formData.telefone)) {
-            newErrors.telefone = "Número de telefone inválido.";
+        if (formData.telefone.trim() && !isPortuguesePhoneNumber(formData.telefone)) {
+            newErrors.telefone = "Número de telefone inválido. Use um número português de 9 dígitos.";
         }
-        if (formData.telemovel && !/^\+?[0-9\s-()]+$/.test(formData.telemovel)) {
-            newErrors.telemovel = "Número de telemóvel inválido.";
+        if (formData.telemovel.trim() && !isPortuguesePhoneNumber(formData.telemovel)) {
+            newErrors.telemovel = "Número de telemóvel inválido. Use um número português de 9 dígitos.";
         }
         if (formData.telefoneInterno && !/^\d+$/.test(formData.telefoneInterno)) {
             newErrors.telefoneInterno = "O telefone interno deve conter apenas números.";

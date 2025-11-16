@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { supabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus } from './types';
@@ -196,7 +197,14 @@ export const App: React.FC = () => {
     ) => {
         try {
             if ('id' in data && data.id) { // Editing existing record
-                const updatedRecord = await updateFn(data.id, data);
+                const updatesPayload = { ...data };
+                // For equipment, prevent updating creationDate and ensure modifiedDate is set
+                if (type === 'equipment') {
+                    delete (updatesPayload as Partial<Equipment>).creationDate;
+                    (updatesPayload as Partial<Equipment>).modifiedDate = new Date().toISOString();
+                }
+
+                const updatedRecord = await updateFn(data.id, updatesPayload);
                 setData(prev => prev.map(item => item.id === data.id ? updatedRecord : item));
                 return updatedRecord;
             } else { // Adding new record
