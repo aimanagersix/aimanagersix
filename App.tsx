@@ -131,6 +131,14 @@ export const App: React.FC = () => {
         const checkSession = async () => {
             setIsLoading(true);
             const { data: { session }, error } = await supabase.auth.getSession();
+            
+            // If the URL indicates a recovery flow, don't auto-login.
+            // The `onAuthStateChange` listener will handle setting the `sessionForPasswordReset`.
+            if (window.location.hash.includes('type=recovery')) {
+                setIsLoading(false);
+                return;
+            }
+
             if (error) {
                 console.error("Error getting session:", error);
                 setLoadingError("Erro ao verificar a sessão.");
@@ -156,6 +164,7 @@ export const App: React.FC = () => {
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
              if (event === 'SIGNED_IN') {
+                if (sessionForPasswordReset) return; // Ignore SIGNED_IN event during password recovery flow
                 setIsLoading(true);
                 await loadAllData();
                 if (session?.user.id) {
@@ -164,7 +173,6 @@ export const App: React.FC = () => {
                 }
                 setIsAuthenticated(true);
                 setIsLoading(false);
-                setSessionForPasswordReset(null); // Clear reset state on successful login
             } else if (event === 'SIGNED_OUT') {
                 setIsAuthenticated(false);
                 setCurrentUser(null);
