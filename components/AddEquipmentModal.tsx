@@ -541,5 +541,5 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         </Modal>
     );
 };
-export default AddEquipmentModal;
+
 export default AddEquipmentModal;
