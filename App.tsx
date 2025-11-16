@@ -1,6 +1,6 @@
 
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus } from './types';
 import * as dataService from './services/dataService';
@@ -127,56 +127,84 @@ export const App: React.FC = () => {
             setIsLoading(false);
             return;
         }
-    
+
+        const handleUserSession = async (session: Session) => {
+            await loadAllData();
+            const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
+            if (userProfile) {
+                setCurrentUser(userProfile);
+                setIsAuthenticated(true);
+            } else {
+                await supabase.auth.signOut();
+                setIsAuthenticated(false);
+                setCurrentUser(null);
+            }
+        };
+
+        const clearUserState = () => {
+            setIsAuthenticated(false);
+            setCurrentUser(null);
+            setSessionForPasswordReset(null);
+            setEquipment([]);
+            setInstituicoes([]);
+            setEntidades([]);
+            setCollaborators([]);
+            setEquipmentTypes([]);
+            setBrands([]);
+            setAssignments([]);
+            setTickets([]);
+            setTicketActivities([]);
+            setCollaboratorHistory([]);
+            setMessages([]);
+            setSoftwareLicenses([]);
+            setLicenseAssignments([]);
+            setInitialNotificationsShown(false);
+            setSnoozedNotifications([]);
+        };
+
+        // 1. Check initial session state ONCE.
         setIsLoading(true);
-    
-        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
             try {
-                if (event === 'PASSWORD_RECOVERY') {
-                    if (session) {
-                       setSessionForPasswordReset(session);
+                if (session) {
+                    if (!window.location.hash.includes('type=recovery')) {
+                        await handleUserSession(session);
                     }
-                    // The 'finally' block will handle isLoading. The modal will appear.
-                    return;
                 }
-    
-                if (session) { // This handles SIGNED_IN and INITIAL_SESSION with a session.
-                    
-                    // If this is a SIGNED_IN event triggered during password recovery,
-                    // we should let the PASSWORD_RECOVERY handler take precedence.
-                    if (window.location.hash.includes('type=recovery')) {
-                        return;
-                    }
-    
-                    await loadAllData();
-                    const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
-    
-                    if (userProfile) {
-                        setCurrentUser(userProfile);
-                        setIsAuthenticated(true);
-                    } else {
-                        // Stale auth user without a profile in our public table. Sign them out.
-                        await supabase.auth.signOut();
-                    }
-                } else { // This handles SIGNED_OUT and INITIAL_SESSION without a session.
-                    setIsAuthenticated(false);
-                    setCurrentUser(null);
-                    setInitialNotificationsShown(false);
-                    setSnoozedNotifications([]);
-                    setSessionForPasswordReset(null);
-                }
-            } catch (error) {
-                 console.error("Error during auth state change handling:", error);
-                 setLoadingError("Ocorreu um erro durante a autenticação. Tente recarregar a página.");
-                 setIsAuthenticated(false);
-                 setCurrentUser(null);
+            } catch (e) {
+                console.error("Erro ao carregar dados da sessão inicial:", e);
+                setLoadingError("Ocorreu um erro ao carregar os dados da sua sessão.");
             } finally {
-                setIsLoading(false);
+                setIsLoading(false); // This is critical for fixing the infinite spinner.
             }
         });
-    
+
+        // 2. Set up a listener for subsequent auth events.
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'PASSWORD_RECOVERY' && session) {
+                setSessionForPasswordReset(session);
+                setIsLoading(false); // Ensure spinner is off
+                return;
+            }
+
+            if (event === 'SIGNED_IN' && session) {
+                setIsLoading(true);
+                try {
+                    await handleUserSession(session);
+                } catch (e) {
+                    console.error("Erro ao fazer login:", e);
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+            
+            if (event === 'SIGNED_OUT') {
+                clearUserState();
+            }
+        });
+
         return () => {
-            authListener.subscription.unsubscribe();
+            subscription?.unsubscribe();
         };
     }, []);
 
