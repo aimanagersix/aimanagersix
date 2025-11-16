@@ -1,7 +1,7 @@
 import React from 'react';
-import { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash } from 'react-icons/fa';
+import { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash } from 'react-icons/fa';
 
-export { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash };
+export { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash };
 
 export const PlusIcon: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
