@@ -61,6 +61,10 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         setFormData(prev => ({ ...prev, expiryDate: expiry }));
     };
 
+    const handleSetLifetime = () => {
+        setFormData(prev => ({ ...prev, expiryDate: '' }));
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
@@ -129,6 +133,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                             <input type="date" name="expiryDate" id="expiryDate" value={formData.expiryDate} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                             <button type="button" onClick={() => handleSetExpiry(1)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">1 Ano</button>
                             <button type="button" onClick={() => handleSetExpiry(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
+                            <button type="button" onClick={handleSetLifetime} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">Vitalícia</button>
                         </div>
                     </div>
                 </div>
