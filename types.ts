@@ -1,6 +1,5 @@
 
 
-
 export enum EquipmentStatus {
   Stock = 'Stock',
   Operational = 'Operacional',
@@ -40,6 +39,11 @@ export interface Equipment {
   status: EquipmentStatus;
 }
 
+export enum LicenseStatus {
+  Ativo = 'Ativo',
+  Inativo = 'Inativo',
+}
+
 export interface SoftwareLicense {
   id: string;
   productName: string;
@@ -49,6 +53,7 @@ export interface SoftwareLicense {
   expiryDate?: string;
   purchaseEmail?: string;
   invoiceNumber?: string;
+  status: LicenseStatus;
 }
 
 export interface LicenseAssignment {
