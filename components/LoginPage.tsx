@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { UserIcon, LockClosedIcon } from './common/Icons';
 
 interface LoginPageProps {
-    onLogin: (email: string, password: string) => boolean;
+    onLogin: (email: string, password: string) => Promise<{ success: boolean, error?: string }>;
+    onForgotPassword: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const [validationErrors, setValidationErrors] = useState({ email: '', password: '' });
 
     const validateField = (name: string, value: string) => {
@@ -34,14 +36,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         return isEmailValid && isPasswordValid;
     };
 
-    const handleLoginSubmit = (e: React.FormEvent) => {
+    const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         if (!validateForm()) return;
 
-        const loginSuccess = onLogin(email, password);
-        if (!loginSuccess) {
-            setError('Credenciais inválidas ou acesso não permitido. Por favor, tente novamente.');
+        setIsLoading(true);
+        const { success, error: loginError } = await onLogin(email, password);
+        setIsLoading(false);
+
+        if (!success) {
+            setError(loginError || 'Ocorreu um erro desconhecido.');
         }
     };
     
@@ -81,7 +86,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                             </div>
                             {validationErrors.email && <p className="text-red-400 text-xs italic mt-2">{validationErrors.email}</p>}
                         </div>
-                        <div className="mb-6">
+                        <div className="mb-4">
                             <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2" htmlFor="login-password">Password</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><LockClosedIcon className="h-5 w-5 text-gray-400" /></div>
@@ -100,9 +105,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                             </div>
                              {validationErrors.password && <p className="text-red-400 text-xs italic mt-2">{validationErrors.password}</p>}
                         </div>
+                        <div className="text-right mb-6">
+                            <button 
+                                type="button"
+                                onClick={onForgotPassword}
+                                className="text-sm text-brand-secondary hover:text-blue-400 focus:outline-none"
+                            >
+                                Esqueceu-se da password?
+                            </button>
+                        </div>
                         {error && <p className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs italic p-3 rounded mb-4 text-center">{error}</p>}
                         <div className="flex items-center justify-between">
-                            <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300" type="submit">Entrar</button>
+                            <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 disabled:opacity-50" type="submit" disabled={isLoading}>
+                                {isLoading ? 'A entrar...' : 'Entrar'}
+                            </button>
                         </div>
                     </form>
                 </div>

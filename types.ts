@@ -24,7 +24,7 @@ export interface EquipmentType {
 }
 
 export interface Equipment {
-  id: string;
+  id:string;
   brandId: string;
   typeId: string;
   description: string;
@@ -111,7 +111,6 @@ export interface Collaborator {
   telefoneInterno?: string;
   telemovel?: string;
   // Auth fields
-  password: string; 
   canLogin: boolean;
   role: UserRole;
   status: CollaboratorStatus;

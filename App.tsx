@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { supabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus } from './types';
@@ -17,6 +15,7 @@ import OverviewDashboard from './components/OverviewDashboard';
 import TicketDashboard from './components/TicketDashboard';
 import LicenseDashboard from './components/LicenseDashboard';
 import LoginPage from './components/LoginPage';
+import ForgotPasswordModal from './components/ForgotPasswordModal';
 import { ChatWidget } from './components/ChatWidget';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import AddEntidadeModal from './components/AddEntidadeModal';
@@ -71,11 +70,8 @@ export const App: React.FC = () => {
     }
 
     // Auth State
-    const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAuthenticated') === 'true');
-    const [currentUser, setCurrentUser] = useState<Collaborator | null>(() => {
-        const storedUser = sessionStorage.getItem('currentUser');
-        return storedUser ? JSON.parse(storedUser) : null;
-    });
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
 
     // Loading state
     const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +92,30 @@ export const App: React.FC = () => {
     const [softwareLicenses, setSoftwareLicenses] = useState<SoftwareLicense[]>([]);
     const [licenseAssignments, setLicenseAssignments] = useState<LicenseAssignment[]>([]);
     
-    // Effect to fetch all data from Supabase on component mount
+    const loadAllData = async () => {
+        try {
+            const allData = await dataService.fetchAllData();
+            setEquipment(allData.equipment);
+            setInstituicoes(allData.instituicoes);
+            setEntidades(allData.entidades);
+            setCollaborators(allData.collaborators);
+            setEquipmentTypes(allData.equipmentTypes);
+            setBrands(allData.brands);
+            setAssignments(allData.assignments);
+            setTickets(allData.tickets);
+            setTicketActivities(allData.ticketActivities);
+            setCollaboratorHistory(allData.collaboratorHistory);
+            setMessages(allData.messages);
+            setSoftwareLicenses(allData.softwareLicenses);
+            setLicenseAssignments(allData.licenseAssignments);
+            setLoadingError(null);
+        } catch (error) {
+            console.error("Failed to fetch data from Supabase:", error);
+            setLoadingError("Não foi possível carregar os dados. Verifique a sua conexão e a configuração do Supabase.");
+        }
+    };
+    
+    // Auth Listener
     useEffect(() => {
         if (!supabase) {
             setLoadingError("Falha na ligação com o Supabase. Verifique as chaves de configuração.");
@@ -104,53 +123,55 @@ export const App: React.FC = () => {
             return;
         }
 
-        const loadAllData = async () => {
-            try {
-                setIsLoading(true);
-                const allData = await dataService.fetchAllData();
-                setEquipment(allData.equipment);
-                setInstituicoes(allData.instituicoes);
-                setEntidades(allData.entidades);
-                setCollaborators(allData.collaborators);
-                setEquipmentTypes(allData.equipmentTypes);
-                setBrands(allData.brands);
-                setAssignments(allData.assignments);
-                setTickets(allData.tickets);
-                setTicketActivities(allData.ticketActivities);
-                setCollaboratorHistory(allData.collaboratorHistory);
-                setMessages(allData.messages);
-                setSoftwareLicenses(allData.softwareLicenses);
-                setLicenseAssignments(allData.licenseAssignments);
-                setLoadingError(null);
-            } catch (error) {
-                console.error("Failed to fetch data from Supabase:", error);
-                setLoadingError("Não foi possível carregar os dados. Verifique a sua conexão e a configuração do Supabase.");
-            } finally {
-                setIsLoading(false);
+        const checkSession = async () => {
+            setIsLoading(true);
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error) {
+                console.error("Error getting session:", error);
+                setLoadingError("Erro ao verificar a sessão.");
+            } else if (session) {
+                await loadAllData();
+                const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
+                if (userProfile) {
+                    setCurrentUser(userProfile);
+                    setIsAuthenticated(true);
+                } else {
+                    // This case might happen if a user exists in auth but not in our public table
+                    await supabase.auth.signOut();
+                }
+            } else {
+                 // Fetch only collaborators for login dropdown if needed, but not all data
+                 const collaboratorsData = await dataService.fetchData<Collaborator>('collaborator');
+                 setCollaborators(collaboratorsData);
             }
+            setIsLoading(false);
         };
+        
+        checkSession();
 
-        const loadLoginData = async () => {
-            try {
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+             if (event === 'SIGNED_IN') {
                 setIsLoading(true);
-                // Fetch only collaborators needed for login
-                const collaboratorsData = await dataService.fetchData<Collaborator>('collaborator');
-                setCollaborators(collaboratorsData);
-                setLoadingError(null);
-            } catch (error) {
-                 console.error("Failed to fetch collaborators for login:", error);
-                 setLoadingError("Não foi possível carregar os dados de login. Verifique a sua conexão e a configuração do Supabase.");
-            } finally {
+                await loadAllData();
+                if (session?.user.id) {
+                    const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
+                    setCurrentUser(userProfile);
+                }
+                setIsAuthenticated(true);
                 setIsLoading(false);
+            } else if (event === 'SIGNED_OUT') {
+                setIsAuthenticated(false);
+                setCurrentUser(null);
+                setInitialNotificationsShown(false);
+                setSnoozedNotifications([]);
             }
-        }
+        });
 
-        if (isAuthenticated) {
-            loadAllData();
-        } else {
-            loadLoginData();
-        }
-    }, [isAuthenticated]);
+        return () => {
+            authListener?.subscription.unsubscribe();
+        };
+    }, []);
+
 
     // UI State
     const [activeTab, setActiveTab] = useState('overview');
@@ -166,6 +187,7 @@ export const App: React.FC = () => {
     const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
     const [snoozedNotifications, setSnoozedNotifications] = useState<string[]>([]);
     const [initialNotificationsShown, setInitialNotificationsShown] = useState(false);
+    const [isForgotPasswordModalOpen, setIsForgotPasswordModalOpen] = useState(false);
 
 
     const userPermissions = useMemo(() => {
@@ -189,17 +211,22 @@ export const App: React.FC = () => {
     
     // Generic Save Handler
     const handleSave = useCallback(async <T extends { id: string }>(
-        type: 'equipment' | 'instituicao' | 'entidade' | 'collaborator' | 'equipment_type' | 'brand' | 'ticket' | 'software_license' | 'ticket_activity' | 'message',
+        type: 'equipment' | 'instituicao' | 'entidade' | 'equipment_type' | 'brand' | 'ticket' | 'software_license' | 'ticket_activity' | 'message',
         data: Partial<T>,
         addFn: (record: any) => Promise<any>,
         updateFn: (id: string, updates: Partial<T>) => Promise<any>,
         setData: React.Dispatch<React.SetStateAction<T[]>>
     ) => {
         try {
+            let recordToSave = { ...data };
+            // Remove id from payload if it exists to avoid sending it on updates where it's not needed in the body
+            if ('id' in recordToSave && recordToSave.id) {
+                delete (recordToSave as any).id;
+            }
+
             if ('id' in data && data.id) { // Editing existing record
-                const updatesPayload = { ...data };
-                // For equipment, prevent updating creationDate and ensure modifiedDate is set
-                if (type === 'equipment') {
+                const updatesPayload = { ...recordToSave };
+                 if (type === 'equipment') {
                     delete (updatesPayload as Partial<Equipment>).creationDate;
                     (updatesPayload as Partial<Equipment>).modifiedDate = new Date().toISOString();
                 }
@@ -207,25 +234,28 @@ export const App: React.FC = () => {
                 const updatedRecord = await updateFn(data.id, updatesPayload);
                 setData(prev => prev.map(item => item.id === data.id ? updatedRecord : item));
                 return updatedRecord;
+
             } else { // Adding new record
-                 const newId = crypto.randomUUID();
-                 let recordWithDefaults: any = { ...data, id: newId };
+                 let recordWithDefaults: any = { ...data };
                  
-                 // Add creation/modification dates for equipment
                  if (type === 'equipment') {
                      const now = new Date().toISOString();
                      recordWithDefaults = {
                          ...recordWithDefaults,
                          creationDate: now,
                          modifiedDate: now,
-                         status: EquipmentStatus.Stock
+                         status: EquipmentStatus.Stock,
+                         id: crypto.randomUUID(),
                      };
                  } else if (type === 'ticket') {
                       recordWithDefaults = {
                          ...recordWithDefaults,
                          requestDate: new Date().toISOString().split('T')[0],
                          status: TicketStatus.Requested,
+                         id: crypto.randomUUID(),
                       };
+                 } else if (type !== 'message') {
+                     recordWithDefaults.id = crypto.randomUUID();
                  }
                 
                 const newRecord = await addFn(recordWithDefaults);
@@ -237,6 +267,63 @@ export const App: React.FC = () => {
             alert(`Ocorreu um erro ao salvar os dados de ${type}. Por favor, tente novamente.`);
         }
     }, []);
+    
+     const handleSaveCollaborator = useCallback(async (collaboratorData: Collaborator, password?: string) => {
+        if (!supabase) return;
+        
+        try {
+            // Editing existing collaborator
+            if (collaboratorData.id) {
+                const { id, ...updates } = collaboratorData;
+                const updatedCollaborator = await dataService.updateCollaborator(id, updates);
+                // FIX: Merge the updated data with existing data to ensure the `id` is preserved in the object's type, resolving a potential type mismatch.
+                setCollaborators(prev => prev.map(c => c.id === id ? { ...c, ...updatedCollaborator } : c));
+            } 
+            // Creating new collaborator
+            else {
+                if (collaboratorData.canLogin) {
+                    if (!password) {
+                        alert("É necessária uma password temporária para criar um utilizador com acesso.");
+                        return;
+                    }
+                    // 1. Create user in Supabase Auth
+                    const { data: authData, error: authError } = await supabase.auth.signUp({
+                        email: collaboratorData.email,
+                        password: password,
+                    });
+                    if (authError) throw authError;
+                    if (!authData.user) throw new Error("A criação do utilizador no Supabase não retornou um utilizador.");
+                    
+                    // 2. Create collaborator profile in public table with the same ID
+                    const newCollaborator = {
+                        ...collaboratorData,
+                        id: authData.user.id,
+                    };
+                    const addedCollaborator = await dataService.addCollaborator(newCollaborator);
+                    setCollaborators(prev => [...prev, addedCollaborator]);
+                    setInfoModal({
+                        title: "Utilizador Criado com Sucesso",
+                        content: (
+                            <p>O colaborador <strong>{addedCollaborator.fullName}</strong> foi criado. Um email de confirmação foi enviado para <strong>{addedCollaborator.email}</strong>. O colaborador deve clicar no link do email para ativar a sua conta antes de poder fazer login.</p>
+                        )
+                    });
+
+                } else {
+                    // Create collaborator without auth user
+                    const newCollaborator = {
+                        ...collaboratorData,
+                        id: crypto.randomUUID(),
+                    };
+                    const addedCollaborator = await dataService.addCollaborator(newCollaborator);
+                    setCollaborators(prev => [...prev, addedCollaborator]);
+                }
+            }
+        } catch (error: any) {
+            console.error("Failed to save collaborator:", error);
+            alert(`Ocorreu um erro ao salvar o colaborador: ${error.message}`);
+        }
+    }, [supabase]);
+
 
     // Generic Delete Handler
     const handleDelete = useCallback(async <T extends { id: string }>(
@@ -414,39 +501,30 @@ export const App: React.FC = () => {
 
     // --- Auth and Utility Callbacks ---
     
-    const handleLogin = (email: string, password: string): boolean => {
-        const user = collaborators.find(c => c.email.toLowerCase() === email.toLowerCase());
-        if (user && user.password === password && user.canLogin) {
-            setIsAuthenticated(true);
-            setCurrentUser(user);
-            sessionStorage.setItem('isAuthenticated', 'true');
-            sessionStorage.setItem('currentUser', JSON.stringify(user));
-            // Load user-specific snoozed notifications
-            const storedSnoozed = localStorage.getItem(`snoozedNotifications_${user.id}`);
-            setSnoozedNotifications(storedSnoozed ? JSON.parse(storedSnoozed) : []);
-            return true;
+    const handleLogin = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+        if (!supabase) return { success: false, error: "Cliente Supabase não inicializado." };
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            console.error("Login error:", error.message);
+            if (error.message.includes("Invalid login credentials")) {
+                return { success: false, error: "Credenciais inválidas." };
+            }
+            if (error.message.includes("Email not confirmed")) {
+                return { success: false, error: "Por favor, confirme o seu email antes de fazer login." };
+            }
+            return { success: false, error: "Ocorreu um erro ao fazer login." };
         }
-        return false;
+        return { success: true };
     };
 
-    const handleLogout = useCallback(() => {
-        setIsAuthenticated(false);
-        setCurrentUser(null);
-        sessionStorage.removeItem('isAuthenticated');
-        sessionStorage.removeItem('currentUser');
-        setInitialNotificationsShown(false);
-        setSnoozedNotifications([]);
-    }, []);
-    
-    const handleResetData = useCallback(async () => {
-        const confirmed = window.confirm("Tem a certeza de que deseja apagar TODOS OS DADOS e repor os dados de exemplo? Esta ação é irreversível.");
-        if (confirmed) {
-            alert("Funcionalidade de reposição de dados ainda não implementada.");
-            // In a real scenario, you'd call a Supabase function here.
-            // await supabase.rpc('reset_data');
-            // window.location.reload();
+    const handleLogout = useCallback(async () => {
+        if (!supabase) return;
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error("Logout error:", error);
         }
     }, []);
+    
     
     const handleImport = useCallback(async (dataType: ImportConfig['dataType'], data: any[]): Promise<{ success: boolean; message: string }> => {
         try {
@@ -455,8 +533,7 @@ export const App: React.FC = () => {
             let errors: string[] = [];
 
             if (dataType === 'instituicoes') {
-                 const getNextId = (currentMax: number, i: number) => `AG${String(currentMax + i + 1).padStart(3, '0')}`;
-                 const newRecords = data.map((item, i) => ({ ...item, id: getNextId(instituicoes.length, i) }));
+                 const newRecords = data.map(item => ({ ...item, id: crypto.randomUUID() }));
                  const { error } = await dataService.addMultipleInstituicoes(newRecords);
                  if (error) throw error;
                  setInstituicoes(prev => [...prev, ...newRecords]);
@@ -647,7 +724,7 @@ export const App: React.FC = () => {
                                         const entidade = entidades.find(e => e.id === id);
                                         if (entidade) {
                                             const newStatus = entidade.status === EntidadeStatus.Ativo ? EntidadeStatus.Inativo : EntidadeStatus.Ativo;
-                                            handleSave('entidade', { ...entidade, status: newStatus }, dataService.addEntidade, dataService.updateEntidade, setEntidades);
+                                            handleSave('entidade', { id, status: newStatus }, dataService.addEntidade, dataService.updateEntidade, setEntidades);
                                         }
                                     } : undefined}
                                 />,
@@ -673,7 +750,7 @@ export const App: React.FC = () => {
                                         const collaborator = collaborators.find(c => c.id === id);
                                         if (collaborator) {
                                             const newStatus = collaborator.status === CollaboratorStatus.Ativo ? CollaboratorStatus.Inativo : CollaboratorStatus.Ativo;
-                                            handleSave('collaborator', { ...collaborator, status: newStatus }, dataService.addCollaborator, dataService.updateCollaborator, setCollaborators);
+                                            handleSaveCollaborator({ ...collaborator, status: newStatus });
                                         }
                                     } : undefined}
                                 />,
@@ -708,7 +785,7 @@ export const App: React.FC = () => {
         
         return config;
         
-    }, [userPermissions, currentUser, equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, brands, brandMap, equipmentTypeMap, assignedEquipmentIds, collaborators, initialDashboardFilter, softwareLicenses, licenseAssignments, messages, handleViewItem, handleUnassignEquipment, handleUpdateEquipmentStatus, handleSave]);
+    }, [userPermissions, currentUser, equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, brands, brandMap, equipmentTypeMap, assignedEquipmentIds, collaborators, initialDashboardFilter, softwareLicenses, licenseAssignments, messages, handleViewItem, handleUnassignEquipment, handleUpdateEquipmentStatus, handleSave, handleSaveCollaborator]);
     
     const currentDashboard = useMemo(() => {
         return tabConfig[activeTab]?.component || <div className="text-center p-8">Separador não encontrado.</div>;
@@ -769,7 +846,10 @@ export const App: React.FC = () => {
     }
 
     if (!isAuthenticated) {
-        return <LoginPage onLogin={handleLogin} />;
+        return <>
+            <LoginPage onLogin={handleLogin} onForgotPassword={() => setIsForgotPasswordModalOpen(true)} />;
+            {isForgotPasswordModalOpen && <ForgotPasswordModal onClose={() => setIsForgotPasswordModalOpen(false)} />}
+        </>
     }
 
     return (
@@ -779,7 +859,6 @@ export const App: React.FC = () => {
                 activeTab={activeTab}
                 setActiveTab={(tab) => { setActiveTab(tab); setInitialDashboardFilter(null); }}
                 onLogout={handleLogout}
-                // onResetData={handleResetData} // This can be enabled if the backend function exists
                 tabConfig={tabConfig}
                 notificationCount={expiringWarranties.length + expiringLicenses.length}
                 onNotificationClick={() => setIsNotificationsModalOpen(true)}
@@ -843,7 +922,7 @@ export const App: React.FC = () => {
             />}
             {modal.type === 'collaborator' && <AddCollaboratorModal 
                 onClose={() => setModal({ type: null })}
-                onSave={(data) => handleSave('collaborator', data, dataService.addCollaborator, dataService.updateCollaborator, setCollaborators)}
+                onSave={handleSaveCollaborator}
                 collaboratorToEdit={modal.data}
                 escolasDepartamentos={entidades}
                 currentUser={currentUser}
@@ -942,7 +1021,7 @@ export const App: React.FC = () => {
                     collaborators={collaborators}
                     currentUser={currentUser}
                     onClose={() => setIsTicketActivitiesModalOpen(false)}
-                    onAddActivity={({ description }) => handleSave('ticket_activity', { id: '', ticketId: selectedTicketForActivities.id, technicianId: currentUser!.id, date: new Date().toISOString(), description }, dataService.addTicketActivity, () => Promise.resolve(), setTicketActivities)}
+                    onAddActivity={({ description }) => handleSave('ticket_activity', { ticketId: selectedTicketForActivities.id, technicianId: currentUser!.id, date: new Date().toISOString(), description }, dataService.addTicketActivity, () => Promise.resolve(), setTicketActivities)}
                 />
             )}
              {isNotificationsModalOpen && (
@@ -974,6 +1053,11 @@ export const App: React.FC = () => {
                 softwareLicenses={softwareLicenses}
                 licenseAssignments={licenseAssignments}
             />}
+            {infoModal && (
+                <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>
+                    {infoModal.content}
+                </InfoModal>
+            )}
             
             <ChatWidget
                 currentUser={currentUser}

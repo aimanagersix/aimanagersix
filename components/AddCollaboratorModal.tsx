@@ -11,25 +11,25 @@ const isPortuguesePhoneNumber = (phone: string): boolean => {
 
 interface AddCollaboratorModalProps {
     onClose: () => void;
-    onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator) => Promise<any>;
+    onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator, password?: string) => void;
     collaboratorToEdit?: Collaborator | null;
     escolasDepartamentos: Entidade[];
     currentUser: Collaborator | null;
 }
 
 const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, onSave, collaboratorToEdit, escolasDepartamentos: entidades, currentUser }) => {
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<Omit<Collaborator, 'id'>>({
         numeroMecanografico: '',
         fullName: '',
         email: '',
         entidadeId: entidades[0]?.id || '',
         telefoneInterno: '',
         telemovel: '',
-        password: '',
         canLogin: false,
         role: UserRole.Basic,
         status: CollaboratorStatus.Ativo,
     });
+    const [password, setPassword] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
     
     const isAdmin = currentUser?.role === UserRole.Admin;
@@ -43,7 +43,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 entidadeId: collaboratorToEdit.entidadeId,
                 telefoneInterno: collaboratorToEdit.telefoneInterno || '',
                 telemovel: collaboratorToEdit.telemovel || '',
-                password: '', // Password field is for setting/resetting, not displaying
                 canLogin: collaboratorToEdit.canLogin,
                 role: collaboratorToEdit.role,
                 status: collaboratorToEdit.status || CollaboratorStatus.Ativo,
@@ -56,7 +55,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 entidadeId: entidades[0]?.id || '',
                 telefoneInterno: '',
                 telemovel: '',
-                password: '',
                 canLogin: false,
                 role: UserRole.Basic,
                 status: CollaboratorStatus.Ativo,
@@ -76,13 +74,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             newErrors.email = "O formato do email é inválido.";
         }
         
-        if (!collaboratorToEdit && !formData.password.trim()) {
-            newErrors.password = "A password é obrigatória para novos colaboradores.";
-        } else if (formData.password.trim() && formData.password.length < 6) {
-            newErrors.password = "A password deve ter pelo menos 6 caracteres.";
+        // Password validation only for new users with login enabled
+        if (!collaboratorToEdit && formData.canLogin) {
+            if (!password.trim()) {
+                newErrors.password = "A password é obrigatória para novos colaboradores com acesso.";
+            } else {
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+                if (!passwordRegex.test(password)) {
+                    newErrors.password = "A password deve ter no mínimo 6 caracteres, incluindo uma maiúscula, um número e um caracter especial (@$!%*?&).";
+                }
+            }
         }
         
-        if (formData.telemovel.trim() && !isPortuguesePhoneNumber(formData.telemovel)) {
+        if (formData.telemovel?.trim() && !isPortuguesePhoneNumber(formData.telemovel)) {
             newErrors.telemovel = "Número de telemóvel inválido. Use um número português de 9 dígitos.";
         }
         if (formData.telefoneInterno && !/^\d+$/.test(formData.telefoneInterno)) {
@@ -106,36 +110,23 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         e.preventDefault();
         if (!validate()) return;
     
-        // Clean up optional fields. Send null for empty strings.
-        // This works for both insert (becomes NULL) and update (sets to NULL).
         const dataToSave: any = {
             ...formData,
-            telefoneInterno: formData.telefoneInterno?.trim() || null,
-            telemovel: formData.telemovel?.trim() || null,
+            telefoneInterno: formData.telefoneInterno?.trim() || undefined,
+            telemovel: formData.telemovel?.trim() || undefined,
         };
         
         if (collaboratorToEdit) {
-            // If password is not being changed, remove it from the submission object
-            if (!dataToSave.password || dataToSave.password.trim() === '') {
-                delete dataToSave.password;
-            }
-            // Non-admins can't change roles
-            if (!isAdmin) {
-                dataToSave.role = collaboratorToEdit.role;
-            }
             onSave({ ...collaboratorToEdit, ...dataToSave });
         } else {
-            // Non-admins can only create Basic users
-            if (!isAdmin) {
-                dataToSave.role = UserRole.Basic;
-            }
-            onSave(dataToSave);
+            onSave(dataToSave, password);
         }
     
         onClose();
     };
 
     const modalTitle = collaboratorToEdit ? "Editar Colaborador" : "Adicionar Novo Colaborador";
+    const showPasswordField = !collaboratorToEdit && formData.canLogin;
 
     return (
         <Modal title={modalTitle} onClose={onClose}>
@@ -159,7 +150,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                         {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
                     </div>
                      <div>
-                        <label htmlFor="entidadeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade (Apenas Ativas)</label>
+                        <label htmlFor="entidadeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
                         <select name="entidadeId" id="entidadeId" value={formData.entidadeId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.entidadeId ? 'border-red-500' : 'border-gray-600'}`} >
                             <option value="" disabled>Selecione uma entidade</option>
                             {entidades.map(entidade => (
@@ -186,19 +177,36 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                  <div className="border-t border-gray-600 pt-4 mt-4">
                     <h3 className="text-lg font-medium text-on-surface-dark mb-2">Credenciais e Permissões</h3>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Password</label>
+                        <div className="flex items-center pt-2 md:pt-6">
                             <input
-                                type="password"
-                                name="password"
-                                id="password"
-                                value={formData.password}
+                                type="checkbox"
+                                name="canLogin"
+                                id="canLogin"
+                                checked={formData.canLogin}
                                 onChange={handleChange}
-                                placeholder={collaboratorToEdit ? "Deixar em branco para não alterar" : "Defina uma password"}
-                                className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.password ? 'border-red-500' : 'border-gray-600'}`}
+                                className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary disabled:bg-gray-800 disabled:cursor-not-allowed"
+                                disabled={!!collaboratorToEdit}
                             />
-                            {errors.password && <p className="text-red-400 text-xs italic mt-1">{errors.password}</p>}
+                             <label htmlFor="canLogin" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
+                                Permitir login na plataforma
+                                {collaboratorToEdit && <span className="text-xs block text-gray-400">(Não pode ser alterado)</span>}
+                            </label>
                         </div>
+                        {showPasswordField && (
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Password Temporária</label>
+                                <input
+                                    type="password"
+                                    name="password"
+                                    id="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Defina uma password segura"
+                                    className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.password ? 'border-red-500' : 'border-gray-600'}`}
+                                />
+                                {errors.password && <p className="text-red-400 text-xs italic mt-1">{errors.password}</p>}
+                            </div>
+                        )}
                         <div>
                             <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Status</label>
                             <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
@@ -217,19 +225,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 </select>
                             </div>
                         )}
-                         <div className="flex items-center pt-2 md:pt-6">
-                            <input
-                                type="checkbox"
-                                name="canLogin"
-                                id="canLogin"
-                                checked={formData.canLogin}
-                                onChange={handleChange}
-                                className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                            />
-                             <label htmlFor="canLogin" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
-                                Permitir login na plataforma
-                            </label>
-                        </div>
                      </div>
                 </div>
 
