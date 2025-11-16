@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus } from './types';
@@ -96,7 +97,7 @@ export const App: React.FC = () => {
     const [softwareLicenses, setSoftwareLicenses] = useState<SoftwareLicense[]>([]);
     const [licenseAssignments, setLicenseAssignments] = useState<LicenseAssignment[]>([]);
     
-    const loadAllData = async () => {
+    const loadAllData = useCallback(async () => {
         try {
             const allData = await dataService.fetchAllData();
             setEquipment(allData.equipment);
@@ -117,9 +118,27 @@ export const App: React.FC = () => {
             console.error("Failed to fetch data from Supabase:", error);
             setLoadingError("Não foi possível carregar os dados. Verifique a sua conexão e a configuração do Supabase.");
         }
+    }, []);
+
+    const clearAllData = () => {
+        setEquipment([]);
+        setInstituicoes([]);
+        setEntidades([]);
+        setCollaborators([]);
+        setEquipmentTypes([]);
+        setBrands([]);
+        setAssignments([]);
+        setTickets([]);
+        setTicketActivities([]);
+        setCollaboratorHistory([]);
+        setMessages([]);
+        setSoftwareLicenses([]);
+        setLicenseAssignments([]);
+        setInitialNotificationsShown(false);
+        setSnoozedNotifications([]);
     };
     
-    // Auth Listener
+    // Auth Listener: Handles checking session and setting user, but not loading all app data.
     useEffect(() => {
         if (!supabase) {
             setLoadingError("Falha na ligação com o Supabase. Verifique as chaves de configuração.");
@@ -127,62 +146,37 @@ export const App: React.FC = () => {
             return;
         }
 
-        const handleUserSession = async (session: Session) => {
-            await loadAllData();
-            const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
-            if (userProfile) {
-                setCurrentUser(userProfile);
-                setIsAuthenticated(true);
-            } else {
-                // This case handles if a user exists in auth but not in the public profile table.
-                await supabase.auth.signOut();
-                setIsAuthenticated(false);
-                setCurrentUser(null);
-            }
-        };
-
-        const clearUserState = () => {
-            setIsAuthenticated(false);
-            setCurrentUser(null);
-            setSessionForPasswordReset(null);
-            // Clear all data to ensure privacy on logout
-            setEquipment([]);
-            setInstituicoes([]);
-            setEntidades([]);
-            setCollaborators([]);
-            setEquipmentTypes([]);
-            setBrands([]);
-            setAssignments([]);
-            setTickets([]);
-            setTicketActivities([]);
-            setCollaboratorHistory([]);
-            setMessages([]);
-            setSoftwareLicenses([]);
-            setLicenseAssignments([]);
-            setInitialNotificationsShown(false);
-            setSnoozedNotifications([]);
-        };
-
         setIsLoading(true);
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             try {
                 if (event === 'PASSWORD_RECOVERY' && session) {
                     setSessionForPasswordReset(session);
+                    setIsAuthenticated(false);
                 } else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-                    // Avoid loading data if the user is on the password recovery page
                     if (!window.location.hash.includes('type=recovery')) {
-                        await handleUserSession(session);
+                        const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
+                        if (userProfile) {
+                            setCurrentUser(userProfile);
+                            setIsAuthenticated(true);
+                        } else {
+                            await supabase.auth.signOut();
+                            setCurrentUser(null);
+                            setIsAuthenticated(false);
+                        }
                     }
                 } else if (event === 'SIGNED_OUT') {
-                    clearUserState();
+                    setCurrentUser(null);
+                    setIsAuthenticated(false);
+                    setSessionForPasswordReset(null);
                 }
             } catch (error) {
                 console.error("Auth state change error:", error);
                 setLoadingError("Ocorreu um erro durante a autenticação.");
-                clearUserState(); // Ensure clean state on error
+                setCurrentUser(null);
+                setIsAuthenticated(false);
             } finally {
-                // This is the single point where the loading spinner is turned off after the initial check.
+                // This is the single point where the initial loading spinner is turned off.
                 setIsLoading(false);
             }
         });
@@ -191,6 +185,16 @@ export const App: React.FC = () => {
             subscription?.unsubscribe();
         };
     }, []);
+
+    // Data Loading Effect: Triggers after authentication is confirmed.
+    useEffect(() => {
+        if (isAuthenticated) {
+            loadAllData();
+        } else {
+            // Clear all data on logout to ensure privacy.
+            clearAllData();
+        }
+    }, [isAuthenticated, loadAllData]);
 
 
 
