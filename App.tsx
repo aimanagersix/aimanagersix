@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus } from './types';
@@ -78,8 +76,9 @@ export const App: React.FC = () => {
     const [sessionForPasswordReset, setSessionForPasswordReset] = useState<Session | null>(null);
 
 
-    // Loading state
-    const [isLoading, setIsLoading] = useState(true);
+    // Loading states
+    const [isSessionLoading, setIsSessionLoading] = useState(true);
+    const [isDataLoading, setIsDataLoading] = useState(false);
     const [loadingError, setLoadingError] = useState<string | null>(null);
     
     // Data State - Initialized as empty arrays, will be populated from Supabase
@@ -97,29 +96,6 @@ export const App: React.FC = () => {
     const [softwareLicenses, setSoftwareLicenses] = useState<SoftwareLicense[]>([]);
     const [licenseAssignments, setLicenseAssignments] = useState<LicenseAssignment[]>([]);
     
-    const loadAllData = useCallback(async () => {
-        try {
-            const allData = await dataService.fetchAllData();
-            setEquipment(allData.equipment);
-            setInstituicoes(allData.instituicoes);
-            setEntidades(allData.entidades);
-            setCollaborators(allData.collaborators);
-            setEquipmentTypes(allData.equipmentTypes);
-            setBrands(allData.brands);
-            setAssignments(allData.assignments);
-            setTickets(allData.tickets);
-            setTicketActivities(allData.ticketActivities);
-            setCollaboratorHistory(allData.collaboratorHistory);
-            setMessages(allData.messages);
-            setSoftwareLicenses(allData.softwareLicenses);
-            setLicenseAssignments(allData.licenseAssignments);
-            setLoadingError(null);
-        } catch (error) {
-            console.error("Failed to fetch data from Supabase:", error);
-            setLoadingError("Não foi possível carregar os dados. Verifique a sua conexão e a configuração do Supabase.");
-        }
-    }, []);
-
     const clearAllData = () => {
         setEquipment([]);
         setInstituicoes([]);
@@ -134,50 +110,38 @@ export const App: React.FC = () => {
         setMessages([]);
         setSoftwareLicenses([]);
         setLicenseAssignments([]);
+        setCurrentUser(null);
         setInitialNotificationsShown(false);
         setSnoozedNotifications([]);
     };
     
-    // Auth Listener: Handles checking session and setting user, but not loading all app data.
+    const handleLogout = useCallback(async () => {
+        if (!supabase) return;
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error("Logout error:", error);
+        }
+    }, []);
+
+    // Stage 1: Check for an active session. This is quick and removes the initial spinner.
     useEffect(() => {
         if (!supabase) {
             setLoadingError("Falha na ligação com o Supabase. Verifique as chaves de configuração.");
-            setIsLoading(false);
+            setIsSessionLoading(false);
             return;
         }
 
-        setIsLoading(true);
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            try {
-                if (event === 'PASSWORD_RECOVERY' && session) {
-                    setSessionForPasswordReset(session);
-                    setIsAuthenticated(false);
-                } else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-                    if (!window.location.hash.includes('type=recovery')) {
-                        const userProfile = await dataService.fetchDataById<Collaborator>('collaborator', session.user.id);
-                        if (userProfile) {
-                            setCurrentUser(userProfile);
-                            setIsAuthenticated(true);
-                        } else {
-                            await supabase.auth.signOut();
-                            setCurrentUser(null);
-                            setIsAuthenticated(false);
-                        }
-                    }
-                } else if (event === 'SIGNED_OUT') {
-                    setCurrentUser(null);
-                    setIsAuthenticated(false);
-                    setSessionForPasswordReset(null);
-                }
-            } catch (error) {
-                console.error("Auth state change error:", error);
-                setLoadingError("Ocorreu um erro durante a autenticação.");
-                setCurrentUser(null);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'PASSWORD_RECOVERY' && session) {
+                setSessionForPasswordReset(session);
                 setIsAuthenticated(false);
-            } finally {
-                // This is the single point where the initial loading spinner is turned off.
-                setIsLoading(false);
+            } else if (event !== 'PASSWORD_RECOVERY') {
+                setSessionForPasswordReset(null);
+                setIsAuthenticated(!!session);
+            }
+            
+            if (event === 'INITIAL_SESSION') {
+                setIsSessionLoading(false);
             }
         });
 
@@ -186,17 +150,59 @@ export const App: React.FC = () => {
         };
     }, []);
 
-    // Data Loading Effect: Triggers after authentication is confirmed.
+    // Stage 2: If authenticated, load all necessary user and application data.
     useEffect(() => {
-        if (isAuthenticated) {
-            loadAllData();
-        } else {
-            // Clear all data on logout to ensure privacy.
+        if (!isAuthenticated) {
             clearAllData();
+            return;
         }
-    }, [isAuthenticated, loadAllData]);
 
+        const loadAppData = async () => {
+            if (!supabase) return;
+            
+            setIsDataLoading(true);
+            setLoadingError(null);
 
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error("Sessão de utilizador inválida.");
+
+                const allData = await dataService.fetchAllData();
+                const userProfile = allData.collaborators.find(c => c.id === user.id);
+                
+                if (!userProfile) {
+                    throw new Error("Perfil do utilizador não encontrado. A fazer logout.");
+                }
+
+                setEquipment(allData.equipment);
+                setInstituicoes(allData.instituicoes);
+                setEntidades(allData.entidades);
+                setCollaborators(allData.collaborators);
+                setEquipmentTypes(allData.equipmentTypes);
+                setBrands(allData.brands);
+                setAssignments(allData.assignments);
+                setTickets(allData.tickets);
+                setTicketActivities(allData.ticketActivities);
+                setCollaboratorHistory(allData.collaboratorHistory);
+                setMessages(allData.messages);
+                setSoftwareLicenses(allData.softwareLicenses);
+                setLicenseAssignments(allData.licenseAssignments);
+                
+                setCurrentUser(userProfile);
+
+            } catch (error: any) {
+                console.error("Failed to load application data:", error);
+                setLoadingError(error.message || "Não foi possível carregar os dados. A sessão será terminada.");
+                setTimeout(() => {
+                    handleLogout();
+                }, 3000);
+            } finally {
+                setIsDataLoading(false);
+            }
+        };
+
+        loadAppData();
+    }, [isAuthenticated, handleLogout]);
 
     // UI State
     const [activeTab, setActiveTab] = useState('overview');
@@ -556,14 +562,6 @@ export const App: React.FC = () => {
         }
         return { success: true };
     };
-
-    const handleLogout = useCallback(async () => {
-        if (!supabase) return;
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            console.error("Logout error:", error);
-        }
-    }, []);
     
     
     const handleImport = useCallback(async (dataType: ImportConfig['dataType'], data: any[]): Promise<{ success: boolean; message: string }> => {
@@ -667,11 +665,11 @@ export const App: React.FC = () => {
 
 
     useEffect(() => {
-        if (!isLoading && isAuthenticated && currentUser?.receivesNotifications && !initialNotificationsShown && (allExpiringWarranties.length > 0 || allExpiringLicenses.length > 0)) {
+        if (!isDataLoading && currentUser?.receivesNotifications && !initialNotificationsShown && (allExpiringWarranties.length > 0 || allExpiringLicenses.length > 0)) {
             setIsNotificationsModalOpen(true);
             setInitialNotificationsShown(true);
         }
-    }, [isLoading, isAuthenticated, currentUser, initialNotificationsShown, allExpiringWarranties, allExpiringLicenses]);
+    }, [isDataLoading, currentUser, initialNotificationsShown, allExpiringWarranties, allExpiringLicenses]);
     
     // --- UI Configuration ---
 
@@ -829,7 +827,7 @@ export const App: React.FC = () => {
         
         return config;
         
-    }, [userPermissions, currentUser, equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, brands, brandMap, equipmentTypeMap, assignedEquipmentIds, collaborators, initialDashboardFilter, softwareLicenses, licenseAssignments, messages, handleViewItem, handleUnassignEquipment, handleUpdateEquipmentStatus, handleSave, handleSaveCollaborator]);
+    }, [userPermissions, currentUser, equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, brands, brandMap, equipmentTypeMap, assignedEquipmentIds, collaborators, initialDashboardFilter, softwareLicenses, licenseAssignments, messages, handleViewItem, handleUnassignEquipment, handleUpdateEquipmentStatus, handleSave, handleSaveCollaborator, handleOpenChat]);
     
     const currentDashboard = useMemo(() => {
         return tabConfig[activeTab]?.component || <div className="text-center p-8">Separador não encontrado.</div>;
@@ -881,16 +879,12 @@ export const App: React.FC = () => {
     }, []);
     
     
-    if (isLoading) {
+    if (isSessionLoading) {
         return <div className="flex items-center justify-center min-h-screen bg-background-dark"><SpinnerIcon className="h-10 w-10 animate-spin text-brand-secondary" /></div>;
     }
     
-    if (loadingError) {
-         return <div className="flex items-center justify-center min-h-screen bg-background-dark text-red-400 p-8 text-center">{loadingError}</div>;
-    }
-
     if (sessionForPasswordReset) {
-        return <ResetPasswordModal session={sessionForPasswordReset} onClose={() => setSessionForPasswordReset(null)} />;
+        return <ResetPasswordModal session={sessionForPasswordReset} onClose={() => { setSessionForPasswordReset(null); handleLogout(); }} />;
     }
 
     if (!isAuthenticated) {
@@ -912,9 +906,17 @@ export const App: React.FC = () => {
                 onNotificationClick={() => currentUser?.receivesNotifications && setIsNotificationsModalOpen(true)}
             />
             <main className="max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
-                <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                    <h1 className="text-2xl font-bold text-white">{currentConfig?.title}</h1>
-                    <div className="flex gap-2 flex-wrap">
+                {isDataLoading || !currentUser ? (
+                    <div className="flex items-center justify-center p-16">
+                        <SpinnerIcon className="h-10 w-10 animate-spin text-brand-secondary" />
+                    </div>
+                ) : loadingError ? (
+                    <div className="flex items-center justify-center bg-red-500/10 text-red-400 p-8 text-center rounded-lg border border-red-500/30">{loadingError}</div>
+                ) : (
+                    <>
+                        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+                            <h1 className="text-2xl font-bold text-white">{currentConfig?.title}</h1>
+                            <div className="flex gap-2 flex-wrap">
                        {currentConfig?.onButtonClick && (
                             <button onClick={currentConfig.onButtonClick} className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
                                 <PlusIcon className="h-5 w-5" />
@@ -933,8 +935,10 @@ export const App: React.FC = () => {
                             </button>
                         )}
                     </div>
-                </div>
-                {currentDashboard}
+                        </div>
+                        {currentDashboard}
+                    </>
+                )}
             </main>
             
             {/* Modals Section */}
