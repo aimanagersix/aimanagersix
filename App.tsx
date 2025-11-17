@@ -584,6 +584,36 @@ export const App: React.FC = () => {
         }
     }, [softwareLicenses]);
 
+    const handleToggleEntidadeStatus = useCallback(async (id: string) => {
+        const entidade = entidades.find(e => e.id === id);
+        if (!entidade) return;
+
+        const newStatus = entidade.status === EntidadeStatus.Ativo ? EntidadeStatus.Inativo : EntidadeStatus.Ativo;
+        
+        try {
+            const updatedEntidade = await dataService.updateEntidade(id, { status: newStatus });
+            setEntidades(prev => prev.map(e => e.id === id ? updatedEntidade : e));
+        } catch (error) {
+            console.error("Failed to toggle entidade status:", error);
+            alert("Ocorreu um erro ao alterar o estado da entidade.");
+        }
+    }, [entidades]);
+
+    const handleToggleCollaboratorStatus = useCallback(async (id: string) => {
+        const collaborator = collaborators.find(c => c.id === id);
+        if (!collaborator) return;
+
+        const newStatus = collaborator.status === CollaboratorStatus.Ativo ? CollaboratorStatus.Inativo : CollaboratorStatus.Ativo;
+        
+        try {
+            const updatedCollaborator = await dataService.updateCollaborator(id, { status: newStatus });
+            setCollaborators(prev => prev.map(c => c.id === id ? { ...c, ...updatedCollaborator } : c));
+        } catch (error) {
+            console.error("Failed to toggle collaborator status:", error);
+            alert("Ocorreu um erro ao alterar o estado do colaborador.");
+        }
+    }, [collaborators]);
+
     const handleSnoozeNotification = (id: string) => {
         setSnoozedNotifications(prev => {
             const newSnoozed = [...prev, id];
@@ -761,6 +791,7 @@ export const App: React.FC = () => {
                         });
                     }
                 }}
+                onToggleStatus={handleToggleEntidadeStatus}
             />,
             buttonText: 'Adicionar Entidade',
             onButtonClick: () => setModal({ type: 'add_entidade' }),
@@ -780,6 +811,7 @@ export const App: React.FC = () => {
                 onShowDetails={(col) => setModal({ type: 'collaborator_detail', data: col })}
                 onStartChat={handleOpenChat}
                 onGenerateReport={() => setIsReportModalOpen({ type: 'collaborator' })}
+                onToggleStatus={handleToggleCollaboratorStatus}
             />,
             buttonText: 'Adicionar Colaborador',
             onButtonClick: () => setModal({ type: 'add_collaborator' }),
@@ -936,4 +968,4 @@ export const App: React.FC = () => {
             {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={handleSnoozeNotification} />}
         </div>
     );
-};
+    
