@@ -1,5 +1,3 @@
-
-
 import { supabase } from './supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, Team, TeamMember } from '../types';
 
@@ -45,7 +43,7 @@ const insertData = async <T>(tableName: string, record: Partial<T>): Promise<T> 
 };
 
 
-const updateData = async <T>(tableName: string, id: string, updates: Partial<T>): Promise<T> => {
+export const updateData = async <T>(tableName: string, id: string, updates: Partial<T>): Promise<T> => {
     const sb = checkSupabase();
     const { data, error } = await sb.from(tableName).update(updates as any).eq('id', id).select();
     handleSupabaseError(error, `a atualizar em ${tableName}`);
@@ -169,6 +167,7 @@ export const updateTicket = (id: string, updates: Partial<Ticket>) => updateData
 
 // TicketActivity
 export const addTicketActivity = (record: TicketActivity) => insertData('ticket_activity', record);
+export const updateTicketActivity = (id: string, updates: Partial<TicketActivity>) => updateData('ticket_activity', id, updates);
 
 // CollaboratorHistory
 export const addCollaboratorHistory = (record: CollaboratorHistory) => insertData('collaborator_history', record);
