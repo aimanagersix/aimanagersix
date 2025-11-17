@@ -1,12 +1,17 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { SoftwareLicense, LicenseAssignment, LicenseStatus } from '../types';
+import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
-import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
 interface LicenseDashboardProps {
   licenses: SoftwareLicense[];
   licenseAssignments: LicenseAssignment[];
+  equipment: Equipment[];
+  assignments: Assignment[];
+  collaborators: Collaborator[];
+  brandMap: Map<string, string>;
+  equipmentTypeMap: Map<string, string>;
   initialFilter?: any;
   onClearInitialFilter?: () => void;
   onEdit?: (license: SoftwareLicense) => void;
@@ -23,11 +28,26 @@ const getStatusClass = (status?: LicenseStatus) => {
     }
 };
 
-const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAssignments, onEdit, onDelete, onGenerateReport, initialFilter, onClearInitialFilter, onToggleStatus }) => {
+const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ 
+    licenses, 
+    licenseAssignments, 
+    equipment,
+    assignments,
+    collaborators,
+    brandMap,
+    equipmentTypeMap,
+    onEdit, 
+    onDelete, 
+    onGenerateReport, 
+    initialFilter, 
+    onClearInitialFilter, 
+    onToggleStatus 
+}) => {
     
     const [filters, setFilters] = useState({ productName: '', licenseKey: '', status: '', invoiceNumber: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [expandedLicenseId, setExpandedLicenseId] = useState<string | null>(null);
 
     useEffect(() => {
         if (initialFilter) {
@@ -43,6 +63,34 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAs
             return acc;
         }, new Map<string, number>());
     }, [licenseAssignments]);
+    
+    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const activeAssignmentsMap = useMemo(() => {
+        const map = new Map<string, Assignment>();
+        assignments.filter(a => !a.returnDate).forEach(a => map.set(a.equipmentId, a));
+        return map;
+    }, [assignments]);
+
+    const assignmentsByLicense = useMemo(() => {
+        const map = new Map<string, { equipment: Equipment, user?: string }[]>();
+        licenseAssignments.forEach(la => {
+            const eq = equipmentMap.get(la.equipmentId);
+            if (eq) {
+                if (!map.has(la.softwareLicenseId)) {
+                    map.set(la.softwareLicenseId, []);
+                }
+                const activeAssignment = activeAssignmentsMap.get(eq.id);
+                const user = activeAssignment?.collaboratorId ? collaboratorMap.get(activeAssignment.collaboratorId) : undefined;
+                map.get(la.softwareLicenseId)!.push({ equipment: eq, user });
+            }
+        });
+        return map;
+    }, [licenseAssignments, equipmentMap, activeAssignmentsMap, collaboratorMap]);
+
+    const handleToggleExpand = (licenseId: string) => {
+        setExpandedLicenseId(prev => (prev === licenseId ? null : licenseId));
+    };
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -135,6 +183,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAs
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
+                            <th scope="col" className="px-2 py-3 w-12"></th>
                             <th scope="col" className="px-6 py-3">Nome do Produto</th>
                             <th scope="col" className="px-6 py-3">Chave de Licença</th>
                             <th scope="col" className="px-6 py-3">Status</th>
@@ -148,50 +197,89 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ licenses, licenseAs
                             const usedSeats = usedSeatsMap.get(license.id) || 0;
                             const availableSeats = license.totalSeats - usedSeats;
                             const status = license.status || LicenseStatus.Ativo;
+                            const assignedDetails = assignmentsByLicense.get(license.id) || [];
+                            const isExpanded = expandedLicenseId === license.id;
+
                             return (
-                                <tr key={license.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
-                                    <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{license.productName}</td>
-                                    <td className="px-6 py-4 font-mono">{license.licenseKey}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(status)}`}>
-                                            {status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className="font-semibold text-white">{license.totalSeats}</span> / <span>{usedSeats}</span> / <span className={`font-bold ${availableSeats > 0 ? 'text-green-400' : 'text-red-400'}`}>{availableSeats}</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-xs">
-                                        {license.purchaseDate && <div>Compra: {license.purchaseDate}</div>}
-                                        {license.expiryDate && <div className="text-yellow-400">Expira: {license.expiryDate}</div>}
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex justify-center items-center gap-4">
-                                            {onToggleStatus && (
-                                                <button 
-                                                    onClick={() => onToggleStatus(license.id)} 
-                                                    className={`text-xl ${status === LicenseStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
-                                                    title={status === LicenseStatus.Ativo ? 'Inativar' : 'Ativar'}
-                                                >
-                                                    {status === LicenseStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
+                                <React.Fragment key={license.id}>
+                                    <tr className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+                                        <td className="px-2 py-4">
+                                            {usedSeats > 0 && (
+                                                <button onClick={() => handleToggleExpand(license.id)} className="text-gray-400 hover:text-white" aria-label={isExpanded ? "Esconder detalhes" : "Mostrar detalhes"}>
+                                                    {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
                                                 </button>
                                             )}
-                                            {onEdit && (
-                                                <button onClick={() => onEdit(license)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${license.productName}`}>
-                                                    <EditIcon />
-                                                </button>
-                                            )}
-                                            {onDelete && (
-                                                <button onClick={() => onDelete(license.id)} className="text-red-400 hover:text-red-300" aria-label={`Excluir ${license.productName}`}>
-                                                    <DeleteIcon />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{license.productName}</td>
+                                        <td className="px-6 py-4 font-mono">{license.licenseKey}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(status)}`}>
+                                                {status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="font-semibold text-white">{license.totalSeats}</span> / <span>{usedSeats}</span> / <span className={`font-bold ${availableSeats > 0 ? 'text-green-400' : 'text-red-400'}`}>{availableSeats}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs">
+                                            {license.purchaseDate && <div>Compra: {license.purchaseDate}</div>}
+                                            {license.expiryDate && <div className="text-yellow-400">Expira: {license.expiryDate}</div>}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex justify-center items-center gap-4">
+                                                {onToggleStatus && (
+                                                    <button 
+                                                        onClick={() => onToggleStatus(license.id)} 
+                                                        className={`text-xl ${status === LicenseStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
+                                                        title={status === LicenseStatus.Ativo ? 'Inativar' : 'Ativar'}
+                                                    >
+                                                        {status === LicenseStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
+                                                    </button>
+                                                )}
+                                                {onEdit && (
+                                                    <button onClick={() => onEdit(license)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${license.productName}`}>
+                                                        <EditIcon />
+                                                    </button>
+                                                )}
+                                                {onDelete && (
+                                                    <button onClick={() => onDelete(license.id)} className="text-red-400 hover:text-red-300" aria-label={`Excluir ${license.productName}`}>
+                                                        <DeleteIcon />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {isExpanded && (
+                                        <tr className="bg-gray-900/50">
+                                            <td colSpan={7} className="p-4">
+                                                <h4 className="text-sm font-semibold text-white mb-2">Atribuído a:</h4>
+                                                <div className="max-h-40 overflow-y-auto">
+                                                    <table className="w-full text-xs text-on-surface-dark-secondary">
+                                                        <thead>
+                                                            <tr className="border-b border-gray-600">
+                                                                <th className="px-3 py-1 text-left">Equipamento</th>
+                                                                <th className="px-3 py-1 text-left">Nº Série</th>
+                                                                <th className="px-3 py-1 text-left">Utilizador Atribuído</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {assignedDetails.map(({ equipment: eq, user }, index) => (
+                                                                <tr key={index} className="border-b border-gray-700/50">
+                                                                    <td className="px-3 py-2">{eq.description}</td>
+                                                                    <td className="px-3 py-2 font-mono">{eq.serialNumber}</td>
+                                                                    <td className="px-3 py-2">{user || 'Atribuído à Localização'}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             );
                         }) : (
                             <tr>
-                                <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma licença de software encontrada.</td>
+                                <td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma licença de software encontrada.</td>
                             </tr>
                         )}
                     </tbody>
