@@ -1,12 +1,15 @@
 import React from 'react';
 import Modal from './common/Modal';
-import { Equipment, SoftwareLicense } from '../types';
-import { FaEye, FaBellSlash } from './common/Icons';
+import { Equipment, SoftwareLicense, Ticket, Collaborator, Team } from '../types';
+import { FaEye, FaBellSlash, FaTicketAlt } from './common/Icons';
 
 interface NotificationsModalProps {
     onClose: () => void;
     expiringWarranties: Equipment[];
     expiringLicenses: SoftwareLicense[];
+    teamTickets: Ticket[];
+    collaborators: Collaborator[];
+    teams: Team[];
     onViewItem: (tab: string, filter: any) => void;
     onSnooze: (id: string) => void;
 }
@@ -30,8 +33,11 @@ const getExpiryStatus = (dateStr?: string): { text: string; className: string; d
     return { text: `Válido (${diffDays} dias restantes)`, className: 'text-green-400', daysRemaining: diffDays };
 };
 
-const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiringWarranties, expiringLicenses, onViewItem, onSnooze }) => {
+const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiringWarranties, expiringLicenses, teamTickets, collaborators, teams, onViewItem, onSnooze }) => {
     
+    const collaboratorMap = React.useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const teamMap = React.useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
+
     const sortedWarranties = [...expiringWarranties].sort((a, b) => 
         (getExpiryStatus(a.warrantyEndDate).daysRemaining ?? Infinity) - (getExpiryStatus(b.warrantyEndDate).daysRemaining ?? Infinity)
     );
@@ -39,10 +45,48 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
     const sortedLicenses = [...expiringLicenses].sort((a, b) =>
         (getExpiryStatus(a.expiryDate).daysRemaining ?? Infinity) - (getExpiryStatus(b.expiryDate).daysRemaining ?? Infinity)
     );
+    
+    const sortedTeamTickets = [...teamTickets].sort((a,b) => new Date(a.requestDate).getTime() - new Date(b.requestDate).getTime());
 
     return (
         <Modal title="Notificações" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-6">
+                 <section>
+                    <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2"><FaTicketAlt className="text-yellow-400"/> Tickets Abertos da Equipa</h3>
+                    {sortedTeamTickets.length > 0 ? (
+                        <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                            {sortedTeamTickets.map(ticket => {
+                                const requesterName = collaboratorMap.get(ticket.collaboratorId) || 'Desconhecido';
+                                const teamName = ticket.teamId ? teamMap.get(ticket.teamId) : 'N/A';
+                                return (
+                                    <div key={ticket.id} className="flex items-center justify-between p-3 bg-surface-dark rounded-lg border border-gray-700">
+                                        <div>
+                                            <p className="font-semibold text-on-surface-dark">{ticket.description}</p>
+                                            <p className="text-sm text-on-surface-dark-secondary">Pedido por: {requesterName} | Equipa: <span className="text-brand-secondary font-semibold">{teamName}</span></p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={() => onViewItem('tickets', { teamId: ticket.teamId })}
+                                                className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
+                                            >
+                                                <FaEye /> Ver
+                                            </button>
+                                            <button 
+                                                onClick={() => onSnooze(ticket.id)}
+                                                className="p-2 text-xs text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors"
+                                                title="Ocultar permanentemente esta notificação"
+                                            >
+                                                <FaBellSlash />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <p className="text-on-surface-dark-secondary text-sm">Não existem tickets abertos para as suas equipas.</p>
+                    )}
+                </section>
                 <section>
                     <h3 className="text-xl font-semibold text-white mb-3">Garantias a Expirar ou Expiradas</h3>
                     {sortedWarranties.length > 0 ? (

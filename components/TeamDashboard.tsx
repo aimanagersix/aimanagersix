@@ -24,9 +24,8 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
 
     const ticketCountByTeam = useMemo(() => {
         return tickets.reduce((acc, ticket) => {
-            // FIX: Corrected property name from `teamId` to `team_id` to match the Ticket interface.
-            if (ticket.team_id) {
-                acc[ticket.team_id] = (acc[ticket.team_id] || 0) + 1;
+            if (ticket.teamId) {
+                acc[ticket.teamId] = (acc[ticket.teamId] || 0) + 1;
             }
             return acc;
         }, {} as Record<string, number>);

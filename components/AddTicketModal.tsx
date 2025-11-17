@@ -32,7 +32,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         entidadeId: entidades[0]?.id || '',
         collaboratorId: '',
         description: '',
-        team_id: '',
+        teamId: '',
     });
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -54,7 +54,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 entidadeId: ticketToEdit.entidadeId,
                 collaboratorId: ticketToEdit.collaboratorId,
                 description: ticketToEdit.description,
-                team_id: ticketToEdit.team_id || '',
+                teamId: ticketToEdit.teamId || '',
             });
             setAttachments(ticketToEdit.attachments?.map(a => ({ ...a, size: 0 })) || []); // size is only for validation on upload
         } else if (isUtilizador && currentUser) {
@@ -62,14 +62,14 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 entidadeId: currentUser.entidadeId,
                 collaboratorId: currentUser.id,
                 description: '',
-                team_id: '',
+                teamId: '',
             });
         } else {
              setFormData({
                 entidadeId: entidades[0]?.id || '',
                 collaboratorId: collaborators.find(c => c.entidadeId === entidades[0]?.id)?.id || '',
                 description: '',
-                team_id: '',
+                teamId: '',
             });
         }
     }, [ticketToEdit, entidades, collaborators, isUtilizador, currentUser]);
@@ -132,7 +132,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         
         const dataToSubmit = {
             ...formData,
-            team_id: formData.team_id || undefined,
+            teamId: formData.teamId || undefined,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })),
         };
 
@@ -192,11 +192,11 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 </div>
 
                 <div>
-                    <label htmlFor="team_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Atribuir à Equipa (Opcional)</label>
+                    <label htmlFor="teamId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Atribuir à Equipa (Opcional)</label>
                     <select
-                        name="team_id"
-                        id="team_id"
-                        value={formData.team_id}
+                        name="teamId"
+                        id="teamId"
+                        value={formData.teamId}
                         onChange={handleChange}
                         className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600"
                     >
@@ -255,4 +255,3 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
 };
 
 export default AddTicketModal;
-
