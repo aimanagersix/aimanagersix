@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from './services/supabaseClient';
-import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, SoftwareLicense, LicenseAssignment, CollaboratorStatus, LicenseStatus } from './types';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, CollaboratorStatus, SoftwareLicense, LicenseAssignment, LicenseStatus } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
 import EquipmentDashboard from './components/Dashboard';
@@ -29,7 +29,6 @@ import TicketActivitiesModal from './components/TicketActivitiesModal';
 import ImportModal, { ImportConfig } from './components/ImportModal';
 import AddEquipmentKitModal from './components/AddEquipmentKitModal';
 import InfoModal from './components/common/InfoModal';
-import ManageAssignedLicensesModal from './components/ManageAssignedLicensesModal';
 import NotificationsModal from './components/NotificationsModal';
 import AssignEquipmentModal from './components/AssignEquipmentModal';
 import AssignMultipleEquipmentModal from './components/AssignMultipleEquipmentModal';
@@ -38,6 +37,7 @@ import ConfirmationModal from './components/common/ConfirmationModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 import CollaboratorHistoryModal from './components/CollaboratorHistoryModal';
 import CollaboratorDetailModal from './components/CollaboratorDetailModal';
+import ManageAssignedLicensesModal from './components/ManageAssignedLicensesModal';
 import ConfigurationSetup from './components/ConfigurationSetup';
 import { PlusIcon, FaFileImport, SpinnerIcon } from './components/common/Icons';
 import { Session } from '@supabase/supabase-js';
@@ -262,7 +262,7 @@ export const App: React.FC = () => {
     
     // Generic Save Handler
     const handleSave = useCallback(async <T extends { id: string }>(
-        type: 'equipment' | 'instituicao' | 'entidade' | 'equipment_type' | 'brand' | 'ticket' | 'software_license' | 'ticket_activity' | 'message',
+        type: 'equipment' | 'instituicao' | 'entidade' | 'equipment_type' | 'brand' | 'ticket' | 'ticket_activity' | 'message' | 'software_license',
         data: Partial<T>,
         addFn: (record: any) => Promise<any>,
         updateFn: (id: string, updates: Partial<T>) => Promise<any>,
@@ -490,6 +490,31 @@ export const App: React.FC = () => {
             alert("Ocorreu um erro ao atualizar o estado do equipamento.");
         }
     }, []);
+
+    const handleSaveLicenseAssignments = useCallback(async (equipmentId: string, assignedLicenseIds: string[]) => {
+        try {
+            await dataService.syncLicenseAssignments(equipmentId, assignedLicenseIds);
+            const allAssignments = await dataService.fetchData<LicenseAssignment>('license_assignment');
+            setLicenseAssignments(allAssignments);
+            setModal({ type: null });
+        } catch (error) {
+            console.error("Failed to save license assignments:", error);
+            alert("Ocorreu um erro ao salvar as atribuições de licença.");
+        }
+    }, []);
+
+    const handleToggleLicenseStatus = useCallback(async (id: string) => {
+        const license = softwareLicenses.find(l => l.id === id);
+        if (!license) return;
+        const newStatus = (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo ? LicenseStatus.Inativo : LicenseStatus.Ativo;
+        try {
+            const updatedLicense = await dataService.updateLicense(id, { status: newStatus });
+            setSoftwareLicenses(prev => prev.map(l => l.id === id ? updatedLicense : l));
+        } catch (error) {
+            console.error("Failed to toggle license status:", error);
+            alert("Ocorreu um erro ao alterar o estado da licença.");
+        }
+    }, [softwareLicenses]);
     
     const handleOpenChat = useCallback((collaborator: Collaborator) => {
         setActiveChatCollaboratorId(collaborator.id);
@@ -524,65 +549,6 @@ export const App: React.FC = () => {
             console.error("Failed to mark messages as read:", error);
         }
     }, [currentUser]);
-    
-    const handleSaveLicenseAssignments = useCallback(async (equipmentId: string, assignedLicenseIds: string[]) => {
-        try {
-            const currentAssignments = licenseAssignments.filter(a => a.equipmentId === equipmentId);
-            const currentAssignmentIds = new Set(currentAssignments.map(a => a.softwareLicenseId));
-            const newAssignmentIds = new Set(assignedLicenseIds);
-
-            const idsToAdd = assignedLicenseIds.filter(id => !currentAssignmentIds.has(id));
-            const idsToRemove = Array.from(currentAssignmentIds).filter(id => !newAssignmentIds.has(id));
-            
-            const assignmentsToRemove = currentAssignments.filter(a => idsToRemove.includes(a.softwareLicenseId));
-            const assignmentsToAdd: Omit<LicenseAssignment, 'id'>[] = idsToAdd.map(licenseId => ({
-                softwareLicenseId: licenseId,
-                equipmentId: equipmentId,
-                assignedDate: new Date().toISOString().split('T')[0],
-            }));
-            
-            // Perform deletions
-            for (const assignment of assignmentsToRemove) {
-                await dataService.deleteData('license_assignment', assignment.id);
-            }
-
-            // Perform additions
-            if (assignmentsToAdd.length > 0) {
-                const { data: addedAssignments, error } = await dataService.addMultipleLicenseAssignments(assignmentsToAdd);
-                if (error) throw error;
-                
-                // Atomically update state
-                setLicenseAssignments(prev => [
-                    ...prev.filter(a => !assignmentsToRemove.some(r => r.id === a.id)), // remove deleted ones
-                    ...addedAssignments, // add new ones
-                ]);
-
-            } else if (assignmentsToRemove.length > 0) {
-                // If only deletions happened
-                setLicenseAssignments(prev => prev.filter(a => !assignmentsToRemove.some(r => r.id === a.id)));
-            }
-            
-            setModal({ type: null }); // Close modal
-        } catch (error) {
-            console.error("Failed to update license assignments:", error);
-            alert("Ocorreu um erro ao atualizar as licenças atribuídas.");
-        }
-    }, [licenseAssignments]);
-    
-    const handleToggleLicenseStatus = useCallback(async (id: string) => {
-        const license = softwareLicenses.find(l => l.id === id);
-        if (!license) return;
-
-        const newStatus = (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo ? LicenseStatus.Inativo : LicenseStatus.Ativo;
-        
-        try {
-            const updatedLicense = await dataService.updateSoftwareLicense(id, { status: newStatus });
-            setSoftwareLicenses(prev => prev.map(l => l.id === id ? updatedLicense : l));
-        } catch (error) {
-            console.error("Failed to toggle license status:", error);
-            alert("Ocorreu um erro ao alterar o estado da licença.");
-        }
-    }, [softwareLicenses]);
 
     const handleToggleEntidadeStatus = useCallback(async (id: string) => {
         const entidade = entidades.find(e => e.id === id);
@@ -656,6 +622,7 @@ export const App: React.FC = () => {
         });
     }, [softwareLicenses, snoozedNotifications]);
 
+
     useEffect(() => {
         if (currentUser && !initialNotificationsShown && (expiringWarranties.length > 0 || expiringLicenses.length > 0)) {
             setIsNotificationsModalOpen(true);
@@ -699,8 +666,8 @@ export const App: React.FC = () => {
                 onUpdateStatus={handleUpdateEquipmentStatus}
                 onShowHistory={(eq) => setModal({ type: 'equipment_history', data: eq })}
                 onEdit={(eq) => setModal({ type: 'add_equipment', data: eq })}
-                onManageKeys={(eq) => setModal({ type: 'manage_licenses', data: eq })}
                 onGenerateReport={() => setIsReportModalOpen({ type: 'equipment' })}
+                onManageKeys={(eq) => setModal({ type: 'manage_licenses', data: eq })}
             />,
             buttonText: 'Adicionar Equipamento',
             onButtonClick: () => setModal({ type: 'add_equipment' }),
@@ -819,7 +786,6 @@ export const App: React.FC = () => {
         },
         'licensing': {
             title: 'Licenciamento',
-            // Componente para o dashboard de licenciamento
             component: <LicenseDashboard 
                 licenses={softwareLicenses}
                 licenseAssignments={licenseAssignments}
@@ -828,9 +794,11 @@ export const App: React.FC = () => {
                 collaborators={collaborators}
                 brandMap={brandMap}
                 equipmentTypeMap={equipmentTypeMap}
-                onEdit={(lic) => setModal({ type: 'add_license', data: lic })}
-                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta licença?', onConfirm: () => handleDelete('software_license', id, dataService.deleteSoftwareLicense, setSoftwareLicenses) })}
+                onEdit={(license) => setModal({ type: 'add_license', data: license })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta licença?', onConfirm: () => handleDelete('software_license', id, dataService.deleteLicense, setSoftwareLicenses) })}
                 onGenerateReport={() => setIsReportModalOpen({ type: 'licensing' })}
+                initialFilter={initialDashboardFilter}
+                onClearInitialFilter={() => setInitialDashboardFilter(null)}
                 onToggleStatus={handleToggleLicenseStatus}
             />,
             buttonText: 'Adicionar Licença',
@@ -957,7 +925,7 @@ export const App: React.FC = () => {
             {modal.type === 'add_equipment_type' && <AddEquipmentTypeModal onClose={() => setModal({ type: null })} onSave={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} typeToEdit={modal.data} />}
             {modal.type === 'add_brand' && <AddBrandModal onClose={() => setModal({ type: null })} onSave={(brand) => handleSave('brand', brand, dataService.addBrand, dataService.updateBrand, setBrands)} brandToEdit={modal.data} />}
             {modal.type === 'add_ticket' && <AddTicketModal onClose={() => setModal({ type: null })} onSave={(ticket) => handleSave('ticket', ticket, dataService.addTicket, dataService.updateTicket, setTickets)} ticketToEdit={modal.data} escolasDepartamentos={entidades} collaborators={collaborators} currentUser={currentUser} userPermissions={userPermissions} />}
-            {modal.type === 'add_license' && <AddLicenseModal onClose={() => setModal({ type: null })} onSave={(lic) => handleSave('software_license', lic, dataService.addSoftwareLicense, dataService.updateSoftwareLicense, setSoftwareLicenses)} licenseToEdit={modal.data} />}
+            {modal.type === 'add_license' && <AddLicenseModal onClose={() => setModal({ type: null })} onSave={(license) => handleSave('software_license', license, dataService.addLicense, dataService.updateLicense, setSoftwareLicenses)} licenseToEdit={modal.data} />}
             {modal.type === 'close_ticket' && <CloseTicketModal ticket={modal.data} collaborators={collaborators} onClose={() => setModal({ type: null })} onConfirm={(technicianId) => { const updatedTicket = { ...modal.data, status: TicketStatus.Finished, finishDate: new Date().toISOString().split('T')[0], technicianId }; handleSave('ticket', updatedTicket, dataService.addTicket, dataService.updateTicket, setTickets); setModal({ type: null }); }} />}
             {modal.type === 'assign_equipment' && <AssignEquipmentModal equipment={modal.data} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setModal({ type: null })} onAssign={handleAssignEquipment} />}
             {modal.type === 'assign_multiple_equipment' && <AssignMultipleEquipmentModal equipmentList={modal.data} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setModal({ type: null })} onAssign={handleAssignMultipleEquipment} />}
