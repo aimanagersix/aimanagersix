@@ -126,6 +126,22 @@ export const addMultipleCollaborators = (records: Collaborator[]) => {
     const sb = checkSupabase();
     return sb.from('collaborator').insert(records).select();
 };
+export const uploadCollaboratorPhoto = async (userId: string, file: File): Promise<string | null> => {
+    const sb = checkSupabase();
+    const filePath = `${userId}/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await sb.storage
+        .from('collaborator-photos')
+        .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+        handleSupabaseError(uploadError, 'a carregar a foto do colaborador');
+        return null;
+    }
+
+    const { data } = sb.storage.from('collaborator-photos').getPublicUrl(filePath);
+    return data.publicUrl;
+};
+
 
 // Assignment
 export const addAssignment = (record: Assignment) => insertData('assignment', record);
