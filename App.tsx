@@ -654,8 +654,8 @@ export const App: React.FC = () => {
 
         return tickets.filter(ticket => {
             if (snoozedNotifications.includes(ticket.id)) return false;
-            return ticket.teamId &&
-                   userTeamIds.has(ticket.teamId) &&
+            return ticket.team_id &&
+                   userTeamIds.has(ticket.team_id) &&
                    (ticket.status === TicketStatus.Requested || ticket.status === TicketStatus.InProgress);
         });
     }, [tickets, teamMembers, currentUser, snoozedNotifications]);
