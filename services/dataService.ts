@@ -1,7 +1,7 @@
 
 
 import { supabase } from './supabaseClient';
-import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment } from '../types';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, Team, TeamMember } from '../types';
 
 // Função auxiliar para lidar com erros do Supabase de forma consistente
 const handleSupabaseError = (error: any, context: string) => {
@@ -66,7 +66,7 @@ export const fetchAllData = async () => {
     const [
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
         assignments, tickets, ticketActivities, collaboratorHistory, messages,
-        softwareLicenses, licenseAssignments
+        softwareLicenses, licenseAssignments, teams, teamMembers
     ] = await Promise.all([
         fetchData<Equipment>('equipment'),
         fetchData<Instituicao>('instituicao'),
@@ -81,12 +81,14 @@ export const fetchAllData = async () => {
         fetchData<Message>('message'),
         fetchData<SoftwareLicense>('software_license'),
         fetchData<LicenseAssignment>('license_assignment'),
+        fetchData<Team>('teams'),
+        fetchData<TeamMember>('team_members'),
     ]);
 
     return {
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
         assignments, tickets, ticketActivities, collaboratorHistory, messages,
-        softwareLicenses, licenseAssignments
+        softwareLicenses, licenseAssignments, teams, teamMembers
     };
 };
 
@@ -229,5 +231,29 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
             .from('license_assignment')
             .insert(newRecords);
         handleSupabaseError(insertError, 'a adicionar atribuições de licença');
+    }
+};
+
+// Teams
+export const addTeam = (record: Omit<Team, 'id'>) => insertData('teams', record);
+export const updateTeam = (id: string, updates: Partial<Team>) => updateData('teams', id, updates);
+export const deleteTeam = (id: string) => deleteData('teams', id);
+
+// TeamMembers
+export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
+    const sb = checkSupabase();
+
+    // 1. Delete all existing members for the team
+    const { error: deleteError } = await sb.from('team_members').delete().eq('team_id', teamId);
+    handleSupabaseError(deleteError, 'a remover membros antigos da equipa');
+
+    // 2. Insert new members if any
+    if (memberIds.length > 0) {
+        const newMembers = memberIds.map(collaborator_id => ({
+            team_id: teamId,
+            collaborator_id
+        }));
+        const { error: insertError } = await sb.from('team_members').insert(newMembers);
+        handleSupabaseError(insertError, 'a adicionar novos membros à equipa');
     }
 };
