@@ -819,6 +819,7 @@ export const App: React.FC = () => {
         },
         'licensing': {
             title: 'Licenciamento',
+            // Componente para o dashboard de licenciamento
             component: <LicenseDashboard 
                 licenses={softwareLicenses}
                 licenseAssignments={licenseAssignments}
