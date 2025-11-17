@@ -29,7 +29,7 @@ const getStatusClass = (status: TicketStatus) => {
 
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities }) => {
     
-    const [filters, setFilters] = useState<{ status: string | string[], teamId: string }>({ status: '', teamId: '' });
+    const [filters, setFilters] = useState<{ status: string | string[], team_id: string }>({ status: '', team_id: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
@@ -62,7 +62,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
     const filteredTickets = useMemo(() => {
         return [...tickets].sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
         .filter(ticket => {
-            const teamMatch = !filters.teamId || ticket.teamId === filters.teamId;
+            const teamMatch = !filters.team_id || ticket.team_id === filters.team_id;
             const statusMatch = (() => {
                 if (!filters.status || (Array.isArray(filters.status) && filters.status.length === 0)) return true;
                 if (Array.isArray(filters.status)) {
@@ -106,9 +106,9 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                 <h2 className="text-xl font-semibold text-white">Gerenciar Tickets de Suporte</h2>
                 <div className="flex items-center gap-2">
                      <select
-                        id="teamFilter"
-                        name="teamId"
-                        value={filters.teamId}
+                        id="team_idFilter"
+                        name="team_id"
+                        value={filters.team_id}
                         onChange={handleFilterChange}
                         className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
                      >
@@ -146,7 +146,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                         <tr key={ticket.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                             <td className="px-6 py-4">
                                 <div>{entidadeMap.get(ticket.entidadeId) || 'N/A'}</div>
-                                {ticket.teamId && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.teamId)}</div>}
+                                {ticket.team_id && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.team_id)}</div>}
                             </td>
                             <td className="px-6 py-4">{collaboratorMap.get(ticket.collaboratorId) || 'N/A'}</td>
                             <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs truncate" title={ticket.description}>

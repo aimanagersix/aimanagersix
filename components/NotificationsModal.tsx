@@ -57,7 +57,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                         <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                             {sortedTeamTickets.map(ticket => {
                                 const requesterName = collaboratorMap.get(ticket.collaboratorId) || 'Desconhecido';
-                                const teamName = ticket.teamId ? teamMap.get(ticket.teamId) : 'N/A';
+                                const teamName = ticket.team_id ? teamMap.get(ticket.team_id) : 'N/A';
                                 return (
                                     <div key={ticket.id} className="flex items-center justify-between p-3 bg-surface-dark rounded-lg border border-gray-700">
                                         <div>
@@ -66,7 +66,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button 
-                                                onClick={() => onViewItem('tickets', { teamId: ticket.teamId })}
+                                                onClick={() => onViewItem('tickets', { team_id: ticket.team_id })}
                                                 className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
                                             >
                                                 <FaEye /> Ver
