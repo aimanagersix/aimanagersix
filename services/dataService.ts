@@ -169,23 +169,49 @@ export const markMessagesAsRead = (senderId: string, receiverId: string) => {
         .eq('read', false);
 };
 
-
 // SoftwareLicense
-export const addSoftwareLicense = (record: SoftwareLicense) => insertData('software_license', record);
-export const updateSoftwareLicense = (id: string, updates: Partial<SoftwareLicense>) => updateData('software_license', id, updates);
-export const deleteSoftwareLicense = (id: string) => deleteData('software_license', id);
+export const addLicense = (record: SoftwareLicense) => insertData('software_license', record);
+export const updateLicense = (id: string, updates: Partial<SoftwareLicense>) => updateData('software_license', id, updates);
+export const deleteLicense = (id: string) => deleteData('software_license', id);
 
 // LicenseAssignment
-export const addLicenseAssignment = (record: LicenseAssignment) => insertData('license_assignment', record);
-export const addMultipleLicenseAssignments = (records: Omit<LicenseAssignment, 'id'>[]) => {
+export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const sb = checkSupabase();
-    return sb.from('license_assignment').insert(records).select();
-};
-export const deleteLicenseAssignmentsByEquipment = (equipmentId: string) => {
-    const sb = checkSupabase();
-    return sb.from('license_assignment').delete().eq('equipmentId', equipmentId);
-};
-export const deleteLicenseAssignmentsByLicense = (licenseId: string) => {
-    const sb = checkSupabase();
-    return sb.from('license_assignment').delete().eq('softwareLicenseId', licenseId);
+
+    // 1. Get current assignments for this equipment
+    const { data: currentAssignments, error: fetchError } = await sb
+        .from('license_assignment')
+        .select('id, softwareLicenseId')
+        .eq('equipmentId', equipmentId);
+    handleSupabaseError(fetchError, 'a obter atribuições de licença');
+
+    const currentLicenseIds = new Set(currentAssignments?.map(a => a.softwareLicenseId));
+    const newLicenseIds = new Set(licenseIds);
+
+    // 2. Determine which to add and which to remove
+    const toAdd = licenseIds.filter(id => !currentLicenseIds.has(id));
+    const toRemove = currentAssignments?.filter(a => !newLicenseIds.has(a.softwareLicenseId)).map(a => a.id) || [];
+
+    // 3. Perform deletions
+    if (toRemove.length > 0) {
+        const { error: deleteError } = await sb
+            .from('license_assignment')
+            .delete()
+            .in('id', toRemove);
+        handleSupabaseError(deleteError, 'a apagar atribuições de licença');
+    }
+
+    // 4. Perform insertions
+    if (toAdd.length > 0) {
+        const newRecords = toAdd.map(licenseId => ({
+            equipmentId,
+            softwareLicenseId: licenseId,
+            assignedDate: new Date().toISOString().split('T')[0],
+            id: crypto.randomUUID(),
+        }));
+        const { error: insertError } = await sb
+            .from('license_assignment')
+            .insert(newRecords);
+        handleSupabaseError(insertError, 'a adicionar atribuições de licença');
+    }
 };
