@@ -121,6 +121,7 @@ export interface Ticket {
   status: TicketStatus;
   technicianId?: string;
   attachments?: { name: string; dataUrl: string }[];
+  teamId?: string;
 }
 
 export interface TicketActivity {
@@ -170,4 +171,15 @@ export interface LicenseAssignment {
   softwareLicenseId: string;
   equipmentId: string;
   assignedDate: string;
+}
+
+export interface Team {
+    id: string;
+    name: string;
+    description?: string;
+}
+
+export interface TeamMember {
+    team_id: string;
+    collaborator_id: string;
 }

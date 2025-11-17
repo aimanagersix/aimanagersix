@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from './services/supabaseClient';
-import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, CollaboratorStatus, SoftwareLicense, LicenseAssignment, LicenseStatus } from './types';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, CollaboratorStatus, SoftwareLicense, LicenseAssignment, LicenseStatus, Team, TeamMember } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
 import EquipmentDashboard from './components/Dashboard';
@@ -12,6 +12,7 @@ import BrandDashboard from './components/BrandDashboard';
 import OverviewDashboard from './components/OverviewDashboard';
 import TicketDashboard from './components/TicketDashboard';
 import LicenseDashboard from './components/LicenseDashboard';
+import TeamDashboard from './components/TeamDashboard';
 import LoginPage from './components/LoginPage';
 import ForgotPasswordModal from './components/ForgotPasswordModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
@@ -24,6 +25,8 @@ import AddEquipmentTypeModal from './components/AddEquipmentTypeModal';
 import AddBrandModal from './components/AddBrandModal';
 import AddTicketModal from './components/AddTicketModal';
 import AddLicenseModal from './components/AddLicenseModal';
+import AddTeamModal from './components/AddTeamModal';
+import ManageTeamMembersModal from './components/ManageTeamMembersModal';
 import CloseTicketModal from './components/CloseTicketModal';
 import TicketActivitiesModal from './components/TicketActivitiesModal';
 import ImportModal, { ImportConfig } from './components/ImportModal';
@@ -95,6 +98,8 @@ export const App: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [softwareLicenses, setSoftwareLicenses] = useState<SoftwareLicense[]>([]);
     const [licenseAssignments, setLicenseAssignments] = useState<LicenseAssignment[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     
     const clearAllData = () => {
         setEquipment([]);
@@ -110,6 +115,8 @@ export const App: React.FC = () => {
         setMessages([]);
         setSoftwareLicenses([]);
         setLicenseAssignments([]);
+        setTeams([]);
+        setTeamMembers([]);
         setCurrentUser(null);
         setInitialNotificationsShown(false);
         setSnoozedNotifications([]);
@@ -204,6 +211,8 @@ export const App: React.FC = () => {
                 setMessages(allData.messages);
                 setSoftwareLicenses(allData.softwareLicenses);
                 setLicenseAssignments(allData.licenseAssignments);
+                setTeams(allData.teams);
+                setTeamMembers(allData.teamMembers);
                 
                 setCurrentUser(userProfile);
 
@@ -262,7 +271,7 @@ export const App: React.FC = () => {
     
     // Generic Save Handler
     const handleSave = useCallback(async <T extends { id: string }>(
-        type: 'equipment' | 'instituicao' | 'entidade' | 'equipment_type' | 'brand' | 'ticket' | 'ticket_activity' | 'message' | 'software_license',
+        type: 'equipment' | 'instituicao' | 'entidade' | 'equipment_type' | 'brand' | 'ticket' | 'ticket_activity' | 'message' | 'software_license' | 'team',
         data: Partial<T>,
         addFn: (record: any) => Promise<any>,
         updateFn: (id: string, updates: Partial<T>) => Promise<any>,
@@ -393,7 +402,7 @@ export const App: React.FC = () => {
 
     // Generic Delete Handler
     const handleDelete = useCallback(async <T extends { id: string }>(
-        type: 'equipment' | 'instituicao' | 'entidade' | 'collaborator' | 'equipment_type' | 'brand' | 'software_license',
+        type: 'equipment' | 'instituicao' | 'entidade' | 'collaborator' | 'equipment_type' | 'brand' | 'software_license' | 'team',
         id: string,
         deleteFn: (id: string) => Promise<void>,
         setData: React.Dispatch<React.SetStateAction<T[]>>
@@ -500,6 +509,18 @@ export const App: React.FC = () => {
         } catch (error) {
             console.error("Failed to save license assignments:", error);
             alert("Ocorreu um erro ao salvar as atribuições de licença.");
+        }
+    }, []);
+
+    const handleSyncTeamMembers = useCallback(async (teamId: string, memberIds: string[]) => {
+        try {
+            await dataService.syncTeamMembers(teamId, memberIds);
+            const allTeamMembers = await dataService.fetchData<TeamMember>('team_members');
+            setTeamMembers(allTeamMembers);
+            setModal({ type: null });
+        } catch (error) {
+            console.error("Failed to save team members:", error);
+            alert("Ocorreu um erro ao salvar os membros da equipa.");
         }
     }, []);
 
@@ -764,6 +785,20 @@ export const App: React.FC = () => {
             onButtonClick: () => setModal({ type: 'add_entidade' }),
             onImportClick: () => setModal({ type: 'import', data: { dataType: 'entidades', title: 'Importar Entidades', columnMap: { instituicaoCodigo: 'Código Instituição', codigo: 'Código', name: 'Nome', description: 'Descrição', email: 'Email', responsavel: 'Responsável', telefone: 'Telefone', telemovel: 'Telemóvel', telefoneInterno: 'Telefone Interno', status: 'Status' }, templateFileName: 'template_entidades.xlsx' } as ImportConfig }),
         },
+        'organizacao.teams': {
+            title: 'Equipas',
+            component: <TeamDashboard
+                teams={teams}
+                teamMembers={teamMembers}
+                collaborators={collaborators}
+                tickets={tickets}
+                onEdit={(team) => setModal({ type: 'add_team', data: team })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta equipa?', onConfirm: () => handleDelete('team', id, dataService.deleteTeam, setTeams) })}
+                onManageMembers={(team) => setModal({ type: 'manage_team_members', data: team })}
+            />,
+            buttonText: 'Adicionar Equipa',
+            onButtonClick: () => setModal({ type: 'add_team' }),
+        },
         'collaborators': {
             title: 'Colaboradores',
             component: <CollaboratorDashboard 
@@ -810,6 +845,7 @@ export const App: React.FC = () => {
                 tickets={tickets}
                 escolasDepartamentos={entidades}
                 collaborators={collaborators}
+                teams={teams}
                 initialFilter={initialDashboardFilter}
                 onClearInitialFilter={() => setInitialDashboardFilter(null)}
                 onEdit={(ticket) => setModal({ type: 'add_ticket', data: ticket })}
@@ -924,8 +960,10 @@ export const App: React.FC = () => {
             {modal.type === 'add_collaborator' && <AddCollaboratorModal onClose={() => setModal({ type: null })} onSave={handleSaveCollaborator} escolasDepartamentos={entidades} collaboratorToEdit={modal.data} currentUser={currentUser} />}
             {modal.type === 'add_equipment_type' && <AddEquipmentTypeModal onClose={() => setModal({ type: null })} onSave={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} typeToEdit={modal.data} />}
             {modal.type === 'add_brand' && <AddBrandModal onClose={() => setModal({ type: null })} onSave={(brand) => handleSave('brand', brand, dataService.addBrand, dataService.updateBrand, setBrands)} brandToEdit={modal.data} />}
-            {modal.type === 'add_ticket' && <AddTicketModal onClose={() => setModal({ type: null })} onSave={(ticket) => handleSave('ticket', ticket, dataService.addTicket, dataService.updateTicket, setTickets)} ticketToEdit={modal.data} escolasDepartamentos={entidades} collaborators={collaborators} currentUser={currentUser} userPermissions={userPermissions} />}
+            {modal.type === 'add_ticket' && <AddTicketModal onClose={() => setModal({ type: null })} onSave={(ticket) => handleSave('ticket', ticket, dataService.addTicket, dataService.updateTicket, setTickets)} ticketToEdit={modal.data} escolasDepartamentos={entidades} collaborators={collaborators} teams={teams} currentUser={currentUser} userPermissions={userPermissions} />}
             {modal.type === 'add_license' && <AddLicenseModal onClose={() => setModal({ type: null })} onSave={(license) => handleSave('software_license', license, dataService.addLicense, dataService.updateLicense, setSoftwareLicenses)} licenseToEdit={modal.data} />}
+            {modal.type === 'add_team' && <AddTeamModal onClose={() => setModal({ type: null })} onSave={(team) => handleSave('team', team, dataService.addTeam, dataService.updateTeam, setTeams)} teamToEdit={modal.data} />}
+            {modal.type === 'manage_team_members' && <ManageTeamMembersModal onClose={() => setModal({ type: null })} onSave={handleSyncTeamMembers} team={modal.data} allCollaborators={collaborators} teamMembers={teamMembers} />}
             {modal.type === 'close_ticket' && <CloseTicketModal ticket={modal.data} collaborators={collaborators} onClose={() => setModal({ type: null })} onConfirm={(technicianId) => { const updatedTicket = { ...modal.data, status: TicketStatus.Finished, finishDate: new Date().toISOString().split('T')[0], technicianId }; handleSave('ticket', updatedTicket, dataService.addTicket, dataService.updateTicket, setTickets); setModal({ type: null }); }} />}
             {modal.type === 'assign_equipment' && <AssignEquipmentModal equipment={modal.data} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setModal({ type: null })} onAssign={handleAssignEquipment} />}
             {modal.type === 'assign_multiple_equipment' && <AssignMultipleEquipmentModal equipmentList={modal.data} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setModal({ type: null })} onAssign={handleAssignMultipleEquipment} />}
