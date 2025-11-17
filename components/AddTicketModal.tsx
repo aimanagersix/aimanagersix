@@ -1,8 +1,6 @@
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment } from '../types';
 import { DeleteIcon } from './common/Icons';
 
 interface AddTicketModalProps {
@@ -14,6 +12,9 @@ interface AddTicketModalProps {
     teams: Team[];
     currentUser: Collaborator | null;
     userPermissions: { viewScope: string };
+    equipment: Equipment[];
+    equipmentTypes: EquipmentType[];
+    assignments: Assignment[];
 }
 
 const MAX_FILES = 3;
@@ -27,12 +28,13 @@ const formatFileSize = (bytes: number): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions }) => {
+const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments }) => {
     const [formData, setFormData] = useState({
         entidadeId: entidades[0]?.id || '',
         collaboratorId: '',
         description: '',
         team_id: '',
+        equipmentId: '',
     });
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -47,6 +49,35 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         return collaborators.filter(c => c.entidadeId === formData.entidadeId && c.status === CollaboratorStatus.Ativo);
     }, [formData.entidadeId, collaborators, isUtilizador, currentUser]);
 
+    const availableEquipment = useMemo(() => {
+        const activeAssignments = assignments.filter(a => !a.returnDate);
+        const equipmentIds = new Set<string>();
+
+        activeAssignments.forEach(a => {
+            if (a.entidadeId === formData.entidadeId) {
+                if (formData.collaboratorId && a.collaboratorId === formData.collaboratorId) {
+                    equipmentIds.add(a.equipmentId);
+                } else if (!a.collaboratorId) {
+                    equipmentIds.add(a.equipmentId);
+                }
+            }
+        });
+
+        return equipment.filter(e => equipmentIds.has(e.id));
+    }, [formData.entidadeId, formData.collaboratorId, assignments, equipment]);
+    
+    useEffect(() => {
+        if (formData.equipmentId) {
+            const selectedEquipment = equipment.find(e => e.id === formData.equipmentId);
+            if (selectedEquipment) {
+                const type = equipmentTypes.find(t => t.id === selectedEquipment.typeId);
+                if (type?.default_team_id) {
+                    setFormData(prev => ({ ...prev, team_id: type.default_team_id! }));
+                }
+            }
+        }
+    }, [formData.equipmentId, equipment, equipmentTypes]);
+
 
     useEffect(() => {
         if (ticketToEdit) {
@@ -55,6 +86,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 collaboratorId: ticketToEdit.collaboratorId,
                 description: ticketToEdit.description,
                 team_id: ticketToEdit.team_id || '',
+                equipmentId: ticketToEdit.equipmentId || '',
             });
             setAttachments(ticketToEdit.attachments?.map(a => ({ ...a, size: 0 })) || []); // size is only for validation on upload
         } else if (isUtilizador && currentUser) {
@@ -63,6 +95,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 collaboratorId: currentUser.id,
                 description: '',
                 team_id: '',
+                equipmentId: '',
             });
         } else {
              setFormData({
@@ -70,6 +103,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 collaboratorId: collaborators.find(c => c.entidadeId === entidades[0]?.id)?.id || '',
                 description: '',
                 team_id: '',
+                equipmentId: '',
             });
         }
     }, [ticketToEdit, entidades, collaborators, isUtilizador, currentUser]);
@@ -133,6 +167,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         const dataToSubmit = {
             ...formData,
             team_id: formData.team_id || undefined,
+            equipmentId: formData.equipmentId || undefined,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })),
         };
 
@@ -191,22 +226,39 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                     {errors.description && <p className="text-red-400 text-xs italic mt-1">{errors.description}</p>}
                 </div>
 
-                <div>
-                    <label htmlFor="team_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Atribuir à Equipa (Opcional)</label>
-                    <select
-                        name="team_id"
-                        id="team_id"
-                        value={formData.team_id}
-                        onChange={handleChange}
-                        className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600"
-                    >
-                        <option value="">Nenhuma</option>
-                        {teams.map(team => (
-                            <option key={team.id} value={team.id}>{team.name}</option>
-                        ))}
-                    </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="equipmentId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipamento Associado (Opcional)</label>
+                        <select
+                            name="equipmentId"
+                            id="equipmentId"
+                            value={formData.equipmentId}
+                            onChange={handleChange}
+                            className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed"
+                            disabled={availableEquipment.length === 0}
+                        >
+                            <option value="">Nenhum</option>
+                            {availableEquipment.map(eq => (
+                                <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="team_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Atribuir à Equipa (Opcional)</label>
+                        <select
+                            name="team_id"
+                            id="team_id"
+                            value={formData.team_id}
+                            onChange={handleChange}
+                            className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600"
+                        >
+                            <option value="">Nenhuma</option>
+                            {teams.map(team => (
+                                <option key={team.id} value={team.id}>{team.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
-
 
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-2">Anexos</label>

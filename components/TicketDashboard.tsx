@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team } from '../types';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType } from '../types';
 import { EditIcon, FaTasks } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -9,6 +9,8 @@ interface TicketDashboardProps {
   escolasDepartamentos: Entidade[];
   collaborators: Collaborator[];
   teams: Team[];
+  equipment: Equipment[];
+  equipmentTypes: EquipmentType[];
   initialFilter?: any;
   onClearInitialFilter?: () => void;
   onUpdateTicket?: (ticket: Ticket) => void;
@@ -27,7 +29,7 @@ const getStatusClass = (status: TicketStatus) => {
     }
 };
 
-const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities }) => {
+const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities }) => {
     
     const [filters, setFilters] = useState<{ status: string | string[], team_id: string }>({ status: '', team_id: '' });
     const [currentPage, setCurrentPage] = useState(1);
@@ -46,6 +48,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
+    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
     
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -142,52 +145,61 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedTickets.length > 0 ? paginatedTickets.map((ticket) => (
-                        <tr key={ticket.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
-                            <td className="px-6 py-4">
-                                <div>{entidadeMap.get(ticket.entidadeId) || 'N/A'}</div>
-                                {ticket.team_id && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.team_id)}</div>}
-                            </td>
-                            <td className="px-6 py-4">{collaboratorMap.get(ticket.collaboratorId) || 'N/A'}</td>
-                            <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs truncate" title={ticket.description}>
-                                {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-2 text-on-surface-dark-secondary" title={`${ticket.attachments.length} anexo(s)`} />}
-                                {ticket.description}
-                            </td>
-                            <td className="px-6 py-4">
-                                <div>Pedido: {ticket.requestDate}</div>
-                                {ticket.finishDate && <div className="text-xs">Fim: {ticket.finishDate}</div>}
-                            </td>
-                            <td className="px-6 py-4">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : '—'}</td>
-                            <td className="px-6 py-4">
-                                 <select
-                                    value={ticket.status}
-                                    onChange={(e) => handleStatusChange(ticket, e.target.value as TicketStatus)}
-                                    className={`px-2 py-1 rounded-md text-xs border bg-transparent ${getStatusClass(ticket.status)} focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70`}
-                                    disabled={!onUpdateTicket}
-                                >
-                                    {Object.values(TicketStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                                <div className="flex justify-center items-center gap-4">
-                                    {onOpenActivities && (
-                                        <button
-                                            onClick={() => onOpenActivities(ticket)}
-                                            className="text-teal-400 hover:text-teal-300"
-                                            title="Registar Intervenção / Ver Atividades"
-                                        >
-                                            <FaTasks className="h-5 w-5"/>
-                                        </button>
+                        {paginatedTickets.length > 0 ? paginatedTickets.map((ticket) => {
+                            const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
+                            return(
+                            <tr key={ticket.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+                                <td className="px-6 py-4">
+                                    <div>{entidadeMap.get(ticket.entidadeId) || 'N/A'}</div>
+                                    {ticket.team_id && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.team_id)}</div>}
+                                </td>
+                                <td className="px-6 py-4">{collaboratorMap.get(ticket.collaboratorId) || 'N/A'}</td>
+                                <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs" title={ticket.description}>
+                                    <div>
+                                        {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-2 text-on-surface-dark-secondary" title={`${ticket.attachments.length} anexo(s)`} />}
+                                        <span className="truncate">{ticket.description}</span>
+                                    </div>
+                                    {associatedEquipment && (
+                                        <div className="text-xs text-indigo-400 mt-1 truncate">
+                                            Equip: {associatedEquipment.description} (S/N: {associatedEquipment.serialNumber})
+                                        </div>
                                     )}
-                                    {onEdit && (
-                                        <button onClick={() => onEdit(ticket)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ticket de ${collaboratorMap.get(ticket.collaboratorId)}`}>
-                                            <EditIcon />
-                                        </button>
-                                    )}
-                                </div>
-                            </td>
-                        </tr>
-                        )) : (
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div>Pedido: {ticket.requestDate}</div>
+                                    {ticket.finishDate && <div className="text-xs">Fim: {ticket.finishDate}</div>}
+                                </td>
+                                <td className="px-6 py-4">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : '—'}</td>
+                                <td className="px-6 py-4">
+                                     <select
+                                        value={ticket.status}
+                                        onChange={(e) => handleStatusChange(ticket, e.target.value as TicketStatus)}
+                                        className={`px-2 py-1 rounded-md text-xs border bg-transparent ${getStatusClass(ticket.status)} focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70`}
+                                        disabled={!onUpdateTicket}
+                                    >
+                                        {Object.values(TicketStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    <div className="flex justify-center items-center gap-4">
+                                        {onOpenActivities && (
+                                            <button
+                                                onClick={() => onOpenActivities(ticket)}
+                                                className="text-teal-400 hover:text-teal-300"
+                                                title="Registar Intervenção / Ver Atividades"
+                                            >
+                                                <FaTasks className="h-5 w-5"/>
+                                            </button>
+                                        )}
+                                        {onEdit && (
+                                            <button onClick={() => onEdit(ticket)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ticket de ${collaboratorMap.get(ticket.collaboratorId)}`}>
+                                                <EditIcon />
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        )}) : (
                             <tr>
                                 <td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">Nenhum ticket encontrado com os filtros atuais.</td>
                             </tr>
