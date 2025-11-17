@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team } from '../types';
 import { DeleteIcon } from './common/Icons';
 
 interface AddTicketModalProps {
@@ -11,6 +11,7 @@ interface AddTicketModalProps {
     ticketToEdit?: Ticket | null;
     escolasDepartamentos: Entidade[];
     collaborators: Collaborator[];
+    teams: Team[];
     currentUser: Collaborator | null;
     userPermissions: { viewScope: string };
 }
@@ -26,11 +27,12 @@ const formatFileSize = (bytes: number): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, currentUser, userPermissions }) => {
+const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions }) => {
     const [formData, setFormData] = useState({
         entidadeId: entidades[0]?.id || '',
         collaboratorId: '',
         description: '',
+        teamId: '',
     });
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -52,6 +54,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 entidadeId: ticketToEdit.entidadeId,
                 collaboratorId: ticketToEdit.collaboratorId,
                 description: ticketToEdit.description,
+                teamId: ticketToEdit.teamId || '',
             });
             setAttachments(ticketToEdit.attachments?.map(a => ({ ...a, size: 0 })) || []); // size is only for validation on upload
         } else if (isUtilizador && currentUser) {
@@ -59,12 +62,14 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 entidadeId: currentUser.entidadeId,
                 collaboratorId: currentUser.id,
                 description: '',
+                teamId: '',
             });
         } else {
              setFormData({
                 entidadeId: entidades[0]?.id || '',
                 collaboratorId: collaborators.find(c => c.entidadeId === entidades[0]?.id)?.id || '',
                 description: '',
+                teamId: '',
             });
         }
     }, [ticketToEdit, entidades, collaborators, isUtilizador, currentUser]);
@@ -127,13 +132,14 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         
         const dataToSubmit = {
             ...formData,
+            teamId: formData.teamId || undefined,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })),
         };
 
         if (ticketToEdit) {
             onSave({ ...ticketToEdit, ...dataToSubmit });
         } else {
-            onSave(dataToSubmit);
+            onSave(dataToSubmit as Omit<Ticket, 'id' | 'requestDate' | 'status' | 'finishDate'>);
         }
         onClose();
     };
@@ -184,6 +190,23 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                     <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} ></textarea>
                     {errors.description && <p className="text-red-400 text-xs italic mt-1">{errors.description}</p>}
                 </div>
+
+                <div>
+                    <label htmlFor="teamId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Atribuir à Equipa (Opcional)</label>
+                    <select
+                        name="teamId"
+                        id="teamId"
+                        value={formData.teamId}
+                        onChange={handleChange}
+                        className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600"
+                    >
+                        <option value="">Nenhuma</option>
+                        {teams.map(team => (
+                            <option key={team.id} value={team.id}>{team.name}</option>
+                        ))}
+                    </select>
+                </div>
+
 
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-2">Anexos</label>

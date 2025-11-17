@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell } from './common/Icons';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers } from './common/Icons';
 import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync } from 'react-icons/fa';
 
 interface HeaderProps {
@@ -79,7 +79,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         }
     }, [activeTab]);
 
-    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'];
+    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['organizacao.teams'];
     const hasInventarioTabs = tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
 
 
@@ -141,6 +141,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             <div className="py-1">
                                 {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label="Instituições" icon={<FaSitemap className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label="Entidades" icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label="Equipas" icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                             </div>
                         </div>
                     )}
@@ -177,7 +178,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
              <div className="flex items-center gap-3">
                 {currentUser && (
                     <div className="hidden sm:flex items-center gap-2 text-sm text-on-surface-dark-secondary">
-                        <UserIcon className="h-5 w-5 text-brand-secondary"/>
+                         {currentUser.photoUrl ? (
+                            <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" />
+                        ) : (
+                             <UserIcon className="h-5 w-5 text-brand-secondary"/>
+                        )}
                         <span>Olá, {currentUser.fullName}</span>
                     </div>
                 )}
@@ -256,6 +261,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                 <div className="pl-4 mt-1 space-y-1">
                                     {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label="Instituições" icon={<FaSitemap className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
                                     {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label="Entidades" icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label="Equipas" icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 </div>
                             )}
                         </div>

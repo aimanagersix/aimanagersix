@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus } from '../types';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team } from '../types';
 import { EditIcon, FaTasks } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -8,6 +8,7 @@ interface TicketDashboardProps {
   tickets: Ticket[];
   escolasDepartamentos: Entidade[];
   collaborators: Collaborator[];
+  teams: Team[];
   initialFilter?: any;
   onClearInitialFilter?: () => void;
   onUpdateTicket?: (ticket: Ticket) => void;
@@ -26,27 +27,29 @@ const getStatusClass = (status: TicketStatus) => {
     }
 };
 
-const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities }) => {
+const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities }) => {
     
-    const [filters, setFilters] = useState<{ status: string | string[] }>({ status: '' });
+    const [filters, setFilters] = useState<{ status: string | string[], teamId: string }>({ status: '', teamId: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
     useEffect(() => {
-        if (initialFilter?.status) {
-            setFilters({ status: initialFilter.status });
+        if (initialFilter) {
+            setFilters(prev => ({ ...prev, status: initialFilter.status || '' }));
         } else {
             // Reset if initialFilter is cleared from parent
-            setFilters({ status: '' });
+            setFilters(prev => ({ ...prev, status: '' }));
         }
         setCurrentPage(1); // Reset page on filter change
     }, [initialFilter]);
     
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setFilters({ status: e.target.value });
+        const { name, value } = e.target;
+        setFilters(prev => ({...prev, [name]: value}));
         onClearInitialFilter?.();
         setCurrentPage(1);
     };
@@ -59,11 +62,16 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
     const filteredTickets = useMemo(() => {
         return [...tickets].sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
         .filter(ticket => {
-            if (!filters.status || (Array.isArray(filters.status) && filters.status.length === 0)) return true;
-            if (Array.isArray(filters.status)) {
-                return filters.status.includes(ticket.status);
-            }
-            return ticket.status === filters.status;
+            const teamMatch = !filters.teamId || ticket.teamId === filters.teamId;
+            const statusMatch = (() => {
+                if (!filters.status || (Array.isArray(filters.status) && filters.status.length === 0)) return true;
+                if (Array.isArray(filters.status)) {
+                    return filters.status.includes(ticket.status);
+                }
+                return ticket.status === filters.status;
+            })();
+
+            return teamMatch && statusMatch;
         });
     }, [tickets, filters]);
 
@@ -98,7 +106,18 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                 <h2 className="text-xl font-semibold text-white">Gerenciar Tickets de Suporte</h2>
                 <div className="flex items-center gap-2">
                      <select
+                        id="teamFilter"
+                        name="teamId"
+                        value={filters.teamId}
+                        onChange={handleFilterChange}
+                        className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                     >
+                        <option value="">Todas as Equipas</option>
+                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                     </select>
+                     <select
                         id="statusFilter"
+                        name="status"
                         value={Array.isArray(filters.status) ? '' : filters.status}
                         onChange={handleFilterChange}
                         className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
@@ -113,7 +132,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th scope="col" className="px-6 py-3">Entidade</th>
+                            <th scope="col" className="px-6 py-3">Entidade / Equipa</th>
                             <th scope="col" className="px-6 py-3">Colaborador</th>
                             <th scope="col" className="px-6 py-3">Descrição</th>
                             <th scope="col" className="px-6 py-3">Datas</th>
@@ -125,7 +144,10 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                     <tbody>
                         {paginatedTickets.length > 0 ? paginatedTickets.map((ticket) => (
                         <tr key={ticket.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
-                            <td className="px-6 py-4">{entidadeMap.get(ticket.entidadeId) || 'N/A'}</td>
+                            <td className="px-6 py-4">
+                                <div>{entidadeMap.get(ticket.entidadeId) || 'N/A'}</div>
+                                {ticket.teamId && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.teamId)}</div>}
+                            </td>
                             <td className="px-6 py-4">{collaboratorMap.get(ticket.collaboratorId) || 'N/A'}</td>
                             <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs truncate" title={ticket.description}>
                                 {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-2 text-on-surface-dark-secondary" title={`${ticket.attachments.length} anexo(s)`} />}
