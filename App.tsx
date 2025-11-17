@@ -678,6 +678,12 @@ export const App: React.FC = () => {
                 assignments={assignments}
                 equipmentTypes={equipmentTypes}
                 tickets={tickets}
+                collaborators={collaborators}
+                teams={teams}
+                expiringWarranties={expiringWarranties}
+                expiringLicenses={expiringLicenses}
+                softwareLicenses={softwareLicenses}
+                licenseAssignments={licenseAssignments}
                 onViewItem={(tab, filter) => {
                     setActiveTab(tab);
                     setInitialDashboardFilter(filter);
