@@ -1,4 +1,4 @@
-iimport React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Team, TeamMember, Collaborator, Ticket } from '../types';
 import { EditIcon, DeleteIcon } from './common/Icons';
 import { FaUsers } from 'react-icons/fa';
