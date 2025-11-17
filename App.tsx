@@ -601,12 +601,11 @@ export const App: React.FC = () => {
         }
     }, [collaborators]);
 
-    const handleSnoozeNotification = (id: string) => {
+    const handleSnoozeNotification = useCallback((id: string) => {
         setSnoozedNotifications(prevSnoozed => {
-            // Use a Set for efficient check and to prevent duplicates
             const snoozedSet = new Set(prevSnoozed);
             if (snoozedSet.has(id)) {
-                return prevSnoozed; // Already snoozed, no change needed
+                return prevSnoozed;
             }
             
             snoozedSet.add(id);
@@ -616,12 +615,11 @@ export const App: React.FC = () => {
                 localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozedArray));
             } catch (error) {
                 console.error("Failed to save snoozed notifications to localStorage:", error);
-                // Optionally, you could show an error to the user that the setting might not persist.
             }
             
             return newSnoozedArray;
         });
-    };
+    }, []);
 
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const equipmentTypeMap = useMemo(() => new Map(equipmentTypes.map(et => [et.id, et.name])), [equipmentTypes]);
@@ -1013,7 +1011,7 @@ export const App: React.FC = () => {
             {modal.type === 'add_kit' && <AddEquipmentKitModal onClose={() => setModal({ type: null })} onSaveKit={async (items) => { await dataService.addMultipleEquipment(items as Equipment[]); const allData = await dataService.fetchAllData(); setEquipment(allData.equipment); }} brands={brands} equipmentTypes={equipmentTypes} initialData={modal.data} onSaveEquipmentType={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} equipment={equipment} />}
             
             {isReportModalOpen.type && <ReportModal type={isReportModalOpen.type} onClose={() => setIsReportModalOpen({ type: null })} equipment={equipment} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} instituicoes={instituicoes} escolasDepartamentos={entidades} collaborators={collaborators} assignments={assignments} tickets={tickets} softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments} />}
-            {isTicketActivitiesModalOpen && selectedTicketForActivities && <TicketActivitiesModal ticket={selectedTicketForActivities} activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)} collaborators={collaborators} currentUser={currentUser} onClose={() => setIsTicketActivitiesModalOpen(false)} onAddActivity={(activity) => { const newActivity = { ...activity, id: crypto.randomUUID(), ticketId: selectedTicketForActivities.id, technicianId: currentUser.id, date: new Date().toISOString() }; handleSave('ticket_activity', newActivity, dataService.addTicketActivity, () => Promise.resolve(), setTicketActivities); }} />}
+            {isTicketActivitiesModalOpen && selectedTicketForActivities && <TicketActivitiesModal ticket={selectedTicketForActivities} activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)} collaborators={collaborators} currentUser={currentUser} onClose={() => setIsTicketActivitiesModalOpen(false)} onAddActivity={(activity) => { const newActivity = { ...activity, ticketId: selectedTicketForActivities.id, technicianId: currentUser.id, date: new Date().toISOString() }; handleSave('ticket_activity', newActivity, dataService.addTicketActivity, dataService.updateTicketActivity, setTicketActivities); }} />}
             {infoModal && <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>{infoModal.content}</InfoModal>}
             {confirmation && <ConfirmationModal title="Confirmar Ação" message={confirmation.message} onConfirm={confirmation.onConfirm} onClose={() => setConfirmation(null)} />}
             {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} teamTickets={teamTickets} collaborators={collaborators} teams={teams} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={handleSnoozeNotification} />}
