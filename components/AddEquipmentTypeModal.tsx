@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { EquipmentType } from '../types';
+import { EquipmentType, Team } from '../types';
 
 interface AddEquipmentTypeModalProps {
     onClose: () => void;
     onSave: (type: Omit<EquipmentType, 'id'> | EquipmentType) => Promise<any>;
     typeToEdit?: EquipmentType | null;
+    teams: Team[];
 }
 
-const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit }) => {
+const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit, teams }) => {
     const [formData, setFormData] = useState({
         name: '',
         requiresNomeNaRede: false,
         requiresMacWIFI: false,
         requiresMacCabo: false,
         requiresInventoryNumber: false,
+        default_team_id: '',
     });
     const [error, setError] = useState('');
 
@@ -26,12 +28,14 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requiresMacWIFI: typeToEdit.requiresMacWIFI || false,
                 requiresMacCabo: typeToEdit.requiresMacCabo || false,
                 requiresInventoryNumber: typeToEdit.requiresInventoryNumber || false,
+                default_team_id: typeToEdit.default_team_id || '',
             });
         }
     }, [typeToEdit]);
     
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type, checked } = e.target;
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        const checked = (e.target as HTMLInputElement).checked;
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -46,10 +50,15 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         }
         setError('');
         
+        const dataToSave = {
+            ...formData,
+            default_team_id: formData.default_team_id || undefined,
+        };
+
         if (typeToEdit) {
-            onSave({ ...typeToEdit, ...formData });
+            onSave({ ...typeToEdit, ...dataToSave });
         } else {
-            onSave(formData);
+            onSave(dataToSave);
         }
         onClose();
     };
@@ -71,6 +80,24 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                     />
                     {error && <p className="text-red-400 text-xs italic mt-1">{error}</p>}
                 </div>
+
+                <div>
+                    <label htmlFor="default_team_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa de Suporte Padrão (Opcional)</label>
+                     <select 
+                        name="default_team_id" 
+                        id="default_team_id" 
+                        value={formData.default_team_id} 
+                        onChange={handleChange} 
+                        className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600"
+                    >
+                        <option value="">Nenhuma</option>
+                        {teams.map(team => (
+                            <option key={team.id} value={team.id}>{team.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+
                 <div className="border-t border-gray-700 pt-4">
                     <h3 className="text-md font-medium text-on-surface-dark mb-2">Campos Adicionais do Equipamento</h3>
                      <div className="space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
