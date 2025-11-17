@@ -822,6 +822,11 @@ export const App: React.FC = () => {
             component: <LicenseDashboard 
                 licenses={softwareLicenses}
                 licenseAssignments={licenseAssignments}
+                equipment={equipment}
+                assignments={assignments}
+                collaborators={collaborators}
+                brandMap={brandMap}
+                equipmentTypeMap={equipmentTypeMap}
                 onEdit={(lic) => setModal({ type: 'add_license', data: lic })}
                 onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta licença?', onConfirm: () => handleDelete('software_license', id, dataService.deleteSoftwareLicense, setSoftwareLicenses) })}
                 onGenerateReport={() => setIsReportModalOpen({ type: 'licensing' })}
