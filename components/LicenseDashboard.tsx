@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
-import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop } from 'react-icons/fa';
+import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
 interface LicenseDashboardProps {
@@ -28,6 +28,29 @@ const getStatusClass = (status?: LicenseStatus) => {
     }
 };
 
+type SortableKeys = 'productName' | 'licenseKey' | 'status' | 'usage' | 'purchaseDate' | 'expiryDate';
+
+const SortableHeader: React.FC<{
+    sortKey: SortableKeys;
+    title: string;
+    sortConfig: { key: SortableKeys; direction: 'ascending' | 'descending' } | null;
+    requestSort: (key: SortableKeys) => void;
+    className?: string;
+}> = ({ sortKey, title, sortConfig, requestSort, className }) => {
+    const isSorted = sortConfig?.key === sortKey;
+    const direction = isSorted ? sortConfig.direction : undefined;
+
+    return (
+        <th scope="col" className={`px-6 py-3 ${className || ''}`}>
+            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 uppercase font-bold text-xs hover:text-white">
+                {title}
+                {isSorted ? (direction === 'ascending' ? <FaSortUp /> : <FaSortDown />) : <FaSort className="opacity-50" />}
+            </button>
+        </th>
+    );
+};
+
+
 const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ 
     licenses, 
     licenseAssignments, 
@@ -48,6 +71,8 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [expandedLicenseId, setExpandedLicenseId] = useState<string | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
+
 
     useEffect(() => {
         if (initialFilter) {
@@ -109,38 +134,69 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         setItemsPerPage(size);
         setCurrentPage(1);
     };
+    
+    const requestSort = (key: SortableKeys) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
 
-    const filteredLicenses = useMemo(() => {
-        return licenses.filter(license => {
+
+    const processedLicenses = useMemo(() => {
+        let filtered = licenses.filter(license => {
             const nameMatch = filters.productName === '' || license.productName.toLowerCase().includes(filters.productName.toLowerCase());
             const keyMatch = filters.licenseKey === '' || license.licenseKey.toLowerCase().includes(filters.licenseKey.toLowerCase());
             const invoiceMatch = filters.invoiceNumber === '' || (license.invoiceNumber && license.invoiceNumber.toLowerCase().includes(filters.invoiceNumber.toLowerCase()));
 
             const statusMatch = (() => {
                 if (!filters.status) return true;
-
-                // Filter by new status property
                 if (filters.status === LicenseStatus.Ativo) return (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo;
                 if (filters.status === LicenseStatus.Inativo) return license.status === LicenseStatus.Inativo;
-
-                // Filter by seat usage
                 const usedSeats = usedSeatsMap.get(license.id) || 0;
                 const availableSeats = license.totalSeats - usedSeats;
                 if (filters.status === 'available' && availableSeats <= 0) return false;
                 if (filters.status === 'in_use' && usedSeats === 0) return false;
                 if (filters.status === 'depleted' && availableSeats > 0) return false;
-
                 return true;
             })();
             
             return nameMatch && keyMatch && invoiceMatch && statusMatch;
         });
-    }, [licenses, filters, usedSeatsMap]);
 
-    const totalPages = Math.ceil(filteredLicenses.length / itemsPerPage);
+        if (sortConfig !== null) {
+            filtered.sort((a, b) => {
+                let aValue: any;
+                let bValue: any;
+
+                if (sortConfig.key === 'usage') {
+                    const aUsed = usedSeatsMap.get(a.id) || 0;
+                    const bUsed = usedSeatsMap.get(b.id) || 0;
+                    aValue = a.totalSeats > 0 ? aUsed / a.totalSeats : 0;
+                    bValue = b.totalSeats > 0 ? bUsed / b.totalSeats : 0;
+                } else {
+                    aValue = a[sortConfig.key as keyof SoftwareLicense] ?? '';
+                    bValue = b[sortConfig.key as keyof SoftwareLicense] ?? '';
+                }
+
+                if (aValue < bValue) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        
+        return filtered;
+    }, [licenses, filters, usedSeatsMap, sortConfig]);
+
+    const totalPages = Math.ceil(processedLicenses.length / itemsPerPage);
     const paginatedLicenses = useMemo(() => {
-        return filteredLicenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    }, [filteredLicenses, currentPage, itemsPerPage]);
+        return processedLicenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [processedLicenses, currentPage, itemsPerPage]);
 
 
     return (
@@ -184,11 +240,11 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
                             <th scope="col" className="px-2 py-3 w-12"></th>
-                            <th scope="col" className="px-6 py-3">Nome do Produto</th>
-                            <th scope="col" className="px-6 py-3">Chave de Licença</th>
-                            <th scope="col" className="px-6 py-3">Status</th>
-                            <th scope="col" className="px-6 py-3 text-center">Uso (Total/Uso/Disp)</th>
-                            <th scope="col" className="px-6 py-3">Datas</th>
+                            <SortableHeader sortKey="productName" title="Nome do Produto" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="licenseKey" title="Chave de Licença" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="status" title="Status" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="usage" title="Uso (Total/Uso/Disp)" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
+                            <SortableHeader sortKey="purchaseDate" title="Datas" sortConfig={sortConfig} requestSort={requestSort} />
                             <th scope="col" className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
@@ -291,7 +347,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                 onPageChange={setCurrentPage}
                 itemsPerPage={itemsPerPage}
                 onItemsPerPageChange={handleItemsPerPageChange}
-                totalItems={filteredLicenses.length}
+                totalItems={processedLicenses.length}
             />
         </div>
     );
