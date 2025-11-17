@@ -7,7 +7,7 @@ import Pagination from './common/Pagination';
 interface LicenseDashboardProps {
   licenses: SoftwareLicense[];
   licenseAssignments: LicenseAssignment[];
-  equipment: Equipment[];
+  equipmentData: Equipment[];
   assignments: Assignment[];
   collaborators: Collaborator[];
   brandMap: Map<string, string>;
@@ -54,7 +54,7 @@ const SortableHeader: React.FC<{
 const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ 
     licenses, 
     licenseAssignments, 
-    equipment,
+    equipmentData,
     assignments,
     collaborators,
     brandMap,
@@ -89,7 +89,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         }, new Map<string, number>());
     }, [licenseAssignments]);
     
-    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
+    const equipmentMap = useMemo(() => new Map(equipmentData.map(e => [e.id, e])), [equipmentData]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const activeAssignmentsMap = useMemo(() => {
         const map = new Map<string, Assignment>();
