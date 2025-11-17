@@ -39,30 +39,6 @@ export interface Equipment {
   status: EquipmentStatus;
 }
 
-export enum LicenseStatus {
-  Ativo = 'Ativo',
-  Inativo = 'Inativo',
-}
-
-export interface SoftwareLicense {
-  id: string;
-  productName: string;
-  licenseKey: string;
-  totalSeats: number;
-  purchaseDate?: string;
-  expiryDate?: string;
-  purchaseEmail?: string;
-  invoiceNumber?: string;
-  status: LicenseStatus;
-}
-
-export interface LicenseAssignment {
-  id: string;
-  softwareLicenseId: string;
-  equipmentId: string;
-  assignedDate: string;
-}
-
 export interface Instituicao {
   id: string;
   codigo: string;
@@ -168,4 +144,28 @@ export interface Message {
   content: string;
   timestamp: string;
   read: boolean;
+}
+
+export enum LicenseStatus {
+  Ativo = 'Ativo',
+  Inativo = 'Inativo',
+}
+
+export interface SoftwareLicense {
+  id: string;
+  productName: string;
+  licenseKey: string;
+  totalSeats: number;
+  purchaseDate?: string;
+  expiryDate?: string;
+  purchaseEmail?: string;
+  invoiceNumber?: string;
+  status: LicenseStatus;
+}
+
+export interface LicenseAssignment {
+  id: string;
+  softwareLicenseId: string;
+  equipmentId: string;
+  assignedDate: string;
 }
