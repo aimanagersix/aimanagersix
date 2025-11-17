@@ -602,11 +602,9 @@ export const App: React.FC = () => {
     }, [collaborators]);
 
     const handleSnoozeNotification = (id: string) => {
-        setSnoozedNotifications(prev => {
-            const newSnoozed = [...prev, id];
-            localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozed));
-            return newSnoozed;
-        });
+        const newSnoozed = [...snoozedNotifications, id];
+        localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozed));
+        setSnoozedNotifications(newSnoozed); // Update state to re-render immediately
     };
 
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -643,13 +641,32 @@ export const App: React.FC = () => {
         });
     }, [softwareLicenses, snoozedNotifications]);
 
+    const teamTickets = useMemo(() => {
+        if (!currentUser) return [];
+
+        const userTeamIds = new Set(
+            teamMembers
+                .filter(tm => tm.collaborator_id === currentUser.id)
+                .map(tm => tm.team_id)
+        );
+
+        if (userTeamIds.size === 0) return [];
+
+        return tickets.filter(ticket => {
+            if (snoozedNotifications.includes(ticket.id)) return false;
+            return ticket.teamId &&
+                   userTeamIds.has(ticket.teamId) &&
+                   (ticket.status === TicketStatus.Requested || ticket.status === TicketStatus.InProgress);
+        });
+    }, [tickets, teamMembers, currentUser, snoozedNotifications]);
+
 
     useEffect(() => {
-        if (currentUser && !initialNotificationsShown && (expiringWarranties.length > 0 || expiringLicenses.length > 0)) {
+        if (currentUser && !initialNotificationsShown && (expiringWarranties.length > 0 || expiringLicenses.length > 0 || teamTickets.length > 0)) {
             setIsNotificationsModalOpen(true);
             setInitialNotificationsShown(true);
         }
-    }, [currentUser, expiringWarranties, expiringLicenses, initialNotificationsShown]);
+    }, [currentUser, expiringWarranties, expiringLicenses, teamTickets, initialNotificationsShown]);
 
     const tabConfig: Record<string, TabConfigItem> = {
         'overview': {
@@ -900,7 +917,7 @@ export const App: React.FC = () => {
                 setActiveTab={setActiveTab}
                 onLogout={handleLogout}
                 tabConfig={tabConfig}
-                notificationCount={expiringWarranties.length + expiringLicenses.length + unreadMessagesCount}
+                notificationCount={expiringWarranties.length + expiringLicenses.length + teamTickets.length + unreadMessagesCount}
                 onNotificationClick={() => setIsNotificationsModalOpen(true)}
             />
             <main className="max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -977,7 +994,7 @@ export const App: React.FC = () => {
             {isTicketActivitiesModalOpen && selectedTicketForActivities && <TicketActivitiesModal ticket={selectedTicketForActivities} activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)} collaborators={collaborators} currentUser={currentUser} onClose={() => setIsTicketActivitiesModalOpen(false)} onAddActivity={(activity) => { const newActivity = { ...activity, id: crypto.randomUUID(), ticketId: selectedTicketForActivities.id, technicianId: currentUser.id, date: new Date().toISOString() }; handleSave('ticket_activity', newActivity, dataService.addTicketActivity, () => Promise.resolve(), setTicketActivities); }} />}
             {infoModal && <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>{infoModal.content}</InfoModal>}
             {confirmation && <ConfirmationModal title="Confirmar Ação" message={confirmation.message} onConfirm={confirmation.onConfirm} onClose={() => setConfirmation(null)} />}
-            {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={handleSnoozeNotification} />}
+            {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} teamTickets={teamTickets} collaborators={collaborators} teams={teams} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={handleSnoozeNotification} />}
         </div>
     );
 

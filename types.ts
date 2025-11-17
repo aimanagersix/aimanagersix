@@ -121,7 +121,7 @@ export interface Ticket {
   status: TicketStatus;
   technicianId?: string;
   attachments?: { name: string; dataUrl: string }[];
-  team_id?: string;
+  teamId?: string;
 }
 
 export interface TicketActivity {
