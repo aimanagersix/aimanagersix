@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment } from '../types';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop } from './common/Icons';
 
 interface OverviewDashboardProps {
@@ -87,6 +87,46 @@ const RecentActivityItem: React.FC<{ activity: any, icon: React.ReactNode }> = (
     </div>
 );
 
+const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availableSeats: number }[]; onViewAll: () => void; }> = ({ licenses, onViewAll }) => {
+    const totalAvailable = licenses.reduce((sum, l) => sum + l.availableSeats, 0);
+    const topLicenses = licenses.slice(0, 3);
+
+    return (
+        <div className="bg-surface-dark p-4 rounded-lg shadow-lg flex flex-col h-full">
+            <div 
+                className={`flex items-center space-x-4 mb-3 ${totalAvailable > 0 ? 'cursor-pointer' : ''}`}
+                onClick={onViewAll}
+            >
+                <div className="p-3 rounded-full bg-teal-500">
+                    <FaBoxOpen className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                    <p className="text-sm text-on-surface-dark-secondary font-medium">Licenças Disponíveis</p>
+                    <p className="text-2xl font-bold text-white">{totalAvailable}</p>
+                    <p className="text-xs text-gray-400">Total de vagas</p>
+                </div>
+            </div>
+            <div className="flex-grow space-y-2 text-sm overflow-hidden pt-2 border-t border-gray-700/50">
+                {topLicenses.length > 0 ? topLicenses.map((license, index) => (
+                    <div key={index} className="flex justify-between items-center gap-2">
+                        <span className="text-on-surface-dark truncate" title={license.productName}>{license.productName}</span>
+                        <span className="font-semibold text-white bg-gray-700 px-2 py-0.5 rounded-full text-xs flex-shrink-0">{license.availableSeats}</span>
+                    </div>
+                )) : (
+                    <div className="flex items-center justify-center h-full">
+                        <p className="text-center text-gray-400 text-xs">Nenhuma licença com vagas disponíveis.</p>
+                    </div>
+                )}
+            </div>
+            {licenses.length > 0 && (
+                 <button onClick={onViewAll} className="mt-auto pt-2 text-center text-sm text-brand-secondary hover:underline w-full">
+                    {licenses.length > 3 ? 'Ver todas...' : 'Ver licenças'}
+                </button>
+            )}
+        </div>
+    );
+};
+
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
@@ -110,20 +150,32 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     }), [tickets]);
     
     const healthStats = useMemo(() => {
+        return {
+            expiringWarranties: expiringWarranties.length,
+            expiringLicenses: expiringLicenses.length,
+        };
+    }, [expiringWarranties, expiringLicenses]);
+
+    const availableLicensesData = useMemo(() => {
         const usedSeatsMap = licenseAssignments.reduce((acc, assignment) => {
             acc.set(assignment.softwareLicenseId, (acc.get(assignment.softwareLicenseId) || 0) + 1);
             return acc;
         }, new Map<string, number>());
         
-        const totalSeats = softwareLicenses.reduce((sum, license) => sum + license.totalSeats, 0);
-        const totalUsedSeats = Array.from(usedSeatsMap.values()).reduce((sum, count) => sum + count, 0);
+        return softwareLicenses
+            .filter(license => (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo)
+            .map(license => {
+                const usedSeats = usedSeatsMap.get(license.id) || 0;
+                const availableSeats = license.totalSeats - usedSeats;
+                return {
+                    productName: license.productName,
+                    availableSeats,
+                };
+            })
+            .filter(license => license.availableSeats > 0)
+            .sort((a, b) => b.availableSeats - a.availableSeats);
+    }, [softwareLicenses, licenseAssignments]);
 
-        return {
-            expiringWarranties: expiringWarranties.length,
-            expiringLicenses: expiringLicenses.length,
-            availableLicenseSeats: totalSeats - totalUsedSeats,
-        };
-    }, [expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments]);
 
     const equipmentByAge = useMemo(() => {
         const now = new Date();
@@ -223,7 +275,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     <StatCard title="Tickets Abertos" value={ticketStats.open} icon={<FaTicketAlt className="h-6 w-6 text-white" />} color={ticketStats.open > 0 ? "bg-red-600" : "bg-green-600"} onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} />
                     <StatCard title="Garantias a Expirar" value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-6 w-6 text-white" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext="Próximos 30 dias"/>
                     <StatCard title="Licenças a Expirar" value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-6 w-6 text-white" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext="Próximos 30 dias"/>
-                    <StatCard title="Licenças Disponíveis" value={healthStats.availableLicenseSeats} icon={<FaBoxOpen className="h-6 w-6 text-white" />} color="bg-teal-500" onClick={() => onViewItem('licensing', { status: 'available' })} subtext="Total de vagas"/>
+                    <AvailableLicensesCard licenses={availableLicensesData} onViewAll={() => onViewItem('licensing', { status: 'available' })} />
                 </div>
             </div>
 
