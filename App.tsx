@@ -602,9 +602,25 @@ export const App: React.FC = () => {
     }, [collaborators]);
 
     const handleSnoozeNotification = (id: string) => {
-        const newSnoozed = [...snoozedNotifications, id];
-        localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozed));
-        setSnoozedNotifications(newSnoozed); // Update state to re-render immediately
+        setSnoozedNotifications(prevSnoozed => {
+            // Use a Set for efficient check and to prevent duplicates
+            const snoozedSet = new Set(prevSnoozed);
+            if (snoozedSet.has(id)) {
+                return prevSnoozed; // Already snoozed, no change needed
+            }
+            
+            snoozedSet.add(id);
+            const newSnoozedArray = Array.from(snoozedSet);
+            
+            try {
+                localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozedArray));
+            } catch (error) {
+                console.error("Failed to save snoozed notifications to localStorage:", error);
+                // Optionally, you could show an error to the user that the setting might not persist.
+            }
+            
+            return newSnoozedArray;
+        });
     };
 
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
