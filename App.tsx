@@ -789,7 +789,7 @@ export const App: React.FC = () => {
             component: <LicenseDashboard 
                 licenses={softwareLicenses}
                 licenseAssignments={licenseAssignments}
-                equipmentData={equipment}
+                equipment={equipment}
                 assignments={assignments}
                 collaborators={collaborators}
                 brandMap={brandMap}
