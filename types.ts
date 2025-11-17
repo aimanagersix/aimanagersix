@@ -19,6 +19,7 @@ export interface EquipmentType {
   requiresMacWIFI?: boolean;
   requiresMacCabo?: boolean;
   requiresInventoryNumber?: boolean;
+  default_team_id?: string;
 }
 
 export interface Equipment {
@@ -122,6 +123,7 @@ export interface Ticket {
   technicianId?: string;
   attachments?: { name: string; dataUrl: string }[];
   team_id?: string;
+  equipmentId?: string;
 }
 
 export interface TicketActivity {
@@ -130,6 +132,7 @@ export interface TicketActivity {
   technicianId: string;
   date: string;
   description: string;
+  equipmentId?: string;
 }
 
 export interface CollaboratorHistory {
