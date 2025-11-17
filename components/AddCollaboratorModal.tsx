@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus } from '../types';
-import { FaMagic, FaEye, FaEyeSlash } from './common/Icons';
+// FIX: Import CameraIcon and DeleteIcon to resolve missing component errors.
+import { FaMagic, FaEye, FaEyeSlash, UserIcon, CameraIcon, DeleteIcon } from './common/Icons';
+import * as dataService from '../services/dataService';
+
 
 const isPortuguesePhoneNumber = (phone: string): boolean => {
     if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
@@ -43,13 +46,15 @@ interface AddCollaboratorModalProps {
 }
 
 const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, onSave, collaboratorToEdit, escolasDepartamentos: entidades, currentUser }) => {
-    const [formData, setFormData] = useState<Omit<Collaborator, 'id'>>({
+    const [formData, setFormData] = useState<Partial<Collaborator>>({
         numeroMecanografico: '',
         fullName: '',
         email: '',
         entidadeId: entidades[0]?.id || '',
         telefoneInterno: '',
         telemovel: '',
+        dateOfBirth: '',
+        photoUrl: '',
         canLogin: false,
         receivesNotifications: true,
         role: UserRole.Basic,
@@ -58,6 +63,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [showPassword, setShowPassword] = useState(false);
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
     const isAdmin = currentUser?.role === UserRole.Admin;
 
@@ -70,11 +78,16 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 entidadeId: collaboratorToEdit.entidadeId,
                 telefoneInterno: collaboratorToEdit.telefoneInterno || '',
                 telemovel: collaboratorToEdit.telemovel || '',
+                dateOfBirth: collaboratorToEdit.dateOfBirth || '',
+                photoUrl: collaboratorToEdit.photoUrl || '',
                 canLogin: collaboratorToEdit.canLogin,
                 receivesNotifications: collaboratorToEdit.receivesNotifications ?? true,
                 role: collaboratorToEdit.role,
                 status: collaboratorToEdit.status || CollaboratorStatus.Ativo,
             });
+            if (collaboratorToEdit.photoUrl) {
+                setPhotoPreview(collaboratorToEdit.photoUrl);
+            }
         } else {
              setFormData({
                 numeroMecanografico: '',
@@ -83,6 +96,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 entidadeId: entidades[0]?.id || '',
                 telefoneInterno: '',
                 telemovel: '',
+                dateOfBirth: '',
+                photoUrl: '',
                 canLogin: false,
                 receivesNotifications: true,
                 role: UserRole.Basic,
@@ -93,11 +108,11 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.numeroMecanografico.trim()) newErrors.numeroMecanografico = "O nº mecanográfico é obrigatório.";
-        if (!formData.fullName.trim()) newErrors.fullName = "O nome completo é obrigatório.";
+        if (!formData.numeroMecanografico?.trim()) newErrors.numeroMecanografico = "O nº mecanográfico é obrigatório.";
+        if (!formData.fullName?.trim()) newErrors.fullName = "O nome completo é obrigatório.";
         if (!formData.entidadeId) newErrors.entidadeId = "A entidade é obrigatória.";
         
-        if (!formData.email.trim()) {
+        if (!formData.email?.trim()) {
             newErrors.email = "O email é obrigatório.";
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = "O formato do email é inválido.";
@@ -135,12 +150,43 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setPhotoFile(file);
+            setPhotoPreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleRemovePhoto = () => {
+        setPhotoFile(null);
+        setPhotoPreview(null);
+        setFormData(prev => ({ ...prev, photoUrl: '' }));
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
+        
+        let photoUrl = formData.photoUrl;
+
+        // If a new photo file is selected, upload it
+        if (photoFile && (collaboratorToEdit?.id || !collaboratorToEdit)) {
+            const userId = collaboratorToEdit?.id || (currentUser?.id || crypto.randomUUID());
+            const uploadedUrl = await dataService.uploadCollaboratorPhoto(userId, photoFile);
+            if (uploadedUrl) {
+                photoUrl = uploadedUrl;
+            }
+        }
     
         const dataToSave: any = {
             ...formData,
+            photoUrl: photoUrl || undefined,
+            dateOfBirth: formData.dateOfBirth || undefined,
             telefoneInterno: formData.telefoneInterno?.trim() || undefined,
             telemovel: formData.telemovel?.trim() || undefined,
         };
@@ -160,24 +206,46 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     return (
         <Modal title={modalTitle} onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="numeroMecanografico" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nº Mecanográfico</label>
-                        <input type="text" name="numeroMecanografico" id="numeroMecanografico" value={formData.numeroMecanografico} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.numeroMecanografico ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.numeroMecanografico && <p className="text-red-400 text-xs italic mt-1">{errors.numeroMecanografico}</p>}
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                    <div className="flex-shrink-0">
+                         <input type="file" ref={fileInputRef} onChange={handlePhotoChange} accept="image/*" className="hidden" />
+                        <div className="relative w-24 h-24">
+                            {photoPreview ? (
+                                <img src={photoPreview} alt="Avatar" className="w-24 h-24 rounded-full object-cover" />
+                            ) : (
+                                <div className="w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center">
+                                    <UserIcon className="h-12 w-12 text-gray-500" />
+                                </div>
+                            )}
+                            <div className="absolute bottom-0 right-0 flex flex-col gap-1">
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 bg-brand-primary text-white rounded-full hover:bg-brand-secondary text-xs" title="Carregar foto">
+                                    <CameraIcon className="h-4 w-4" />
+                                </button>
+                                {photoPreview && (
+                                    <button type="button" onClick={handleRemovePhoto} className="p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 text-xs" title="Remover foto">
+                                        <DeleteIcon className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label htmlFor="fullName" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome Completo</label>
-                        <input type="text" name="fullName" id="fullName" value={formData.fullName} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.fullName ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.fullName && <p className="text-red-400 text-xs italic mt-1">{errors.fullName}</p>}
+                    <div className="w-full space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="numeroMecanografico" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nº Mecanográfico</label>
+                                <input type="text" name="numeroMecanografico" id="numeroMecanografico" value={formData.numeroMecanografico} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.numeroMecanografico ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.numeroMecanografico && <p className="text-red-400 text-xs italic mt-1">{errors.numeroMecanografico}</p>}
+                            </div>
+                            <div>
+                                <label htmlFor="fullName" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome Completo</label>
+                                <input type="text" name="fullName" id="fullName" value={formData.fullName} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.fullName ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.fullName && <p className="text-red-400 text-xs italic mt-1">{errors.fullName}</p>}
+                            </div>
+                        </div>
                     </div>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>
-                        <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.email ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
-                    </div>
                      <div>
                         <label htmlFor="entidadeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
                         <select name="entidadeId" id="entidadeId" value={formData.entidadeId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.entidadeId ? 'border-red-500' : 'border-gray-600'}`} >
@@ -187,6 +255,17 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             ))}
                         </select>
                         {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
+                    </div>
+                     <div>
+                        <label htmlFor="dateOfBirth" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Nascimento (Opcional)</label>
+                        <input type="date" name="dateOfBirth" id="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600`} />
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>
+                        <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.email ? 'border-red-500' : 'border-gray-600'}`} />
+                        {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
                     </div>
                 </div>
 

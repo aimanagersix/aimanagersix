@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt } from './common/Icons';
 
 interface CollaboratorDetailModalProps {
     collaborator: Collaborator;
@@ -68,9 +68,13 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
             <div className="space-y-6">
                 {/* Header Section */}
                 <div className="flex flex-col sm:flex-row items-start gap-6 p-4 bg-gray-900/50 rounded-lg">
-                    <div className="w-20 h-20 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-4xl flex-shrink-0">
-                        {collaborator.fullName.charAt(0)}
-                    </div>
+                    {collaborator.photoUrl ? (
+                        <img src={collaborator.photoUrl} alt={collaborator.fullName} className="w-24 h-24 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                        <div className="w-24 h-24 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-4xl flex-shrink-0">
+                            {collaborator.fullName.charAt(0)}
+                        </div>
+                    )}
                     <div className="flex-grow">
                         <h2 className="text-2xl font-bold text-white">{collaborator.fullName}</h2>
                         <p className="text-on-surface-dark-secondary">{collaborator.numeroMecanografico}</p>
@@ -78,6 +82,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                             <div className="flex items-center gap-2"><FaEnvelope className="text-gray-400" /> <a href={`mailto:${collaborator.email}`} className="hover:underline">{collaborator.email}</a></div>
                             {collaborator.telemovel && <div className="flex items-center gap-2"><FaMobileAlt className="text-gray-400" /> {collaborator.telemovel}</div>}
                             {collaborator.telefoneInterno && <div className="flex items-center gap-2"><FaPhone className="text-gray-400" /> Interno: {collaborator.telefoneInterno}</div>}
+                            {collaborator.dateOfBirth && <div className="flex items-center gap-2"><FaCalendarAlt className="text-gray-400" /> {collaborator.dateOfBirth}</div>}
                             <div className="flex items-center gap-2"><FaUserTag className="text-gray-400" /> {collaborator.role}</div>
                             <div className="flex items-center gap-2">
                                 <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${getStatusClass(collaborator.status)}`}>{collaborator.status}</span>

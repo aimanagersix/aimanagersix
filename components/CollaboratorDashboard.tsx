@@ -231,14 +231,21 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
               >
                 <td className="px-6 py-4">{col.numeroMecanografico}</td>
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <span>{col.fullName}</span>
-                  </div>
-                  {equipmentCount > 0 && (
-                    <div className="text-xs text-brand-secondary mt-1">
-                        {equipmentCount} equipamento(s) atribuído(s)
+                  <div className="flex items-center gap-3">
+                    {col.photoUrl ? (
+                        <img src={col.photoUrl} alt={col.fullName} className="h-10 w-10 rounded-full object-cover" />
+                    ) : (
+                        <div className="h-10 w-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">{col.fullName.charAt(0)}</div>
+                    )}
+                    <div>
+                        <span>{col.fullName}</span>
+                        {equipmentCount > 0 && (
+                            <div className="text-xs text-brand-secondary mt-1">
+                                {equipmentCount} equipamento(s) atribuído(s)
+                            </div>
+                        )}
                     </div>
-                  )}
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                     <div>{col.email}</div>

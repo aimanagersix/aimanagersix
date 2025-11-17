@@ -105,7 +105,11 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
                 {activeChatCollaboratorId && activeCollaborator ? (
                      <div className="flex items-center gap-2">
                         <button onClick={() => onSelectConversation(null)} className="p-1 hover:bg-white/10 rounded-full" aria-label="Voltar"><FaArrowLeft /></button>
-                         <div className="w-8 h-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0 text-sm">{activeCollaborator.fullName.charAt(0)}</div>
+                         {activeCollaborator.photoUrl ? (
+                            <img src={activeCollaborator.photoUrl} alt={activeCollaborator.fullName} className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                            <div className="w-8 h-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0 text-sm">{activeCollaborator.fullName.charAt(0)}</div>
+                        )}
                         <h3 className="font-semibold truncate">{activeCollaborator.fullName}</h3>
                     </div>
                 ) : (
@@ -147,7 +151,11 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
                         if (!collaborator) return null;
                         return (
                             <button key={collaboratorId} onClick={() => onSelectConversation(collaboratorId)} className="w-full text-left p-3 flex items-center gap-3 hover:bg-gray-800/50 border-b border-gray-700">
-                                <div className="w-10 h-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">{collaborator.fullName.charAt(0)}</div>
+                                {collaborator.photoUrl ? (
+                                    <img src={collaborator.photoUrl} alt={collaborator.fullName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                ) : (
+                                    <div className="w-10 h-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">{collaborator.fullName.charAt(0)}</div>
+                                )}
                                 <div className="flex-grow overflow-hidden">
                                     <div className="flex justify-between items-center">
                                         <p className="font-semibold truncate text-on-surface-dark">{collaborator.fullName}</p>
