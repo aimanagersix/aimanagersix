@@ -86,6 +86,8 @@ export interface Collaborator {
   email: string;
   telefoneInterno?: string;
   telemovel?: string;
+  photoUrl?: string;
+  dateOfBirth?: string;
   // Auth fields
   canLogin: boolean;
   receivesNotifications: boolean;
