@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
-import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
 interface LicenseDashboardProps {
@@ -251,26 +251,26 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                     {isExpanded && (
                                         <tr className="bg-gray-900/50">
                                             <td colSpan={7} className="p-4">
-                                                <h4 className="text-sm font-semibold text-white mb-2">Atribuído a:</h4>
-                                                <div className="max-h-40 overflow-y-auto">
-                                                    <table className="w-full text-xs text-on-surface-dark-secondary">
-                                                        <thead>
-                                                            <tr className="border-b border-gray-600">
-                                                                <th className="px-3 py-1 text-left">Equipamento</th>
-                                                                <th className="px-3 py-1 text-left">Nº Série</th>
-                                                                <th className="px-3 py-1 text-left">Utilizador Atribuído</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {assignedDetails.map(({ equipment: eq, user }, index) => (
-                                                                <tr key={index} className="border-b border-gray-700/50">
-                                                                    <td className="px-3 py-2">{eq.description}</td>
-                                                                    <td className="px-3 py-2 font-mono">{eq.serialNumber}</td>
-                                                                    <td className="px-3 py-2">{user || 'Atribuído à Localização'}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                <h4 className="text-sm font-semibold text-white mb-3">Atribuído a:</h4>
+                                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                                                    {assignedDetails.map(({ equipment: eq, user }, index) => (
+                                                        <div key={index} className="flex items-center gap-4 p-3 bg-surface-dark rounded-md border border-gray-700">
+                                                            <div className="flex-shrink-0">
+                                                                <FaLaptop className="h-6 w-6 text-brand-secondary" />
+                                                            </div>
+                                                            <div className="flex-grow text-sm">
+                                                                <p className="font-semibold text-on-surface-dark">{eq.description}</p>
+                                                                <p className="text-xs text-on-surface-dark-secondary">
+                                                                    {brandMap.get(eq.brandId)} / {equipmentTypeMap.get(eq.typeId)}
+                                                                </p>
+                                                                <p className="text-xs font-mono text-gray-400">S/N: {eq.serialNumber}</p>
+                                                            </div>
+                                                            <div className="flex-shrink-0 text-right text-xs">
+                                                                <p className="text-on-surface-dark-secondary">Utilizador:</p>
+                                                                <p className="font-semibold text-on-surface-dark">{user || 'À Localização'}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </td>
                                         </tr>
