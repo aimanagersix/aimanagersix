@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity } from '../types';
