@@ -71,14 +71,22 @@ const mapTicketFromDb = (dbTicket: any): Ticket => ({
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     const dbTicket: any = { ...ticket };
 
-    // Sanitização de Foreign Keys: Converter strings vazias em null
-    // Isso evita erros de "invalid input syntax for type uuid" no Postgres
-    if (dbTicket.equipmentId === '') dbTicket.equipmentId = null;
+    // 1. Mapeamento Específico: equipmentId -> equipment_id
+    // Se o campo equipmentId estiver presente, mapeamos para equipment_id
+    if ('equipmentId' in dbTicket) {
+        dbTicket.equipment_id = dbTicket.equipmentId === '' ? null : dbTicket.equipmentId;
+        // Removemos o original para não enviar lixo para a BD
+        delete dbTicket.equipmentId;
+    }
+
+    // 2. Sanitização de UUIDs (Converter string vazia em null)
+    // Outros campos que você disse que já funcionam mantemos o nome original,
+    // mas garantimos que não vão vazios.
     if (dbTicket.technicianId === '') dbTicket.technicianId = null;
     if (dbTicket.team_id === '') dbTicket.team_id = null;
     
-    // Se collaborativeId, technicianId etc funcionam em CamelCase, assumimos que equipmentId
-    // também deve ser CamelCase. Removemos tentativas anteriores de renomear para snake_case ou lowercase.
+    // Garantir que collaboratorId não vai vazio se for opcional (embora deva ser obrigatório)
+    if (dbTicket.collaboratorId === '') dbTicket.collaboratorId = null;
 
     return dbTicket;
 };
