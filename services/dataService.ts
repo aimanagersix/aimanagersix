@@ -104,6 +104,15 @@ const mapLicenseToDb = (app: Partial<SoftwareLicense>): any => {
     return app;
 };
 
+// --- Helpers de Mapeamento para LicenseAssignment ---
+
+const mapLicenseAssignmentFromDb = (db: any): LicenseAssignment => ({
+    id: db.id,
+    softwareLicenseId: db.softwareLicenseId || db.software_license_id,
+    equipmentId: db.equipmentId || db.equipment_id,
+    assignedDate: db.assignedDate || db.assigned_date,
+});
+
 
 // --- Funções de Serviço Específicas ---
 
@@ -111,7 +120,7 @@ export const fetchAllData = async () => {
     const [
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
         assignments, ticketsRaw, ticketActivitiesRaw, collaboratorHistory, messages,
-        softwareLicensesRaw, licenseAssignments, teams, teamMembers
+        softwareLicensesRaw, licenseAssignmentsRaw, teams, teamMembers
     ] = await Promise.all([
         fetchData<Equipment>('equipment'),
         fetchData<Instituicao>('instituicao'),
@@ -125,7 +134,7 @@ export const fetchAllData = async () => {
         fetchData<CollaboratorHistory>('collaborator_history'),
         fetchData<Message>('message'),
         fetchData<any>('software_license'),
-        fetchData<LicenseAssignment>('license_assignment'),
+        fetchData<any>('license_assignment'),
         fetchData<Team>('teams'),
         fetchData<TeamMember>('team_members'),
     ]);
@@ -133,6 +142,7 @@ export const fetchAllData = async () => {
     const tickets = ticketsRaw.map(mapTicketFromDb);
     const ticketActivities = ticketActivitiesRaw.map(mapTicketActivityFromDb);
     const softwareLicenses = softwareLicensesRaw.map(mapLicenseFromDb);
+    const licenseAssignments = licenseAssignmentsRaw.map(mapLicenseAssignmentFromDb);
 
     return {
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
@@ -290,19 +300,36 @@ export const deleteLicense = (id: string) => deleteData('software_license', id);
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
 
+    // Detect naming convention by peeking at one record or defaulting
+    const { data: sampleData } = await supabase.from('license_assignment').select('*').limit(1);
+    
+    let useSnakeCase = false;
+    // If the table has data, check the keys. If empty, we might guess or try/catch, but usually foreign keys in DBs are snake_case.
+    // However, given the previous camelCase usage, we default to camelCase unless we see snake_case.
+    if (sampleData && sampleData.length > 0) {
+        if ('equipment_id' in sampleData[0]) {
+            useSnakeCase = true;
+        }
+    }
+
+    const colEquipmentId = useSnakeCase ? 'equipment_id' : 'equipmentId';
+    const colLicenseId = useSnakeCase ? 'software_license_id' : 'softwareLicenseId';
+    const colAssignedDate = useSnakeCase ? 'assigned_date' : 'assignedDate';
+
     // 1. Get current assignments for this equipment
     const { data: currentAssignments, error: fetchError } = await supabase
         .from('license_assignment')
-        .select('id, softwareLicenseId')
-        .eq('equipmentId', equipmentId);
+        .select(`id, ${colLicenseId}`)
+        .eq(colEquipmentId, equipmentId);
+        
     handleSupabaseError(fetchError, 'a obter atribuições de licença');
 
-    const currentLicenseIds = new Set(currentAssignments?.map(a => a.softwareLicenseId));
+    const currentLicenseIds = new Set(currentAssignments?.map((a: any) => a[colLicenseId]));
     const newLicenseIds = new Set(licenseIds);
 
     // 2. Determine which to add and which to remove
     const toAdd = licenseIds.filter(id => !currentLicenseIds.has(id));
-    const toRemove = currentAssignments?.filter(a => !newLicenseIds.has(a.softwareLicenseId)).map(a => a.id) || [];
+    const toRemove = currentAssignments?.filter((a: any) => !newLicenseIds.has(a[colLicenseId])).map((a: any) => a.id) || [];
 
     // 3. Perform deletions
     if (toRemove.length > 0) {
@@ -315,16 +342,38 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
 
     // 4. Perform insertions
     if (toAdd.length > 0) {
+        // Prepare records with dynamic keys
         const newRecords = toAdd.map(licenseId => ({
-            equipmentId,
-            softwareLicenseId: licenseId,
-            assignedDate: new Date().toISOString().split('T')[0],
+            [colEquipmentId]: equipmentId,
+            [colLicenseId]: licenseId,
+            [colAssignedDate]: new Date().toISOString().split('T')[0],
             id: crypto.randomUUID(),
         }));
+
+        // Try insert
         const { error: insertError } = await supabase
             .from('license_assignment')
             .insert(newRecords);
-        handleSupabaseError(insertError, 'a adicionar atribuições de licença');
+            
+        // Fallback mechanism: if insert failed due to column missing (e.g. table was empty so we guessed camelCase but it is snake_case), try the other format.
+        if (insertError) {
+            // If we guessed camelCase (default) but it failed, maybe it IS snake_case?
+            if (!useSnakeCase && insertError.message.includes('does not exist')) {
+                 console.warn("Insert failed with camelCase, retrying with snake_case...");
+                 const retryRecords = toAdd.map(licenseId => ({
+                    equipment_id: equipmentId,
+                    software_license_id: licenseId,
+                    assigned_date: new Date().toISOString().split('T')[0],
+                    id: crypto.randomUUID(),
+                }));
+                const { error: retryError } = await supabase
+                    .from('license_assignment')
+                    .insert(retryRecords);
+                handleSupabaseError(retryError, 'a adicionar atribuições de licença (retry)');
+            } else {
+                 handleSupabaseError(insertError, 'a adicionar atribuições de licença');
+            }
+        }
     }
 };
 
