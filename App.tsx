@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { getSupabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, CollaboratorStatus, SoftwareLicense, LicenseAssignment, LicenseStatus, Team, TeamMember } from './types';
@@ -253,6 +254,7 @@ export const App: React.FC = () => {
     });
     const [initialNotificationsShown, setInitialNotificationsShown] = useState(false);
     const [isForgotPasswordModalOpen, setIsForgotPasswordModalOpen] = useState(false);
+    const [dbFixSql, setDbFixSql] = useState<string | null>(null);
 
 
     const userPermissions = useMemo(() => {
@@ -330,7 +332,10 @@ export const App: React.FC = () => {
             console.error(`Failed to save ${type}:`, error);
             let userMessage = `Ocorreu um erro ao salvar os dados de ${type}. Por favor, tente novamente.`;
             if (error && error.message) {
-                if (error.message.includes('violates foreign key constraint')) {
+                if (error.message.includes("Could not find the 'status' column")) {
+                    setDbFixSql("ALTER TABLE software_license ADD COLUMN status text DEFAULT 'Ativo';");
+                    return; // Don't show alert, show modal instead
+                } else if (error.message.includes('violates foreign key constraint')) {
                     userMessage = `Não foi possível salvar. Verifique se todos os itens associados (como Marcas, Tipos ou Entidades) ainda existem.`;
                 } else if (error.message.includes('violates unique constraint')) {
                     userMessage = `Não foi possível salvar. Já existe um registo com um destes valores que deve ser único (ex: Número de Série ou Nº Mecanográfico).`;
@@ -525,9 +530,13 @@ export const App: React.FC = () => {
         try {
             const updatedLicense = await dataService.updateLicense(id, { status: newStatus });
             setSoftwareLicenses(prev => prev.map(l => l.id === id ? updatedLicense : l));
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to toggle license status:", error);
-            alert("Ocorreu um erro ao alterar o estado da licença.");
+             if (error.message && error.message.includes("Could not find the 'status' column")) {
+                 setDbFixSql("ALTER TABLE software_license ADD COLUMN status text DEFAULT 'Ativo';");
+             } else {
+                 alert("Ocorreu um erro ao alterar o estado da licença.");
+             }
         }
     }, [softwareLicenses]);
     
@@ -1042,6 +1051,21 @@ export const App: React.FC = () => {
             {infoModal && <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>{infoModal.content}</InfoModal>}
             {confirmation && <ConfirmationModal title="Confirmar Ação" message={confirmation.message} onConfirm={confirmation.onConfirm} onClose={() => setConfirmation(null)} />}
             {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} teamTickets={teamTickets} collaborators={collaborators} teams={teams} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={handleSnoozeNotification} />}
+            
+            {dbFixSql && (
+                <InfoModal title="Correção da Base de Dados Necessária" onClose={() => setDbFixSql(null)}>
+                    <div className="space-y-4">
+                        <p>A base de dados precisa de uma pequena atualização para que esta funcionalidade funcione corretamente (falta a coluna 'status').</p>
+                        <p>Por favor, copie o código SQL abaixo e execute-o no Editor SQL do seu painel Supabase:</p>
+                        <div className="bg-gray-900 p-4 rounded-md border border-gray-700 font-mono text-sm text-green-400 overflow-x-auto">
+                            {dbFixSql}
+                        </div>
+                        <p className="text-sm text-on-surface-dark-secondary">
+                            Depois de executar o comando, tente salvar novamente.
+                        </p>
+                    </div>
+                </InfoModal>
+            )}
         </div>
     );
 
