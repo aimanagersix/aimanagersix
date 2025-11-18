@@ -71,21 +71,20 @@ const mapTicketFromDb = (dbTicket: any): Ticket => ({
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     const dbTicket: any = { ...ticket };
 
-    // Com base nos erros reportados:
-    // 1. "Could not find 'equipmentId'" -> Indica que equipmentId está errado, deve ser equipment_id.
-    // 2. "Could not find 'collaborator_id'" e "collaboratorid" -> Indica que collaboratorId (CamelCase) é o correto.
+    // Histórico de correções:
+    // 1. CamelCase (equipmentId) falhou.
+    // 2. SnakeCase (equipment_id) falhou.
+    // 3. Tentativa: lowercase (equipmentid).
+    // Nota: collaboratorId parece funcionar em CamelCase, indicando que a tabela pode ter misturas.
     
-    // Mapear equipmentId para snake_case, pois o CamelCase falhou
     if (ticket.equipmentId !== undefined) {
-        dbTicket.equipment_id = ticket.equipmentId;
+        dbTicket.equipmentid = ticket.equipmentId;
         delete dbTicket.equipmentId;
     }
-
-    // Mapear datas para snake_case por precaução (comum em DBs), mas se falhar, reverteremos.
-    // Assumindo que se equipmentId era o problema, talvez datas também sigam snake_case ou lowercase.
-    // Vou manter as datas como estão por enquanto se não deram erro explícito, ou mapear se necessário.
-    // Se o erro foi apenas no equipmentId, focamos nele.
     
+    // Manter outros campos como estão, assumindo que collaboratorId e team_id estão corretos
+    // baseados nos erros (ou falta deles) anteriores.
+
     return dbTicket;
 };
 
