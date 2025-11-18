@@ -52,51 +52,10 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
 
 // --- Funções de Serviço Específicas ---
 
-const transformTicketForSave = (ticketData: Partial<Ticket>): any => {
-    const { equipmentId, entidadeId, collaboratorId, technicianId, team_id, ...rest } = ticketData;
-    const recordToSend: any = { ...rest };
-    if (equipmentId !== undefined) recordToSend.equipment_id = equipmentId;
-    if (entidadeId !== undefined) recordToSend.entidade_id = entidadeId;
-    if (collaboratorId !== undefined) recordToSend.collaborator_id = collaboratorId;
-    if (technicianId !== undefined) recordToSend.technician_id = technicianId;
-    if (team_id !== undefined) recordToSend.team_id = team_id;
-    return recordToSend;
-};
-
-const transformTicketFromFetch = (ticketData: any): Ticket => {
-    const { equipment_id, entidade_id, collaborator_id, technician_id, team_id, ...rest } = ticketData;
-    const recordToReturn: any = { ...rest };
-    if (equipment_id !== undefined) recordToReturn.equipmentId = equipment_id;
-    if (entidade_id !== undefined) recordToReturn.entidadeId = entidade_id;
-    if (collaborator_id !== undefined) recordToReturn.collaboratorId = collaborator_id;
-    if (technician_id !== undefined) recordToReturn.technicianId = technician_id;
-    if (team_id !== undefined) recordToReturn.team_id = team_id;
-    return recordToReturn as Ticket;
-};
-
-const transformTicketActivityForSave = (activityData: Partial<TicketActivity>): any => {
-    const { ticketId, technicianId, equipmentId, ...rest } = activityData;
-    const recordToSend: any = { ...rest };
-    if (ticketId !== undefined) recordToSend.ticket_id = ticketId;
-    if (technicianId !== undefined) recordToSend.technician_id = technicianId;
-    if (equipmentId !== undefined) recordToSend.equipment_id = equipmentId;
-    return recordToSend;
-};
-
-const transformTicketActivityFromFetch = (activityData: any): TicketActivity => {
-    const { ticket_id, technician_id, equipment_id, ...rest } = activityData;
-    const recordToReturn: any = { ...rest };
-    if (ticket_id !== undefined) recordToReturn.ticketId = ticket_id;
-    if (technician_id !== undefined) recordToReturn.technicianId = technician_id;
-    if (equipment_id !== undefined) recordToReturn.equipmentId = equipment_id;
-    return recordToReturn as TicketActivity;
-};
-
-
 export const fetchAllData = async () => {
     const [
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
-        assignments, ticketsRaw, ticketActivitiesRaw, collaboratorHistory, messages,
+        assignments, tickets, ticketActivities, collaboratorHistory, messages,
         softwareLicenses, licenseAssignments, teams, teamMembers
     ] = await Promise.all([
         fetchData<Equipment>('equipment'),
@@ -106,8 +65,8 @@ export const fetchAllData = async () => {
         fetchData<EquipmentType>('equipment_type'),
         fetchData<Brand>('brand'),
         fetchData<Assignment>('assignment'),
-        fetchData<any>('ticket'),
-        fetchData<any>('ticket_activity'),
+        fetchData<Ticket>('ticket'),
+        fetchData<TicketActivity>('ticket_activity'),
         fetchData<CollaboratorHistory>('collaborator_history'),
         fetchData<Message>('message'),
         fetchData<SoftwareLicense>('software_license'),
@@ -115,9 +74,6 @@ export const fetchAllData = async () => {
         fetchData<Team>('teams'),
         fetchData<TeamMember>('team_members'),
     ]);
-
-    const tickets = ticketsRaw.map(transformTicketFromFetch);
-    const ticketActivities = ticketActivitiesRaw.map(transformTicketActivityFromFetch);
 
     return {
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
@@ -198,36 +154,12 @@ export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('
 export const deleteBrand = (id: string) => deleteData('brand', id);
 
 // Ticket
-export const addTicket = async (record: Ticket): Promise<Ticket> => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('ticket').insert(transformTicketForSave(record)).select();
-    handleSupabaseError(error, 'a inserir em ticket');
-    if (!data) throw new Error("A inserção não retornou dados.");
-    return transformTicketFromFetch(data[0]);
-};
-export const updateTicket = async (id: string, updates: Partial<Ticket>): Promise<Ticket> => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('ticket').update(transformTicketForSave(updates)).eq('id', id).select();
-    handleSupabaseError(error, 'a atualizar em ticket');
-    if (!data) throw new Error("A atualização não retornou dados.");
-    return transformTicketFromFetch(data[0]);
-};
+export const addTicket = (record: Ticket) => insertData('ticket', record);
+export const updateTicket = (id: string, updates: Partial<Ticket>) => updateData('ticket', id, updates);
 
 // TicketActivity
-export const addTicketActivity = async (record: TicketActivity): Promise<TicketActivity> => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('ticket_activity').insert(transformTicketActivityForSave(record)).select();
-    handleSupabaseError(error, 'a inserir em ticket_activity');
-    if (!data) throw new Error("A inserção não retornou dados.");
-    return transformTicketActivityFromFetch(data[0]);
-};
-export const updateTicketActivity = async (id: string, updates: Partial<TicketActivity>): Promise<TicketActivity> => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('ticket_activity').update(transformTicketActivityForSave(updates)).eq('id', id).select();
-    handleSupabaseError(error, 'a atualizar em ticket_activity');
-    if (!data) throw new Error("A atualização não retornou dados.");
-    return transformTicketActivityFromFetch(data[0]);
-};
+export const addTicketActivity = (record: TicketActivity) => insertData('ticket_activity', record);
+export const updateTicketActivity = (id: string, updates: Partial<TicketActivity>) => updateData('ticket_activity', id, updates);
 
 // CollaboratorHistory
 export const addCollaboratorHistory = (record: CollaboratorHistory) => insertData('collaborator_history', record);
