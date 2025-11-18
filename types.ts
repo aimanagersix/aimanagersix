@@ -181,6 +181,7 @@ export interface Team {
     id: string;
     name: string;
     description?: string;
+    created_at?: string;
 }
 
 export interface TeamMember {
