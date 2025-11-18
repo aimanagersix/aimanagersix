@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, Team, TeamMember } from '../types';
 
@@ -162,7 +161,7 @@ export const fetchAllData = async () => {
 
 // Equipment
 export const addEquipment = (record: Equipment) => insertData('equipment', record);
-export const addMultipleEquipment = (records: Equipment[]) => {
+export const addMultipleEquipment = (records: any[]) => {
     const supabase = getSupabase();
     return supabase.from('equipment').insert(records).select();
 };
@@ -173,7 +172,7 @@ export const deleteEquipment = (id: string) => deleteData('equipment', id);
 export const addInstituicao = (record: Instituicao) => insertData('instituicao', record);
 export const updateInstituicao = (id: string, updates: Partial<Instituicao>) => updateData('instituicao', id, updates);
 export const deleteInstituicao = (id: string) => deleteData('instituicao', id);
-export const addMultipleInstituicoes = (records: Instituicao[]) => {
+export const addMultipleInstituicoes = (records: any[]) => {
     const supabase = getSupabase();
     return supabase.from('instituicao').insert(records).select();
 };
@@ -182,7 +181,7 @@ export const addMultipleInstituicoes = (records: Instituicao[]) => {
 export const addEntidade = (record: Entidade) => insertData('entidade', record);
 export const updateEntidade = (id: string, updates: Partial<Entidade>) => updateData('entidade', id, updates);
 export const deleteEntidade = (id: string) => deleteData('entidade', id);
-export const addMultipleEntidades = (records: Entidade[]) => {
+export const addMultipleEntidades = (records: any[]) => {
     const supabase = getSupabase();
     return supabase.from('entidade').insert(records).select();
 };
@@ -192,7 +191,7 @@ export const addMultipleEntidades = (records: Entidade[]) => {
 export const addCollaborator = (record: Collaborator) => insertData('collaborator', record);
 export const updateCollaborator = (id: string, updates: Partial<Omit<Collaborator, 'id'>>) => updateData('collaborator', id, updates);
 export const deleteCollaborator = (id: string) => deleteData('collaborator', id);
-export const addMultipleCollaborators = (records: Collaborator[]) => {
+export const addMultipleCollaborators = (records: any[]) => {
     const supabase = getSupabase();
     return supabase.from('collaborator').insert(records).select();
 };
@@ -215,7 +214,7 @@ export const uploadCollaboratorPhoto = async (userId: string, file: File): Promi
 
 // Assignment
 export const addAssignment = (record: Assignment) => insertData('assignment', record);
-export const addMultipleAssignments = (records: Assignment[]) => {
+export const addMultipleAssignments = (records: any[]) => {
     const supabase = getSupabase();
     return supabase.from('assignment').insert(records).select();
 };
