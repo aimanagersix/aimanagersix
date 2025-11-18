@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { supabase } from '../services/supabaseClient';
+import { getSupabase } from '../services/supabaseClient';
 import { SpinnerIcon } from './common/Icons';
 
 interface ForgotPasswordModalProps {
@@ -22,16 +22,22 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
         setError('');
         setIsLoading(true);
 
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-             redirectTo: window.location.origin,
-        });
+        try {
+            const supabase = getSupabase();
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                 redirectTo: window.location.origin,
+            });
 
-        setIsLoading(false);
-        if (resetError) {
-            setError('Ocorreu um erro ao enviar o email. Por favor, tente novamente.');
-            console.error("Password reset error:", resetError);
-        } else {
+            if (resetError) {
+                throw resetError;
+            }
             setMessage('Se existir uma conta com este email, receberá um link para redefinir a sua password.');
+
+        } catch(e: any) {
+            setError(e.message || 'Ocorreu um erro ao enviar o email. Por favor, tente novamente.');
+            console.error("Password reset error:", e);
+        } finally {
+            setIsLoading(false);
         }
     };
 
