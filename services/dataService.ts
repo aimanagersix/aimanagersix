@@ -99,9 +99,18 @@ const mapLicenseFromDb = (db: any): SoftwareLicense => ({
 });
 
 const mapLicenseToDb = (app: Partial<SoftwareLicense>): any => {
-    // Envia camelCase, pois é o formato mais provável da DB existente do utilizador
-    // O Supabase vai aceitar se a coluna se chamar "productName" (com aspas)
-    return app;
+    // Mapeamento para snake_case para corresponder à base de dados atualizada
+    const db: any = { ...app };
+
+    if ('productName' in db) { db.product_name = db.productName; delete db.productName; }
+    if ('licenseKey' in db) { db.license_key = db.licenseKey; delete db.licenseKey; }
+    if ('totalSeats' in db) { db.total_seats = db.totalSeats; delete db.totalSeats; }
+    if ('purchaseDate' in db) { db.purchase_date = db.purchaseDate; delete db.purchaseDate; }
+    if ('expiryDate' in db) { db.expiry_date = db.expiryDate; delete db.expiryDate; }
+    if ('purchaseEmail' in db) { db.purchase_email = db.purchaseEmail; delete db.purchaseEmail; }
+    if ('invoiceNumber' in db) { db.invoice_number = db.invoiceNumber; delete db.invoiceNumber; }
+    
+    return db;
 };
 
 // --- Helpers de Mapeamento para LicenseAssignment ---
@@ -300,23 +309,24 @@ export const deleteLicense = (id: string) => deleteData('software_license', id);
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
 
-    // Detect naming convention by peeking at one record or defaulting
-    const { data: sampleData } = await supabase.from('license_assignment').select('*').limit(1);
-    
-    let useSnakeCase = false;
-    // If the table has data, check the keys. If empty, we might guess or try/catch, but usually foreign keys in DBs are snake_case.
-    // However, given the previous camelCase usage, we default to camelCase unless we see snake_case.
-    if (sampleData && sampleData.length > 0) {
-        if ('equipment_id' in sampleData[0]) {
-            useSnakeCase = true;
-        }
+    // 1. Determine columns. Try standard snake_case first by checking a dummy select.
+    // We attempt to select the 'equipment_id' column from one row. 
+    // If this throws an error, we know snake_case is not being used.
+    let colEquipmentId = 'equipment_id';
+    let colLicenseId = 'software_license_id';
+    let colAssignedDate = 'assigned_date';
+
+    const { error: checkError } = await supabase.from('license_assignment').select('equipment_id').limit(1);
+
+    if (checkError) {
+        // If snake_case failed, assume camelCase (legacy/user created)
+        console.warn("Detected potential schema mismatch (snake_case failed). Falling back to camelCase for license_assignment columns.");
+        colEquipmentId = 'equipmentId';
+        colLicenseId = 'softwareLicenseId';
+        colAssignedDate = 'assignedDate';
     }
 
-    const colEquipmentId = useSnakeCase ? 'equipment_id' : 'equipmentId';
-    const colLicenseId = useSnakeCase ? 'software_license_id' : 'softwareLicenseId';
-    const colAssignedDate = useSnakeCase ? 'assigned_date' : 'assignedDate';
-
-    // 1. Get current assignments for this equipment
+    // 2. Get current assignments for this equipment
     const { data: currentAssignments, error: fetchError } = await supabase
         .from('license_assignment')
         .select(`id, ${colLicenseId}`)
@@ -327,11 +337,11 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     const currentLicenseIds = new Set(currentAssignments?.map((a: any) => a[colLicenseId]));
     const newLicenseIds = new Set(licenseIds);
 
-    // 2. Determine which to add and which to remove
+    // 3. Determine which to add and which to remove
     const toAdd = licenseIds.filter(id => !currentLicenseIds.has(id));
     const toRemove = currentAssignments?.filter((a: any) => !newLicenseIds.has(a[colLicenseId])).map((a: any) => a.id) || [];
 
-    // 3. Perform deletions
+    // 4. Perform deletions
     if (toRemove.length > 0) {
         const { error: deleteError } = await supabase
             .from('license_assignment')
@@ -340,7 +350,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         handleSupabaseError(deleteError, 'a apagar atribuições de licença');
     }
 
-    // 4. Perform insertions
+    // 5. Perform insertions
     if (toAdd.length > 0) {
         // Prepare records with dynamic keys
         const newRecords = toAdd.map(licenseId => ({
@@ -355,25 +365,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
             .from('license_assignment')
             .insert(newRecords);
             
-        // Fallback mechanism: if insert failed due to column missing (e.g. table was empty so we guessed camelCase but it is snake_case), try the other format.
-        if (insertError) {
-            // If we guessed camelCase (default) but it failed, maybe it IS snake_case?
-            if (!useSnakeCase && insertError.message.includes('does not exist')) {
-                 console.warn("Insert failed with camelCase, retrying with snake_case...");
-                 const retryRecords = toAdd.map(licenseId => ({
-                    equipment_id: equipmentId,
-                    software_license_id: licenseId,
-                    assigned_date: new Date().toISOString().split('T')[0],
-                    id: crypto.randomUUID(),
-                }));
-                const { error: retryError } = await supabase
-                    .from('license_assignment')
-                    .insert(retryRecords);
-                handleSupabaseError(retryError, 'a adicionar atribuições de licença (retry)');
-            } else {
-                 handleSupabaseError(insertError, 'a adicionar atribuições de licença');
-            }
-        }
+        handleSupabaseError(insertError, 'a adicionar atribuições de licença');
     }
 };
 
