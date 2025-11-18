@@ -65,15 +65,19 @@ const transformTicketForSave = (ticketData: Partial<Ticket>): any => {
     const { equipmentId, ...rest } = ticketData;
     const recordToSend: any = { ...rest };
     if (equipmentId !== undefined) {
-        recordToSend.equipment_id = equipmentId;
+        // Tentando 'equipmentid' como outra variação comum para o nome da coluna.
+        recordToSend.equipmentid = equipmentId;
     }
     return recordToSend;
 };
 
 const transformTicketFromFetch = (ticketData: any): Ticket => {
-    const { equipment_id, ...rest } = ticketData;
+    // Para ler os dados, vamos tentar várias possibilidades para sermos robustos.
+    const { equipment_id, equipmentid, ...rest } = ticketData;
     const recordToReturn: any = { ...rest };
-    if (equipment_id !== undefined) {
+    if (equipmentid !== undefined) {
+        recordToReturn.equipmentId = equipmentid;
+    } else if (equipment_id !== undefined) {
         recordToReturn.equipmentId = equipment_id;
     }
     return recordToReturn as Ticket;
@@ -289,4 +293,4 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
         const { error: insertError } = await sb.from('team_members').insert(newMembers);
         handleSupabaseError(insertError, 'a adicionar novos membros à equipa');
     }
-}
+};
