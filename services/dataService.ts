@@ -53,27 +53,53 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
 
 // --- Helpers de Mapeamento para Tickets ---
 
-// Tenta ler os dados vindos da DB em vários formatos para garantir compatibilidade
+// Mapeia os dados vindos da DB (snake_case) para a aplicação (camelCase)
 const mapTicketFromDb = (dbTicket: any): Ticket => ({
     ...dbTicket,
     title: dbTicket.title,
-    // Verifica se vem como camelCase (padrão da app/DB com quotes), lowercase (padrão postgres) ou snake_case
-    entidadeId: dbTicket.entidadeId || dbTicket.entidadeid || dbTicket.entidade_id,
-    collaboratorId: dbTicket.collaboratorId || dbTicket.collaboratorid || dbTicket.collaborator_id,
-    technicianId: dbTicket.technicianId || dbTicket.technicianid || dbTicket.technician_id,
-    equipmentId: dbTicket.equipmentId || dbTicket.equipmentid || dbTicket.equipment_id,
-    requestDate: dbTicket.requestDate || dbTicket.requestdate || dbTicket.request_date,
-    finishDate: dbTicket.finishDate || dbTicket.finishdate || dbTicket.finish_date,
-    // team_id é snake_case na interface Ticket, então deve bater certo, mas verificamos teamId por segurança
+    // Mapeia de snake_case (padrão DB) para camelCase (App), com fallbacks
+    entidadeId: dbTicket.entidade_id || dbTicket.entidadeId || dbTicket.entidadeid,
+    collaboratorId: dbTicket.collaborator_id || dbTicket.collaboratorId || dbTicket.collaboratorid,
+    technicianId: dbTicket.technician_id || dbTicket.technicianId || dbTicket.technicianid,
+    equipmentId: dbTicket.equipment_id || dbTicket.equipmentId || dbTicket.equipmentid,
+    requestDate: dbTicket.request_date || dbTicket.requestDate || dbTicket.requestdate,
+    finishDate: dbTicket.finish_date || dbTicket.finishDate || dbTicket.finishdate,
+    // team_id já está em snake_case na interface, mas verificamos teamId por segurança
     team_id: dbTicket.team_id || dbTicket.teamId,
 });
 
-// Envia os dados para a DB exatamente como estão no objeto Ticket (camelCase)
-// Isto assume que as colunas na DB chamam-se "collaboratorId", "entidadeId", etc.
+// Mapeia os dados da aplicação (camelCase) para a DB (snake_case)
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
-    // Retorna o objeto sem tentar renomear propriedades.
-    // As tentativas anteriores de converter para snake_case (collaborator_id) e lowercase (collaboratorid) falharam.
-    return { ...ticket };
+    const dbTicket: any = { ...ticket };
+
+    // Converter camelCase para snake_case
+    if (ticket.entidadeId !== undefined) {
+        dbTicket.entidade_id = ticket.entidadeId;
+        delete dbTicket.entidadeId;
+    }
+    if (ticket.collaboratorId !== undefined) {
+        dbTicket.collaborator_id = ticket.collaboratorId;
+        delete dbTicket.collaboratorId;
+    }
+    if (ticket.technicianId !== undefined) {
+        dbTicket.technician_id = ticket.technicianId;
+        delete dbTicket.technicianId;
+    }
+    if (ticket.equipmentId !== undefined) {
+        dbTicket.equipment_id = ticket.equipmentId;
+        delete dbTicket.equipmentId;
+    }
+    if (ticket.requestDate !== undefined) {
+        dbTicket.request_date = ticket.requestDate;
+        delete dbTicket.requestDate;
+    }
+    if (ticket.finishDate !== undefined) {
+        dbTicket.finish_date = ticket.finishDate;
+        delete dbTicket.finishDate;
+    }
+    // team_id e status geralmente mantêm-se iguais se a coluna DB for team_id e status
+
+    return dbTicket;
 };
 
 // --- Funções de Serviço Específicas ---
@@ -91,7 +117,7 @@ export const fetchAllData = async () => {
         fetchData<EquipmentType>('equipment_type'),
         fetchData<Brand>('brand'),
         fetchData<Assignment>('assignment'),
-        fetchData<any>('ticket'), // Buscar raw data primeiro
+        fetchData<any>('ticket'), // Buscar raw data primeiro para mapear
         fetchData<TicketActivity>('ticket_activity'),
         fetchData<CollaboratorHistory>('collaborator_history'),
         fetchData<Message>('message'),
@@ -182,7 +208,7 @@ export const addBrand = (record: Brand) => insertData('brand', record);
 export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('brand', id, updates);
 export const deleteBrand = (id: string) => deleteData('brand', id);
 
-// Ticket - Modified to use Mapper
+// Ticket - Usando o Mapper
 export const addTicket = async (record: Ticket): Promise<Ticket> => {
     const dbRecord = mapTicketToDb(record);
     const supabase = getSupabase();
