@@ -52,41 +52,28 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
 };
 
 // --- Helpers de Mapeamento para Tickets ---
-// A base de dados usa nomes de colunas em minúsculas (ex: collaboratorid), a app usa camelCase (ex: collaboratorId).
+
+// Tenta ler os dados vindos da DB em vários formatos para garantir compatibilidade
 const mapTicketFromDb = (dbTicket: any): Ticket => ({
     ...dbTicket,
     title: dbTicket.title,
-    // Tenta ler do formato lowercase (padrão postgres/supabase) ou snake_case (legado/alternativo)
-    entidadeId: dbTicket.entidadeid || dbTicket.entidade_id || dbTicket.entidadeId,
-    collaboratorId: dbTicket.collaboratorid || dbTicket.collaborator_id || dbTicket.collaboratorId,
-    technicianId: dbTicket.technicianid || dbTicket.technician_id || dbTicket.technicianId,
-    equipmentId: dbTicket.equipmentid || dbTicket.equipment_id || dbTicket.equipmentId,
-    requestDate: dbTicket.requestdate || dbTicket.request_date || dbTicket.requestDate,
-    finishDate: dbTicket.finishdate || dbTicket.finish_date || dbTicket.finishDate,
-    // team_id mantemos como está pois a interface já usa snake_case para este campo específico ou ele coincide na DB
+    // Verifica se vem como camelCase (padrão da app/DB com quotes), lowercase (padrão postgres) ou snake_case
+    entidadeId: dbTicket.entidadeId || dbTicket.entidadeid || dbTicket.entidade_id,
+    collaboratorId: dbTicket.collaboratorId || dbTicket.collaboratorid || dbTicket.collaborator_id,
+    technicianId: dbTicket.technicianId || dbTicket.technicianid || dbTicket.technician_id,
+    equipmentId: dbTicket.equipmentId || dbTicket.equipmentid || dbTicket.equipment_id,
+    requestDate: dbTicket.requestDate || dbTicket.requestdate || dbTicket.request_date,
+    finishDate: dbTicket.finishDate || dbTicket.finishdate || dbTicket.finish_date,
+    // team_id é snake_case na interface Ticket, então deve bater certo, mas verificamos teamId por segurança
+    team_id: dbTicket.team_id || dbTicket.teamId,
 });
 
+// Envia os dados para a DB exatamente como estão no objeto Ticket (camelCase)
+// Isto assume que as colunas na DB chamam-se "collaboratorId", "entidadeId", etc.
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
-    const dbTicket: any = { ...ticket };
-    
-    // Mapear camelCase da app para lowercase da DB
-    if (ticket.entidadeId !== undefined) dbTicket.entidadeid = ticket.entidadeId;
-    if (ticket.collaboratorId !== undefined) dbTicket.collaboratorid = ticket.collaboratorId;
-    if (ticket.technicianId !== undefined) dbTicket.technicianid = ticket.technicianId;
-    if (ticket.equipmentId !== undefined) dbTicket.equipmentid = ticket.equipmentId;
-    if (ticket.requestDate !== undefined) dbTicket.requestdate = ticket.requestDate;
-    if (ticket.finishDate !== undefined) dbTicket.finishdate = ticket.finishDate;
-    if (ticket.title !== undefined) dbTicket.title = ticket.title;
-
-    // Remover as chaves camelCase para não enviar colunas inexistentes para o Supabase
-    delete dbTicket.entidadeId;
-    delete dbTicket.collaboratorId;
-    delete dbTicket.technicianId;
-    delete dbTicket.equipmentId;
-    delete dbTicket.requestDate;
-    delete dbTicket.finishDate;
-
-    return dbTicket;
+    // Retorna o objeto sem tentar renomear propriedades.
+    // As tentativas anteriores de converter para snake_case (collaborator_id) e lowercase (collaboratorid) falharam.
+    return { ...ticket };
 };
 
 // --- Funções de Serviço Específicas ---
