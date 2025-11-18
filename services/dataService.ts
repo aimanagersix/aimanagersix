@@ -54,6 +54,7 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
 // A base de dados usa snake_case, a app usa camelCase.
 const mapTicketFromDb = (dbTicket: any): Ticket => ({
     ...dbTicket,
+    title: dbTicket.title, // Campo novo
     entidadeId: dbTicket.entidade_id || dbTicket.entidadeId,
     collaboratorId: dbTicket.collaborator_id || dbTicket.collaboratorId,
     technicianId: dbTicket.technician_id || dbTicket.technicianId,
@@ -73,6 +74,7 @@ const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     if (ticket.equipmentId !== undefined) dbTicket.equipment_id = ticket.equipmentId;
     if (ticket.requestDate !== undefined) dbTicket.request_date = ticket.requestDate;
     if (ticket.finishDate !== undefined) dbTicket.finish_date = ticket.finishDate;
+    if (ticket.title !== undefined) dbTicket.title = ticket.title;
 
     // Remover as chaves camelCase para não enviar colunas inexistentes
     delete dbTicket.entidadeId;
