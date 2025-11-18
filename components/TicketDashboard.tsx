@@ -137,7 +137,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                         <tr>
                             <th scope="col" className="px-6 py-3">Entidade / Equipa</th>
                             <th scope="col" className="px-6 py-3">Colaborador</th>
-                            <th scope="col" className="px-6 py-3">Descrição</th>
+                            <th scope="col" className="px-6 py-3">Assunto / Descrição</th>
                             <th scope="col" className="px-6 py-3">Datas</th>
                             <th scope="col" className="px-6 py-3">Técnico</th>
                             <th scope="col" className="px-6 py-3">Estado</th>
@@ -155,9 +155,12 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                 </td>
                                 <td className="px-6 py-4">{collaboratorMap.get(ticket.collaboratorId) || 'N/A'}</td>
                                 <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs" title={ticket.description}>
-                                    <div>
+                                    <div className="font-bold mb-1 text-white">
                                         {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-2 text-on-surface-dark-secondary" title={`${ticket.attachments.length} anexo(s)`} />}
-                                        <span className="truncate">{ticket.description}</span>
+                                        {ticket.title || '(Sem Assunto)'}
+                                    </div>
+                                    <div className="text-on-surface-dark-secondary truncate text-xs">
+                                        {ticket.description}
                                     </div>
                                     {associatedEquipment && (
                                         <div className="text-xs text-indigo-400 mt-1 truncate">
