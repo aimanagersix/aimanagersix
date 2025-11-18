@@ -114,6 +114,7 @@ export enum TicketStatus {
 
 export interface Ticket {
   id: string;
+  title: string;
   entidadeId: string;
   collaboratorId: string;
   description: string;
