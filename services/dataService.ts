@@ -50,12 +50,47 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
     handleSupabaseError(error, `a eliminar de ${tableName}`);
 };
 
+// --- Helpers de Mapeamento para Tickets ---
+// A base de dados usa snake_case, a app usa camelCase.
+const mapTicketFromDb = (dbTicket: any): Ticket => ({
+    ...dbTicket,
+    entidadeId: dbTicket.entidade_id || dbTicket.entidadeId,
+    collaboratorId: dbTicket.collaborator_id || dbTicket.collaboratorId,
+    technicianId: dbTicket.technician_id || dbTicket.technicianId,
+    equipmentId: dbTicket.equipment_id || dbTicket.equipmentId,
+    requestDate: dbTicket.request_date || dbTicket.requestDate,
+    finishDate: dbTicket.finish_date || dbTicket.finishDate,
+    // team_id já está em snake_case na interface Ticket, mantemos assim.
+});
+
+const mapTicketToDb = (ticket: Partial<Ticket>): any => {
+    const dbTicket: any = { ...ticket };
+    
+    // Mapear para snake_case se os valores existirem
+    if (ticket.entidadeId !== undefined) dbTicket.entidade_id = ticket.entidadeId;
+    if (ticket.collaboratorId !== undefined) dbTicket.collaborator_id = ticket.collaboratorId;
+    if (ticket.technicianId !== undefined) dbTicket.technician_id = ticket.technicianId;
+    if (ticket.equipmentId !== undefined) dbTicket.equipment_id = ticket.equipmentId;
+    if (ticket.requestDate !== undefined) dbTicket.request_date = ticket.requestDate;
+    if (ticket.finishDate !== undefined) dbTicket.finish_date = ticket.finishDate;
+
+    // Remover as chaves camelCase para não enviar colunas inexistentes
+    delete dbTicket.entidadeId;
+    delete dbTicket.collaboratorId;
+    delete dbTicket.technicianId;
+    delete dbTicket.equipmentId;
+    delete dbTicket.requestDate;
+    delete dbTicket.finishDate;
+
+    return dbTicket;
+};
+
 // --- Funções de Serviço Específicas ---
 
 export const fetchAllData = async () => {
     const [
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
-        assignments, tickets, ticketActivities, collaboratorHistory, messages,
+        assignments, ticketsRaw, ticketActivities, collaboratorHistory, messages,
         softwareLicenses, licenseAssignments, teams, teamMembers
     ] = await Promise.all([
         fetchData<Equipment>('equipment'),
@@ -65,7 +100,7 @@ export const fetchAllData = async () => {
         fetchData<EquipmentType>('equipment_type'),
         fetchData<Brand>('brand'),
         fetchData<Assignment>('assignment'),
-        fetchData<Ticket>('ticket'),
+        fetchData<any>('ticket'), // Buscar raw data primeiro
         fetchData<TicketActivity>('ticket_activity'),
         fetchData<CollaboratorHistory>('collaborator_history'),
         fetchData<Message>('message'),
@@ -74,6 +109,9 @@ export const fetchAllData = async () => {
         fetchData<Team>('teams'),
         fetchData<TeamMember>('team_members'),
     ]);
+
+    // Mapear tickets raw para o tipo Ticket da aplicação
+    const tickets = ticketsRaw.map(mapTicketFromDb);
 
     return {
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
@@ -153,9 +191,24 @@ export const addBrand = (record: Brand) => insertData('brand', record);
 export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('brand', id, updates);
 export const deleteBrand = (id: string) => deleteData('brand', id);
 
-// Ticket
-export const addTicket = (record: Ticket) => insertData('ticket', record);
-export const updateTicket = (id: string, updates: Partial<Ticket>) => updateData('ticket', id, updates);
+// Ticket - Modified to use Mapper
+export const addTicket = async (record: Ticket): Promise<Ticket> => {
+    const dbRecord = mapTicketToDb(record);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('ticket').insert(dbRecord).select();
+    handleSupabaseError(error, `a inserir em ticket`);
+    if (!data) throw new Error("A inserção não retornou dados.");
+    return mapTicketFromDb(data[0]);
+};
+
+export const updateTicket = async (id: string, updates: Partial<Ticket>): Promise<Ticket> => {
+    const dbUpdates = mapTicketToDb(updates);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('ticket').update(dbUpdates).eq('id', id).select();
+    handleSupabaseError(error, `a atualizar em ticket`);
+    if (!data) throw new Error("A atualização não retornou dados.");
+    return mapTicketFromDb(data[0]);
+};
 
 // TicketActivity
 export const addTicketActivity = (record: TicketActivity) => insertData('ticket_activity', record);
