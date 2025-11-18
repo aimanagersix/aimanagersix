@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { getSupabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, CollaboratorStatus, SoftwareLicense, LicenseAssignment, LicenseStatus, Team, TeamMember } from './types';
@@ -841,7 +839,38 @@ export const App: React.FC = () => {
                 assignments={assignments}
                 currentUser={currentUser}
                 onEdit={(col) => setModal({ type: 'add_collaborator', data: col })}
-                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir este colaborador?', onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) })}
+                onDelete={(id) => {
+                    const hasAssignments = assignments.some(a => a.collaboratorId === id);
+                    const hasTickets = tickets.some(t => t.collaboratorId === id || t.technicianId === id);
+                    const hasActivities = ticketActivities.some(ta => ta.technicianId === id);
+                    const isTeamMember = teamMembers.some(tm => tm.collaborator_id === id);
+
+                    if (hasAssignments || hasTickets || hasActivities || isTeamMember) {
+                         const reasons = [];
+                        if (hasAssignments) reasons.push("Histórico de atribuição de equipamentos");
+                        if (hasTickets) reasons.push("Tickets de suporte (como solicitante ou técnico)");
+                        if (hasActivities) reasons.push("Atividades em tickets");
+                        if (isTeamMember) reasons.push("Membro de equipa de suporte");
+
+                        setInfoModal({
+                            title: "Ação Bloqueada",
+                            content: (
+                                <div>
+                                    <p className="mb-2">Não é possível excluir este colaborador porque existem registos associados:</p>
+                                    <ul className="list-disc list-inside text-on-surface-dark-secondary">
+                                        {reasons.map(r => <li key={r}>{r}</li>)}
+                                    </ul>
+                                    <p className="mt-3">Recomendamos alterar o estado para <strong>Inativo</strong> para preservar o histórico.</p>
+                                </div>
+                            )
+                        });
+                    } else {
+                        setConfirmation({ 
+                            message: 'Tem a certeza que quer excluir este colaborador? Esta ação não pode ser desfeita.', 
+                            onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) 
+                        });
+                    }
+                }}
                 onShowHistory={(col) => setModal({ type: 'collaborator_history', data: col })}
                 onShowDetails={(col) => setModal({ type: 'collaborator_detail', data: col })}
                 onStartChat={handleOpenChat}
