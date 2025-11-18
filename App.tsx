@@ -232,15 +232,15 @@ export const App: React.FC = () => {
             if (dataType === 'collaborators') {
                 const { data: inserted } = await dataService.addMultipleCollaborators(data as any);
                 count = inserted ? inserted.length : 0;
-                setCollaborators(prev => [...prev, ...(inserted as Collaborator[] || [])]);
+                setCollaborators(prev => [...prev, ...(inserted as unknown as Collaborator[] || [])]);
             } else if (dataType === 'instituicoes') {
                  const { data: inserted } = await dataService.addMultipleInstituicoes(data as any);
                  count = inserted ? inserted.length : 0;
-                 setInstituicoes(prev => [...prev, ...(inserted || [])]);
+                 setInstituicoes(prev => [...prev, ...(inserted as unknown as Instituicao[] || [])]);
             } else if (dataType === 'entidades') {
                  const { data: inserted } = await dataService.addMultipleEntidades(data as any);
                  count = inserted ? inserted.length : 0;
-                 setEntidades(prev => [...prev, ...(inserted || [])]);
+                 setEntidades(prev => [...prev, ...(inserted as unknown as Entidade[] || [])]);
             }
             return { success: true, message: `Importação concluída com sucesso! ${count} registos importados.` };
         } catch (error: any) {
@@ -445,7 +445,6 @@ export const App: React.FC = () => {
                 currentUser={currentUser}
                 onEdit={(col) => setModal({ type: 'add_collaborator', data: col })}
                 onDelete={(id) => {
-                    // Safety check purely for the handler, though UI will likely be disabled
                     setConfirmation({ 
                         message: 'Tem a certeza que quer excluir este colaborador? Esta ação não pode ser desfeita.', 
                         onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) 
