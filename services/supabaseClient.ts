@@ -12,8 +12,8 @@ export const getSupabase = (): SupabaseClient => {
         return supabaseInstance;
     }
 
-    const supabaseUrl = sessionStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
-    const supabaseAnonKey = sessionStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
+    const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
+    const supabaseAnonKey = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
 
     if (supabaseUrl && supabaseAnonKey) {
         supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);

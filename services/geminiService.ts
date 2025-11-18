@@ -8,7 +8,7 @@ const getAiClient = (): GoogleGenAI => {
         return aiInstance;
     }
 
-    const API_KEY = sessionStorage.getItem('API_KEY') || process.env.API_KEY;
+    const API_KEY = localStorage.getItem('API_KEY') || process.env.API_KEY;
 
     if (!API_KEY) {
         console.error("A chave da API Gemini não está configurada.");
