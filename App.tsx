@@ -4,7 +4,7 @@ import Header from './components/Header';
 import LoginPage from './components/LoginPage';
 import ConfigurationSetup from './components/ConfigurationSetup';
 import OverviewDashboard from './components/OverviewDashboard';
-import EquipmentDashboard from './components/EquipmentDashboard';
+import EquipmentDashboard from './components/Dashboard';
 import CollaboratorDashboard from './components/CollaboratorDashboard';
 import InstituicaoDashboard from './components/InstituicaoDashboard';
 import EntidadeDashboard from './components/EntidadeDashboard';
