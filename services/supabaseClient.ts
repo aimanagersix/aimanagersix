@@ -1,3 +1,4 @@
+
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseInstance: SupabaseClient | null = null;
@@ -12,6 +13,7 @@ export const getSupabase = (): SupabaseClient => {
         return supabaseInstance;
     }
 
+    // Prioritize localStorage for persistence, fallback to process.env for dev/build time config
     const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
     const supabaseAnonKey = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
 

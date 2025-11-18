@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -8,6 +9,7 @@ const getAiClient = (): GoogleGenAI => {
         return aiInstance;
     }
 
+    // Prioritize localStorage for persistence
     const API_KEY = localStorage.getItem('API_KEY') || process.env.API_KEY;
 
     if (!API_KEY) {
