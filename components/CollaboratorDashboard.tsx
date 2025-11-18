@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus } from '../types';
+import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -9,6 +9,9 @@ interface CollaboratorDashboardProps {
   escolasDepartamentos: Entidade[];
   equipment: Equipment[];
   assignments: Assignment[];
+  tickets: Ticket[];
+  ticketActivities: TicketActivity[];
+  teamMembers: TeamMember[];
   currentUser: Collaborator | null;
   onEdit?: (collaborator: Collaborator) => void;
   onDelete?: (id: string) => void;
@@ -37,7 +40,7 @@ const getStatusClass = (status: CollaboratorStatus) => {
     }
 };
 
-const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collaborators, escolasDepartamentos: entidades, onEdit, onDelete, onShowHistory, onShowDetails, equipment, assignments, onGenerateReport, onStartChat, currentUser, onToggleStatus }) => {
+const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collaborators, escolasDepartamentos: entidades, onEdit, onDelete, onShowHistory, onShowDetails, equipment, assignments, tickets, ticketActivities, teamMembers, onGenerateReport, onStartChat, currentUser, onToggleStatus }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ entidadeId: '', status: '' });
@@ -63,6 +66,37 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
         }
         return map;
     }, [assignments, equipmentMap]);
+
+    // Calculate dependencies for deletion logic
+    const dependencyMap = useMemo(() => {
+        const map = new Map<string, string[]>();
+        
+        // Check Tickets (Requester or Technician)
+        tickets.forEach(t => {
+            if (!map.has(t.collaboratorId)) map.set(t.collaboratorId, []);
+            if (!map.get(t.collaboratorId)!.includes('Tickets (Requerente)')) map.get(t.collaboratorId)!.push('Tickets (Requerente)');
+
+            if (t.technicianId) {
+                if (!map.has(t.technicianId)) map.set(t.technicianId, []);
+                if (!map.get(t.technicianId)!.includes('Tickets (Técnico)')) map.get(t.technicianId)!.push('Tickets (Técnico)');
+            }
+        });
+
+        // Check Activities
+        ticketActivities.forEach(ta => {
+            if (!map.has(ta.technicianId)) map.set(ta.technicianId, []);
+            if (!map.get(ta.technicianId)!.includes('Atividades de Suporte')) map.get(ta.technicianId)!.push('Atividades de Suporte');
+        });
+
+        // Check Teams
+        teamMembers.forEach(tm => {
+            if (!map.has(tm.collaborator_id)) map.set(tm.collaborator_id, []);
+            if (!map.get(tm.collaborator_id)!.includes('Membro de Equipa')) map.get(tm.collaborator_id)!.push('Membro de Equipa');
+        });
+
+        return map;
+
+    }, [tickets, ticketActivities, teamMembers]);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -219,6 +253,23 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
             {paginatedCollaborators.length > 0 ? paginatedCollaborators.map((col) => {
                  const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
                  const equipmentCount = assignedEquipment.length;
+                 const dependencies = dependencyMap.get(col.id) || [];
+                 
+                 let deleteTooltip = `Excluir ${col.fullName}`;
+                 let isDeleteDisabled = false;
+
+                 if (equipmentCount > 0 || dependencies.length > 0) {
+                     isDeleteDisabled = true;
+                     const reasons = [];
+                     if (equipmentCount > 0) reasons.push("Equipamentos");
+                     
+                     // Deduplicate dependency reasons for cleaner tooltip
+                     const uniqueDependencies = Array.from(new Set(dependencies));
+                     reasons.push(...uniqueDependencies);
+                     
+                     deleteTooltip = `Impossível excluir: Associado a ${reasons.join(", ")}`;
+                 }
+
 
                 return (
               <tr 
@@ -297,7 +348,16 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
                             </button>
                         )}
                         {onDelete && (
-                            <button onClick={(e) => { e.stopPropagation(); onDelete(col.id); }} className="text-red-400 hover:text-red-300" aria-label={`Delete ${col.fullName}`}>
+                            <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if (!isDeleteDisabled) onDelete(col.id); 
+                                }} 
+                                className={isDeleteDisabled ? "text-gray-500 opacity-50 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                disabled={isDeleteDisabled}
+                                title={deleteTooltip}
+                                aria-label={deleteTooltip}
+                            >
                                 <DeleteIcon />
                             </button>
                         )}
