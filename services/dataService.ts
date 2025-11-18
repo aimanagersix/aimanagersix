@@ -53,52 +53,39 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
 
 // --- Helpers de Mapeamento para Tickets ---
 
-// Mapeia os dados vindos da DB (provavelmente lowercase) para a aplicação (camelCase)
+// Mapeia os dados vindos da DB para a aplicação
 const mapTicketFromDb = (dbTicket: any): Ticket => ({
     ...dbTicket,
     title: dbTicket.title,
-    // Tenta ler lowercase (padrão Postgres), depois camelCase, depois snake_case
-    entidadeId: dbTicket.entidadeid || dbTicket.entidadeId || dbTicket.entidade_id,
-    collaboratorId: dbTicket.collaboratorid || dbTicket.collaboratorId || dbTicket.collaborator_id,
-    technicianId: dbTicket.technicianid || dbTicket.technicianId || dbTicket.technician_id,
-    equipmentId: dbTicket.equipmentid || dbTicket.equipmentId || dbTicket.equipment_id,
-    requestDate: dbTicket.requestdate || dbTicket.requestDate || dbTicket.request_date,
-    finishDate: dbTicket.finishdate || dbTicket.finishDate || dbTicket.finish_date,
-    team_id: dbTicket.team_id || dbTicket.teamid || dbTicket.teamId,
+    // Tenta ler todas as variações possíveis para garantir compatibilidade
+    entidadeId: dbTicket.entidadeId || dbTicket.entidade_id || dbTicket.entidadeid,
+    collaboratorId: dbTicket.collaboratorId || dbTicket.collaborator_id || dbTicket.collaboratorid,
+    technicianId: dbTicket.technicianId || dbTicket.technician_id || dbTicket.technicianid,
+    equipmentId: dbTicket.equipmentId || dbTicket.equipment_id || dbTicket.equipmentid,
+    requestDate: dbTicket.requestDate || dbTicket.request_date || dbTicket.requestdate,
+    finishDate: dbTicket.finishDate || dbTicket.finish_date || dbTicket.finishdate,
+    team_id: dbTicket.team_id || dbTicket.teamId || dbTicket.teamid,
 });
 
-// Mapeia os dados da aplicação (camelCase) para a DB (lowercase)
-// Assumindo que as colunas foram criadas sem aspas no Postgres, logo são lowercase.
+// Mapeia os dados da aplicação para a DB
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     const dbTicket: any = { ...ticket };
 
-    if (ticket.entidadeId !== undefined) {
-        dbTicket.entidadeid = ticket.entidadeId;
-        delete dbTicket.entidadeId;
-    }
-    if (ticket.collaboratorId !== undefined) {
-        dbTicket.collaboratorid = ticket.collaboratorId;
-        delete dbTicket.collaboratorId;
-    }
-    if (ticket.technicianId !== undefined) {
-        dbTicket.technicianid = ticket.technicianId;
-        delete dbTicket.technicianId;
-    }
+    // Com base nos erros reportados:
+    // 1. "Could not find 'equipmentId'" -> Indica que equipmentId está errado, deve ser equipment_id.
+    // 2. "Could not find 'collaborator_id'" e "collaboratorid" -> Indica que collaboratorId (CamelCase) é o correto.
+    
+    // Mapear equipmentId para snake_case, pois o CamelCase falhou
     if (ticket.equipmentId !== undefined) {
-        dbTicket.equipmentid = ticket.equipmentId;
+        dbTicket.equipment_id = ticket.equipmentId;
         delete dbTicket.equipmentId;
     }
-    if (ticket.requestDate !== undefined) {
-        dbTicket.requestdate = ticket.requestDate;
-        delete dbTicket.requestDate;
-    }
-    if (ticket.finishDate !== undefined) {
-        dbTicket.finishdate = ticket.finishDate;
-        delete dbTicket.finishDate;
-    }
-    // team_id geralmente mantém o underscore se criado como team_id, ou vira teamid se criado como TeamId sem aspas. 
-    // Manteremos team_id se estiver presente, pois coincide com a definição do tipo.
 
+    // Mapear datas para snake_case por precaução (comum em DBs), mas se falhar, reverteremos.
+    // Assumindo que se equipmentId era o problema, talvez datas também sigam snake_case ou lowercase.
+    // Vou manter as datas como estão por enquanto se não deram erro explícito, ou mapear se necessário.
+    // Se o erro foi apenas no equipmentId, focamos nele.
+    
     return dbTicket;
 };
 
