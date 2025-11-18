@@ -255,6 +255,9 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                             const status = license.status || LicenseStatus.Ativo;
                             const assignedDetails = assignmentsByLicense.get(license.id) || [];
                             const isExpanded = expandedLicenseId === license.id;
+                            
+                            // Logic to disable delete button
+                            const isDeleteDisabled = usedSeats > 0;
 
                             return (
                                 <React.Fragment key={license.id}>
@@ -297,7 +300,16 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                                     </button>
                                                 )}
                                                 {onDelete && (
-                                                    <button onClick={() => onDelete(license.id)} className="text-red-400 hover:text-red-300" aria-label={`Excluir ${license.productName}`}>
+                                                    <button 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (!isDeleteDisabled) onDelete(license.id); 
+                                                        }} 
+                                                        className={isDeleteDisabled ? "text-gray-600 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                                        disabled={isDeleteDisabled}
+                                                        title={isDeleteDisabled ? "Impossível excluir: Existem licenças em uso" : `Excluir ${license.productName}`}
+                                                        aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${license.productName}`}
+                                                    >
                                                         <DeleteIcon />
                                                     </button>
                                                 )}
