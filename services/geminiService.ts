@@ -1,18 +1,27 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const API_KEY = sessionStorage.getItem('API_KEY') || process.env.API_KEY;
-
-if (!API_KEY) {
-  // In a real app, you'd handle this more gracefully.
-  // Here, we rely on the environment variable being set.
-  console.warn("API_KEY environment variable not set. Gemini features will not work.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+let aiInstance: GoogleGenAI | null = null;
 const model = "gemini-2.5-flash";
+
+const getAiClient = (): GoogleGenAI => {
+    if (aiInstance) {
+        return aiInstance;
+    }
+
+    const API_KEY = sessionStorage.getItem('API_KEY') || process.env.API_KEY;
+
+    if (!API_KEY) {
+        console.error("A chave da API Gemini não está configurada.");
+        throw new Error("A chave da API Gemini não está configurada.");
+    }
+
+    aiInstance = new GoogleGenAI({ apiKey: API_KEY });
+    return aiInstance;
+};
 
 export const extractTextFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
   try {
+    const ai = getAiClient();
     const imagePart = {
       inlineData: {
         data: base64Image,
@@ -37,6 +46,7 @@ export const extractTextFromImage = async (base64Image: string, mimeType: string
 
 export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ brand: string; type: string }> => {
     try {
+        const ai = getAiClient();
         const response = await ai.models.generateContent({
             model: model,
             contents: `Based on the serial number or model code "${serialNumber}", identify the brand and type of the electronic device. For example, for "SN-DELL-001", you might respond with Dell and Laptop.`,
@@ -69,6 +79,7 @@ export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ bra
 
 export const suggestPeripheralsForKit = async (primaryDevice: { brand: string; type: string; description: string }): Promise<Array<{ brandName: string; typeName: string; description: string }>> => {
     try {
+        const ai = getAiClient();
         const response = await ai.models.generateContent({
             model: model,
             contents: `For a primary device that is a ${primaryDevice.brand} ${primaryDevice.type} described as "${primaryDevice.description}", suggest a standard set of peripherals (like Monitor, Keyboard, Mouse, Docking Station if applicable). For each peripheral, provide a common brand and a generic model name or description. The brand should be plausible (e.g., a Dell monitor for a Dell computer).`,

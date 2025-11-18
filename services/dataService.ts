@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { getSupabase } from './supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, Team, TeamMember } from '../types';
 
 // Função auxiliar para lidar com erros do Supabase de forma consistente
@@ -9,34 +9,26 @@ const handleSupabaseError = (error: any, context: string) => {
     }
 };
 
-// Helper para garantir que o cliente Supabase está inicializado
-const checkSupabase = () => {
-    if (!supabase) {
-        throw new Error("Cliente Supabase não inicializado. Verifique as variáveis de ambiente.");
-    }
-    return supabase;
-};
-
 // --- Funções Genéricas de CRUD ---
 
 export const fetchData = async <T>(tableName: string): Promise<T[]> => {
-    const sb = checkSupabase();
-    const { data, error } = await sb.from(tableName).select('*');
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from(tableName).select('*');
     handleSupabaseError(error, `a obter dados de ${tableName}`);
     return data as T[] ?? [];
 };
 
 export const fetchDataById = async <T>(tableName: string, id: string): Promise<T | null> => {
-    const sb = checkSupabase();
-    const { data, error } = await sb.from(tableName).select('*').eq('id', id).single();
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from(tableName).select('*').eq('id', id).single();
     handleSupabaseError(error, `a obter dados de ${tableName} com id ${id}`);
     return data as T | null;
 };
 
 
 const insertData = async <T>(tableName: string, record: Partial<T>): Promise<T> => {
-    const sb = checkSupabase();
-    const { data, error } = await sb.from(tableName).insert(record as any).select();
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from(tableName).insert(record as any).select();
     handleSupabaseError(error, `a inserir em ${tableName}`);
     if (!data) throw new Error("A inserção não retornou dados.");
     return data[0] as T;
@@ -44,8 +36,8 @@ const insertData = async <T>(tableName: string, record: Partial<T>): Promise<T> 
 
 
 export const updateData = async <T>(tableName: string, id: string, updates: Partial<T>): Promise<T> => {
-    const sb = checkSupabase();
-    const { data, error } = await sb.from(tableName).update(updates as any).eq('id', id).select();
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from(tableName).update(updates as any).eq('id', id).select();
     handleSupabaseError(error, `a atualizar em ${tableName}`);
     if (!data) throw new Error("A atualização não retornou dados.");
     return data[0] as T;
@@ -53,30 +45,32 @@ export const updateData = async <T>(tableName: string, id: string, updates: Part
 
 
 export const deleteData = async (tableName: string, id: string): Promise<void> => {
-    const sb = checkSupabase();
-    const { error } = await sb.from(tableName).delete().eq('id', id);
+    const supabase = getSupabase();
+    const { error } = await supabase.from(tableName).delete().eq('id', id);
     handleSupabaseError(error, `a eliminar de ${tableName}`);
 };
 
 // --- Funções de Serviço Específicas ---
 
 const transformTicketForSave = (ticketData: Partial<Ticket>): any => {
-    const { equipmentId, entidadeId, collaboratorId, technicianId, ...rest } = ticketData;
+    const { equipmentId, entidadeId, collaboratorId, technicianId, team_id, ...rest } = ticketData;
     const recordToSend: any = { ...rest };
     if (equipmentId !== undefined) recordToSend.equipment_id = equipmentId;
     if (entidadeId !== undefined) recordToSend.entidade_id = entidadeId;
     if (collaboratorId !== undefined) recordToSend.collaborator_id = collaboratorId;
     if (technicianId !== undefined) recordToSend.technician_id = technicianId;
+    if (team_id !== undefined) recordToSend.team_id = team_id;
     return recordToSend;
 };
 
 const transformTicketFromFetch = (ticketData: any): Ticket => {
-    const { equipment_id, entidade_id, collaborator_id, technician_id, ...rest } = ticketData;
+    const { equipment_id, entidade_id, collaborator_id, technician_id, team_id, ...rest } = ticketData;
     const recordToReturn: any = { ...rest };
     if (equipment_id !== undefined) recordToReturn.equipmentId = equipment_id;
     if (entidade_id !== undefined) recordToReturn.entidadeId = entidade_id;
     if (collaborator_id !== undefined) recordToReturn.collaboratorId = collaborator_id;
     if (technician_id !== undefined) recordToReturn.technicianId = technician_id;
+    if (team_id !== undefined) recordToReturn.team_id = team_id;
     return recordToReturn as Ticket;
 };
 
@@ -135,8 +129,8 @@ export const fetchAllData = async () => {
 // Equipment
 export const addEquipment = (record: Equipment) => insertData('equipment', record);
 export const addMultipleEquipment = (records: Equipment[]) => {
-    const sb = checkSupabase();
-    return sb.from('equipment').insert(records).select();
+    const supabase = getSupabase();
+    return supabase.from('equipment').insert(records).select();
 };
 export const updateEquipment = (id: string, updates: Partial<Equipment>) => updateData('equipment', id, updates);
 export const deleteEquipment = (id: string) => deleteData('equipment', id);
@@ -146,8 +140,8 @@ export const addInstituicao = (record: Instituicao) => insertData('instituicao',
 export const updateInstituicao = (id: string, updates: Partial<Instituicao>) => updateData('instituicao', id, updates);
 export const deleteInstituicao = (id: string) => deleteData('instituicao', id);
 export const addMultipleInstituicoes = (records: Instituicao[]) => {
-    const sb = checkSupabase();
-    return sb.from('instituicao').insert(records).select();
+    const supabase = getSupabase();
+    return supabase.from('instituicao').insert(records).select();
 };
 
 // Entidade
@@ -155,8 +149,8 @@ export const addEntidade = (record: Entidade) => insertData('entidade', record);
 export const updateEntidade = (id: string, updates: Partial<Entidade>) => updateData('entidade', id, updates);
 export const deleteEntidade = (id: string) => deleteData('entidade', id);
 export const addMultipleEntidades = (records: Entidade[]) => {
-    const sb = checkSupabase();
-    return sb.from('entidade').insert(records).select();
+    const supabase = getSupabase();
+    return supabase.from('entidade').insert(records).select();
 };
 
 
@@ -165,13 +159,13 @@ export const addCollaborator = (record: Collaborator) => insertData('collaborato
 export const updateCollaborator = (id: string, updates: Partial<Omit<Collaborator, 'id'>>) => updateData('collaborator', id, updates);
 export const deleteCollaborator = (id: string) => deleteData('collaborator', id);
 export const addMultipleCollaborators = (records: Collaborator[]) => {
-    const sb = checkSupabase();
-    return sb.from('collaborator').insert(records).select();
+    const supabase = getSupabase();
+    return supabase.from('collaborator').insert(records).select();
 };
 export const uploadCollaboratorPhoto = async (userId: string, file: File): Promise<string | null> => {
-    const sb = checkSupabase();
+    const supabase = getSupabase();
     const filePath = `${userId}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await sb.storage
+    const { error: uploadError } = await supabase.storage
         .from('collaborator-photos')
         .upload(filePath, file, { upsert: true });
 
@@ -180,7 +174,7 @@ export const uploadCollaboratorPhoto = async (userId: string, file: File): Promi
         return null;
     }
 
-    const { data } = sb.storage.from('collaborator-photos').getPublicUrl(filePath);
+    const { data } = supabase.storage.from('collaborator-photos').getPublicUrl(filePath);
     return data.publicUrl;
 };
 
@@ -188,8 +182,8 @@ export const uploadCollaboratorPhoto = async (userId: string, file: File): Promi
 // Assignment
 export const addAssignment = (record: Assignment) => insertData('assignment', record);
 export const addMultipleAssignments = (records: Assignment[]) => {
-    const sb = checkSupabase();
-    return sb.from('assignment').insert(records).select();
+    const supabase = getSupabase();
+    return supabase.from('assignment').insert(records).select();
 };
 export const updateAssignment = (id: string, updates: Partial<Assignment>) => updateData('assignment', id, updates);
 
@@ -205,15 +199,15 @@ export const deleteBrand = (id: string) => deleteData('brand', id);
 
 // Ticket
 export const addTicket = async (record: Ticket): Promise<Ticket> => {
-    const sb = checkSupabase();
-    const { data, error } = await sb.from('ticket').insert(transformTicketForSave(record)).select();
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('ticket').insert(transformTicketForSave(record)).select();
     handleSupabaseError(error, 'a inserir em ticket');
     if (!data) throw new Error("A inserção não retornou dados.");
     return transformTicketFromFetch(data[0]);
 };
 export const updateTicket = async (id: string, updates: Partial<Ticket>): Promise<Ticket> => {
-    const sb = checkSupabase();
-    const { data, error } = await sb.from('ticket').update(transformTicketForSave(updates)).eq('id', id).select();
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('ticket').update(transformTicketForSave(updates)).eq('id', id).select();
     handleSupabaseError(error, 'a atualizar em ticket');
     if (!data) throw new Error("A atualização não retornou dados.");
     return transformTicketFromFetch(data[0]);
@@ -221,15 +215,15 @@ export const updateTicket = async (id: string, updates: Partial<Ticket>): Promis
 
 // TicketActivity
 export const addTicketActivity = async (record: TicketActivity): Promise<TicketActivity> => {
-    const sb = checkSupabase();
-    const { data, error } = await sb.from('ticket_activity').insert(transformTicketActivityForSave(record)).select();
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('ticket_activity').insert(transformTicketActivityForSave(record)).select();
     handleSupabaseError(error, 'a inserir em ticket_activity');
     if (!data) throw new Error("A inserção não retornou dados.");
     return transformTicketActivityFromFetch(data[0]);
 };
 export const updateTicketActivity = async (id: string, updates: Partial<TicketActivity>): Promise<TicketActivity> => {
-    const sb = checkSupabase();
-    const { data, error } = await sb.from('ticket_activity').update(transformTicketActivityForSave(updates)).eq('id', id).select();
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('ticket_activity').update(transformTicketActivityForSave(updates)).eq('id', id).select();
     handleSupabaseError(error, 'a atualizar em ticket_activity');
     if (!data) throw new Error("A atualização não retornou dados.");
     return transformTicketActivityFromFetch(data[0]);
@@ -244,8 +238,8 @@ export const addMessage = (record: Message) => insertData('message', record);
 export const updateMessage = (id: string, updates: Partial<Message>) => updateData('message', id, updates);
 // Para 'marcar como lido', seria mais eficiente uma função que atualiza múltiplos
 export const markMessagesAsRead = (senderId: string, receiverId: string) => {
-    const sb = checkSupabase();
-    return sb.from('message')
+    const supabase = getSupabase();
+    return supabase.from('message')
         .update({ read: true })
         .eq('senderId', senderId)
         .eq('receiverId', receiverId)
@@ -259,10 +253,10 @@ export const deleteLicense = (id: string) => deleteData('software_license', id);
 
 // LicenseAssignment
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
-    const sb = checkSupabase();
+    const supabase = getSupabase();
 
     // 1. Get current assignments for this equipment
-    const { data: currentAssignments, error: fetchError } = await sb
+    const { data: currentAssignments, error: fetchError } = await supabase
         .from('license_assignment')
         .select('id, softwareLicenseId')
         .eq('equipmentId', equipmentId);
@@ -277,7 +271,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
 
     // 3. Perform deletions
     if (toRemove.length > 0) {
-        const { error: deleteError } = await sb
+        const { error: deleteError } = await supabase
             .from('license_assignment')
             .delete()
             .in('id', toRemove);
@@ -292,7 +286,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
             assignedDate: new Date().toISOString().split('T')[0],
             id: crypto.randomUUID(),
         }));
-        const { error: insertError } = await sb
+        const { error: insertError } = await supabase
             .from('license_assignment')
             .insert(newRecords);
         handleSupabaseError(insertError, 'a adicionar atribuições de licença');
@@ -306,10 +300,10 @@ export const deleteTeam = (id: string) => deleteData('teams', id);
 
 // TeamMembers
 export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
-    const sb = checkSupabase();
+    const supabase = getSupabase();
 
     // 1. Delete all existing members for the team
-    const { error: deleteError } = await sb.from('team_members').delete().eq('team_id', teamId);
+    const { error: deleteError } = await supabase.from('team_members').delete().eq('team_id', teamId);
     handleSupabaseError(deleteError, 'a remover membros antigos da equipa');
 
     // 2. Insert new members if any
@@ -318,7 +312,7 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
             team_id: teamId,
             collaborator_id
         }));
-        const { error: insertError } = await sb.from('team_members').insert(newMembers);
+        const { error: insertError } = await supabase.from('team_members').insert(newMembers);
         handleSupabaseError(insertError, 'a adicionar novos membros à equipa');
     }
 };
