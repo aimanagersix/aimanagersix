@@ -60,10 +60,30 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
 
 // --- Funções de Serviço Específicas ---
 
+// Funções auxiliares para transformação de Tickets para corrigir o nome da coluna equipmentId
+const transformTicketForSave = (ticketData: Partial<Ticket>): any => {
+    const { equipmentId, ...rest } = ticketData;
+    const recordToSend: any = { ...rest };
+    if (equipmentId !== undefined) {
+        recordToSend.equipment_id = equipmentId;
+    }
+    return recordToSend;
+};
+
+const transformTicketFromFetch = (ticketData: any): Ticket => {
+    const { equipment_id, ...rest } = ticketData;
+    const recordToReturn: any = { ...rest };
+    if (equipment_id !== undefined) {
+        recordToReturn.equipmentId = equipment_id;
+    }
+    return recordToReturn as Ticket;
+};
+
+
 export const fetchAllData = async () => {
     const [
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
-        assignments, tickets, ticketActivities, collaboratorHistory, messages,
+        assignments, ticketsRaw, ticketActivities, collaboratorHistory, messages,
         softwareLicenses, licenseAssignments, teams, teamMembers
     ] = await Promise.all([
         fetchData<Equipment>('equipment'),
@@ -73,7 +93,7 @@ export const fetchAllData = async () => {
         fetchData<EquipmentType>('equipment_type'),
         fetchData<Brand>('brand'),
         fetchData<Assignment>('assignment'),
-        fetchData<Ticket>('ticket'),
+        fetchData<any>('ticket'), // Fetch as 'any' para lidar com 'equipment_id'
         fetchData<TicketActivity>('ticket_activity'),
         fetchData<CollaboratorHistory>('collaborator_history'),
         fetchData<Message>('message'),
@@ -82,6 +102,8 @@ export const fetchAllData = async () => {
         fetchData<Team>('teams'),
         fetchData<TeamMember>('team_members'),
     ]);
+
+    const tickets = ticketsRaw.map(transformTicketFromFetch);
 
     return {
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
@@ -162,8 +184,20 @@ export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('
 export const deleteBrand = (id: string) => deleteData('brand', id);
 
 // Ticket
-export const addTicket = (record: Ticket) => insertData('ticket', record);
-export const updateTicket = (id: string, updates: Partial<Ticket>) => updateData('ticket', id, updates);
+export const addTicket = async (record: Ticket): Promise<Ticket> => {
+    const sb = checkSupabase();
+    const { data, error } = await sb.from('ticket').insert(transformTicketForSave(record)).select();
+    handleSupabaseError(error, 'a inserir em ticket');
+    if (!data) throw new Error("A inserção não retornou dados.");
+    return transformTicketFromFetch(data[0]);
+};
+export const updateTicket = async (id: string, updates: Partial<Ticket>): Promise<Ticket> => {
+    const sb = checkSupabase();
+    const { data, error } = await sb.from('ticket').update(transformTicketForSave(updates)).eq('id', id).select();
+    handleSupabaseError(error, 'a atualizar em ticket');
+    if (!data) throw new Error("A atualização não retornou dados.");
+    return transformTicketFromFetch(data[0]);
+};
 
 // TicketActivity
 export const addTicketActivity = (record: TicketActivity) => insertData('ticket_activity', record);
@@ -255,4 +289,4 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
         const { error: insertError } = await sb.from('team_members').insert(newMembers);
         handleSupabaseError(insertError, 'a adicionar novos membros à equipa');
     }
-};
+}
