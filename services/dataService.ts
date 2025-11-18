@@ -127,6 +127,35 @@ const mapTicketActivityToDb = (activity: Partial<TicketActivity>): any => {
     return dbActivity;
 };
 
+// --- Helpers de Mapeamento para SoftwareLicense ---
+
+const mapLicenseFromDb = (db: any): SoftwareLicense => ({
+    ...db,
+    productName: db.product_name || db.productName,
+    licenseKey: db.license_key || db.licenseKey,
+    totalSeats: db.total_seats || db.totalSeats,
+    purchaseDate: db.purchase_date || db.purchaseDate,
+    expiryDate: db.expiry_date || db.expiryDate,
+    purchaseEmail: db.purchase_email || db.purchaseEmail,
+    invoiceNumber: db.invoice_number || db.invoiceNumber,
+    status: db.status,
+});
+
+const mapLicenseToDb = (app: Partial<SoftwareLicense>): any => {
+    const { productName, licenseKey, totalSeats, purchaseDate, expiryDate, purchaseEmail, invoiceNumber, ...rest } = app;
+    const db: any = { ...rest };
+    
+    if (productName !== undefined) db.product_name = productName;
+    if (licenseKey !== undefined) db.license_key = licenseKey;
+    if (totalSeats !== undefined) db.total_seats = totalSeats;
+    if (purchaseDate !== undefined) db.purchase_date = purchaseDate;
+    if (expiryDate !== undefined) db.expiry_date = expiryDate;
+    if (purchaseEmail !== undefined) db.purchase_email = purchaseEmail;
+    if (invoiceNumber !== undefined) db.invoice_number = invoiceNumber;
+    
+    return db;
+};
+
 
 // --- Funções de Serviço Específicas ---
 
@@ -134,7 +163,7 @@ export const fetchAllData = async () => {
     const [
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
         assignments, ticketsRaw, ticketActivitiesRaw, collaboratorHistory, messages,
-        softwareLicenses, licenseAssignments, teams, teamMembers
+        softwareLicensesRaw, licenseAssignments, teams, teamMembers
     ] = await Promise.all([
         fetchData<Equipment>('equipment'),
         fetchData<Instituicao>('instituicao'),
@@ -147,7 +176,7 @@ export const fetchAllData = async () => {
         fetchData<any>('ticket_activity'), // Buscar raw data
         fetchData<CollaboratorHistory>('collaborator_history'),
         fetchData<Message>('message'),
-        fetchData<SoftwareLicense>('software_license'),
+        fetchData<any>('software_license'), // Buscar raw data para mapear
         fetchData<LicenseAssignment>('license_assignment'),
         fetchData<Team>('teams'),
         fetchData<TeamMember>('team_members'),
@@ -156,6 +185,7 @@ export const fetchAllData = async () => {
     // Mapear raw data para os tipos da aplicação
     const tickets = ticketsRaw.map(mapTicketFromDb);
     const ticketActivities = ticketActivitiesRaw.map(mapTicketActivityFromDb);
+    const softwareLicenses = softwareLicensesRaw.map(mapLicenseFromDb);
 
     return {
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
@@ -290,9 +320,24 @@ export const markMessagesAsRead = (senderId: string, receiverId: string) => {
         .eq('read', false);
 };
 
-// SoftwareLicense
-export const addLicense = (record: SoftwareLicense) => insertData('software_license', record);
-export const updateLicense = (id: string, updates: Partial<SoftwareLicense>) => updateData('software_license', id, updates);
+// SoftwareLicense - Usando o Mapper
+export const addLicense = async (record: SoftwareLicense): Promise<SoftwareLicense> => {
+    const dbRecord = mapLicenseToDb(record);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('software_license').insert(dbRecord).select();
+    handleSupabaseError(error, `a inserir em software_license`);
+    if (!data) throw new Error("A inserção não retornou dados.");
+    return mapLicenseFromDb(data[0]);
+};
+
+export const updateLicense = async (id: string, updates: Partial<SoftwareLicense>): Promise<SoftwareLicense> => {
+    const dbUpdates = mapLicenseToDb(updates);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('software_license').update(dbUpdates).eq('id', id).select();
+    handleSupabaseError(error, `a atualizar em software_license`);
+    if (!data) throw new Error("A atualização não retornou dados.");
+    return mapLicenseFromDb(data[0]);
+};
 export const deleteLicense = (id: string) => deleteData('software_license', id);
 
 // LicenseAssignment
