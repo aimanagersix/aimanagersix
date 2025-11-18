@@ -53,51 +53,51 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
 
 // --- Helpers de Mapeamento para Tickets ---
 
-// Mapeia os dados vindos da DB (snake_case) para a aplicação (camelCase)
+// Mapeia os dados vindos da DB (provavelmente lowercase) para a aplicação (camelCase)
 const mapTicketFromDb = (dbTicket: any): Ticket => ({
     ...dbTicket,
     title: dbTicket.title,
-    // Mapeia de snake_case (padrão DB) para camelCase (App), com fallbacks
-    entidadeId: dbTicket.entidade_id || dbTicket.entidadeId || dbTicket.entidadeid,
-    collaboratorId: dbTicket.collaborator_id || dbTicket.collaboratorId || dbTicket.collaboratorid,
-    technicianId: dbTicket.technician_id || dbTicket.technicianId || dbTicket.technicianid,
-    equipmentId: dbTicket.equipment_id || dbTicket.equipmentId || dbTicket.equipmentid,
-    requestDate: dbTicket.request_date || dbTicket.requestDate || dbTicket.requestdate,
-    finishDate: dbTicket.finish_date || dbTicket.finishDate || dbTicket.finishdate,
-    // team_id já está em snake_case na interface, mas verificamos teamId por segurança
-    team_id: dbTicket.team_id || dbTicket.teamId,
+    // Tenta ler lowercase (padrão Postgres), depois camelCase, depois snake_case
+    entidadeId: dbTicket.entidadeid || dbTicket.entidadeId || dbTicket.entidade_id,
+    collaboratorId: dbTicket.collaboratorid || dbTicket.collaboratorId || dbTicket.collaborator_id,
+    technicianId: dbTicket.technicianid || dbTicket.technicianId || dbTicket.technician_id,
+    equipmentId: dbTicket.equipmentid || dbTicket.equipmentId || dbTicket.equipment_id,
+    requestDate: dbTicket.requestdate || dbTicket.requestDate || dbTicket.request_date,
+    finishDate: dbTicket.finishdate || dbTicket.finishDate || dbTicket.finish_date,
+    team_id: dbTicket.team_id || dbTicket.teamid || dbTicket.teamId,
 });
 
-// Mapeia os dados da aplicação (camelCase) para a DB (snake_case)
+// Mapeia os dados da aplicação (camelCase) para a DB (lowercase)
+// Assumindo que as colunas foram criadas sem aspas no Postgres, logo são lowercase.
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     const dbTicket: any = { ...ticket };
 
-    // Converter camelCase para snake_case
     if (ticket.entidadeId !== undefined) {
-        dbTicket.entidade_id = ticket.entidadeId;
+        dbTicket.entidadeid = ticket.entidadeId;
         delete dbTicket.entidadeId;
     }
     if (ticket.collaboratorId !== undefined) {
-        dbTicket.collaborator_id = ticket.collaboratorId;
+        dbTicket.collaboratorid = ticket.collaboratorId;
         delete dbTicket.collaboratorId;
     }
     if (ticket.technicianId !== undefined) {
-        dbTicket.technician_id = ticket.technicianId;
+        dbTicket.technicianid = ticket.technicianId;
         delete dbTicket.technicianId;
     }
     if (ticket.equipmentId !== undefined) {
-        dbTicket.equipment_id = ticket.equipmentId;
+        dbTicket.equipmentid = ticket.equipmentId;
         delete dbTicket.equipmentId;
     }
     if (ticket.requestDate !== undefined) {
-        dbTicket.request_date = ticket.requestDate;
+        dbTicket.requestdate = ticket.requestDate;
         delete dbTicket.requestDate;
     }
     if (ticket.finishDate !== undefined) {
-        dbTicket.finish_date = ticket.finishDate;
+        dbTicket.finishdate = ticket.finishDate;
         delete dbTicket.finishDate;
     }
-    // team_id e status geralmente mantêm-se iguais se a coluna DB for team_id e status
+    // team_id geralmente mantém o underscore se criado como team_id, ou vira teamid se criado como TeamId sem aspas. 
+    // Manteremos team_id se estiver presente, pois coincide com a definição do tipo.
 
     return dbTicket;
 };
