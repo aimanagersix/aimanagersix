@@ -71,22 +71,29 @@ const mapTicketFromDb = (dbTicket: any): Ticket => ({
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     const dbTicket: any = { ...ticket };
 
-    // 1. Mapeamento Específico: equipmentId -> equipment_id
-    // Se o campo equipmentId estiver presente, mapeamos para equipment_id
-    if ('equipmentId' in dbTicket) {
-        dbTicket.equipment_id = dbTicket.equipmentId === '' ? null : dbTicket.equipmentId;
-        // Removemos o original para não enviar lixo para a BD
-        delete dbTicket.equipmentId;
-    }
+    // Helper para mapear campos camelCase para snake_case e sanitizar strings vazias
+    const mapField = (sourceKey: string, targetKey: string) => {
+        if (sourceKey in dbTicket) {
+            const val = dbTicket[sourceKey];
+            // Converte string vazia em null para evitar erro de sintaxe UUID no Postgres
+            dbTicket[targetKey] = val === '' ? null : val;
+            
+            // Remove a chave original se for diferente da chave de destino
+            if (sourceKey !== targetKey) {
+                delete dbTicket[sourceKey];
+            }
+        }
+    };
 
-    // 2. Sanitização de UUIDs (Converter string vazia em null)
-    // Outros campos que você disse que já funcionam mantemos o nome original,
-    // mas garantimos que não vão vazios.
-    if (dbTicket.technicianId === '') dbTicket.technicianId = null;
-    if (dbTicket.team_id === '') dbTicket.team_id = null;
+    mapField('equipmentId', 'equipment_id');
+    mapField('entidadeId', 'entidade_id');
+    mapField('collaboratorId', 'collaborator_id');
+    mapField('technicianId', 'technician_id');
     
-    // Garantir que collaboratorId não vai vazio se for opcional (embora deva ser obrigatório)
-    if (dbTicket.collaboratorId === '') dbTicket.collaboratorId = null;
+    // team_id já está em snake_case nos types, mas aplicamos sanitização de string vazia
+    if ('team_id' in dbTicket) {
+         dbTicket.team_id = dbTicket.team_id === '' ? null : dbTicket.team_id;
+    }
 
     return dbTicket;
 };
