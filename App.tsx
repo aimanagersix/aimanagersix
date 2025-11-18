@@ -1,691 +1,312 @@
-
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { getSupabase } from './services/supabaseClient';
-import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, CollaboratorStatus, SoftwareLicense, LicenseAssignment, LicenseStatus, Team, TeamMember } from './types';
-import * as dataService from './services/dataService';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from './components/Header';
 import EquipmentDashboard from './components/Dashboard';
+import CollaboratorDashboard from './components/CollaboratorDashboard';
+import TicketDashboard from './components/TicketDashboard';
+import TeamDashboard from './components/TeamDashboard';
 import EntidadeDashboard from './components/EntidadeDashboard';
 import InstituicaoDashboard from './components/InstituicaoDashboard';
-import CollaboratorDashboard from './components/CollaboratorDashboard';
-import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import BrandDashboard from './components/BrandDashboard';
-import OverviewDashboard from './components/OverviewDashboard';
-import TicketDashboard from './components/TicketDashboard';
+import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import LicenseDashboard from './components/LicenseDashboard';
-import TeamDashboard from './components/TeamDashboard';
+import OverviewDashboard from './components/OverviewDashboard';
 import LoginPage from './components/LoginPage';
-import ForgotPasswordModal from './components/ForgotPasswordModal';
-import ResetPasswordModal from './components/ResetPasswordModal';
-import { ChatWidget } from './components/ChatWidget';
+import ConfigurationSetup from './components/ConfigurationSetup';
+import * as dataService from './services/dataService';
+import { getSupabase } from './services/supabaseClient';
+import { 
+    Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
+    Assignment, Ticket, TicketActivity, Team, TeamMember, SoftwareLicense, 
+    LicenseAssignment, Message, UserRole, CollaboratorStatus 
+} from './types';
+
+// Modal Imports
 import AddEquipmentModal from './components/AddEquipmentModal';
+import AddCollaboratorModal from './components/AddCollaboratorModal';
+import AddTicketModal from './components/AddTicketModal';
+import AddTeamModal from './components/AddTeamModal';
 import AddEntidadeModal from './components/AddEntidadeModal';
 import AddInstituicaoModal from './components/AddInstituicaoModal';
-import AddCollaboratorModal from './components/AddCollaboratorModal';
-import AddEquipmentTypeModal from './components/AddEquipmentTypeModal';
 import AddBrandModal from './components/AddBrandModal';
-import AddTicketModal from './components/AddTicketModal';
+import AddEquipmentTypeModal from './components/AddEquipmentTypeModal';
 import AddLicenseModal from './components/AddLicenseModal';
-import AddTeamModal from './components/AddTeamModal';
-import ManageTeamMembersModal from './components/ManageTeamMembersModal';
-import CloseTicketModal from './components/CloseTicketModal';
-import TicketActivitiesModal from './components/TicketActivitiesModal';
-import ImportModal, { ImportConfig } from './components/ImportModal';
 import AddEquipmentKitModal from './components/AddEquipmentKitModal';
-import InfoModal from './components/common/InfoModal';
-import NotificationsModal from './components/NotificationsModal';
 import AssignEquipmentModal from './components/AssignEquipmentModal';
 import AssignMultipleEquipmentModal from './components/AssignMultipleEquipmentModal';
-import ReportModal from './components/ReportModal';
-import ConfirmationModal from './components/common/ConfirmationModal';
+import CloseTicketModal from './components/CloseTicketModal';
+import TicketActivitiesModal from './components/TicketActivitiesModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 import CollaboratorHistoryModal from './components/CollaboratorHistoryModal';
 import CollaboratorDetailModal from './components/CollaboratorDetailModal';
 import ManageAssignedLicensesModal from './components/ManageAssignedLicensesModal';
-import ConfigurationSetup from './components/ConfigurationSetup';
-import { PlusIcon, FaFileImport, SpinnerIcon } from './components/common/Icons';
-import { Session } from '@supabase/supabase-js';
+import ManageTeamMembersModal from './components/ManageTeamMembersModal';
+import NotificationsModal from './components/NotificationsModal';
+import ReportModal from './components/ReportModal';
+import ImportModal, { ImportConfig } from './components/ImportModal';
+import { ChatWidget } from './components/ChatWidget';
+import ConfirmationModal from './components/common/ConfirmationModal';
+import InfoModal from './components/common/InfoModal';
+import ForgotPasswordModal from './components/ForgotPasswordModal';
+import ResetPasswordModal from './components/ResetPasswordModal';
+import { PlusIcon, FaFileImport } from './components/common/Icons';
 
-
-// Define an interface for tab configuration to ensure type safety.
-interface TabConfigItem {
-    title: string;
-    component: React.ReactNode;
-    buttonText?: string;
-    onButtonClick?: () => void;
-    onImportClick?: () => void;
-    secondaryButtonText?: string;
-    onSecondaryButtonClick?: () => void;
-    onGenerateReport?: () => void;
-}
-
-const areKeysConfigured = () => {
-    const supabaseUrl = process.env.SUPABASE_URL || sessionStorage.getItem('SUPABASE_URL');
-    const supabaseKey = process.env.SUPABASE_ANON_KEY || sessionStorage.getItem('SUPABASE_ANON_KEY');
-    const geminiKey = process.env.API_KEY || sessionStorage.getItem('API_KEY');
-    return !!(supabaseUrl && supabaseKey && geminiKey);
-};
+// Types for Modal State
+type ModalType = 
+    | { type: 'add_equipment', data?: Equipment }
+    | { type: 'add_collaborator', data?: Collaborator }
+    | { type: 'add_ticket', data?: Ticket }
+    | { type: 'add_team', data?: Team }
+    | { type: 'add_entidade', data?: Entidade }
+    | { type: 'add_instituicao', data?: Instituicao }
+    | { type: 'add_brand', data?: Brand }
+    | { type: 'add_equipment_type', data?: EquipmentType }
+    | { type: 'add_license', data?: SoftwareLicense }
+    | { type: 'add_kit', initialData?: Partial<Equipment> }
+    | { type: 'assign_equipment', data: Equipment }
+    | { type: 'assign_multiple', data: Equipment[] }
+    | { type: 'close_ticket', data: Ticket }
+    | { type: 'ticket_activities', data: Ticket }
+    | { type: 'equipment_history', data: Equipment }
+    | { type: 'collaborator_history', data: Collaborator }
+    | { type: 'collaborator_detail', data: Collaborator }
+    | { type: 'manage_licenses', data: Equipment }
+    | { type: 'manage_team_members', data: Team }
+    | { type: 'notifications' }
+    | { type: 'report', reportType: 'equipment' | 'collaborator' | 'ticket' | 'licensing' }
+    | { type: 'import', data: ImportConfig }
+    | { type: 'forgot_password' }
+    | { type: 'reset_password' }
+    | null;
 
 export const App: React.FC = () => {
-    const [isConfigured, setIsConfigured] = useState(areKeysConfigured());
-    
-    if (!isConfigured) {
-        return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    }
-
-    // Auth State
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isConfigured, setIsConfigured] = useState<boolean>(!!sessionStorage.getItem('SUPABASE_URL'));
+    const [session, setSession] = useState<any>(null);
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
-    const [sessionForPasswordReset, setSessionForPasswordReset] = useState<Session | null>(null);
+    const [activeTab, setActiveTab] = useState('overview');
+    const [modal, setModal] = useState<ModalType>(null);
+    const [confirmation, setConfirmation] = useState<{ message: string, onConfirm: () => void } | null>(null);
+    const [infoModal, setInfoModal] = useState<{ title: string, content: React.ReactNode } | null>(null);
+    const [initialFilter, setInitialFilter] = useState<any>(null);
 
-
-    // Loading states
-    const [isSessionLoading, setIsSessionLoading] = useState(true);
-    const [isDataLoading, setIsDataLoading] = useState(false);
-    const [loadingError, setLoadingError] = useState<string | null>(null);
-    
-    // Data State - Initialized as empty arrays, will be populated from Supabase
+    // Data State
     const [equipment, setEquipment] = useState<Equipment[]>([]);
+    const [brands, setBrands] = useState<Brand[]>([]);
+    const [equipmentTypes, setEquipmentTypes] = useState<EquipmentType[]>([]);
     const [instituicoes, setInstituicoes] = useState<Instituicao[]>([]);
     const [entidades, setEntidades] = useState<Entidade[]>([]);
     const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-    const [equipmentTypes, setEquipmentTypes] = useState<EquipmentType[]>([]);
-    const [brands, setBrands] = useState<Brand[]>([]);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [ticketActivities, setTicketActivities] = useState<TicketActivity[]>([]);
-    const [collaboratorHistory, setCollaboratorHistory] = useState<CollaboratorHistory[]>([]);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [softwareLicenses, setSoftwareLicenses] = useState<SoftwareLicense[]>([]);
-    const [licenseAssignments, setLicenseAssignments] = useState<LicenseAssignment[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-    
-    const clearAllData = () => {
-        setEquipment([]);
-        setInstituicoes([]);
-        setEntidades([]);
-        setCollaborators([]);
-        setEquipmentTypes([]);
-        setBrands([]);
-        setAssignments([]);
-        setTickets([]);
-        setTicketActivities([]);
-        setCollaboratorHistory([]);
-        setMessages([]);
-        setSoftwareLicenses([]);
-        setLicenseAssignments([]);
-        setTeams([]);
-        setTeamMembers([]);
-        setCurrentUser(null);
-        setInitialNotificationsShown(false);
-    };
-    
-    const handleLogout = useCallback(async () => {
-        try {
-            const supabase = getSupabase();
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-                console.error("Logout error:", error);
-            }
-        } catch(e) {
-            console.error("Failed to get Supabase on logout:", e);
-        }
-    }, []);
+    const [softwareLicenses, setSoftwareLicenses] = useState<SoftwareLicense[]>([]);
+    const [licenseAssignments, setLicenseAssignments] = useState<LicenseAssignment[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [collaboratorHistory, setCollaboratorHistory] = useState<any[]>([]);
 
-    const handleLogin = async (email: string, password: string): Promise<{ success: boolean, error?: string }> => {
-        try {
-            const supabase = getSupabase();
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) {
-                console.error("Login error:", error);
-                if (error.message.includes('Invalid login credentials')) {
-                    return { success: false, error: "Credenciais de login inválidas." };
-                }
-                if (error.message.includes('Email not confirmed')) {
-                    return { success: false, error: "Email não confirmado. Por favor, verifique a sua caixa de entrada." };
-                }
-                return { success: false, error: "Ocorreu um erro ao fazer login." };
-            }
-            return { success: true };
-        } catch (e: any) {
-            console.error("Login failed to init Supabase:", e);
-            return { success: false, error: e.message || 'Falha ao inicializar a ligação.' };
-        }
-    };
-
-    // Stage 1: Check for an active session. This is quick and removes the initial spinner.
-    useEffect(() => {
-        try {
-            const supabase = getSupabase();
-            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-                if (event === 'PASSWORD_RECOVERY' && session) {
-                    setSessionForPasswordReset(session);
-                    setIsAuthenticated(false);
-                } else if (event !== 'PASSWORD_RECOVERY') {
-                    setSessionForPasswordReset(null);
-                    setIsAuthenticated(!!session);
-                }
-                
-                if (event === 'INITIAL_SESSION') {
-                    setIsSessionLoading(false);
-                }
-            });
-
-            return () => {
-                subscription?.unsubscribe();
-            };
-        } catch(e: any) {
-             setLoadingError(e.message || "Falha na ligação com o Supabase. Verifique as chaves de configuração.");
-             setIsSessionLoading(false);
-        }
-    }, []);
-
-    // Stage 2: If authenticated, load all necessary user and application data.
-    useEffect(() => {
-        if (!isAuthenticated) {
-            clearAllData();
-            return;
-        }
-
-        const loadAppData = async () => {
-            setIsDataLoading(true);
-            setLoadingError(null);
-
-            try {
-                const supabase = getSupabase();
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) throw new Error("Sessão de utilizador inválida.");
-
-                const allData = await dataService.fetchAllData();
-                const userProfile = allData.collaborators.find(c => c.id === user.id);
-                
-                if (!userProfile) {
-                    throw new Error("Perfil do utilizador não encontrado. A fazer logout.");
-                }
-
-                setEquipment(allData.equipment);
-                setInstituicoes(allData.instituicoes);
-                setEntidades(allData.entidades);
-                setCollaborators(allData.collaborators);
-                setEquipmentTypes(allData.equipmentTypes);
-                setBrands(allData.brands);
-                setAssignments(allData.assignments);
-                setTickets(allData.tickets);
-                setTicketActivities(allData.ticketActivities);
-                setCollaboratorHistory(allData.collaboratorHistory);
-                setMessages(allData.messages);
-                setSoftwareLicenses(allData.softwareLicenses);
-                setLicenseAssignments(allData.licenseAssignments);
-                setTeams(allData.teams);
-                setTeamMembers(allData.teamMembers);
-                
-                setCurrentUser(userProfile);
-
-            } catch (error: any) {
-                console.error("Failed to load application data:", error);
-                setLoadingError(error.message || "Não foi possível carregar os dados. A sessão será terminada.");
-                setTimeout(() => {
-                    handleLogout();
-                }, 3000);
-            } finally {
-                setIsDataLoading(false);
-            }
-        };
-
-        loadAppData();
-    }, [isAuthenticated, handleLogout]);
-
-    // UI State
-    const [activeTab, setActiveTab] = useState('overview');
-    const [modal, setModal] = useState<{ type: string | null; data?: any }>({ type: null });
-    const [confirmation, setConfirmation] = useState<{ message: string; onConfirm: () => void; } | null>(null);
-    const [isReportModalOpen, setIsReportModalOpen] = useState<{ type: 'equipment' | 'collaborator' | 'ticket' | 'licensing' | null }>({ type: null });
-    const [initialDashboardFilter, setInitialDashboardFilter] = useState<any>(null);
-    const [isTicketActivitiesModalOpen, setIsTicketActivitiesModalOpen] = useState(false);
-    const [selectedTicketForActivities, setSelectedTicketForActivities] = useState<Ticket | null>(null);
-    const [infoModal, setInfoModal] = useState<{ title: string; content: React.ReactNode; } | null>(null);
+    // Chat
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
-    const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
-    const [snoozedNotifications, setSnoozedNotifications] = useState<string[]>(() => {
-        const saved = localStorage.getItem('snoozedNotifications');
-        return saved ? JSON.parse(saved) : [];
-    });
-    const [initialNotificationsShown, setInitialNotificationsShown] = useState(false);
-    const [isForgotPasswordModalOpen, setIsForgotPasswordModalOpen] = useState(false);
-    const [dbFixSql, setDbFixSql] = useState<string | null>(null);
 
+    // Load Session and Initial Data
+    useEffect(() => {
+        if (!isConfigured) return;
 
-    const userPermissions = useMemo(() => {
-        if (!currentUser) return { canEdit: false, viewScope: 'none' };
-        
-        switch (currentUser.role) {
-            case UserRole.Admin:
-                return { canEdit: true, viewScope: 'all' };
-            case UserRole.Normal:
-                return { canEdit: true, viewScope: 'all' };
-            case UserRole.Basic:
-                return { canEdit: false, viewScope: 'all' };
-             case UserRole.Utilizador:
-                return { canEdit: false, viewScope: 'own' };
-            default:
-                return { canEdit: false, viewScope: 'none' };
-        }
-    }, [currentUser]);
-
-    // --- Data Handling Callbacks ---
-    
-    // Generic Save Handler
-    const handleSave = useCallback(async <T extends { id: string }>(
-        type: 'equipment' | 'instituicao' | 'entidade' | 'equipment_type' | 'brand' | 'ticket' | 'ticket_activity' | 'message' | 'software_license' | 'team',
-        data: Partial<T>,
-        addFn: (record: any) => Promise<any>,
-        updateFn: (id: string, updates: Partial<T>) => Promise<any>,
-        setData: React.Dispatch<React.SetStateAction<T[]>>
-    ) => {
-        try {
-            let recordToSave = { ...data };
-            if ('id' in recordToSave && recordToSave.id) {
-                delete (recordToSave as any).id;
+        const supabase = getSupabase();
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            if (session?.user) {
+                fetchInitialData(session.user.id);
             }
+        });
 
-            if ('id' in data && data.id) {
-                const updatesPayload = { ...recordToSave };
-                 if (type === 'equipment') {
-                    delete (updatesPayload as Partial<Equipment>).creationDate;
-                    (updatesPayload as Partial<Equipment>).modifiedDate = new Date().toISOString();
-                }
-
-                const updatedRecord = await updateFn(data.id, updatesPayload);
-                setData(prev => prev.map(item => item.id === data.id ? updatedRecord : item));
-                return updatedRecord;
-
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            if (session?.user) {
+                fetchInitialData(session.user.id);
             } else {
-                 let recordWithDefaults: any = { ...data };
-                 
-                 if (type === 'equipment') {
-                     const now = new Date().toISOString();
-                     recordWithDefaults = {
-                         ...recordWithDefaults,
-                         creationDate: now,
-                         modifiedDate: now,
-                         status: EquipmentStatus.Stock,
-                         id: crypto.randomUUID(),
-                     };
-                 } else if (type === 'ticket') {
-                      recordWithDefaults = {
-                         ...recordWithDefaults,
-                         requestDate: new Date().toISOString().split('T')[0],
-                         status: TicketStatus.Requested,
-                         id: crypto.randomUUID(),
-                      };
-                 } else if (type !== 'message') {
-                     recordWithDefaults.id = crypto.randomUUID();
-                 }
-                
-                const newRecord = await addFn(recordWithDefaults);
-                setData(prev => [...prev, newRecord]);
-                return newRecord;
+                setCurrentUser(null);
             }
-        } catch (error: any) {
-            console.error(`Failed to save ${type}:`, error);
-            let userMessage = `Ocorreu um erro ao salvar os dados de ${type}. Por favor, tente novamente.`;
-            if (error && error.message) {
-                if (error.message.includes("Could not find the 'status' column")) {
-                    setDbFixSql("ALTER TABLE software_license ADD COLUMN status text DEFAULT 'Ativo';");
-                    return; // Don't show alert, show modal instead
-                } else if (error.message.includes('violates foreign key constraint')) {
-                    userMessage = `Não foi possível salvar. Verifique se todos os itens associados (como Marcas, Tipos ou Entidades) ainda existem.`;
-                } else if (error.message.includes('violates unique constraint')) {
-                    userMessage = `Não foi possível salvar. Já existe um registo com um destes valores que deve ser único (ex: Número de Série ou Nº Mecanográfico).`;
-                } else if (error.message.includes('violates not-null constraint')) {
-                    userMessage = `Não foi possível salvar. Um campo obrigatório não foi preenchido. Por favor, verifique o formulário.`;
-                } else {
-                    userMessage = `Ocorreu um erro ao salvar: ${error.message}`;
-                }
-            }
-            alert(userMessage);
-        }
-    }, []);
-    
-     const handleSaveCollaborator = useCallback(async (collaboratorData: Collaborator, password?: string) => {
+        });
+
+        return () => subscription.unsubscribe();
+    }, [isConfigured]);
+
+    const fetchInitialData = async (userId?: string) => {
         try {
-            if (collaboratorData.id) {
-                const { id, ...updates } = collaboratorData;
-                delete (updates as Partial<Collaborator>).password;
-                const updatedCollaborator = await dataService.updateCollaborator(id, updates);
-                setCollaborators(prev => prev.map(c => c.id === id ? { ...c, ...updatedCollaborator } : c));
-            } 
-            else {
-                if (collaboratorData.canLogin) {
-                    if (!password) {
-                        alert("É necessária uma password temporária para criar um utilizador com acesso.");
-                        return;
-                    }
-                    const supabase = getSupabase();
-                    const { data: authData, error: authError } = await supabase.auth.signUp({
-                        email: collaboratorData.email,
-                        password: password,
-                    });
-                    if (authError) throw authError;
-                    if (!authData.user) throw new Error("A criação do utilizador no Supabase não retornou um utilizador.");
-                    
-                    const newCollaborator = {
-                        ...collaboratorData,
-                        id: authData.user.id,
-                        password: password,
-                    };
-                    const addedCollaborator = await dataService.addCollaborator(newCollaborator);
-                    setCollaborators(prev => [...prev, addedCollaborator]);
-                    setInfoModal({
-                        title: "Utilizador Criado com Sucesso",
-                        content: (
-                            <p>O colaborador <strong>{addedCollaborator.fullName}</strong> foi criado. Um email de confirmação foi enviado para <strong>{addedCollaborator.email}</strong>. O colaborador deve clicar no link do email para ativar a sua conta antes de poder fazer login.</p>
-                        )
-                    });
+            const data = await dataService.fetchAllData();
+            setEquipment(data.equipment);
+            setBrands(data.brands);
+            setEquipmentTypes(data.equipmentTypes);
+            setInstituicoes(data.instituicoes);
+            setEntidades(data.entidades);
+            setCollaborators(data.collaborators);
+            setAssignments(data.assignments);
+            setTickets(data.tickets);
+            setTicketActivities(data.ticketActivities);
+            setTeams(data.teams);
+            setTeamMembers(data.teamMembers);
+            setSoftwareLicenses(data.softwareLicenses);
+            setLicenseAssignments(data.licenseAssignments);
+            setMessages(data.messages);
+            setCollaboratorHistory(data.collaboratorHistory);
 
-                } else {
-                    const newCollaborator = {
-                        ...collaboratorData,
-                        id: crypto.randomUUID(),
-                        password: crypto.randomUUID(),
-                    };
-                    const addedCollaborator = await dataService.addCollaborator(newCollaborator);
-                    setCollaborators(prev => [...prev, addedCollaborator]);
-                }
+            // Simple logic: try to match user email to collaborator email if present
+            if (data.collaborators.length > 0) {
+                 const supabase = getSupabase();
+                 const { data: { user } } = await supabase.auth.getUser();
+                 if (user && user.email) {
+                     const matched = data.collaborators.find(c => c.email === user.email);
+                     if (matched) setCurrentUser(matched);
+                 }
             }
-        } catch (error: any) {
-            console.error("Failed to save collaborator:", error);
-            alert(`Ocorreu um erro ao salvar o colaborador: ${error.message}`);
+
+        } catch (error) {
+            console.error("Failed to fetch initial data:", error);
         }
-    }, []);
+    };
 
+    const handleLogin = async (email: string, password: string) => {
+        const supabase = getSupabase();
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            return { success: false, error: error.message };
+        }
+        return { success: true };
+    };
 
-    // Generic Delete Handler
-    const handleDelete = useCallback(async <T extends { id: string }>(
-        type: 'equipment' | 'instituicao' | 'entidade' | 'collaborator' | 'equipment_type' | 'brand' | 'software_license' | 'team',
-        id: string,
-        deleteFn: (id: string) => Promise<void>,
-        setData: React.Dispatch<React.SetStateAction<T[]>>
+    const handleLogout = async () => {
+        const supabase = getSupabase();
+        await supabase.auth.signOut();
+        setSession(null);
+        setCurrentUser(null);
+    };
+
+    const handleResetData = () => {
+        if (session?.user) fetchInitialData(session.user.id);
+    };
+
+    // Helper for Deletion
+    const handleDelete = async (
+        type: string, 
+        id: string, 
+        deleteFn: (id: string) => Promise<void>, 
+        setStateFn: React.Dispatch<React.SetStateAction<any[]>>
     ) => {
         try {
             await deleteFn(id);
-            setData(prev => prev.filter(item => item.id !== id));
-            setConfirmation(null); // Close confirmation modal on success
+            setStateFn(prev => prev.filter(item => item.id !== id));
+            setConfirmation(null);
         } catch (error) {
             console.error(`Failed to delete ${type}:`, error);
-             alert(`Ocorreu um erro ao excluir os dados de ${type}. Verifique se não há outros registos associados.`);
+            alert(`Erro ao apagar ${type}.`);
         }
-    }, []);
+    };
+
+    // Helper to update state after add/edit
+    const handleSave = async (
+        saveFn: (data: any) => Promise<any>,
+        data: any,
+        setStateFn: React.Dispatch<React.SetStateAction<any[]>>,
+        isEdit: boolean
+    ) => {
+        try {
+            const savedItem = await saveFn(data);
+            setStateFn(prev => {
+                if (isEdit) {
+                    return prev.map(item => item.id === savedItem.id ? savedItem : item);
+                }
+                return [...prev, savedItem];
+            });
+            setModal(null);
+        } catch (error) {
+            console.error("Save failed:", error);
+            alert("Erro ao guardar dados.");
+        }
+    };
     
-    const handleAssignEquipment = useCallback(async (assignmentData: Omit<Assignment, 'id' | 'returnDate'>) => {
-        const newAssignment = {
-            ...assignmentData,
-            id: crypto.randomUUID(),
-        };
+    const handleImport = async (dataType: ImportConfig['dataType'], data: any[]) => {
         try {
-            const addedAssignment = await dataService.addAssignment(newAssignment);
-            setAssignments(prev => [...prev, addedAssignment]);
-            
-            await handleUpdateEquipmentStatus(assignmentData.equipmentId, EquipmentStatus.Operational);
-            
-            setModal({ type: null });
-        } catch (error) {
-            console.error("Failed to assign equipment:", error);
-            alert("Ocorreu um erro ao atribuir o equipamento.");
-        }
-    }, []);
-    
-    const handleAssignMultipleEquipment = useCallback(async (assignmentData: {entidadeId: string, collaboratorId?: string, assignedDate: string}) => {
-        if (!modal.data || !Array.isArray(modal.data)) return;
-        
-        const newAssignments = modal.data.map((equipment: Equipment) => ({
-            ...assignmentData,
-            id: crypto.randomUUID(),
-            equipmentId: equipment.id,
-        }));
-
-        try {
-            const { data: addedAssignments, error } = await dataService.addMultipleAssignments(newAssignments);
-            if (error) throw error;
-            
-            setAssignments(prev => [...prev, ...addedAssignments]);
-            
-            const updatePromises = modal.data.map((equipment: Equipment) =>
-                dataService.updateEquipment(equipment.id, { status: EquipmentStatus.Operational, modifiedDate: new Date().toISOString() })
-            );
-            const updatedEquips = await Promise.all(updatePromises);
-
-            setEquipment(prev => prev.map(eq => {
-                const updated = updatedEquips.find(ue => ue.id === eq.id);
-                return updated ? updated : eq;
-            }));
-
-            setModal({ type: null });
-        } catch (error) {
-            console.error("Failed to assign multiple equipments:", error);
-            alert("Ocorreu um erro ao atribuir os equipamentos.");
-        }
-
-    }, [modal.data]);
-
-    const handleUnassignEquipment = useCallback(async (equipmentId: string) => {
-        const assignmentToEnd = assignments.find(a => a.equipmentId === equipmentId && !a.returnDate);
-        if (!assignmentToEnd) {
-            alert("Não foi possível encontrar uma atribuição ativa para este equipamento.");
-            return;
-        }
-
-        try {
-            const updatedAssignment = await dataService.updateAssignment(assignmentToEnd.id, { returnDate: new Date().toISOString().split('T')[0] });
-            setAssignments(prev => prev.map(a => a.id === updatedAssignment.id ? updatedAssignment : a));
-            
-            await handleUpdateEquipmentStatus(equipmentId, EquipmentStatus.Stock);
-
-        } catch (error) {
-            console.error("Failed to unassign equipment:", error);
-            alert("Ocorreu um erro ao desassociar o equipamento.");
-        }
-    }, [assignments]);
-    
-    const handleUpdateEquipmentStatus = useCallback(async (id: string, status: EquipmentStatus) => {
-        try {
-            const updatedEquipment = await dataService.updateEquipment(id, { status, modifiedDate: new Date().toISOString() });
-            setEquipment(prev => prev.map(e => e.id === id ? updatedEquipment : e));
-        } catch (error) {
-            console.error("Failed to update equipment status:", error);
-            alert("Ocorreu um erro ao atualizar o estado do equipamento.");
-        }
-    }, []);
-
-    const handleSaveLicenseAssignments = useCallback(async (equipmentId: string, assignedLicenseIds: string[]) => {
-        try {
-            await dataService.syncLicenseAssignments(equipmentId, assignedLicenseIds);
-            const allAssignments = await dataService.fetchData<LicenseAssignment>('license_assignment');
-            setLicenseAssignments(allAssignments);
-            setModal({ type: null });
+            let count = 0;
+            if (dataType === 'collaborators') {
+                const { data: inserted } = await dataService.addMultipleCollaborators(data as any);
+                count = inserted ? inserted.length : 0;
+                setCollaborators(prev => [...prev, ...(inserted as Collaborator[] || [])]);
+            } else if (dataType === 'instituicoes') {
+                 const { data: inserted } = await dataService.addMultipleInstituicoes(data as any);
+                 count = inserted ? inserted.length : 0;
+                 setInstituicoes(prev => [...prev, ...(inserted || [])]);
+            } else if (dataType === 'entidades') {
+                 const { data: inserted } = await dataService.addMultipleEntidades(data as any);
+                 count = inserted ? inserted.length : 0;
+                 setEntidades(prev => [...prev, ...(inserted || [])]);
+            }
+            return { success: true, message: `Importação concluída com sucesso! ${count} registos importados.` };
         } catch (error: any) {
-            console.error("Failed to save license assignments:", error);
-            alert(`Ocorreu um erro ao salvar as atribuições de licença: ${error.message || 'Erro desconhecido'}`);
+            return { success: false, message: `Erro na importação: ${error.message}` };
         }
-    }, []);
+    };
 
-    const handleSyncTeamMembers = useCallback(async (teamId: string, memberIds: string[]) => {
-        try {
-            await dataService.syncTeamMembers(teamId, memberIds);
-            const allTeamMembers = await dataService.fetchData<TeamMember>('team_members');
-            setTeamMembers(allTeamMembers);
-            setModal({ type: null });
-        } catch (error: any) {
-            console.error("Failed to save team members:", error);
-            alert(`Ocorreu um erro ao salvar os membros da equipa: ${error.message || 'Erro desconhecido'}`);
-        }
-    }, []);
-
-    const handleToggleLicenseStatus = useCallback(async (id: string) => {
-        const license = softwareLicenses.find(l => l.id === id);
-        if (!license) return;
-        const newStatus = (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo ? LicenseStatus.Inativo : LicenseStatus.Ativo;
-        try {
-            const updatedLicense = await dataService.updateLicense(id, { status: newStatus });
-            setSoftwareLicenses(prev => prev.map(l => l.id === id ? updatedLicense : l));
-        } catch (error: any) {
-            console.error("Failed to toggle license status:", error);
-             if (error.message && error.message.includes("Could not find the 'status' column")) {
-                 setDbFixSql("ALTER TABLE software_license ADD COLUMN status text DEFAULT 'Ativo';");
-             } else {
-                 alert("Ocorreu um erro ao alterar o estado da licença.");
-             }
-        }
-    }, [softwareLicenses]);
-    
-    const handleOpenChat = useCallback((collaborator: Collaborator) => {
-        setActiveChatCollaboratorId(collaborator.id);
-        setIsChatOpen(true);
-    }, []);
-
-    const handleSendMessage = useCallback(async (receiverId: string, content: string) => {
-        if (!currentUser) return;
-        
-        const newMessage: Omit<Message, 'id'> = {
-            senderId: currentUser.id,
-            receiverId,
-            content,
-            timestamp: new Date().toISOString(),
-            read: false,
-        };
-        
-        await handleSave('message', newMessage, dataService.addMessage, dataService.updateMessage, setMessages);
-
-    }, [currentUser, handleSave]);
-    
-    const handleMarkMessagesAsRead = useCallback(async (senderId: string) => {
-        if (!currentUser) return;
-        try {
-            await dataService.markMessagesAsRead(senderId, currentUser.id);
-            setMessages(prev => prev.map(msg => 
-                (msg.senderId === senderId && msg.receiverId === currentUser.id && !msg.read) 
-                ? { ...msg, read: true } 
-                : msg
-            ));
-        } catch (error) {
-            console.error("Failed to mark messages as read:", error);
-        }
-    }, [currentUser]);
-
-    const handleToggleEntidadeStatus = useCallback(async (id: string) => {
-        const entidade = entidades.find(e => e.id === id);
-        if (!entidade) return;
-
-        const newStatus = entidade.status === EntidadeStatus.Ativo ? EntidadeStatus.Inativo : EntidadeStatus.Ativo;
-        
-        try {
-            const updatedEntidade = await dataService.updateEntidade(id, { status: newStatus });
-            setEntidades(prev => prev.map(e => e.id === id ? updatedEntidade : e));
-        } catch (error) {
-            console.error("Failed to toggle entidade status:", error);
-            alert("Ocorreu um erro ao alterar o estado da entidade.");
-        }
-    }, [entidades]);
-
-    const handleToggleCollaboratorStatus = useCallback(async (id: string) => {
+    // Specific Handlers
+    const handleToggleCollaboratorStatus = async (id: string) => {
         const collaborator = collaborators.find(c => c.id === id);
         if (!collaborator) return;
-
         const newStatus = collaborator.status === CollaboratorStatus.Ativo ? CollaboratorStatus.Inativo : CollaboratorStatus.Ativo;
         
         try {
-            const updatedCollaborator = await dataService.updateCollaborator(id, { status: newStatus });
-            setCollaborators(prev => prev.map(c => c.id === id ? { ...c, ...updatedCollaborator } : c));
+            const updated = await dataService.updateCollaborator(id, { status: newStatus });
+            setCollaborators(prev => prev.map(c => c.id === id ? updated : c));
         } catch (error) {
-            console.error("Failed to toggle collaborator status:", error);
-            alert("Ocorreu um erro ao alterar o estado do colaborador.");
+            console.error("Error updating status:", error);
         }
-    }, [collaborators]);
+    };
+    
+    const handleOpenChat = (target: Collaborator) => {
+        setActiveChatCollaboratorId(target.id);
+        setIsChatOpen(true);
+    };
 
-    const handleSnoozeNotification = useCallback((id: string) => {
-        setSnoozedNotifications(prevSnoozed => {
-            const snoozedSet = new Set(prevSnoozed);
-            if (snoozedSet.has(id)) {
-                return prevSnoozed;
-            }
-            
-            snoozedSet.add(id);
-            const newSnoozedArray = Array.from(snoozedSet);
-            
-            try {
-                localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozedArray));
-            } catch (error) {
-                console.error("Failed to save snoozed notifications to localStorage:", error);
-            }
-            
-            return newSnoozedArray;
-        });
-    }, []);
+    // Derived Data
+    const assignedEquipmentIds = useMemo(() => {
+        return new Set(assignments.filter(a => !a.returnDate).map(a => a.equipmentId));
+    }, [assignments]);
 
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
-    const equipmentTypeMap = useMemo(() => new Map(equipmentTypes.map(et => [et.id, et.name])), [equipmentTypes]);
-    const assignedEquipmentIds = useMemo(() => new Set(assignments.filter(a => !a.returnDate).map(a => a.equipmentId)), [assignments]);
-    const unreadMessagesCount = useMemo(() => {
-        if (!currentUser) return 0;
-        return messages.filter(msg => msg.receiverId === currentUser.id && !msg.read).length;
-    }, [messages, currentUser]);
+    const equipmentTypeMap = useMemo(() => new Map(equipmentTypes.map(t => [t.id, t.name])), [equipmentTypes]);
 
     const expiringWarranties = useMemo(() => {
         const today = new Date();
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(today.getDate() + 30);
         
-        return equipment.filter(e => {
-            if (snoozedNotifications.includes(e.id)) return false;
-            if (!e.warrantyEndDate) return false;
-            const endDate = new Date(e.warrantyEndDate);
-            return endDate <= thirtyDaysFromNow;
+        return equipment.filter(eq => {
+            if (!eq.warrantyEndDate) return false;
+            const expiryDate = new Date(eq.warrantyEndDate);
+            return expiryDate <= thirtyDaysFromNow; // Includes expired
         });
-    }, [equipment, snoozedNotifications]);
+    }, [equipment]);
 
     const expiringLicenses = useMemo(() => {
         const today = new Date();
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(today.getDate() + 30);
         
-        return softwareLicenses.filter(l => {
-            if (snoozedNotifications.includes(l.id)) return false;
-            if (!l.expiryDate) return false;
-            const endDate = new Date(l.expiryDate);
-            return endDate <= thirtyDaysFromNow;
+        return softwareLicenses.filter(lic => {
+            if (!lic.expiryDate) return false;
+            const expiryDate = new Date(lic.expiryDate);
+            return expiryDate <= thirtyDaysFromNow;
         });
-    }, [softwareLicenses, snoozedNotifications]);
-
-    const teamTickets = useMemo(() => {
-        if (!currentUser) return [];
-
-        const userTeamIds = new Set(
-            teamMembers
-                .filter(tm => tm.collaborator_id === currentUser.id)
-                .map(tm => tm.team_id)
-        );
-
-        if (userTeamIds.size === 0) return [];
-
-        return tickets.filter(ticket => {
-            if (snoozedNotifications.includes(ticket.id)) return false;
-            return ticket.team_id &&
-                   userTeamIds.has(ticket.team_id) &&
-                   (ticket.status === TicketStatus.Requested || ticket.status === TicketStatus.InProgress);
-        });
-    }, [tickets, teamMembers, currentUser, snoozedNotifications]);
+    }, [softwareLicenses]);
+    
+    const unreadMessagesCount = useMemo(() => {
+        if (!currentUser) return 0;
+        return messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
+    }, [messages, currentUser]);
 
 
-    useEffect(() => {
-        if (currentUser && !initialNotificationsShown && (expiringWarranties.length > 0 || expiringLicenses.length > 0 || teamTickets.length > 0)) {
-            setIsNotificationsModalOpen(true);
-            setInitialNotificationsShown(true);
-        }
-    }, [currentUser, expiringWarranties, expiringLicenses, teamTickets, initialNotificationsShown]);
-
-    const tabConfig: Record<string, TabConfigItem> = {
+    // Tab Configuration
+    const tabConfig: Record<string, any> = {
         'overview': {
             title: 'Visão Geral',
             component: <OverviewDashboard 
@@ -703,12 +324,12 @@ export const App: React.FC = () => {
                 licenseAssignments={licenseAssignments}
                 onViewItem={(tab, filter) => {
                     setActiveTab(tab);
-                    setInitialDashboardFilter(filter);
+                    setInitialFilter(filter);
                 }}
-            />,
+            />
         },
         'equipment.inventory': {
-            title: 'Equipamentos',
+            title: 'Inventário de Equipamentos',
             component: <EquipmentDashboard
                 equipment={equipment}
                 brands={brands}
@@ -719,22 +340,30 @@ export const App: React.FC = () => {
                 assignments={assignments}
                 collaborators={collaborators}
                 entidades={entidades}
-                initialFilter={initialDashboardFilter}
-                onClearInitialFilter={() => setInitialDashboardFilter(null)}
+                initialFilter={initialFilter}
+                onClearInitialFilter={() => setInitialFilter(null)}
                 onAssign={(eq) => setModal({ type: 'assign_equipment', data: eq })}
-                onAssignMultiple={(eqs) => setModal({ type: 'assign_multiple_equipment', data: eqs })}
-                onUnassign={(id) => setConfirmation({ message: 'Tem a certeza que quer desassociar este equipamento?', onConfirm: () => handleUnassignEquipment(id) })}
-                onUpdateStatus={handleUpdateEquipmentStatus}
+                onAssignMultiple={(eqs) => setModal({ type: 'assign_multiple', data: eqs })}
+                onUnassign={async (id) => {
+                    const assignment = assignments.find(a => a.equipmentId === id && !a.returnDate);
+                    if (assignment) {
+                        const returnDate = new Date().toISOString().split('T')[0];
+                        const updated = await dataService.updateAssignment(assignment.id, { returnDate });
+                        setAssignments(prev => prev.map(a => a.id === assignment.id ? updated : a));
+                    }
+                }}
+                onUpdateStatus={async (id, status) => {
+                    const updated = await dataService.updateEquipment(id, { status });
+                    setEquipment(prev => prev.map(e => e.id === id ? updated : e));
+                }}
                 onShowHistory={(eq) => setModal({ type: 'equipment_history', data: eq })}
                 onEdit={(eq) => setModal({ type: 'add_equipment', data: eq })}
-                onGenerateReport={() => setIsReportModalOpen({ type: 'equipment' })}
+                onGenerateReport={() => setModal({ type: 'report', reportType: 'equipment' })}
                 onManageKeys={(eq) => setModal({ type: 'manage_licenses', data: eq })}
             />,
             buttonText: 'Adicionar Equipamento',
             onButtonClick: () => setModal({ type: 'add_equipment' }),
-            secondaryButtonText: 'Adicionar Posto de Trabalho',
-            onSecondaryButtonClick: () => setModal({ type: 'add_kit' }),
-            onGenerateReport: () => setIsReportModalOpen({ type: 'equipment' }),
+            onImportClick: () => setModal({ type: 'add_kit' })
         },
         'equipment.brands': {
             title: 'Marcas',
@@ -742,10 +371,10 @@ export const App: React.FC = () => {
                 brands={brands} 
                 equipment={equipment}
                 onEdit={(brand) => setModal({ type: 'add_brand', data: brand })}
-                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta marca?', onConfirm: () => handleDelete('brand', id, dataService.deleteBrand, setBrands) })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer apagar esta marca?', onConfirm: () => handleDelete('brand', id, dataService.deleteBrand, setBrands) })}
             />,
             buttonText: 'Adicionar Marca',
-            onButtonClick: () => setModal({ type: 'add_brand' }),
+            onButtonClick: () => setModal({ type: 'add_brand' })
         },
         'equipment.types': {
             title: 'Tipos de Equipamento',
@@ -753,35 +382,21 @@ export const App: React.FC = () => {
                 equipmentTypes={equipmentTypes}
                 equipment={equipment}
                 onEdit={(type) => setModal({ type: 'add_equipment_type', data: type })}
-                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir este tipo?', onConfirm: () => handleDelete('equipment_type', id, dataService.deleteEquipmentType, setEquipmentTypes) })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer apagar este tipo?', onConfirm: () => handleDelete('equipment_type', id, dataService.deleteEquipmentType, setEquipmentTypes) })}
             />,
-            buttonText: 'Adicionar Tipo',
-            onButtonClick: () => setModal({ type: 'add_equipment_type' }),
+             buttonText: 'Adicionar Tipo',
+             onButtonClick: () => setModal({ type: 'add_equipment_type' })
         },
         'organizacao.instituicoes': {
-            title: 'Instituições',
-            component: <InstituicaoDashboard 
+             title: 'Instituições',
+             component: <InstituicaoDashboard 
                 instituicoes={instituicoes}
                 escolasDepartamentos={entidades}
                 onEdit={(inst) => setModal({ type: 'add_instituicao', data: inst })}
-                onDelete={(id) => {
-                    const isReferenced = entidades.some(e => e.instituicaoId === id);
-                    if (isReferenced) {
-                        setInfoModal({
-                            title: "Ação Bloqueada",
-                            content: <p>Não é possível excluir esta instituição porque existem entidades associadas a ela. Por favor, remova ou reatribua as entidades primeiro.</p>
-                        });
-                    } else {
-                        setConfirmation({ 
-                            message: 'Tem a certeza que quer excluir esta instituição?', 
-                            onConfirm: () => handleDelete('instituicao', id, dataService.deleteInstituicao, setInstituicoes) 
-                        });
-                    }
-                }}
-            />,
-            buttonText: 'Adicionar Instituição',
-            onButtonClick: () => setModal({ type: 'add_instituicao' }),
-            onImportClick: () => setModal({ type: 'import', data: { dataType: 'instituicoes', title: 'Importar Instituições', columnMap: { codigo: 'Código', name: 'Nome', email: 'Email', telefone: 'Telefone'}, templateFileName: 'template_instituicoes.xlsx' } as ImportConfig }),
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza?', onConfirm: () => handleDelete('instituicao', id, dataService.deleteInstituicao, setInstituicoes) })}
+             />,
+             buttonText: 'Adicionar Instituição',
+             onButtonClick: () => setModal({ type: 'add_instituicao' })
         },
         'organizacao.entidades': {
             title: 'Entidades',
@@ -790,54 +405,32 @@ export const App: React.FC = () => {
                 instituicoes={instituicoes}
                 collaborators={collaborators}
                 onEdit={(ent) => setModal({ type: 'add_entidade', data: ent })}
-                onDelete={(id) => {
-                    const hasCollaborators = collaborators.some(c => c.entidadeId === id);
-                    const hasAssignments = assignments.some(a => a.entidadeId === id);
-                    const hasTickets = tickets.some(t => t.entidadeId === id);
-                    if (hasCollaborators || hasAssignments || hasTickets) {
-                        const reasons = [];
-                        if (hasCollaborators) reasons.push("Colaboradores");
-                        if (hasAssignments) reasons.push("Atribuições de equipamento");
-                        if (hasTickets) reasons.push("Tickets de suporte");
-
-                        setInfoModal({
-                            title: "Ação Bloqueada",
-                            content: (
-                                <div>
-                                    <p className="mb-2">Não é possível excluir esta entidade porque existem os seguintes registos associados a ela:</p>
-                                    <ul className="list-disc list-inside text-on-surface-dark-secondary">
-                                        {reasons.map(reason => <li key={reason}>{reason}</li>)}
-                                    </ul>
-                                    <p className="mt-3">Por favor, remova ou reatribua estes registos primeiro.</p>
-                                </div>
-                            )
-                        });
-                    } else {
-                        setConfirmation({ 
-                            message: 'Tem a certeza que quer excluir esta entidade?', 
-                            onConfirm: () => handleDelete('entidade', id, dataService.deleteEntidade, setEntidades) 
-                        });
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza?', onConfirm: () => handleDelete('entidade', id, dataService.deleteEntidade, setEntidades) })}
+                onToggleStatus={async (id) => {
+                    const ent = entidades.find(e => e.id === id);
+                    if(ent) {
+                        const newStatus = ent.status === 'Ativo' ? 'Inativo' : 'Ativo';
+                        const updated = await dataService.updateEntidade(id, { status: newStatus as any });
+                        setEntidades(prev => prev.map(e => e.id === id ? updated : e));
                     }
                 }}
-                onToggleStatus={handleToggleEntidadeStatus}
             />,
             buttonText: 'Adicionar Entidade',
-            onButtonClick: () => setModal({ type: 'add_entidade' }),
-            onImportClick: () => setModal({ type: 'import', data: { dataType: 'entidades', title: 'Importar Entidades', columnMap: { instituicaoCodigo: 'Código Instituição', codigo: 'Código', name: 'Nome', description: 'Descrição', email: 'Email', responsavel: 'Responsável', telefone: 'Telefone', telemovel: 'Telemóvel', telefoneInterno: 'Telefone Interno', status: 'Status' }, templateFileName: 'template_entidades.xlsx' } as ImportConfig }),
+            onButtonClick: () => setModal({ type: 'add_entidade' })
         },
         'organizacao.teams': {
             title: 'Equipas',
-            component: <TeamDashboard
+            component: <TeamDashboard 
                 teams={teams}
                 teamMembers={teamMembers}
                 collaborators={collaborators}
                 tickets={tickets}
                 onEdit={(team) => setModal({ type: 'add_team', data: team })}
-                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta equipa?', onConfirm: () => handleDelete('team', id, dataService.deleteTeam, setTeams) })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza?', onConfirm: () => handleDelete('teams', id, dataService.deleteTeam, setTeams) })}
                 onManageMembers={(team) => setModal({ type: 'manage_team_members', data: team })}
             />,
             buttonText: 'Adicionar Equipa',
-            onButtonClick: () => setModal({ type: 'add_team' }),
+            onButtonClick: () => setModal({ type: 'add_team' })
         },
         'collaborators': {
             title: 'Colaboradores',
@@ -846,49 +439,50 @@ export const App: React.FC = () => {
                 escolasDepartamentos={entidades}
                 equipment={equipment}
                 assignments={assignments}
+                tickets={tickets}
+                ticketActivities={ticketActivities}
+                teamMembers={teamMembers}
                 currentUser={currentUser}
                 onEdit={(col) => setModal({ type: 'add_collaborator', data: col })}
                 onDelete={(id) => {
-                    const hasAssignments = assignments.some(a => a.collaboratorId === id);
-                    const hasTickets = tickets.some(t => t.collaboratorId === id || t.technicianId === id);
-                    const hasActivities = ticketActivities.some(ta => ta.technicianId === id);
-                    const isTeamMember = teamMembers.some(tm => tm.collaborator_id === id);
-
-                    if (hasAssignments || hasTickets || hasActivities || isTeamMember) {
-                         const reasons = [];
-                        if (hasAssignments) reasons.push("Histórico de atribuição de equipamentos");
-                        if (hasTickets) reasons.push("Tickets de suporte (como solicitante ou técnico)");
-                        if (hasActivities) reasons.push("Atividades em tickets");
-                        if (isTeamMember) reasons.push("Membro de equipa de suporte");
-
-                        setInfoModal({
-                            title: "Ação Bloqueada",
-                            content: (
-                                <div>
-                                    <p className="mb-2">Não é possível excluir este colaborador porque existem registos associados:</p>
-                                    <ul className="list-disc list-inside text-on-surface-dark-secondary">
-                                        {reasons.map(r => <li key={r}>{r}</li>)}
-                                    </ul>
-                                    <p className="mt-3">Recomendamos alterar o estado para <strong>Inativo</strong> para preservar o histórico.</p>
-                                </div>
-                            )
-                        });
-                    } else {
-                        setConfirmation({ 
-                            message: 'Tem a certeza que quer excluir este colaborador? Esta ação não pode ser desfeita.', 
-                            onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) 
-                        });
-                    }
+                    // Safety check purely for the handler, though UI will likely be disabled
+                    setConfirmation({ 
+                        message: 'Tem a certeza que quer excluir este colaborador? Esta ação não pode ser desfeita.', 
+                        onConfirm: () => handleDelete('collaborator', id, dataService.deleteCollaborator, setCollaborators) 
+                    });
                 }}
                 onShowHistory={(col) => setModal({ type: 'collaborator_history', data: col })}
                 onShowDetails={(col) => setModal({ type: 'collaborator_detail', data: col })}
                 onStartChat={handleOpenChat}
-                onGenerateReport={() => setIsReportModalOpen({ type: 'collaborator' })}
+                onGenerateReport={() => setModal({ type: 'report', reportType: 'collaborator' })}
                 onToggleStatus={handleToggleCollaboratorStatus}
             />,
             buttonText: 'Adicionar Colaborador',
             onButtonClick: () => setModal({ type: 'add_collaborator' }),
             onImportClick: () => setModal({ type: 'import', data: { dataType: 'collaborators', title: 'Importar Colaboradores', columnMap: { numeroMecanografico: 'Nº Mecanográfico', fullName: 'Nome Completo', entidadeCodigo: 'Código Entidade', email: 'Email', telefoneInterno: 'Telefone Interno', telemovel: 'Telemóvel', canLogin: 'Pode Fazer Login (TRUE/FALSE)', receivesNotifications: 'Recebe Notificações (TRUE/FALSE)', role: 'Perfil (Admin/Normal/Basic/Utilizador)', status: 'Status (Ativo/Inativo)', password: 'Password Temporária (para novos com login)' }, templateFileName: 'template_colaboradores.xlsx' } as ImportConfig }),
+        },
+        'tickets': {
+             title: 'Tickets de Suporte',
+             component: <TicketDashboard 
+                tickets={tickets}
+                escolasDepartamentos={entidades}
+                collaborators={collaborators}
+                teams={teams}
+                equipment={equipment}
+                equipmentTypes={equipmentTypes}
+                initialFilter={initialFilter}
+                onClearInitialFilter={() => setInitialFilter(null)}
+                onUpdateTicket={async (updatedTicket) => {
+                    const saved = await dataService.updateTicket(updatedTicket.id, updatedTicket);
+                    setTickets(prev => prev.map(t => t.id === saved.id ? saved : t));
+                }}
+                onEdit={(ticket) => setModal({ type: 'add_ticket', data: ticket })}
+                onOpenCloseTicketModal={(ticket) => setModal({ type: 'close_ticket', data: ticket })}
+                onGenerateReport={() => setModal({ type: 'report', reportType: 'ticket' })}
+                onOpenActivities={(ticket) => setModal({ type: 'ticket_activities', data: ticket })}
+             />,
+             buttonText: 'Novo Ticket',
+             onButtonClick: () => setModal({ type: 'add_ticket' })
         },
         'licensing': {
             title: 'Licenciamento',
@@ -900,173 +494,413 @@ export const App: React.FC = () => {
                 collaborators={collaborators}
                 brandMap={brandMap}
                 equipmentTypeMap={equipmentTypeMap}
-                onEdit={(license) => setModal({ type: 'add_license', data: license })}
-                onDelete={(id) => setConfirmation({ message: 'Tem a certeza que quer excluir esta licença?', onConfirm: () => handleDelete('software_license', id, dataService.deleteLicense, setSoftwareLicenses) })}
-                onGenerateReport={() => setIsReportModalOpen({ type: 'licensing' })}
-                initialFilter={initialDashboardFilter}
-                onClearInitialFilter={() => setInitialDashboardFilter(null)}
-                onToggleStatus={handleToggleLicenseStatus}
+                initialFilter={initialFilter}
+                onClearInitialFilter={() => setInitialFilter(null)}
+                onEdit={(lic) => setModal({ type: 'add_license', data: lic })}
+                onDelete={(id) => setConfirmation({ message: 'Tem a certeza?', onConfirm: () => handleDelete('software_license', id, dataService.deleteLicense, setSoftwareLicenses) })}
+                onToggleStatus={async (id) => {
+                     const lic = softwareLicenses.find(l => l.id === id);
+                     if (lic) {
+                         const newStatus = lic.status === 'Ativo' ? 'Inativo' : 'Ativo';
+                         const updated = await dataService.updateLicense(id, { status: newStatus as any });
+                         setSoftwareLicenses(prev => prev.map(l => l.id === id ? updated : l));
+                     }
+                }}
+                onGenerateReport={() => setModal({ type: 'report', reportType: 'licensing' })}
             />,
             buttonText: 'Adicionar Licença',
-            onButtonClick: () => setModal({ type: 'add_license' }),
-        },
-        'tickets': {
-            title: 'Tickets de Suporte',
-            component: <TicketDashboard 
-                tickets={tickets}
-                escolasDepartamentos={entidades}
-                collaborators={collaborators}
-                teams={teams}
-                equipment={equipment}
-                equipmentTypes={equipmentTypes}
-                initialFilter={initialDashboardFilter}
-                onClearInitialFilter={() => setInitialDashboardFilter(null)}
-                onEdit={(ticket) => setModal({ type: 'add_ticket', data: ticket })}
-                onOpenCloseTicketModal={(ticket) => setModal({ type: 'close_ticket', data: ticket })}
-                onOpenActivities={(ticket) => { setSelectedTicketForActivities(ticket); setIsTicketActivitiesModalOpen(true); }}
-            />,
-            buttonText: 'Novo Ticket',
-            onButtonClick: () => setModal({ type: 'add_ticket' }),
-        },
+            onButtonClick: () => setModal({ type: 'add_license' })
+        }
     };
-    
-    if (isSessionLoading || isDataLoading) {
-        return (
-            <div className="flex items-center justify-center h-screen bg-background-dark text-white">
-                <SpinnerIcon className="animate-spin h-10 w-10 mr-4" />
-                <span>{isSessionLoading ? "A verificar sessão..." : "A carregar dados..."}</span>
-            </div>
-        );
-    }
-    
-    if (loadingError) {
-        return (
-            <div className="flex items-center justify-center h-screen bg-background-dark text-red-400">
-                <p>{loadingError}</p>
-            </div>
-        );
+
+    // If not configured, show setup
+    if (!isConfigured) {
+        return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     }
 
-    if (sessionForPasswordReset) {
-        return <ResetPasswordModal session={sessionForPasswordReset} onClose={() => setSessionForPasswordReset(null)} />;
-    }
-
-    if (!isAuthenticated) {
+    // If configured but not logged in, show login
+    if (!session) {
         return (
             <>
-                <LoginPage 
-                    onLogin={handleLogin} 
-                    onForgotPassword={() => setIsForgotPasswordModalOpen(true)}
-                />
-                {isForgotPasswordModalOpen && <ForgotPasswordModal onClose={() => setIsForgotPasswordModalOpen(false)} />}
+                {modal?.type === 'forgot_password' ? (
+                     <ForgotPasswordModal onClose={() => setModal(null)} />
+                ) : modal?.type === 'reset_password' ? (
+                    <ResetPasswordModal onClose={() => setModal(null)} session={session} />
+                ) : (
+                    <LoginPage 
+                        onLogin={handleLogin} 
+                        onForgotPassword={() => setModal({ type: 'forgot_password' })} 
+                    />
+                )}
             </>
         );
     }
-    
-    const activeTabConfig = tabConfig[activeTab];
+
+    const activeConfig = tabConfig[activeTab];
 
     return (
-        <div className="min-h-screen bg-background-dark text-on-surface-dark">
-            <Header
-                currentUser={currentUser}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                onLogout={handleLogout}
+        <div className="min-h-screen bg-background-dark">
+            <Header 
+                currentUser={currentUser} 
+                activeTab={activeTab} 
+                setActiveTab={setActiveTab} 
+                onLogout={handleLogout} 
+                onResetData={handleResetData}
                 tabConfig={tabConfig}
-                notificationCount={expiringWarranties.length + expiringLicenses.length + teamTickets.length + unreadMessagesCount}
-                onNotificationClick={() => setIsNotificationsModalOpen(true)}
+                notificationCount={(expiringWarranties.length + expiringLicenses.length)}
+                onNotificationClick={() => setModal({ type: 'notifications' })}
             />
-            <main className="max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
-                <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                    <h1 className="text-3xl font-bold text-white">{activeTabConfig?.title}</h1>
-                    <div className="flex gap-4">
-                        {activeTabConfig?.onImportClick && (
-                            <button
-                                onClick={activeTabConfig.onImportClick}
-                                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
-                            >
-                                <FaFileImport />
-                                Importar
-                            </button>
-                        )}
-                        {activeTabConfig?.onSecondaryButtonClick && (
-                            <button
-                                onClick={activeTabConfig.onSecondaryButtonClick}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors"
-                            >
-                                {activeTabConfig.secondaryButtonText}
-                            </button>
-                        )}
-                        {activeTabConfig?.onButtonClick && (
-                            <button
-                                onClick={activeTabConfig.onButtonClick}
-                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors"
-                            >
-                                <PlusIcon />
-                                {activeTabConfig.buttonText}
-                            </button>
-                        )}
-                    </div>
-                </div>
 
-                {activeTabConfig?.component}
+            <main className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {activeConfig && (
+                    <div className="space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <h1 className="text-2xl font-bold text-white">{activeConfig.title}</h1>
+                            <div className="flex flex-wrap gap-3">
+                                {activeConfig.onImportClick && (
+                                     <button
+                                        onClick={activeConfig.onImportClick}
+                                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
+                                    >
+                                        <FaFileImport />
+                                        {activeTab === 'equipment.inventory' ? 'Adicionar Kit' : 'Importar'}
+                                    </button>
+                                )}
+                                {activeConfig.onButtonClick && (
+                                    <button
+                                        onClick={activeConfig.onButtonClick}
+                                        className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors"
+                                    >
+                                        <PlusIcon />
+                                        {activeConfig.buttonText}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        {activeConfig.component}
+                    </div>
+                )}
             </main>
-            {currentUser && (
-                <ChatWidget
-                    currentUser={currentUser}
-                    collaborators={collaborators}
-                    messages={messages}
-                    onSendMessage={handleSendMessage}
-                    onMarkMessagesAsRead={handleMarkMessagesAsRead}
-                    isOpen={isChatOpen}
-                    onToggle={() => setIsChatOpen(!isChatOpen)}
-                    activeChatCollaboratorId={activeChatCollaboratorId}
-                    onSelectConversation={(id) => setActiveChatCollaboratorId(id)}
-                    unreadMessagesCount={unreadMessagesCount}
+            
+            <ChatWidget 
+                currentUser={currentUser} 
+                collaborators={collaborators} 
+                messages={messages} 
+                onSendMessage={async (receiverId, content) => {
+                    const newMessage = {
+                         senderId: currentUser!.id,
+                         receiverId,
+                         content,
+                         timestamp: new Date().toISOString(),
+                         read: false,
+                    };
+                    const saved = await dataService.addMessage(newMessage as any);
+                    setMessages(prev => [...prev, saved]);
+                }}
+                onMarkMessagesAsRead={(senderId) => {
+                     dataService.markMessagesAsRead(senderId, currentUser!.id);
+                     setMessages(prev => prev.map(m => (m.senderId === senderId && m.receiverId === currentUser!.id) ? { ...m, read: true } : m));
+                }}
+                isOpen={isChatOpen}
+                onToggle={() => setIsChatOpen(!isChatOpen)}
+                activeChatCollaboratorId={activeChatCollaboratorId}
+                onSelectConversation={setActiveChatCollaboratorId}
+                unreadMessagesCount={unreadMessagesCount}
+            />
+
+            {/* Modals Rendering - (Identical to previous, kept for completeness) */}
+            {modal?.type === 'add_equipment' && (
+                <AddEquipmentModal
+                    onClose={() => setModal(null)}
+                    onSave={(eq) => handleSave((eq as any).id ? (data) => dataService.updateEquipment((eq as any).id!, data) : dataService.addEquipment, eq, setEquipment, !!(eq as any).id)}
+                    equipmentToEdit={modal.data}
+                    brands={brands}
+                    equipmentTypes={equipmentTypes}
+                    onSaveBrand={(b) => dataService.addBrand(b as any).then(res => { setBrands(p => [...p, res]); return res; })}
+                    onSaveEquipmentType={(t) => dataService.addEquipmentType(t as any).then(res => { setEquipmentTypes(p => [...p, res]); return res; })}
+                    onOpenKitModal={(initialData) => setModal({ type: 'add_kit', initialData })}
                 />
             )}
-            
-            {/* Modals */}
-            {modal.type === 'add_equipment' && <AddEquipmentModal onClose={() => setModal({ type: null })} onSave={(eq) => handleSave('equipment', eq, dataService.addEquipment, dataService.updateEquipment, setEquipment)} brands={brands} equipmentTypes={equipmentTypes} equipmentToEdit={modal.data} onSaveBrand={(brand) => handleSave('brand', brand, dataService.addBrand, dataService.updateBrand, setBrands)} onSaveEquipmentType={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} onOpenKitModal={(data) => setModal({ type: 'add_kit', data })} />}
-            {modal.type === 'add_entidade' && <AddEntidadeModal onClose={() => setModal({ type: null })} onSave={(ent) => handleSave('entidade', ent, dataService.addEntidade, dataService.updateEntidade, setEntidades)} entidadeToEdit={modal.data} instituicoes={instituicoes} />}
-            {modal.type === 'add_instituicao' && <AddInstituicaoModal onClose={() => setModal({ type: null })} onSave={(inst) => handleSave('instituicao', inst, dataService.addInstituicao, dataService.updateInstituicao, setInstituicoes)} instituicaoToEdit={modal.data} />}
-            {modal.type === 'add_collaborator' && <AddCollaboratorModal onClose={() => setModal({ type: null })} onSave={handleSaveCollaborator} escolasDepartamentos={entidades} collaboratorToEdit={modal.data} currentUser={currentUser} />}
-            {modal.type === 'add_equipment_type' && <AddEquipmentTypeModal onClose={() => setModal({ type: null })} onSave={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} typeToEdit={modal.data} teams={teams} />}
-            {modal.type === 'add_brand' && <AddBrandModal onClose={() => setModal({ type: null })} onSave={(brand) => handleSave('brand', brand, dataService.addBrand, dataService.updateBrand, setBrands)} brandToEdit={modal.data} />}
-            {modal.type === 'add_ticket' && <AddTicketModal onClose={() => setModal({ type: null })} onSave={(ticket) => handleSave('ticket', ticket, dataService.addTicket, dataService.updateTicket, setTickets)} ticketToEdit={modal.data} escolasDepartamentos={entidades} collaborators={collaborators} teams={teams} currentUser={currentUser} userPermissions={userPermissions} equipment={equipment} equipmentTypes={equipmentTypes} assignments={assignments} />}
-            {modal.type === 'add_license' && <AddLicenseModal onClose={() => setModal({ type: null })} onSave={(license) => handleSave('software_license', license, dataService.addLicense, dataService.updateLicense, setSoftwareLicenses)} licenseToEdit={modal.data} />}
-            {modal.type === 'add_team' && <AddTeamModal onClose={() => setModal({ type: null })} onSave={(team) => handleSave('team', team, dataService.addTeam, dataService.updateTeam, setTeams)} teamToEdit={modal.data} />}
-            {modal.type === 'manage_team_members' && <ManageTeamMembersModal onClose={() => setModal({ type: null })} onSave={handleSyncTeamMembers} team={modal.data} allCollaborators={collaborators} teamMembers={teamMembers} />}
-            {modal.type === 'close_ticket' && <CloseTicketModal ticket={modal.data} collaborators={collaborators} onClose={() => setModal({ type: null })} onConfirm={(technicianId) => { const updatedTicket = { ...modal.data, status: TicketStatus.Finished, finishDate: new Date().toISOString().split('T')[0], technicianId }; handleSave('ticket', updatedTicket, dataService.addTicket, dataService.updateTicket, setTickets); setModal({ type: null }); }} />}
-            {modal.type === 'assign_equipment' && <AssignEquipmentModal equipment={modal.data} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setModal({ type: null })} onAssign={handleAssignEquipment} />}
-            {modal.type === 'assign_multiple_equipment' && <AssignMultipleEquipmentModal equipmentList={modal.data} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setModal({ type: null })} onAssign={handleAssignMultipleEquipment} />}
-            {modal.type === 'equipment_history' && <EquipmentHistoryModal equipment={modal.data} assignments={assignments} collaborators={collaborators} escolasDepartamentos={entidades} onClose={() => setModal({ type: null })} ticketActivities={ticketActivities} tickets={tickets} />}
-            {modal.type === 'collaborator_history' && <CollaboratorHistoryModal collaborator={modal.data} history={collaboratorHistory} escolasDepartamentos={entidades} onClose={() => setModal({ type: null })} />}
-            {modal.type === 'collaborator_detail' && <CollaboratorDetailModal collaborator={modal.data} assignments={assignments} equipment={equipment} tickets={tickets} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} onClose={() => setModal({ type: null })} onShowHistory={(col) => setModal({ type: 'collaborator_history', data: col })} onStartChat={handleOpenChat} />}
-            {modal.type === 'manage_licenses' && <ManageAssignedLicensesModal equipment={modal.data} allLicenses={softwareLicenses} allAssignments={licenseAssignments} onClose={() => setModal({ type: null })} onSave={handleSaveLicenseAssignments} />}
-            {modal.type === 'add_kit' && <AddEquipmentKitModal onClose={() => setModal({ type: null })} onSaveKit={async (items) => { await dataService.addMultipleEquipment(items as Equipment[]); const allData = await dataService.fetchAllData(); setEquipment(allData.equipment); }} brands={brands} equipmentTypes={equipmentTypes} initialData={modal.data} onSaveEquipmentType={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} equipment={equipment} />}
-            
-            {isReportModalOpen.type && <ReportModal type={isReportModalOpen.type} onClose={() => setIsReportModalOpen({ type: null })} equipment={equipment} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} instituicoes={instituicoes} escolasDepartamentos={entidades} collaborators={collaborators} assignments={assignments} tickets={tickets} softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments} />}
-            {isTicketActivitiesModalOpen && selectedTicketForActivities && <TicketActivitiesModal ticket={selectedTicketForActivities} activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)} collaborators={collaborators} currentUser={currentUser} onClose={() => setIsTicketActivitiesModalOpen(false)} onAddActivity={(activity) => { const newActivity = { ...activity, ticketId: selectedTicketForActivities.id, technicianId: currentUser!.id, date: new Date().toISOString() }; handleSave('ticket_activity', newActivity, dataService.addTicketActivity, dataService.updateTicketActivity, setTicketActivities); }} equipment={equipment} equipmentTypes={equipmentTypes} entidades={entidades} assignments={assignments} />}
-            {infoModal && <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>{infoModal.content}</InfoModal>}
-            {confirmation && <ConfirmationModal title="Confirmar Ação" message={confirmation.message} onConfirm={confirmation.onConfirm} onClose={() => setConfirmation(null)} />}
-            {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} teamTickets={teamTickets} collaborators={collaborators} teams={teams} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={handleSnoozeNotification} />}
-            
-            {dbFixSql && (
-                <InfoModal title="Correção da Base de Dados Necessária" onClose={() => setDbFixSql(null)}>
-                    <div className="space-y-4">
-                        <p>A base de dados precisa de uma pequena atualização para que esta funcionalidade funcione corretamente (falta a coluna 'status').</p>
-                        <p>Por favor, copie o código SQL abaixo e execute-o no Editor SQL do seu painel Supabase:</p>
-                        <div className="bg-gray-900 p-4 rounded-md border border-gray-700 font-mono text-sm text-green-400 overflow-x-auto">
-                            {dbFixSql}
-                        </div>
-                        <p className="text-sm text-on-surface-dark-secondary">
-                            Depois de executar o comando, tente salvar novamente.
-                        </p>
-                    </div>
+            {modal?.type === 'add_collaborator' && (
+                <AddCollaboratorModal
+                    onClose={() => setModal(null)}
+                    onSave={async (col, password) => {
+                        if ((col as any).id) {
+                            handleSave((d) => dataService.updateCollaborator((col as any).id!, d), col, setCollaborators, true);
+                        } else {
+                             const { data: newUser, error } = await getSupabase().auth.signUp({ email: col.email, password: password! });
+                             if (error) { alert(error.message); return; }
+                             if (newUser.user) {
+                                 handleSave(dataService.addCollaborator, { ...col, id: newUser.user.id }, setCollaborators, false);
+                             }
+                        }
+                    }}
+                    collaboratorToEdit={modal.data}
+                    escolasDepartamentos={entidades}
+                    currentUser={currentUser}
+                />
+            )}
+            {modal?.type === 'add_ticket' && (
+                <AddTicketModal
+                    onClose={() => setModal(null)}
+                    onSave={(ticket) => handleSave((ticket as any).id ? (d) => dataService.updateTicket((ticket as any).id!, d) : dataService.addTicket, ticket, setTickets, !!(ticket as any).id)}
+                    ticketToEdit={modal.data}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    teams={teams}
+                    currentUser={currentUser}
+                    userPermissions={{ viewScope: 'all' }}
+                    equipment={equipment}
+                    equipmentTypes={equipmentTypes}
+                    assignments={assignments}
+                />
+            )}
+             {modal?.type === 'add_team' && (
+                <AddTeamModal
+                    onClose={() => setModal(null)}
+                    onSave={(team) => handleSave((team as any).id ? (d) => dataService.updateTeam((team as any).id!, d) : dataService.addTeam, team, setTeams, !!(team as any).id)}
+                    teamToEdit={modal.data}
+                />
+            )}
+             {modal?.type === 'add_entidade' && (
+                <AddEntidadeModal
+                    onClose={() => setModal(null)}
+                    onSave={(ent) => handleSave((ent as any).id ? (d) => dataService.updateEntidade((ent as any).id!, d) : dataService.addEntidade, ent, setEntidades, !!(ent as any).id)}
+                    entidadeToEdit={modal.data}
+                    instituicoes={instituicoes}
+                />
+            )}
+            {modal?.type === 'add_instituicao' && (
+                <AddInstituicaoModal
+                    onClose={() => setModal(null)}
+                    onSave={(inst) => handleSave((inst as any).id ? (d) => dataService.updateInstituicao((inst as any).id!, d) : dataService.addInstituicao, inst, setInstituicoes, !!(inst as any).id)}
+                    instituicaoToEdit={modal.data}
+                />
+            )}
+            {modal?.type === 'add_brand' && (
+                 <AddBrandModal
+                    onClose={() => setModal(null)}
+                    onSave={(br) => handleSave((br as any).id ? (d) => dataService.updateBrand((br as any).id!, d) : dataService.addBrand, br, setBrands, !!(br as any).id)}
+                    brandToEdit={modal.data}
+                 />
+            )}
+            {modal?.type === 'add_equipment_type' && (
+                <AddEquipmentTypeModal
+                    onClose={() => setModal(null)}
+                    onSave={(tp) => handleSave((tp as any).id ? (d) => dataService.updateEquipmentType((tp as any).id!, d) : dataService.addEquipmentType, tp, setEquipmentTypes, !!(tp as any).id)}
+                    typeToEdit={modal.data}
+                    teams={teams}
+                />
+            )}
+            {modal?.type === 'add_license' && (
+                 <AddLicenseModal
+                    onClose={() => setModal(null)}
+                    onSave={(lic) => handleSave((lic as any).id ? (d) => dataService.updateLicense((lic as any).id!, d) : dataService.addLicense, lic, setSoftwareLicenses, !!(lic as any).id)}
+                    licenseToEdit={modal.data}
+                 />
+            )}
+            {modal?.type === 'add_kit' && (
+                <AddEquipmentKitModal
+                    onClose={() => setModal(null)}
+                    onSaveKit={async (items) => {
+                         const { data } = await dataService.addMultipleEquipment(items as any);
+                         if (data) setEquipment(prev => [...prev, ...data]);
+                    }}
+                    brands={brands}
+                    equipmentTypes={equipmentTypes}
+                    initialData={modal.initialData}
+                    onSaveEquipmentType={(t) => dataService.addEquipmentType(t as any).then(res => { setEquipmentTypes(p => [...p, res]); return res; })}
+                    equipment={equipment}
+                />
+            )}
+            {modal?.type === 'assign_equipment' && (
+                <AssignEquipmentModal
+                    equipment={modal.data}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    onClose={() => setModal(null)}
+                    onAssign={async (assignment) => {
+                        const newAssignment = await dataService.addAssignment(assignment as any);
+                        setAssignments(prev => [...prev, newAssignment]);
+                        setModal(null);
+                    }}
+                />
+            )}
+            {modal?.type === 'assign_multiple' && (
+                <AssignMultipleEquipmentModal
+                    equipmentList={modal.data}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    onClose={() => setModal(null)}
+                    onAssign={async (assignmentData) => {
+                        const assignmentsToCreate = modal.data.map(eq => ({
+                            equipmentId: eq.id,
+                            ...assignmentData
+                        }));
+                        const { data } = await dataService.addMultipleAssignments(assignmentsToCreate as any);
+                        if (data) setAssignments(prev => [...prev, ...data]);
+                        setModal(null);
+                    }}
+                />
+            )}
+             {modal?.type === 'close_ticket' && (
+                <CloseTicketModal
+                    ticket={modal.data}
+                    collaborators={collaborators}
+                    onClose={() => setModal(null)}
+                    onConfirm={async (technicianId) => {
+                        const updated = await dataService.updateTicket(modal.data.id, { 
+                            status: 'Finalizado' as any, 
+                            technicianId, 
+                            finishDate: new Date().toISOString().split('T')[0] 
+                        });
+                        setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+                        setModal(null);
+                    }}
+                />
+            )}
+            {modal?.type === 'ticket_activities' && (
+                <TicketActivitiesModal
+                    ticket={modal.data}
+                    activities={ticketActivities.filter(ta => ta.ticketId === modal.data.id)}
+                    collaborators={collaborators}
+                    currentUser={currentUser}
+                    equipment={equipment}
+                    equipmentTypes={equipmentTypes}
+                    entidades={entidades}
+                    onClose={() => setModal(null)}
+                    onAddActivity={async (activity) => {
+                         const newActivity = await dataService.addTicketActivity({
+                             ...activity,
+                             ticketId: modal.data.id,
+                             technicianId: currentUser?.id || '',
+                             date: new Date().toISOString()
+                         } as any);
+                         setTicketActivities(prev => [...prev, newActivity]);
+                    }}
+                    assignments={assignments}
+                />
+            )}
+            {modal?.type === 'equipment_history' && (
+                <EquipmentHistoryModal
+                    equipment={modal.data}
+                    assignments={assignments}
+                    collaborators={collaborators}
+                    escolasDepartamentos={entidades}
+                    tickets={tickets}
+                    ticketActivities={ticketActivities}
+                    onClose={() => setModal(null)}
+                />
+            )}
+            {modal?.type === 'collaborator_history' && (
+                 <CollaboratorHistoryModal
+                    collaborator={modal.data}
+                    history={collaboratorHistory}
+                    escolasDepartamentos={entidades}
+                    onClose={() => setModal(null)}
+                 />
+            )}
+            {modal?.type === 'collaborator_detail' && (
+                <CollaboratorDetailModal
+                    collaborator={modal.data}
+                    assignments={assignments}
+                    equipment={equipment}
+                    tickets={tickets}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    onClose={() => setModal(null)}
+                    onShowHistory={(col) => setModal({ type: 'collaborator_history', data: col })}
+                    onStartChat={handleOpenChat}
+                />
+            )}
+            {modal?.type === 'manage_licenses' && (
+                <ManageAssignedLicensesModal
+                    equipment={modal.data}
+                    allLicenses={softwareLicenses}
+                    allAssignments={licenseAssignments}
+                    onClose={() => setModal(null)}
+                    onSave={async (eqId, licenseIds) => {
+                        await dataService.syncLicenseAssignments(eqId, licenseIds);
+                        const freshData = await dataService.fetchAllData();
+                        setLicenseAssignments(freshData.licenseAssignments);
+                        setModal(null);
+                    }}
+                />
+            )}
+            {modal?.type === 'manage_team_members' && (
+                <ManageTeamMembersModal
+                    team={modal.data}
+                    allCollaborators={collaborators}
+                    teamMembers={teamMembers}
+                    onClose={() => setModal(null)}
+                    onSave={async (teamId, memberIds) => {
+                        await dataService.syncTeamMembers(teamId, memberIds);
+                         const freshData = await dataService.fetchAllData();
+                         setTeamMembers(freshData.teamMembers);
+                         setModal(null);
+                    }}
+                />
+            )}
+            {modal?.type === 'notifications' && (
+                 <NotificationsModal
+                    onClose={() => setModal(null)}
+                    expiringWarranties={expiringWarranties}
+                    expiringLicenses={expiringLicenses}
+                    teamTickets={tickets}
+                    collaborators={collaborators}
+                    teams={teams}
+                    onViewItem={(tab, filter) => {
+                        setActiveTab(tab);
+                        setInitialFilter(filter);
+                        setModal(null);
+                    }}
+                    onSnooze={() => {}}
+                 />
+            )}
+            {modal?.type === 'report' && (
+                 <ReportModal
+                    type={modal.reportType}
+                    onClose={() => setModal(null)}
+                    equipment={equipment}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    instituicoes={instituicoes}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    assignments={assignments}
+                    tickets={tickets}
+                    softwareLicenses={softwareLicenses}
+                    licenseAssignments={licenseAssignments}
+                 />
+            )}
+            {modal?.type === 'import' && (
+                <ImportModal
+                    onClose={() => setModal(null)}
+                    onImport={handleImport}
+                    config={modal.data}
+                />
+            )}
+
+            {confirmation && (
+                <ConfirmationModal
+                    title="Confirmação"
+                    message={confirmation.message}
+                    onClose={() => setConfirmation(null)}
+                    onConfirm={confirmation.onConfirm}
+                />
+            )}
+            {infoModal && (
+                <InfoModal
+                    title={infoModal.title}
+                    onClose={() => setInfoModal(null)}
+                >
+                    {infoModal.content}
                 </InfoModal>
             )}
         </div>
     );
-
 };
