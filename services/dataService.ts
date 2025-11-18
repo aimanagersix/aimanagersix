@@ -71,19 +71,14 @@ const mapTicketFromDb = (dbTicket: any): Ticket => ({
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     const dbTicket: any = { ...ticket };
 
-    // Histórico de correções:
-    // 1. CamelCase (equipmentId) falhou.
-    // 2. SnakeCase (equipment_id) falhou.
-    // 3. Tentativa: lowercase (equipmentid).
-    // Nota: collaboratorId parece funcionar em CamelCase, indicando que a tabela pode ter misturas.
+    // Sanitização de Foreign Keys: Converter strings vazias em null
+    // Isso evita erros de "invalid input syntax for type uuid" no Postgres
+    if (dbTicket.equipmentId === '') dbTicket.equipmentId = null;
+    if (dbTicket.technicianId === '') dbTicket.technicianId = null;
+    if (dbTicket.team_id === '') dbTicket.team_id = null;
     
-    if (ticket.equipmentId !== undefined) {
-        dbTicket.equipmentid = ticket.equipmentId;
-        delete dbTicket.equipmentId;
-    }
-    
-    // Manter outros campos como estão, assumindo que collaboratorId e team_id estão corretos
-    // baseados nos erros (ou falta deles) anteriores.
+    // Se collaborativeId, technicianId etc funcionam em CamelCase, assumimos que equipmentId
+    // também deve ser CamelCase. Removemos tentativas anteriores de renomear para snake_case ou lowercase.
 
     return dbTicket;
 };
