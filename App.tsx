@@ -230,17 +230,23 @@ export const App: React.FC = () => {
         try {
             let count = 0;
             if (dataType === 'collaborators') {
-                const { data: inserted } = await dataService.addMultipleCollaborators(data as any);
+                const { data: inserted } = await dataService.addMultipleCollaborators(data);
                 count = inserted ? inserted.length : 0;
-                setCollaborators(prev => [...prev, ...(inserted as unknown as Collaborator[] || [])]);
+                if (inserted) {
+                    setCollaborators(prev => [...prev, ...(inserted as any[] as Collaborator[])]);
+                }
             } else if (dataType === 'instituicoes') {
-                 const { data: inserted } = await dataService.addMultipleInstituicoes(data as any);
+                 const { data: inserted } = await dataService.addMultipleInstituicoes(data);
                  count = inserted ? inserted.length : 0;
-                 setInstituicoes(prev => [...prev, ...(inserted as unknown as Instituicao[] || [])]);
+                 if (inserted) {
+                    setInstituicoes(prev => [...prev, ...(inserted as any[] as Instituicao[])]);
+                 }
             } else if (dataType === 'entidades') {
-                 const { data: inserted } = await dataService.addMultipleEntidades(data as any);
+                 const { data: inserted } = await dataService.addMultipleEntidades(data);
                  count = inserted ? inserted.length : 0;
-                 setEntidades(prev => [...prev, ...(inserted as unknown as Entidade[] || [])]);
+                 if (inserted) {
+                    setEntidades(prev => [...prev, ...(inserted as any[] as Entidade[])]);
+                 }
             }
             return { success: true, message: `Importação concluída com sucesso! ${count} registos importados.` };
         } catch (error: any) {
