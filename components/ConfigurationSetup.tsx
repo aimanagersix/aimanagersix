@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FaKey, FaLink, FaSave } from './common/Icons';
 
@@ -72,7 +73,7 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
                     <div className="mb-6 text-center">
                         <h2 className="text-2xl font-bold text-white">Bem-vindo!</h2>
                         <p className="text-on-surface-dark-secondary mt-2 text-sm">
-                            Antes de começar, precisamos de configurar a ligação aos serviços. As suas chaves serão guardadas apenas nesta sessão do navegador.
+                            Antes de começar, precisamos de configurar a ligação aos serviços. As suas chaves serão guardadas localmente no seu navegador para uso futuro.
                         </p>
                     </div>
                     <div className="space-y-4">
