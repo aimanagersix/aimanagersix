@@ -1,7 +1,7 @@
 
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { supabase } from './services/supabaseClient';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { getSupabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, CollaboratorStatus, SoftwareLicense, LicenseAssignment, LicenseStatus, Team, TeamMember } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -64,7 +64,6 @@ const areKeysConfigured = () => {
     const supabaseUrl = process.env.SUPABASE_URL || sessionStorage.getItem('SUPABASE_URL');
     const supabaseKey = process.env.SUPABASE_ANON_KEY || sessionStorage.getItem('SUPABASE_ANON_KEY');
     const geminiKey = process.env.API_KEY || sessionStorage.getItem('API_KEY');
-    // FIX: Coerce the result to a strict boolean to ensure correct type inference for the `isConfigured` state.
     return !!(supabaseUrl && supabaseKey && geminiKey);
 };
 
@@ -124,55 +123,63 @@ export const App: React.FC = () => {
     };
     
     const handleLogout = useCallback(async () => {
-        if (!supabase) return;
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            console.error("Logout error:", error);
+        try {
+            const supabase = getSupabase();
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                console.error("Logout error:", error);
+            }
+        } catch(e) {
+            console.error("Failed to get Supabase on logout:", e);
         }
     }, []);
 
     const handleLogin = async (email: string, password: string): Promise<{ success: boolean, error?: string }> => {
-        if (!supabase) return { success: false, error: 'Supabase not initialized' };
-        
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-            console.error("Login error:", error);
-            if (error.message.includes('Invalid login credentials')) {
-                return { success: false, error: "Credenciais de login inválidas." };
+        try {
+            const supabase = getSupabase();
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) {
+                console.error("Login error:", error);
+                if (error.message.includes('Invalid login credentials')) {
+                    return { success: false, error: "Credenciais de login inválidas." };
+                }
+                if (error.message.includes('Email not confirmed')) {
+                    return { success: false, error: "Email não confirmado. Por favor, verifique a sua caixa de entrada." };
+                }
+                return { success: false, error: "Ocorreu um erro ao fazer login." };
             }
-            if (error.message.includes('Email not confirmed')) {
-                return { success: false, error: "Email não confirmado. Por favor, verifique a sua caixa de entrada." };
-            }
-            return { success: false, error: "Ocorreu um erro ao fazer login." };
+            return { success: true };
+        } catch (e: any) {
+            console.error("Login failed to init Supabase:", e);
+            return { success: false, error: e.message || 'Falha ao inicializar a ligação.' };
         }
-        return { success: true };
     };
 
     // Stage 1: Check for an active session. This is quick and removes the initial spinner.
     useEffect(() => {
-        if (!supabase) {
-            setLoadingError("Falha na ligação com o Supabase. Verifique as chaves de configuração.");
-            setIsSessionLoading(false);
-            return;
+        try {
+            const supabase = getSupabase();
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                if (event === 'PASSWORD_RECOVERY' && session) {
+                    setSessionForPasswordReset(session);
+                    setIsAuthenticated(false);
+                } else if (event !== 'PASSWORD_RECOVERY') {
+                    setSessionForPasswordReset(null);
+                    setIsAuthenticated(!!session);
+                }
+                
+                if (event === 'INITIAL_SESSION') {
+                    setIsSessionLoading(false);
+                }
+            });
+
+            return () => {
+                subscription?.unsubscribe();
+            };
+        } catch(e: any) {
+             setLoadingError(e.message || "Falha na ligação com o Supabase. Verifique as chaves de configuração.");
+             setIsSessionLoading(false);
         }
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'PASSWORD_RECOVERY' && session) {
-                setSessionForPasswordReset(session);
-                setIsAuthenticated(false);
-            } else if (event !== 'PASSWORD_RECOVERY') {
-                setSessionForPasswordReset(null);
-                setIsAuthenticated(!!session);
-            }
-            
-            if (event === 'INITIAL_SESSION') {
-                setIsSessionLoading(false);
-            }
-        });
-
-        return () => {
-            subscription?.unsubscribe();
-        };
     }, []);
 
     // Stage 2: If authenticated, load all necessary user and application data.
@@ -183,12 +190,11 @@ export const App: React.FC = () => {
         }
 
         const loadAppData = async () => {
-            if (!supabase) return;
-            
             setIsDataLoading(true);
             setLoadingError(null);
 
             try {
+                const supabase = getSupabase();
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) throw new Error("Sessão de utilizador inválida.");
 
@@ -280,12 +286,11 @@ export const App: React.FC = () => {
     ) => {
         try {
             let recordToSave = { ...data };
-            // Remove id from payload if it exists to avoid sending it on updates where it's not needed in the body
             if ('id' in recordToSave && recordToSave.id) {
                 delete (recordToSave as any).id;
             }
 
-            if ('id' in data && data.id) { // Editing existing record
+            if ('id' in data && data.id) {
                 const updatesPayload = { ...recordToSave };
                  if (type === 'equipment') {
                     delete (updatesPayload as Partial<Equipment>).creationDate;
@@ -296,7 +301,7 @@ export const App: React.FC = () => {
                 setData(prev => prev.map(item => item.id === data.id ? updatedRecord : item));
                 return updatedRecord;
 
-            } else { // Adding new record
+            } else {
                  let recordWithDefaults: any = { ...data };
                  
                  if (type === 'equipment') {
@@ -342,25 +347,20 @@ export const App: React.FC = () => {
     }, []);
     
      const handleSaveCollaborator = useCallback(async (collaboratorData: Collaborator, password?: string) => {
-        if (!supabase) return;
-        
         try {
-            // Editing existing collaborator
             if (collaboratorData.id) {
                 const { id, ...updates } = collaboratorData;
-                delete (updates as Partial<Collaborator>).password; // Ensure password is not updated
+                delete (updates as Partial<Collaborator>).password;
                 const updatedCollaborator = await dataService.updateCollaborator(id, updates);
-                // FIX: Merge the updated data with existing data to ensure the `id` is preserved in the object's type, resolving a potential type mismatch.
                 setCollaborators(prev => prev.map(c => c.id === id ? { ...c, ...updatedCollaborator } : c));
             } 
-            // Creating new collaborator
             else {
                 if (collaboratorData.canLogin) {
                     if (!password) {
                         alert("É necessária uma password temporária para criar um utilizador com acesso.");
                         return;
                     }
-                    // 1. Create user in Supabase Auth
+                    const supabase = getSupabase();
                     const { data: authData, error: authError } = await supabase.auth.signUp({
                         email: collaboratorData.email,
                         password: password,
@@ -368,11 +368,10 @@ export const App: React.FC = () => {
                     if (authError) throw authError;
                     if (!authData.user) throw new Error("A criação do utilizador no Supabase não retornou um utilizador.");
                     
-                    // 2. Create collaborator profile in public table with the same ID
                     const newCollaborator = {
                         ...collaboratorData,
                         id: authData.user.id,
-                        password: password, // Pass password to satisfy DB constraint
+                        password: password,
                     };
                     const addedCollaborator = await dataService.addCollaborator(newCollaborator);
                     setCollaborators(prev => [...prev, addedCollaborator]);
@@ -384,11 +383,10 @@ export const App: React.FC = () => {
                     });
 
                 } else {
-                    // Create collaborator without auth user
                     const newCollaborator = {
                         ...collaboratorData,
                         id: crypto.randomUUID(),
-                        password: crypto.randomUUID(), // Use a random string as placeholder to satisfy NOT NULL constraint
+                        password: crypto.randomUUID(),
                     };
                     const addedCollaborator = await dataService.addCollaborator(newCollaborator);
                     setCollaborators(prev => [...prev, addedCollaborator]);
@@ -398,7 +396,7 @@ export const App: React.FC = () => {
             console.error("Failed to save collaborator:", error);
             alert(`Ocorreu um erro ao salvar o colaborador: ${error.message}`);
         }
-    }, [supabase]);
+    }, []);
 
 
     // Generic Delete Handler
@@ -427,10 +425,9 @@ export const App: React.FC = () => {
             const addedAssignment = await dataService.addAssignment(newAssignment);
             setAssignments(prev => [...prev, addedAssignment]);
             
-            // Also update the equipment status to Operational
             await handleUpdateEquipmentStatus(assignmentData.equipmentId, EquipmentStatus.Operational);
             
-            setModal({ type: null }); // Close assignment modal
+            setModal({ type: null });
         } catch (error) {
             console.error("Failed to assign equipment:", error);
             alert("Ocorreu um erro ao atribuir o equipamento.");
@@ -452,7 +449,6 @@ export const App: React.FC = () => {
             
             setAssignments(prev => [...prev, ...addedAssignments]);
             
-            // Update statuses of all assigned equipment
             const updatePromises = modal.data.map((equipment: Equipment) =>
                 dataService.updateEquipment(equipment.id, { status: EquipmentStatus.Operational, modifiedDate: new Date().toISOString() })
             );
@@ -482,7 +478,6 @@ export const App: React.FC = () => {
             const updatedAssignment = await dataService.updateAssignment(assignmentToEnd.id, { returnDate: new Date().toISOString().split('T')[0] });
             setAssignments(prev => prev.map(a => a.id === updatedAssignment.id ? updatedAssignment : a));
             
-            // Also update the equipment status back to Stock
             await handleUpdateEquipmentStatus(equipmentId, EquipmentStatus.Stock);
 
         } catch (error) {
@@ -1014,8 +1009,7 @@ export const App: React.FC = () => {
             {modal.type === 'add_kit' && <AddEquipmentKitModal onClose={() => setModal({ type: null })} onSaveKit={async (items) => { await dataService.addMultipleEquipment(items as Equipment[]); const allData = await dataService.fetchAllData(); setEquipment(allData.equipment); }} brands={brands} equipmentTypes={equipmentTypes} initialData={modal.data} onSaveEquipmentType={(type) => handleSave('equipment_type', type, dataService.addEquipmentType, dataService.updateEquipmentType, setEquipmentTypes)} equipment={equipment} />}
             
             {isReportModalOpen.type && <ReportModal type={isReportModalOpen.type} onClose={() => setIsReportModalOpen({ type: null })} equipment={equipment} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} instituicoes={instituicoes} escolasDepartamentos={entidades} collaborators={collaborators} assignments={assignments} tickets={tickets} softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments} />}
-            {/* FIX: Pass the 'assignments' prop to TicketActivitiesModal. */}
-            {isTicketActivitiesModalOpen && selectedTicketForActivities && <TicketActivitiesModal ticket={selectedTicketForActivities} activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)} collaborators={collaborators} currentUser={currentUser} onClose={() => setIsTicketActivitiesModalOpen(false)} onAddActivity={(activity) => { const newActivity = { ...activity, ticketId: selectedTicketForActivities.id, technicianId: currentUser.id, date: new Date().toISOString() }; handleSave('ticket_activity', newActivity, dataService.addTicketActivity, dataService.updateTicketActivity, setTicketActivities); }} equipment={equipment} equipmentTypes={equipmentTypes} entidades={entidades} assignments={assignments} />}
+            {isTicketActivitiesModalOpen && selectedTicketForActivities && <TicketActivitiesModal ticket={selectedTicketForActivities} activities={ticketActivities.filter(a => a.ticketId === selectedTicketForActivities.id)} collaborators={collaborators} currentUser={currentUser} onClose={() => setIsTicketActivitiesModalOpen(false)} onAddActivity={(activity) => { const newActivity = { ...activity, ticketId: selectedTicketForActivities.id, technicianId: currentUser!.id, date: new Date().toISOString() }; handleSave('ticket_activity', newActivity, dataService.addTicketActivity, dataService.updateTicketActivity, setTicketActivities); }} equipment={equipment} equipmentTypes={equipmentTypes} entidades={entidades} assignments={assignments} />}
             {infoModal && <InfoModal title={infoModal.title} onClose={() => setInfoModal(null)}>{infoModal.content}</InfoModal>}
             {confirmation && <ConfirmationModal title="Confirmar Ação" message={confirmation.message} onConfirm={confirmation.onConfirm} onClose={() => setConfirmation(null)} />}
             {isNotificationsModalOpen && <NotificationsModal onClose={() => setIsNotificationsModalOpen(false)} expiringWarranties={expiringWarranties} expiringLicenses={expiringLicenses} teamTickets={teamTickets} collaborators={collaborators} teams={teams} onViewItem={(tab, filter) => { setIsNotificationsModalOpen(false); setActiveTab(tab); setInitialDashboardFilter(filter); }} onSnooze={handleSnoozeNotification} />}
