@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from './services/supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentStatus, EquipmentType, Brand, Ticket, TicketStatus, EntidadeStatus, UserRole, CollaboratorHistory, TicketActivity, Message, CollaboratorStatus, SoftwareLicense, LicenseAssignment, LicenseStatus, Team, TeamMember } from './types';
@@ -120,7 +121,6 @@ export const App: React.FC = () => {
         setTeamMembers([]);
         setCurrentUser(null);
         setInitialNotificationsShown(false);
-        setSnoozedNotifications([]);
     };
     
     const handleLogout = useCallback(async () => {
