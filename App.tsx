@@ -15,13 +15,22 @@ import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import BrandDashboard from './components/BrandDashboard';
 import { ImportConfig } from './components/ImportModal';
 import ManageAssignedLicensesModal from './components/ManageAssignedLicensesModal';
+import AddCollaboratorModal from './components/AddCollaboratorModal';
+import AddTicketModal from './components/AddTicketModal';
+import TicketActivitiesModal from './components/TicketActivitiesModal';
+import CloseTicketModal from './components/CloseTicketModal';
+import CollaboratorDetailModal from './components/CollaboratorDetailModal';
+import CollaboratorHistoryModal from './components/CollaboratorHistoryModal';
+import ReportModal from './components/ReportModal';
+import { ChatWidget } from './components/ChatWidget';
 import * as dataService from './services/dataService';
 import { getSupabase } from './services/supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, EquipmentStatus, TicketStatus
+    Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus
 } from './types';
+import { PlusIcon } from './components/common/Icons';
 
 export const App = () => {
     // Auth & Config State
@@ -44,9 +53,25 @@ export const App = () => {
     const [licenseAssignments, setLicenseAssignments] = useState<LicenseAssignment[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-    
-    // Modal State for Licensing
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [collaboratorHistory, setCollaboratorHistory] = useState<CollaboratorHistory[]>([]);
+
+    // Modal States
     const [manageLicensesEquipment, setManageLicensesEquipment] = useState<Equipment | null>(null);
+    const [isAddCollaboratorModalOpen, setIsAddCollaboratorModalOpen] = useState(false);
+    const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
+    const [isAddTicketModalOpen, setIsAddTicketModalOpen] = useState(false);
+    const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+    const [ticketActivitiesOpen, setTicketActivitiesOpen] = useState<Ticket | null>(null);
+    const [ticketToClose, setTicketToClose] = useState<Ticket | null>(null);
+    const [showDetailCollaborator, setShowDetailCollaborator] = useState<Collaborator | null>(null);
+    const [showHistoryCollaborator, setShowHistoryCollaborator] = useState<Collaborator | null>(null);
+    const [reportType, setReportType] = useState<'equipment' | 'collaborator' | 'ticket' | 'licensing' | null>(null);
+    
+    // Chat State
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
+
 
     // Computed Maps
     const brandMap = React.useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -62,7 +87,9 @@ export const App = () => {
             const url = localStorage.getItem('SUPABASE_URL');
             const key = localStorage.getItem('SUPABASE_ANON_KEY');
             const apiKey = localStorage.getItem('API_KEY');
-            if (url && key && apiKey) setIsConfigured(true);
+            if (url && key && apiKey) {
+                setIsConfigured(true);
+            }
         };
         checkConfig();
     }, []);
@@ -83,6 +110,8 @@ export const App = () => {
             setLicenseAssignments(data.licenseAssignments);
             setTeams(data.teams);
             setTeamMembers(data.teamMembers);
+            setMessages(data.messages);
+            setCollaboratorHistory(data.collaboratorHistory);
         } catch (error) {
             console.error("Error loading data", error);
         }
@@ -159,6 +188,7 @@ export const App = () => {
         setDashboardFilter(filter);
     };
     
+    // --- Licensing Handlers ---
     const handleManageKeys = (equipment: Equipment) => {
         setManageLicensesEquipment(equipment);
     };
@@ -171,6 +201,148 @@ export const App = () => {
         } catch (error) {
             console.error("Failed to sync licenses:", error);
             alert("Erro ao guardar as licenças. Por favor tente novamente.");
+        }
+    };
+
+    // --- Collaborator Handlers ---
+    const handleCreateCollaborator = async (collaborator: any, password?: string) => {
+         try {
+             if (collaborator.canLogin && password) {
+                 const supabase = getSupabase();
+                 const { data: authData, error: authError } = await supabase.auth.signUp({
+                     email: collaborator.email,
+                     password: password,
+                 });
+                 if (authError) throw authError;
+                 // The trigger in Supabase will ideally handle linking or we insert the collaborator manually
+                 // If using manual insertion:
+                 await dataService.addCollaborator({...collaborator, id: authData.user?.id });
+             } else {
+                 await dataService.addCollaborator(collaborator);
+             }
+             refreshData();
+         } catch (error) {
+             console.error("Error creating collaborator", error);
+             alert("Erro ao criar colaborador.");
+         }
+    };
+
+    const handleUpdateCollaborator = async (collaborator: Collaborator) => {
+        try {
+            await dataService.updateCollaborator(collaborator.id, collaborator);
+            refreshData();
+        } catch (error) {
+            console.error("Error updating collaborator", error);
+            alert("Erro ao atualizar colaborador.");
+        }
+    };
+
+    const handleDeleteCollaborator = async (id: string) => {
+        if (window.confirm("Tem a certeza que deseja excluir este colaborador?")) {
+            try {
+                await dataService.deleteCollaborator(id);
+                refreshData();
+            } catch (error) {
+                console.error("Error deleting collaborator", error);
+                alert("Erro ao excluir colaborador. Verifique se não existem dependências.");
+            }
+        }
+    };
+    
+    const handleToggleCollaboratorStatus = async (id: string) => {
+        const collaborator = collaborators.find(c => c.id === id);
+        if (collaborator) {
+            const newStatus = collaborator.status === CollaboratorStatus.Ativo ? CollaboratorStatus.Inativo : CollaboratorStatus.Ativo;
+            await handleUpdateCollaborator({ ...collaborator, status: newStatus });
+        }
+    };
+
+    // --- Ticket Handlers ---
+    const handleCreateTicket = async (ticket: any) => {
+        try {
+            await dataService.addTicket({ ...ticket, requestDate: new Date().toISOString(), status: TicketStatus.Requested });
+            refreshData();
+        } catch (error) {
+             console.error("Error creating ticket", error);
+             alert("Erro ao criar ticket.");
+        }
+    };
+
+    const handleUpdateTicket = async (ticket: Ticket) => {
+         try {
+            await dataService.updateTicket(ticket.id, ticket);
+            refreshData();
+        } catch (error) {
+             console.error("Error updating ticket", error);
+             alert("Erro ao atualizar ticket.");
+        }
+    };
+    
+    const handleCloseTicket = async (technicianId: string) => {
+        if (ticketToClose) {
+             try {
+                await dataService.updateTicket(ticketToClose.id, { 
+                    status: TicketStatus.Finished, 
+                    finishDate: new Date().toISOString(),
+                    technicianId: technicianId
+                });
+                setTicketToClose(null);
+                refreshData();
+            } catch (error) {
+                 console.error("Error closing ticket", error);
+                 alert("Erro ao finalizar ticket.");
+            }
+        }
+    };
+
+    const handleAddActivity = async (activity: any) => {
+        if (ticketActivitiesOpen && currentUser) {
+             try {
+                await dataService.addTicketActivity({
+                    ...activity,
+                    ticketId: ticketActivitiesOpen.id,
+                    technicianId: currentUser.id,
+                    date: new Date().toISOString()
+                });
+                // Update ticket status to In Progress if currently Requested
+                if (ticketActivitiesOpen.status === TicketStatus.Requested) {
+                    await dataService.updateTicket(ticketActivitiesOpen.id, { status: TicketStatus.InProgress });
+                }
+                refreshData();
+            } catch (error) {
+                 console.error("Error adding activity", error);
+                 alert("Erro ao adicionar atividade.");
+            }
+        }
+    };
+    
+    // --- Chat Handlers ---
+    const handleSendMessage = async (receiverId: string, content: string) => {
+        if (currentUser) {
+             try {
+                await dataService.addMessage({
+                    id: crypto.randomUUID(),
+                    senderId: currentUser.id,
+                    receiverId,
+                    content,
+                    timestamp: new Date().toISOString(),
+                    read: false
+                });
+                refreshData();
+            } catch (error) {
+                console.error("Error sending message", error);
+            }
+        }
+    };
+
+    const handleMarkMessagesRead = async (senderId: string) => {
+        if (currentUser) {
+            try {
+                await dataService.markMessagesAsRead(senderId, currentUser.id);
+                refreshData();
+            } catch (error) {
+                 console.error("Error marking read", error);
+            }
         }
     };
 
@@ -215,10 +387,27 @@ export const App = () => {
                     />
                 )}
                  {activeTab === 'collaborators' && (
-                     <CollaboratorDashboard 
-                        collaborators={collaborators} escolasDepartamentos={entidades} equipment={equipment} assignments={assignments} 
-                        tickets={tickets} ticketActivities={ticketActivities} teamMembers={teamMembers} currentUser={currentUser}
-                     />
+                     <div className="space-y-4">
+                         <div className="flex justify-end">
+                             <button 
+                                onClick={() => { setEditingCollaborator(null); setIsAddCollaboratorModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Adicionar Colaborador
+                             </button>
+                         </div>
+                         <CollaboratorDashboard 
+                            collaborators={collaborators} escolasDepartamentos={entidades} equipment={equipment} assignments={assignments} 
+                            tickets={tickets} ticketActivities={ticketActivities} teamMembers={teamMembers} currentUser={currentUser}
+                            onEdit={(col) => { setEditingCollaborator(col); setIsAddCollaboratorModalOpen(true); }}
+                            onDelete={handleDeleteCollaborator}
+                            onToggleStatus={handleToggleCollaboratorStatus}
+                            onShowHistory={(col) => setShowHistoryCollaborator(col)}
+                            onShowDetails={(col) => setShowDetailCollaborator(col)}
+                            onStartChat={(col) => { setActiveChatCollaboratorId(col.id); setIsChatOpen(true); }}
+                            onGenerateReport={() => setReportType('collaborator')}
+                         />
+                     </div>
                  )}
                  {activeTab === 'organizacao.instituicoes' && <InstituicaoDashboard instituicoes={instituicoes} escolasDepartamentos={entidades} />}
                  {activeTab === 'organizacao.entidades' && <EntidadeDashboard escolasDepartamentos={entidades} instituicoes={instituicoes} collaborators={collaborators} />}
@@ -230,11 +419,26 @@ export const App = () => {
                     />
                  )}
                  {activeTab === 'tickets' && (
-                    <TicketDashboard 
-                        tickets={tickets} escolasDepartamentos={entidades} collaborators={collaborators} teams={teams} 
-                        equipment={equipment} equipmentTypes={equipmentTypes} 
-                        initialFilter={dashboardFilter} onClearInitialFilter={() => setDashboardFilter(null)}
-                    />
+                    <div className="space-y-4">
+                        <div className="flex justify-end">
+                             <button 
+                                onClick={() => { setEditingTicket(null); setIsAddTicketModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Novo Ticket
+                             </button>
+                         </div>
+                        <TicketDashboard 
+                            tickets={tickets} escolasDepartamentos={entidades} collaborators={collaborators} teams={teams} 
+                            equipment={equipment} equipmentTypes={equipmentTypes} 
+                            initialFilter={dashboardFilter} onClearInitialFilter={() => setDashboardFilter(null)}
+                            onEdit={(ticket) => { setEditingTicket(ticket); setIsAddTicketModalOpen(true); }}
+                            onUpdateTicket={handleUpdateTicket}
+                            onOpenCloseTicketModal={(ticket) => setTicketToClose(ticket)}
+                            onOpenActivities={(ticket) => setTicketActivitiesOpen(ticket)}
+                            onGenerateReport={() => setReportType('ticket')}
+                        />
+                    </div>
                  )}
                  {activeTab === 'organizacao.teams' && (
                     <TeamDashboard 
@@ -246,6 +450,7 @@ export const App = () => {
                  {activeTab === 'equipment.types' && <EquipmentTypeDashboard equipmentTypes={equipmentTypes} equipment={equipment} />}
             </main>
 
+            {/* Modals */}
             {manageLicensesEquipment && (
                 <ManageAssignedLicensesModal
                     equipment={manageLicensesEquipment}
@@ -253,6 +458,111 @@ export const App = () => {
                     allAssignments={licenseAssignments}
                     onClose={() => setManageLicensesEquipment(null)}
                     onSave={handleSaveAssignedLicenses}
+                />
+            )}
+            
+            {isAddCollaboratorModalOpen && (
+                <AddCollaboratorModal
+                    onClose={() => setIsAddCollaboratorModalOpen(false)}
+                    onSave={editingCollaborator ? handleUpdateCollaborator : handleCreateCollaborator}
+                    collaboratorToEdit={editingCollaborator}
+                    escolasDepartamentos={entidades}
+                    currentUser={currentUser}
+                />
+            )}
+
+            {isAddTicketModalOpen && (
+                <AddTicketModal
+                    onClose={() => setIsAddTicketModalOpen(false)}
+                    onSave={editingTicket ? handleUpdateTicket : handleCreateTicket}
+                    ticketToEdit={editingTicket}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    teams={teams}
+                    currentUser={currentUser}
+                    userPermissions={{ viewScope: 'all' }} // Simplify for now
+                    equipment={equipment}
+                    equipmentTypes={equipmentTypes}
+                    assignments={assignments}
+                />
+            )}
+
+            {ticketActivitiesOpen && (
+                <TicketActivitiesModal
+                    ticket={ticketActivitiesOpen}
+                    activities={ticketActivities.filter(ta => ta.ticketId === ticketActivitiesOpen.id)}
+                    collaborators={collaborators}
+                    currentUser={currentUser}
+                    equipment={equipment}
+                    equipmentTypes={equipmentTypes}
+                    entidades={entidades}
+                    assignments={assignments}
+                    onClose={() => setTicketActivitiesOpen(null)}
+                    onAddActivity={handleAddActivity}
+                />
+            )}
+
+            {ticketToClose && (
+                <CloseTicketModal
+                    ticket={ticketToClose}
+                    collaborators={collaborators}
+                    onClose={() => setTicketToClose(null)}
+                    onConfirm={handleCloseTicket}
+                />
+            )}
+
+            {showDetailCollaborator && (
+                <CollaboratorDetailModal
+                    collaborator={showDetailCollaborator}
+                    assignments={assignments}
+                    equipment={equipment}
+                    tickets={tickets}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    onClose={() => setShowDetailCollaborator(null)}
+                    onShowHistory={(col) => { setShowDetailCollaborator(null); setShowHistoryCollaborator(col); }}
+                    onStartChat={(col) => { setActiveChatCollaboratorId(col.id); setIsChatOpen(true); setShowDetailCollaborator(null); }}
+                />
+            )}
+
+            {showHistoryCollaborator && (
+                <CollaboratorHistoryModal
+                    collaborator={showHistoryCollaborator}
+                    history={collaboratorHistory}
+                    escolasDepartamentos={entidades}
+                    onClose={() => setShowHistoryCollaborator(null)}
+                />
+            )}
+            
+            {reportType && (
+                <ReportModal
+                    type={reportType}
+                    onClose={() => setReportType(null)}
+                    equipment={equipment}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    instituicoes={instituicoes}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    assignments={assignments}
+                    tickets={tickets}
+                    softwareLicenses={softwareLicenses}
+                    licenseAssignments={licenseAssignments}
+                />
+            )}
+
+            {currentUser && (
+                <ChatWidget
+                    currentUser={currentUser}
+                    collaborators={collaborators}
+                    messages={messages}
+                    onSendMessage={handleSendMessage}
+                    onMarkMessagesAsRead={handleMarkMessagesRead}
+                    isOpen={isChatOpen}
+                    onToggle={() => setIsChatOpen(!isChatOpen)}
+                    activeChatCollaboratorId={activeChatCollaboratorId}
+                    onSelectConversation={setActiveChatCollaboratorId}
+                    unreadMessagesCount={messages.filter(m => m.receiverId === currentUser.id && !m.read).length}
                 />
             )}
         </div>
