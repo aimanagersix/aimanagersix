@@ -505,9 +505,9 @@ export const App: React.FC = () => {
             const allAssignments = await dataService.fetchData<LicenseAssignment>('license_assignment');
             setLicenseAssignments(allAssignments);
             setModal({ type: null });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save license assignments:", error);
-            alert("Ocorreu um erro ao salvar as atribuições de licença.");
+            alert(`Ocorreu um erro ao salvar as atribuições de licença: ${error.message || 'Erro desconhecido'}`);
         }
     }, []);
 
@@ -517,9 +517,9 @@ export const App: React.FC = () => {
             const allTeamMembers = await dataService.fetchData<TeamMember>('team_members');
             setTeamMembers(allTeamMembers);
             setModal({ type: null });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save team members:", error);
-            alert("Ocorreu um erro ao salvar os membros da equipa.");
+            alert(`Ocorreu um erro ao salvar os membros da equipa: ${error.message || 'Erro desconhecido'}`);
         }
     }, []);
 
