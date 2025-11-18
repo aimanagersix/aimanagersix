@@ -1,112 +1,132 @@
-import React, { useState, useMemo } from 'react';
-import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember } from '../types';
-import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon } from './common/Icons';
-import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import React, { useMemo, useState, useEffect } from 'react';
+import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator } from '../types';
+import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
+import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
-interface CollaboratorDashboardProps {
-  collaborators: Collaborator[];
-  escolasDepartamentos: Entidade[];
-  equipment: Equipment[];
+interface LicenseDashboardProps {
+  licenses: SoftwareLicense[];
+  licenseAssignments: LicenseAssignment[];
+  equipmentData: Equipment[];
   assignments: Assignment[];
-  tickets: Ticket[];
-  ticketActivities: TicketActivity[];
-  teamMembers: TeamMember[];
-  currentUser: Collaborator | null;
-  onEdit?: (collaborator: Collaborator) => void;
+  collaborators: Collaborator[];
+  brandMap: Map<string, string>;
+  equipmentTypeMap: Map<string, string>;
+  initialFilter?: any;
+  onClearInitialFilter?: () => void;
+  onEdit?: (license: SoftwareLicense) => void;
   onDelete?: (id: string) => void;
-  onShowHistory?: (collaborator: Collaborator) => void;
-  onShowDetails?: (collaborator: Collaborator) => void;
-  onGenerateReport?: () => void;
-  onStartChat?: (collaborator: Collaborator) => void;
   onToggleStatus?: (id: string) => void;
+  onGenerateReport?: () => void;
 }
 
-interface TooltipState {
-    visible: boolean;
-    content: React.ReactNode;
-    x: number;
-    y: number;
-}
-
-const getStatusClass = (status: CollaboratorStatus) => {
+const getStatusClass = (status?: LicenseStatus) => {
     switch (status) {
-        case CollaboratorStatus.Ativo:
-            return 'bg-green-500/20 text-green-400';
-        case CollaboratorStatus.Inativo:
-            return 'bg-red-500/20 text-red-400';
-        default:
-            return 'bg-gray-500/20 text-gray-400';
+        case LicenseStatus.Ativo: return 'bg-green-500/20 text-green-400';
+        case LicenseStatus.Inativo: return 'bg-gray-500/20 text-gray-400';
+        default: return 'bg-gray-500/20 text-gray-400';
     }
 };
 
-const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collaborators, escolasDepartamentos: entidades, onEdit, onDelete, onShowHistory, onShowDetails, equipment, assignments, tickets, ticketActivities, teamMembers, onGenerateReport, onStartChat, currentUser, onToggleStatus }) => {
+type SortableKeys = 'productName' | 'licenseKey' | 'status' | 'usage' | 'purchaseDate' | 'expiryDate';
+
+const SortableHeader: React.FC<{
+    sortKey: SortableKeys;
+    title: string;
+    sortConfig: { key: SortableKeys; direction: 'ascending' | 'descending' } | null;
+    requestSort: (key: SortableKeys) => void;
+    className?: string;
+}> = ({ sortKey, title, sortConfig, requestSort, className }) => {
+    const isSorted = sortConfig?.key === sortKey;
+    const direction = isSorted ? sortConfig.direction : undefined;
+
+    return (
+        <th scope="col" className={`px-6 py-3 ${className || ''}`}>
+            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 uppercase font-bold text-xs hover:text-white">
+                {title}
+                {isSorted ? (direction === 'ascending' ? <FaSortUp /> : <FaSortDown />) : <FaSort className="opacity-50" />}
+            </button>
+        </th>
+    );
+};
+
+
+const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ 
+    licenses, 
+    licenseAssignments, 
+    equipmentData,
+    assignments,
+    collaborators,
+    brandMap,
+    equipmentTypeMap,
+    onEdit, 
+    onDelete, 
+    onGenerateReport, 
+    initialFilter, 
+    onClearInitialFilter, 
+    onToggleStatus 
+}) => {
     
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState({ entidadeId: '', status: '' });
-    const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+    const [filters, setFilters] = useState({ productName: '', licenseKey: '', status: '', invoiceNumber: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
-    const entidadeMap = React.useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+    const [expandedLicenseId, setExpandedLicenseId] = useState<string | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
 
-    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, `${e.description} (SN: ${e.serialNumber})`])), [equipment]);
 
-    const equipmentByCollaborator = useMemo(() => {
-        const map = new Map<string, string[]>();
-        const activeAssignments = assignments.filter(a => !a.returnDate);
-        for (const assignment of activeAssignments) {
-            const collaboratorId = assignment.collaboratorId;
-            const equipmentDetails = equipmentMap.get(assignment.equipmentId);
-            if (collaboratorId && equipmentDetails) {
-                if (!map.has(collaboratorId)) {
-                    map.set(collaboratorId, []);
-                }
-                map.get(collaboratorId)!.push(equipmentDetails);
-            }
+    useEffect(() => {
+        if (initialFilter) {
+            const blankFilters = { productName: '', licenseKey: '', status: '', invoiceNumber: '' };
+            setFilters({ ...blankFilters, ...initialFilter });
         }
+        setCurrentPage(1);
+    }, [initialFilter]);
+
+    const usedSeatsMap = useMemo(() => {
+        return licenseAssignments.reduce((acc, assignment) => {
+            acc.set(assignment.softwareLicenseId, (acc.get(assignment.softwareLicenseId) || 0) + 1);
+            return acc;
+        }, new Map<string, number>());
+    }, [licenseAssignments]);
+    
+    const equipmentMap = useMemo(() => new Map(equipmentData.map(e => [e.id, e])), [equipmentData]);
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const activeAssignmentsMap = useMemo(() => {
+        const map = new Map<string, Assignment>();
+        assignments.filter(a => !a.returnDate).forEach(a => map.set(a.equipmentId, a));
         return map;
-    }, [assignments, equipmentMap]);
+    }, [assignments]);
 
-    // Calculate dependencies for deletion logic
-    const dependencyMap = useMemo(() => {
-        const map = new Map<string, string[]>();
-        
-        // Check Tickets (Requester or Technician)
-        tickets.forEach(t => {
-            if (!map.has(t.collaboratorId)) map.set(t.collaboratorId, []);
-            if (!map.get(t.collaboratorId)!.includes('Tickets (Requerente)')) map.get(t.collaboratorId)!.push('Tickets (Requerente)');
-
-            if (t.technicianId) {
-                if (!map.has(t.technicianId)) map.set(t.technicianId, []);
-                if (!map.get(t.technicianId)!.includes('Tickets (Técnico)')) map.get(t.technicianId)!.push('Tickets (Técnico)');
+    const assignmentsByLicense = useMemo(() => {
+        const map = new Map<string, { equipment: Equipment, user?: string }[]>();
+        licenseAssignments.forEach(la => {
+            const eq = equipmentMap.get(la.equipmentId);
+            if (eq) {
+                if (!map.has(la.softwareLicenseId)) {
+                    map.set(la.softwareLicenseId, []);
+                }
+                const activeAssignment = activeAssignmentsMap.get(eq.id);
+                const user = activeAssignment?.collaboratorId ? collaboratorMap.get(activeAssignment.collaboratorId) : undefined;
+                map.get(la.softwareLicenseId)!.push({ equipment: eq, user });
             }
         });
-
-        // Check Activities
-        ticketActivities.forEach(ta => {
-            if (!map.has(ta.technicianId)) map.set(ta.technicianId, []);
-            if (!map.get(ta.technicianId)!.includes('Atividades de Suporte')) map.get(ta.technicianId)!.push('Atividades de Suporte');
-        });
-
-        // Check Teams
-        teamMembers.forEach(tm => {
-            if (!map.has(tm.collaborator_id)) map.set(tm.collaborator_id, []);
-            if (!map.get(tm.collaborator_id)!.includes('Membro de Equipa')) map.get(tm.collaborator_id)!.push('Membro de Equipa');
-        });
-
         return map;
+    }, [licenseAssignments, equipmentMap, activeAssignmentsMap, collaboratorMap]);
 
-    }, [tickets, ticketActivities, teamMembers]);
+    const handleToggleExpand = (licenseId: string) => {
+        setExpandedLicenseId(prev => (prev === licenseId ? null : licenseId));
+    };
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
+        onClearInitialFilter?.();
         setCurrentPage(1);
     };
 
     const clearFilters = () => {
-        setSearchQuery('');
-        setFilters({ entidadeId: '', status: '' });
+        setFilters({ productName: '', licenseKey: '', status: '', invoiceNumber: '' });
+        onClearInitialFilter?.();
         setCurrentPage(1);
     };
 
@@ -114,289 +134,235 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
         setItemsPerPage(size);
         setCurrentPage(1);
     };
-
-    const filteredCollaborators = useMemo(() => {
-        const query = searchQuery.toLowerCase();
-        return collaborators.filter(col => {
-            const searchMatch = query === '' ||
-                col.fullName.toLowerCase().includes(query) ||
-                col.email.toLowerCase().includes(query) ||
-                col.numeroMecanografico.toLowerCase().includes(query);
-
-            const entidadeMatch = filters.entidadeId === '' || col.entidadeId === filters.entidadeId;
-            const statusMatch = filters.status === '' || col.status === filters.status;
-            return searchMatch && entidadeMatch && statusMatch;
-        });
-    }, [collaborators, filters, searchQuery]);
     
-    const totalPages = Math.ceil(filteredCollaborators.length / itemsPerPage);
-    const paginatedCollaborators = useMemo(() => {
-        return filteredCollaborators.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    }, [filteredCollaborators, currentPage, itemsPerPage]);
-
-    const handleMouseOver = (collaboratorId: string, event: React.MouseEvent) => {
-        const assignedEquipment = equipmentByCollaborator.get(collaboratorId);
-        if (!assignedEquipment || assignedEquipment.length === 0) return;
-        
-        const content = (
-            <div>
-                <p className="font-bold text-white mb-2">Equipamentos Atribuídos:</p>
-                <ul className="list-disc list-inside space-y-1">
-                    {assignedEquipment.map((eq, index) => <li key={index}>{eq}</li>)}
-                </ul>
-            </div>
-        );
-
-        setTooltip({
-            visible: true,
-            content: content,
-            x: event.clientX,
-            y: event.clientY,
-        });
-    };
-
-    const handleMouseMove = (event: React.MouseEvent) => {
-        if (tooltip?.visible) {
-            setTooltip(prev => prev ? { ...prev, x: event.clientX, y: event.clientY } : null);
+    const requestSort = (key: SortableKeys) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
         }
+        setSortConfig({ key, direction });
     };
 
-    const handleMouseLeave = () => {
-        setTooltip(null);
-    };
 
-  return (
-    <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-            <h2 className="text-xl font-semibold text-white">Gerenciar Colaboradores</h2>
-             {onGenerateReport && (
-                <button
-                    onClick={onGenerateReport}
-                    className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
-                >
-                    <ReportIcon />
-                    Gerar Relatório
-                </button>
-            )}
-        </div>
+    const processedLicenses = useMemo(() => {
+        let filtered = licenses.filter(license => {
+            const nameMatch = filters.productName === '' || license.productName.toLowerCase().includes(filters.productName.toLowerCase());
+            const keyMatch = filters.licenseKey === '' || license.licenseKey.toLowerCase().includes(filters.licenseKey.toLowerCase());
+            const invoiceMatch = filters.invoiceNumber === '' || (license.invoiceNumber && license.invoiceNumber.toLowerCase().includes(filters.invoiceNumber.toLowerCase()));
 
-        <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-1">
-                    <label htmlFor="searchQuery" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Procurar Colaborador</label>
-                    <div className="relative">
-                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <SearchIcon className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            id="searchQuery"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Nome, email, nº mecanográfico..."
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 pl-10 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                        />
-                    </div>
-                </div>
-                <div>
-                    <label htmlFor="entidadeFilter" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Entidade</label>
-                    <select
-                        id="entidadeFilter"
-                        name="entidadeId"
-                        value={filters.entidadeId}
-                        onChange={handleFilterChange}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+            const statusMatch = (() => {
+                if (!filters.status) return true;
+                if (filters.status === LicenseStatus.Ativo) return (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo;
+                if (filters.status === LicenseStatus.Inativo) return license.status === LicenseStatus.Inativo;
+                const usedSeats = usedSeatsMap.get(license.id) || 0;
+                const availableSeats = license.totalSeats - usedSeats;
+                if (filters.status === 'available' && availableSeats <= 0) return false;
+                if (filters.status === 'in_use' && usedSeats === 0) return false;
+                if (filters.status === 'depleted' && availableSeats > 0) return false;
+                return true;
+            })();
+            
+            return nameMatch && keyMatch && invoiceMatch && statusMatch;
+        });
+
+        if (sortConfig !== null) {
+            filtered.sort((a, b) => {
+                let aValue: any;
+                let bValue: any;
+
+                if (sortConfig.key === 'usage') {
+                    const aUsed = usedSeatsMap.get(a.id) || 0;
+                    const bUsed = usedSeatsMap.get(b.id) || 0;
+                    aValue = a.totalSeats > 0 ? aUsed / a.totalSeats : 0;
+                    bValue = b.totalSeats > 0 ? bUsed / b.totalSeats : 0;
+                } else {
+                    aValue = a[sortConfig.key as keyof SoftwareLicense] ?? '';
+                    bValue = b[sortConfig.key as keyof SoftwareLicense] ?? '';
+                }
+
+                if (aValue < bValue) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        
+        return filtered;
+    }, [licenses, filters, usedSeatsMap, sortConfig]);
+
+    const totalPages = Math.ceil(processedLicenses.length / itemsPerPage);
+    const paginatedLicenses = useMemo(() => {
+        return processedLicenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [processedLicenses, currentPage, itemsPerPage]);
+
+
+    return (
+        <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
+            <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+                <h2 className="text-xl font-semibold text-white">Gerenciar Licenças de Software</h2>
+                 {onGenerateReport && (
+                    <button
+                        onClick={onGenerateReport}
+                        className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
                     >
-                        <option value="">Todas as Entidades</option>
-                        {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        <ReportIcon />
+                        Gerar Relatório
+                    </button>
+                )}
+            </div>
+
+            <div className="space-y-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <input type="text" id="productNameFilter" name="productName" value={filters.productName} onChange={handleFilterChange} placeholder="Filtrar por Produto..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
+                    <input type="text" id="licenseKeyFilter" name="licenseKey" value={filters.licenseKey} onChange={handleFilterChange} placeholder="Filtrar por Chave..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
+                    <input type="text" id="invoiceNumberFilter" name="invoiceNumber" value={filters.invoiceNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Fatura..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
+                    <select id="statusFilter" name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
+                        <option value="">Todos os Estados</option>
+                        <option value={LicenseStatus.Ativo}>Ativo</option>
+                        <option value={LicenseStatus.Inativo}>Inativo</option>
+                        <option value="available">Com Vagas</option>
+                        <option value="in_use">Em Uso</option>
+                        <option value="depleted">Esgotado</option>
                     </select>
                 </div>
-                <div>
-                    <label htmlFor="statusFilter" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Status</label>
-                    <select
-                        id="statusFilter"
-                        name="status"
-                        value={filters.status}
-                        onChange={handleFilterChange}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                    >
-                        <option value="">Todos</option>
-                        {Object.values(CollaboratorStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                 <div className="flex justify-end">
+                    <button onClick={clearFilters} className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">
+                        Limpar Filtros
+                    </button>
                 </div>
             </div>
-            <div className="flex justify-end">
-                <button
-                    onClick={clearFilters}
-                    className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
-                >
-                    Limpar Filtros
-                </button>
+            
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-on-surface-dark-secondary">
+                    <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
+                        <tr>
+                            <th scope="col" className="px-2 py-3 w-12"></th>
+                            <SortableHeader sortKey="productName" title="Nome do Produto" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="licenseKey" title="Chave de Licença" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="status" title="Status" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="usage" title="Uso (Total/Uso/Disp)" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
+                            <SortableHeader sortKey="purchaseDate" title="Datas" sortConfig={sortConfig} requestSort={requestSort} />
+                            <th scope="col" className="px-6 py-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {paginatedLicenses.length > 0 ? paginatedLicenses.map((license) => {
+                            const usedSeats = usedSeatsMap.get(license.id) || 0;
+                            const availableSeats = license.totalSeats - usedSeats;
+                            const status = license.status || LicenseStatus.Ativo;
+                            const assignedDetails = assignmentsByLicense.get(license.id) || [];
+                            const isExpanded = expandedLicenseId === license.id;
+                            
+                            // Logic to disable delete button
+                            const isDeleteDisabled = usedSeats > 0;
+
+                            return (
+                                <React.Fragment key={license.id}>
+                                    <tr className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+                                        <td className="px-2 py-4">
+                                            {usedSeats > 0 && (
+                                                <button onClick={() => handleToggleExpand(license.id)} className="text-gray-400 hover:text-white" aria-label={isExpanded ? "Esconder detalhes" : "Mostrar detalhes"}>
+                                                    {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                                                </button>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{license.productName}</td>
+                                        <td className="px-6 py-4 font-mono">{license.licenseKey}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(status)}`}>
+                                                {status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="font-semibold text-white">{license.totalSeats}</span> / <span>{usedSeats}</span> / <span className={`font-bold ${availableSeats > 0 ? 'text-green-400' : 'text-red-400'}`}>{availableSeats}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs">
+                                            {license.purchaseDate && <div>Compra: {license.purchaseDate}</div>}
+                                            {license.expiryDate && <div className="text-yellow-400">Expira: {license.expiryDate}</div>}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex justify-center items-center gap-4">
+                                                {onToggleStatus && (
+                                                    <button 
+                                                        onClick={() => onToggleStatus(license.id)} 
+                                                        className={`text-xl ${status === LicenseStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
+                                                        title={status === LicenseStatus.Ativo ? 'Inativar' : 'Ativar'}
+                                                    >
+                                                        {status === LicenseStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
+                                                    </button>
+                                                )}
+                                                {onEdit && (
+                                                    <button onClick={() => onEdit(license)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${license.productName}`}>
+                                                        <EditIcon />
+                                                    </button>
+                                                )}
+                                                {onDelete && (
+                                                    <button 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (!isDeleteDisabled) onDelete(license.id); 
+                                                        }} 
+                                                        className={isDeleteDisabled ? "text-gray-500 opacity-50 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                                        disabled={isDeleteDisabled}
+                                                        title={isDeleteDisabled ? "Impossível excluir: Existem licenças em uso" : `Excluir ${license.productName}`}
+                                                        aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${license.productName}`}
+                                                    >
+                                                        <DeleteIcon />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {isExpanded && (
+                                        <tr className="bg-gray-900/50">
+                                            <td colSpan={7} className="p-4">
+                                                <h4 className="text-sm font-semibold text-white mb-3">Atribuído a:</h4>
+                                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                                                    {assignedDetails.map(({ equipment: eq, user }, index) => (
+                                                        <div key={index} className="flex items-center gap-4 p-3 bg-surface-dark rounded-md border border-gray-700">
+                                                            <div className="flex-shrink-0">
+                                                                <FaLaptop className="h-6 w-6 text-brand-secondary" />
+                                                            </div>
+                                                            <div className="flex-grow text-sm">
+                                                                <p className="font-semibold text-on-surface-dark">{eq.description}</p>
+                                                                <p className="text-xs text-on-surface-dark-secondary">
+                                                                    {brandMap.get(eq.brandId)} / {equipmentTypeMap.get(eq.typeId)}
+                                                                </p>
+                                                                <p className="text-xs font-mono text-gray-400">S/N: {eq.serialNumber}</p>
+                                                            </div>
+                                                            <div className="flex-shrink-0 text-right text-xs">
+                                                                <p className="text-on-surface-dark-secondary">Utilizador:</p>
+                                                                <p className="font-semibold text-on-surface-dark">{user || 'À Localização'}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            );
+                        }) : (
+                            <tr>
+                                <td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma licença de software encontrada.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={itemsPerPage}
+                onItemsPerPageChange={handleItemsPerPageChange}
+                totalItems={processedLicenses.length}
+            />
         </div>
-      
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left text-on-surface-dark-secondary">
-          <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
-            <tr>
-              <th scope="col" className="px-6 py-3">Nº Mec.</th>
-              <th scope="col" className="px-6 py-3">Nome Completo / Equipamentos</th>
-              <th scope="col" className="px-6 py-3">Contactos</th>
-              <th scope="col" className="px-6 py-3">Entidade</th>
-              <th scope="col" className="px-6 py-3">Status</th>
-              <th scope="col" className="px-6 py-3">Perfil</th>
-              <th scope="col" className="px-6 py-3 text-center">Acesso</th>
-              <th scope="col" className="px-6 py-3 text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedCollaborators.length > 0 ? paginatedCollaborators.map((col) => {
-                 const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
-                 const equipmentCount = assignedEquipment.length;
-                 const dependencies = dependencyMap.get(col.id) || [];
-                 
-                 let deleteTooltip = `Excluir ${col.fullName}`;
-                 let isDeleteDisabled = false;
-
-                 if (equipmentCount > 0 || dependencies.length > 0) {
-                     isDeleteDisabled = true;
-                     const reasons = [];
-                     if (equipmentCount > 0) reasons.push("Equipamentos");
-                     
-                     // Deduplicate dependency reasons for cleaner tooltip
-                     const uniqueDependencies = Array.from(new Set(dependencies));
-                     reasons.push(...uniqueDependencies);
-                     
-                     deleteTooltip = `Impossível excluir: Associado a ${reasons.join(", ")}`;
-                 }
-
-
-                return (
-              <tr 
-                key={col.id} 
-                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
-                onMouseOver={(e) => handleMouseOver(col.id, e)}
-                onMouseMove={handleMouseMove}
-                onMouseLeave={handleMouseLeave}
-                onClick={() => onShowDetails && onShowDetails(col)}
-              >
-                <td className="px-6 py-4">{col.numeroMecanografico}</td>
-                <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    {col.photoUrl ? (
-                        <img src={col.photoUrl} alt={col.fullName} className="h-10 w-10 rounded-full object-cover" />
-                    ) : (
-                        <div className="h-10 w-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">{col.fullName.charAt(0)}</div>
-                    )}
-                    <div>
-                        <span>{col.fullName}</span>
-                        {equipmentCount > 0 && (
-                            <div className="text-xs text-brand-secondary mt-1">
-                                {equipmentCount} equipamento(s) atribuído(s)
-                            </div>
-                        )}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                    <div>{col.email}</div>
-                    {col.telefoneInterno && <div className="text-xs text-on-surface-dark-secondary">Interno: {col.telefoneInterno}</div>}
-                    {col.telemovel && <div className="text-xs text-on-surface-dark-secondary">Móvel: {col.telemovel}</div>}
-                </td>
-                <td className="px-6 py-4">{entidadeMap.get(col.entidadeId) || 'N/A'}</td>
-                <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(col.status)}`}>
-                        {col.status}
-                    </span>
-                </td>
-                <td className="px-6 py-4">{col.role}</td>
-                <td className="px-6 py-4 text-center">
-                    {col.canLogin ? (
-                        <span className="inline-flex items-center justify-center p-1.5 bg-green-500/20 rounded-full" title="Acesso permitido">
-                            <CheckIcon className="h-4 w-4 text-green-400" />
-                        </span>
-                    ) : (
-                        <span className="inline-flex items-center justify-center p-1.5 bg-red-500/20 rounded-full" title="Acesso negado">
-                            <XIcon className="h-4 w-4 text-red-400" />
-                        </span>
-                    )}
-                </td>
-                <td className="px-6 py-4 text-center">
-                     <div className="flex justify-center items-center gap-4">
-                        {onToggleStatus && (
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onToggleStatus(col.id); }}
-                                className={`text-xl ${col.status === CollaboratorStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
-                                title={col.status === CollaboratorStatus.Ativo ? 'Inativar' : 'Ativar'}
-                            >
-                                {col.status === CollaboratorStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
-                            </button>
-                        )}
-                        {onStartChat && currentUser && currentUser.id !== col.id && (
-                             <button onClick={(e) => { e.stopPropagation(); onStartChat(col); }} className="text-gray-400 hover:text-white" aria-label={`Mensagem para ${col.fullName}`}>
-                                <FaComment className="h-5 w-5"/>
-                            </button>
-                        )}
-                        {onShowHistory && (
-                            <button onClick={(e) => { e.stopPropagation(); onShowHistory(col); }} className="text-gray-400 hover:text-white" aria-label={`Histórico de ${col.fullName}`}>
-                                <FaHistory className="h-5 w-5"/>
-                            </button>
-                        )}
-                        {onEdit && (
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(col); }} className="text-blue-400 hover:text-blue-300" aria-label={`Edit ${col.fullName}`}>
-                                <EditIcon />
-                            </button>
-                        )}
-                        {onDelete && (
-                            <button 
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    if (!isDeleteDisabled) onDelete(col.id); 
-                                }} 
-                                className={isDeleteDisabled ? "text-gray-600 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
-                                disabled={isDeleteDisabled}
-                                title={deleteTooltip}
-                                aria-label={deleteTooltip}
-                            >
-                                <DeleteIcon />
-                            </button>
-                        )}
-                    </div>
-                </td>
-              </tr>
-            )
-            }) : (
-                <tr>
-                    <td colSpan={8} className="text-center py-8 text-on-surface-dark-secondary">Nenhum colaborador encontrado com os filtros atuais.</td>
-                </tr>
-            )}
-          </tbody>
-        </table>
-        {tooltip?.visible && (
-            <div
-                style={{
-                    position: 'fixed',
-                    top: tooltip.y + 15,
-                    left: tooltip.x + 15,
-                    pointerEvents: 'none',
-                }}
-                className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm"
-                role="tooltip"
-            >
-                {tooltip.content}
-            </div>
-        )}
-      </div>
-       <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onItemsPerPageChange={handleItemsPerPageChange}
-            totalItems={filteredCollaborators.length}
-        />
-    </div>
-  );
+    );
 };
 
-export default CollaboratorDashboard;
+export default LicenseDashboard;
