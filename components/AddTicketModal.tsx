@@ -29,18 +29,54 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments }) => {
-    const [formData, setFormData] = useState({
-        entidadeId: entidades[0]?.id || '',
-        collaboratorId: '',
-        description: '',
-        team_id: '',
-        equipmentId: '',
+    // Initial State Logic
+    const [formData, setFormData] = useState(() => {
+        if (ticketToEdit) {
+            return {
+                title: ticketToEdit.title || '',
+                entidadeId: ticketToEdit.entidadeId,
+                collaboratorId: ticketToEdit.collaboratorId,
+                description: ticketToEdit.description,
+                team_id: ticketToEdit.team_id || '',
+                equipmentId: ticketToEdit.equipmentId || '',
+            };
+        }
+        
+        // Default values for new ticket
+        const isUtilizador = userPermissions.viewScope === 'own';
+        if (isUtilizador && currentUser) {
+            return {
+                title: '',
+                entidadeId: currentUser.entidadeId,
+                collaboratorId: currentUser.id,
+                description: '',
+                team_id: '',
+                equipmentId: '',
+            };
+        }
+        
+        return {
+            title: '',
+            entidadeId: entidades[0]?.id || '',
+            collaboratorId: collaborators.find(c => c.entidadeId === entidades[0]?.id)?.id || '',
+            description: '',
+            team_id: '',
+            equipmentId: '',
+        };
     });
+
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
      
     const isUtilizador = userPermissions.viewScope === 'own';
+
+    // Load attachments only once when editing
+    useEffect(() => {
+        if (ticketToEdit) {
+            setAttachments(ticketToEdit.attachments?.map(a => ({ ...a, size: 0 })) || []);
+        }
+    }, [ticketToEdit]);
 
     const availableCollaborators = useMemo(() => {
         if (isUtilizador && currentUser) {
@@ -66,6 +102,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         return equipment.filter(e => equipmentIds.has(e.id));
     }, [formData.entidadeId, formData.collaboratorId, assignments, equipment]);
     
+    // Auto-select team based on equipment type
     useEffect(() => {
         if (formData.equipmentId) {
             const selectedEquipment = equipment.find(e => e.id === formData.equipmentId);
@@ -78,41 +115,16 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         }
     }, [formData.equipmentId, equipment, equipmentTypes]);
 
-
-    useEffect(() => {
-        if (ticketToEdit) {
-            setFormData({
-                entidadeId: ticketToEdit.entidadeId,
-                collaboratorId: ticketToEdit.collaboratorId,
-                description: ticketToEdit.description,
-                team_id: ticketToEdit.team_id || '',
-                equipmentId: ticketToEdit.equipmentId || '',
-            });
-            setAttachments(ticketToEdit.attachments?.map(a => ({ ...a, size: 0 })) || []); // size is only for validation on upload
-        } else if (isUtilizador && currentUser) {
-            setFormData({
-                entidadeId: currentUser.entidadeId,
-                collaboratorId: currentUser.id,
-                description: '',
-                team_id: '',
-                equipmentId: '',
-            });
-        } else {
-             setFormData({
-                entidadeId: entidades[0]?.id || '',
-                collaboratorId: collaborators.find(c => c.entidadeId === entidades[0]?.id)?.id || '',
-                description: '',
-                team_id: '',
-                equipmentId: '',
-            });
-        }
-    }, [ticketToEdit, entidades, collaborators, isUtilizador, currentUser]);
-
+    // Auto-select first collaborator when entity changes (only for new tickets by admins)
     useEffect(() => {
         if (!ticketToEdit && !isUtilizador && availableCollaborators.length > 0) {
-            setFormData(prev => ({...prev, collaboratorId: availableCollaborators[0].id}));
+             // Only update if current collaborator is not valid for the new entity
+             const currentIsValid = availableCollaborators.some(c => c.id === formData.collaboratorId);
+             if (!currentIsValid) {
+                 setFormData(prev => ({...prev, collaboratorId: availableCollaborators[0].id}));
+             }
         }
-    }, [formData.entidadeId, availableCollaborators, ticketToEdit, isUtilizador]);
+    }, [formData.entidadeId, availableCollaborators, ticketToEdit, isUtilizador, formData.collaboratorId]);
 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -122,6 +134,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
+        if (!formData.title.trim()) newErrors.title = "O assunto é obrigatório.";
         if (!formData.entidadeId) newErrors.entidadeId = "A entidade é obrigatória.";
         if (!formData.collaboratorId) newErrors.collaboratorId = "O colaborador é obrigatório.";
         if (!formData.description.trim()) newErrors.description = "A descrição do problema é obrigatória.";
@@ -152,7 +165,6 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             };
             reader.readAsDataURL(file);
         }
-        // Reset file input to allow selecting the same file again if removed
         e.target.value = '';
     };
     
@@ -220,9 +232,32 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                          {errors.collaboratorId && <p className="text-red-400 text-xs italic mt-1">{errors.collaboratorId}</p>}
                     </div>
                 </div>
+
                 <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição do Problema</label>
-                    <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} ></textarea>
+                    <label htmlFor="title" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Assunto</label>
+                    <input 
+                        type="text" 
+                        name="title" 
+                        id="title" 
+                        value={formData.title} 
+                        onChange={handleChange} 
+                        placeholder="Resumo curto do problema (ex: Impressora avariada)"
+                        className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'}`} 
+                    />
+                    {errors.title && <p className="text-red-400 text-xs italic mt-1">{errors.title}</p>}
+                </div>
+
+                <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição Detalhada</label>
+                    <textarea 
+                        name="description" 
+                        id="description" 
+                        value={formData.description} 
+                        onChange={handleChange} 
+                        rows={4} 
+                        placeholder="Descreva o problema em detalhe..."
+                        className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} 
+                    ></textarea>
                     {errors.description && <p className="text-red-400 text-xs italic mt-1">{errors.description}</p>}
                 </div>
 
