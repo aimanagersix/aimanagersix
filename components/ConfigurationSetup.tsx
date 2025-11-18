@@ -51,9 +51,9 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
     const handleSave = () => {
         if (!validate()) return;
         
-        sessionStorage.setItem('SUPABASE_URL', keys.supabaseUrl);
-        sessionStorage.setItem('SUPABASE_ANON_KEY', keys.supabaseAnonKey);
-        sessionStorage.setItem('API_KEY', keys.apiKey);
+        localStorage.setItem('SUPABASE_URL', keys.supabaseUrl);
+        localStorage.setItem('SUPABASE_ANON_KEY', keys.supabaseAnonKey);
+        localStorage.setItem('API_KEY', keys.apiKey);
         
         // FIX: Call the onConfigured callback instead of reloading the page for a smoother user experience.
         onConfigured();

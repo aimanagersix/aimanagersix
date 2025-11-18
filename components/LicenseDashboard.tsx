@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
@@ -305,7 +306,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                                             e.stopPropagation(); 
                                                             if (!isDeleteDisabled) onDelete(license.id); 
                                                         }} 
-                                                        className={isDeleteDisabled ? "text-gray-600 cursor-not-allowed opacity-50" : "text-red-400 hover:text-red-300"}
+                                                        className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
                                                         disabled={isDeleteDisabled}
                                                         title={isDeleteDisabled ? "Impossível excluir: Existem licenças em uso" : `Excluir ${license.productName}`}
                                                         aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${license.productName}`}

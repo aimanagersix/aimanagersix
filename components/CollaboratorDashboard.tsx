@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon } from './common/Icons';
@@ -353,7 +354,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
                                     e.stopPropagation(); 
                                     if (!isDeleteDisabled) onDelete(col.id); 
                                 }} 
-                                className={isDeleteDisabled ? "text-gray-600 cursor-not-allowed opacity-50" : "text-red-400 hover:text-red-300"}
+                                className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
                                 disabled={isDeleteDisabled}
                                 title={deleteTooltip}
                                 aria-label={deleteTooltip}
