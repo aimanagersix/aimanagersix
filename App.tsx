@@ -14,6 +14,7 @@ import TeamDashboard from './components/TeamDashboard';
 import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import BrandDashboard from './components/BrandDashboard';
 import { ImportConfig } from './components/ImportModal';
+import ManageAssignedLicensesModal from './components/ManageAssignedLicensesModal';
 import * as dataService from './services/dataService';
 import { getSupabase } from './services/supabaseClient';
 import { 
@@ -44,6 +45,9 @@ export const App = () => {
     const [teams, setTeams] = useState<Team[]>([]);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     
+    // Modal State for Licensing
+    const [manageLicensesEquipment, setManageLicensesEquipment] = useState<Equipment | null>(null);
+
     // Computed Maps
     const brandMap = React.useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const equipmentTypeMap = React.useMemo(() => new Map(equipmentTypes.map(t => [t.id, t.name])), [equipmentTypes]);
@@ -55,9 +59,9 @@ export const App = () => {
     // Check Config & Auth on Mount
     useEffect(() => {
         const checkConfig = () => {
-            const url = sessionStorage.getItem('SUPABASE_URL');
-            const key = sessionStorage.getItem('SUPABASE_ANON_KEY');
-            const apiKey = sessionStorage.getItem('API_KEY');
+            const url = localStorage.getItem('SUPABASE_URL');
+            const key = localStorage.getItem('SUPABASE_ANON_KEY');
+            const apiKey = localStorage.getItem('API_KEY');
             if (url && key && apiKey) setIsConfigured(true);
         };
         checkConfig();
@@ -154,6 +158,22 @@ export const App = () => {
         setActiveTab(tab);
         setDashboardFilter(filter);
     };
+    
+    const handleManageKeys = (equipment: Equipment) => {
+        setManageLicensesEquipment(equipment);
+    };
+
+    const handleSaveAssignedLicenses = async (equipmentId: string, licenseIds: string[]) => {
+        try {
+            await dataService.syncLicenseAssignments(equipmentId, licenseIds);
+            await refreshData();
+            setManageLicensesEquipment(null);
+        } catch (error) {
+            console.error("Failed to sync licenses:", error);
+            alert("Erro ao guardar as licenças. Por favor tente novamente.");
+        }
+    };
+
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (!session) return <LoginPage onLogin={handleLogin} onForgotPassword={() => {}} />;
@@ -191,6 +211,7 @@ export const App = () => {
                          initialFilter={dashboardFilter} onClearInitialFilter={() => setDashboardFilter(null)} 
                          onShowHistory={() => {}} // Todo: implement handler
                          onAssign={() => {}} // Todo: implement handler
+                         onManageKeys={handleManageKeys}
                     />
                 )}
                  {activeTab === 'collaborators' && (
@@ -224,6 +245,16 @@ export const App = () => {
                  {activeTab === 'equipment.brands' && <BrandDashboard brands={brands} equipment={equipment} />}
                  {activeTab === 'equipment.types' && <EquipmentTypeDashboard equipmentTypes={equipmentTypes} equipment={equipment} />}
             </main>
+
+            {manageLicensesEquipment && (
+                <ManageAssignedLicensesModal
+                    equipment={manageLicensesEquipment}
+                    allLicenses={softwareLicenses}
+                    allAssignments={licenseAssignments}
+                    onClose={() => setManageLicensesEquipment(null)}
+                    onSave={handleSaveAssignedLicenses}
+                />
+            )}
         </div>
     );
 };
