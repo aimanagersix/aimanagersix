@@ -69,31 +69,31 @@ const mapTicketFromDb = (dbTicket: any): Ticket => ({
 
 // Mapeia os dados da aplicação para a DB
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
-    const dbTicket: any = { ...ticket };
+    // Destructura para remover explicitamente as chaves camelCase do objeto que vai para a DB
+    const { 
+        equipmentId, 
+        entidadeId, 
+        collaboratorId, 
+        technicianId, 
+        requestDate, 
+        finishDate,
+        team_id, // Já é snake_case mas vamos tratar aqui para garantir sanitização
+        ...rest 
+    } = ticket;
 
-    // Helper para mapear campos camelCase para snake_case e sanitizar strings vazias
-    const mapField = (sourceKey: string, targetKey: string) => {
-        if (sourceKey in dbTicket) {
-            const val = dbTicket[sourceKey];
-            // Converte string vazia em null para evitar erro de sintaxe UUID no Postgres
-            dbTicket[targetKey] = val === '' ? null : val;
-            
-            // Remove a chave original se for diferente da chave de destino
-            if (sourceKey !== targetKey) {
-                delete dbTicket[sourceKey];
-            }
-        }
-    };
+    // Cria um novo objeto apenas com o 'rest' (campos comuns)
+    const dbTicket: any = { ...rest };
 
-    mapField('equipmentId', 'equipment_id');
-    mapField('entidadeId', 'entidade_id');
-    mapField('collaboratorId', 'collaborator_id');
-    mapField('technicianId', 'technician_id');
+    // Adiciona as chaves snake_case, convertendo string vazia em null para UUIDs
+    if (equipmentId !== undefined) dbTicket.equipment_id = equipmentId === '' ? null : equipmentId;
+    if (entidadeId !== undefined) dbTicket.entidade_id = entidadeId === '' ? null : entidadeId;
+    if (collaboratorId !== undefined) dbTicket.collaborator_id = collaboratorId === '' ? null : collaboratorId;
+    if (technicianId !== undefined) dbTicket.technician_id = technicianId === '' ? null : technicianId;
     
-    // team_id já está em snake_case nos types, mas aplicamos sanitização de string vazia
-    if ('team_id' in dbTicket) {
-         dbTicket.team_id = dbTicket.team_id === '' ? null : dbTicket.team_id;
-    }
+    if (requestDate !== undefined) dbTicket.request_date = requestDate;
+    if (finishDate !== undefined) dbTicket.finish_date = finishDate;
+    
+    if (team_id !== undefined) dbTicket.team_id = team_id === '' ? null : team_id;
 
     return dbTicket;
 };
@@ -108,19 +108,21 @@ const mapTicketActivityFromDb = (dbActivity: any): TicketActivity => ({
 });
 
 const mapTicketActivityToDb = (activity: Partial<TicketActivity>): any => {
-    const dbActivity: any = { ...activity };
-    
-    const mapField = (sourceKey: string, targetKey: string) => {
-        if (sourceKey in dbActivity) {
-            const val = dbActivity[sourceKey];
-            dbActivity[targetKey] = val === '' ? null : val;
-            if (sourceKey !== targetKey) delete dbActivity[sourceKey];
-        }
-    };
+    // Destructura para garantir que as chaves originais NÃO seguem para o Supabase
+    // Isto remove as chaves do objeto 'rest'
+    const { 
+        ticketId, 
+        technicianId, 
+        equipmentId, 
+        ...rest 
+    } = activity;
 
-    mapField('ticketId', 'ticket_id');
-    mapField('technicianId', 'technician_id');
-    mapField('equipmentId', 'equipment_id');
+    const dbActivity: any = { ...rest };
+
+    // Mapeia para snake_case no novo objeto
+    if (ticketId !== undefined) dbActivity.ticket_id = ticketId === '' ? null : ticketId;
+    if (technicianId !== undefined) dbActivity.technician_id = technicianId === '' ? null : technicianId;
+    if (equipmentId !== undefined) dbActivity.equipment_id = equipmentId === '' ? null : equipmentId;
 
     return dbActivity;
 };
