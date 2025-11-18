@@ -98,12 +98,40 @@ const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     return dbTicket;
 };
 
+// --- Helpers de Mapeamento para TicketActivity ---
+
+const mapTicketActivityFromDb = (dbActivity: any): TicketActivity => ({
+    ...dbActivity,
+    ticketId: dbActivity.ticketId || dbActivity.ticket_id,
+    technicianId: dbActivity.technicianId || dbActivity.technician_id,
+    equipmentId: dbActivity.equipmentId || dbActivity.equipment_id,
+});
+
+const mapTicketActivityToDb = (activity: Partial<TicketActivity>): any => {
+    const dbActivity: any = { ...activity };
+    
+    const mapField = (sourceKey: string, targetKey: string) => {
+        if (sourceKey in dbActivity) {
+            const val = dbActivity[sourceKey];
+            dbActivity[targetKey] = val === '' ? null : val;
+            if (sourceKey !== targetKey) delete dbActivity[sourceKey];
+        }
+    };
+
+    mapField('ticketId', 'ticket_id');
+    mapField('technicianId', 'technician_id');
+    mapField('equipmentId', 'equipment_id');
+
+    return dbActivity;
+};
+
+
 // --- Funções de Serviço Específicas ---
 
 export const fetchAllData = async () => {
     const [
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
-        assignments, ticketsRaw, ticketActivities, collaboratorHistory, messages,
+        assignments, ticketsRaw, ticketActivitiesRaw, collaboratorHistory, messages,
         softwareLicenses, licenseAssignments, teams, teamMembers
     ] = await Promise.all([
         fetchData<Equipment>('equipment'),
@@ -114,7 +142,7 @@ export const fetchAllData = async () => {
         fetchData<Brand>('brand'),
         fetchData<Assignment>('assignment'),
         fetchData<any>('ticket'), // Buscar raw data primeiro para mapear
-        fetchData<TicketActivity>('ticket_activity'),
+        fetchData<any>('ticket_activity'), // Buscar raw data
         fetchData<CollaboratorHistory>('collaborator_history'),
         fetchData<Message>('message'),
         fetchData<SoftwareLicense>('software_license'),
@@ -123,8 +151,9 @@ export const fetchAllData = async () => {
         fetchData<TeamMember>('team_members'),
     ]);
 
-    // Mapear tickets raw para o tipo Ticket da aplicação
+    // Mapear raw data para os tipos da aplicação
     const tickets = ticketsRaw.map(mapTicketFromDb);
+    const ticketActivities = ticketActivitiesRaw.map(mapTicketActivityFromDb);
 
     return {
         equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
@@ -223,9 +252,24 @@ export const updateTicket = async (id: string, updates: Partial<Ticket>): Promis
     return mapTicketFromDb(data[0]);
 };
 
-// TicketActivity
-export const addTicketActivity = (record: TicketActivity) => insertData('ticket_activity', record);
-export const updateTicketActivity = (id: string, updates: Partial<TicketActivity>) => updateData('ticket_activity', id, updates);
+// TicketActivity - Usando o Mapper
+export const addTicketActivity = async (record: TicketActivity): Promise<TicketActivity> => {
+    const dbRecord = mapTicketActivityToDb(record);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('ticket_activity').insert(dbRecord).select();
+    handleSupabaseError(error, `a inserir em ticket_activity`);
+    if (!data) throw new Error("A inserção não retornou dados.");
+    return mapTicketActivityFromDb(data[0]);
+};
+
+export const updateTicketActivity = async (id: string, updates: Partial<TicketActivity>): Promise<TicketActivity> => {
+    const dbUpdates = mapTicketActivityToDb(updates);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('ticket_activity').update(dbUpdates).eq('id', id).select();
+    handleSupabaseError(error, `a atualizar em ticket_activity`);
+    if (!data) throw new Error("A atualização não retornou dados.");
+    return mapTicketActivityFromDb(data[0]);
+};
 
 // CollaboratorHistory
 export const addCollaboratorHistory = (record: CollaboratorHistory) => insertData('collaborator_history', record);
