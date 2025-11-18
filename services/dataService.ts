@@ -53,49 +53,21 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
 
 // --- Helpers de Mapeamento para Tickets ---
 
-// Mapeia os dados vindos da DB para a aplicação
 const mapTicketFromDb = (dbTicket: any): Ticket => ({
     ...dbTicket,
     title: dbTicket.title,
-    // Tenta ler todas as variações possíveis para garantir compatibilidade
-    entidadeId: dbTicket.entidadeId || dbTicket.entidade_id || dbTicket.entidadeid,
-    collaboratorId: dbTicket.collaboratorId || dbTicket.collaborator_id || dbTicket.collaboratorid,
-    technicianId: dbTicket.technicianId || dbTicket.technician_id || dbTicket.technicianid,
-    equipmentId: dbTicket.equipmentId || dbTicket.equipment_id || dbTicket.equipmentid,
-    requestDate: dbTicket.requestDate || dbTicket.request_date || dbTicket.requestdate,
-    finishDate: dbTicket.finishDate || dbTicket.finish_date || dbTicket.finishdate,
-    team_id: dbTicket.team_id || dbTicket.teamId || dbTicket.teamid,
+    entidadeId: dbTicket.entidadeId || dbTicket.entidade_id,
+    collaboratorId: dbTicket.collaboratorId || dbTicket.collaborator_id,
+    technicianId: dbTicket.technicianId || dbTicket.technician_id,
+    equipmentId: dbTicket.equipmentId || dbTicket.equipment_id,
+    requestDate: dbTicket.requestDate || dbTicket.request_date,
+    finishDate: dbTicket.finishDate || dbTicket.finish_date,
+    team_id: dbTicket.team_id || dbTicket.teamId,
 });
 
-// Mapeia os dados da aplicação para a DB
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
-    // Destructura para remover explicitamente as chaves camelCase do objeto que vai para a DB
-    const { 
-        equipmentId, 
-        entidadeId, 
-        collaboratorId, 
-        technicianId, 
-        requestDate, 
-        finishDate,
-        team_id, // Já é snake_case mas vamos tratar aqui para garantir sanitização
-        ...rest 
-    } = ticket;
-
-    // Cria um novo objeto apenas com o 'rest' (campos comuns)
-    const dbTicket: any = { ...rest };
-
-    // Adiciona as chaves snake_case, convertendo string vazia em null para UUIDs
-    if (equipmentId !== undefined) dbTicket.equipment_id = equipmentId === '' ? null : equipmentId;
-    if (entidadeId !== undefined) dbTicket.entidade_id = entidadeId === '' ? null : entidadeId;
-    if (collaboratorId !== undefined) dbTicket.collaborator_id = collaboratorId === '' ? null : collaboratorId;
-    if (technicianId !== undefined) dbTicket.technician_id = technicianId === '' ? null : technicianId;
-    
-    if (requestDate !== undefined) dbTicket.request_date = requestDate;
-    if (finishDate !== undefined) dbTicket.finish_date = finishDate;
-    
-    if (team_id !== undefined) dbTicket.team_id = team_id === '' ? null : team_id;
-
-    return dbTicket;
+    // Envia camelCase para manter compatibilidade com o esquema original
+    return ticket;
 };
 
 // --- Helpers de Mapeamento para TicketActivity ---
@@ -108,52 +80,28 @@ const mapTicketActivityFromDb = (dbActivity: any): TicketActivity => ({
 });
 
 const mapTicketActivityToDb = (activity: Partial<TicketActivity>): any => {
-    // Destructura para garantir que as chaves originais NÃO seguem para o Supabase
-    // Isto remove as chaves do objeto 'rest'
-    const { 
-        ticketId, 
-        technicianId, 
-        equipmentId, 
-        ...rest 
-    } = activity;
-
-    const dbActivity: any = { ...rest };
-
-    // Mapeia para snake_case no novo objeto
-    if (ticketId !== undefined) dbActivity.ticket_id = ticketId === '' ? null : ticketId;
-    if (technicianId !== undefined) dbActivity.technician_id = technicianId === '' ? null : technicianId;
-    if (equipmentId !== undefined) dbActivity.equipment_id = equipmentId === '' ? null : equipmentId;
-
-    return dbActivity;
+    // Envia camelCase
+    return activity;
 };
 
 // --- Helpers de Mapeamento para SoftwareLicense ---
 
 const mapLicenseFromDb = (db: any): SoftwareLicense => ({
     ...db,
-    productName: db.product_name || db.productName,
-    licenseKey: db.license_key || db.licenseKey,
-    totalSeats: db.total_seats || db.totalSeats,
-    purchaseDate: db.purchase_date || db.purchaseDate,
-    expiryDate: db.expiry_date || db.expiryDate,
-    purchaseEmail: db.purchase_email || db.purchaseEmail,
-    invoiceNumber: db.invoice_number || db.invoiceNumber,
+    productName: db.productName || db.product_name,
+    licenseKey: db.licenseKey || db.license_key,
+    totalSeats: db.totalSeats || db.total_seats,
+    purchaseDate: db.purchaseDate || db.purchase_date,
+    expiryDate: db.expiryDate || db.expiry_date,
+    purchaseEmail: db.purchaseEmail || db.purchase_email,
+    invoiceNumber: db.invoiceNumber || db.invoice_number,
     status: db.status,
 });
 
 const mapLicenseToDb = (app: Partial<SoftwareLicense>): any => {
-    const { productName, licenseKey, totalSeats, purchaseDate, expiryDate, purchaseEmail, invoiceNumber, ...rest } = app;
-    const db: any = { ...rest };
-    
-    if (productName !== undefined) db.product_name = productName;
-    if (licenseKey !== undefined) db.license_key = licenseKey;
-    if (totalSeats !== undefined) db.total_seats = totalSeats;
-    if (purchaseDate !== undefined) db.purchase_date = purchaseDate;
-    if (expiryDate !== undefined) db.expiry_date = expiryDate;
-    if (purchaseEmail !== undefined) db.purchase_email = purchaseEmail;
-    if (invoiceNumber !== undefined) db.invoice_number = invoiceNumber;
-    
-    return db;
+    // Envia camelCase, pois é o formato mais provável da DB existente do utilizador
+    // O Supabase vai aceitar se a coluna se chamar "productName" (com aspas)
+    return app;
 };
 
 
@@ -172,17 +120,16 @@ export const fetchAllData = async () => {
         fetchData<EquipmentType>('equipment_type'),
         fetchData<Brand>('brand'),
         fetchData<Assignment>('assignment'),
-        fetchData<any>('ticket'), // Buscar raw data primeiro para mapear
-        fetchData<any>('ticket_activity'), // Buscar raw data
+        fetchData<any>('ticket'),
+        fetchData<any>('ticket_activity'),
         fetchData<CollaboratorHistory>('collaborator_history'),
         fetchData<Message>('message'),
-        fetchData<any>('software_license'), // Buscar raw data para mapear
+        fetchData<any>('software_license'),
         fetchData<LicenseAssignment>('license_assignment'),
         fetchData<Team>('teams'),
         fetchData<TeamMember>('team_members'),
     ]);
 
-    // Mapear raw data para os tipos da aplicação
     const tickets = ticketsRaw.map(mapTicketFromDb);
     const ticketActivities = ticketActivitiesRaw.map(mapTicketActivityFromDb);
     const softwareLicenses = softwareLicensesRaw.map(mapLicenseFromDb);
@@ -265,7 +212,7 @@ export const addBrand = (record: Brand) => insertData('brand', record);
 export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('brand', id, updates);
 export const deleteBrand = (id: string) => deleteData('brand', id);
 
-// Ticket - Usando o Mapper
+// Ticket
 export const addTicket = async (record: Ticket): Promise<Ticket> => {
     const dbRecord = mapTicketToDb(record);
     const supabase = getSupabase();
@@ -284,7 +231,7 @@ export const updateTicket = async (id: string, updates: Partial<Ticket>): Promis
     return mapTicketFromDb(data[0]);
 };
 
-// TicketActivity - Usando o Mapper
+// TicketActivity
 export const addTicketActivity = async (record: TicketActivity): Promise<TicketActivity> => {
     const dbRecord = mapTicketActivityToDb(record);
     const supabase = getSupabase();
@@ -310,7 +257,6 @@ export const updateCollaboratorHistory = (id: string, updates: Partial<Collabora
 // Message
 export const addMessage = (record: Message) => insertData('message', record);
 export const updateMessage = (id: string, updates: Partial<Message>) => updateData('message', id, updates);
-// Para 'marcar como lido', seria mais eficiente uma função que atualiza múltiplos
 export const markMessagesAsRead = (senderId: string, receiverId: string) => {
     const supabase = getSupabase();
     return supabase.from('message')
@@ -320,7 +266,7 @@ export const markMessagesAsRead = (senderId: string, receiverId: string) => {
         .eq('read', false);
 };
 
-// SoftwareLicense - Usando o Mapper
+// SoftwareLicense
 export const addLicense = async (record: SoftwareLicense): Promise<SoftwareLicense> => {
     const dbRecord = mapLicenseToDb(record);
     const supabase = getSupabase();
