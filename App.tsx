@@ -230,23 +230,17 @@ export const App: React.FC = () => {
         try {
             let count = 0;
             if (dataType === 'collaborators') {
-                const { data: inserted } = await dataService.addMultipleCollaborators(data);
+                const { data: inserted } = await dataService.addMultipleCollaborators(data as any);
                 count = inserted ? inserted.length : 0;
-                if (inserted) {
-                    setCollaborators(prev => [...prev, ...(inserted as any[] as Collaborator[])]);
-                }
+                setCollaborators(prev => [...prev, ...(inserted as unknown as Collaborator[] || [])]);
             } else if (dataType === 'instituicoes') {
-                 const { data: inserted } = await dataService.addMultipleInstituicoes(data);
+                 const { data: inserted } = await dataService.addMultipleInstituicoes(data as any);
                  count = inserted ? inserted.length : 0;
-                 if (inserted) {
-                    setInstituicoes(prev => [...prev, ...(inserted as any[] as Instituicao[])]);
-                 }
+                 setInstituicoes(prev => [...prev, ...(inserted as unknown as Instituicao[] || [])]);
             } else if (dataType === 'entidades') {
-                 const { data: inserted } = await dataService.addMultipleEntidades(data);
+                 const { data: inserted } = await dataService.addMultipleEntidades(data as any);
                  count = inserted ? inserted.length : 0;
-                 if (inserted) {
-                    setEntidades(prev => [...prev, ...(inserted as any[] as Entidade[])]);
-                 }
+                 setEntidades(prev => [...prev, ...(inserted as unknown as Entidade[] || [])]);
             }
             return { success: true, message: `Importação concluída com sucesso! ${count} registos importados.` };
         } catch (error: any) {
@@ -613,7 +607,7 @@ export const App: React.FC = () => {
                 unreadMessagesCount={unreadMessagesCount}
             />
 
-            {/* Modals Rendering - (Identical to previous, kept for completeness) */}
+            {/* Modals Rendering */}
             {modal?.type === 'add_equipment' && (
                 <AddEquipmentModal
                     onClose={() => setModal(null)}
