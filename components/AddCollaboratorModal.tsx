@@ -77,6 +77,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     const isAdmin = currentUser?.role === UserRole.Admin;
+    const isTargetAdmin = formData.role === UserRole.Admin;
 
     useEffect(() => {
         if (collaboratorToEdit) {
@@ -393,28 +394,34 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             )}
                         </div>
 
-                        {isAdmin && formData.role !== UserRole.Admin && (
+                        {isAdmin && (
                             <div className="bg-gray-800 p-4 rounded-md border border-gray-700 mt-4">
-                                <label className="block text-sm font-medium text-white mb-3">Acesso a Módulos</label>
+                                <label className="block text-sm font-medium text-white mb-3">
+                                    Acesso a Módulos
+                                    {isTargetAdmin && <span className="ml-2 text-xs text-brand-secondary font-normal">(Acesso total incluído para Administradores)</span>}
+                                </label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {AVAILABLE_MODULES.map(module => (
                                         <div key={module.key} className="flex items-center">
                                             <input
                                                 type="checkbox"
                                                 id={`module-${module.key}`}
-                                                checked={(formData.allowedModules || []).includes(module.key)}
-                                                onChange={() => handleModuleToggle(module.key)}
-                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
+                                                checked={isTargetAdmin || (formData.allowedModules || []).includes(module.key)}
+                                                onChange={() => !isTargetAdmin && handleModuleToggle(module.key)}
+                                                disabled={isTargetAdmin}
+                                                className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary ${isTargetAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             />
-                                            <label htmlFor={`module-${module.key}`} className="ml-2 block text-sm text-on-surface-dark-secondary">
+                                            <label htmlFor={`module-${module.key}`} className={`ml-2 block text-sm text-on-surface-dark-secondary ${isTargetAdmin ? 'opacity-70' : ''}`}>
                                                 {module.label}
                                             </label>
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    Se nenhum módulo for selecionado, o colaborador terá acesso apenas à Visão Geral.
-                                </p>
+                                {!isTargetAdmin && (
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Se nenhum módulo for selecionado, o colaborador terá acesso apenas à Visão Geral.
+                                    </p>
+                                )}
                             </div>
                         )}
                         
