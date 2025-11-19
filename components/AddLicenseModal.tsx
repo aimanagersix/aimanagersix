@@ -1,6 +1,9 @@
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { SoftwareLicense, LicenseStatus } from '../types';
+import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating } from '../types';
+import { FaShieldAlt } from './common/Icons';
 
 interface AddLicenseModalProps {
     onClose: () => void;
@@ -9,7 +12,7 @@ interface AddLicenseModalProps {
 }
 
 const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, licenseToEdit }) => {
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<Partial<SoftwareLicense>>({
         productName: '',
         licenseKey: '',
         totalSeats: 1,
@@ -18,6 +21,10 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         purchaseEmail: '',
         invoiceNumber: '',
         status: LicenseStatus.Ativo,
+        criticality: CriticalityLevel.Low,
+        confidentiality: CIARating.Low,
+        integrity: CIARating.Low,
+        availability: CIARating.Low,
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -32,16 +39,20 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                 purchaseEmail: licenseToEdit.purchaseEmail || '',
                 invoiceNumber: licenseToEdit.invoiceNumber || '',
                 status: licenseToEdit.status || LicenseStatus.Ativo,
+                criticality: licenseToEdit.criticality || CriticalityLevel.Low,
+                confidentiality: licenseToEdit.confidentiality || CIARating.Low,
+                integrity: licenseToEdit.integrity || CIARating.Low,
+                availability: licenseToEdit.availability || CIARating.Low,
             });
         }
     }, [licenseToEdit]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.productName.trim()) newErrors.productName = "O nome do produto é obrigatório.";
-        if (!formData.licenseKey.trim()) newErrors.licenseKey = "A chave de licença é obrigatória.";
-        if (formData.totalSeats < 1) newErrors.totalSeats = "O total deve ser pelo menos 1.";
-        if (formData.purchaseEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.purchaseEmail)) {
+        if (!formData.productName?.trim()) newErrors.productName = "O nome do produto é obrigatório.";
+        if (!formData.licenseKey?.trim()) newErrors.licenseKey = "A chave de licença é obrigatória.";
+        if ((formData.totalSeats || 0) < 1) newErrors.totalSeats = "O total deve ser pelo menos 1.";
+        if (formData.purchaseEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.purchaseEmail)) {
             newErrors.purchaseEmail = "O formato do email é inválido.";
         }
         setErrors(newErrors);
@@ -71,6 +82,10 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         
         const dataToSave = {
             ...formData,
+            productName: formData.productName!,
+            licenseKey: formData.licenseKey!,
+            totalSeats: formData.totalSeats!,
+            status: formData.status!,
             purchaseDate: formData.purchaseDate || undefined,
             expiryDate: formData.expiryDate || undefined,
             purchaseEmail: formData.purchaseEmail || undefined,
@@ -80,7 +95,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         if (licenseToEdit) {
             onSave({ ...licenseToEdit, ...dataToSave });
         } else {
-            onSave(dataToSave);
+            onSave(dataToSave as Omit<SoftwareLicense, 'id'>);
         }
         onClose();
     };
@@ -137,6 +152,49 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                         </div>
                     </div>
                 </div>
+
+                {/* NIS2 Compliance Section */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                     <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaShieldAlt className="text-yellow-400" />
+                        Classificação de Risco & Conformidade (NIS2)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="criticality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nível de Criticidade</label>
+                            <select name="criticality" id="criticality" value={formData.criticality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {Object.values(CriticalityLevel).map(level => (
+                                    <option key={level} value={level}>{level}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="confidentiality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Confidencialidade</label>
+                            <select name="confidentiality" id="confidentiality" value={formData.confidentiality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {Object.values(CIARating).map(rating => (
+                                    <option key={rating} value={rating}>{rating}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="integrity" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Integridade</label>
+                            <select name="integrity" id="integrity" value={formData.integrity} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {Object.values(CIARating).map(rating => (
+                                    <option key={rating} value={rating}>{rating}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="availability" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disponibilidade</label>
+                            <select name="availability" id="availability" value={formData.availability} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {Object.values(CIARating).map(rating => (
+                                    <option key={rating} value={rating}>{rating}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="flex justify-end gap-4 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
                     <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>

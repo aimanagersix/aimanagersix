@@ -1,8 +1,10 @@
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, EquipmentType, Brand } from '../types';
+import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText } from '../services/geminiService';
-import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes } from './common/Icons';
+import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
 import { FaExclamationTriangle } from 'react-icons/fa';
 
 interface AddEquipmentModalProps {
@@ -150,7 +152,11 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal }) => {
     const [formData, setFormData] = useState<Partial<Equipment>>({
-        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: ''
+        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: '',
+        criticality: CriticalityLevel.Low,
+        confidentiality: CIARating.Low,
+        integrity: CIARating.Low,
+        availability: CIARating.Low,
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -177,6 +183,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 invoiceNumber: equipmentToEdit.invoiceNumber || '',
                 creationDate: equipmentToEdit.creationDate,
+                // NIS2 fields
+                criticality: equipmentToEdit.criticality || CriticalityLevel.Low,
+                confidentiality: equipmentToEdit.confidentiality || CIARating.Low,
+                integrity: equipmentToEdit.integrity || CIARating.Low,
+                availability: equipmentToEdit.availability || CIARating.Low,
             });
         } else {
             setFormData({
@@ -191,6 +202,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 purchaseDate: new Date().toISOString().split('T')[0],
                 warrantyEndDate: '',
                 invoiceNumber: '',
+                criticality: CriticalityLevel.Low,
+                confidentiality: CIARating.Low,
+                integrity: CIARating.Low,
+                availability: CIARating.Low,
             });
         }
     }, [equipmentToEdit, brands, equipmentTypes]);
@@ -345,10 +360,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         if (equipmentToEdit) {
             onSave({ ...equipmentToEdit, ...dataToSubmit });
         } else {
-// FIX: The `dataToSubmit` object, derived from `Partial<Equipment>`, may not satisfy the stricter
-// `Omit<Equipment, ...>` type because its required properties are considered optional.
-// Since the `validate` function ensures these properties exist, we can safely cast the object
-// to the expected type to resolve the TypeScript error.
             onSave(dataToSubmit as Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>);
         }
         onClose();
@@ -517,6 +528,72 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                         <button type="button" onClick={() => handleSetWarranty(3)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">3 Anos</button>
                     </div>
                     {errors.warrantyEndDate && <p className="text-red-400 text-xs italic mt-1">{errors.warrantyEndDate}</p>}
+                </div>
+
+                {/* NIS2 Compliance Section */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaShieldAlt className="text-yellow-400" />
+                        Classificação de Risco & Conformidade (NIS2)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="criticality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nível de Criticidade</label>
+                            <select 
+                                name="criticality" 
+                                id="criticality" 
+                                value={formData.criticality} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                {Object.values(CriticalityLevel).map(level => (
+                                    <option key={level} value={level}>{level}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="confidentiality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Confidencialidade</label>
+                            <select 
+                                name="confidentiality" 
+                                id="confidentiality" 
+                                value={formData.confidentiality} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                {Object.values(CIARating).map(rating => (
+                                    <option key={rating} value={rating}>{rating}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="integrity" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Integridade</label>
+                            <select 
+                                name="integrity" 
+                                id="integrity" 
+                                value={formData.integrity} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                {Object.values(CIARating).map(rating => (
+                                    <option key={rating} value={rating}>{rating}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="availability" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disponibilidade</label>
+                            <select 
+                                name="availability" 
+                                id="availability" 
+                                value={formData.availability} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                {Object.values(CIARating).map(rating => (
+                                    <option key={rating} value={rating}>{rating}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                 </div>
                 
                 {showKitButton && (

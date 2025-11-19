@@ -1,4 +1,5 @@
 
+
 import { getSupabase } from './supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, Team, TeamMember } from '../types';
 
@@ -103,6 +104,11 @@ const mapEquipmentFromDb = (db: any): Equipment => ({
     warrantyEndDate: db.warranty_end_date,
     creationDate: db.creation_date,
     modifiedDate: db.modified_date,
+    // NIS2
+    criticality: db.criticality,
+    confidentiality: db.confidentiality,
+    integrity: db.integrity,
+    availability: db.availability,
 });
 const mapEquipmentToDb = (eq: Partial<Equipment>): any => {
     const db: any = { ...eq };
@@ -259,6 +265,11 @@ const mapLicenseFromDb = (db: any): SoftwareLicense => ({
     expiryDate: db.expiry_date,
     purchaseEmail: db.purchase_email,
     invoiceNumber: db.invoice_number,
+    // NIS2
+    criticality: db.criticality,
+    confidentiality: db.confidentiality,
+    integrity: db.integrity,
+    availability: db.availability,
 });
 const mapLicenseToDb = (lic: Partial<SoftwareLicense>): any => {
     const db: any = { ...lic };

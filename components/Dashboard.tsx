@@ -1,5 +1,7 @@
+
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
@@ -44,6 +46,16 @@ const getStatusClass = (status: EquipmentStatus) => {
         case EquipmentStatus.Warranty: return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
         case EquipmentStatus.Decommissioned: return 'bg-red-500/20 text-red-400 border-red-500/30';
         default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
+};
+
+const getCriticalityClass = (level?: CriticalityLevel) => {
+    switch (level) {
+        case CriticalityLevel.Critical: return 'bg-red-600 text-white border-red-700';
+        case CriticalityLevel.High: return 'bg-orange-600 text-white border-orange-700';
+        case CriticalityLevel.Medium: return 'bg-yellow-600 text-white border-yellow-700';
+        case CriticalityLevel.Low: return 'bg-gray-600 text-white border-gray-700';
+        default: return 'bg-gray-700 text-gray-300 border-gray-600';
     }
 };
 
@@ -281,6 +293,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ equipment, bran
                  <p><strong className="text-on-surface-dark-secondary">MAC Cabo:</strong> {item.macAddressCabo || 'N/A'}</p>
                 <p><strong className="text-on-surface-dark-secondary">Garantia até:</strong> <span className={warrantyInfo.className}>{warrantyInfo.text}</span></p>
                 <p><strong className="text-on-surface-dark-secondary">Última Modificação:</strong> {item.modifiedDate}</p>
+                <hr className="border-gray-600 my-2"/>
+                <p className="font-bold text-white text-xs uppercase">Classificação NIS2</p>
+                <p><strong className="text-on-surface-dark-secondary">Confidencialidade:</strong> {item.confidentiality || 'N/A'}</p>
+                <p><strong className="text-on-surface-dark-secondary">Integridade:</strong> {item.integrity || 'N/A'}</p>
+                <p><strong className="text-on-surface-dark-secondary">Disponibilidade:</strong> {item.availability || 'N/A'}</p>
             </div>
         );
 
@@ -395,7 +412,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ equipment, bran
               <SortableHeader sortKey="description" title="Equipamento" sortConfig={sortConfig} requestSort={requestSort} />
               <SortableHeader sortKey="serialNumber" title="Nº Série" sortConfig={sortConfig} requestSort={requestSort} />
               <SortableHeader sortKey="assignedTo" title="Atribuído a" sortConfig={sortConfig} requestSort={requestSort} />
-              <SortableHeader sortKey="purchaseDate" title="Data de Compra" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="criticality" title="Criticidade" sortConfig={sortConfig} requestSort={requestSort} />
               <SortableHeader sortKey="warrantyEndDate" title="Fim da Garantia" sortConfig={sortConfig} requestSort={requestSort} />
               <SortableHeader sortKey="status" title="Estado" sortConfig={sortConfig} requestSort={requestSort} />
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
@@ -430,7 +447,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ equipment, bran
                 </td>
                 <td className="px-6 py-4">{item.serialNumber}</td>
                 <td className="px-6 py-4">{item.assignedTo}</td>
-                <td className="px-6 py-4">{item.purchaseDate}</td>
+                 <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs rounded-full border ${getCriticalityClass(item.criticality || CriticalityLevel.Low)}`}>
+                        {item.criticality || 'Baixa'}
+                    </span>
+                </td>
                 <td className="px-6 py-4">
                     <span className={warrantyInfo.className}>{warrantyInfo.text}</span>
                 </td>

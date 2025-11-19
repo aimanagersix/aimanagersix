@@ -7,6 +7,19 @@ export enum EquipmentStatus {
   Warranty = 'Garantia',
 }
 
+export enum CriticalityLevel {
+    Low = 'Baixa',
+    Medium = 'Média',
+    High = 'Alta',
+    Critical = 'Crítica',
+}
+
+export enum CIARating {
+    Low = 'Baixo',
+    Medium = 'Médio',
+    High = 'Alto',
+}
+
 export interface Brand {
   id: string;
   name: string;
@@ -38,6 +51,11 @@ export interface Equipment {
   creationDate: string;
   modifiedDate: string;
   status: EquipmentStatus;
+  // NIS2 Compliance Fields
+  criticality?: CriticalityLevel;
+  confidentiality?: CIARating;
+  integrity?: CIARating;
+  availability?: CIARating;
 }
 
 export interface Instituicao {
@@ -171,6 +189,11 @@ export interface SoftwareLicense {
   purchaseEmail?: string;
   invoiceNumber?: string;
   status: LicenseStatus;
+  // NIS2 Compliance Fields
+  criticality?: CriticalityLevel;
+  confidentiality?: CIARating;
+  integrity?: CIARating;
+  availability?: CIARating;
 }
 
 export interface LicenseAssignment {

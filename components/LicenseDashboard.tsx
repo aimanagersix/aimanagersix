@@ -1,6 +1,7 @@
 
+
 import React, { useMemo, useState, useEffect } from 'react';
-import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator } from '../types';
+import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -29,7 +30,17 @@ const getStatusClass = (status?: LicenseStatus) => {
     }
 };
 
-type SortableKeys = 'productName' | 'licenseKey' | 'status' | 'usage' | 'purchaseDate' | 'expiryDate';
+const getCriticalityClass = (level?: CriticalityLevel) => {
+    switch (level) {
+        case CriticalityLevel.Critical: return 'bg-red-600 text-white border-red-700';
+        case CriticalityLevel.High: return 'bg-orange-600 text-white border-orange-700';
+        case CriticalityLevel.Medium: return 'bg-yellow-600 text-white border-yellow-700';
+        case CriticalityLevel.Low: return 'bg-gray-600 text-white border-gray-700';
+        default: return 'bg-gray-700 text-gray-300 border-gray-600';
+    }
+};
+
+type SortableKeys = 'productName' | 'licenseKey' | 'status' | 'usage' | 'purchaseDate' | 'expiryDate' | 'criticality';
 
 const SortableHeader: React.FC<{
     sortKey: SortableKeys;
@@ -243,6 +254,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                             <th scope="col" className="px-2 py-3 w-12"></th>
                             <SortableHeader sortKey="productName" title="Nome do Produto" sortConfig={sortConfig} requestSort={requestSort} />
                             <SortableHeader sortKey="licenseKey" title="Chave de Licença" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="criticality" title="Criticidade" sortConfig={sortConfig} requestSort={requestSort} />
                             <SortableHeader sortKey="status" title="Status" sortConfig={sortConfig} requestSort={requestSort} />
                             <SortableHeader sortKey="usage" title="Uso (Total/Uso/Disp)" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
                             <SortableHeader sortKey="purchaseDate" title="Datas" sortConfig={sortConfig} requestSort={requestSort} />
@@ -272,6 +284,11 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                         </td>
                                         <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{license.productName}</td>
                                         <td className="px-6 py-4 font-mono">{license.licenseKey}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs rounded-full border ${getCriticalityClass(license.criticality || CriticalityLevel.Low)}`}>
+                                                {license.criticality || 'Baixa'}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(status)}`}>
                                                 {status}
@@ -319,7 +336,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                     </tr>
                                     {isExpanded && (
                                         <tr className="bg-gray-900/50">
-                                            <td colSpan={7} className="p-4">
+                                            <td colSpan={8} className="p-4">
                                                 <h4 className="text-sm font-semibold text-white mb-3">Atribuído a:</h4>
                                                 <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                                                     {assignedDetails.map(({ equipment: eq, user }, index) => (
@@ -348,7 +365,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                             );
                         }) : (
                             <tr>
-                                <td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma licença de software encontrada.</td>
+                                <td colSpan={8} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma licença de software encontrada.</td>
                             </tr>
                         )}
                     </tbody>
@@ -367,4 +384,3 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
 };
 
 export default LicenseDashboard;
-
