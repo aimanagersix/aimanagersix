@@ -79,6 +79,8 @@ export enum CollaboratorStatus {
     Inativo = 'Inativo',
 }
 
+export type AppModule = 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets';
+
 export interface Collaborator {
   id: string;
   numeroMecanografico: string;
@@ -95,6 +97,7 @@ export interface Collaborator {
   role: UserRole;
   status: CollaboratorStatus;
   password?: string;
+  allowedModules?: AppModule[];
 }
 
 export interface Assignment {

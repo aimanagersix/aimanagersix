@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
 import ConfigurationSetup from './components/ConfigurationSetup';
@@ -41,7 +42,7 @@ import { getSupabase } from './services/supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus
+    Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus, UserRole
 } from './types';
 import { PlusIcon, FaFileImport } from './components/common/Icons';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
@@ -190,6 +191,81 @@ const AppContent = () => {
             setCurrentUser(user || null);
         }
     }, [session, collaborators]);
+    
+    // Permission Logic
+    const tabConfig = useMemo(() => {
+        if (!currentUser) return {};
+
+        // Admins get access to everything by default
+        if (currentUser.role === UserRole.Admin) {
+            return {
+                overview: t('nav.overview'), 
+                'equipment.inventory': t('nav.equipment_list'), 
+                'equipment.brands': t('nav.brands'), 
+                'equipment.types': t('nav.types'),
+                'organizacao.instituicoes': t('nav.institutions'), 
+                'organizacao.entidades': t('nav.entities'), 
+                'organizacao.teams': t('nav.teams'),
+                collaborators: t('nav.collaborators'), 
+                licensing: t('nav.licensing'), 
+                tickets: { title: t('nav.support') }
+            };
+        }
+
+        // Helper to check if a module is allowed
+        // If allowedModules is empty/undefined, fall back to legacy role logic
+        const hasAccess = (module: 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets') => {
+             if (currentUser.allowedModules && currentUser.allowedModules.length > 0) {
+                 return currentUser.allowedModules.includes(module);
+             }
+
+             // Backward Compatibility Logic for old users
+             switch (currentUser.role) {
+                case UserRole.Normal:
+                    // Normal usually had broad access except maybe strict admin settings, giving broad access here
+                    return true; 
+                case UserRole.Basic:
+                    // Basic usually had access to tickets and inventory view
+                    return ['tickets', 'inventory'].includes(module);
+                case UserRole.Utilizador:
+                    // Utilizador usually only self-service tickets
+                    return ['tickets'].includes(module);
+                default:
+                    return false;
+             }
+        };
+
+        const config: any = {
+            overview: t('nav.overview'), // Overview is always accessible
+        };
+
+        if (hasAccess('inventory')) {
+            config['equipment.inventory'] = t('nav.equipment_list');
+            config['equipment.brands'] = t('nav.brands');
+            config['equipment.types'] = t('nav.types');
+        }
+
+        if (hasAccess('organization')) {
+            config['organizacao.instituicoes'] = t('nav.institutions');
+            config['organizacao.entidades'] = t('nav.entities');
+            config['organizacao.teams'] = t('nav.teams');
+        }
+
+        if (hasAccess('collaborators')) {
+            config.collaborators = t('nav.collaborators');
+        }
+
+        if (hasAccess('licensing')) {
+            config.licensing = t('nav.licensing');
+        }
+
+        if (hasAccess('tickets')) {
+            config.tickets = { title: t('nav.support') };
+        }
+
+        return config;
+    }, [currentUser, t]);
+
 
     const handleImport = async (dataType: ImportConfig['dataType'], data: any[]) => {
         try {
@@ -359,11 +435,18 @@ const AppContent = () => {
         await supabase.auth.signOut();
         setSession(null);
         setCurrentUser(null);
+        setActiveTab('overview');
     };
 
     const handleViewItem = (tab: string, filter: any) => {
-        setActiveTab(tab);
-        setDashboardFilter(filter);
+        // Ensure the user has access to the target tab before switching
+        // We check if the tab exists in the current tabConfig
+        if (tabConfig[tab] || (tab === 'tickets' && tabConfig.tickets)) {
+             setActiveTab(tab);
+             setDashboardFilter(filter);
+        } else {
+             alert("Não tem permissão para aceder a este módulo.");
+        }
     };
     
     // --- Handlers ---
@@ -678,18 +761,7 @@ const AppContent = () => {
                 activeTab={activeTab} 
                 setActiveTab={setActiveTab} 
                 onLogout={handleLogout} 
-                tabConfig={{
-                    overview: t('nav.overview'), 
-                    'equipment.inventory': t('nav.equipment_list'), 
-                    'equipment.brands': t('nav.brands'), 
-                    'equipment.types': t('nav.types'),
-                    'organizacao.instituicoes': t('nav.institutions'), 
-                    'organizacao.entidades': t('nav.entities'), 
-                    'organizacao.teams': t('nav.teams'),
-                    collaborators: t('nav.collaborators'), 
-                    licensing: t('nav.licensing'), 
-                    tickets: { title: t('nav.support') }
-                }}
+                tabConfig={tabConfig}
                 notificationCount={0}
                 onNotificationClick={() => {}}
             />
@@ -704,7 +776,7 @@ const AppContent = () => {
                         onViewItem={handleViewItem} 
                     />
                 )}
-                {activeTab === 'equipment.inventory' && (
+                {activeTab === 'equipment.inventory' && tabConfig['equipment.inventory'] && (
                     <div className="space-y-4">
                          <div className="flex justify-end gap-2">
                             <button onClick={() => openImportModal('equipment')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
@@ -735,7 +807,7 @@ const AppContent = () => {
                         />
                     </div>
                 )}
-                 {activeTab === 'collaborators' && (
+                 {activeTab === 'collaborators' && tabConfig.collaborators && (
                      <div className="space-y-4">
                          <div className="flex justify-end gap-2">
                              <button onClick={() => openImportModal('collaborators')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
@@ -762,7 +834,7 @@ const AppContent = () => {
                          />
                      </div>
                  )}
-                 {activeTab === 'organizacao.instituicoes' && (
+                 {activeTab === 'organizacao.instituicoes' && tabConfig['organizacao.instituicoes'] && (
                      <div className="space-y-4">
                         <div className="flex justify-end gap-2">
                              <button onClick={() => openImportModal('instituicoes')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
@@ -782,7 +854,7 @@ const AppContent = () => {
                         />
                      </div>
                  )}
-                 {activeTab === 'organizacao.entidades' && (
+                 {activeTab === 'organizacao.entidades' && tabConfig['organizacao.entidades'] && (
                      <div className="space-y-4">
                          <div className="flex justify-end gap-2">
                              <button onClick={() => openImportModal('entidades')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
@@ -808,7 +880,7 @@ const AppContent = () => {
                         />
                      </div>
                  )}
-                 {activeTab === 'licensing' && (
+                 {activeTab === 'licensing' && tabConfig.licensing && (
                      <div className="space-y-4">
                          <div className="flex justify-end">
                              <button 
@@ -829,7 +901,7 @@ const AppContent = () => {
                         />
                     </div>
                  )}
-                 {activeTab === 'tickets' && (
+                 {activeTab === 'tickets' && tabConfig.tickets && (
                     <div className="space-y-4">
                         <div className="flex justify-end">
                              <button 
@@ -851,7 +923,7 @@ const AppContent = () => {
                         />
                     </div>
                  )}
-                 {activeTab === 'organizacao.teams' && (
+                 {activeTab === 'organizacao.teams' && tabConfig['organizacao.teams'] && (
                      <div className="space-y-4">
                          <div className="flex justify-end">
                              <button 
@@ -873,7 +945,7 @@ const AppContent = () => {
                         />
                      </div>
                  )}
-                 {activeTab === 'equipment.brands' && (
+                 {activeTab === 'equipment.brands' && tabConfig['equipment.brands'] && (
                      <div className="space-y-4">
                          <div className="flex justify-end">
                              <button 
@@ -890,7 +962,7 @@ const AppContent = () => {
                         />
                      </div>
                  )}
-                 {activeTab === 'equipment.types' && (
+                 {activeTab === 'equipment.types' && tabConfig['equipment.types'] && (
                      <div className="space-y-4">
                          <div className="flex justify-end">
                              <button 

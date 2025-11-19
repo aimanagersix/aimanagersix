@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Entidade, UserRole, CollaboratorStatus } from '../types';
+import { Collaborator, Entidade, UserRole, CollaboratorStatus, AppModule } from '../types';
 import { FaMagic, FaEye, FaEyeSlash, UserIcon, CameraIcon, DeleteIcon } from './common/Icons';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -36,6 +36,13 @@ const generateStrongPassword = (): string => {
     return password.split('').sort(() => 0.5 - Math.random()).join('');
 };
 
+const AVAILABLE_MODULES: { key: AppModule; label: string }[] = [
+    { key: 'inventory', label: 'Inventário (Equipamentos, Marcas, Tipos)' },
+    { key: 'organization', label: 'Organização (Instituições, Entidades, Equipas)' },
+    { key: 'collaborators', label: 'Gestão de Colaboradores' },
+    { key: 'licensing', label: 'Licenciamento de Software' },
+    { key: 'tickets', label: 'Suporte e Tickets' },
+];
 
 interface AddCollaboratorModalProps {
     onClose: () => void;
@@ -59,6 +66,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         receivesNotifications: true,
         role: UserRole.Basic,
         status: CollaboratorStatus.Ativo,
+        allowedModules: [],
     });
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -84,6 +92,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 receivesNotifications: collaboratorToEdit.receivesNotifications ?? true,
                 role: collaboratorToEdit.role,
                 status: collaboratorToEdit.status || CollaboratorStatus.Ativo,
+                allowedModules: collaboratorToEdit.allowedModules || [],
             });
             if (collaboratorToEdit.photoUrl) {
                 setPhotoPreview(collaboratorToEdit.photoUrl);
@@ -102,6 +111,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 receivesNotifications: true,
                 role: UserRole.Basic,
                 status: CollaboratorStatus.Ativo,
+                allowedModules: [],
             });
         }
     }, [collaboratorToEdit, entidades]);
@@ -148,6 +158,17 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+    };
+    
+    const handleModuleToggle = (moduleKey: AppModule) => {
+        setFormData(prev => {
+            const currentModules = prev.allowedModules || [];
+            if (currentModules.includes(moduleKey)) {
+                return { ...prev, allowedModules: currentModules.filter(m => m !== moduleKey) };
+            } else {
+                return { ...prev, allowedModules: [...currentModules, moduleKey] };
+            }
+        });
     };
 
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,7 +225,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     const showPasswordField = !collaboratorToEdit && formData.canLogin;
 
     return (
-        <Modal title={modalTitle} onClose={onClose}>
+        <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-2xl">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="flex flex-col md:flex-row items-center gap-6">
                     <div className="flex-shrink-0">
@@ -359,8 +380,34 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 </div>
                             )}
                         </div>
+
+                        {isAdmin && formData.role !== UserRole.Admin && (
+                            <div className="bg-gray-800 p-4 rounded-md border border-gray-700 mt-4">
+                                <label className="block text-sm font-medium text-white mb-3">Acesso a Módulos</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {AVAILABLE_MODULES.map(module => (
+                                        <div key={module.key} className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                id={`module-${module.key}`}
+                                                checked={(formData.allowedModules || []).includes(module.key)}
+                                                onChange={() => handleModuleToggle(module.key)}
+                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
+                                            />
+                                            <label htmlFor={`module-${module.key}`} className="ml-2 block text-sm text-on-surface-dark-secondary">
+                                                {module.label}
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Se nenhum módulo for selecionado, o colaborador terá acesso apenas à Visão Geral.
+                                </p>
+                            </div>
+                        )}
+                        
                         {formData.canLogin && isAdmin && (
-                            <div className="flex items-center">
+                            <div className="flex items-center mt-4">
                                 <input
                                     type="checkbox"
                                     name="receivesNotifications"
