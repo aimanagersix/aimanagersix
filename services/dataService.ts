@@ -368,7 +368,14 @@ export const fetchEquipmentTypes = async (): Promise<EquipmentType[]> => {
 
 // Equipment
 export const addEquipment = async (record: Omit<Equipment, 'id' | 'creationDate' | 'modifiedDate'>) => {
-    const dbRecord = mapEquipmentToDb(record);
+    const now = new Date().toISOString();
+    // FIX: Inject creationDate and modifiedDate to avoid NOT NULL constraint errors
+    const recordWithDates = {
+        ...record,
+        creationDate: now,
+        modifiedDate: now
+    };
+    const dbRecord = mapEquipmentToDb(recordWithDates);
     const res = await insertData('equipment', dbRecord);
     return mapEquipmentFromDb(res);
 };
@@ -382,7 +389,12 @@ export const addMultipleEquipment = (records: any[]) => {
     return supabase.from('equipment').insert(dbRecords).select();
 };
 export const updateEquipment = async (id: string, updates: Partial<Equipment>) => {
-    const dbUpdates = mapEquipmentToDb(updates);
+    // FIX: Always update modifiedDate on edit
+    const updatesWithDate = {
+        ...updates,
+        modifiedDate: new Date().toISOString()
+    };
+    const dbUpdates = mapEquipmentToDb(updatesWithDate);
     const res = await updateData('equipment', id, dbUpdates);
     return mapEquipmentFromDb(res);
 };
@@ -631,7 +643,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
 
     if (toAdd.length > 0) {
         const newRecords = toAdd.map(licenseId => ({
-            id: generateUUID(), // FIX: Generate ID manually as we are not using insertData
+            id: generateUUID(), // Ensure manual ID generation works
             [colEquipmentId]: equipmentId,
             [colLicenseId]: licenseId,
             [colAssignedDate]: new Date().toISOString().split('T')[0],
@@ -640,8 +652,11 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         const { error: insertError } = await supabase
             .from('license_assignment')
             .insert(newRecords);
-            
-        handleSupabaseError(insertError, 'a adicionar atribuições de licença');
+        
+        if (insertError) {
+             console.error("Supabase Error in syncLicenseAssignments:", insertError); // Add detailed log
+             handleSupabaseError(insertError, 'a adicionar atribuições de licença');
+        }
     }
 };
 

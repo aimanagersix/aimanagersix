@@ -1,9 +1,9 @@
 import React from 'react';
-// FIX: Add FaTools, FaWarehouse, and FaDesktop to the import from react-icons/fa.
-import { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop } from 'react-icons/fa';
+// FIX: Add FaTools, FaWarehouse, FaDesktop, and FaPrint to the import from react-icons/fa.
+import { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint } from 'react-icons/fa';
 
 // FIX: Export the newly imported icons.
-export { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop };
+export { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint };
 
 export const PlusIcon: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>

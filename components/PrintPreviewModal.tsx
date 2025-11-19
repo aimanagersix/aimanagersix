@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { XIcon, FaFilePdf, SpinnerIcon } from './common/Icons';
+import { XIcon, FaFilePdf, SpinnerIcon, FaPrint } from './common/Icons';
 
 interface PrintPreviewModalProps {
     onClose: () => void;
@@ -9,6 +9,7 @@ interface PrintPreviewModalProps {
 }
 
 // CSS para tornar o relatório amigável para impressão (texto preto em fundo branco)
+// Inclui regras @media print para esconder a UI do modal e mostrar apenas o conteúdo
 const printStyles = `
     #printable-content-wrapper, #printable-content-wrapper * {
         color: #000 !important;
@@ -30,6 +31,40 @@ const printStyles = `
     #printable-content-wrapper h3 {
         font-size: 14pt;
         font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        /* Ensure the modal container is not restricting layout */
+        .fixed.inset-0 {
+            position: static !important;
+            overflow: visible !important;
+            background: none !important;
+        }
+        #printable-content-wrapper, #printable-content-wrapper * {
+            visibility: visible;
+        }
+        #printable-content-wrapper {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 0 !important;
+            background-color: white !important;
+            color: black !important;
+            box-shadow: none !important;
+        }
+        .no-print {
+            display: none !important;
+        }
+        @page {
+            margin: 1cm;
+            size: auto; 
+        }
     }
 `;
 
@@ -37,17 +72,37 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose, reportCo
     const printableAreaRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    const handleNativePrint = () => {
+        window.print();
+    };
+
     const handleDownloadPdf = async () => {
         const element = printableAreaRef.current?.querySelector('#printable-content-wrapper');
         if (!element) return;
 
         setIsLoading(true);
         try {
-            const canvas = await html2canvas(element as HTMLElement, {
+            // Create a clone of the element to render it fully expanded (ignoring scrollbars)
+            // This solves the issue where html2canvas cuts off content in scrollable divs
+            const clone = element.cloneNode(true) as HTMLElement;
+            clone.style.width = '210mm'; // A4 width
+            clone.style.height = 'auto';
+            clone.style.overflow = 'visible';
+            clone.style.position = 'absolute';
+            clone.style.top = '-9999px';
+            clone.style.left = '-9999px';
+            clone.style.background = 'white';
+            document.body.appendChild(clone);
+
+            const canvas = await html2canvas(clone, {
                 scale: 2, // Higher quality for better text rendering
                 useCORS: true,
                 backgroundColor: '#ffffff',
+                windowWidth: 1200 // Force a desktop width
             });
+
+            // Remove the clone
+            document.body.removeChild(clone);
 
             const imgData = canvas.toDataURL('image/png');
             
@@ -84,7 +139,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose, reportCo
 
         } catch (error) {
             console.error("Error generating PDF:", error);
-            alert("An error occurred while generating the PDF. Please try again.");
+            alert("An error occurred while generating the PDF. Please try using the 'Imprimir / Salvar PDF' button for a native browser experience.");
         } finally {
             setIsLoading(false);
         }
@@ -94,13 +149,21 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose, reportCo
         <div 
             className="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center z-[60] p-4" 
         >
-            <div className="w-full max-w-4xl bg-surface-dark rounded-t-lg p-4 flex justify-between items-center">
+            <div className="w-full max-w-4xl bg-surface-dark rounded-t-lg p-4 flex justify-between items-center no-print">
                 <h2 className="text-xl font-semibold text-white">Pré-visualização do Relatório</h2>
                 <div className="flex items-center gap-4">
                     <button 
+                        onClick={handleNativePrint} 
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                        title="Usar a função de impressão do navegador (Ctrl+P). Permite 'Salvar como PDF' com alta qualidade."
+                    >
+                        <FaPrint />
+                        Imprimir / Salvar PDF
+                    </button>
+                    <button 
                         onClick={handleDownloadPdf} 
                         disabled={isLoading}
-                        className="flex items-center justify-center gap-2 px-4 py-2 w-48 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isLoading ? (
                             <>
@@ -110,7 +173,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose, reportCo
                         ) : (
                             <>
                                 <FaFilePdf />
-                                Descarregar PDF
+                                Gerar PDF (Imagem)
                             </>
                         )}
                     </button>
@@ -125,7 +188,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose, reportCo
                      <div
                         id="printable-content-wrapper"
                         className="bg-white shadow-lg mx-auto"
-                        style={{ width: '210mm', padding: '1.5cm' }} // Removed min-height to allow natural content flow
+                        style={{ width: '210mm', padding: '1.5cm', minHeight: '297mm' }}
                         dangerouslySetInnerHTML={{ __html: reportContentHtml }}
                      />
                  </div>

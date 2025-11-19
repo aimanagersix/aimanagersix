@@ -509,9 +509,10 @@ const AppContent = () => {
             await dataService.syncLicenseAssignments(equipmentId, licenseIds);
             await refreshData();
             setManageLicensesEquipment(null);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to sync licenses:", error);
-            alert("Erro ao guardar as licenças. Por favor tente novamente.");
+            // FIX: Show the exact error message
+            alert(`Erro ao guardar as licenças: ${error.message}`);
         }
     };
     const handleCreateLicense = async (lic: any) => {
