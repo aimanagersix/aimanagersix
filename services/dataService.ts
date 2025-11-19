@@ -14,17 +14,25 @@ const handleSupabaseError = (error: any, context: string) => {
 
 const insertData = async (tableName: string, record: any): Promise<any> => {
     const supabase = getSupabase();
+    // Ensure no 'id' is passed if it's falsy/empty, letting DB generate it
+    if (record.id === '' || record.id === undefined || record.id === null) {
+        delete record.id;
+    }
+    
     const { data, error } = await supabase.from(tableName).insert(record).select();
     handleSupabaseError(error, `a inserir em ${tableName}`);
-    if (!data) throw new Error("A inserção não retornou dados.");
+    if (!data || data.length === 0) throw new Error("A inserção não retornou dados.");
     return data[0];
 };
 
 const updateData = async (tableName: string, id: string, updates: any): Promise<any> => {
     const supabase = getSupabase();
+    // Ensure we don't try to update the id itself or send empty id
+    if (updates.id) delete updates.id;
+
     const { data, error } = await supabase.from(tableName).update(updates).eq('id', id).select();
     handleSupabaseError(error, `a atualizar em ${tableName}`);
-    if (!data) throw new Error("A atualização não retornou dados.");
+    if (!data || data.length === 0) throw new Error("A atualização não retornou dados.");
     return data[0];
 };
 
@@ -42,6 +50,23 @@ const fetchDataInternal = async (tableName: string): Promise<any[]> => {
 };
 
 // --- MAPPERS (Bidirecionais: App camelCase <-> DB snake_case) ---
+
+const cleanDbRecord = (db: any) => {
+    // Utility to clean undefined values and ensure empty strings for IDs/Dates are removed
+    // This prevents "invalid input syntax for type uuid" or "date" errors in Supabase
+    Object.keys(db).forEach(key => {
+        const value = db[key];
+        if (value === undefined) {
+            delete db[key];
+        } else if (typeof value === 'string' && value === '') {
+            // Remove empty strings for IDs and Dates to allow DB to set NULL or Default
+            if (key === 'id' || key.endsWith('_id') || key.endsWith('_date') || key === 'date') {
+                delete db[key];
+            }
+        }
+    });
+    return db;
+};
 
 // Equipment
 const mapEquipmentFromDb = (db: any): Equipment => ({
@@ -73,7 +98,7 @@ const mapEquipmentToDb = (eq: Partial<Equipment>): any => {
     if ('warrantyEndDate' in db) { db.warranty_end_date = db.warrantyEndDate; delete db.warrantyEndDate; }
     if ('creationDate' in db) { db.creation_date = db.creationDate; delete db.creationDate; }
     if ('modifiedDate' in db) { db.modified_date = db.modifiedDate; delete db.modifiedDate; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // EquipmentType
@@ -90,7 +115,7 @@ const mapEquipmentTypeToDb = (et: Partial<EquipmentType>): any => {
     if ('requiresMacWIFI' in db) { db.requires_mac_wifi = db.requiresMacWIFI; delete db.requiresMacWIFI; }
     if ('requiresMacCabo' in db) { db.requires_mac_cabo = db.requiresMacCabo; delete db.requiresMacCabo; }
     if ('requiresInventoryNumber' in db) { db.requires_inventory_number = db.requiresInventoryNumber; delete db.requiresInventoryNumber; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // Entidade
@@ -103,12 +128,12 @@ const mapEntidadeToDb = (ent: Partial<Entidade>): any => {
     const db: any = { ...ent };
     if ('instituicaoId' in db) { db.instituicao_id = db.instituicaoId; delete db.instituicaoId; }
     if ('telefoneInterno' in db) { db.telefone_interno = db.telefoneInterno; delete db.telefoneInterno; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // Instituicao
 const mapInstituicaoFromDb = (db: any): Instituicao => ({ ...db });
-const mapInstituicaoToDb = (inst: Partial<Instituicao>): any => ({ ...inst });
+const mapInstituicaoToDb = (inst: Partial<Instituicao>): any => cleanDbRecord({ ...inst });
 
 // Collaborator
 const mapCollaboratorFromDb = (db: any): Collaborator => ({
@@ -134,7 +159,7 @@ const mapCollaboratorToDb = (col: Partial<Collaborator>): any => {
     if ('photoUrl' in db) { db.photo_url = db.photoUrl; delete db.photoUrl; }
     if ('dateOfBirth' in db) { db.date_of_birth = db.dateOfBirth; delete db.dateOfBirth; }
     if ('allowedModules' in db) { db.allowed_modules = db.allowedModules; delete db.allowedModules; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // Assignment
@@ -153,7 +178,7 @@ const mapAssignmentToDb = (assign: Partial<Assignment>): any => {
     if ('collaboratorId' in db) { db.collaborator_id = db.collaboratorId; delete db.collaboratorId; }
     if ('assignedDate' in db) { db.assigned_date = db.assignedDate; delete db.assignedDate; }
     if ('returnDate' in db) { db.return_date = db.returnDate; delete db.returnDate; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // Ticket
@@ -175,7 +200,7 @@ const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     if ('equipmentId' in db) { db.equipment_id = db.equipmentId; delete db.equipmentId; }
     if ('requestDate' in db) { db.request_date = db.requestDate; delete db.requestDate; }
     if ('finishDate' in db) { db.finish_date = db.finishDate; delete db.finishDate; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // TicketActivity
@@ -190,7 +215,7 @@ const mapTicketActivityToDb = (act: Partial<TicketActivity>): any => {
     if ('ticketId' in db) { db.ticket_id = db.ticketId; delete db.ticketId; }
     if ('technicianId' in db) { db.technician_id = db.technicianId; delete db.technicianId; }
     if ('equipmentId' in db) { db.equipment_id = db.equipmentId; delete db.equipmentId; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // License
@@ -213,7 +238,7 @@ const mapLicenseToDb = (lic: Partial<SoftwareLicense>): any => {
     if ('expiryDate' in db) { db.expiry_date = db.expiryDate; delete db.expiryDate; }
     if ('purchaseEmail' in db) { db.purchase_email = db.purchaseEmail; delete db.purchaseEmail; }
     if ('invoiceNumber' in db) { db.invoice_number = db.invoiceNumber; delete db.invoiceNumber; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // License Assignment
@@ -238,7 +263,7 @@ const mapCollaboratorHistoryToDb = (hist: Partial<CollaboratorHistory>): any => 
     if ('entidadeId' in db) { db.entidade_id = db.entidadeId; delete db.entidadeId; }
     if ('startDate' in db) { db.start_date = db.startDate; delete db.startDate; }
     if ('endDate' in db) { db.end_date = db.endDate; delete db.endDate; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 // Message
@@ -251,7 +276,7 @@ const mapMessageToDb = (msg: Partial<Message>): any => {
     const db: any = { ...msg };
     if ('senderId' in db) { db.sender_id = db.senderId; delete db.senderId; }
     if ('receiverId' in db) { db.receiver_id = db.receiverId; delete db.receiverId; }
-    return db;
+    return cleanDbRecord(db);
 };
 
 
@@ -286,7 +311,7 @@ export const fetchAllData = async () => {
         entidades: entidadesRaw.map(mapEntidadeFromDb),
         collaborators: collaboratorsRaw.map(mapCollaboratorFromDb),
         equipmentTypes: equipmentTypesRaw.map(mapEquipmentTypeFromDb),
-        brands: brands, // Brands is simple (id, name), no mapping needed
+        brands: brands, 
         assignments: assignmentsRaw.map(mapAssignmentFromDb),
         tickets: ticketsRaw.map(mapTicketFromDb),
         ticketActivities: ticketActivitiesRaw.map(mapTicketActivityFromDb),
@@ -294,8 +319,8 @@ export const fetchAllData = async () => {
         messages: messagesRaw.map(mapMessageFromDb),
         softwareLicenses: softwareLicensesRaw.map(mapLicenseFromDb),
         licenseAssignments: licenseAssignmentsRaw.map(mapLicenseAssignmentFromDb),
-        teams, // Teams is simple (id, name, description)
-        teamMembers // TeamMembers is simple (team_id, collaborator_id)
+        teams,
+        teamMembers
     };
 };
 
@@ -311,7 +336,7 @@ export const fetchEquipmentTypes = async (): Promise<EquipmentType[]> => {
 
 
 // Equipment
-export const addEquipment = async (record: Equipment) => {
+export const addEquipment = async (record: Omit<Equipment, 'id' | 'creationDate' | 'modifiedDate'>) => {
     const dbRecord = mapEquipmentToDb(record);
     const res = await insertData('equipment', dbRecord);
     return mapEquipmentFromDb(res);
@@ -329,7 +354,7 @@ export const updateEquipment = async (id: string, updates: Partial<Equipment>) =
 export const deleteEquipment = (id: string) => deleteData('equipment', id);
 
 // Instituicao
-export const addInstituicao = async (record: Instituicao) => {
+export const addInstituicao = async (record: Omit<Instituicao, 'id'>) => {
     const dbRecord = mapInstituicaoToDb(record);
     const res = await insertData('instituicao', dbRecord);
     return mapInstituicaoFromDb(res);
@@ -347,7 +372,7 @@ export const addMultipleInstituicoes = (records: any[]) => {
 };
 
 // Entidade
-export const addEntidade = async (record: Entidade) => {
+export const addEntidade = async (record: Omit<Entidade, 'id'>) => {
     const dbRecord = mapEntidadeToDb(record);
     const res = await insertData('entidade', dbRecord);
     return mapEntidadeFromDb(res);
@@ -366,14 +391,14 @@ export const addMultipleEntidades = (records: any[]) => {
 
 
 // Collaborator
-export const addCollaborator = async (record: Collaborator): Promise<Collaborator> => {
+export const addCollaborator = async (record: Omit<Collaborator, 'id'> | Collaborator): Promise<Collaborator> => {
     const dbRecord = mapCollaboratorToDb(record);
     const res = await insertData('collaborator', dbRecord);
     return mapCollaboratorFromDb(res);
 };
 
-export const updateCollaborator = async (id: string, updates: Partial<Omit<Collaborator, 'id'>>): Promise<Collaborator> => {
-    const dbUpdates = mapCollaboratorToDb(updates as Partial<Collaborator>);
+export const updateCollaborator = async (id: string, updates: Partial<Collaborator>): Promise<Collaborator> => {
+    const dbUpdates = mapCollaboratorToDb(updates);
     const res = await updateData('collaborator', id, dbUpdates);
     return mapCollaboratorFromDb(res);
 };
@@ -402,7 +427,7 @@ export const uploadCollaboratorPhoto = async (userId: string, file: File): Promi
 
 
 // Assignment
-export const addAssignment = async (record: Assignment) => {
+export const addAssignment = async (record: Omit<Assignment, 'id'>) => {
     const dbRecord = mapAssignmentToDb(record);
     const res = await insertData('assignment', dbRecord);
     return mapAssignmentFromDb(res);
@@ -437,7 +462,7 @@ export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('
 export const deleteBrand = (id: string) => deleteData('brand', id);
 
 // Ticket
-export const addTicket = async (record: Ticket): Promise<Ticket> => {
+export const addTicket = async (record: Omit<Ticket, 'id'>): Promise<Ticket> => {
     const dbRecord = mapTicketToDb(record);
     const res = await insertData('ticket', dbRecord);
     return mapTicketFromDb(res);
@@ -450,7 +475,7 @@ export const updateTicket = async (id: string, updates: Partial<Ticket>): Promis
 };
 
 // TicketActivity
-export const addTicketActivity = async (record: TicketActivity): Promise<TicketActivity> => {
+export const addTicketActivity = async (record: Omit<TicketActivity, 'id'>): Promise<TicketActivity> => {
     const dbRecord = mapTicketActivityToDb(record);
     const res = await insertData('ticket_activity', dbRecord);
     return mapTicketActivityFromDb(res);
@@ -463,7 +488,7 @@ export const updateTicketActivity = async (id: string, updates: Partial<TicketAc
 };
 
 // CollaboratorHistory
-export const addCollaboratorHistory = async (record: CollaboratorHistory) => {
+export const addCollaboratorHistory = async (record: Omit<CollaboratorHistory, 'id'>) => {
     const dbRecord = mapCollaboratorHistoryToDb(record);
     const res = await insertData('collaborator_history', dbRecord);
     return mapCollaboratorHistoryFromDb(res);
@@ -495,7 +520,7 @@ export const markMessagesAsRead = (senderId: string, receiverId: string) => {
 };
 
 // SoftwareLicense
-export const addLicense = async (record: SoftwareLicense): Promise<SoftwareLicense> => {
+export const addLicense = async (record: Omit<SoftwareLicense, 'id'>): Promise<SoftwareLicense> => {
     const dbRecord = mapLicenseToDb(record);
     const res = await insertData('software_license', dbRecord);
     return mapLicenseFromDb(res);
@@ -512,12 +537,10 @@ export const deleteLicense = (id: string) => deleteData('software_license', id);
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
     
-    // Use correct snake_case columns
     const colEquipmentId = 'equipment_id';
     const colLicenseId = 'software_license_id';
     const colAssignedDate = 'assigned_date';
 
-    // Get current assignments
     const { data: currentAssignments, error: fetchError } = await supabase
         .from('license_assignment')
         .select(`id, ${colLicenseId}`)
