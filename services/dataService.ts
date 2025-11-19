@@ -10,13 +10,32 @@ const handleSupabaseError = (error: any, context: string) => {
     }
 };
 
+// Função robusta para gerar UUIDs (funciona em contextos seguros e não seguros)
+export const generateUUID = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        try {
+            return crypto.randomUUID();
+        } catch (e) {
+            // Em alguns navegadores/contextos, randomUUID pode falhar
+            console.warn("crypto.randomUUID falhou, a usar fallback", e);
+        }
+    }
+    // Fallback simples compatível com todos os navegadores
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
+
 // --- Funções Genéricas de CRUD (Internal Use) ---
 
 const insertData = async (tableName: string, record: any): Promise<any> => {
     const supabase = getSupabase();
-    // Ensure no 'id' is passed if it's falsy/empty, letting DB generate it
-    if (record.id === '' || record.id === undefined || record.id === null) {
-        delete record.id;
+    
+    // Garante que existe um ID. Se não vier preenchido ou for vazio, gera um novo UUID.
+    // Isto previne erros de "null value in column id" se a DB não tiver default gen_random_uuid().
+    if (!record.id) {
+        record.id = generateUUID();
     }
     
     const { data, error } = await supabase.from(tableName).insert(record).select();
@@ -60,6 +79,7 @@ const cleanDbRecord = (db: any) => {
             delete db[key];
         } else if (typeof value === 'string' && value === '') {
             // Remove empty strings for IDs and Dates to allow DB to set NULL or Default
+            // NOTA: O insertData irá gerar um ID se a chave 'id' for removida aqui, o que é o comportamento desejado para novos registos.
             if (key === 'id' || key.endsWith('_id') || key.endsWith('_date') || key === 'date') {
                 delete db[key];
             }
@@ -108,6 +128,7 @@ const mapEquipmentTypeFromDb = (db: any): EquipmentType => ({
     requiresMacWIFI: db.requires_mac_wifi,
     requiresMacCabo: db.requires_mac_cabo,
     requiresInventoryNumber: db.requires_inventory_number,
+    default_team_id: db.default_team_id,
 });
 const mapEquipmentTypeToDb = (et: Partial<EquipmentType>): any => {
     const db: any = { ...et };
@@ -115,6 +136,7 @@ const mapEquipmentTypeToDb = (et: Partial<EquipmentType>): any => {
     if ('requiresMacWIFI' in db) { db.requires_mac_wifi = db.requiresMacWIFI; delete db.requiresMacWIFI; }
     if ('requiresMacCabo' in db) { db.requires_mac_cabo = db.requiresMacCabo; delete db.requiresMacCabo; }
     if ('requiresInventoryNumber' in db) { db.requires_inventory_number = db.requiresInventoryNumber; delete db.requiresInventoryNumber; }
+    if ('default_team_id' in db) { db.default_team_id = db.default_team_id; delete db.default_team_id; }
     return cleanDbRecord(db);
 };
 
@@ -343,7 +365,11 @@ export const addEquipment = async (record: Omit<Equipment, 'id' | 'creationDate'
 };
 export const addMultipleEquipment = (records: any[]) => {
     const supabase = getSupabase();
-    const dbRecords = records.map(mapEquipmentToDb);
+    const dbRecords = records.map(r => {
+        const db = mapEquipmentToDb(r);
+        if (!db.id) db.id = generateUUID();
+        return db;
+    });
     return supabase.from('equipment').insert(dbRecords).select();
 };
 export const updateEquipment = async (id: string, updates: Partial<Equipment>) => {
@@ -367,7 +393,11 @@ export const updateInstituicao = async (id: string, updates: Partial<Instituicao
 export const deleteInstituicao = (id: string) => deleteData('instituicao', id);
 export const addMultipleInstituicoes = (records: any[]) => {
     const supabase = getSupabase();
-    const dbRecords = records.map(mapInstituicaoToDb);
+    const dbRecords = records.map(r => {
+        const db = mapInstituicaoToDb(r);
+        if (!db.id) db.id = generateUUID();
+        return db;
+    });
     return supabase.from('instituicao').insert(dbRecords).select();
 };
 
@@ -385,7 +415,11 @@ export const updateEntidade = async (id: string, updates: Partial<Entidade>) => 
 export const deleteEntidade = (id: string) => deleteData('entidade', id);
 export const addMultipleEntidades = (records: any[]) => {
     const supabase = getSupabase();
-    const dbRecords = records.map(mapEntidadeToDb);
+    const dbRecords = records.map(r => {
+        const db = mapEntidadeToDb(r);
+        if (!db.id) db.id = generateUUID();
+        return db;
+    });
     return supabase.from('entidade').insert(dbRecords).select();
 };
 
@@ -393,6 +427,7 @@ export const addMultipleEntidades = (records: any[]) => {
 // Collaborator
 export const addCollaborator = async (record: Omit<Collaborator, 'id'> | Collaborator): Promise<Collaborator> => {
     const dbRecord = mapCollaboratorToDb(record);
+    // Se já tiver ID (ex: do auth), usa-o. Se não, insertData gera um novo.
     const res = await insertData('collaborator', dbRecord);
     return mapCollaboratorFromDb(res);
 };
@@ -406,7 +441,11 @@ export const updateCollaborator = async (id: string, updates: Partial<Collaborat
 export const deleteCollaborator = (id: string) => deleteData('collaborator', id);
 export const addMultipleCollaborators = (records: any[]) => {
     const supabase = getSupabase();
-    const dbRecords = records.map(mapCollaboratorToDb);
+    const dbRecords = records.map(r => {
+        const db = mapCollaboratorToDb(r);
+        if (!db.id) db.id = generateUUID();
+        return db;
+    });
     return supabase.from('collaborator').insert(dbRecords).select();
 };
 export const uploadCollaboratorPhoto = async (userId: string, file: File): Promise<string | null> => {
@@ -434,7 +473,11 @@ export const addAssignment = async (record: Omit<Assignment, 'id'>) => {
 };
 export const addMultipleAssignments = (records: any[]) => {
     const supabase = getSupabase();
-    const dbRecords = records.map(mapAssignmentToDb);
+    const dbRecords = records.map(r => {
+        const db = mapAssignmentToDb(r);
+        if (!db.id) db.id = generateUUID();
+        return db;
+    });
     return supabase.from('assignment').insert(dbRecords).select();
 };
 export const updateAssignment = async (id: string, updates: Partial<Assignment>) => {
