@@ -219,18 +219,21 @@ export const uploadCollaboratorPhoto = async (userId: string, file: File) => {
     const supabase = getSupabase();
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}.${fileExt}`;
-    const filePath = `collaborator-photos/${fileName}`;
+    // Changed to use the existing 'collaborator-photos' bucket directly
+    // We remove the folder prefix since the bucket name itself is descriptive enough,
+    // or you can keep it if you prefer a subfolder structure. Here we put it at root of the bucket.
+    const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-        .from('public-assets')
+        .from('collaborator-photos') // UPDATED: Using your existing bucket
         .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
-        console.warn('Photo upload failed (bucket might be missing), proceeding without photo URL.', uploadError);
+        console.warn('Photo upload failed (bucket might be missing or permissions wrong), proceeding without photo URL.', uploadError);
         return null;
     }
 
-    const { data } = supabase.storage.from('public-assets').getPublicUrl(filePath);
+    const { data } = supabase.storage.from('collaborator-photos').getPublicUrl(filePath);
     return data.publicUrl;
 };
 
