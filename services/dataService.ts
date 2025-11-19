@@ -281,8 +281,8 @@ const mapCollaboratorHistoryFromDb = (db: any): CollaboratorHistory => ({
 });
 const mapCollaboratorHistoryToDb = (hist: Partial<CollaboratorHistory>): any => {
     const db: any = { ...hist };
-    if ('collaboratorId' in db) { db.collaborator_id = db.collaboratorId; delete db.collaboratorId; }
-    if ('entidadeId' in db) { db.entidade_id = db.entidadeId; delete db.entidadeId; }
+    if ('collaboratorId' in db) { db.collaborator_id = db.collaborator_id; delete db.collaboratorId; }
+    if ('entidadeId' in db) { db.entidade_id = db.entidade_id; delete db.entidadeId; }
     if ('startDate' in db) { db.start_date = db.startDate; delete db.startDate; }
     if ('endDate' in db) { db.end_date = db.endDate; delete db.endDate; }
     return cleanDbRecord(db);
@@ -426,7 +426,17 @@ export const addMultipleEntidades = (records: any[]) => {
 
 // Collaborator
 export const addCollaborator = async (record: Omit<Collaborator, 'id'> | Collaborator): Promise<Collaborator> => {
-    const dbRecord = mapCollaboratorToDb(record);
+    const dataToProcess = { ...record };
+    
+    // FIX: Postgres constraint workaround. 
+    // If the DB table 'collaborator' has a 'password' column set to NOT NULL, 
+    // we must provide a value even if the user cannot login.
+    // We generate a random dummy password that is never shown to the user.
+    if (!dataToProcess.password) {
+        dataToProcess.password = generateUUID(); 
+    }
+
+    const dbRecord = mapCollaboratorToDb(dataToProcess);
     // Se já tiver ID (ex: do auth), usa-o. Se não, insertData gera um novo.
     const res = await insertData('collaborator', dbRecord);
     return mapCollaboratorFromDb(res);
@@ -442,7 +452,12 @@ export const deleteCollaborator = (id: string) => deleteData('collaborator', id)
 export const addMultipleCollaborators = (records: any[]) => {
     const supabase = getSupabase();
     const dbRecords = records.map(r => {
-        const db = mapCollaboratorToDb(r);
+        const dataWithPass = { ...r };
+        // Also handle dummy password for bulk imports
+        if (!dataWithPass.password) {
+            dataWithPass.password = generateUUID();
+        }
+        const db = mapCollaboratorToDb(dataWithPass);
         if (!db.id) db.id = generateUUID();
         return db;
     });
