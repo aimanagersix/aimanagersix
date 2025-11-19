@@ -791,7 +791,11 @@ const AppContent = () => {
                              </button>
                          </div>
                         <EntidadeDashboard 
-                            escolasDepartamentos={entidades} instituicoes={instituicoes} collaborators={collaborators} 
+                            escolasDepartamentos={entidades} 
+                            instituicoes={instituicoes} 
+                            collaborators={collaborators}
+                            assignments={assignments}
+                            tickets={tickets}
                             onEdit={(ent) => { setEditingEntidade(ent); setIsAddEntidadeModalOpen(true); }}
                             onDelete={handleDeleteEntidade}
                             onToggleStatus={handleToggleEntidadeStatus}
@@ -852,7 +856,11 @@ const AppContent = () => {
                              </button>
                          </div>
                         <TeamDashboard 
-                            teams={teams} teamMembers={teamMembers} collaborators={collaborators} tickets={tickets} 
+                            teams={teams} 
+                            teamMembers={teamMembers} 
+                            collaborators={collaborators} 
+                            tickets={tickets}
+                            equipmentTypes={equipmentTypes}
                             onEdit={(t) => { setEditingTeam(t); setIsAddTeamModalOpen(true); }} 
                             onDelete={handleDeleteTeam} 
                             onManageMembers={(t) => setManageTeamMembersTeam(t)}

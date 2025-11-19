@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { EquipmentType, Equipment } from '../types';
 import { EditIcon, DeleteIcon } from './common/Icons';
@@ -50,7 +51,9 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
             </tr>
           </thead>
           <tbody>
-            {paginatedTypes.length > 0 ? paginatedTypes.map((type) => (
+            {paginatedTypes.length > 0 ? paginatedTypes.map((type) => {
+                const isDeleteDisabled = (equipmentCountByType[type.id] || 0) > 0;
+                return (
               <tr key={type.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                   {type.name}
@@ -64,14 +67,23 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
                             </button>
                         )}
                         {onDelete && (
-                            <button onClick={() => onDelete(type.id)} className="text-red-400 hover:text-red-300" aria-label={`Excluir ${type.name}`}>
+                             <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if (!isDeleteDisabled) onDelete(type.id); 
+                                }} 
+                                className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                disabled={isDeleteDisabled}
+                                title={isDeleteDisabled ? "Impossível excluir: Existem equipamentos associados" : `Excluir ${type.name}`}
+                                aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${type.name}`}
+                            >
                                 <DeleteIcon />
                             </button>
                         )}
                     </div>
                 </td>
               </tr>
-            )) : (
+            )}) : (
                 <tr>
                     <td colSpan={3} className="text-center py-8 text-on-surface-dark-secondary">Nenhum tipo de equipamento encontrado.</td>
                 </tr>

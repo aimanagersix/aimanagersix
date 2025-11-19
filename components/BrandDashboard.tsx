@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Brand, Equipment } from '../types';
 import { EditIcon, DeleteIcon } from './common/Icons';
@@ -50,7 +51,9 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
             </tr>
           </thead>
           <tbody>
-            {paginatedBrands.length > 0 ? paginatedBrands.map((brand) => (
+            {paginatedBrands.length > 0 ? paginatedBrands.map((brand) => {
+                const isDeleteDisabled = (equipmentCountByBrand[brand.id] || 0) > 0;
+                return (
               <tr key={brand.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                   {brand.name}
@@ -64,14 +67,23 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
                             </button>
                         )}
                         {onDelete && (
-                            <button onClick={() => onDelete(brand.id)} className="text-red-400 hover:text-red-300" aria-label={`Excluir ${brand.name}`}>
+                             <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if (!isDeleteDisabled) onDelete(brand.id); 
+                                }} 
+                                className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                disabled={isDeleteDisabled}
+                                title={isDeleteDisabled ? "Impossível excluir: Existem equipamentos associados" : `Excluir ${brand.name}`}
+                                aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${brand.name}`}
+                            >
                                 <DeleteIcon />
                             </button>
                         )}
                     </div>
                 </td>
               </tr>
-            )) : (
+            )}) : (
                 <tr>
                     <td colSpan={3} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma marca encontrada.</td>
                 </tr>

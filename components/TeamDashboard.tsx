@@ -1,5 +1,6 @@
+
 import React, { useMemo } from 'react';
-import { Team, TeamMember, Collaborator, Ticket } from '../types';
+import { Team, TeamMember, Collaborator, Ticket, EquipmentType } from '../types';
 import { EditIcon, DeleteIcon } from './common/Icons';
 import { FaUsers } from 'react-icons/fa';
 
@@ -8,12 +9,13 @@ interface TeamDashboardProps {
     teamMembers: TeamMember[];
     collaborators: Collaborator[];
     tickets: Ticket[];
+    equipmentTypes: EquipmentType[];
     onEdit: (team: Team) => void;
     onDelete: (id: string) => void;
     onManageMembers: (team: Team) => void;
 }
 
-const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, collaborators, tickets, onEdit, onDelete, onManageMembers }) => {
+const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, collaborators, tickets, equipmentTypes, onEdit, onDelete, onManageMembers }) => {
     
     const memberCountByTeam = useMemo(() => {
         return teamMembers.reduce((acc, member) => {
@@ -30,6 +32,15 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
             return acc;
         }, {} as Record<string, number>);
     }, [tickets]);
+
+    const equipmentTypeCountByTeam = useMemo(() => {
+        return equipmentTypes.reduce((acc, type) => {
+            if (type.default_team_id) {
+                acc[type.default_team_id] = (acc[type.default_team_id] || 0) + 1;
+            }
+            return acc;
+        }, {} as Record<string, number>);
+    }, [equipmentTypes]);
 
     const sortedTeams = useMemo(() => {
         return [...teams].sort((a, b) => a.name.localeCompare(b.name));
@@ -51,12 +62,24 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                         </tr>
                     </thead>
                     <tbody>
-                        {sortedTeams.length > 0 ? sortedTeams.map((team) => (
+                        {sortedTeams.length > 0 ? sortedTeams.map((team) => {
+                            const memberCount = memberCountByTeam[team.id] || 0;
+                            const ticketCount = ticketCountByTeam[team.id] || 0;
+                            const eqTypeCount = equipmentTypeCountByTeam[team.id] || 0;
+
+                            const isDeleteDisabled = memberCount > 0 || ticketCount > 0 || eqTypeCount > 0;
+
+                            let disabledReason = "";
+                            if (memberCount > 0) disabledReason = "Existem membros na equipa";
+                            else if (ticketCount > 0) disabledReason = "Existem tickets atribuídos";
+                            else if (eqTypeCount > 0) disabledReason = "Está associada a tipos de equipamento";
+
+                            return (
                             <tr key={team.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{team.name}</td>
                                 <td className="px-6 py-4">{team.description || '—'}</td>
-                                <td className="px-6 py-4 text-center">{memberCountByTeam[team.id] || 0}</td>
-                                <td className="px-6 py-4 text-center">{ticketCountByTeam[team.id] || 0}</td>
+                                <td className="px-6 py-4 text-center">{memberCount}</td>
+                                <td className="px-6 py-4 text-center">{ticketCount}</td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
                                         <button onClick={() => onManageMembers(team)} className="text-green-400 hover:text-green-300" title="Gerir Membros">
@@ -65,13 +88,22 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                                         <button onClick={() => onEdit(team)} className="text-blue-400 hover:text-blue-300" title="Editar Equipa">
                                             <EditIcon />
                                         </button>
-                                        <button onClick={() => onDelete(team.id)} className="text-red-400 hover:text-red-300" title="Excluir Equipa">
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                if (!isDeleteDisabled) onDelete(team.id); 
+                                            }} 
+                                            className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                            disabled={isDeleteDisabled}
+                                            title={isDeleteDisabled ? `Impossível excluir: ${disabledReason}` : `Excluir ${team.name}`}
+                                            aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${team.name}`}
+                                        >
                                             <DeleteIcon />
                                         </button>
                                     </div>
                                 </td>
                             </tr>
-                        )) : (
+                        )}) : (
                             <tr>
                                 <td colSpan={5} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma equipa encontrada.</td>
                             </tr>
