@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -215,7 +214,7 @@ const AppContent = () => {
         // Helper to check if a module is allowed
         // If allowedModules is empty/undefined, fall back to legacy role logic
         const hasAccess = (module: 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets') => {
-             if (currentUser.allowedModules && currentUser.allowedModules.length > 0) {
+             if (currentUser.allowedModules) {
                  return currentUser.allowedModules.includes(module);
              }
 
@@ -626,9 +625,9 @@ const AppContent = () => {
                  await dataService.addCollaborator(collaborator);
              }
              refreshData();
-         } catch (error) {
+         } catch (error: any) {
              console.error("Error creating collaborator", error);
-             alert("Erro ao criar colaborador.");
+             alert(`Erro ao criar colaborador: ${error.message || error}`);
          }
     };
 
@@ -636,9 +635,9 @@ const AppContent = () => {
         try {
             await dataService.updateCollaborator(collaborator.id, collaborator);
             refreshData();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error updating collaborator", error);
-            alert("Erro ao atualizar colaborador.");
+            alert(`Erro ao atualizar colaborador: ${error.message || error}`);
         }
     };
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, AppModule } from '../types';
@@ -196,8 +197,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         let photoUrl = formData.photoUrl;
 
         // If a new photo file is selected, upload it
-        if (photoFile && (collaboratorToEdit?.id || !collaboratorToEdit)) {
-            const userId = collaboratorToEdit?.id || (currentUser?.id || crypto.randomUUID());
+        if (photoFile) {
+            // Se for novo utilizador, não usamos currentUser.id (admin), usamos um ID temporário para a pasta.
+            // O ideal seria usar o ID real após criação, mas aqui usamos um random UUID para evitar conflitos.
+            const userId = collaboratorToEdit?.id || crypto.randomUUID();
             const uploadedUrl = await dataService.uploadCollaboratorPhoto(userId, photoFile);
             if (uploadedUrl) {
                 photoUrl = uploadedUrl;

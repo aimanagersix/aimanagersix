@@ -51,6 +51,24 @@ export const deleteData = async (tableName: string, id: string): Promise<void> =
     handleSupabaseError(error, `a eliminar de ${tableName}`);
 };
 
+// --- Helpers de Mapeamento para Collaborator ---
+
+const mapCollaboratorFromDb = (db: any): Collaborator => ({
+    ...db,
+    // Mapear allowed_modules se existir, senão tenta allowedModules ou array vazio
+    allowedModules: db.allowed_modules || db.allowedModules || [],
+});
+
+const mapCollaboratorToDb = (col: Partial<Collaborator>): any => {
+    const db: any = { ...col };
+    // Mapear para snake_case para a BD
+    if (db.allowedModules) {
+        db.allowed_modules = db.allowedModules;
+        delete db.allowedModules;
+    }
+    return db;
+};
+
 // --- Helpers de Mapeamento para Tickets ---
 
 const mapTicketFromDb = (dbTicket: any): Ticket => ({
@@ -127,14 +145,14 @@ const mapLicenseAssignmentFromDb = (db: any): LicenseAssignment => ({
 
 export const fetchAllData = async () => {
     const [
-        equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
+        equipment, instituicoes, entidades, collaboratorsRaw, equipmentTypes, brands,
         assignments, ticketsRaw, ticketActivitiesRaw, collaboratorHistory, messages,
         softwareLicensesRaw, licenseAssignmentsRaw, teams, teamMembers
     ] = await Promise.all([
         fetchData<Equipment>('equipment'),
         fetchData<Instituicao>('instituicao'),
         fetchData<Entidade>('entidade'),
-        fetchData<Collaborator>('collaborator'),
+        fetchData<any>('collaborator'),
         fetchData<EquipmentType>('equipment_type'),
         fetchData<Brand>('brand'),
         fetchData<Assignment>('assignment'),
@@ -148,6 +166,7 @@ export const fetchAllData = async () => {
         fetchData<TeamMember>('team_members'),
     ]);
 
+    const collaborators = collaboratorsRaw.map(mapCollaboratorFromDb);
     const tickets = ticketsRaw.map(mapTicketFromDb);
     const ticketActivities = ticketActivitiesRaw.map(mapTicketActivityFromDb);
     const softwareLicenses = softwareLicensesRaw.map(mapLicenseFromDb);
@@ -189,11 +208,29 @@ export const addMultipleEntidades = (records: any[]) => {
 
 
 // Collaborator
-export const addCollaborator = (record: Collaborator) => insertData('collaborator', record);
-export const updateCollaborator = (id: string, updates: Partial<Omit<Collaborator, 'id'>>) => updateData('collaborator', id, updates);
+export const addCollaborator = async (record: Collaborator): Promise<Collaborator> => {
+    const dbRecord = mapCollaboratorToDb(record);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('collaborator').insert(dbRecord).select();
+    handleSupabaseError(error, `a inserir em collaborator`);
+    if (!data) throw new Error("A inserção não retornou dados.");
+    return mapCollaboratorFromDb(data[0]);
+};
+
+export const updateCollaborator = async (id: string, updates: Partial<Omit<Collaborator, 'id'>>): Promise<Collaborator> => {
+    const dbUpdates = mapCollaboratorToDb(updates as Partial<Collaborator>);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('collaborator').update(dbUpdates).eq('id', id).select();
+    handleSupabaseError(error, `a atualizar em collaborator`);
+    if (!data) throw new Error("A atualização não retornou dados.");
+    return mapCollaboratorFromDb(data[0]);
+};
+
 export const deleteCollaborator = (id: string) => deleteData('collaborator', id);
 export const addMultipleCollaborators = (records: any[]) => {
     const supabase = getSupabase();
+    // Note: For bulk insert, we might need to map all records. 
+    // Assuming simple bulk import for now which might not use allowedModules.
     return supabase.from('collaborator').insert(records).select();
 };
 export const uploadCollaboratorPhoto = async (userId: string, file: File): Promise<string | null> => {
@@ -392,4 +429,3 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
         handleSupabaseError(insertError, 'a adicionar novos membros à equipa');
     }
 };
-
