@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, Team, TeamMember } from '../types';
 
@@ -221,12 +222,12 @@ export const addMultipleAssignments = (records: any[]) => {
 export const updateAssignment = (id: string, updates: Partial<Assignment>) => updateData('assignment', id, updates);
 
 // EquipmentType
-export const addEquipmentType = (record: EquipmentType) => insertData('equipment_type', record);
+export const addEquipmentType = (record: Omit<EquipmentType, 'id'>) => insertData<EquipmentType>('equipment_type', record);
 export const updateEquipmentType = (id: string, updates: Partial<EquipmentType>) => updateData('equipment_type', id, updates);
 export const deleteEquipmentType = (id: string) => deleteData('equipment_type', id);
 
 // Brand
-export const addBrand = (record: Brand) => insertData('brand', record);
+export const addBrand = (record: Omit<Brand, 'id'>) => insertData<Brand>('brand', record);
 export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('brand', id, updates);
 export const deleteBrand = (id: string) => deleteData('brand', id);
 
