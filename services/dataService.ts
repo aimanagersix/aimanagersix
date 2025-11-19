@@ -10,116 +10,202 @@ const handleSupabaseError = (error: any, context: string) => {
     }
 };
 
-// --- Funções Genéricas de CRUD ---
+// --- Funções Genéricas de CRUD (Internal Use) ---
 
-export const fetchData = async <T>(tableName: string): Promise<T[]> => {
+const insertData = async (tableName: string, record: any): Promise<any> => {
     const supabase = getSupabase();
-    const { data, error } = await supabase.from(tableName).select('*');
-    handleSupabaseError(error, `a obter dados de ${tableName}`);
-    return data as T[] ?? [];
-};
-
-export const fetchDataById = async <T>(tableName: string, id: string): Promise<T | null> => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from(tableName).select('*').eq('id', id).single();
-    handleSupabaseError(error, `a obter dados de ${tableName} com id ${id}`);
-    return data as T | null;
-};
-
-
-const insertData = async <T>(tableName: string, record: Partial<T>): Promise<T> => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from(tableName).insert(record as any).select();
+    const { data, error } = await supabase.from(tableName).insert(record).select();
     handleSupabaseError(error, `a inserir em ${tableName}`);
     if (!data) throw new Error("A inserção não retornou dados.");
-    return data[0] as T;
+    return data[0];
 };
 
-
-export const updateData = async <T>(tableName: string, id: string, updates: Partial<T>): Promise<T> => {
+const updateData = async (tableName: string, id: string, updates: any): Promise<any> => {
     const supabase = getSupabase();
-    const { data, error } = await supabase.from(tableName).update(updates as any).eq('id', id).select();
+    const { data, error } = await supabase.from(tableName).update(updates).eq('id', id).select();
     handleSupabaseError(error, `a atualizar em ${tableName}`);
     if (!data) throw new Error("A atualização não retornou dados.");
-    return data[0] as T;
+    return data[0];
 };
 
-
-export const deleteData = async (tableName: string, id: string): Promise<void> => {
+const deleteData = async (tableName: string, id: string): Promise<void> => {
     const supabase = getSupabase();
     const { error } = await supabase.from(tableName).delete().eq('id', id);
     handleSupabaseError(error, `a eliminar de ${tableName}`);
 };
 
-// --- Helpers de Mapeamento para Collaborator ---
+const fetchDataInternal = async (tableName: string): Promise<any[]> => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from(tableName).select('*');
+    handleSupabaseError(error, `a obter dados de ${tableName}`);
+    return data || [];
+};
 
-const mapCollaboratorFromDb = (db: any): Collaborator => ({
+// --- MAPPERS (Bidirecionais: App camelCase <-> DB snake_case) ---
+
+// Equipment
+const mapEquipmentFromDb = (db: any): Equipment => ({
     ...db,
-    // Mapear allowed_modules se existir, senão tenta allowedModules ou array vazio
-    allowedModules: db.allowed_modules || db.allowedModules || [],
+    brandId: db.brand_id,
+    typeId: db.type_id,
+    serialNumber: db.serial_number,
+    inventoryNumber: db.inventory_number,
+    invoiceNumber: db.invoice_number,
+    nomeNaRede: db.nome_na_rede,
+    macAddressWIFI: db.mac_address_wifi,
+    macAddressCabo: db.mac_address_cabo,
+    purchaseDate: db.purchase_date,
+    warrantyEndDate: db.warranty_end_date,
+    creationDate: db.creation_date,
+    modifiedDate: db.modified_date,
 });
-
-const mapCollaboratorToDb = (col: Partial<Collaborator>): any => {
-    const db: any = { ...col };
-    // Mapear para snake_case para a BD
-    if (db.allowedModules) {
-        db.allowed_modules = db.allowedModules;
-        delete db.allowedModules;
-    }
+const mapEquipmentToDb = (eq: Partial<Equipment>): any => {
+    const db: any = { ...eq };
+    if ('brandId' in db) { db.brand_id = db.brandId; delete db.brandId; }
+    if ('typeId' in db) { db.type_id = db.typeId; delete db.typeId; }
+    if ('serialNumber' in db) { db.serial_number = db.serialNumber; delete db.serialNumber; }
+    if ('inventoryNumber' in db) { db.inventory_number = db.inventoryNumber; delete db.inventoryNumber; }
+    if ('invoiceNumber' in db) { db.invoice_number = db.invoiceNumber; delete db.invoiceNumber; }
+    if ('nomeNaRede' in db) { db.nome_na_rede = db.nomeNaRede; delete db.nomeNaRede; }
+    if ('macAddressWIFI' in db) { db.mac_address_wifi = db.macAddressWIFI; delete db.macAddressWIFI; }
+    if ('macAddressCabo' in db) { db.mac_address_cabo = db.macAddressCabo; delete db.macAddressCabo; }
+    if ('purchaseDate' in db) { db.purchase_date = db.purchaseDate; delete db.purchaseDate; }
+    if ('warrantyEndDate' in db) { db.warranty_end_date = db.warrantyEndDate; delete db.warrantyEndDate; }
+    if ('creationDate' in db) { db.creation_date = db.creationDate; delete db.creationDate; }
+    if ('modifiedDate' in db) { db.modified_date = db.modifiedDate; delete db.modifiedDate; }
     return db;
 };
 
-// --- Helpers de Mapeamento para Tickets ---
+// EquipmentType
+const mapEquipmentTypeFromDb = (db: any): EquipmentType => ({
+    ...db,
+    requiresNomeNaRede: db.requires_nome_na_rede,
+    requiresMacWIFI: db.requires_mac_wifi,
+    requiresMacCabo: db.requires_mac_cabo,
+    requiresInventoryNumber: db.requires_inventory_number,
+});
+const mapEquipmentTypeToDb = (et: Partial<EquipmentType>): any => {
+    const db: any = { ...et };
+    if ('requiresNomeNaRede' in db) { db.requires_nome_na_rede = db.requiresNomeNaRede; delete db.requiresNomeNaRede; }
+    if ('requiresMacWIFI' in db) { db.requires_mac_wifi = db.requiresMacWIFI; delete db.requiresMacWIFI; }
+    if ('requiresMacCabo' in db) { db.requires_mac_cabo = db.requiresMacCabo; delete db.requiresMacCabo; }
+    if ('requiresInventoryNumber' in db) { db.requires_inventory_number = db.requiresInventoryNumber; delete db.requiresInventoryNumber; }
+    return db;
+};
 
+// Entidade
+const mapEntidadeFromDb = (db: any): Entidade => ({
+    ...db,
+    instituicaoId: db.instituicao_id,
+    telefoneInterno: db.telefone_interno,
+});
+const mapEntidadeToDb = (ent: Partial<Entidade>): any => {
+    const db: any = { ...ent };
+    if ('instituicaoId' in db) { db.instituicao_id = db.instituicaoId; delete db.instituicaoId; }
+    if ('telefoneInterno' in db) { db.telefone_interno = db.telefoneInterno; delete db.telefoneInterno; }
+    return db;
+};
+
+// Instituicao
+const mapInstituicaoFromDb = (db: any): Instituicao => ({ ...db });
+const mapInstituicaoToDb = (inst: Partial<Instituicao>): any => ({ ...inst });
+
+// Collaborator
+const mapCollaboratorFromDb = (db: any): Collaborator => ({
+    ...db,
+    numeroMecanografico: db.numero_mecanografico,
+    fullName: db.full_name,
+    entidadeId: db.entidade_id,
+    telefoneInterno: db.telefone_interno,
+    canLogin: db.can_login,
+    receivesNotifications: db.receives_notifications,
+    photoUrl: db.photo_url,
+    dateOfBirth: db.date_of_birth,
+    allowedModules: db.allowed_modules || [],
+});
+const mapCollaboratorToDb = (col: Partial<Collaborator>): any => {
+    const db: any = { ...col };
+    if ('numeroMecanografico' in db) { db.numero_mecanografico = db.numeroMecanografico; delete db.numeroMecanografico; }
+    if ('fullName' in db) { db.full_name = db.fullName; delete db.fullName; }
+    if ('entidadeId' in db) { db.entidade_id = db.entidadeId; delete db.entidadeId; }
+    if ('telefoneInterno' in db) { db.telefone_interno = db.telefoneInterno; delete db.telefoneInterno; }
+    if ('canLogin' in db) { db.can_login = db.canLogin; delete db.canLogin; }
+    if ('receivesNotifications' in db) { db.receives_notifications = db.receivesNotifications; delete db.receivesNotifications; }
+    if ('photoUrl' in db) { db.photo_url = db.photoUrl; delete db.photoUrl; }
+    if ('dateOfBirth' in db) { db.date_of_birth = db.dateOfBirth; delete db.dateOfBirth; }
+    if ('allowedModules' in db) { db.allowed_modules = db.allowedModules; delete db.allowedModules; }
+    return db;
+};
+
+// Assignment
+const mapAssignmentFromDb = (db: any): Assignment => ({
+    ...db,
+    equipmentId: db.equipment_id,
+    entidadeId: db.entidade_id,
+    collaboratorId: db.collaborator_id,
+    assignedDate: db.assigned_date,
+    returnDate: db.return_date,
+});
+const mapAssignmentToDb = (assign: Partial<Assignment>): any => {
+    const db: any = { ...assign };
+    if ('equipmentId' in db) { db.equipment_id = db.equipmentId; delete db.equipmentId; }
+    if ('entidadeId' in db) { db.entidade_id = db.entidadeId; delete db.entidadeId; }
+    if ('collaboratorId' in db) { db.collaborator_id = db.collaboratorId; delete db.collaboratorId; }
+    if ('assignedDate' in db) { db.assigned_date = db.assignedDate; delete db.assignedDate; }
+    if ('returnDate' in db) { db.return_date = db.returnDate; delete db.returnDate; }
+    return db;
+};
+
+// Ticket
 const mapTicketFromDb = (dbTicket: any): Ticket => ({
     ...dbTicket,
-    title: dbTicket.title,
-    entidadeId: dbTicket.entidadeId || dbTicket.entidade_id,
-    collaboratorId: dbTicket.collaboratorId || dbTicket.collaborator_id,
-    technicianId: dbTicket.technicianId || dbTicket.technician_id,
-    equipmentId: dbTicket.equipmentId || dbTicket.equipment_id,
-    requestDate: dbTicket.requestDate || dbTicket.request_date,
-    finishDate: dbTicket.finishDate || dbTicket.finish_date,
-    team_id: dbTicket.team_id || dbTicket.teamId,
+    entidadeId: dbTicket.entidade_id,
+    collaboratorId: dbTicket.collaborator_id,
+    technicianId: dbTicket.technician_id,
+    equipmentId: dbTicket.equipment_id,
+    requestDate: dbTicket.request_date,
+    finishDate: dbTicket.finish_date,
+    team_id: dbTicket.team_id, 
 });
-
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
-    // Envia camelCase para manter compatibilidade com o esquema original
-    return ticket;
+    const db: any = { ...ticket };
+    if ('entidadeId' in db) { db.entidade_id = db.entidadeId; delete db.entidadeId; }
+    if ('collaboratorId' in db) { db.collaborator_id = db.collaboratorId; delete db.collaboratorId; }
+    if ('technicianId' in db) { db.technician_id = db.technicianId; delete db.technicianId; }
+    if ('equipmentId' in db) { db.equipment_id = db.equipmentId; delete db.equipmentId; }
+    if ('requestDate' in db) { db.request_date = db.requestDate; delete db.requestDate; }
+    if ('finishDate' in db) { db.finish_date = db.finishDate; delete db.finishDate; }
+    return db;
 };
 
-// --- Helpers de Mapeamento para TicketActivity ---
-
-const mapTicketActivityFromDb = (dbActivity: any): TicketActivity => ({
-    ...dbActivity,
-    ticketId: dbActivity.ticketId || dbActivity.ticket_id,
-    technicianId: dbActivity.technicianId || dbActivity.technician_id,
-    equipmentId: dbActivity.equipmentId || dbActivity.equipment_id,
+// TicketActivity
+const mapTicketActivityFromDb = (db: any): TicketActivity => ({
+    ...db,
+    ticketId: db.ticket_id,
+    technicianId: db.technician_id,
+    equipmentId: db.equipment_id,
 });
-
-const mapTicketActivityToDb = (activity: Partial<TicketActivity>): any => {
-    // Envia camelCase
-    return activity;
+const mapTicketActivityToDb = (act: Partial<TicketActivity>): any => {
+    const db: any = { ...act };
+    if ('ticketId' in db) { db.ticket_id = db.ticketId; delete db.ticketId; }
+    if ('technicianId' in db) { db.technician_id = db.technicianId; delete db.technicianId; }
+    if ('equipmentId' in db) { db.equipment_id = db.equipmentId; delete db.equipmentId; }
+    return db;
 };
 
-// --- Helpers de Mapeamento para SoftwareLicense ---
-
+// License
 const mapLicenseFromDb = (db: any): SoftwareLicense => ({
     ...db,
-    productName: db.productName || db.product_name,
-    licenseKey: db.licenseKey || db.license_key,
-    totalSeats: db.totalSeats || db.total_seats,
-    purchaseDate: db.purchaseDate || db.purchase_date,
-    expiryDate: db.expiryDate || db.expiry_date,
-    purchaseEmail: db.purchaseEmail || db.purchase_email,
-    invoiceNumber: db.invoiceNumber || db.invoice_number,
-    status: db.status,
+    productName: db.product_name,
+    licenseKey: db.license_key,
+    totalSeats: db.total_seats,
+    purchaseDate: db.purchase_date,
+    expiryDate: db.expiry_date,
+    purchaseEmail: db.purchase_email,
+    invoiceNumber: db.invoice_number,
 });
-
-const mapLicenseToDb = (app: Partial<SoftwareLicense>): any => {
-    // Mapeamento para snake_case para corresponder à base de dados atualizada
-    const db: any = { ...app };
-
+const mapLicenseToDb = (lic: Partial<SoftwareLicense>): any => {
+    const db: any = { ...lic };
     if ('productName' in db) { db.product_name = db.productName; delete db.productName; }
     if ('licenseKey' in db) { db.license_key = db.licenseKey; delete db.licenseKey; }
     if ('totalSeats' in db) { db.total_seats = db.totalSeats; delete db.totalSeats; }
@@ -127,111 +213,176 @@ const mapLicenseToDb = (app: Partial<SoftwareLicense>): any => {
     if ('expiryDate' in db) { db.expiry_date = db.expiryDate; delete db.expiryDate; }
     if ('purchaseEmail' in db) { db.purchase_email = db.purchaseEmail; delete db.purchaseEmail; }
     if ('invoiceNumber' in db) { db.invoice_number = db.invoiceNumber; delete db.invoiceNumber; }
-    
     return db;
 };
 
-// --- Helpers de Mapeamento para LicenseAssignment ---
-
+// License Assignment
 const mapLicenseAssignmentFromDb = (db: any): LicenseAssignment => ({
     id: db.id,
-    softwareLicenseId: db.softwareLicenseId || db.software_license_id,
-    equipmentId: db.equipmentId || db.equipment_id,
-    assignedDate: db.assignedDate || db.assigned_date,
+    softwareLicenseId: db.software_license_id,
+    equipmentId: db.equipment_id,
+    assignedDate: db.assigned_date,
 });
 
+// Collaborator History
+const mapCollaboratorHistoryFromDb = (db: any): CollaboratorHistory => ({
+    ...db,
+    collaboratorId: db.collaborator_id,
+    entidadeId: db.entidade_id,
+    startDate: db.start_date,
+    endDate: db.end_date,
+});
+const mapCollaboratorHistoryToDb = (hist: Partial<CollaboratorHistory>): any => {
+    const db: any = { ...hist };
+    if ('collaboratorId' in db) { db.collaborator_id = db.collaboratorId; delete db.collaboratorId; }
+    if ('entidadeId' in db) { db.entidade_id = db.entidadeId; delete db.entidadeId; }
+    if ('startDate' in db) { db.start_date = db.startDate; delete db.startDate; }
+    if ('endDate' in db) { db.end_date = db.endDate; delete db.endDate; }
+    return db;
+};
 
-// --- Funções de Serviço Específicas ---
+// Message
+const mapMessageFromDb = (db: any): Message => ({
+    ...db,
+    senderId: db.sender_id,
+    receiverId: db.receiver_id,
+});
+const mapMessageToDb = (msg: Partial<Message>): any => {
+    const db: any = { ...msg };
+    if ('senderId' in db) { db.sender_id = db.senderId; delete db.senderId; }
+    if ('receiverId' in db) { db.receiver_id = db.receiverId; delete db.receiverId; }
+    return db;
+};
+
+
+// --- SERVIÇOS ---
 
 export const fetchAllData = async () => {
     const [
-        equipment, instituicoes, entidades, collaboratorsRaw, equipmentTypes, brands,
-        assignments, ticketsRaw, ticketActivitiesRaw, collaboratorHistory, messages,
+        equipmentRaw, instituicoesRaw, entidadesRaw, collaboratorsRaw, equipmentTypesRaw, brands,
+        assignmentsRaw, ticketsRaw, ticketActivitiesRaw, collaboratorHistoryRaw, messagesRaw,
         softwareLicensesRaw, licenseAssignmentsRaw, teams, teamMembers
     ] = await Promise.all([
-        fetchData<Equipment>('equipment'),
-        fetchData<Instituicao>('instituicao'),
-        fetchData<Entidade>('entidade'),
-        fetchData<any>('collaborator'),
-        fetchData<EquipmentType>('equipment_type'),
-        fetchData<Brand>('brand'),
-        fetchData<Assignment>('assignment'),
-        fetchData<any>('ticket'),
-        fetchData<any>('ticket_activity'),
-        fetchData<CollaboratorHistory>('collaborator_history'),
-        fetchData<Message>('message'),
-        fetchData<any>('software_license'),
-        fetchData<any>('license_assignment'),
-        fetchData<Team>('teams'),
-        fetchData<TeamMember>('team_members'),
+        fetchDataInternal('equipment'),
+        fetchDataInternal('instituicao'),
+        fetchDataInternal('entidade'),
+        fetchDataInternal('collaborator'),
+        fetchDataInternal('equipment_type'),
+        fetchDataInternal('brand'),
+        fetchDataInternal('assignment'),
+        fetchDataInternal('ticket'),
+        fetchDataInternal('ticket_activity'),
+        fetchDataInternal('collaborator_history'),
+        fetchDataInternal('message'),
+        fetchDataInternal('software_license'),
+        fetchDataInternal('license_assignment'),
+        fetchDataInternal('teams'),
+        fetchDataInternal('team_members'),
     ]);
 
-    const collaborators = collaboratorsRaw.map(mapCollaboratorFromDb);
-    const tickets = ticketsRaw.map(mapTicketFromDb);
-    const ticketActivities = ticketActivitiesRaw.map(mapTicketActivityFromDb);
-    const softwareLicenses = softwareLicensesRaw.map(mapLicenseFromDb);
-    const licenseAssignments = licenseAssignmentsRaw.map(mapLicenseAssignmentFromDb);
-
     return {
-        equipment, instituicoes, entidades, collaborators, equipmentTypes, brands,
-        assignments, tickets, ticketActivities, collaboratorHistory, messages,
-        softwareLicenses, licenseAssignments, teams, teamMembers
+        equipment: equipmentRaw.map(mapEquipmentFromDb),
+        instituicoes: instituicoesRaw.map(mapInstituicaoFromDb),
+        entidades: entidadesRaw.map(mapEntidadeFromDb),
+        collaborators: collaboratorsRaw.map(mapCollaboratorFromDb),
+        equipmentTypes: equipmentTypesRaw.map(mapEquipmentTypeFromDb),
+        brands: brands, // Brands is simple (id, name), no mapping needed
+        assignments: assignmentsRaw.map(mapAssignmentFromDb),
+        tickets: ticketsRaw.map(mapTicketFromDb),
+        ticketActivities: ticketActivitiesRaw.map(mapTicketActivityFromDb),
+        collaboratorHistory: collaboratorHistoryRaw.map(mapCollaboratorHistoryFromDb),
+        messages: messagesRaw.map(mapMessageFromDb),
+        softwareLicenses: softwareLicensesRaw.map(mapLicenseFromDb),
+        licenseAssignments: licenseAssignmentsRaw.map(mapLicenseAssignmentFromDb),
+        teams, // Teams is simple (id, name, description)
+        teamMembers // TeamMembers is simple (team_id, collaborator_id)
     };
 };
 
+export const fetchBrands = async (): Promise<Brand[]> => {
+    const data = await fetchDataInternal('brand');
+    return data as Brand[];
+};
+
+export const fetchEquipmentTypes = async (): Promise<EquipmentType[]> => {
+    const data = await fetchDataInternal('equipment_type');
+    return data.map(mapEquipmentTypeFromDb);
+};
+
+
 // Equipment
-export const addEquipment = (record: Equipment) => insertData('equipment', record);
+export const addEquipment = async (record: Equipment) => {
+    const dbRecord = mapEquipmentToDb(record);
+    const res = await insertData('equipment', dbRecord);
+    return mapEquipmentFromDb(res);
+};
 export const addMultipleEquipment = (records: any[]) => {
     const supabase = getSupabase();
-    return supabase.from('equipment').insert(records).select();
+    const dbRecords = records.map(mapEquipmentToDb);
+    return supabase.from('equipment').insert(dbRecords).select();
 };
-export const updateEquipment = (id: string, updates: Partial<Equipment>) => updateData('equipment', id, updates);
+export const updateEquipment = async (id: string, updates: Partial<Equipment>) => {
+    const dbUpdates = mapEquipmentToDb(updates);
+    const res = await updateData('equipment', id, dbUpdates);
+    return mapEquipmentFromDb(res);
+};
 export const deleteEquipment = (id: string) => deleteData('equipment', id);
 
 // Instituicao
-export const addInstituicao = (record: Instituicao) => insertData('instituicao', record);
-export const updateInstituicao = (id: string, updates: Partial<Instituicao>) => updateData('instituicao', id, updates);
+export const addInstituicao = async (record: Instituicao) => {
+    const dbRecord = mapInstituicaoToDb(record);
+    const res = await insertData('instituicao', dbRecord);
+    return mapInstituicaoFromDb(res);
+};
+export const updateInstituicao = async (id: string, updates: Partial<Instituicao>) => {
+    const dbUpdates = mapInstituicaoToDb(updates);
+    const res = await updateData('instituicao', id, dbUpdates);
+    return mapInstituicaoFromDb(res);
+};
 export const deleteInstituicao = (id: string) => deleteData('instituicao', id);
 export const addMultipleInstituicoes = (records: any[]) => {
     const supabase = getSupabase();
-    return supabase.from('instituicao').insert(records).select();
+    const dbRecords = records.map(mapInstituicaoToDb);
+    return supabase.from('instituicao').insert(dbRecords).select();
 };
 
 // Entidade
-export const addEntidade = (record: Entidade) => insertData('entidade', record);
-export const updateEntidade = (id: string, updates: Partial<Entidade>) => updateData('entidade', id, updates);
+export const addEntidade = async (record: Entidade) => {
+    const dbRecord = mapEntidadeToDb(record);
+    const res = await insertData('entidade', dbRecord);
+    return mapEntidadeFromDb(res);
+};
+export const updateEntidade = async (id: string, updates: Partial<Entidade>) => {
+    const dbUpdates = mapEntidadeToDb(updates);
+    const res = await updateData('entidade', id, dbUpdates);
+    return mapEntidadeFromDb(res);
+};
 export const deleteEntidade = (id: string) => deleteData('entidade', id);
 export const addMultipleEntidades = (records: any[]) => {
     const supabase = getSupabase();
-    return supabase.from('entidade').insert(records).select();
+    const dbRecords = records.map(mapEntidadeToDb);
+    return supabase.from('entidade').insert(dbRecords).select();
 };
 
 
 // Collaborator
 export const addCollaborator = async (record: Collaborator): Promise<Collaborator> => {
     const dbRecord = mapCollaboratorToDb(record);
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('collaborator').insert(dbRecord).select();
-    handleSupabaseError(error, `a inserir em collaborator`);
-    if (!data) throw new Error("A inserção não retornou dados.");
-    return mapCollaboratorFromDb(data[0]);
+    const res = await insertData('collaborator', dbRecord);
+    return mapCollaboratorFromDb(res);
 };
 
 export const updateCollaborator = async (id: string, updates: Partial<Omit<Collaborator, 'id'>>): Promise<Collaborator> => {
     const dbUpdates = mapCollaboratorToDb(updates as Partial<Collaborator>);
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('collaborator').update(dbUpdates).eq('id', id).select();
-    handleSupabaseError(error, `a atualizar em collaborator`);
-    if (!data) throw new Error("A atualização não retornou dados.");
-    return mapCollaboratorFromDb(data[0]);
+    const res = await updateData('collaborator', id, dbUpdates);
+    return mapCollaboratorFromDb(res);
 };
 
 export const deleteCollaborator = (id: string) => deleteData('collaborator', id);
 export const addMultipleCollaborators = (records: any[]) => {
     const supabase = getSupabase();
-    // Note: For bulk insert, we might need to map all records. 
-    // Assuming simple bulk import for now which might not use allowedModules.
-    return supabase.from('collaborator').insert(records).select();
+    const dbRecords = records.map(mapCollaboratorToDb);
+    return supabase.from('collaborator').insert(dbRecords).select();
 };
 export const uploadCollaboratorPhoto = async (userId: string, file: File): Promise<string | null> => {
     const supabase = getSupabase();
@@ -251,119 +402,122 @@ export const uploadCollaboratorPhoto = async (userId: string, file: File): Promi
 
 
 // Assignment
-export const addAssignment = (record: Assignment) => insertData('assignment', record);
+export const addAssignment = async (record: Assignment) => {
+    const dbRecord = mapAssignmentToDb(record);
+    const res = await insertData('assignment', dbRecord);
+    return mapAssignmentFromDb(res);
+};
 export const addMultipleAssignments = (records: any[]) => {
     const supabase = getSupabase();
-    return supabase.from('assignment').insert(records).select();
+    const dbRecords = records.map(mapAssignmentToDb);
+    return supabase.from('assignment').insert(dbRecords).select();
 };
-export const updateAssignment = (id: string, updates: Partial<Assignment>) => updateData('assignment', id, updates);
+export const updateAssignment = async (id: string, updates: Partial<Assignment>) => {
+    const dbUpdates = mapAssignmentToDb(updates);
+    const res = await updateData('assignment', id, dbUpdates);
+    return mapAssignmentFromDb(res);
+};
 
 // EquipmentType
-export const addEquipmentType = (record: Omit<EquipmentType, 'id'>) => insertData<EquipmentType>('equipment_type', record);
-export const updateEquipmentType = (id: string, updates: Partial<EquipmentType>) => updateData('equipment_type', id, updates);
+export const addEquipmentType = async (record: Omit<EquipmentType, 'id'>) => {
+    const dbRecord = mapEquipmentTypeToDb(record);
+    const res = await insertData('equipment_type', dbRecord);
+    return mapEquipmentTypeFromDb(res);
+};
+export const updateEquipmentType = async (id: string, updates: Partial<EquipmentType>) => {
+    const dbUpdates = mapEquipmentTypeToDb(updates);
+    const res = await updateData('equipment_type', id, dbUpdates);
+    return mapEquipmentTypeFromDb(res);
+};
 export const deleteEquipmentType = (id: string) => deleteData('equipment_type', id);
 
 // Brand
-export const addBrand = (record: Omit<Brand, 'id'>) => insertData<Brand>('brand', record);
+export const addBrand = (record: Omit<Brand, 'id'>) => insertData('brand', record);
 export const updateBrand = (id: string, updates: Partial<Brand>) => updateData('brand', id, updates);
 export const deleteBrand = (id: string) => deleteData('brand', id);
 
 // Ticket
 export const addTicket = async (record: Ticket): Promise<Ticket> => {
     const dbRecord = mapTicketToDb(record);
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('ticket').insert(dbRecord).select();
-    handleSupabaseError(error, `a inserir em ticket`);
-    if (!data) throw new Error("A inserção não retornou dados.");
-    return mapTicketFromDb(data[0]);
+    const res = await insertData('ticket', dbRecord);
+    return mapTicketFromDb(res);
 };
 
 export const updateTicket = async (id: string, updates: Partial<Ticket>): Promise<Ticket> => {
     const dbUpdates = mapTicketToDb(updates);
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('ticket').update(dbUpdates).eq('id', id).select();
-    handleSupabaseError(error, `a atualizar em ticket`);
-    if (!data) throw new Error("A atualização não retornou dados.");
-    return mapTicketFromDb(data[0]);
+    const res = await updateData('ticket', id, dbUpdates);
+    return mapTicketFromDb(res);
 };
 
 // TicketActivity
 export const addTicketActivity = async (record: TicketActivity): Promise<TicketActivity> => {
     const dbRecord = mapTicketActivityToDb(record);
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('ticket_activity').insert(dbRecord).select();
-    handleSupabaseError(error, `a inserir em ticket_activity`);
-    if (!data) throw new Error("A inserção não retornou dados.");
-    return mapTicketActivityFromDb(data[0]);
+    const res = await insertData('ticket_activity', dbRecord);
+    return mapTicketActivityFromDb(res);
 };
 
 export const updateTicketActivity = async (id: string, updates: Partial<TicketActivity>): Promise<TicketActivity> => {
     const dbUpdates = mapTicketActivityToDb(updates);
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('ticket_activity').update(dbUpdates).eq('id', id).select();
-    handleSupabaseError(error, `a atualizar em ticket_activity`);
-    if (!data) throw new Error("A atualização não retornou dados.");
-    return mapTicketActivityFromDb(data[0]);
+    const res = await updateData('ticket_activity', id, dbUpdates);
+    return mapTicketActivityFromDb(res);
 };
 
 // CollaboratorHistory
-export const addCollaboratorHistory = (record: CollaboratorHistory) => insertData('collaborator_history', record);
-export const updateCollaboratorHistory = (id: string, updates: Partial<CollaboratorHistory>) => updateData('collaborator_history', id, updates);
+export const addCollaboratorHistory = async (record: CollaboratorHistory) => {
+    const dbRecord = mapCollaboratorHistoryToDb(record);
+    const res = await insertData('collaborator_history', dbRecord);
+    return mapCollaboratorHistoryFromDb(res);
+};
+export const updateCollaboratorHistory = async (id: string, updates: Partial<CollaboratorHistory>) => {
+    const dbUpdates = mapCollaboratorHistoryToDb(updates);
+    const res = await updateData('collaborator_history', id, dbUpdates);
+    return mapCollaboratorHistoryFromDb(res);
+};
 
 // Message
-export const addMessage = (record: Message) => insertData('message', record);
-export const updateMessage = (id: string, updates: Partial<Message>) => updateData('message', id, updates);
+export const addMessage = async (record: Message) => {
+    const dbRecord = mapMessageToDb(record);
+    const res = await insertData('message', dbRecord);
+    return mapMessageFromDb(res);
+};
+export const updateMessage = async (id: string, updates: Partial<Message>) => {
+    const dbUpdates = mapMessageToDb(updates);
+    const res = await updateData('message', id, dbUpdates);
+    return mapMessageFromDb(res);
+};
 export const markMessagesAsRead = (senderId: string, receiverId: string) => {
     const supabase = getSupabase();
     return supabase.from('message')
         .update({ read: true })
-        .eq('senderId', senderId)
-        .eq('receiverId', receiverId)
+        .eq('sender_id', senderId)
+        .eq('receiver_id', receiverId)
         .eq('read', false);
 };
 
 // SoftwareLicense
 export const addLicense = async (record: SoftwareLicense): Promise<SoftwareLicense> => {
     const dbRecord = mapLicenseToDb(record);
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('software_license').insert(dbRecord).select();
-    handleSupabaseError(error, `a inserir em software_license`);
-    if (!data) throw new Error("A inserção não retornou dados.");
-    return mapLicenseFromDb(data[0]);
+    const res = await insertData('software_license', dbRecord);
+    return mapLicenseFromDb(res);
 };
 
 export const updateLicense = async (id: string, updates: Partial<SoftwareLicense>): Promise<SoftwareLicense> => {
     const dbUpdates = mapLicenseToDb(updates);
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('software_license').update(dbUpdates).eq('id', id).select();
-    handleSupabaseError(error, `a atualizar em software_license`);
-    if (!data) throw new Error("A atualização não retornou dados.");
-    return mapLicenseFromDb(data[0]);
+    const res = await updateData('software_license', id, dbUpdates);
+    return mapLicenseFromDb(res);
 };
 export const deleteLicense = (id: string) => deleteData('software_license', id);
 
 // LicenseAssignment
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
+    
+    // Use correct snake_case columns
+    const colEquipmentId = 'equipment_id';
+    const colLicenseId = 'software_license_id';
+    const colAssignedDate = 'assigned_date';
 
-    // 1. Determine columns. Try standard snake_case first by checking a dummy select.
-    // We attempt to select the 'equipment_id' column from one row. 
-    // If this throws an error, we know snake_case is not being used.
-    let colEquipmentId = 'equipment_id';
-    let colLicenseId = 'software_license_id';
-    let colAssignedDate = 'assigned_date';
-
-    const { error: checkError } = await supabase.from('license_assignment').select('equipment_id').limit(1);
-
-    if (checkError) {
-        // If snake_case failed, assume camelCase (legacy/user created)
-        console.warn("Detected potential schema mismatch (snake_case failed). Falling back to camelCase for license_assignment columns.");
-        colEquipmentId = 'equipmentId';
-        colLicenseId = 'softwareLicenseId';
-        colAssignedDate = 'assignedDate';
-    }
-
-    // 2. Get current assignments for this equipment
+    // Get current assignments
     const { data: currentAssignments, error: fetchError } = await supabase
         .from('license_assignment')
         .select(`id, ${colLicenseId}`)
@@ -374,11 +528,9 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     const currentLicenseIds = new Set(currentAssignments?.map((a: any) => a[colLicenseId]));
     const newLicenseIds = new Set(licenseIds);
 
-    // 3. Determine which to add and which to remove
     const toAdd = licenseIds.filter(id => !currentLicenseIds.has(id));
     const toRemove = currentAssignments?.filter((a: any) => !newLicenseIds.has(a[colLicenseId])).map((a: any) => a.id) || [];
 
-    // 4. Perform deletions
     if (toRemove.length > 0) {
         const { error: deleteError } = await supabase
             .from('license_assignment')
@@ -387,17 +539,13 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         handleSupabaseError(deleteError, 'a apagar atribuições de licença');
     }
 
-    // 5. Perform insertions
     if (toAdd.length > 0) {
-        // Prepare records with dynamic keys
         const newRecords = toAdd.map(licenseId => ({
             [colEquipmentId]: equipmentId,
             [colLicenseId]: licenseId,
             [colAssignedDate]: new Date().toISOString().split('T')[0],
-            id: crypto.randomUUID(),
         }));
 
-        // Try insert
         const { error: insertError } = await supabase
             .from('license_assignment')
             .insert(newRecords);
@@ -415,11 +563,9 @@ export const deleteTeam = (id: string) => deleteData('teams', id);
 export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
     const supabase = getSupabase();
 
-    // 1. Delete all existing members for the team
     const { error: deleteError } = await supabase.from('team_members').delete().eq('team_id', teamId);
     handleSupabaseError(deleteError, 'a remover membros antigos da equipa');
 
-    // 2. Insert new members if any
     if (memberIds.length > 0) {
         const newMembers = memberIds.map(collaborator_id => ({
             team_id: teamId,
