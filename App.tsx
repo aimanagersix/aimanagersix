@@ -796,6 +796,7 @@ const AppContent = () => {
                             collaborators={collaborators}
                             assignments={assignments}
                             tickets={tickets}
+                            collaboratorHistory={collaboratorHistory}
                             onEdit={(ent) => { setEditingEntidade(ent); setIsAddEntidadeModalOpen(true); }}
                             onDelete={handleDeleteEntidade}
                             onToggleStatus={handleToggleEntidadeStatus}

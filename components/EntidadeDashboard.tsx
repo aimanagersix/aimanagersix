@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Entidade, Instituicao, Collaborator, EntidadeStatus } from '../types';
+import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory } from '../types';
 import { EditIcon, DeleteIcon, SearchIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -8,6 +9,9 @@ interface EntidadeDashboardProps {
   escolasDepartamentos: Entidade[];
   instituicoes: Instituicao[];
   collaborators: Collaborator[];
+  assignments: Assignment[];
+  tickets: Ticket[];
+  collaboratorHistory: CollaboratorHistory[];
   onEdit?: (entidade: Entidade) => void;
   onDelete?: (id: string) => void;
   onToggleStatus?: (id: string) => void;
@@ -24,7 +28,7 @@ const getStatusClass = (status: EntidadeStatus) => {
     }
 };
 
-const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, onEdit, onDelete, onToggleStatus }) => {
+const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ instituicaoId: '' });
@@ -39,6 +43,23 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
             return acc;
         }, {} as Record<string, number>);
     }, [collaborators]);
+    
+    const hasDependencies = useMemo(() => {
+        const deps = new Set<string>();
+        // Check all assignments (history included)
+        assignments.forEach(a => {
+            if (a.entidadeId) deps.add(a.entidadeId);
+        });
+        // Check tickets
+        tickets.forEach(t => {
+             if (t.entidadeId) deps.add(t.entidadeId);
+        });
+        // Check collaborator history
+        collaboratorHistory.forEach(ch => {
+            if (ch.entidadeId) deps.add(ch.entidadeId);
+        });
+        return deps;
+    }, [assignments, tickets, collaboratorHistory]);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -133,7 +154,15 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
             </tr>
           </thead>
           <tbody>
-            {paginatedEntidades.length > 0 ? paginatedEntidades.map((entidade) => (
+            {paginatedEntidades.length > 0 ? paginatedEntidades.map((entidade) => {
+                const collabCount = collaboratorsByEntidade[entidade.id] || 0;
+                const isDeleteDisabled = collabCount > 0 || hasDependencies.has(entidade.id);
+                
+                let disabledReason = "";
+                if (collabCount > 0) disabledReason = "Existem colaboradores associados";
+                else if (hasDependencies.has(entidade.id)) disabledReason = "Existem registos associados (equipamentos, tickets ou histórico)";
+
+                return (
               <tr key={entidade.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                   <div>{entidade.name}</div>
@@ -146,7 +175,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                         {entidade.status}
                     </span>
                 </td>
-                <td className="px-6 py-4 text-center">{collaboratorsByEntidade[entidade.id] || 0}</td>
+                <td className="px-6 py-4 text-center">{collabCount}</td>
                 <td className="px-6 py-4 text-center">
                     <div className="flex justify-center items-center gap-4">
                         {onToggleStatus && (
@@ -164,14 +193,23 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                             </button>
                         )}
                         {onDelete && (
-                            <button onClick={() => onDelete(entidade.id)} className="text-red-400 hover:text-red-300" aria-label={`Delete ${entidade.name}`}>
+                             <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if (!isDeleteDisabled) onDelete(entidade.id); 
+                                }} 
+                                className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                disabled={isDeleteDisabled}
+                                title={isDeleteDisabled ? `Impossível excluir: ${disabledReason}` : `Excluir ${entidade.name}`}
+                                aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${entidade.name}`}
+                            >
                                 <DeleteIcon />
                             </button>
                         )}
                     </div>
                 </td>
               </tr>
-            )) : (
+            )}) : (
                 <tr>
                     <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma entidade encontrada com os filtros atuais.</td>
                 </tr>
