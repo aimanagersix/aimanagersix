@@ -903,8 +903,8 @@ export const App = () => {
                     brands={brands}
                     equipmentTypes={equipmentTypes}
                     equipmentToEdit={editingEquipment}
-                    onSaveBrand={async (b) => { await dataService.addBrand(b as Brand); const res = await dataService.fetchData<Brand>('brand'); setBrands(res); return res.find((x: any) => x.name === b.name)!; }}
-                    onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t as EquipmentType); const res = await dataService.fetchData<EquipmentType>('equipment_type'); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }}
+                    onSaveBrand={async (b) => { await dataService.addBrand(b); const res = await dataService.fetchData<Brand>('brand'); setBrands(res); return res.find((x: any) => x.name === b.name)!; }}
+                    onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t); const res = await dataService.fetchData<EquipmentType>('equipment_type'); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }}
                     onOpenKitModal={(initialData) => { setIsAddEquipmentModalOpen(false); setKitModalInitialData(initialData); setIsKitModalOpen(true); }}
                 />
             )}
@@ -915,7 +915,7 @@ export const App = () => {
                     brands={brands}
                     equipmentTypes={equipmentTypes}
                     initialData={kitModalInitialData}
-                    onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t as EquipmentType); const res = await dataService.fetchData<EquipmentType>('equipment_type'); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }}
+                    onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t); const res = await dataService.fetchData<EquipmentType>('equipment_type'); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }}
                     equipment={equipment}
                 />
             )}
