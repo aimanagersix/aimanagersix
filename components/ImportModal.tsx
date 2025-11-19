@@ -1,10 +1,11 @@
+
 import React, { useState, useCallback } from 'react';
 import Modal from './common/Modal';
 import { SpinnerIcon } from './common/Icons';
 import * as XLSX from 'xlsx';
 
 export interface ImportConfig {
-    dataType: 'instituicoes' | 'entidades' | 'collaborators';
+    dataType: 'instituicoes' | 'entidades' | 'collaborators' | 'equipment';
     title: string;
     columnMap: Record<string, string>;
     templateFileName: string;
