@@ -13,7 +13,7 @@ import TicketDashboard from './components/TicketDashboard';
 import TeamDashboard from './components/TeamDashboard';
 import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import BrandDashboard from './components/BrandDashboard';
-import { ImportConfig } from './components/ImportModal';
+import ImportModal, { ImportConfig } from './components/ImportModal';
 import ManageAssignedLicensesModal from './components/ManageAssignedLicensesModal';
 import AddCollaboratorModal from './components/AddCollaboratorModal';
 import AddTicketModal from './components/AddTicketModal';
@@ -42,7 +42,7 @@ import {
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
     Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus
 } from './types';
-import { PlusIcon } from './components/common/Icons';
+import { PlusIcon, FaFileImport } from './components/common/Icons';
 
 export const App = () => {
     // Auth & Config State
@@ -69,6 +69,8 @@ export const App = () => {
     const [collaboratorHistory, setCollaboratorHistory] = useState<CollaboratorHistory[]>([]);
 
     // --- Modal States ---
+    const [importModalConfig, setImportModalConfig] = useState<ImportConfig | null>(null);
+
     // Equipment
     const [isAddEquipmentModalOpen, setIsAddEquipmentModalOpen] = useState(false);
     const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
@@ -188,30 +190,157 @@ export const App = () => {
     const handleImport = async (dataType: ImportConfig['dataType'], data: any[]) => {
         try {
             let count = 0;
-            if (dataType === 'collaborators') {
-                const { data: inserted } = await dataService.addMultipleCollaborators(data as any);
-                count = inserted ? inserted.length : 0;
-                if (inserted) {
-                    setCollaborators(prev => [...prev, ...(inserted as any[] as Collaborator[])]);
+            
+            if (dataType === 'equipment') {
+                const resolvedData = [];
+                const currentBrands = [...brands];
+                const currentTypes = [...equipmentTypes];
+                let brandsAdded = false;
+                let typesAdded = false;
+
+                for (const row of data) {
+                    let brandId = currentBrands.find(b => b.name.toLowerCase() === row.brandName?.trim().toLowerCase())?.id;
+                    if (!brandId && row.brandName) {
+                        // Create Brand if it doesn't exist
+                        const newBrand = await dataService.addBrand({ name: row.brandName.trim() });
+                        currentBrands.push(newBrand);
+                        brandId = newBrand.id;
+                        brandsAdded = true;
+                    }
+
+                    let typeId = currentTypes.find(t => t.name.toLowerCase() === row.typeName?.trim().toLowerCase())?.id;
+                    if (!typeId && row.typeName) {
+                        // Create Type if it doesn't exist
+                        const newType = await dataService.addEquipmentType({ name: row.typeName.trim() });
+                        currentTypes.push(newType);
+                        typeId = newType.id;
+                        typesAdded = true;
+                    }
+
+                    if (brandId && typeId) {
+                        resolvedData.push({
+                            description: row.description || `${row.brandName} ${row.typeName}`,
+                            serialNumber: row.serialNumber,
+                            inventoryNumber: row.inventoryNumber,
+                            purchaseDate: row.purchaseDate || new Date().toISOString().split('T')[0],
+                            brandId: brandId,
+                            typeId: typeId,
+                            status: EquipmentStatus.Stock,
+                            nomeNaRede: row.nomeNaRede,
+                        });
+                    }
                 }
+
+                if (brandsAdded) setBrands(currentBrands);
+                if (typesAdded) setEquipmentTypes(currentTypes);
+
+                if (resolvedData.length > 0) {
+                    const { data: inserted } = await dataService.addMultipleEquipment(resolvedData);
+                    count = inserted ? inserted.length : 0;
+                     if (inserted) {
+                        setEquipment(prev => [...prev, ...(inserted as any[] as Equipment[])]);
+                    }
+                }
+
+            } else if (dataType === 'collaborators') {
+                const resolvedData = [];
+                for (const row of data) {
+                    // Try to resolve Entidade ID from name
+                    const entidadeId = entidades.find(e => e.name.toLowerCase() === row.entidadeName?.trim().toLowerCase())?.id;
+                    
+                    if (entidadeId) {
+                        resolvedData.push({
+                            fullName: row.fullName,
+                            email: row.email,
+                            numeroMecanografico: String(row.numeroMecanografico),
+                            entidadeId: entidadeId,
+                            canLogin: false,
+                            receivesNotifications: false,
+                            role: 'Utilizador',
+                            status: 'Ativo',
+                        });
+                    }
+                }
+                if (resolvedData.length > 0) {
+                    const { data: inserted } = await dataService.addMultipleCollaborators(resolvedData);
+                    count = inserted ? inserted.length : 0;
+                     if (inserted) {
+                        setCollaborators(prev => [...prev, ...(inserted as any[] as Collaborator[])]);
+                    }
+                }
+
+            } else if (dataType === 'entidades') {
+                 const resolvedData = [];
+                 for (const row of data) {
+                    const instituicaoId = instituicoes.find(i => i.name.toLowerCase() === row.instituicaoName?.trim().toLowerCase())?.id;
+                    if (instituicaoId) {
+                        resolvedData.push({
+                            name: row.name,
+                            codigo: row.codigo,
+                            instituicaoId: instituicaoId,
+                            email: row.email || '',
+                            description: '',
+                            status: 'Ativo'
+                        });
+                    }
+                 }
+                 if (resolvedData.length > 0) {
+                    const { data: inserted } = await dataService.addMultipleEntidades(resolvedData);
+                    count = inserted ? inserted.length : 0;
+                     if (inserted) {
+                        setEntidades(prev => [...prev, ...(inserted as any[] as Entidade[])]);
+                    }
+                 }
+
             } else if (dataType === 'instituicoes') {
                  const { data: inserted } = await dataService.addMultipleInstituicoes(data as any);
                  count = inserted ? inserted.length : 0;
                  if (inserted) {
                      setInstituicoes(prev => [...prev, ...(inserted as any[] as Instituicao[])]);
                  }
-            } else if (dataType === 'entidades') {
-                 const { data: inserted } = await dataService.addMultipleEntidades(data as any);
-                 count = inserted ? inserted.length : 0;
-                 if (inserted) {
-                     setEntidades(prev => [...prev, ...(inserted as any[] as Entidade[])]);
-                 }
             }
-            refreshData();
+
+            refreshData(); // Refresh everything to be safe
+            setImportModalConfig(null);
             return { success: true, message: `Importação concluída com sucesso! ${count} registos importados.` };
         } catch (error: any) {
+            console.error("Import error:", error);
             return { success: false, message: `Erro na importação: ${error.message}` };
         }
+    };
+
+    const openImportModal = (type: ImportConfig['dataType']) => {
+        let config: ImportConfig;
+        if (type === 'equipment') {
+             config = {
+                dataType: 'equipment',
+                title: 'Importar Equipamentos',
+                columnMap: { 'Marca': 'brandName', 'Tipo': 'typeName', 'Descrição': 'description', 'Nº Série': 'serialNumber', 'Nº Inventário': 'inventoryNumber', 'Data Compra': 'purchaseDate', 'Nome na Rede': 'nomeNaRede' },
+                templateFileName: 'template_equipamentos.xlsx'
+            };
+        } else if (type === 'collaborators') {
+            config = {
+                dataType: 'collaborators',
+                title: 'Importar Colaboradores',
+                columnMap: { 'Nome Completo': 'fullName', 'Email': 'email', 'Nº Mec.': 'numeroMecanografico', 'Entidade': 'entidadeName' },
+                templateFileName: 'template_colaboradores.xlsx'
+            };
+        } else if (type === 'entidades') {
+            config = {
+                dataType: 'entidades',
+                title: 'Importar Entidades',
+                columnMap: { 'Nome': 'name', 'Código': 'codigo', 'Instituição': 'instituicaoName', 'Email': 'email' },
+                templateFileName: 'template_entidades.xlsx'
+            };
+        } else {
+             config = {
+                dataType: 'instituicoes',
+                title: 'Importar Instituições',
+                columnMap: { 'Nome': 'name', 'Código': 'codigo', 'Email': 'email', 'Telefone': 'telefone' },
+                templateFileName: 'template_instituicoes.xlsx'
+            };
+        }
+        setImportModalConfig(config);
     };
 
     const handleLogin = async (email: string, pass: string) => {
@@ -565,6 +694,9 @@ export const App = () => {
                 {activeTab === 'equipment.inventory' && (
                     <div className="space-y-4">
                          <div className="flex justify-end gap-2">
+                            <button onClick={() => openImportModal('equipment')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
+                                <FaFileImport /> Importar Excel
+                            </button>
                             <button onClick={() => setIsKitModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500">
                                 <PlusIcon /> Criar Posto de Trabalho (Kit)
                             </button>
@@ -592,7 +724,10 @@ export const App = () => {
                 )}
                  {activeTab === 'collaborators' && (
                      <div className="space-y-4">
-                         <div className="flex justify-end">
+                         <div className="flex justify-end gap-2">
+                             <button onClick={() => openImportModal('collaborators')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
+                                <FaFileImport /> Importar Excel
+                             </button>
                              <button 
                                 onClick={() => { setEditingCollaborator(null); setIsAddCollaboratorModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
@@ -615,7 +750,10 @@ export const App = () => {
                  )}
                  {activeTab === 'organizacao.instituicoes' && (
                      <div className="space-y-4">
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
+                             <button onClick={() => openImportModal('instituicoes')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
+                                <FaFileImport /> Importar Excel
+                             </button>
                              <button 
                                 onClick={() => { setEditingInstituicao(null); setIsAddInstituicaoModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
@@ -632,7 +770,10 @@ export const App = () => {
                  )}
                  {activeTab === 'organizacao.entidades' && (
                      <div className="space-y-4">
-                         <div className="flex justify-end">
+                         <div className="flex justify-end gap-2">
+                             <button onClick={() => openImportModal('entidades')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
+                                <FaFileImport /> Importar Excel
+                             </button>
                              <button 
                                 onClick={() => { setEditingEntidade(null); setIsAddEntidadeModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
@@ -746,6 +887,14 @@ export const App = () => {
             </main>
 
             {/* Modals */}
+            {importModalConfig && (
+                <ImportModal
+                    config={importModalConfig}
+                    onClose={() => setImportModalConfig(null)}
+                    onImport={handleImport}
+                />
+            )}
+
             {/* Equipment Modals */}
             {isAddEquipmentModalOpen && (
                 <AddEquipmentModal
