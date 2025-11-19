@@ -409,7 +409,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                                 checked={isTargetAdmin || (formData.allowedModules || []).includes(module.key)}
                                                 onChange={() => !isTargetAdmin && handleModuleToggle(module.key)}
                                                 disabled={isTargetAdmin}
-                                                className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary ${isTargetAdmin ? 'cursor-not-allowed text-brand-primary' : ''}`}
+                                                className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary ${isTargetAdmin ? 'cursor-not-allowed opacity-100 text-brand-primary checked:bg-brand-primary' : ''}`}
                                             />
                                             <label 
                                                 htmlFor={`module-${module.key}`} 
