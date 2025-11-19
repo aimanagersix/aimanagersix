@@ -70,20 +70,25 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         setIsMobileMenuOpen(false);
     }
     
-    const [isMobileOrganizacaoOpen, setIsMobileOrganizacaoOpen] = useState(activeTab.startsWith('organizacao'));
-    const [isMobileInventarioOpen, setIsMobileInventarioOpen] = useState(activeTab.startsWith('equipment'));
+    // Logic to keep mobile menus open if a child is active
+    const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
+    const isOrganizationActive = activeTab.startsWith('organizacao') || activeTab === 'collaborators';
+
+    const [isMobileOrganizacaoOpen, setIsMobileOrganizacaoOpen] = useState(isOrganizationActive);
+    const [isMobileInventarioOpen, setIsMobileInventarioOpen] = useState(isInventoryActive);
 
     useEffect(() => {
-        if (activeTab.startsWith('organizacao')) {
+        if (isOrganizationActive) {
             setIsMobileOrganizacaoOpen(true);
         }
-        if (activeTab.startsWith('equipment')) {
+        if (isInventoryActive) {
             setIsMobileInventarioOpen(true);
         }
-    }, [activeTab]);
+    }, [activeTab, isInventoryActive, isOrganizationActive]);
 
-    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['organizacao.teams'];
-    const hasInventarioTabs = tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
+    // Define if the main menu item should be visible based on children availability
+    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'];
+    const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
 
 
   return (
@@ -103,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                  <div className="relative" ref={inventarioMenuRef}>
                     <button
                         onClick={() => setInventarioMenuOpen(prev => !prev)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab.startsWith('equipment') ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isInventoryActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                         aria-haspopup="true"
                         aria-expanded={isInventarioMenuOpen}
                     >
@@ -116,6 +121,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     {isInventarioMenuOpen && (
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
                             <div className="py-1">
+                                {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={tabConfig['equipment.inventory']} icon={<ClipboardListIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label={tabConfig['equipment.brands']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label={tabConfig['equipment.types']} icon={<FaShapes />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
@@ -129,7 +135,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 <div className="relative" ref={organizacaoMenuRef}>
                     <button
                         onClick={() => setOrganizacaoMenuOpen(prev => !prev)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab.startsWith('organizacao') ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isOrganizationActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                         aria-haspopup="true"
                         aria-expanded={isOrganizacaoMenuOpen}
                     >
@@ -144,6 +150,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             <div className="py-1">
                                 {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                             </div>
                         </div>
@@ -151,8 +158,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 </div>
               )}
 
-              {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} />}
-              {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} activeTab={activeTab} setActiveTab={handleTabChange} />}
               {tabConfig['tickets'] && <TabButton tab="tickets" label={tabConfig['tickets'].title} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={handleTabChange} />}
           </nav>
 
@@ -234,7 +239,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         <div>
                             <button
                                 onClick={() => setIsMobileInventarioOpen(prev => !prev)}
-                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${activeTab.startsWith('equipment') ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
+                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isInventoryActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
                                 aria-expanded={isMobileInventarioOpen}
                             >
                                 <div className="flex items-center gap-2">
@@ -247,6 +252,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             </button>
                             {isMobileInventarioOpen && (
                                 <div className="pl-4 mt-1 space-y-1">
+                                    {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
                                     {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={tabConfig['equipment.inventory']} icon={<ClipboardListIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
                                     {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label={tabConfig['equipment.brands']} icon={<FaTags />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
                                     {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label={tabConfig['equipment.types']} icon={<FaShapes />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
@@ -259,7 +265,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         <div>
                             <button
                                 onClick={() => setIsMobileOrganizacaoOpen(prev => !prev)}
-                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${activeTab.startsWith('organizacao') ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
+                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isOrganizationActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
                                 aria-expanded={isMobileOrganizacaoOpen}
                             >
                                 <div className="flex items-center gap-2">
@@ -274,14 +280,13 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                 <div className="pl-4 mt-1 space-y-1">
                                     {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
                                     {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
                                     {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
-                    {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
                     {tabConfig['tickets'] && <TabButton tab="tickets" label={tabConfig['tickets'].title} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
                 </div>
             </div>
