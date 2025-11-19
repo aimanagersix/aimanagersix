@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -43,7 +44,7 @@ import {
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
     Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus, UserRole
 } from './types';
-import { PlusIcon, FaFileImport, FaUserLock, FaExclamationCircle } from './components/common/Icons';
+import { PlusIcon, FaFileImport, FaUserLock, FaExclamationCircle, SpinnerIcon } from './components/common/Icons';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 const AppContent = () => {
@@ -54,6 +55,7 @@ const AppContent = () => {
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [activeTab, setActiveTab] = useState('overview');
     const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+    const [isLoadingData, setIsLoadingData] = useState(false);
     
     // Data State
     const [equipment, setEquipment] = useState<Equipment[]>([]);
@@ -253,6 +255,7 @@ const AppContent = () => {
 
     const refreshData = async () => {
         setDataLoadError(null);
+        setIsLoadingData(true);
          try {
             const data = await dataService.fetchAllData();
             setEquipment(data.equipment);
@@ -273,6 +276,8 @@ const AppContent = () => {
         } catch (error: any) {
             console.error("Error loading data", error);
             setDataLoadError(error.message || "Falha ao carregar dados.");
+        } finally {
+            setIsLoadingData(false);
         }
     };
 
@@ -683,6 +688,18 @@ const AppContent = () => {
                         Tentar Novamente
                     </button>
                  </div>
+            </div>
+        );
+    }
+
+    // Loading Screen
+    if (isLoadingData) {
+        return (
+            <div className="min-h-screen bg-background-dark flex items-center justify-center p-4">
+                <div className="text-center">
+                    <SpinnerIcon className="h-12 w-12 text-brand-primary mx-auto mb-4" />
+                    <h2 className="text-xl font-semibold text-white">A carregar o sistema...</h2>
+                </div>
             </div>
         );
     }

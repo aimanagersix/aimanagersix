@@ -2,10 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, AppModule } from '../types';
-import { FaMagic, FaEye, FaEyeSlash, UserIcon, CameraIcon, DeleteIcon, FaUserLock } from './common/Icons';
+import { FaMagic, FaEye, FaEyeSlash, UserIcon, CameraIcon, DeleteIcon, FaLock } from './common/Icons';
 import * as dataService from '../services/dataService';
-import { getSupabase } from '../services/supabaseClient';
-
 
 const isPortuguesePhoneNumber = (phone: string): boolean => {
     if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
@@ -409,14 +407,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                                 checked={isTargetAdmin || (formData.allowedModules || []).includes(module.key)}
                                                 onChange={() => !isTargetAdmin && handleModuleToggle(module.key)}
                                                 disabled={isTargetAdmin}
-                                                className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary ${isTargetAdmin ? 'cursor-not-allowed opacity-100 text-brand-primary checked:bg-brand-primary' : ''}`}
+                                                // Change transparency: When Admin, make it fully opaque but unchangeable
+                                                className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary ${
+                                                    isTargetAdmin 
+                                                    ? 'cursor-not-allowed opacity-100 text-brand-primary checked:bg-brand-primary' 
+                                                    : ''
+                                                }`}
                                             />
                                             <label 
                                                 htmlFor={`module-${module.key}`} 
                                                 className={`ml-2 text-sm flex items-center gap-2 ${isTargetAdmin ? 'text-white font-medium' : 'text-on-surface-dark-secondary'}`}
                                             >
                                                 {module.label}
-                                                {isTargetAdmin && <FaUserLock className="text-brand-secondary h-3 w-3" title="Incluído no Admin" />}
+                                                {isTargetAdmin && <FaLock className="text-brand-secondary h-3 w-3" title="Acesso garantido por perfil Admin" />}
                                             </label>
                                         </div>
                                     ))}
