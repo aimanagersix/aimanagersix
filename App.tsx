@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -46,7 +48,7 @@ import {
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
     Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus, UserRole
 } from './types';
-import { PlusIcon, FaFileImport } from './components/common/Icons';
+import { PlusIcon, FaFileImport, FaUserLock, FaExclamationCircle } from './components/common/Icons';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 const AppContent = () => {
@@ -56,6 +58,7 @@ const AppContent = () => {
     const [isConfigured, setIsConfigured] = useState(false);
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [activeTab, setActiveTab] = useState('overview');
+    const [dataLoadError, setDataLoadError] = useState<string | null>(null);
     
     // Data State
     const [equipment, setEquipment] = useState<Equipment[]>([]);
@@ -254,6 +257,7 @@ const AppContent = () => {
     }, []);
 
     const refreshData = async () => {
+        setDataLoadError(null);
          try {
             const data = await dataService.fetchAllData();
             setEquipment(data.equipment);
@@ -271,8 +275,9 @@ const AppContent = () => {
             setTeamMembers(data.teamMembers);
             setMessages(data.messages);
             setCollaboratorHistory(data.collaboratorHistory);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error loading data", error);
+            setDataLoadError(error.message || "Falha ao carregar dados.");
         }
     };
 
@@ -296,6 +301,9 @@ const AppContent = () => {
         if (session?.user?.email && collaborators.length > 0) {
             const user = collaborators.find(c => c.email === session.user.email);
             setCurrentUser(user || null);
+        } else if (session && collaborators.length === 0) {
+             // Ensure currentUser is cleared if collaborators are empty (e.g. fresh start)
+             setCurrentUser(null);
         }
     }, [session, collaborators]);
     
@@ -528,6 +536,55 @@ const AppContent = () => {
         setCurrentUser(null);
         setActiveTab('overview');
     };
+    
+    const createAdminProfile = async () => {
+        if (!session?.user?.email) return;
+        
+        try {
+            // 1. Ensure basic organization structure exists
+            let instId = instituicoes[0]?.id;
+            if (!instId) {
+                 const inst = await dataService.addInstituicao({ name: 'Minha Instituição', codigo: 'MI01', email: '', telefone: '' });
+                 instId = inst.id;
+                 setInstituicoes([inst]);
+            }
+            
+            let entId = entidades[0]?.id;
+            if (!entId) {
+                const ent = await dataService.addEntidade({ 
+                    name: 'Administração', 
+                    codigo: 'ADM', 
+                    instituicaoId: instId, 
+                    email: session.user.email, 
+                    description: 'Entidade principal', 
+                    status: EntidadeStatus.Ativo 
+                });
+                entId = ent.id;
+                setEntidades([ent]);
+            }
+
+            // 2. Create the Admin Collaborator
+            // Use the Auth User ID if possible, but if the table expects something else, standard UUID works.
+            // Since this is a fresh start, we can sync IDs.
+            const newAdmin: Omit<Collaborator, 'id'> & { id: string } = {
+                id: session.user.id, // Link directly to Auth ID
+                fullName: 'Administrador',
+                email: session.user.email,
+                numeroMecanografico: '00001',
+                entidadeId: entId,
+                canLogin: true,
+                receivesNotifications: true,
+                role: UserRole.Admin,
+                status: CollaboratorStatus.Ativo
+            };
+
+            await dataService.addCollaborator(newAdmin);
+            await refreshData();
+
+        } catch (error: any) {
+            alert(`Erro ao criar perfil de administrador: ${error.message}`);
+        }
+    };
 
     const handleViewItem = (tab: string, filter: any) => {
         if (tabConfig[tab] || (tab === 'tickets' && tabConfig.tickets)) {
@@ -613,6 +670,67 @@ const AppContent = () => {
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (!session) return <LoginPage onLogin={handleLogin} onForgotPassword={() => {}} />;
+    
+    if (dataLoadError) {
+        return (
+            <div className="min-h-screen bg-background-dark flex items-center justify-center p-4">
+                 <div className="bg-surface-dark p-8 rounded-lg shadow-xl max-w-md w-full text-center border border-red-900/50">
+                    <FaExclamationCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">Erro ao Carregar Dados</h2>
+                    <p className="text-on-surface-dark-secondary mb-6">
+                        {dataLoadError}
+                    </p>
+                    <button 
+                        onClick={refreshData} 
+                        className="w-full py-3 px-4 bg-brand-primary hover:bg-brand-secondary text-white rounded-md font-medium transition-colors"
+                    >
+                        Tentar Novamente
+                    </button>
+                 </div>
+            </div>
+        );
+    }
+
+    // Fallback Screen: User Logged In but No Profile Found
+    if (session && !currentUser) {
+         const isBootstrap = collaborators.length === 0;
+         return (
+            <div className="min-h-screen bg-background-dark flex items-center justify-center p-4">
+                 <div className="bg-surface-dark p-8 rounded-lg shadow-xl max-w-md w-full text-center border border-gray-700">
+                    <div className="mx-auto bg-yellow-500/20 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                        <FaUserLock className="h-8 w-8 text-yellow-500" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Acesso Pendente</h2>
+                    <p className="text-on-surface-dark-secondary mb-6">
+                        A sua conta ({session.user.email}) está autenticada, mas não está associada a nenhum registo de colaborador ativo no sistema.
+                    </p>
+                    
+                    {isBootstrap ? (
+                        <div className="space-y-4">
+                             <div className="p-4 bg-blue-900/30 rounded-md text-sm text-blue-200 text-left">
+                                <strong>Configuração Inicial:</strong> O sistema parece estar vazio. Pode inicializar criando a primeira conta de Administrador agora.
+                             </div>
+                             <button 
+                                onClick={createAdminProfile} 
+                                className="w-full py-3 px-4 bg-brand-primary hover:bg-brand-secondary text-white rounded-md font-medium transition-colors"
+                             >
+                                Inicializar como Administrador
+                             </button>
+                        </div>
+                    ) : (
+                        <div>
+                             <div className="p-4 bg-red-900/20 rounded-md text-sm text-red-200 mb-4">
+                                Por favor, contacte o administrador do sistema para associar o seu email a um perfil de colaborador.
+                             </div>
+                             <button onClick={handleLogout} className="text-on-surface-dark-secondary hover:text-white underline">
+                                Sair e tentar outra conta
+                             </button>
+                        </div>
+                    )}
+                 </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-background-dark text-on-surface-dark">
