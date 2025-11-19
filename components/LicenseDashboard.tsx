@@ -367,3 +367,4 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
 };
 
 export default LicenseDashboard;
+
