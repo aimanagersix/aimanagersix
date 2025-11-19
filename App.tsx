@@ -34,6 +34,7 @@ import AddEquipmentKitModal from './components/AddEquipmentKitModal';
 import AssignEquipmentModal from './components/AssignEquipmentModal';
 import AssignMultipleEquipmentModal from './components/AssignMultipleEquipmentModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
+import CredentialsModal from './components/CredentialsModal';
 import { ChatWidget } from './components/ChatWidget';
 import * as dataService from './services/dataService';
 import { getSupabase } from './services/supabaseClient';
@@ -72,6 +73,7 @@ const AppContent = () => {
 
     // --- Modal States ---
     const [importModalConfig, setImportModalConfig] = useState<ImportConfig | null>(null);
+    const [newUserCredentials, setNewUserCredentials] = useState<{email: string, password: string} | null>(null);
 
     // Equipment
     const [isAddEquipmentModalOpen, setIsAddEquipmentModalOpen] = useState(false);
@@ -535,6 +537,8 @@ const AppContent = () => {
                  // The trigger in Supabase will ideally handle linking or we insert the collaborator manually
                  // If using manual insertion:
                  await dataService.addCollaborator({...collaborator, id: authData.user?.id });
+                 // Set credentials to show in modal
+                 setNewUserCredentials({ email: collaborator.email, password });
              } else {
                  await dataService.addCollaborator(collaborator);
              }
@@ -911,6 +915,15 @@ const AppContent = () => {
                     config={importModalConfig}
                     onClose={() => setImportModalConfig(null)}
                     onImport={handleImport}
+                />
+            )}
+            
+            {/* New User Credentials Modal */}
+            {newUserCredentials && (
+                <CredentialsModal
+                    email={newUserCredentials.email}
+                    password={newUserCredentials.password}
+                    onClose={() => setNewUserCredentials(null)}
                 />
             )}
 
