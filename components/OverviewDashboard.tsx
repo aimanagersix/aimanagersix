@@ -1,6 +1,8 @@
+
 import React, { useMemo } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop } from './common/Icons';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface OverviewDashboardProps {
     equipment: Equipment[];
@@ -47,6 +49,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick,
 );
 
 const BarChart: React.FC<{ title: string; data: { name: string; value: number }[], icon?: React.ReactNode }> = ({ title, data, icon }) => {
+    const { t } = useLanguage();
     const maxValue = useMemo(() => Math.max(...data.map(item => item.value), 0), [data]);
 
     return (
@@ -69,7 +72,7 @@ const BarChart: React.FC<{ title: string; data: { name: string; value: number }[
                             <span className="ml-3 font-semibold text-white text-sm">{item.value}</span>
                         </div>
                     </div>
-                )) : <p className="text-on-surface-dark-secondary text-sm">Nenhum dado disponível.</p>}
+                )) : <p className="text-on-surface-dark-secondary text-sm">{t('overview.no_activity')}</p>}
             </div>
         </div>
     );
@@ -88,6 +91,7 @@ const RecentActivityItem: React.FC<{ activity: any, icon: React.ReactNode }> = (
 );
 
 const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availableSeats: number }[]; onViewAll: () => void; }> = ({ licenses, onViewAll }) => {
+    const { t } = useLanguage();
     const totalAvailable = licenses.reduce((sum, l) => sum + l.availableSeats, 0);
     const topLicenses = licenses.slice(0, 3);
 
@@ -101,9 +105,9 @@ const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availab
                     <FaBoxOpen className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                    <p className="text-sm text-on-surface-dark-secondary font-medium">Licenças Disponíveis</p>
+                    <p className="text-sm text-on-surface-dark-secondary font-medium">{t('overview.available_licenses')}</p>
                     <p className="text-2xl font-bold text-white">{totalAvailable}</p>
-                    <p className="text-xs text-gray-400">Total de vagas</p>
+                    <p className="text-xs text-gray-400">{t('overview.total_seats')}</p>
                 </div>
             </div>
             <div className="flex-grow space-y-2 text-sm overflow-hidden pt-2 border-t border-gray-700/50">
@@ -114,13 +118,13 @@ const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availab
                     </div>
                 )) : (
                     <div className="flex items-center justify-center h-full">
-                        <p className="text-center text-gray-400 text-xs">Nenhuma licença com vagas disponíveis.</p>
+                        <p className="text-center text-gray-400 text-xs">{t('overview.none_available')}</p>
                     </div>
                 )}
             </div>
             {licenses.length > 0 && (
                  <button onClick={onViewAll} className="mt-auto pt-2 text-center text-sm text-brand-secondary hover:underline w-full">
-                    {licenses.length > 3 ? 'Ver todas...' : 'Ver licenças'}
+                    {licenses.length > 3 ? t('overview.view_all') : t('overview.view_licenses')}
                 </button>
             )}
         </div>
@@ -132,6 +136,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
     expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, onViewItem 
 }) => {
+    const { t } = useLanguage();
     const stats = useMemo(() => {
         const statusCounts: Record<string, number> = {};
         for (const item of equipment) {
@@ -260,38 +265,38 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-xl font-bold text-white mb-4">Estado do Inventário</h2>
+                <h2 className="text-xl font-bold text-white mb-4">{t('overview.inventory_status')}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard title="Operacional" value={stats.operational} icon={<FaCheckCircle className="h-6 w-6 text-white" />} color="bg-green-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Operational })} />
-                    <StatCard title="Em Stock" value={stats.stock} icon={<FaWarehouse className="h-6 w-6 text-white" />} color="bg-indigo-500" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Stock })} />
-                    <StatCard title="Em Garantia" value={stats.warranty} icon={<FaTools className="h-6 w-6 text-white" />} color="bg-blue-500" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Warranty })} />
-                    <StatCard title="Abatidos" value={stats.decommissioned} icon={<FaTimesCircle className="h-6 w-6 text-white" />} color="bg-gray-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Decommissioned })} />
+                    <StatCard title={t('overview.operational')} value={stats.operational} icon={<FaCheckCircle className="h-6 w-6 text-white" />} color="bg-green-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Operational })} />
+                    <StatCard title={t('overview.stock')} value={stats.stock} icon={<FaWarehouse className="h-6 w-6 text-white" />} color="bg-indigo-500" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Stock })} />
+                    <StatCard title={t('overview.warranty')} value={stats.warranty} icon={<FaTools className="h-6 w-6 text-white" />} color="bg-blue-500" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Warranty })} />
+                    <StatCard title={t('overview.decommissioned')} value={stats.decommissioned} icon={<FaTimesCircle className="h-6 w-6 text-white" />} color="bg-gray-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Decommissioned })} />
                 </div>
             </div>
 
             <div>
-                 <h2 className="text-xl font-bold text-white mb-4">Saúde e Suporte</h2>
+                 <h2 className="text-xl font-bold text-white mb-4">{t('overview.health_support')}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard title="Tickets Abertos" value={ticketStats.open} icon={<FaTicketAlt className="h-6 w-6 text-white" />} color={ticketStats.open > 0 ? "bg-red-600" : "bg-green-600"} onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} />
-                    <StatCard title="Garantias a Expirar" value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-6 w-6 text-white" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext="Próximos 30 dias"/>
-                    <StatCard title="Licenças a Expirar" value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-6 w-6 text-white" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext="Próximos 30 dias"/>
+                    <StatCard title={t('overview.open_tickets')} value={ticketStats.open} icon={<FaTicketAlt className="h-6 w-6 text-white" />} color={ticketStats.open > 0 ? "bg-red-600" : "bg-green-600"} onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} />
+                    <StatCard title={t('overview.expiring_warranties')} value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-6 w-6 text-white" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext={t('overview.next_30_days')}/>
+                    <StatCard title={t('overview.expiring_licenses')} value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-6 w-6 text-white" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext={t('overview.next_30_days')}/>
                     <AvailableLicensesCard licenses={availableLicensesData} onViewAll={() => onViewItem('licensing', { status: 'available' })} />
                 </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div className="xl:col-span-2">
-                    <BarChart title="Equipamentos por Antiguidade" data={equipmentByAge} icon={<FaCalendarAlt />}/>
+                    <BarChart title={t('overview.equipment_age')} data={equipmentByAge} icon={<FaCalendarAlt />}/>
                 </div>
                 <div>
-                     <BarChart title="Top 5 Tipos de Equipamento" data={top5EquipmentTypes} icon={<FaLaptop />}/>
+                     <BarChart title={t('overview.top_types')} data={top5EquipmentTypes} icon={<FaLaptop />}/>
                 </div>
                  <div className="xl:col-span-2">
-                    <BarChart title="Tickets por Equipa" data={ticketsByTeam} icon={<FaUsers />}/>
+                    <BarChart title={t('overview.tickets_team')} data={ticketsByTeam} icon={<FaUsers />}/>
                 </div>
                  <div>
                     <div className="bg-surface-dark p-6 rounded-lg shadow-lg h-full">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><FaHistory /> Atividade Recente</h3>
+                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><FaHistory /> {t('overview.recent_activity')}</h3>
                         <div className="space-y-4">
                              {recentActivity.length > 0 ? recentActivity.map((activity, index) => (
                                 <RecentActivityItem 
@@ -299,7 +304,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                                     activity={activity}
                                     icon={activity.type === 'assignment' ? <FaLaptop className="h-4 w-4 text-green-400"/> : <FaTicketAlt className="h-4 w-4 text-yellow-400" />}
                                 />
-                            )) : <p className="text-on-surface-dark-secondary text-sm">Nenhuma atividade recente.</p>}
+                            )) : <p className="text-on-surface-dark-secondary text-sm">{t('overview.no_activity')}</p>}
                         </div>
                     </div>
                 </div>

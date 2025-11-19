@@ -392,3 +392,4 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
         handleSupabaseError(insertError, 'a adicionar novos membros à equipa');
     }
 };
+

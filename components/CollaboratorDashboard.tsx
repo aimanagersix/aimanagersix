@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember } from '../types';
+import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -13,6 +13,8 @@ interface CollaboratorDashboardProps {
   tickets: Ticket[];
   ticketActivities: TicketActivity[];
   teamMembers: TeamMember[];
+  collaboratorHistory: CollaboratorHistory[];
+  messages: Message[];
   currentUser: Collaborator | null;
   onEdit?: (collaborator: Collaborator) => void;
   onDelete?: (id: string) => void;
@@ -41,7 +43,25 @@ const getStatusClass = (status: CollaboratorStatus) => {
     }
 };
 
-const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collaborators, escolasDepartamentos: entidades, onEdit, onDelete, onShowHistory, onShowDetails, equipment, assignments, tickets, ticketActivities, teamMembers, onGenerateReport, onStartChat, currentUser, onToggleStatus }) => {
+const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ 
+    collaborators, 
+    escolasDepartamentos: entidades, 
+    onEdit, 
+    onDelete, 
+    onShowHistory, 
+    onShowDetails, 
+    equipment, 
+    assignments, 
+    tickets, 
+    ticketActivities, 
+    teamMembers, 
+    collaboratorHistory,
+    messages,
+    onGenerateReport, 
+    onStartChat, 
+    currentUser, 
+    onToggleStatus 
+}) => {
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ entidadeId: '', status: '' });
@@ -72,32 +92,46 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
     const dependencyMap = useMemo(() => {
         const map = new Map<string, string[]>();
         
+        const addDependency = (id: string, reason: string) => {
+             if (!map.has(id)) map.set(id, []);
+             if (!map.get(id)!.includes(reason)) map.get(id)!.push(reason);
+        };
+
+        // Check Assignments (All history, not just active)
+        assignments.forEach(a => {
+            if (a.collaboratorId) addDependency(a.collaboratorId, 'Atribuições de Equipamento');
+        });
+
         // Check Tickets (Requester or Technician)
         tickets.forEach(t => {
-            if (!map.has(t.collaboratorId)) map.set(t.collaboratorId, []);
-            if (!map.get(t.collaboratorId)!.includes('Tickets (Requerente)')) map.get(t.collaboratorId)!.push('Tickets (Requerente)');
-
-            if (t.technicianId) {
-                if (!map.has(t.technicianId)) map.set(t.technicianId, []);
-                if (!map.get(t.technicianId)!.includes('Tickets (Técnico)')) map.get(t.technicianId)!.push('Tickets (Técnico)');
-            }
+            if (t.collaboratorId) addDependency(t.collaboratorId, 'Tickets (Requerente)');
+            if (t.technicianId) addDependency(t.technicianId, 'Tickets (Técnico)');
         });
 
         // Check Activities
         ticketActivities.forEach(ta => {
-            if (!map.has(ta.technicianId)) map.set(ta.technicianId, []);
-            if (!map.get(ta.technicianId)!.includes('Atividades de Suporte')) map.get(ta.technicianId)!.push('Atividades de Suporte');
+            if (ta.technicianId) addDependency(ta.technicianId, 'Atividades de Suporte');
         });
 
         // Check Teams
         teamMembers.forEach(tm => {
-            if (!map.has(tm.collaborator_id)) map.set(tm.collaborator_id, []);
-            if (!map.get(tm.collaborator_id)!.includes('Membro de Equipa')) map.get(tm.collaborator_id)!.push('Membro de Equipa');
+            if (tm.collaborator_id) addDependency(tm.collaborator_id, 'Membro de Equipa');
+        });
+
+        // Check Collaborator History
+        collaboratorHistory.forEach(ch => {
+            if (ch.collaboratorId) addDependency(ch.collaboratorId, 'Histórico Funcional');
+        });
+        
+        // Check Messages
+        messages.forEach(m => {
+            if (m.senderId) addDependency(m.senderId, 'Mensagens');
+            if (m.receiverId) addDependency(m.receiverId, 'Mensagens');
         });
 
         return map;
 
-    }, [tickets, ticketActivities, teamMembers]);
+    }, [assignments, tickets, ticketActivities, teamMembers, collaboratorHistory, messages]);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -255,20 +289,17 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
                  const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
                  const equipmentCount = assignedEquipment.length;
                  const dependencies = dependencyMap.get(col.id) || [];
+                 const isDeleteDisabled = dependencies.length > 0;
                  
                  let deleteTooltip = `Excluir ${col.fullName}`;
-                 let isDeleteDisabled = false;
-
-                 if (equipmentCount > 0 || dependencies.length > 0) {
-                     isDeleteDisabled = true;
-                     const reasons = [];
-                     if (equipmentCount > 0) reasons.push("Equipamentos");
-                     
-                     // Deduplicate dependency reasons for cleaner tooltip
+                 if (isDeleteDisabled) {
                      const uniqueDependencies = Array.from(new Set(dependencies));
-                     reasons.push(...uniqueDependencies);
-                     
-                     deleteTooltip = `Impossível excluir: Associado a ${reasons.join(", ")}`;
+                     // Limit displayed reasons to avoid huge tooltips
+                     const displayedReasons = uniqueDependencies.slice(0, 3);
+                     if (uniqueDependencies.length > 3) {
+                         displayedReasons.push('...');
+                     }
+                     deleteTooltip = `Impossível excluir: Associado a ${displayedReasons.join(", ")}`;
                  }
 
 
@@ -399,6 +430,5 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
     </div>
   );
 };
-
 
 export default CollaboratorDashboard;

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus } from '../types';
-// FIX: Import CameraIcon and DeleteIcon to resolve missing component errors.
 import { FaMagic, FaEye, FaEyeSlash, UserIcon, CameraIcon, DeleteIcon } from './common/Icons';
 import * as dataService from '../services/dataService';
+import { getSupabase } from '../services/supabaseClient';
 
 
 const isPortuguesePhoneNumber = (phone: string): boolean => {

@@ -1,7 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe } from 'react-icons/fa';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface HeaderProps {
   currentUser: Collaborator | null;
@@ -32,6 +34,7 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
 
 
 const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick }) => {
+    const { t, language, setLanguage } = useLanguage();
     const [isOrganizacaoMenuOpen, setOrganizacaoMenuOpen] = useState(false);
     const organizacaoMenuRef = useRef<HTMLDivElement>(null);
     const [isInventarioMenuOpen, setInventarioMenuOpen] = useState(false);
@@ -94,7 +97,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
           </div>
 
           <nav className="hidden md:flex items-center space-x-2">
-              {tabConfig['overview'] && <TabButton tab="overview" label="Visão Geral" icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange}/>}
+              {tabConfig['overview'] && <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange}/>}
               
               {hasInventarioTabs && (
                  <div className="relative" ref={inventarioMenuRef}>
@@ -105,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         aria-expanded={isInventarioMenuOpen}
                     >
                         <ClipboardListIcon className="h-5 w-5"/>
-                        Inventário
+                        {t('nav.inventory')}
                         <svg className={`w-4 h-4 ml-1 transition-transform transform ${isInventarioMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
@@ -113,9 +116,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     {isInventarioMenuOpen && (
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
                             <div className="py-1">
-                                {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label="Lista de Equipamentos" icon={<ClipboardListIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label="Marcas" icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label="Tipos de Equipamento" icon={<FaShapes />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={tabConfig['equipment.inventory']} icon={<ClipboardListIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label={tabConfig['equipment.brands']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label={tabConfig['equipment.types']} icon={<FaShapes />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                             </div>
                         </div>
                     )}
@@ -131,7 +134,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         aria-expanded={isOrganizacaoMenuOpen}
                     >
                         <FaSitemap />
-                        Organização
+                        {t('nav.organization')}
                         <svg className={`w-4 h-4 ml-1 transition-transform transform ${isOrganizacaoMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
@@ -139,26 +142,36 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     {isOrganizacaoMenuOpen && (
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
                             <div className="py-1">
-                                {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label="Instituições" icon={<FaSitemap className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label="Entidades" icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label="Equipas" icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                             </div>
                         </div>
                     )}
                 </div>
               )}
 
-              {tabConfig['collaborators'] && <TabButton tab="collaborators" label="Colaboradores" icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} />}
-              {tabConfig['licensing'] && <TabButton tab="licensing" label="Licenciamento" icon={<FaKey />} activeTab={activeTab} setActiveTab={handleTabChange} />}
+              {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} />}
+              {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} activeTab={activeTab} setActiveTab={handleTabChange} />}
               {tabConfig['tickets'] && <TabButton tab="tickets" label={tabConfig['tickets'].title} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={handleTabChange} />}
           </nav>
 
           <div className="flex-1 flex items-center justify-end gap-4">
+             {/* Language Switcher */}
+            <button
+                onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-700 hover:bg-gray-600 text-xs text-white transition-colors border border-gray-600"
+                title={language === 'pt' ? 'Switch to English' : 'Mudar para Português'}
+            >
+                <FaGlobe className="text-brand-secondary" />
+                <span className="font-bold">{language.toUpperCase()}</span>
+            </button>
+
             <button
                 onClick={onNotificationClick}
                 className="relative p-2 rounded-md text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white transition-colors"
-                title="Notificações"
-                aria-label="Ver notificações"
+                title={t('common.notifications')}
+                aria-label={t('common.notifications')}
             >
                 <FaBell className="h-5 w-5" />
                 {notificationCount > 0 && (
@@ -183,17 +196,17 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         ) : (
                              <UserIcon className="h-5 w-5 text-brand-secondary"/>
                         )}
-                        <span>Olá, {currentUser.fullName}</span>
+                        <span>{t('common.welcome')}, {currentUser.fullName}</span>
                     </div>
                 )}
                  <button
                     onClick={onLogout}
                     className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white transition-colors"
-                    title="Sair"
-                    aria-label="Sair"
+                    title={t('common.logout')}
+                    aria-label={t('common.logout')}
                 >
                     <LogoutIcon className="h-5 w-5" />
-                    <span className="hidden sm:inline">Sair</span>
+                    <span className="hidden sm:inline">{t('common.logout')}</span>
                 </button>
              </div>
              <div className="flex items-center md:hidden">
@@ -215,7 +228,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
        {isMobileMenuOpen && (
             <div ref={mobileMenuRef} className="md:hidden" id="mobile-menu">
                 <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                    {tabConfig['overview'] && <TabButton tab="overview" label="Visão Geral" icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
+                    {tabConfig['overview'] && <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
                     
                      {hasInventarioTabs && (
                         <div>
@@ -226,7 +239,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             >
                                 <div className="flex items-center gap-2">
                                     <ClipboardListIcon className="h-5 w-5"/>
-                                    <span>Inventário</span>
+                                    <span>{t('nav.inventory')}</span>
                                 </div>
                                 <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileInventarioOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -234,9 +247,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             </button>
                             {isMobileInventarioOpen && (
                                 <div className="pl-4 mt-1 space-y-1">
-                                    {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label="Lista de Equipamentos" icon={<ClipboardListIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label="Marcas" icon={<FaTags />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label="Tipos de Equipamento" icon={<FaShapes />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={tabConfig['equipment.inventory']} icon={<ClipboardListIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label={tabConfig['equipment.brands']} icon={<FaTags />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label={tabConfig['equipment.types']} icon={<FaShapes />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 </div>
                             )}
                         </div>
@@ -251,7 +264,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             >
                                 <div className="flex items-center gap-2">
                                     <FaSitemap />
-                                    <span>Organização</span>
+                                    <span>{t('nav.organization')}</span>
                                 </div>
                                 <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileOrganizacaoOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -259,16 +272,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             </button>
                             {isMobileOrganizacaoOpen && (
                                 <div className="pl-4 mt-1 space-y-1">
-                                    {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label="Instituições" icon={<FaSitemap className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label="Entidades" icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label="Equipas" icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label="Colaboradores" icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
-                    {tabConfig['licensing'] && <TabButton tab="licensing" label="Licenciamento" icon={<FaKey />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
+                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
+                    {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
                     {tabConfig['tickets'] && <TabButton tab="tickets" label={tabConfig['tickets'].title} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
                 </div>
             </div>

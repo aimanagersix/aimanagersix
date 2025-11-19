@@ -746,7 +746,8 @@ const AppContent = () => {
                          </div>
                          <CollaboratorDashboard 
                             collaborators={collaborators} escolasDepartamentos={entidades} equipment={equipment} assignments={assignments} 
-                            tickets={tickets} ticketActivities={ticketActivities} teamMembers={teamMembers} currentUser={currentUser}
+                            tickets={tickets} ticketActivities={ticketActivities} teamMembers={teamMembers} 
+                            collaboratorHistory={collaboratorHistory} messages={messages} currentUser={currentUser}
                             onEdit={(col) => { setEditingCollaborator(col); setIsAddCollaboratorModalOpen(true); }}
                             onDelete={handleDeleteCollaborator}
                             onToggleStatus={handleToggleCollaboratorStatus}

@@ -44,21 +44,22 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
         }, {} as Record<string, number>);
     }, [collaborators]);
     
-    const hasDependencies = useMemo(() => {
-        const deps = new Set<string>();
+    const dependencyMap = useMemo(() => {
+        const map = new Set<string>();
+        
         // Check all assignments (history included)
         assignments.forEach(a => {
-            if (a.entidadeId) deps.add(a.entidadeId);
+            if (a.entidadeId) map.add(a.entidadeId);
         });
         // Check tickets
         tickets.forEach(t => {
-             if (t.entidadeId) deps.add(t.entidadeId);
+             if (t.entidadeId) map.add(t.entidadeId);
         });
         // Check collaborator history
         collaboratorHistory.forEach(ch => {
-            if (ch.entidadeId) deps.add(ch.entidadeId);
+            if (ch.entidadeId) map.add(ch.entidadeId);
         });
-        return deps;
+        return map;
     }, [assignments, tickets, collaboratorHistory]);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -156,11 +157,11 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
           <tbody>
             {paginatedEntidades.length > 0 ? paginatedEntidades.map((entidade) => {
                 const collabCount = collaboratorsByEntidade[entidade.id] || 0;
-                const isDeleteDisabled = collabCount > 0 || hasDependencies.has(entidade.id);
+                const isDeleteDisabled = collabCount > 0 || dependencyMap.has(entidade.id);
                 
                 let disabledReason = "";
                 if (collabCount > 0) disabledReason = "Existem colaboradores associados";
-                else if (hasDependencies.has(entidade.id)) disabledReason = "Existem registos associados (equipamentos, tickets ou histórico)";
+                else if (dependencyMap.has(entidade.id)) disabledReason = "Existem registos associados (equipamentos, tickets ou histórico)";
 
                 return (
               <tr key={entidade.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
