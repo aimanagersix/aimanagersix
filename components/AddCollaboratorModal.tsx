@@ -117,6 +117,14 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     }, [collaboratorToEdit, entidades]);
 
+    // Determine if we should show the password field
+    // Show if: 
+    // 1. It's a new user AND login is enabled
+    // 2. It's an existing user who previously didn't have login, and we are enabling it
+    const isEnablingLogin = !!collaboratorToEdit && !collaboratorToEdit.canLogin && formData.canLogin;
+    const isNewUserWithLogin = !collaboratorToEdit && formData.canLogin;
+    const shouldShowPasswordField = isNewUserWithLogin || isEnablingLogin;
+
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.numeroMecanografico?.trim()) newErrors.numeroMecanografico = "O nº mecanográfico é obrigatório.";
@@ -129,10 +137,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             newErrors.email = "O formato do email é inválido.";
         }
         
-        // Password validation only for new users with login enabled
-        if (!collaboratorToEdit && formData.canLogin) {
+        // Password validation
+        if (shouldShowPasswordField) {
             if (!password.trim()) {
-                newErrors.password = "A password é obrigatória para novos colaboradores com acesso.";
+                newErrors.password = "A password é obrigatória para ativar o acesso.";
             } else {
                 const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
                 if (!passwordRegex.test(password)) {
@@ -198,8 +206,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
 
         // If a new photo file is selected, upload it
         if (photoFile) {
-            // Se for novo utilizador, não usamos currentUser.id (admin), usamos um ID temporário para a pasta.
-            // O ideal seria usar o ID real após criação, mas aqui usamos um random UUID para evitar conflitos.
             const userId = collaboratorToEdit?.id || crypto.randomUUID();
             const uploadedUrl = await dataService.uploadCollaboratorPhoto(userId, photoFile);
             if (uploadedUrl) {
@@ -216,7 +222,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         };
         
         if (collaboratorToEdit) {
-            onSave({ ...collaboratorToEdit, ...dataToSave });
+            // Pass password if we are enabling login
+            onSave({ ...collaboratorToEdit, ...dataToSave }, password);
         } else {
             onSave(dataToSave, password);
         }
@@ -225,7 +232,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     };
 
     const modalTitle = collaboratorToEdit ? "Editar Colaborador" : "Adicionar Novo Colaborador";
-    const showPasswordField = !collaboratorToEdit && formData.canLogin;
 
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-2xl">
@@ -316,20 +322,18 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 id="canLogin"
                                 checked={formData.canLogin}
                                 onChange={handleChange}
-                                className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary disabled:bg-gray-800 disabled:cursor-not-allowed"
-                                disabled={!!collaboratorToEdit && !collaboratorToEdit.canLogin}
+                                className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
                             />
                              <label htmlFor="canLogin" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
                                 Permitir login na plataforma
-                                {!!collaboratorToEdit && !collaboratorToEdit.canLogin && 
-                                    <span className="text-xs block text-yellow-400">(A ativação de login só é permitida na criação do utilizador.)</span>
-                                }
                             </label>
                         </div>
 
-                        {showPasswordField && (
+                        {shouldShowPasswordField && (
                             <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Password Temporária</label>
+                                <label htmlFor="password" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
+                                    {isEnablingLogin ? 'Definir Password de Acesso' : 'Password Temporária'}
+                                </label>
                                 <div className="flex gap-2">
                                     <div className="relative flex-grow">
                                         <input
@@ -360,6 +364,11 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                     </button>
                                 </div>
                                 {errors.password && <p className="text-red-400 text-xs italic mt-1">{errors.password}</p>}
+                                {isEnablingLogin && (
+                                    <p className="text-xs text-yellow-400 mt-1">
+                                        Nota: Ao ativar o login, será criada uma conta de utilizador. As credenciais serão exibidas após guardar.
+                                    </p>
+                                )}
                             </div>
                         )}
 

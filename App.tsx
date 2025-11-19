@@ -630,8 +630,35 @@ const AppContent = () => {
          }
     };
 
-    const handleUpdateCollaborator = async (collaborator: Collaborator) => {
+    const handleUpdateCollaborator = async (collaborator: Collaborator, password?: string) => {
         try {
+            // If login is newly enabled and a password is provided, create the Auth user
+            if (collaborator.canLogin && password) {
+                const supabase = getSupabase();
+                // Attempt to register the user.
+                // Note: If the email is already registered, this might return an error or an existing user depending on config.
+                // However, since the collaborator didn't have 'canLogin' true before, we assume they don't have an active auth user.
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email: collaborator.email,
+                    password: password,
+                });
+                
+                if (authError) {
+                    console.warn("Auth signup warning during update:", authError.message);
+                    // We proceed to update the collaborator record even if auth signup has issues (e.g. user already exists),
+                    // but we alert the user.
+                    if (!authError.message.includes('already registered')) {
+                         alert(`Aviso ao criar login: ${authError.message}`);
+                    } else {
+                         // If user already registered, we just show credentials modal as if we reset it (though we can't reset pass here without admin rights)
+                         // In this specific flow, we assume "Enabling Login" implies creating the user.
+                         console.log("User already registered in Auth.");
+                    }
+                } else if (authData.user) {
+                     setNewUserCredentials({ email: collaborator.email, password });
+                }
+            }
+
             await dataService.updateCollaborator(collaborator.id, collaborator);
             refreshData();
         } catch (error: any) {
