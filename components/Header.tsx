@@ -1,9 +1,12 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Collaborator } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers } from './common/Icons';
+import { Collaborator, UserRole } from '../types';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield } from './common/Icons';
 import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
+import MFASetupModal from './MFASetupModal';
+import AuditLogModal from './AuditLogModal';
 
 interface HeaderProps {
   currentUser: Collaborator | null;
@@ -39,6 +42,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const organizacaoMenuRef = useRef<HTMLDivElement>(null);
     const [isInventarioMenuOpen, setInventarioMenuOpen] = useState(false);
     const inventarioMenuRef = useRef<HTMLDivElement>(null);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const userMenuRef = useRef<HTMLDivElement>(null);
+
+    // Security Modals
+    const [showMFA, setShowMFA] = useState(false);
+    const [showAudit, setShowAudit] = useState(false);
 
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -52,6 +61,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
              if (inventarioMenuRef.current && !inventarioMenuRef.current.contains(event.target as Node)) {
                 setInventarioMenuOpen(false);
             }
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+                setIsUserMenuOpen(false);
+            }
             if (isMobileMenuOpen && mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node) && mobileMenuButtonRef.current && !mobileMenuButtonRef.current.contains(event.target as Node)) {
                 setIsMobileMenuOpen(false);
             }
@@ -61,7 +73,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen]);
+    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isUserMenuOpen]);
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
@@ -89,10 +101,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     // Define if the main menu item should be visible based on children availability
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
-
+    const isAdmin = currentUser?.role === UserRole.Admin;
 
   return (
-    <header className="bg-gray-800 shadow-lg">
+    <>
+    <header className="bg-gray-800 shadow-lg relative z-30">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
           <div className="flex items-center flex-shrink-0">
@@ -183,37 +196,48 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     <span className="absolute top-1 right-1 block h-3 w-3 rounded-full bg-red-500 border-2 border-gray-800" />
                 )}
             </button>
-             {onResetData && (
-                <button
-                    onClick={onResetData}
-                    className="p-2 rounded-md text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white transition-colors"
-                    title="Repor Dados"
-                    aria-label="Repor Dados"
-                >
-                    <FaSync className="h-5 w-5" />
-                </button>
+
+             {currentUser && (
+                <div className="relative" ref={userMenuRef}>
+                    <button
+                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                        className="flex items-center gap-2 text-sm text-on-surface-dark-secondary hover:text-white"
+                    >
+                        <div className="hidden sm:flex items-center gap-2">
+                             {currentUser.photoUrl ? (
+                                <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" />
+                            ) : (
+                                 <UserIcon className="h-5 w-5 text-brand-secondary"/>
+                            )}
+                            <span>{t('common.welcome')}, {currentUser.fullName}</span>
+                        </div>
+                    </button>
+                    
+                    {isUserMenuOpen && (
+                        <div className="absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5 divide-y divide-gray-700" role="menu">
+                             <div className="py-1">
+                                <button onClick={() => setShowMFA(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
+                                    <FaFingerprint className="text-brand-secondary" />
+                                    Configurar 2FA
+                                </button>
+                                {isAdmin && (
+                                     <button onClick={() => setShowAudit(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
+                                        <FaClipboardList className="text-yellow-400" />
+                                        Logs de Auditoria
+                                    </button>
+                                )}
+                             </div>
+                             <div className="py-1">
+                                <button onClick={onLogout} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-gray-700" role="menuitem">
+                                    <LogoutIcon className="h-4 w-4" />
+                                    {t('common.logout')}
+                                </button>
+                             </div>
+                        </div>
+                    )}
+                </div>
              )}
-             <div className="flex items-center gap-3">
-                {currentUser && (
-                    <div className="hidden sm:flex items-center gap-2 text-sm text-on-surface-dark-secondary">
-                         {currentUser.photoUrl ? (
-                            <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" />
-                        ) : (
-                             <UserIcon className="h-5 w-5 text-brand-secondary"/>
-                        )}
-                        <span>{t('common.welcome')}, {currentUser.fullName}</span>
-                    </div>
-                )}
-                 <button
-                    onClick={onLogout}
-                    className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white transition-colors"
-                    title={t('common.logout')}
-                    aria-label={t('common.logout')}
-                >
-                    <LogoutIcon className="h-5 w-5" />
-                    <span className="hidden sm:inline">{t('common.logout')}</span>
-                </button>
-             </div>
+
              <div className="flex items-center md:hidden">
                 <button
                     ref={mobileMenuButtonRef}
@@ -292,6 +316,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
             </div>
         )}
     </header>
+    
+    {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
+    {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
+    </>
   );
 };
 

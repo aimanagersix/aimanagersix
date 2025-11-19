@@ -2,7 +2,7 @@ import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember
+    Team, TeamMember, AuditLogEntry, AuditAction
 } from '../types';
 
 const handleSupabaseError = (error: any, operation: string) => {
@@ -11,6 +11,54 @@ const handleSupabaseError = (error: any, operation: string) => {
         throw new Error(`Erro ao ${operation}: ${error.message}`);
     }
 };
+
+// --- Audit Logging ---
+export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
+    const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) return; // System action or no user logged in
+
+    const entry = {
+        user_id: user.id,
+        action,
+        resource_type: resourceType,
+        resource_id: resourceId,
+        details,
+        timestamp: new Date().toISOString()
+    };
+
+    try {
+        // We try to insert into a theoretical 'audit_logs' table.
+        // In a real deployment, this table must be created in Supabase SQL Editor.
+        await supabase.from('audit_logs').insert(entry);
+    } catch (e) {
+        // Fail silently if table doesn't exist to not break the app flow
+        console.warn("Audit log could not be saved (table might be missing)", e);
+    }
+};
+
+export const fetchAuditLogs = async () => {
+    const supabase = getSupabase();
+    try {
+        const { data, error } = await supabase
+            .from('audit_logs')
+            .select('*, collaborators:user_id(email)')
+            .order('timestamp', { ascending: false })
+            .limit(500);
+        
+        if (error) throw error;
+
+        return (data || []).map((log: any) => ({
+            ...log,
+            user_email: log.collaborators?.email || 'Desconhecido'
+        })) as AuditLogEntry[];
+    } catch (e) {
+        console.warn("Could not fetch audit logs", e);
+        return [];
+    }
+};
+
 
 // --- Batch Data Fetching ---
 export const fetchAllData = async () => {
@@ -83,16 +131,19 @@ export const fetchBrands = async () => {
 export const addBrand = async (brand: Omit<Brand, 'id'>) => {
     const { data, error } = await getSupabase().from('brands').insert(brand).select().single();
     handleSupabaseError(error, 'adding brand');
+    await logAction('CREATE', 'Brand', `Created brand ${brand.name}`, data.id);
     return data as Brand;
 };
 export const updateBrand = async (id: string, updates: Partial<Brand>) => {
     const { data, error } = await getSupabase().from('brands').update(updates).eq('id', id).select().single();
     handleSupabaseError(error, 'updating brand');
+    await logAction('UPDATE', 'Brand', `Updated brand ${data.name}`, id);
     return data as Brand;
 };
 export const deleteBrand = async (id: string) => {
     const { error } = await getSupabase().from('brands').delete().eq('id', id);
     handleSupabaseError(error, 'deleting brand');
+    await logAction('DELETE', 'Brand', `Deleted brand`, id);
 };
 
 // --- Equipment Types ---
@@ -104,32 +155,38 @@ export const fetchEquipmentTypes = async () => {
 export const addEquipmentType = async (type: Omit<EquipmentType, 'id'>) => {
     const { data, error } = await getSupabase().from('equipment_types').insert(type).select().single();
     handleSupabaseError(error, 'adding equipment type');
+    await logAction('CREATE', 'EquipmentType', `Created type ${type.name}`, data.id);
     return data as EquipmentType;
 };
 export const updateEquipmentType = async (id: string, updates: Partial<EquipmentType>) => {
     const { data, error } = await getSupabase().from('equipment_types').update(updates).eq('id', id).select().single();
     handleSupabaseError(error, 'updating equipment type');
+    await logAction('UPDATE', 'EquipmentType', `Updated type ${data.name}`, id);
     return data as EquipmentType;
 };
 export const deleteEquipmentType = async (id: string) => {
     const { error } = await getSupabase().from('equipment_types').delete().eq('id', id);
     handleSupabaseError(error, 'deleting equipment type');
+    await logAction('DELETE', 'EquipmentType', `Deleted type`, id);
 };
 
 // --- Equipment ---
 export const addEquipment = async (equipment: Omit<Equipment, 'id' | 'modifiedDate' | 'creationDate'>) => {
     const { data, error } = await getSupabase().from('equipment').insert(equipment).select().single();
     handleSupabaseError(error, 'adding equipment');
+    await logAction('CREATE', 'Equipment', `Created equipment ${equipment.description} (${equipment.serialNumber})`, data.id);
     return data as Equipment;
 };
 export const updateEquipment = async (id: string, updates: Partial<Equipment>) => {
     const { data, error } = await getSupabase().from('equipment').update(updates).eq('id', id).select().single();
     handleSupabaseError(error, 'updating equipment');
+    await logAction('UPDATE', 'Equipment', `Updated equipment ${data.serialNumber}`, id);
     return data as Equipment;
 };
 export const addMultipleEquipment = async (equipmentList: any[]) => {
     const { data, error } = await getSupabase().from('equipment').insert(equipmentList).select();
     handleSupabaseError(error, 'adding multiple equipment');
+    await logAction('CREATE', 'Equipment', `Batch created ${equipmentList.length} items`);
     return { data };
 };
 
@@ -138,20 +195,24 @@ export const addCollaborator = async (collaborator: Omit<Collaborator, 'id'> & {
     // Using upsert to allow restoring/overwriting admin access if ID exists
     const { data, error } = await getSupabase().from('collaborators').upsert(collaborator).select().single();
     handleSupabaseError(error, 'adding/updating collaborator');
+    await logAction('CREATE', 'Collaborator', `Created/Upserted collaborator ${collaborator.fullName}`, data.id);
     return data as Collaborator;
 };
 export const updateCollaborator = async (id: string, updates: Partial<Collaborator>) => {
     const { data, error } = await getSupabase().from('collaborators').update(updates).eq('id', id).select().single();
     handleSupabaseError(error, 'updating collaborator');
+    await logAction('UPDATE', 'Collaborator', `Updated collaborator ${data.fullName} (Role: ${data.role})`, id);
     return data as Collaborator;
 };
 export const deleteCollaborator = async (id: string) => {
     const { error } = await getSupabase().from('collaborators').delete().eq('id', id);
     handleSupabaseError(error, 'deleting collaborator');
+    await logAction('DELETE', 'Collaborator', `Deleted collaborator`, id);
 };
 export const addMultipleCollaborators = async (collaborators: any[]) => {
      const { data, error } = await getSupabase().from('collaborators').insert(collaborators).select();
      handleSupabaseError(error, 'adding multiple collaborators');
+     await logAction('CREATE', 'Collaborator', `Batch created ${collaborators.length} collaborators`);
      return { data };
 };
 export const uploadCollaboratorPhoto = async (userId: string, file: File) => {
@@ -178,16 +239,19 @@ export const uploadCollaboratorPhoto = async (userId: string, file: File) => {
 export const addInstituicao = async (instituicao: Omit<Instituicao, 'id'>) => {
     const { data, error } = await getSupabase().from('instituicoes').insert(instituicao).select().single();
     handleSupabaseError(error, 'adding instituicao');
+    await logAction('CREATE', 'Instituicao', `Created institution ${instituicao.name}`, data.id);
     return data as Instituicao;
 };
 export const updateInstituicao = async (id: string, updates: Partial<Instituicao>) => {
     const { data, error } = await getSupabase().from('instituicoes').update(updates).eq('id', id).select().single();
     handleSupabaseError(error, 'updating instituicao');
+    await logAction('UPDATE', 'Instituicao', `Updated institution ${data.name}`, id);
     return data as Instituicao;
 };
 export const deleteInstituicao = async (id: string) => {
     const { error } = await getSupabase().from('instituicoes').delete().eq('id', id);
     handleSupabaseError(error, 'deleting instituicao');
+    await logAction('DELETE', 'Instituicao', `Deleted institution`, id);
 };
 export const addMultipleInstituicoes = async (instituicoes: any[]) => {
     const { data, error } = await getSupabase().from('instituicoes').insert(instituicoes).select();
@@ -200,16 +264,19 @@ export const addMultipleInstituicoes = async (instituicoes: any[]) => {
 export const addEntidade = async (entidade: Omit<Entidade, 'id'>) => {
     const { data, error } = await getSupabase().from('entidades').insert(entidade).select().single();
     handleSupabaseError(error, 'adding entidade');
+    await logAction('CREATE', 'Entidade', `Created entity ${entidade.name}`, data.id);
     return data as Entidade;
 };
 export const updateEntidade = async (id: string, updates: Partial<Entidade>) => {
     const { data, error } = await getSupabase().from('entidades').update(updates).eq('id', id).select().single();
     handleSupabaseError(error, 'updating entidade');
+    await logAction('UPDATE', 'Entidade', `Updated entity ${data.name}`, id);
     return data as Entidade;
 };
 export const deleteEntidade = async (id: string) => {
     const { error } = await getSupabase().from('entidades').delete().eq('id', id);
     handleSupabaseError(error, 'deleting entidade');
+    await logAction('DELETE', 'Entidade', `Deleted entity`, id);
 };
 export const addMultipleEntidades = async (entidades: any[]) => {
     const { data, error } = await getSupabase().from('entidades').insert(entidades).select();
@@ -221,16 +288,19 @@ export const addMultipleEntidades = async (entidades: any[]) => {
 export const addLicense = async (license: Omit<SoftwareLicense, 'id'>) => {
     const { data, error } = await getSupabase().from('software_licenses').insert(license).select().single();
     handleSupabaseError(error, 'adding license');
+    await logAction('CREATE', 'License', `Created license ${license.productName}`, data.id);
     return data as SoftwareLicense;
 };
 export const updateLicense = async (id: string, updates: Partial<SoftwareLicense>) => {
     const { data, error } = await getSupabase().from('software_licenses').update(updates).eq('id', id).select().single();
     handleSupabaseError(error, 'updating license');
+    await logAction('UPDATE', 'License', `Updated license ${data.productName}`, id);
     return data as SoftwareLicense;
 };
 export const deleteLicense = async (id: string) => {
     const { error } = await getSupabase().from('software_licenses').delete().eq('id', id);
     handleSupabaseError(error, 'deleting license');
+    await logAction('DELETE', 'License', `Deleted license`, id);
 };
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
@@ -244,22 +314,26 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         const { error: insertError } = await supabase.from('license_assignments').insert(records);
         handleSupabaseError(insertError, 'inserting new license assignments');
     }
+    await logAction('UPDATE', 'Equipment', `Synced licenses for equipment`, equipmentId);
 };
 
 // --- Teams ---
 export const addTeam = async (team: Omit<Team, 'id'>) => {
     const { data, error } = await getSupabase().from('teams').insert(team).select().single();
     handleSupabaseError(error, 'adding team');
+    await logAction('CREATE', 'Team', `Created team ${team.name}`, data.id);
     return data as Team;
 };
 export const updateTeam = async (id: string, updates: Partial<Team>) => {
     const { data, error } = await getSupabase().from('teams').update(updates).eq('id', id).select().single();
     handleSupabaseError(error, 'updating team');
+    await logAction('UPDATE', 'Team', `Updated team ${data.name}`, id);
     return data as Team;
 };
 export const deleteTeam = async (id: string) => {
     const { error } = await getSupabase().from('teams').delete().eq('id', id);
     handleSupabaseError(error, 'deleting team');
+    await logAction('DELETE', 'Team', `Deleted team`, id);
 };
 export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
     const supabase = getSupabase();
@@ -273,12 +347,14 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
         const { error: insertError } = await supabase.from('team_members').insert(records);
         handleSupabaseError(insertError, 'inserting new team members');
     }
+    await logAction('UPDATE', 'Team', `Synced members`, teamId);
 };
 
 // --- Assignments ---
 export const addAssignment = async (assignment: Omit<Assignment, 'id'>) => {
     const { data, error } = await getSupabase().from('assignments').insert(assignment).select().single();
     handleSupabaseError(error, 'adding assignment');
+    await logAction('CREATE', 'Assignment', `Assigned equipment ${assignment.equipmentId} to entity/user`, data.id);
     return data as Assignment;
 };
 export const updateAssignment = async (id: string, updates: Partial<Assignment>) => {
@@ -289,6 +365,7 @@ export const updateAssignment = async (id: string, updates: Partial<Assignment>)
 export const addMultipleAssignments = async (assignments: any[]) => {
      const { data, error } = await getSupabase().from('assignments').insert(assignments).select();
      handleSupabaseError(error, 'adding multiple assignments');
+     await logAction('CREATE', 'Assignment', `Batch assigned ${assignments.length} items`);
      return { data };
 };
 
@@ -296,6 +373,7 @@ export const addMultipleAssignments = async (assignments: any[]) => {
 export const addTicket = async (ticket: Omit<Ticket, 'id'>) => {
     const { data, error } = await getSupabase().from('tickets').insert(ticket).select().single();
     handleSupabaseError(error, 'adding ticket');
+    await logAction('CREATE', 'Ticket', `Created ticket ${ticket.title}`, data.id);
     return data as Ticket;
 };
 export const updateTicket = async (id: string, updates: Partial<Ticket>) => {

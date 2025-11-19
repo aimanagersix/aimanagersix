@@ -1,8 +1,10 @@
 
-import React, { useMemo } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel } from '../types';
-import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop } from './common/Icons';
+
+import React, { useMemo, useState, useEffect } from 'react';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction } from '../types';
+import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
+import * as dataService from '../services/dataService';
 
 interface OverviewDashboardProps {
     equipment: Equipment[];
@@ -141,6 +143,30 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, onViewItem, onGenerateComplianceReport 
 }) => {
     const { t } = useLanguage();
+    const [needsAccessReview, setNeedsAccessReview] = useState(false);
+
+    // Access Review Logic (NIS2)
+    useEffect(() => {
+        const lastReview = localStorage.getItem('last_access_review_date');
+        if (lastReview) {
+            const diff = new Date().getTime() - new Date(lastReview).getTime();
+            const days = diff / (1000 * 3600 * 24);
+            if (days > 180) { // 6 months
+                setNeedsAccessReview(true);
+            }
+        } else {
+            // First time / never reviewed
+            setNeedsAccessReview(true);
+        }
+    }, []);
+
+    const handleMarkReviewed = async () => {
+        localStorage.setItem('last_access_review_date', new Date().toISOString());
+        setNeedsAccessReview(false);
+        await dataService.logAction('ACCESS_REVIEW', 'System', 'Admin manually marked access review as complete.');
+        onViewItem('collaborators', { role: 'Admin' });
+    };
+
     const stats = useMemo(() => {
         const statusCounts: Record<string, number> = {};
         for (const item of equipment) {
@@ -282,6 +308,30 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
     return (
         <div className="space-y-8">
+            {/* NIS2 Alert */}
+            {needsAccessReview && (
+                <div className="bg-orange-500/20 border border-orange-500/50 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-orange-500 p-3 rounded-full text-white">
+                            <FaUserShield className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-white">Revisão de Acessos Necessária (Compliance NIS2)</h3>
+                            <p className="text-orange-200 text-sm">
+                                Passaram mais de 6 meses desde a última revisão de permissões de administrador. 
+                                É obrigatório rever quem tem acesso privilegiado ao sistema.
+                            </p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={handleMarkReviewed}
+                        className="whitespace-nowrap px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-md shadow-lg transition-colors"
+                    >
+                        Rever Acessos Agora
+                    </button>
+                </div>
+            )}
+
             <div>
                 <h2 className="text-xl font-bold text-white mb-4">{t('overview.inventory_status')}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">

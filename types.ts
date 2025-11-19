@@ -222,3 +222,16 @@ export interface UserNotificationSnooze {
     notificationType: 'warranty' | 'license' | 'ticket';
     snoozeUntil: string;
 }
+
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW';
+
+export interface AuditLogEntry {
+    id: string;
+    user_id: string; // The actor
+    action: AuditAction;
+    resource_type: string; // 'Collaborator', 'Equipment', etc.
+    resource_id?: string;
+    details?: string; // JSON string or text
+    timestamp: string;
+    user_email?: string; // Joined for display
+}
