@@ -214,3 +214,11 @@ export interface TeamMember {
     team_id: string;
     collaborator_id: string;
 }
+
+export interface UserNotificationSnooze {
+    id: string;
+    userId: string;
+    referenceId: string;
+    notificationType: 'warranty' | 'license' | 'ticket';
+    snoozeUntil: string;
+}

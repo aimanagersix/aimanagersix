@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -126,10 +128,7 @@ const AppContent = () => {
     const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
 
     // Alerting Logic State
-    const [snoozedItems, setSnoozedItems] = useState<Set<string>>(() => {
-        const saved = localStorage.getItem('snoozed_notifications');
-        return saved ? new Set(JSON.parse(saved)) : new Set();
-    });
+    const [snoozedItems, setSnoozedItems] = useState<Set<string>>(new Set());
 
     // Computed Maps
     const brandMap = React.useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -140,12 +139,43 @@ const AppContent = () => {
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
 
     // --- Alerting Calculations ---
-    const handleSnooze = (id: string) => {
-        const newSet = new Set(snoozedItems);
-        newSet.add(id);
-        setSnoozedItems(newSet);
-        localStorage.setItem('snoozed_notifications', JSON.stringify(Array.from(newSet)));
+    const handleSnooze = async (id: string) => {
+        if (!currentUser) return;
+        try {
+            // Determine type based on ID prefix or existence in arrays (simplistic check)
+            let type: 'warranty' | 'license' | 'ticket' = 'ticket';
+            if (equipment.some(e => e.id === id)) type = 'warranty';
+            else if (softwareLicenses.some(l => l.id === id)) type = 'license';
+            
+            // Call DB service
+            await dataService.snoozeNotification(currentUser.id, id, type);
+
+            // Update local state immediately for UI responsiveness
+            const newSet = new Set(snoozedItems);
+            newSet.add(id);
+            setSnoozedItems(newSet);
+        } catch (error) {
+            console.error("Failed to snooze notification", error);
+            alert("Erro ao adiar notificação. Tente novamente.");
+        }
     };
+
+    // Load snoozed items when currentUser is set
+    useEffect(() => {
+        const loadSnoozes = async () => {
+            if (currentUser) {
+                try {
+                    const activeSnoozes = await dataService.fetchUserActiveSnoozes(currentUser.id);
+                    setSnoozedItems(activeSnoozes);
+                } catch (error) {
+                    console.error("Failed to load snoozes", error);
+                }
+            } else {
+                setSnoozedItems(new Set());
+            }
+        };
+        loadSnoozes();
+    }, [currentUser]);
 
     const expiringWarranties = useMemo(() => {
         const today = new Date();
@@ -168,22 +198,44 @@ const AppContent = () => {
         const thirtyDays = new Date(today);
         thirtyDays.setDate(today.getDate() + 30);
 
+        const usedSeatsMap = licenseAssignments.reduce((acc, a) => {
+             acc.set(a.softwareLicenseId, (acc.get(a.softwareLicenseId) || 0) + 1);
+             return acc;
+        }, new Map<string, number>());
+
         return softwareLicenses.filter(lic => {
             if (lic.status === LicenseStatus.Inativo) return false;
             if (snoozedItems.has(lic.id)) return false;
-            if (!lic.expiryDate) return false;
-            const date = new Date(lic.expiryDate);
-            return date <= thirtyDays;
+            
+            // Check 1: Expiry Date
+            let isExpiring = false;
+            if (lic.expiryDate) {
+                const date = new Date(lic.expiryDate);
+                isExpiring = date <= thirtyDays;
+            }
+
+            // Check 2: Depleted Seats
+            const used = usedSeatsMap.get(lic.id) || 0;
+            const isDepleted = (lic.totalSeats - used) <= 0;
+
+            return isExpiring || isDepleted;
         });
-    }, [softwareLicenses, snoozedItems]);
+    }, [softwareLicenses, snoozedItems, licenseAssignments]);
     
     const activeTeamTickets = useMemo(() => {
-        // Simple logic: Tickets that are not finished
-        return tickets.filter(t => 
-            t.status !== TicketStatus.Finished && 
-            !snoozedItems.has(t.id)
-        );
-    }, [tickets, snoozedItems]);
+        return tickets.filter(t => {
+            if (t.status === TicketStatus.Finished) return false;
+            if (snoozedItems.has(t.id)) return false;
+            
+            // Alert if:
+            // 1. Unassigned (Technician needed)
+            // 2. Assigned to current user (My tasks)
+            const isUnassigned = !t.technicianId;
+            const isAssignedToMe = currentUser && t.technicianId === currentUser.id;
+            
+            return isUnassigned || isAssignedToMe;
+        });
+    }, [tickets, snoozedItems, currentUser]);
 
     const totalNotifications = expiringWarranties.length + expiringLicenses.length + activeTeamTickets.length;
 
@@ -730,6 +782,8 @@ const AppContent = () => {
                     teams={teams}
                     onViewItem={handleViewItem}
                     onSnooze={handleSnooze}
+                    currentUser={currentUser}
+                    licenseAssignments={licenseAssignments}
                 />
             )}
 

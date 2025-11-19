@@ -1,7 +1,9 @@
 
 
+
+
 import { getSupabase } from './supabaseClient';
-import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, Team, TeamMember } from '../types';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, Team, TeamMember, UserNotificationSnooze } from '../types';
 
 // Função auxiliar para lidar com erros do Supabase de forma consistente
 const handleSupabaseError = (error: any, context: string) => {
@@ -211,7 +213,7 @@ const mapAssignmentFromDb = (db: any): Assignment => ({
 const mapAssignmentToDb = (assign: Partial<Assignment>): any => {
     const db: any = { ...assign };
     if ('equipmentId' in db) { db.equipment_id = db.equipmentId; delete db.equipmentId; }
-    if ('entidadeId' in db) { db.entidade_id = db.entidadeId; delete db.entidadeId; }
+    if ('entidadeId' in db) { db.entidade_id = db.entidade_id; delete db.entidadeId; }
     if ('collaboratorId' in db) { db.collaborator_id = db.collaboratorId; delete db.collaboratorId; }
     if ('assignedDate' in db) { db.assigned_date = db.assignedDate; delete db.assignedDate; }
     if ('returnDate' in db) { db.return_date = db.returnDate; delete db.returnDate; }
@@ -232,7 +234,7 @@ const mapTicketFromDb = (dbTicket: any): Ticket => ({
 const mapTicketToDb = (ticket: Partial<Ticket>): any => {
     const db: any = { ...ticket };
     if ('entidadeId' in db) { db.entidade_id = db.entidadeId; delete db.entidadeId; }
-    if ('collaboratorId' in db) { db.collaborator_id = db.collaboratorId; delete db.collaboratorId; }
+    if ('collaboratorId' in db) { db.collaborator_id = db.collaborator_id; delete db.collaboratorId; }
     if ('technicianId' in db) { db.technician_id = db.technicianId; delete db.technicianId; }
     if ('equipmentId' in db) { db.equipment_id = db.equipmentId; delete db.equipmentId; }
     if ('requestDate' in db) { db.request_date = db.requestDate; delete db.requestDate; }
@@ -691,4 +693,44 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
         const { error: insertError } = await supabase.from('team_members').insert(newMembers);
         handleSupabaseError(insertError, 'a adicionar novos membros à equipa');
     }
+};
+
+// --- Notification Snoozes ---
+export const fetchUserActiveSnoozes = async (userId: string): Promise<Set<string>> => {
+    const supabase = getSupabase();
+    const now = new Date().toISOString();
+
+    // Select snoozes where snooze_until is in the future
+    const { data, error } = await supabase
+        .from('user_notification_snoozes')
+        .select('reference_id')
+        .eq('user_id', userId)
+        .gt('snooze_until', now);
+
+    if (error) {
+        // Log but don't throw to avoid crashing the app for a non-critical feature
+        console.warn("Erro ao obter snoozes:", error);
+        return new Set();
+    }
+
+    const ids = new Set<string>(data?.map((item: any) => String(item.reference_id)) || []);
+    return ids;
+};
+
+export const snoozeNotification = async (userId: string, referenceId: string, type: 'warranty' | 'license' | 'ticket', days: number = 7): Promise<void> => {
+    const supabase = getSupabase();
+    const snoozeUntil = new Date();
+    snoozeUntil.setDate(snoozeUntil.getDate() + days);
+
+    const record = {
+        user_id: userId,
+        reference_id: referenceId,
+        notification_type: type,
+        snooze_until: snoozeUntil.toISOString()
+    };
+
+    // Insert (or simple update if we enforced unique constraint, but here we just insert)
+    // Ideally, one user+ref_id should be unique, but for simplicity, inserting a new future date covers it.
+    const { error } = await supabase.from('user_notification_snoozes').insert(record);
+    handleSupabaseError(error, 'a adiar notificação');
 };
