@@ -22,13 +22,25 @@ import CloseTicketModal from './components/CloseTicketModal';
 import CollaboratorDetailModal from './components/CollaboratorDetailModal';
 import CollaboratorHistoryModal from './components/CollaboratorHistoryModal';
 import ReportModal from './components/ReportModal';
+import AddEquipmentModal from './components/AddEquipmentModal';
+import AddInstituicaoModal from './components/AddInstituicaoModal';
+import AddEntidadeModal from './components/AddEntidadeModal';
+import AddBrandModal from './components/AddBrandModal';
+import AddEquipmentTypeModal from './components/AddEquipmentTypeModal';
+import AddLicenseModal from './components/AddLicenseModal';
+import AddTeamModal from './components/AddTeamModal';
+import ManageTeamMembersModal from './components/ManageTeamMembersModal';
+import AddEquipmentKitModal from './components/AddEquipmentKitModal';
+import AssignEquipmentModal from './components/AssignEquipmentModal';
+import AssignMultipleEquipmentModal from './components/AssignMultipleEquipmentModal';
+import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 import { ChatWidget } from './components/ChatWidget';
 import * as dataService from './services/dataService';
 import { getSupabase } from './services/supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus
+    Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus
 } from './types';
 import { PlusIcon } from './components/common/Icons';
 
@@ -56,19 +68,52 @@ export const App = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [collaboratorHistory, setCollaboratorHistory] = useState<CollaboratorHistory[]>([]);
 
-    // Modal States
+    // --- Modal States ---
+    // Equipment
+    const [isAddEquipmentModalOpen, setIsAddEquipmentModalOpen] = useState(false);
+    const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+    const [showHistoryEquipment, setShowHistoryEquipment] = useState<Equipment | null>(null);
+    const [assignModalOpen, setAssignModalOpen] = useState(false);
+    const [assignEquipmentItem, setAssignEquipmentItem] = useState<Equipment | null>(null);
+    const [assignMultipleModalOpen, setAssignMultipleModalOpen] = useState(false);
+    const [assignMultipleList, setAssignMultipleList] = useState<Equipment[]>([]);
     const [manageLicensesEquipment, setManageLicensesEquipment] = useState<Equipment | null>(null);
+    const [isKitModalOpen, setIsKitModalOpen] = useState(false);
+    const [kitModalInitialData, setKitModalInitialData] = useState<Partial<Equipment> | null>(null);
+
+    // Organization & Others
     const [isAddCollaboratorModalOpen, setIsAddCollaboratorModalOpen] = useState(false);
     const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
+    const [showDetailCollaborator, setShowDetailCollaborator] = useState<Collaborator | null>(null);
+    const [showHistoryCollaborator, setShowHistoryCollaborator] = useState<Collaborator | null>(null);
+    
+    const [isAddInstituicaoModalOpen, setIsAddInstituicaoModalOpen] = useState(false);
+    const [editingInstituicao, setEditingInstituicao] = useState<Instituicao | null>(null);
+    
+    const [isAddEntidadeModalOpen, setIsAddEntidadeModalOpen] = useState(false);
+    const [editingEntidade, setEditingEntidade] = useState<Entidade | null>(null);
+
+    const [isAddBrandModalOpen, setIsAddBrandModalOpen] = useState(false);
+    const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+
+    const [isAddEquipmentTypeModalOpen, setIsAddEquipmentTypeModalOpen] = useState(false);
+    const [editingEquipmentType, setEditingEquipmentType] = useState<EquipmentType | null>(null);
+    
+    const [isAddLicenseModalOpen, setIsAddLicenseModalOpen] = useState(false);
+    const [editingLicense, setEditingLicense] = useState<SoftwareLicense | null>(null);
+
+    const [isAddTeamModalOpen, setIsAddTeamModalOpen] = useState(false);
+    const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+    const [manageTeamMembersTeam, setManageTeamMembersTeam] = useState<Team | null>(null);
+
+    // Tickets
     const [isAddTicketModalOpen, setIsAddTicketModalOpen] = useState(false);
     const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
     const [ticketActivitiesOpen, setTicketActivitiesOpen] = useState<Ticket | null>(null);
     const [ticketToClose, setTicketToClose] = useState<Ticket | null>(null);
-    const [showDetailCollaborator, setShowDetailCollaborator] = useState<Collaborator | null>(null);
-    const [showHistoryCollaborator, setShowHistoryCollaborator] = useState<Collaborator | null>(null);
+
+    // Global
     const [reportType, setReportType] = useState<'equipment' | 'collaborator' | 'ticket' | 'licensing' | null>(null);
-    
-    // Chat State
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
 
@@ -147,7 +192,6 @@ export const App = () => {
                 const { data: inserted } = await dataService.addMultipleCollaborators(data as any);
                 count = inserted ? inserted.length : 0;
                 if (inserted) {
-                    // Force cast to bypass TS mismatch between Supabase response and state type
                     setCollaborators(prev => [...prev, ...(inserted as any[] as Collaborator[])]);
                 }
             } else if (dataType === 'instituicoes') {
@@ -163,6 +207,7 @@ export const App = () => {
                      setEntidades(prev => [...prev, ...(inserted as any[] as Entidade[])]);
                  }
             }
+            refreshData();
             return { success: true, message: `Importação concluída com sucesso! ${count} registos importados.` };
         } catch (error: any) {
             return { success: false, message: `Erro na importação: ${error.message}` };
@@ -188,11 +233,58 @@ export const App = () => {
         setDashboardFilter(filter);
     };
     
-    // --- Licensing Handlers ---
+    // --- Handlers ---
+
+    // Equipment
+    const handleCreateEquipment = async (eq: any) => {
+        await dataService.addEquipment({ ...eq, status: EquipmentStatus.Stock });
+        refreshData();
+    };
+    const handleUpdateEquipment = async (eq: Equipment) => {
+        await dataService.updateEquipment(eq.id, eq);
+        refreshData();
+    };
+    const handleUpdateEquipmentStatus = async (id: string, status: EquipmentStatus) => {
+        await dataService.updateEquipment(id, { status });
+        refreshData();
+    };
+    const handleAssignEquipment = async (assignment: any) => {
+        await dataService.addAssignment(assignment);
+        await dataService.updateEquipment(assignment.equipmentId, { status: EquipmentStatus.Operational });
+        setAssignModalOpen(false);
+        refreshData();
+    };
+    const handleAssignMultiple = async (assignmentBase: any) => {
+        const newAssignments = assignMultipleList.map(eq => ({
+            ...assignmentBase,
+            equipmentId: eq.id,
+        }));
+        await dataService.addMultipleAssignments(newAssignments);
+        for (const eq of assignMultipleList) {
+             await dataService.updateEquipment(eq.id, { status: EquipmentStatus.Operational });
+        }
+        setAssignMultipleModalOpen(false);
+        setAssignMultipleList([]);
+        refreshData();
+    };
+    const handleUnassignEquipment = async (equipmentId: string) => {
+        const activeAssignment = assignments.find(a => a.equipmentId === equipmentId && !a.returnDate);
+        if (activeAssignment) {
+            await dataService.updateAssignment(activeAssignment.id, { returnDate: new Date().toISOString().split('T')[0] });
+            await dataService.updateEquipment(equipmentId, { status: EquipmentStatus.Stock });
+            refreshData();
+        }
+    };
+    const handleCreateKit = async (items: any[]) => {
+        const records = items.map(item => ({ ...item, status: EquipmentStatus.Stock }));
+        await dataService.addMultipleEquipment(records);
+        refreshData();
+    };
+
+    // Licensing
     const handleManageKeys = (equipment: Equipment) => {
         setManageLicensesEquipment(equipment);
     };
-
     const handleSaveAssignedLicenses = async (equipmentId: string, licenseIds: string[]) => {
         try {
             await dataService.syncLicenseAssignments(equipmentId, licenseIds);
@@ -203,8 +295,103 @@ export const App = () => {
             alert("Erro ao guardar as licenças. Por favor tente novamente.");
         }
     };
+    const handleCreateLicense = async (lic: any) => {
+        await dataService.addLicense(lic);
+        refreshData();
+    }
+    const handleUpdateLicense = async (lic: any) => {
+        await dataService.updateLicense(lic.id, lic);
+        refreshData();
+    }
+    const handleDeleteLicense = async (id: string) => {
+        await dataService.deleteLicense(id);
+        refreshData();
+    }
+    const handleToggleLicenseStatus = async (id: string) => {
+        const license = softwareLicenses.find(l => l.id === id);
+        if (license) {
+            await dataService.updateLicense(id, { status: license.status === LicenseStatus.Ativo ? LicenseStatus.Inativo : LicenseStatus.Ativo });
+            refreshData();
+        }
+    }
 
-    // --- Collaborator Handlers ---
+    // Organization (Instituicoes, Entidades, Teams)
+    const handleCreateInstituicao = async (inst: any) => {
+        await dataService.addInstituicao(inst);
+        refreshData();
+    };
+    const handleUpdateInstituicao = async (inst: any) => {
+        await dataService.updateInstituicao(inst.id, inst);
+        refreshData();
+    };
+    const handleDeleteInstituicao = async (id: string) => {
+        await dataService.deleteInstituicao(id);
+        refreshData();
+    }
+    const handleCreateEntidade = async (ent: any) => {
+        await dataService.addEntidade(ent);
+        refreshData();
+    }
+    const handleUpdateEntidade = async (ent: any) => {
+        await dataService.updateEntidade(ent.id, ent);
+        refreshData();
+    }
+    const handleDeleteEntidade = async (id: string) => {
+        await dataService.deleteEntidade(id);
+        refreshData();
+    }
+    const handleToggleEntidadeStatus = async (id: string) => {
+        const ent = entidades.find(e => e.id === id);
+        if (ent) {
+             await dataService.updateEntidade(id, { status: ent.status === EntidadeStatus.Ativo ? EntidadeStatus.Inativo : EntidadeStatus.Ativo });
+             refreshData();
+        }
+    }
+    const handleCreateTeam = async (team: any) => {
+        await dataService.addTeam(team);
+        refreshData();
+    }
+    const handleUpdateTeam = async (team: any) => {
+        await dataService.updateTeam(team.id, team);
+        refreshData();
+    }
+    const handleDeleteTeam = async (id: string) => {
+        await dataService.deleteTeam(id);
+        refreshData();
+    }
+    const handleSaveTeamMembers = async (teamId: string, memberIds: string[]) => {
+        await dataService.syncTeamMembers(teamId, memberIds);
+        setManageTeamMembersTeam(null);
+        refreshData();
+    }
+
+    // Brands & Types
+    const handleCreateBrand = async (brand: any) => {
+        await dataService.addBrand(brand);
+        refreshData();
+    }
+    const handleUpdateBrand = async (brand: any) => {
+        await dataService.updateBrand(brand.id, brand);
+        refreshData();
+    }
+    const handleDeleteBrand = async (id: string) => {
+        await dataService.deleteBrand(id);
+        refreshData();
+    }
+    const handleCreateType = async (type: any) => {
+        await dataService.addEquipmentType(type);
+        refreshData();
+    }
+    const handleUpdateType = async (type: any) => {
+        await dataService.updateEquipmentType(type.id, type);
+        refreshData();
+    }
+    const handleDeleteType = async (id: string) => {
+        await dataService.deleteEquipmentType(id);
+        refreshData();
+    }
+
+    // Collaborators
     const handleCreateCollaborator = async (collaborator: any, password?: string) => {
          try {
              if (collaborator.canLogin && password) {
@@ -257,7 +444,7 @@ export const App = () => {
         }
     };
 
-    // --- Ticket Handlers ---
+    // Tickets
     const handleCreateTicket = async (ticket: any) => {
         try {
             await dataService.addTicket({ ...ticket, requestDate: new Date().toISOString(), status: TicketStatus.Requested });
@@ -304,7 +491,6 @@ export const App = () => {
                     technicianId: currentUser.id,
                     date: new Date().toISOString()
                 });
-                // Update ticket status to In Progress if currently Requested
                 if (ticketActivitiesOpen.status === TicketStatus.Requested) {
                     await dataService.updateTicket(ticketActivitiesOpen.id, { status: TicketStatus.InProgress });
                 }
@@ -316,7 +502,7 @@ export const App = () => {
         }
     };
     
-    // --- Chat Handlers ---
+    // Chat
     const handleSendMessage = async (receiverId: string, content: string) => {
         if (currentUser) {
              try {
@@ -362,7 +548,7 @@ export const App = () => {
                     'organizacao.instituicoes': true, 'organizacao.entidades': true, 'organizacao.teams': true,
                     collaborators: true, licensing: true, tickets: { title: 'Suporte' }
                 }}
-                notificationCount={0} // Todo: implement count logic
+                notificationCount={0}
                 onNotificationClick={() => {}}
             />
             <main className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -370,21 +556,39 @@ export const App = () => {
                     <OverviewDashboard 
                         equipment={equipment} instituicoes={instituicoes} entidades={entidades} assignments={assignments} 
                         equipmentTypes={equipmentTypes} tickets={tickets} collaborators={collaborators} teams={teams}
-                        expiringWarranties={[]} // Todo: filter logic
-                        expiringLicenses={[]} // Todo: filter logic
+                        expiringWarranties={[]}
+                        expiringLicenses={[]}
                         softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments}
                         onViewItem={handleViewItem} 
                     />
                 )}
                 {activeTab === 'equipment.inventory' && (
-                    <EquipmentDashboard 
-                         equipment={equipment} brands={brands} equipmentTypes={equipmentTypes} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap}
-                         assignedEquipmentIds={assignedEquipmentIds} assignments={assignments} collaborators={collaborators} entidades={entidades}
-                         initialFilter={dashboardFilter} onClearInitialFilter={() => setDashboardFilter(null)} 
-                         onShowHistory={() => {}} // Todo: implement handler
-                         onAssign={() => {}} // Todo: implement handler
-                         onManageKeys={handleManageKeys}
-                    />
+                    <div className="space-y-4">
+                         <div className="flex justify-end gap-2">
+                            <button onClick={() => setIsKitModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500">
+                                <PlusIcon /> Criar Posto de Trabalho (Kit)
+                            </button>
+                             <button 
+                                onClick={() => { setEditingEquipment(null); setIsAddEquipmentModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Adicionar Equipamento
+                             </button>
+                         </div>
+                        <EquipmentDashboard 
+                             equipment={equipment} brands={brands} equipmentTypes={equipmentTypes} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap}
+                             assignedEquipmentIds={assignedEquipmentIds} assignments={assignments} collaborators={collaborators} entidades={entidades}
+                             initialFilter={dashboardFilter} onClearInitialFilter={() => setDashboardFilter(null)} 
+                             onShowHistory={(eq) => setShowHistoryEquipment(eq)}
+                             onAssign={(eq) => { setAssignEquipmentItem(eq); setAssignModalOpen(true); }}
+                             onUnassign={handleUnassignEquipment}
+                             onUpdateStatus={handleUpdateEquipmentStatus}
+                             onEdit={(eq) => { setEditingEquipment(eq); setIsAddEquipmentModalOpen(true); }}
+                             onAssignMultiple={(list) => { setAssignMultipleList(list); setAssignMultipleModalOpen(true); }}
+                             onManageKeys={handleManageKeys}
+                             onGenerateReport={() => setReportType('equipment')}
+                        />
+                    </div>
                 )}
                  {activeTab === 'collaborators' && (
                      <div className="space-y-4">
@@ -409,14 +613,61 @@ export const App = () => {
                          />
                      </div>
                  )}
-                 {activeTab === 'organizacao.instituicoes' && <InstituicaoDashboard instituicoes={instituicoes} escolasDepartamentos={entidades} />}
-                 {activeTab === 'organizacao.entidades' && <EntidadeDashboard escolasDepartamentos={entidades} instituicoes={instituicoes} collaborators={collaborators} />}
+                 {activeTab === 'organizacao.instituicoes' && (
+                     <div className="space-y-4">
+                        <div className="flex justify-end">
+                             <button 
+                                onClick={() => { setEditingInstituicao(null); setIsAddInstituicaoModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Adicionar Instituição
+                             </button>
+                         </div>
+                        <InstituicaoDashboard 
+                            instituicoes={instituicoes} escolasDepartamentos={entidades} 
+                            onEdit={(inst) => { setEditingInstituicao(inst); setIsAddInstituicaoModalOpen(true); }}
+                            onDelete={handleDeleteInstituicao}
+                        />
+                     </div>
+                 )}
+                 {activeTab === 'organizacao.entidades' && (
+                     <div className="space-y-4">
+                         <div className="flex justify-end">
+                             <button 
+                                onClick={() => { setEditingEntidade(null); setIsAddEntidadeModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Adicionar Entidade
+                             </button>
+                         </div>
+                        <EntidadeDashboard 
+                            escolasDepartamentos={entidades} instituicoes={instituicoes} collaborators={collaborators} 
+                            onEdit={(ent) => { setEditingEntidade(ent); setIsAddEntidadeModalOpen(true); }}
+                            onDelete={handleDeleteEntidade}
+                            onToggleStatus={handleToggleEntidadeStatus}
+                        />
+                     </div>
+                 )}
                  {activeTab === 'licensing' && (
-                    <LicenseDashboard 
-                        licenses={softwareLicenses} licenseAssignments={licenseAssignments} equipmentData={equipment} 
-                        assignments={assignments} collaborators={collaborators} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap}
-                        initialFilter={dashboardFilter} onClearInitialFilter={() => setDashboardFilter(null)}
-                    />
+                     <div className="space-y-4">
+                         <div className="flex justify-end">
+                             <button 
+                                onClick={() => { setEditingLicense(null); setIsAddLicenseModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Adicionar Licença
+                             </button>
+                         </div>
+                        <LicenseDashboard 
+                            licenses={softwareLicenses} licenseAssignments={licenseAssignments} equipmentData={equipment} 
+                            assignments={assignments} collaborators={collaborators} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap}
+                            initialFilter={dashboardFilter} onClearInitialFilter={() => setDashboardFilter(null)}
+                            onEdit={(lic) => { setEditingLicense(lic); setIsAddLicenseModalOpen(true); }}
+                            onDelete={handleDeleteLicense}
+                            onToggleStatus={handleToggleLicenseStatus}
+                            onGenerateReport={() => setReportType('licensing')}
+                        />
+                    </div>
                  )}
                  {activeTab === 'tickets' && (
                     <div className="space-y-4">
@@ -441,16 +692,117 @@ export const App = () => {
                     </div>
                  )}
                  {activeTab === 'organizacao.teams' && (
-                    <TeamDashboard 
-                        teams={teams} teamMembers={teamMembers} collaborators={collaborators} tickets={tickets} 
-                        onEdit={() => {}} onDelete={() => {}} onManageMembers={() => {}}
-                    />
+                     <div className="space-y-4">
+                         <div className="flex justify-end">
+                             <button 
+                                onClick={() => { setEditingTeam(null); setIsAddTeamModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Adicionar Equipa
+                             </button>
+                         </div>
+                        <TeamDashboard 
+                            teams={teams} teamMembers={teamMembers} collaborators={collaborators} tickets={tickets} 
+                            onEdit={(t) => { setEditingTeam(t); setIsAddTeamModalOpen(true); }} 
+                            onDelete={handleDeleteTeam} 
+                            onManageMembers={(t) => setManageTeamMembersTeam(t)}
+                        />
+                     </div>
                  )}
-                 {activeTab === 'equipment.brands' && <BrandDashboard brands={brands} equipment={equipment} />}
-                 {activeTab === 'equipment.types' && <EquipmentTypeDashboard equipmentTypes={equipmentTypes} equipment={equipment} />}
+                 {activeTab === 'equipment.brands' && (
+                     <div className="space-y-4">
+                         <div className="flex justify-end">
+                             <button 
+                                onClick={() => { setEditingBrand(null); setIsAddBrandModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Adicionar Marca
+                             </button>
+                         </div>
+                        <BrandDashboard 
+                            brands={brands} equipment={equipment} 
+                            onEdit={(b) => { setEditingBrand(b); setIsAddBrandModalOpen(true); }}
+                            onDelete={handleDeleteBrand}
+                        />
+                     </div>
+                 )}
+                 {activeTab === 'equipment.types' && (
+                     <div className="space-y-4">
+                         <div className="flex justify-end">
+                             <button 
+                                onClick={() => { setEditingEquipmentType(null); setIsAddEquipmentTypeModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
+                             >
+                                 <PlusIcon /> Adicionar Tipo
+                             </button>
+                         </div>
+                        <EquipmentTypeDashboard 
+                            equipmentTypes={equipmentTypes} equipment={equipment} 
+                            onEdit={(t) => { setEditingEquipmentType(t); setIsAddEquipmentTypeModalOpen(true); }}
+                            onDelete={handleDeleteType}
+                        />
+                     </div>
+                 )}
             </main>
 
             {/* Modals */}
+            {/* Equipment Modals */}
+            {isAddEquipmentModalOpen && (
+                <AddEquipmentModal
+                    onClose={() => setIsAddEquipmentModalOpen(false)}
+                    onSave={editingEquipment ? handleUpdateEquipment : handleCreateEquipment}
+                    brands={brands}
+                    equipmentTypes={equipmentTypes}
+                    equipmentToEdit={editingEquipment}
+                    onSaveBrand={async (b) => { await dataService.addBrand(b as Brand); const res = await dataService.fetchData<Brand>('brand'); setBrands(res); return res.find((x: any) => x.name === b.name)!; }}
+                    onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t as EquipmentType); const res = await dataService.fetchData<EquipmentType>('equipment_type'); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }}
+                    onOpenKitModal={(initialData) => { setIsAddEquipmentModalOpen(false); setKitModalInitialData(initialData); setIsKitModalOpen(true); }}
+                />
+            )}
+            {isKitModalOpen && (
+                <AddEquipmentKitModal
+                    onClose={() => setIsKitModalOpen(false)}
+                    onSaveKit={handleCreateKit}
+                    brands={brands}
+                    equipmentTypes={equipmentTypes}
+                    initialData={kitModalInitialData}
+                    onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t as EquipmentType); const res = await dataService.fetchData<EquipmentType>('equipment_type'); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }}
+                    equipment={equipment}
+                />
+            )}
+            {assignModalOpen && assignEquipmentItem && (
+                <AssignEquipmentModal
+                    equipment={assignEquipmentItem}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    onClose={() => setAssignModalOpen(false)}
+                    onAssign={handleAssignEquipment}
+                />
+            )}
+            {assignMultipleModalOpen && (
+                <AssignMultipleEquipmentModal
+                    equipmentList={assignMultipleList}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    onClose={() => setAssignMultipleModalOpen(false)}
+                    onAssign={handleAssignMultiple}
+                />
+            )}
+             {showHistoryEquipment && (
+                <EquipmentHistoryModal
+                    equipment={showHistoryEquipment}
+                    assignments={assignments}
+                    collaborators={collaborators}
+                    escolasDepartamentos={entidades}
+                    onClose={() => setShowHistoryEquipment(null)}
+                    tickets={tickets}
+                    ticketActivities={ticketActivities}
+                />
+            )}
             {manageLicensesEquipment && (
                 <ManageAssignedLicensesModal
                     equipment={manageLicensesEquipment}
@@ -461,6 +813,7 @@ export const App = () => {
                 />
             )}
             
+            {/* Organization Modals */}
             {isAddCollaboratorModalOpen && (
                 <AddCollaboratorModal
                     onClose={() => setIsAddCollaboratorModalOpen(false)}
@@ -470,7 +823,65 @@ export const App = () => {
                     currentUser={currentUser}
                 />
             )}
+            {isAddInstituicaoModalOpen && (
+                <AddInstituicaoModal
+                    onClose={() => setIsAddInstituicaoModalOpen(false)}
+                    onSave={editingInstituicao ? handleUpdateInstituicao : handleCreateInstituicao}
+                    instituicaoToEdit={editingInstituicao}
+                />
+            )}
+            {isAddEntidadeModalOpen && (
+                <AddEntidadeModal
+                    onClose={() => setIsAddEntidadeModalOpen(false)}
+                    onSave={editingEntidade ? handleUpdateEntidade : handleCreateEntidade}
+                    entidadeToEdit={editingEntidade}
+                    instituicoes={instituicoes}
+                />
+            )}
+            {isAddTeamModalOpen && (
+                <AddTeamModal
+                    onClose={() => setIsAddTeamModalOpen(false)}
+                    onSave={editingTeam ? handleUpdateTeam : handleCreateTeam}
+                    teamToEdit={editingTeam}
+                />
+            )}
+            {manageTeamMembersTeam && (
+                <ManageTeamMembersModal
+                    onClose={() => setManageTeamMembersTeam(null)}
+                    onSave={handleSaveTeamMembers}
+                    team={manageTeamMembersTeam}
+                    allCollaborators={collaborators}
+                    teamMembers={teamMembers}
+                />
+            )}
 
+            {/* Types & Brands Modals */}
+            {isAddBrandModalOpen && (
+                <AddBrandModal
+                    onClose={() => setIsAddBrandModalOpen(false)}
+                    onSave={editingBrand ? handleUpdateBrand : handleCreateBrand}
+                    brandToEdit={editingBrand}
+                />
+            )}
+            {isAddEquipmentTypeModalOpen && (
+                <AddEquipmentTypeModal
+                    onClose={() => setIsAddEquipmentTypeModalOpen(false)}
+                    onSave={editingEquipmentType ? handleUpdateType : handleCreateType}
+                    typeToEdit={editingEquipmentType}
+                    teams={teams}
+                />
+            )}
+
+            {/* License Modals */}
+            {isAddLicenseModalOpen && (
+                <AddLicenseModal
+                    onClose={() => setIsAddLicenseModalOpen(false)}
+                    onSave={editingLicense ? handleUpdateLicense : handleCreateLicense}
+                    licenseToEdit={editingLicense}
+                />
+            )}
+
+            {/* Ticket Modals */}
             {isAddTicketModalOpen && (
                 <AddTicketModal
                     onClose={() => setIsAddTicketModalOpen(false)}
@@ -480,7 +891,7 @@ export const App = () => {
                     collaborators={collaborators}
                     teams={teams}
                     currentUser={currentUser}
-                    userPermissions={{ viewScope: 'all' }} // Simplify for now
+                    userPermissions={{ viewScope: 'all' }}
                     equipment={equipment}
                     equipmentTypes={equipmentTypes}
                     assignments={assignments}
@@ -511,6 +922,7 @@ export const App = () => {
                 />
             )}
 
+            {/* Detail & History Modals */}
             {showDetailCollaborator && (
                 <CollaboratorDetailModal
                     collaborator={showDetailCollaborator}
