@@ -400,4 +400,5 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ collabora
   );
 };
 
+
 export default CollaboratorDashboard;
