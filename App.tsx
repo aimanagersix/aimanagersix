@@ -43,8 +43,10 @@ import {
     Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus
 } from './types';
 import { PlusIcon, FaFileImport } from './components/common/Icons';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
-export const App = () => {
+const AppContent = () => {
+    const { t } = useLanguage();
     // Auth & Config State
     const [session, setSession] = useState<any>(null);
     const [isConfigured, setIsConfigured] = useState(false);
@@ -673,9 +675,16 @@ export const App = () => {
                 setActiveTab={setActiveTab} 
                 onLogout={handleLogout} 
                 tabConfig={{
-                    overview: true, 'equipment.inventory': true, 'equipment.brands': true, 'equipment.types': true,
-                    'organizacao.instituicoes': true, 'organizacao.entidades': true, 'organizacao.teams': true,
-                    collaborators: true, licensing: true, tickets: { title: 'Suporte' }
+                    overview: t('nav.overview'), 
+                    'equipment.inventory': t('nav.equipment_list'), 
+                    'equipment.brands': t('nav.brands'), 
+                    'equipment.types': t('nav.types'),
+                    'organizacao.instituicoes': t('nav.institutions'), 
+                    'organizacao.entidades': t('nav.entities'), 
+                    'organizacao.teams': t('nav.teams'),
+                    collaborators: t('nav.collaborators'), 
+                    licensing: t('nav.licensing'), 
+                    tickets: { title: t('nav.support') }
                 }}
                 notificationCount={0}
                 onNotificationClick={() => {}}
@@ -695,16 +704,16 @@ export const App = () => {
                     <div className="space-y-4">
                          <div className="flex justify-end gap-2">
                             <button onClick={() => openImportModal('equipment')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
-                                <FaFileImport /> Importar Excel
+                                <FaFileImport /> {t('common.import')}
                             </button>
                             <button onClick={() => setIsKitModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500">
-                                <PlusIcon /> Criar Posto de Trabalho (Kit)
+                                <PlusIcon /> {t('common.create')} Kit
                             </button>
                              <button 
                                 onClick={() => { setEditingEquipment(null); setIsAddEquipmentModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Adicionar Equipamento
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                         <EquipmentDashboard 
@@ -726,13 +735,13 @@ export const App = () => {
                      <div className="space-y-4">
                          <div className="flex justify-end gap-2">
                              <button onClick={() => openImportModal('collaborators')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
-                                <FaFileImport /> Importar Excel
+                                <FaFileImport /> {t('common.import')}
                              </button>
                              <button 
                                 onClick={() => { setEditingCollaborator(null); setIsAddCollaboratorModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Adicionar Colaborador
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                          <CollaboratorDashboard 
@@ -752,13 +761,13 @@ export const App = () => {
                      <div className="space-y-4">
                         <div className="flex justify-end gap-2">
                              <button onClick={() => openImportModal('instituicoes')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
-                                <FaFileImport /> Importar Excel
+                                <FaFileImport /> {t('common.import')}
                              </button>
                              <button 
                                 onClick={() => { setEditingInstituicao(null); setIsAddInstituicaoModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Adicionar Instituição
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                         <InstituicaoDashboard 
@@ -772,13 +781,13 @@ export const App = () => {
                      <div className="space-y-4">
                          <div className="flex justify-end gap-2">
                              <button onClick={() => openImportModal('entidades')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">
-                                <FaFileImport /> Importar Excel
+                                <FaFileImport /> {t('common.import')}
                              </button>
                              <button 
                                 onClick={() => { setEditingEntidade(null); setIsAddEntidadeModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Adicionar Entidade
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                         <EntidadeDashboard 
@@ -796,7 +805,7 @@ export const App = () => {
                                 onClick={() => { setEditingLicense(null); setIsAddLicenseModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Adicionar Licença
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                         <LicenseDashboard 
@@ -817,7 +826,7 @@ export const App = () => {
                                 onClick={() => { setEditingTicket(null); setIsAddTicketModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Novo Ticket
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                         <TicketDashboard 
@@ -839,7 +848,7 @@ export const App = () => {
                                 onClick={() => { setEditingTeam(null); setIsAddTeamModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Adicionar Equipa
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                         <TeamDashboard 
@@ -857,7 +866,7 @@ export const App = () => {
                                 onClick={() => { setEditingBrand(null); setIsAddBrandModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Adicionar Marca
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                         <BrandDashboard 
@@ -874,7 +883,7 @@ export const App = () => {
                                 onClick={() => { setEditingEquipmentType(null); setIsAddEquipmentTypeModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary"
                              >
-                                 <PlusIcon /> Adicionar Tipo
+                                 <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
                         <EquipmentTypeDashboard 
@@ -1127,5 +1136,13 @@ export const App = () => {
                 />
             )}
         </div>
+    );
+};
+
+export const App = () => {
+    return (
+        <LanguageProvider>
+            <AppContent />
+        </LanguageProvider>
     );
 };
