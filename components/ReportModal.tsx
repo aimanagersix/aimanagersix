@@ -1,12 +1,13 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Instituicao, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment } from '../types';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, CriticalityLevel } from '../types';
 import { MailIcon, FaEye } from './common/Icons';
 import { FaFileCsv } from 'react-icons/fa';
 import PrintPreviewModal from './PrintPreviewModal';
 
 interface ReportModalProps {
-    type: 'equipment' | 'collaborator' | 'ticket' | 'licensing';
+    type: 'equipment' | 'collaborator' | 'ticket' | 'licensing' | 'compliance';
     onClose: () => void;
     equipment: Equipment[];
     brandMap: Map<string, string>;
@@ -46,6 +47,14 @@ const BarChart: React.FC<{ title: string; data: { name: string; value: number }[
     );
 };
 
+const getLevelColor = (level?: string) => {
+    switch (level) {
+        case 'Crítica': return 'text-red-500 font-bold';
+        case 'Alta': case 'Alto': return 'text-orange-400 font-semibold';
+        case 'Média': case 'Médio': return 'text-yellow-400';
+        default: return 'text-gray-300';
+    }
+};
 
 const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, brandMap, equipmentTypeMap, instituicoes, escolasDepartamentos: entidades, collaborators, assignments, tickets, softwareLicenses, licenseAssignments }) => {
     // Equipment Report State
@@ -60,6 +69,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
     // Ticket Report State
     const [ticketDateFrom, setTicketDateFrom] = useState('');
     const [ticketDateTo, setTicketDateTo] = useState('');
+    
+    // Compliance Report State
+    const [complianceFilterLevel, setComplianceFilterLevel] = useState<string>('');
 
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const reportContentRef = useRef<HTMLDivElement>(null);
@@ -168,6 +180,24 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
 
     }, [type, collabFilterEntidadeId, collaborators, entidades, assignments, equipment]);
 
+    const complianceReportData = useMemo(() => {
+        if (type !== 'compliance') return null;
+        
+        const items = equipment.filter(eq => {
+            if (!complianceFilterLevel) return true;
+            return eq.criticality === complianceFilterLevel;
+        }).sort((a,b) => {
+            const levels = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
+            const levelA = levels[a.criticality || CriticalityLevel.Low];
+            const levelB = levels[b.criticality || CriticalityLevel.Low];
+            return levelB - levelA; // Descending order
+        });
+        
+        return {
+            type: 'compliance' as const,
+            items
+        };
+    }, [type, equipment, complianceFilterLevel]);
 
     const equipmentReportData = useMemo(() => {
         if (type !== 'equipment') return null;
@@ -230,7 +260,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
         }
     }, [type, reportLevel, selectedInstituicaoId, selectedEntidadeId, selectedCollaboratorId, assignments, collaborators, instituicoes, equipment, entidades, instituicaoMap]);
 
-    const reportData = type === 'equipment' ? equipmentReportData : (type === 'collaborator' ? collaboratorReportData : type === 'licensing' ? licenseReportData : ticketReportData);
+    const reportData = type === 'equipment' ? equipmentReportData : (type === 'collaborator' ? collaboratorReportData : type === 'licensing' ? licenseReportData : type === 'compliance' ? complianceReportData : ticketReportData);
 
     const handlePreview = () => {
         if (reportContentRef.current) {
@@ -264,6 +294,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             emailTo = instituicoes[0]?.email || '';
         } else if (reportData.type === 'ticket') {
             subject = `Relatório de Tickets de Suporte`;
+            emailTo = instituicoes[0]?.email || '';
+        } else if (reportData.type === 'compliance') {
+            subject = `Relatório de Conformidade NIS2`;
             emailTo = instituicoes[0]?.email || '';
         }
         
@@ -350,6 +383,18 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             rows = [...instituicaoRows, ...entidadeRows];
             const dateFilter = (ticketDateFrom || ticketDateTo) ? `${ticketDateFrom}_a_${ticketDateTo}` : 'geral';
             fileName = `relatorio_tickets_${dateFilter}_${new Date().toISOString().split('T')[0]}.csv`;
+        } else if (reportData.type === 'compliance') {
+            headers = ["Equipamento", "Marca/Tipo", "Nº Série", "Criticidade", "Confidencialidade", "Integridade", "Disponibilidade"];
+            rows = reportData.items.map(item => [
+                escapeCsv(item.description),
+                escapeCsv(`${brandMap.get(item.brandId)} ${equipmentTypeMap.get(item.typeId)}`),
+                escapeCsv(item.serialNumber),
+                escapeCsv(item.criticality),
+                escapeCsv(item.confidentiality),
+                escapeCsv(item.integrity),
+                escapeCsv(item.availability),
+            ].join(','));
+            fileName = `relatorio_compliance_nis2_${new Date().toISOString().split('T')[0]}.csv`;
         }
         
         const csvContent = [headers.join(','), ...rows].join('\n');
@@ -428,6 +473,20 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 <input type="date" id="ticketDateTo" value={ticketDateTo} onChange={e => setTicketDateTo(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"/>
             </div>
         </div>
+    );
+
+    const renderComplianceFilters = () => (
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+             <div>
+                <label htmlFor="complianceLevelSelect" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Criticidade:</label>
+                <select id="complianceLevelSelect" value={complianceFilterLevel} onChange={(e) => setComplianceFilterLevel(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                    <option value="">Todas</option>
+                    {Object.values(CriticalityLevel).map(level => (
+                        <option key={level} value={level}>{level}</option>
+                    ))}
+                </select>
+            </div>
+         </div>
     );
 
     const renderReportPreview = () => (
@@ -605,12 +664,52 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                     {reportData.items.length === 0 && <p className="text-center py-4">Nenhuma licença encontrada.</p>}
                 </>
             )}
+
+            {/* Compliance Report */}
+            {reportData?.type === 'compliance' && (
+                <>
+                    <h3 className="text-xl font-bold text-white mb-2">Relatório de Conformidade NIS2 (C-I-A)</h3>
+                    <p className="mb-4 text-sm">Este relatório lista os ativos e a sua classificação de risco quanto à confidencialidade, integridade e disponibilidade.</p>
+                    
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs uppercase bg-gray-700/50">
+                            <tr>
+                                <th className="px-4 py-2">Ativo</th>
+                                <th className="px-4 py-2">S/N</th>
+                                <th className="px-4 py-2 text-center">Criticidade</th>
+                                <th className="px-4 py-2 text-center">Confidencialidade</th>
+                                <th className="px-4 py-2 text-center">Integridade</th>
+                                <th className="px-4 py-2 text-center">Disponibilidade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportData.items.map((item) => (
+                                <tr key={item.id} className="border-b border-gray-700">
+                                    <td className="px-4 py-2">
+                                        <div className="text-on-surface-dark font-medium">{item.description}</div>
+                                        <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId)} {equipmentTypeMap.get(item.typeId)}</div>
+                                    </td>
+                                    <td className="px-4 py-2 font-mono text-xs">{item.serialNumber}</td>
+                                    <td className={`px-4 py-2 text-center ${getLevelColor(item.criticality)}`}>{item.criticality || 'N/A'}</td>
+                                    <td className={`px-4 py-2 text-center ${getLevelColor(item.confidentiality)}`}>{item.confidentiality || 'N/A'}</td>
+                                    <td className={`px-4 py-2 text-center ${getLevelColor(item.integrity)}`}>{item.integrity || 'N/A'}</td>
+                                    <td className={`px-4 py-2 text-center ${getLevelColor(item.availability)}`}>{item.availability || 'N/A'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {reportData.items.length === 0 && <p className="text-center py-4">Nenhum equipamento encontrado com os filtros selecionados.</p>}
+                </>
+            )}
          </div>
     );
 
 
     return (
-        <Modal title={type === 'equipment' ? 'Gerador de Relatórios de Equipamentos' : type === 'collaborator' ? 'Gerador de Relatórios de Colaboradores' : type === 'licensing' ? 'Relatório de Licenciamento' : 'Relatório de Tickets'} onClose={onClose}>
+        <Modal 
+            title={type === 'equipment' ? 'Relatórios de Equipamentos' : type === 'collaborator' ? 'Relatórios de Colaboradores' : type === 'licensing' ? 'Relatório de Licenciamento' : type === 'compliance' ? 'Relatório de Conformidade NIS2' : 'Relatório de Tickets'} 
+            onClose={onClose}
+        >
             {showEmailInstructions && (
                 <div className="absolute inset-0 bg-black bg-opacity-80 flex justify-center items-center z-10 p-4 rounded-lg">
                     <div className="bg-surface-dark p-6 rounded-xl shadow-2xl max-w-md w-full border border-gray-700">
@@ -633,7 +732,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             )}
              <div className="space-y-4">
                 
-                {type === 'equipment' ? renderEquipmentFilters() : type === 'collaborator' ? renderCollaboratorFilters() : type === 'ticket' ? renderTicketFilters() : null}
+                {type === 'equipment' ? renderEquipmentFilters() : type === 'collaborator' ? renderCollaboratorFilters() : type === 'ticket' ? renderTicketFilters() : type === 'compliance' ? renderComplianceFilters() : null}
 
                 <div className="border-t border-gray-700 my-4 no-print"></div>
 

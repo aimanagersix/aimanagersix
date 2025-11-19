@@ -33,6 +33,7 @@ export const translations = {
     "overview.equipment_age": "Equipamentos por Antiguidade",
     "overview.top_types": "Top 5 Tipos de Equipamento",
     "overview.tickets_team": "Tickets por Equipa",
+    "overview.criticality_distribution": "Distribuição de Risco",
     "overview.next_30_days": "Próximos 30 dias",
     "overview.none_available": "Nenhuma licença com vagas disponíveis.",
 
@@ -86,6 +87,7 @@ export const translations = {
     "overview.equipment_age": "Equipment by Age",
     "overview.top_types": "Top 5 Equipment Types",
     "overview.tickets_team": "Tickets by Team",
+    "overview.criticality_distribution": "Risk Distribution",
     "overview.next_30_days": "Next 30 days",
     "overview.none_available": "No licenses with available seats.",
 

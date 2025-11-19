@@ -119,7 +119,7 @@ const AppContent = () => {
     const [ticketToClose, setTicketToClose] = useState<Ticket | null>(null);
 
     // Global
-    const [reportType, setReportType] = useState<'equipment' | 'collaborator' | 'ticket' | 'licensing' | null>(null);
+    const [reportType, setReportType] = useState<'equipment' | 'collaborator' | 'ticket' | 'licensing' | 'compliance' | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
 
@@ -805,6 +805,7 @@ const AppContent = () => {
                         expiringLicenses={[]}
                         softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments}
                         onViewItem={handleViewItem} 
+                        onGenerateComplianceReport={() => setReportType('compliance')}
                     />
                 )}
                 {activeTab === 'equipment.inventory' && tabConfig['equipment.inventory'] && (

@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus } from '../types';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -18,6 +18,7 @@ interface OverviewDashboardProps {
     softwareLicenses: SoftwareLicense[];
     licenseAssignments: LicenseAssignment[];
     onViewItem: (tab: string, filter: any) => void;
+    onGenerateComplianceReport: () => void;
 }
 
 interface StatCardProps {
@@ -48,16 +49,19 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick,
     </div>
 );
 
-const BarChart: React.FC<{ title: string; data: { name: string; value: number }[], icon?: React.ReactNode }> = ({ title, data, icon }) => {
+const BarChart: React.FC<{ title: string; data: { name: string; value: number }[], icon?: React.ReactNode, extraAction?: React.ReactNode }> = ({ title, data, icon, extraAction }) => {
     const { t } = useLanguage();
     const maxValue = useMemo(() => Math.max(...data.map(item => item.value), 0), [data]);
 
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-lg h-full">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                {icon}
-                {title}
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    {icon}
+                    {title}
+                </h3>
+                {extraAction}
+            </div>
             <div className="space-y-3">
                 {data.length > 0 ? data.map((item, index) => (
                     <div key={index} className="flex items-center" title={`${item.name}: ${item.value}`}>
@@ -134,7 +138,7 @@ const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availab
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
-    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, onViewItem 
+    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, onViewItem, onGenerateComplianceReport 
 }) => {
     const { t } = useLanguage();
     const stats = useMemo(() => {
@@ -203,6 +207,20 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         });
 
         return Object.entries(ageGroups).map(([name, value]) => ({ name, value }));
+    }, [equipment]);
+
+    const equipmentByCriticality = useMemo(() => {
+        const counts = {
+            [CriticalityLevel.Low]: 0,
+            [CriticalityLevel.Medium]: 0,
+            [CriticalityLevel.High]: 0,
+            [CriticalityLevel.Critical]: 0,
+        };
+        equipment.forEach(eq => {
+            const level = eq.criticality || CriticalityLevel.Low;
+            counts[level] = (counts[level] || 0) + 1;
+        });
+        return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
     }, [equipment]);
     
     const ticketsByTeam = useMemo(() => {
@@ -287,6 +305,18 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div className="xl:col-span-2">
                     <BarChart title={t('overview.equipment_age')} data={equipmentByAge} icon={<FaCalendarAlt />}/>
+                </div>
+                <div>
+                     <BarChart 
+                        title={t('overview.criticality_distribution')} 
+                        data={equipmentByCriticality} 
+                        icon={<FaShieldAlt />}
+                        extraAction={
+                            <button onClick={onGenerateComplianceReport} className="text-xs px-2 py-1 bg-brand-primary hover:bg-brand-secondary text-white rounded">
+                                Relatório NIS2
+                            </button>
+                        }
+                    />
                 </div>
                 <div>
                      <BarChart title={t('overview.top_types')} data={top5EquipmentTypes} icon={<FaLaptop />}/>
