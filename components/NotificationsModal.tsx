@@ -1,3 +1,4 @@
+
 import React from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, Ticket, Collaborator, Team } from '../types';
@@ -52,12 +53,12 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
         <Modal title="Notificações" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-6">
                  <section>
-                    <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2"><FaTicketAlt className="text-yellow-400"/> Tickets Abertos da Equipa</h3>
+                    <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2"><FaTicketAlt className="text-yellow-400"/> Tickets Abertos</h3>
                     {sortedTeamTickets.length > 0 ? (
                         <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                             {sortedTeamTickets.map(ticket => {
                                 const requesterName = collaboratorMap.get(ticket.collaboratorId) || 'Desconhecido';
-                                const teamName = ticket.team_id ? teamMap.get(ticket.team_id) : 'N/A';
+                                const teamName = ticket.team_id ? teamMap.get(ticket.team_id) : 'Geral';
                                 return (
                                     <div key={ticket.id} className="flex items-center justify-between p-3 bg-surface-dark rounded-lg border border-gray-700">
                                         <div>
@@ -66,7 +67,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button 
-                                                onClick={() => onViewItem('tickets', { team_id: ticket.team_id })}
+                                                onClick={() => onViewItem('tickets', { status: ticket.status })}
                                                 className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
                                             >
                                                 <FaEye /> Ver
@@ -74,7 +75,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                             <button 
                                                 onClick={() => onSnooze(ticket.id)}
                                                 className="p-2 text-xs text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors"
-                                                title="Ocultar permanentemente esta notificação"
+                                                title="Ocultar esta notificação"
                                             >
                                                 <FaBellSlash />
                                             </button>
@@ -84,7 +85,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                             })}
                         </div>
                     ) : (
-                        <p className="text-on-surface-dark-secondary text-sm">Não existem tickets abertos para as suas equipas.</p>
+                        <p className="text-on-surface-dark-secondary text-sm">Não existem tickets pendentes.</p>
                     )}
                 </section>
                 <section>
@@ -109,7 +110,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                             <button 
                                                 onClick={() => onSnooze(item.id)}
                                                 className="p-2 text-xs text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors"
-                                                title="Ocultar permanentemente esta notificação"
+                                                title="Ocultar esta notificação"
                                             >
                                                 <FaBellSlash />
                                             </button>
@@ -145,7 +146,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                             <button 
                                                 onClick={() => onSnooze(license.id)}
                                                 className="p-2 text-xs text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors"
-                                                title="Ocultar permanentemente esta notificação"
+                                                title="Ocultar esta notificação"
                                             >
                                                 <FaBellSlash />
                                             </button>
