@@ -118,6 +118,15 @@ const mapEquipmentToDb = (eq: Partial<Equipment>): any => {
     if ('warrantyEndDate' in db) { db.warranty_end_date = db.warrantyEndDate; delete db.warrantyEndDate; }
     if ('creationDate' in db) { db.creation_date = db.creationDate; delete db.creationDate; }
     if ('modifiedDate' in db) { db.modified_date = db.modifiedDate; delete db.modifiedDate; }
+    
+    // Defensive: Ensure optional unique fields are undefined if empty, to become NULL in DB.
+    // This prevents "duplicate key value" errors when multiple records have "" in a unique column.
+    if (db.inventory_number === '') delete db.inventory_number;
+    if (db.invoice_number === '') delete db.invoice_number;
+    if (db.nome_na_rede === '') delete db.nome_na_rede;
+    if (db.mac_address_wifi === '') delete db.mac_address_wifi;
+    if (db.mac_address_cabo === '') delete db.mac_address_cabo;
+
     return cleanDbRecord(db);
 };
 
@@ -622,6 +631,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
 
     if (toAdd.length > 0) {
         const newRecords = toAdd.map(licenseId => ({
+            id: generateUUID(), // FIX: Generate ID manually as we are not using insertData
             [colEquipmentId]: equipmentId,
             [colLicenseId]: licenseId,
             [colAssignedDate]: new Date().toISOString().split('T')[0],

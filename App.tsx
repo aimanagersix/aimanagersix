@@ -451,8 +451,13 @@ const AppContent = () => {
 
     // Equipment
     const handleCreateEquipment = async (eq: any) => {
-        await dataService.addEquipment({ ...eq, status: EquipmentStatus.Stock });
-        refreshData();
+        try {
+            await dataService.addEquipment({ ...eq, status: EquipmentStatus.Stock });
+            refreshData();
+        } catch (error: any) {
+            console.error("Erro ao criar equipamento:", error);
+            alert(`Erro ao criar equipamento: ${error.message || 'Verifique se os campos obrigatórios estão preenchidos ou se existem duplicados.'}`);
+        }
     };
     const handleUpdateEquipment = async (eq: Equipment) => {
         await dataService.updateEquipment(eq.id, eq);
