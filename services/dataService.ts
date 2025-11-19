@@ -135,8 +135,9 @@ export const addMultipleEquipment = async (equipmentList: any[]) => {
 
 // --- Collaborators ---
 export const addCollaborator = async (collaborator: Omit<Collaborator, 'id'> & { id?: string }) => {
-    const { data, error } = await getSupabase().from('collaborators').insert(collaborator).select().single();
-    handleSupabaseError(error, 'adding collaborator');
+    // Using upsert to allow restoring/overwriting admin access if ID exists
+    const { data, error } = await getSupabase().from('collaborators').upsert(collaborator).select().single();
+    handleSupabaseError(error, 'adding/updating collaborator');
     return data as Collaborator;
 };
 export const updateCollaborator = async (id: string, updates: Partial<Collaborator>) => {

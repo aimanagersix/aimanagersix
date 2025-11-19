@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -299,7 +294,7 @@ const AppContent = () => {
     
     useEffect(() => {
         if (session?.user?.email && collaborators.length > 0) {
-            const user = collaborators.find(c => c.email === session.user.email);
+            const user = collaborators.find(c => c.email.toLowerCase() === session.user.email?.toLowerCase());
             setCurrentUser(user || null);
         } else if (session && collaborators.length === 0) {
              // Ensure currentUser is cleared if collaborators are empty (e.g. fresh start)
@@ -565,7 +560,7 @@ const AppContent = () => {
 
             // 2. Create the Admin Collaborator
             // Use the Auth User ID if possible, but if the table expects something else, standard UUID works.
-            // Since this is a fresh start, we can sync IDs.
+            // Since this is a fresh start or restore, we can sync IDs.
             const newAdmin: Omit<Collaborator, 'id'> & { id: string } = {
                 id: session.user.id, // Link directly to Auth ID
                 fullName: 'Administrador',
@@ -578,6 +573,7 @@ const AppContent = () => {
                 status: CollaboratorStatus.Ativo
             };
 
+            // Now uses upsert to allow recovery of existing ID
             await dataService.addCollaborator(newAdmin);
             await refreshData();
 
@@ -700,33 +696,33 @@ const AppContent = () => {
                     <div className="mx-auto bg-yellow-500/20 w-16 h-16 rounded-full flex items-center justify-center mb-4">
                         <FaUserLock className="h-8 w-8 text-yellow-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Acesso Pendente</h2>
+                    <h2 className="text-2xl font-bold text-white mb-2">Acesso Pendente ou Inválido</h2>
                     <p className="text-on-surface-dark-secondary mb-6">
-                        A sua conta ({session.user.email}) está autenticada, mas não está associada a nenhum registo de colaborador ativo no sistema.
+                        A sua conta ({session.user.email}) está autenticada, mas não encontrámos um perfil de colaborador ativo correspondente.
                     </p>
                     
-                    {isBootstrap ? (
-                        <div className="space-y-4">
+                    <div className="space-y-4">
+                         {isBootstrap ? (
                              <div className="p-4 bg-blue-900/30 rounded-md text-sm text-blue-200 text-left">
-                                <strong>Configuração Inicial:</strong> O sistema parece estar vazio. Pode inicializar criando a primeira conta de Administrador agora.
+                                <strong>Configuração Inicial:</strong> O sistema está vazio. Crie o primeiro administrador.
                              </div>
-                             <button 
-                                onClick={createAdminProfile} 
-                                className="w-full py-3 px-4 bg-brand-primary hover:bg-brand-secondary text-white rounded-md font-medium transition-colors"
-                             >
-                                Inicializar como Administrador
-                             </button>
-                        </div>
-                    ) : (
-                        <div>
-                             <div className="p-4 bg-red-900/20 rounded-md text-sm text-red-200 mb-4">
-                                Por favor, contacte o administrador do sistema para associar o seu email a um perfil de colaborador.
+                         ) : (
+                            <div className="p-4 bg-yellow-900/20 rounded-md text-sm text-yellow-200 text-left">
+                                <strong>Problema de Permissões:</strong> Se acredita que deveria ter acesso, pode tentar restaurar o seu perfil como Administrador.
                              </div>
-                             <button onClick={handleLogout} className="text-on-surface-dark-secondary hover:text-white underline">
-                                Sair e tentar outra conta
-                             </button>
-                        </div>
-                    )}
+                         )}
+                         
+                         <button 
+                            onClick={createAdminProfile} 
+                            className="w-full py-3 px-4 bg-brand-primary hover:bg-brand-secondary text-white rounded-md font-medium transition-colors shadow-lg"
+                         >
+                            {isBootstrap ? "Inicializar Sistema" : "Restaurar Acesso de Admin"}
+                         </button>
+
+                         <button onClick={handleLogout} className="text-on-surface-dark-secondary hover:text-white underline text-sm mt-4 block w-full">
+                            Sair e tentar outra conta
+                         </button>
+                    </div>
                  </div>
             </div>
         );
