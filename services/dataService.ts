@@ -59,6 +59,29 @@ export const fetchAuditLogs = async () => {
     }
 };
 
+export const fetchLastAccessReviewDate = async (): Promise<string | null> => {
+    const supabase = getSupabase();
+    try {
+        const { data, error } = await supabase
+            .from('audit_logs')
+            .select('timestamp')
+            .eq('action', 'ACCESS_REVIEW')
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error) {
+            // Code PGRST116 means no rows returned (no review ever happened), which is fine
+            if (error.code !== 'PGRST116') console.warn("Error fetching last review date:", error);
+            return null;
+        }
+        return data?.timestamp || null;
+    } catch (e) {
+        console.warn("Could not fetch last access review date", e);
+        return null;
+    }
+};
+
 
 // --- Batch Data Fetching ---
 export const fetchAllData = async () => {

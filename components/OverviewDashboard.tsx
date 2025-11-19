@@ -144,26 +144,33 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 }) => {
     const { t } = useLanguage();
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
+    const [lastReviewDate, setLastReviewDate] = useState<string | null>(null);
 
-    // Access Review Logic (NIS2)
+    // Access Review Logic (NIS2) - Database backed
     useEffect(() => {
-        const lastReview = localStorage.getItem('last_access_review_date');
-        if (lastReview) {
-            const diff = new Date().getTime() - new Date(lastReview).getTime();
-            const days = diff / (1000 * 3600 * 24);
-            if (days > 180) { // 6 months
+        const checkAccessReview = async () => {
+            const date = await dataService.fetchLastAccessReviewDate();
+            setLastReviewDate(date);
+
+            if (date) {
+                const diff = new Date().getTime() - new Date(date).getTime();
+                const days = diff / (1000 * 3600 * 24);
+                if (days > 180) { // 6 months
+                    setNeedsAccessReview(true);
+                }
+            } else {
+                // First time / never reviewed in DB
                 setNeedsAccessReview(true);
             }
-        } else {
-            // First time / never reviewed
-            setNeedsAccessReview(true);
-        }
+        };
+        checkAccessReview();
     }, []);
 
     const handleMarkReviewed = async () => {
-        localStorage.setItem('last_access_review_date', new Date().toISOString());
-        setNeedsAccessReview(false);
         await dataService.logAction('ACCESS_REVIEW', 'System', 'Admin manually marked access review as complete.');
+        setNeedsAccessReview(false);
+        setLastReviewDate(new Date().toISOString());
+        // Open the view as confirmation
         onViewItem('collaborators', { role: 'Admin' });
     };
 
@@ -318,8 +325,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                         <div>
                             <h3 className="text-lg font-bold text-white">Revisão de Acessos Necessária (Compliance NIS2)</h3>
                             <p className="text-orange-200 text-sm">
-                                Passaram mais de 6 meses desde a última revisão de permissões de administrador. 
-                                É obrigatório rever quem tem acesso privilegiado ao sistema.
+                                {lastReviewDate 
+                                    ? `Última revisão: ${new Date(lastReviewDate).toLocaleDateString()}. É obrigatório rever quem tem acesso privilegiado a cada 6 meses.` 
+                                    : "Nunca foi efetuada uma revisão de acessos. É obrigatório rever quem tem acesso privilegiado."}
                             </p>
                         </div>
                     </div>
@@ -327,7 +335,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                         onClick={handleMarkReviewed}
                         className="whitespace-nowrap px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-md shadow-lg transition-colors"
                     >
-                        Rever Acessos Agora
+                        Rever e Confirmar Acessos
                     </button>
                 </div>
             )}
