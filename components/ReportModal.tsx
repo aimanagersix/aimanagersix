@@ -797,7 +797,12 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                             <div className="flex justify-between items-start mb-3 border-b border-gray-600 pb-2">
                                 <div>
                                     <h4 className="text-lg font-bold text-white">{item.service.name}</h4>
-                                    {item.service.description && <p className="text-sm text-gray-300 mb-2">{item.service.description}</p>}
+                                    {item.service.description && (
+                                        <p className="text-sm text-gray-300 mb-2">
+                                            <span className="font-semibold text-gray-400">Descrição: </span>
+                                            {item.service.description}
+                                        </p>
+                                    )}
                                     <p className="text-xs text-on-surface-dark-secondary">Responsável: {item.ownerName}</p>
                                 </div>
                                 <div className="text-right">

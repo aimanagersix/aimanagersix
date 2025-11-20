@@ -352,11 +352,11 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
             <div>
                  <h2 className="text-xl font-bold text-white mb-4">{t('overview.health_support')}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     <StatCard title={t('overview.open_tickets')} value={ticketStats.open} icon={<FaTicketAlt className="h-6 w-6 text-white" />} color={ticketStats.open > 0 ? "bg-red-600" : "bg-green-600"} onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} />
                     <StatCard title={t('overview.expiring_warranties')} value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-6 w-6 text-white" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext={t('overview.next_30_days')}/>
                     <StatCard title={t('overview.expiring_licenses')} value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-6 w-6 text-white" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext={t('overview.next_30_days')}/>
-                    <StatCard title="Serviços Mapeados" value={businessServices.length} icon={<FaNetworkWired className="h-6 w-6 text-white" />} color="bg-purple-600" onClick={() => onViewItem('bia', {})} subtext="BIA / NIS2"/>
+                    <StatCard title="Serviços Mapeados" value={businessServices?.length || 0} icon={<FaNetworkWired className="h-6 w-6 text-white" />} color="bg-purple-600" onClick={() => onViewItem('bia', {})} subtext="BIA / NIS2"/>
                     <AvailableLicensesCard licenses={availableLicensesData} onViewAll={() => onViewItem('licensing', { status: 'available' })} />
                 </div>
             </div>
