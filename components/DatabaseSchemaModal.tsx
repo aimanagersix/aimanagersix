@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -39,6 +40,7 @@ BEGIN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactConfidentiality" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactIntegrity" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactAvailability" text;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
 
@@ -181,6 +183,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     team_id uuid REFERENCES teams(id),
     "equipmentId" uuid REFERENCES equipment(id),
     category text,
+    "securityIncidentType" text,
     "impactCriticality" text,
     "impactConfidentiality" text,
     "impactIntegrity" text,

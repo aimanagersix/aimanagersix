@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle } from './common/Icons';
@@ -224,6 +226,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                             {ticket.category || TicketCategory.TechnicalFault}
                                         </span>
                                     </div>
+                                    {isSecurity && ticket.securityIncidentType && (
+                                         <div className="text-xs text-red-200 font-bold mt-1 border border-red-700/50 bg-red-900/30 px-1 rounded inline-block">
+                                            {ticket.securityIncidentType}
+                                        </div>
+                                    )}
                                     {isSecurity && ticket.impactCriticality && (
                                         <div className="text-xs mt-1">Impacto: <span className="text-white">{ticket.impactCriticality}</span></div>
                                     )}

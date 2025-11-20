@@ -142,6 +142,18 @@ export enum TicketCategory {
     Maintenance = 'Manutenção'
 }
 
+export enum SecurityIncidentType {
+    Ransomware = 'Ransomware',
+    Phishing = 'Phishing / Engenharia Social',
+    DataLeak = 'Fuga de Dados (Data Leak)',
+    Malware = 'Malware / Vírus',
+    DDoS = 'Negação de Serviço (DDoS)',
+    UnauthorizedAccess = 'Acesso Não Autorizado / Compromisso de Conta',
+    InsiderThreat = 'Ameaça Interna',
+    VulnerabilityExploit = 'Exploração de Vulnerabilidade',
+    Other = 'Outro'
+}
+
 export interface TicketCategoryItem {
     id: string;
     name: string;
@@ -165,6 +177,7 @@ export interface Ticket {
   
   // NIS2 Incident Response Fields
   category?: string; // Changed to string to support dynamic categories
+  securityIncidentType?: SecurityIncidentType; // Specific type of attack
   impactCriticality?: CriticalityLevel; // Specific to this incident
   impactConfidentiality?: CIARating; // Was confidentiality compromised?
   impactIntegrity?: CIARating;      // Was integrity compromised?

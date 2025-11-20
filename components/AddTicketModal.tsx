@@ -5,9 +5,11 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType } from '../types';
 import { DeleteIcon, FaShieldAlt, FaExclamationTriangle } from './common/Icons';
 
 interface AddTicketModalProps {
@@ -57,6 +59,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 team_id: ticketToEdit.team_id || '',
                 equipmentId: ticketToEdit.equipmentId || '',
                 category: ticketToEdit.category || activeCategories[0],
+                securityIncidentType: ticketToEdit.securityIncidentType,
                 impactCriticality: ticketToEdit.impactCriticality,
                 impactConfidentiality: ticketToEdit.impactConfidentiality,
                 impactIntegrity: ticketToEdit.impactIntegrity,
@@ -71,6 +74,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             team_id: '',
             equipmentId: '',
             category: activeCategories[0] || 'Falha Técnica',
+            securityIncidentType: undefined,
             impactCriticality: CriticalityLevel.Low,
             impactConfidentiality: CIARating.Low,
             impactIntegrity: CIARating.Low,
@@ -184,6 +188,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         if (!formData.entidadeId) newErrors.entidadeId = "A entidade é obrigatória.";
         if (!formData.collaboratorId) newErrors.collaboratorId = "O colaborador é obrigatório.";
         if (!formData.description?.trim()) newErrors.description = "A descrição do problema é obrigatória.";
+        if (isSecurityIncident && !formData.securityIncidentType) newErrors.securityIncidentType = "Por favor, selecione o tipo de incidente de segurança.";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -231,6 +236,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         
         // Clean up Security fields if not security incident
         if (formData.category !== TicketCategory.SecurityIncident && formData.category !== 'Incidente de Segurança') {
+            delete dataToSubmit.securityIncidentType;
             delete dataToSubmit.impactCriticality;
             delete dataToSubmit.impactConfidentiality;
             delete dataToSubmit.impactIntegrity;
@@ -303,19 +309,36 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 </div>
 
                 {isSecurityIncident && (
-                    <div className="border border-red-500/50 bg-red-900/20 rounded-lg p-4 space-y-3">
+                    <div className="border border-red-500/50 bg-red-900/20 rounded-lg p-4 space-y-4">
                          <div className="flex items-center gap-2 text-red-400 font-bold border-b border-red-500/30 pb-2 mb-2">
                             <FaShieldAlt />
-                            <h3>Avaliação de Impacto de Segurança (NIS2)</h3>
+                            <h3>Classificação de Incidente de Segurança (NIS2)</h3>
                         </div>
                         <p className="text-xs text-red-200 mb-2">
                             <FaExclamationTriangle className="inline mr-1"/>
-                            Incidente de Segurança detetado. Classifique o impacto para definir os prazos legais de notificação (24h/72h).
+                            Especifique o tipo de ataque para ativar os protocolos de resposta corretos (ex: Ransomware tem SLA de 24h).
                         </p>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="securityIncidentType" className="block text-sm font-bold text-white mb-1">Tipo de Ataque / Incidente</label>
+                            <select 
+                                name="securityIncidentType" 
+                                id="securityIncidentType" 
+                                value={formData.securityIncidentType} 
+                                onChange={handleChange} 
+                                className={`w-full bg-gray-800 border text-white rounded-md p-2 ${errors.securityIncidentType ? 'border-red-500' : 'border-red-700'}`}
+                            >
+                                <option value="">-- Selecione o Tipo de Incidente --</option>
+                                {Object.values(SecurityIncidentType).map(type => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
+                            </select>
+                            {errors.securityIncidentType && <p className="text-red-400 text-xs italic mt-1">{errors.securityIncidentType}</p>}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-red-500/30">
                              <div>
-                                <label className="block text-xs font-bold text-red-300 mb-1">Criticidade do Incidente</label>
+                                <label className="block text-xs font-bold text-red-300 mb-1">Criticidade do Impacto</label>
                                 <select name="impactCriticality" value={formData.impactCriticality} onChange={handleChange} className="w-full bg-gray-800 border border-red-700 text-white rounded p-1.5 text-sm">
                                     {Object.values(CriticalityLevel).map(val => <option key={val} value={val}>{val}</option>)}
                                 </select>
