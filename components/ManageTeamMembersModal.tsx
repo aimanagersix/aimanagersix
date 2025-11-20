@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Team, Collaborator, TeamMember } from '../types';
-import { SearchIcon } from './common/Icons';
+import { SearchIcon, SpinnerIcon } from './common/Icons';
 import { FaChevronRight, FaChevronLeft } from 'react-icons/fa';
 
 interface ManageTeamMembersModalProps {
     onClose: () => void;
-    onSave: (teamId: string, memberIds: string[]) => void;
+    onSave: (teamId: string, memberIds: string[]) => Promise<void>;
     team: Team;
     allCollaborators: Collaborator[];
     teamMembers: TeamMember[];
@@ -15,13 +15,16 @@ interface ManageTeamMembersModalProps {
 const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose, onSave, team, allCollaborators, teamMembers }) => {
     const [currentMemberIds, setCurrentMemberIds] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
+        // Initialize only once when the modal opens for this team
         const initialMemberIds = teamMembers
             .filter(tm => tm.team_id === team.id)
             .map(tm => tm.collaborator_id);
         setCurrentMemberIds(new Set(initialMemberIds));
-    }, [team, teamMembers]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [team.id]); // Removed teamMembers from deps to prevent reset on background updates
 
     const { teamMembersList, availableCollaborators } = useMemo(() => {
         const members: Collaborator[] = [];
@@ -55,8 +58,16 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
         });
     };
 
-    const handleSubmit = () => {
-        onSave(team.id, Array.from(currentMemberIds));
+    const handleSubmit = async () => {
+        setIsSaving(true);
+        try {
+            await onSave(team.id, Array.from(currentMemberIds));
+            // Modal handling (closing) is usually done by parent after successful save
+        } catch (error: any) {
+            console.error("Failed to save team members:", error);
+            alert(`Erro ao gravar membros da equipa: ${error.message}`);
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -106,7 +117,15 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
             </div>
             <div className="flex justify-end gap-4 pt-6 mt-4 border-t border-gray-700">
                 <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                <button type="button" onClick={handleSubmit} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar Alterações</button>
+                <button 
+                    type="button" 
+                    onClick={handleSubmit} 
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50"
+                >
+                    {isSaving && <SpinnerIcon />}
+                    {isSaving ? 'A Gravar...' : 'Salvar Alterações'}
+                </button>
             </div>
         </Modal>
     );
