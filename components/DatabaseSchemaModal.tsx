@@ -280,9 +280,13 @@ CREATE TABLE team_members (
 -- ==========================================
 CREATE INDEX IF NOT EXISTS idx_equipment_serial ON equipment("serialNumber");
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
-CREATE INDEX IF NOT EXISTS idx_vulnerabilities_status ON vulnerabilities(status);
 CREATE INDEX IF NOT EXISTS idx_assignments_equipment ON assignments("equipmentId");
 CREATE INDEX IF NOT EXISTS idx_assignments_collaborator ON assignments("collaboratorId");
+
+-- Índices Novos para Segurança e BIA
+CREATE INDEX IF NOT EXISTS idx_vulnerabilities_status ON vulnerabilities(status);
+CREATE INDEX IF NOT EXISTS idx_vulnerabilities_severity ON vulnerabilities(severity);
+CREATE INDEX IF NOT EXISTS idx_business_services_criticality ON business_services(criticality);
 
 -- ==========================================
 -- CORREÇÃO DE PERMISSÕES (RLS)

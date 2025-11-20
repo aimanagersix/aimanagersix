@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -869,6 +864,8 @@ const AppContent = () => {
                             onEdit={(v) => { setEditingVulnerability(v); setIsAddVulnerabilityModalOpen(true); }}
                             onDelete={handleDeleteVulnerability}
                             onCreate={() => { setEditingVulnerability(null); setIsAddVulnerabilityModalOpen(true); }}
+                            initialFilter={dashboardFilter}
+                            onClearInitialFilter={() => setDashboardFilter(null)}
                         />
                     </div>
                 )}
@@ -1093,3 +1090,4 @@ export const App = () => {
         </LanguageProvider>
     );
 };
+    

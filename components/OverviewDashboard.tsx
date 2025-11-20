@@ -328,6 +328,29 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
     return (
         <div className="space-y-8">
+             {/* Security Vulnerability Alert */}
+            {securityStats.openCritical > 0 && (
+                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-red-600 p-3 rounded-full text-white animate-pulse">
+                            <FaExclamationTriangle className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-white">Alerta de Segurança Crítico</h3>
+                            <p className="text-red-200 text-sm">
+                                Foram detetadas <strong>{securityStats.openCritical} vulnerabilidades críticas</strong> ou de alta severidade em aberto.
+                            </p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => onViewItem('security', { severity: CriticalityLevel.Critical, status: VulnerabilityStatus.Open })}
+                        className="whitespace-nowrap px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md shadow-lg transition-colors"
+                    >
+                        Resolver Agora
+                    </button>
+                </div>
+            )}
+
             {/* NIS2 Alert */}
             {needsAccessReview && (
                 <div className="bg-orange-500/20 border border-orange-500/50 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
