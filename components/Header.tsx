@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield } from './common/Icons';
@@ -110,6 +105,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
     const hasTicketTabs = tabConfig['tickets'];
+    const hasTicketCategories = tabConfig['tickets.categories'];
     const isAdmin = currentUser?.role === UserRole.Admin;
 
   return (
@@ -183,20 +179,26 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
               {hasTicketTabs && (
                    <div className="relative" ref={ticketsMenuRef}>
                      <button
-                        onClick={() => setIsTicketsMenuOpen(prev => !prev)}
+                        onClick={() => {
+                            if (hasTicketCategories) {
+                                setIsTicketsMenuOpen(prev => !prev);
+                            } else {
+                                handleTabChange('tickets.list');
+                            }
+                        }}
                         className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isTicketsActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
-                        aria-haspopup="true"
+                        aria-haspopup={hasTicketCategories ? "true" : "false"}
                         aria-expanded={isTicketsMenuOpen}
                      >
                         <FaTicketAlt />
                         {tabConfig['tickets'].title}
-                        {tabConfig['tickets.categories'] && (
+                        {hasTicketCategories && (
                             <svg className={`w-4 h-4 ml-1 transition-transform transform ${isTicketsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                         )}
                      </button>
-                     {isTicketsMenuOpen && tabConfig['tickets.categories'] ? (
+                     {isTicketsMenuOpen && hasTicketCategories ? (
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
                              <div className="py-1">
                                 <TabButton tab="tickets.list" label={tabConfig['tickets.list'] || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
@@ -204,7 +206,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                              </div>
                         </div>
                      ) : null}
-                     {/* Fallback click behavior handled in button if no dropdown needed? Currently structured to always show menu if present */}
                    </div>
               )}
           </nav>
@@ -349,7 +350,14 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     {hasTicketTabs && (
                         <div>
                             <button
-                                onClick={() => setIsMobileTicketsOpen(prev => !prev)}
+                                onClick={() => {
+                                    if (hasTicketCategories) {
+                                        setIsMobileTicketsOpen(prev => !prev);
+                                    } else {
+                                        handleTabChange('tickets.list');
+                                        setIsMobileMenuOpen(false);
+                                    }
+                                }}
                                 className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isTicketsActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
                                 aria-expanded={isMobileTicketsOpen}
                             >
@@ -357,13 +365,13 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     <FaTicketAlt />
                                     <span>{tabConfig['tickets'].title}</span>
                                 </div>
-                                {tabConfig['tickets.categories'] && (
+                                {hasTicketCategories && (
                                      <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileTicketsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                     </svg>
                                 )}
                             </button>
-                            {isMobileTicketsOpen && tabConfig['tickets.categories'] ? (
+                            {isMobileTicketsOpen && hasTicketCategories ? (
                                  <div className="pl-4 mt-1 space-y-1">
                                     <TabButton tab="tickets.list" label={tabConfig['tickets.list'] || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
                                     <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
