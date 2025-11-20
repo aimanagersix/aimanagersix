@@ -74,7 +74,6 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
         try {
             await onSave(team.id, Array.from(currentMemberIds));
             // If successful, the parent usually refreshes data or closes modal.
-            // We wait for parent to unmount or we can manually close if onSave returns void
         } catch (err: any) {
             console.error("Failed to save team members:", err);
             
@@ -82,17 +81,17 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
             let isDbIssue = false;
 
             // Check for Supabase/Postgres specific error codes
-            // 42P01: relation does not exist (missing table)
-            // 42501: insufficient privilege (RLS policy missing)
-            // 23503: foreign key violation
             if (
-                err.code === '42P01' || 
-                err.code === '42501' || 
-                (err.message && (err.message.includes('does not exist') || err.message.includes('policy') || err.message.includes('permission')))
+                err.code === '42P01' || // undefined_table
+                err.code === '42501' || // insufficient_privilege
+                err.code === '23503' || // foreign_key_violation
+                (err.message && (err.message.includes('does not exist') || err.message.includes('policy') || err.message.includes('violates foreign key')))
             ) {
                 isDbIssue = true;
                 if (err.code === '42P01' || err.message.includes('does not exist')) {
                      friendlyMsg = "A tabela 'team_members' não existe na base de dados.";
+                } else if (err.code === '23503' || err.message.includes('violates foreign key constraint')) {
+                    friendlyMsg = "Erro de integridade (Foreign Key). A tabela 'team_members' precisa de ser recriada.";
                 } else {
                      friendlyMsg = "Erro de permissões (RLS). O sistema não tem autorização para gravar nesta tabela.";
                 }
@@ -104,24 +103,6 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
             setIsSaving(false);
         }
     };
-
-    // Instructions to fix DB issues
-    const sqlFix = `
--- 1. Criar tabela se não existir
-CREATE TABLE IF NOT EXISTS team_members (
-  team_id uuid REFERENCES teams(id) ON DELETE CASCADE,
-  collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
-  PRIMARY KEY (team_id, collaborator_id)
-);
-
--- 2. Desativar RLS temporariamente para garantir acesso total (solução rápida)
-ALTER TABLE team_members DISABLE ROW LEVEL SECURITY;
-
--- OU, se preferir manter RLS ativo (recomendado), crie uma política permissiva:
--- ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
--- DROP POLICY IF EXISTS "Allow all" ON team_members;
--- CREATE POLICY "Allow all" ON team_members FOR ALL USING (true) WITH CHECK (true);
-`;
 
     return (
         <Modal title={`Gerir Membros da Equipa: ${team.name}`} onClose={onClose} maxWidth="max-w-5xl">
@@ -205,11 +186,12 @@ ALTER TABLE team_members DISABLE ROW LEVEL SECURITY;
                         {showSqlHelp && (
                             <div className="mt-2 bg-black/50 p-3 rounded border border-red-500/30">
                                 <p className="text-xs text-gray-300 mb-2">
-                                    <strong>Solução:</strong> Copie e execute o seguinte comando no Editor SQL do Supabase para corrigir a tabela e permissões:
+                                    <strong>Ação Necessária:</strong> O erro indica que a tabela de membros está desincronizada ou mal configurada.
+                                    <br/>
+                                    1. Aceda ao menu <strong>Configuração BD</strong> (no topo da app).
+                                    <br/>
+                                    2. Copie o script SQL fornecido e execute-o no <strong>SQL Editor</strong> do Supabase.
                                 </p>
-                                <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap overflow-x-auto select-all p-2 bg-gray-900 rounded border border-gray-700">
-                                    {sqlFix}
-                                </pre>
                             </div>
                         )}
                     </div>

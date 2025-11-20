@@ -10,9 +10,9 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const [copied, setCopied] = useState(false);
 
     const sqlScript = `
--- EXECUTE ESTE SCRIPT NO EDITOR SQL DO SUPABASE PARA CONFIGURAR TODAS AS TABELAS E PERMISSÕES
+-- EXECUTE ESTE SCRIPT NO EDITOR SQL DO SUPABASE PARA CORRIGIR A BASE DE DADOS
 
--- 1. Habilitar extensão para UUIDs (geralmente já vem ativa)
+-- 1. Extensões
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. Funções Auxiliares
@@ -25,10 +25,9 @@ END;
 $$ language 'plpgsql';
 
 -- ==========================================
--- TABELAS PRINCIPAIS
+-- CRIAÇÃO DE TABELAS (Se não existirem)
 -- ==========================================
 
--- Instituições
 CREATE TABLE IF NOT EXISTS instituicoes (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL,
@@ -38,7 +37,6 @@ CREATE TABLE IF NOT EXISTS instituicoes (
     created_at timestamptz DEFAULT now()
 );
 
--- Entidades (Departamentos/Escolas)
 CREATE TABLE IF NOT EXISTS entidades (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "instituicaoId" uuid REFERENCES instituicoes(id),
@@ -54,7 +52,6 @@ CREATE TABLE IF NOT EXISTS entidades (
     created_at timestamptz DEFAULT now()
 );
 
--- Colaboradores
 CREATE TABLE IF NOT EXISTS collaborators (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "numeroMecanografico" text,
@@ -69,17 +66,15 @@ CREATE TABLE IF NOT EXISTS collaborators (
     "receivesNotifications" boolean DEFAULT true,
     role text DEFAULT 'Utilizador',
     status text DEFAULT 'Ativo',
-    "allowedModules" text[], -- Array de strings
+    "allowedModules" text[], 
     created_at timestamptz DEFAULT now()
 );
 
--- Marcas
 CREATE TABLE IF NOT EXISTS brands (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL UNIQUE
 );
 
--- Equipas (Teams)
 CREATE TABLE IF NOT EXISTS teams (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL,
@@ -87,7 +82,6 @@ CREATE TABLE IF NOT EXISTS teams (
     created_at timestamptz DEFAULT now()
 );
 
--- Tipos de Equipamento
 CREATE TABLE IF NOT EXISTS equipment_types (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL UNIQUE,
@@ -98,7 +92,6 @@ CREATE TABLE IF NOT EXISTS equipment_types (
     default_team_id uuid REFERENCES teams(id)
 );
 
--- Equipamentos
 CREATE TABLE IF NOT EXISTS equipment (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "brandId" uuid REFERENCES brands(id),
@@ -121,7 +114,6 @@ CREATE TABLE IF NOT EXISTS equipment (
     "modifiedDate" text DEFAULT to_char(now(), 'YYYY-MM-DD')
 );
 
--- Atribuições (Assignments)
 CREATE TABLE IF NOT EXISTS assignments (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "equipmentId" uuid REFERENCES equipment(id),
@@ -132,7 +124,6 @@ CREATE TABLE IF NOT EXISTS assignments (
     created_at timestamptz DEFAULT now()
 );
 
--- Categorias de Tickets
 CREATE TABLE IF NOT EXISTS ticket_categories (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL UNIQUE,
@@ -141,7 +132,6 @@ CREATE TABLE IF NOT EXISTS ticket_categories (
     created_at timestamptz DEFAULT now()
 );
 
--- Tickets
 CREATE TABLE IF NOT EXISTS tickets (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     title text,
@@ -163,7 +153,6 @@ CREATE TABLE IF NOT EXISTS tickets (
     created_at timestamptz DEFAULT now()
 );
 
--- Atividades dos Tickets
 CREATE TABLE IF NOT EXISTS ticket_activities (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "ticketId" uuid REFERENCES tickets(id) ON DELETE CASCADE,
@@ -173,7 +162,6 @@ CREATE TABLE IF NOT EXISTS ticket_activities (
     "equipmentId" uuid REFERENCES equipment(id)
 );
 
--- Licenças de Software
 CREATE TABLE IF NOT EXISTS software_licenses (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "productName" text NOT NULL,
@@ -191,7 +179,6 @@ CREATE TABLE IF NOT EXISTS software_licenses (
     created_at timestamptz DEFAULT now()
 );
 
--- Atribuição de Licenças
 CREATE TABLE IF NOT EXISTS license_assignments (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "softwareLicenseId" uuid REFERENCES software_licenses(id) ON DELETE CASCADE,
@@ -200,15 +187,6 @@ CREATE TABLE IF NOT EXISTS license_assignments (
     "returnDate" timestamptz
 );
 
--- Membros de Equipa
-CREATE TABLE IF NOT EXISTS team_members (
-    team_id uuid REFERENCES teams(id) ON DELETE CASCADE,
-    collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
-    created_at timestamptz DEFAULT now(),
-    PRIMARY KEY (team_id, collaborator_id)
-);
-
--- Mensagens (Chat)
 CREATE TABLE IF NOT EXISTS messages (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "senderId" uuid REFERENCES collaborators(id),
@@ -218,7 +196,6 @@ CREATE TABLE IF NOT EXISTS messages (
     read boolean DEFAULT false
 );
 
--- Histórico de Colaboradores
 CREATE TABLE IF NOT EXISTS collaborator_history (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "collaboratorId" uuid REFERENCES collaborators(id) ON DELETE CASCADE,
@@ -228,10 +205,9 @@ CREATE TABLE IF NOT EXISTS collaborator_history (
     created_at timestamptz DEFAULT now()
 );
 
--- Logs de Auditoria
 CREATE TABLE IF NOT EXISTS audit_logs (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    user_id uuid, -- Pode ser NULL se for sistema
+    user_id uuid,
     action text NOT NULL,
     resource_type text NOT NULL,
     resource_id text,
@@ -239,7 +215,6 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     timestamp timestamptz DEFAULT now()
 );
 
--- Snoozes de Notificações
 CREATE TABLE IF NOT EXISTS user_notification_snoozes (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id uuid NOT NULL,
@@ -250,10 +225,22 @@ CREATE TABLE IF NOT EXISTS user_notification_snoozes (
 );
 
 -- ==========================================
--- POLÍTICAS DE SEGURANÇA (RLS) - ACESSO TOTAL
+-- CORREÇÃO DA TABELA TEAM_MEMBERS
 -- ==========================================
--- Este bloco habilita RLS mas cria uma política 'Allow all' para permitir
--- leitura e escrita a utilizadores autenticados e anonimos (configuração simples).
+-- Esta secção remove a tabela antiga para corrigir erros de Foreign Key e a recria.
+DROP TABLE IF EXISTS team_members;
+
+CREATE TABLE team_members (
+    team_id uuid REFERENCES teams(id) ON DELETE CASCADE,
+    collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
+    created_at timestamptz DEFAULT now(),
+    PRIMARY KEY (team_id, collaborator_id)
+);
+
+-- ==========================================
+-- CORREÇÃO DE PERMISSÕES (RLS)
+-- ==========================================
+-- Habilita RLS e cria uma política 'Allow all' universal
 
 DO $$ 
 DECLARE 
@@ -263,16 +250,17 @@ BEGIN
         SELECT table_name FROM information_schema.tables 
         WHERE table_schema = 'public' 
     LOOP 
+        -- 1. Ativar RLS
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         
-        -- Remover politicas antigas para evitar duplicados
+        -- 2. Limpar políticas antigas (para evitar conflitos)
         BEGIN
             EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t);
             EXECUTE format('DROP POLICY IF EXISTS "Permitir escrita a Admins e Normais" ON %I;', t);
             EXECUTE format('DROP POLICY IF EXISTS "Permitir leitura a utilizadores autenticados" ON %I;', t);
         EXCEPTION WHEN OTHERS THEN NULL; END;
 
-        -- Criar nova politica permissiva
+        -- 3. Criar nova política permissiva
         EXECUTE format('CREATE POLICY "Allow all" ON %I FOR ALL USING (true) WITH CHECK (true);', t); 
     END LOOP; 
 END $$;
@@ -285,17 +273,22 @@ END $$;
     };
 
     return (
-        <Modal title="SQL de Configuração da Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title="SQL de Correção da Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
                     <div className="flex items-center gap-2 font-bold mb-2 text-blue-100">
                         <FaDatabase />
-                        <span>Instruções</span>
+                        <span>Instruções de Correção</span>
                     </div>
-                    <p>
-                        Copie o código SQL abaixo e execute-o no <strong>Editor SQL</strong> do seu projeto Supabase. 
-                        Isto irá criar todas as tabelas necessárias e aplicar as permissões (RLS) para garantir que a aplicação funciona corretamente.
+                    <p className="mb-2">
+                        O script abaixo foi atualizado para corrigir especificamente o erro <strong>"violates foreign key constraint"</strong> na tabela <code>team_members</code> e redefinir as permissões (RLS).
                     </p>
+                    <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>Clique em <strong>Copiar SQL</strong>.</li>
+                        <li>Vá ao seu projeto no <strong>Supabase</strong>.</li>
+                        <li>Abra o <strong>SQL Editor</strong> no menu lateral.</li>
+                        <li>Cole o código e clique em <strong>RUN</strong>.</li>
+                    </ol>
                 </div>
 
                 <div className="relative">
