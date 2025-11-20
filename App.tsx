@@ -142,15 +142,11 @@ const AppContent = () => {
     const handleSnooze = async (id: string) => {
         if (!currentUser) return;
         try {
-            // Determine type based on ID prefix or existence in arrays (simplistic check)
             let type: 'warranty' | 'license' | 'ticket' = 'ticket';
             if (equipment.some(e => e.id === id)) type = 'warranty';
             else if (softwareLicenses.some(l => l.id === id)) type = 'license';
             
-            // Call DB service
             await dataService.snoozeNotification(currentUser.id, id, type);
-
-            // Update local state immediately for UI responsiveness
             const newSet = new Set(snoozedItems);
             newSet.add(id);
             setSnoozedItems(newSet);
@@ -160,7 +156,6 @@ const AppContent = () => {
         }
     };
 
-    // Load snoozed items when currentUser is set
     useEffect(() => {
         const loadSnoozes = async () => {
             if (currentUser) {
@@ -207,14 +202,11 @@ const AppContent = () => {
             if (lic.status === LicenseStatus.Inativo) return false;
             if (snoozedItems.has(lic.id)) return false;
             
-            // Check 1: Expiry Date
             let isExpiring = false;
             if (lic.expiryDate) {
                 const date = new Date(lic.expiryDate);
                 isExpiring = date <= thirtyDays;
             }
-
-            // Check 2: Depleted Seats
             const used = usedSeatsMap.get(lic.id) || 0;
             const isDepleted = (lic.totalSeats - used) <= 0;
 
@@ -226,13 +218,8 @@ const AppContent = () => {
         return tickets.filter(t => {
             if (t.status === TicketStatus.Finished) return false;
             if (snoozedItems.has(t.id)) return false;
-            
-            // Alert if:
-            // 1. Unassigned (Technician needed)
-            // 2. Assigned to current user (My tasks)
             const isUnassigned = !t.technicianId;
             const isAssignedToMe = currentUser && t.technicianId === currentUser.id;
-            
             return isUnassigned || isAssignedToMe;
         });
     }, [tickets, snoozedItems, currentUser]);
@@ -243,10 +230,18 @@ const AppContent = () => {
     // Check Config & Auth on Mount
     useEffect(() => {
         const checkConfig = () => {
-            const url = localStorage.getItem('SUPABASE_URL');
-            const key = localStorage.getItem('SUPABASE_ANON_KEY');
-            const apiKey = localStorage.getItem('API_KEY');
-            if (url && key && apiKey) {
+            // Check LocalStorage
+            const lsUrl = localStorage.getItem('SUPABASE_URL');
+            const lsKey = localStorage.getItem('SUPABASE_ANON_KEY');
+            const lsApiKey = localStorage.getItem('API_KEY');
+            
+            // Check Environment Variables (injected by Vite)
+            const envUrl = process.env.SUPABASE_URL;
+            const envKey = process.env.SUPABASE_ANON_KEY;
+            const envApiKey = process.env.API_KEY;
+
+            // Valid if either LocalStorage is set OR Environment Variables are set
+            if ((lsUrl && lsKey && lsApiKey) || (envUrl && envKey && envApiKey)) {
                 setIsConfigured(true);
             }
         };
@@ -302,7 +297,6 @@ const AppContent = () => {
             const user = collaborators.find(c => c.email.toLowerCase() === session.user.email?.toLowerCase());
             setCurrentUser(user || null);
         } else if (session && collaborators.length === 0) {
-             // Ensure currentUser is cleared if collaborators are empty (e.g. fresh start)
              setCurrentUser(null);
         }
     }, [session, collaborators]);
@@ -564,10 +558,8 @@ const AppContent = () => {
             }
 
             // 2. Create the Admin Collaborator
-            // Use the Auth User ID if possible, but if the table expects something else, standard UUID works.
-            // Since this is a fresh start or restore, we can sync IDs.
             const newAdmin: Omit<Collaborator, 'id'> & { id: string } = {
-                id: session.user.id, // Link directly to Auth ID
+                id: session.user.id, 
                 fullName: 'Administrador',
                 email: session.user.email,
                 numeroMecanografico: '00001',
@@ -578,7 +570,6 @@ const AppContent = () => {
                 status: CollaboratorStatus.Ativo
             };
 
-            // Now uses upsert to allow recovery of existing ID
             await dataService.addCollaborator(newAdmin);
             await refreshData();
 
@@ -598,7 +589,6 @@ const AppContent = () => {
     };
     
     // --- Handlers ---
-    // (Assuming existing handlers are here, keeping them concise for brevity)
     const handleCreateEquipment = async (eq: any) => { await dataService.addEquipment({ ...eq, status: EquipmentStatus.Stock }); refreshData(); };
     const handleUpdateEquipment = async (eq: Equipment) => { await dataService.updateEquipment(eq.id, eq); refreshData(); };
     const handleUpdateEquipmentStatus = async (id: string, status: EquipmentStatus) => { await dataService.updateEquipment(id, { status }); refreshData(); };
