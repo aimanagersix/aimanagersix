@@ -9,8 +9,23 @@ const getAiClient = (): GoogleGenAI => {
         return aiInstance;
     }
 
-    // Prioritize localStorage for persistence
-    const API_KEY = localStorage.getItem('API_KEY') || process.env.API_KEY;
+    // Helper to safely get env vars
+    const getEnvVar = (key: string) => {
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+            // @ts-ignore
+            return import.meta.env[key];
+        }
+        try {
+            if (typeof process !== 'undefined' && process.env && process.env[key]) {
+                return process.env[key];
+            }
+        } catch (e) {}
+        return '';
+    };
+
+    // Prioritize localStorage
+    const API_KEY = localStorage.getItem('API_KEY') || getEnvVar('API_KEY') || getEnvVar('VITE_API_KEY');
 
     if (!API_KEY) {
         console.error("A chave da API Gemini não está configurada.");
@@ -39,7 +54,7 @@ export const extractTextFromImage = async (base64Image: string, mimeType: string
         contents: { parts: [imagePart, textPart] },
     });
     
-    return response.text.trim();
+    return response.text ? response.text.trim() : "";
   } catch (error) {
     console.error("Error extracting text from image:", error);
     throw new Error("Failed to analyze image with Gemini API.");
@@ -71,7 +86,7 @@ export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ bra
             }
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = response.text ? response.text.trim() : "{}";
         return JSON.parse(jsonText);
     } catch (error) {
         console.error("Error getting device info:", error);
@@ -111,7 +126,7 @@ export const suggestPeripheralsForKit = async (primaryDevice: { brand: string; t
             }
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = response.text ? response.text.trim() : "[]";
         return JSON.parse(jsonText);
     } catch (error) {
         console.error("Error suggesting peripherals:", error);

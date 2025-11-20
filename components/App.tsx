@@ -1,2 +1,3 @@
-// This file is deprecated and should be ignored. The correct App.tsx is in the root directory.
+
+// This file is intentionally empty. The correct App.tsx is in the root directory.
 export {};
