@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -44,13 +37,17 @@ import AssignEquipmentModal from './components/AssignEquipmentModal';
 import AssignMultipleEquipmentModal from './components/AssignMultipleEquipmentModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 import CredentialsModal from './components/CredentialsModal';
+import ServiceDashboard from './components/ServiceDashboard';
+import AddServiceModal from './components/AddServiceModal';
+import ServiceDependencyModal from './components/ServiceDependencyModal';
 import { ChatWidget } from './components/ChatWidget';
 import * as dataService from './services/dataService';
 import { getSupabase } from './services/supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus, UserRole, TicketCategoryItem
+    Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus, UserRole, TicketCategoryItem,
+    BusinessService, ServiceDependency
 } from './types';
 import { PlusIcon, FaFileImport, FaUserLock, FaExclamationCircle, SpinnerIcon } from './components/common/Icons';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
@@ -82,6 +79,10 @@ const AppContent = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [collaboratorHistory, setCollaboratorHistory] = useState<CollaboratorHistory[]>([]);
     const [ticketCategories, setTicketCategories] = useState<TicketCategoryItem[]>([]);
+    
+    // BIA Data State
+    const [businessServices, setBusinessServices] = useState<BusinessService[]>([]);
+    const [serviceDependencies, setServiceDependencies] = useState<ServiceDependency[]>([]);
 
     // --- Modal States ---
     const [importModalConfig, setImportModalConfig] = useState<ImportConfig | null>(null);
@@ -133,6 +134,11 @@ const AppContent = () => {
     // Categories
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<TicketCategoryItem | null>(null);
+    
+    // BIA Modals
+    const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
+    const [editingService, setEditingService] = useState<BusinessService | null>(null);
+    const [manageDependenciesService, setManageDependenciesService] = useState<BusinessService | null>(null);
 
 
     // Global
@@ -283,6 +289,8 @@ const AppContent = () => {
             setMessages(data.messages);
             setCollaboratorHistory(data.collaboratorHistory);
             setTicketCategories(data.ticketCategories);
+            setBusinessServices(data.businessServices);
+            setServiceDependencies(data.serviceDependencies);
         } catch (error: any) {
             console.error("Error loading data", error);
             setDataLoadError(error.message || "Falha ao carregar dados.");
@@ -333,11 +341,12 @@ const AppContent = () => {
                 licensing: t('nav.licensing'), 
                 tickets: { title: t('nav.support') },
                 'tickets.list': 'Tickets de Suporte',
-                'tickets.categories': 'Categorias'
+                'tickets.categories': 'Categorias',
+                bia: t('nav.bia') // BIA Tab
             };
         }
 
-        const hasAccess = (module: 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets') => {
+        const hasAccess = (module: 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets' | 'bia') => {
              if (currentUser.allowedModules) {
                  return currentUser.allowedModules.includes(module);
              }
@@ -371,6 +380,10 @@ const AppContent = () => {
 
         if (hasAccess('licensing')) {
             config.licensing = t('nav.licensing');
+        }
+        
+        if (hasAccess('bia')) {
+            config.bia = t('nav.bia');
         }
 
         if (hasAccess('tickets')) {
@@ -696,6 +709,13 @@ const AppContent = () => {
         } 
     }
 
+    // BIA Handlers
+    const handleCreateService = async (service: any) => { await dataService.addBusinessService(service); refreshData(); }
+    const handleUpdateService = async (service: any) => { await dataService.updateBusinessService(service.id, service); refreshData(); }
+    const handleDeleteService = async (id: string) => { await dataService.deleteBusinessService(id); refreshData(); }
+    const handleAddDependency = async (dep: any) => { await dataService.addServiceDependency(dep); refreshData(); }
+    const handleRemoveDependency = async (id: string) => { await dataService.deleteServiceDependency(id); refreshData(); }
+
     const handleCreateTicket = async (ticket: any) => { try { await dataService.addTicket({ ...ticket, requestDate: new Date().toISOString(), status: TicketStatus.Requested }); refreshData(); } catch (error) { alert("Erro ao criar ticket."); } };
     const handleUpdateTicket = async (ticket: Ticket) => { try { await dataService.updateTicket(ticket.id, ticket); refreshData(); } catch (error) { alert("Erro ao atualizar ticket."); } };
     const handleCloseTicket = async (technicianId: string) => { if (ticketToClose) { try { await dataService.updateTicket(ticketToClose.id, { status: TicketStatus.Finished, finishDate: new Date().toISOString(), technicianId: technicianId }); setTicketToClose(null); refreshData(); } catch (error) { alert("Erro ao finalizar ticket."); } } };
@@ -803,7 +823,19 @@ const AppContent = () => {
                         onGenerateComplianceReport={() => setReportType('compliance')}
                     />
                 )}
-                {/* ... (Rest of the Tabs are identical to previous version, preserving them) ... */}
+                {activeTab === 'bia' && tabConfig.bia && (
+                     <div className="space-y-4">
+                        <ServiceDashboard 
+                            services={businessServices}
+                            dependencies={serviceDependencies}
+                            collaborators={collaborators}
+                            onEdit={(s) => { setEditingService(s); setIsAddServiceModalOpen(true); }}
+                            onDelete={handleDeleteService}
+                            onManageDependencies={(s) => setManageDependenciesService(s)}
+                            onCreate={() => { setEditingService(null); setIsAddServiceModalOpen(true); }}
+                        />
+                     </div>
+                )}
                 {activeTab === 'equipment.inventory' && tabConfig['equipment.inventory'] && (
                     <div className="space-y-4">
                          <div className="flex justify-end gap-2">
@@ -958,6 +990,9 @@ const AppContent = () => {
                     licenseAssignments={licenseAssignments}
                 />
             )}
+            
+            {isAddServiceModalOpen && <AddServiceModal onClose={() => setIsAddServiceModalOpen(false)} onSave={editingService ? handleUpdateService : handleCreateService} serviceToEdit={editingService} collaborators={collaborators} />}
+            {manageDependenciesService && <ServiceDependencyModal onClose={() => setManageDependenciesService(null)} service={manageDependenciesService} dependencies={serviceDependencies.filter(d => d.service_id === manageDependenciesService.id)} allEquipment={equipment} allLicenses={softwareLicenses} onAddDependency={handleAddDependency} onRemoveDependency={handleRemoveDependency} />}
 
             {isAddEquipmentModalOpen && <AddEquipmentModal onClose={() => setIsAddEquipmentModalOpen(false)} onSave={editingEquipment ? handleUpdateEquipment : handleCreateEquipment} brands={brands} equipmentTypes={equipmentTypes} equipmentToEdit={editingEquipment} onSaveBrand={async (b) => { await dataService.addBrand(b); const res = await dataService.fetchBrands(); setBrands(res); return res.find((x: any) => x.name === b.name)!; }} onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t); const res = await dataService.fetchEquipmentTypes(); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }} onOpenKitModal={(initialData) => { setIsAddEquipmentModalOpen(false); setKitModalInitialData(initialData); setIsKitModalOpen(true); }} />}
             {isKitModalOpen && <AddEquipmentKitModal onClose={() => setIsKitModalOpen(false)} onSaveKit={handleCreateKit} brands={brands} equipmentTypes={equipmentTypes} initialData={kitModalInitialData} onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t); const res = await dataService.fetchEquipmentTypes(); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }} equipment={equipment} />}

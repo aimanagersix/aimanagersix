@@ -1,13 +1,8 @@
-
-
-
-
-
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem
+    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency
 } from '../types';
 
 const handleSupabaseError = (error: any, operation: string) => {
@@ -95,7 +90,8 @@ export const fetchAllData = async () => {
         equipmentRes, instituicoesRes, entidadesRes, collaboratorsRes,
         assignmentsRes, ticketsRes, ticketActivitiesRes, brandsRes,
         equipmentTypesRes, softwareLicensesRes, licenseAssignmentsRes,
-        teamsRes, teamMembersRes, messagesRes, historyRes, categoriesRes
+        teamsRes, teamMembersRes, messagesRes, historyRes, categoriesRes,
+        servicesRes, dependenciesRes
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('instituicoes').select('*'),
@@ -112,7 +108,9 @@ export const fetchAllData = async () => {
         supabase.from('team_members').select('*'),
         supabase.from('messages').select('*'),
         supabase.from('collaborator_history').select('*'),
-        supabase.from('ticket_categories').select('*').order('name')
+        supabase.from('ticket_categories').select('*').order('name'),
+        supabase.from('business_services').select('*'),
+        supabase.from('service_dependencies').select('*')
     ]);
 
     const check = (res: any, name: string) => { if (res.error) handleSupabaseError(res.error, `fetching ${name}`); };
@@ -131,8 +129,9 @@ export const fetchAllData = async () => {
     check(teamMembersRes, 'teamMembers');
     check(messagesRes, 'messages');
     check(historyRes, 'history');
-    // Don't fail strictly on categories to allow smooth migration if table missing
+    // Don't fail strictly on categories or BIA tables to allow smooth migration if table missing
     if (categoriesRes.error) console.warn("Failed to fetch categories, table might be missing.");
+    if (servicesRes.error) console.warn("Failed to fetch services, table might be missing.");
 
     return {
         equipment: equipmentRes.data || [],
@@ -150,7 +149,9 @@ export const fetchAllData = async () => {
         teamMembers: teamMembersRes.data || [],
         messages: messagesRes.data || [],
         collaboratorHistory: historyRes.data || [],
-        ticketCategories: categoriesRes.data || []
+        ticketCategories: categoriesRes.data || [],
+        businessServices: servicesRes.data || [],
+        serviceDependencies: dependenciesRes.data || []
     };
 };
 
@@ -489,4 +490,39 @@ export const snoozeNotification = async (userId: string, referenceId: string, ty
 
     const { error } = await supabase.from('user_notification_snoozes').insert(record);
     handleSupabaseError(error, 'a adiar notificação');
+};
+
+// --- Business Services (BIA) ---
+export const addBusinessService = async (service: Omit<BusinessService, 'id'>) => {
+    const { data, error } = await getSupabase().from('business_services').insert(service).select().single();
+    handleSupabaseError(error, 'adding business service');
+    await logAction('CREATE', 'Service', `Created BIA service ${service.name}`, data.id);
+    return data as BusinessService;
+};
+
+export const updateBusinessService = async (id: string, updates: Partial<BusinessService>) => {
+    const { data, error } = await getSupabase().from('business_services').update(updates).eq('id', id).select().single();
+    handleSupabaseError(error, 'updating business service');
+    await logAction('UPDATE', 'Service', `Updated BIA service ${data.name}`, id);
+    return data as BusinessService;
+};
+
+export const deleteBusinessService = async (id: string) => {
+    const { error } = await getSupabase().from('business_services').delete().eq('id', id);
+    handleSupabaseError(error, 'deleting business service');
+    await logAction('DELETE', 'Service', `Deleted BIA service`, id);
+};
+
+// --- Service Dependencies (BIA) ---
+export const addServiceDependency = async (dependency: Omit<ServiceDependency, 'id'>) => {
+    const { data, error } = await getSupabase().from('service_dependencies').insert(dependency).select().single();
+    handleSupabaseError(error, 'adding service dependency');
+    await logAction('UPDATE', 'Service', `Added dependency to service ${dependency.service_id}`, dependency.service_id);
+    return data as ServiceDependency;
+};
+
+export const deleteServiceDependency = async (id: string) => {
+    const { error } = await getSupabase().from('service_dependencies').delete().eq('id', id);
+    handleSupabaseError(error, 'deleting service dependency');
+    // Not logging as main action, detail enough
 };

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
@@ -123,6 +123,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
 
           <nav className="hidden md:flex items-center space-x-2">
               {tabConfig['overview'] && <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange}/>}
+              {tabConfig['bia'] && <TabButton tab="bia" label={tabConfig['bia']} icon={<FaNetworkWired />} activeTab={activeTab} setActiveTab={handleTabChange}/>}
               
               {hasInventarioTabs && (
                  <div className="relative" ref={inventarioMenuRef}>
@@ -302,6 +303,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
             <div ref={mobileMenuRef} className="md:hidden" id="mobile-menu">
                 <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
                     {tabConfig['overview'] && <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
+                    {tabConfig['bia'] && <TabButton tab="bia" label={tabConfig['bia']} icon={<FaNetworkWired />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
                     
                      {hasInventarioTabs && (
                         <div>

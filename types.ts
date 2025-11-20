@@ -1,8 +1,3 @@
-
-
-
-
-
 export enum EquipmentStatus {
   Stock = 'Stock',
   Operational = 'Operacional',
@@ -100,7 +95,7 @@ export enum CollaboratorStatus {
     Inativo = 'Inativo',
 }
 
-export type AppModule = 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets';
+export type AppModule = 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets' | 'bia';
 
 export interface Collaborator {
   id: string;
