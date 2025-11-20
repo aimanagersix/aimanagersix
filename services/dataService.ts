@@ -1,10 +1,11 @@
 
 
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency, Vulnerability
+    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency, Vulnerability, SecurityIncidentTypeItem
 } from '../types';
 
 const handleSupabaseError = (error: any, operation: string) => {
@@ -93,7 +94,7 @@ export const fetchAllData = async () => {
         assignmentsRes, ticketsRes, ticketActivitiesRes, brandsRes,
         equipmentTypesRes, softwareLicensesRes, licenseAssignmentsRes,
         teamsRes, teamMembersRes, messagesRes, historyRes, categoriesRes,
-        servicesRes, dependenciesRes, vulnerabilitiesRes
+        servicesRes, dependenciesRes, vulnerabilitiesRes, incidentTypesRes
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('instituicoes').select('*'),
@@ -113,7 +114,8 @@ export const fetchAllData = async () => {
         supabase.from('ticket_categories').select('*').order('name'),
         supabase.from('business_services').select('*'),
         supabase.from('service_dependencies').select('*'),
-        supabase.from('vulnerabilities').select('*')
+        supabase.from('vulnerabilities').select('*'),
+        supabase.from('security_incident_types').select('*').order('name')
     ]);
 
     const check = (res: any, name: string) => { if (res.error) handleSupabaseError(res.error, `fetching ${name}`); };
@@ -136,6 +138,7 @@ export const fetchAllData = async () => {
     if (categoriesRes.error) console.warn("Failed to fetch categories, table might be missing.");
     if (servicesRes.error) console.warn("Failed to fetch services, table might be missing.");
     if (vulnerabilitiesRes.error) console.warn("Failed to fetch vulnerabilities, table might be missing.");
+    if (incidentTypesRes.error) console.warn("Failed to fetch incident types, table might be missing.");
 
     return {
         equipment: equipmentRes.data || [],
@@ -156,7 +159,8 @@ export const fetchAllData = async () => {
         ticketCategories: categoriesRes.data || [],
         businessServices: servicesRes.data || [],
         serviceDependencies: dependenciesRes.data || [],
-        vulnerabilities: vulnerabilitiesRes.data || []
+        vulnerabilities: vulnerabilitiesRes.data || [],
+        securityIncidentTypes: incidentTypesRes.data || [],
     };
 };
 
@@ -444,6 +448,27 @@ export const deleteTicketCategory = async (id: string) => {
      const { error } = await getSupabase().from('ticket_categories').delete().eq('id', id);
     handleSupabaseError(error, 'deleting ticket category');
     await logAction('DELETE', 'TicketCategory', `Deleted category`, id);
+};
+
+// --- Security Incident Types ---
+export const addSecurityIncidentType = async (type: Omit<SecurityIncidentTypeItem, 'id'>) => {
+    const { data, error } = await getSupabase().from('security_incident_types').insert(type).select().single();
+    handleSupabaseError(error, 'adding security incident type');
+    await logAction('CREATE', 'SecurityIncidentType', `Created incident type ${type.name}`, data.id);
+    return data as SecurityIncidentTypeItem;
+};
+
+export const updateSecurityIncidentType = async (id: string, updates: Partial<SecurityIncidentTypeItem>) => {
+    const { data, error } = await getSupabase().from('security_incident_types').update(updates).eq('id', id).select().single();
+    handleSupabaseError(error, 'updating security incident type');
+    await logAction('UPDATE', 'SecurityIncidentType', `Updated incident type ${data.name}`, id);
+    return data as SecurityIncidentTypeItem;
+};
+
+export const deleteSecurityIncidentType = async (id: string) => {
+    const { error } = await getSupabase().from('security_incident_types').delete().eq('id', id);
+    handleSupabaseError(error, 'deleting security incident type');
+    await logAction('DELETE', 'SecurityIncidentType', `Deleted incident type`, id);
 };
 
 // --- Messages ---

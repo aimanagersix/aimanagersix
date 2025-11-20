@@ -8,6 +8,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock } from './common/Icons';
@@ -80,7 +81,7 @@ const getSLATimer = (ticket: Ticket) => {
 };
 
 // Helper to get icon for security incident type
-const getSecurityIcon = (type?: SecurityIncidentType) => {
+const getSecurityIcon = (type?: string) => {
     switch (type) {
         case SecurityIncidentType.Ransomware: return <FaSkull className="text-red-500" title="Ransomware" />;
         case SecurityIncidentType.Phishing: return <FaUserSecret className="text-orange-500" title="Phishing" />;

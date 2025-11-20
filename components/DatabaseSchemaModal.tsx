@@ -170,6 +170,15 @@ CREATE TABLE IF NOT EXISTS ticket_categories (
     created_at timestamptz DEFAULT now()
 );
 
+-- NOVA TABELA: TIPOS DE INCIDENTE DE SEGURANÇA
+CREATE TABLE IF NOT EXISTS security_incident_types (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    description text,
+    is_active boolean DEFAULT true,
+    created_at timestamptz DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS tickets (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     title text,
@@ -370,7 +379,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo foi atualizado para incluir as colunas de **Segurança** e **NIS2** (como <code>securityIncidentType</code>) nas tabelas existentes, caso ainda não existam.
+                        O script abaixo foi atualizado para incluir a tabela de **Tipos de Incidente de Segurança** e outras colunas essenciais.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

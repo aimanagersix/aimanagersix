@@ -7,9 +7,11 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem } from '../types';
 import { DeleteIcon, FaShieldAlt, FaExclamationTriangle } from './common/Icons';
 
 interface AddTicketModalProps {
@@ -25,6 +27,7 @@ interface AddTicketModalProps {
     equipmentTypes: EquipmentType[];
     assignments: Assignment[];
     categories: TicketCategoryItem[];
+    securityIncidentTypes?: SecurityIncidentTypeItem[]; // Added prop for dynamic incident types
 }
 
 const MAX_FILES = 3;
@@ -38,7 +41,7 @@ const formatFileSize = (bytes: number): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories }) => {
+const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [] }) => {
     
     // Determine available categories. Use active dynamic ones, fallback to Enum if empty.
     const activeCategories = useMemo(() => {
@@ -47,6 +50,14 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
          }
          return Object.values(TicketCategory);
     }, [categories]);
+
+    // Determine available Security Incident Types
+    const activeSecurityIncidentTypes = useMemo(() => {
+        if (securityIncidentTypes.length > 0) {
+            return securityIncidentTypes.filter(t => t.is_active).map(t => t.name);
+        }
+        return Object.values(SecurityIncidentType); // Fallback to Enum
+    }, [securityIncidentTypes]);
 
     // Initial State Logic
     const [formData, setFormData] = useState<Partial<Ticket>>(() => {
@@ -329,7 +340,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                                 className={`w-full bg-gray-800 border text-white rounded-md p-2 ${errors.securityIncidentType ? 'border-red-500' : 'border-red-700'}`}
                             >
                                 <option value="">-- Selecione o Tipo de Incidente --</option>
-                                {Object.values(SecurityIncidentType).map(type => (
+                                {activeSecurityIncidentTypes.map(type => (
                                     <option key={type} value={type}>{type}</option>
                                 ))}
                             </select>

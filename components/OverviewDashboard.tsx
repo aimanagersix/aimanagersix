@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull } from './common/Icons';
@@ -336,7 +338,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             </div>
                         </div>
                         <button 
-                            onClick={() => onViewItem('security', { severity: CriticalityLevel.Critical, status: VulnerabilityStatus.Open })}
+                            onClick={() => onViewItem('nis2.security', { severity: CriticalityLevel.Critical, status: VulnerabilityStatus.Open })}
                             className="whitespace-nowrap px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md shadow-lg transition-all hover:scale-105"
                         >
                             Resolver Agora
@@ -387,7 +389,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             value={businessServices?.length || 0} 
                             icon={<FaNetworkWired className="h-6 w-6" />} 
                             color="bg-purple-600" 
-                            onClick={() => onViewItem('bia', {})} 
+                            onClick={() => onViewItem('nis2.bia', {})} 
                             subtext="Serviços de negócio mapeados"
                         />
                         <StatCard 
@@ -395,7 +397,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             value={securityStats.total} 
                             icon={<FaSkull className="h-6 w-6" />} 
                             color={securityStats.openCritical > 0 ? "bg-red-600" : "bg-green-600"} 
-                            onClick={() => onViewItem('security', {})} 
+                            onClick={() => onViewItem('nis2.security', {})} 
                             subtext={securityStats.openCritical > 0 ? `${securityStats.openCritical} Críticas em aberto` : "Sistema Seguro"}
                         />
                     </div>

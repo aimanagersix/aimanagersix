@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -16,11 +18,13 @@ import TeamDashboard from './components/TeamDashboard';
 import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import BrandDashboard from './components/BrandDashboard';
 import CategoryDashboard from './components/CategoryDashboard';
+import SecurityIncidentTypeDashboard from './components/SecurityIncidentTypeDashboard';
 import ImportModal, { ImportConfig } from './components/ImportModal';
 import ManageAssignedLicensesModal from './components/ManageAssignedLicensesModal';
 import AddCollaboratorModal from './components/AddCollaboratorModal';
 import AddTicketModal from './components/AddTicketModal';
 import AddCategoryModal from './components/AddCategoryModal';
+import AddSecurityIncidentTypeModal from './components/AddSecurityIncidentTypeModal';
 import TicketActivitiesModal from './components/TicketActivitiesModal';
 import CloseTicketModal from './components/CloseTicketModal';
 import CollaboratorDetailModal from './components/CollaboratorDetailModal';
@@ -52,7 +56,7 @@ import {
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
     Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus, UserRole, TicketCategoryItem,
-    BusinessService, ServiceDependency, Vulnerability, AppModule
+    BusinessService, ServiceDependency, Vulnerability, AppModule, SecurityIncidentTypeItem
 } from './types';
 import { PlusIcon, FaFileImport, FaUserLock, FaExclamationCircle, SpinnerIcon } from './components/common/Icons';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
@@ -89,6 +93,7 @@ const AppContent = () => {
     const [businessServices, setBusinessServices] = useState<BusinessService[]>([]);
     const [serviceDependencies, setServiceDependencies] = useState<ServiceDependency[]>([]);
     const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
+    const [securityIncidentTypes, setSecurityIncidentTypes] = useState<SecurityIncidentTypeItem[]>([]);
 
     // --- Modal States ---
     const [importModalConfig, setImportModalConfig] = useState<ImportConfig | null>(null);
@@ -137,9 +142,11 @@ const AppContent = () => {
     const [ticketActivitiesOpen, setTicketActivitiesOpen] = useState<Ticket | null>(null);
     const [ticketToClose, setTicketToClose] = useState<Ticket | null>(null);
     
-    // Categories
+    // Categories & Incident Types
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<TicketCategoryItem | null>(null);
+    const [isAddSecurityIncidentTypeModalOpen, setIsAddSecurityIncidentTypeModalOpen] = useState(false);
+    const [editingSecurityIncidentType, setEditingSecurityIncidentType] = useState<SecurityIncidentTypeItem | null>(null);
     
     // BIA & Security Modals
     const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
@@ -300,6 +307,7 @@ const AppContent = () => {
             setBusinessServices(data.businessServices);
             setServiceDependencies(data.serviceDependencies);
             setVulnerabilities(data.vulnerabilities);
+            setSecurityIncidentTypes(data.securityIncidentTypes);
         } catch (error: any) {
             console.error("Error loading data", error);
             setDataLoadError(error.message || "Falha ao carregar dados.");
@@ -337,23 +345,31 @@ const AppContent = () => {
     const tabConfig = useMemo(() => {
         if (!currentUser) return {};
 
+        const menu: any = {
+            overview: t('nav.overview'),
+        };
+
         if (currentUser.role === UserRole.Admin) {
-            return {
-                overview: t('nav.overview'), 
-                'equipment.inventory': t('nav.equipment_list'), 
-                'equipment.brands': t('nav.brands'), 
-                'equipment.types': t('nav.types'),
-                'organizacao.instituicoes': t('nav.institutions'), 
-                'organizacao.entidades': t('nav.entities'), 
-                'organizacao.teams': t('nav.teams'),
-                collaborators: t('nav.collaborators'), 
-                licensing: t('nav.licensing'), 
-                tickets: { title: t('nav.support') },
-                'tickets.list': 'Tickets de Suporte',
-                'tickets.categories': 'Categorias',
-                bia: t('nav.bia'), // BIA Tab
-                security: 'Segurança' // Security Tab
-            };
+            menu['organizacao.instituicoes'] = t('nav.institutions');
+            menu['organizacao.entidades'] = t('nav.entities');
+            menu['organizacao.teams'] = t('nav.teams');
+            menu.collaborators = t('nav.collaborators');
+
+            menu['equipment.inventory'] = t('nav.equipment_list');
+            menu['equipment.brands'] = t('nav.brands');
+            menu['equipment.types'] = t('nav.types');
+            menu.licensing = t('nav.licensing');
+            
+            menu.nis2 = { title: 'Norma (NIS2)' };
+            menu['nis2.bia'] = 'BIA (Serviços)';
+            menu['nis2.security'] = 'Segurança (Vulnerabilidades)';
+
+            menu.tickets = { title: t('nav.support') };
+            menu['tickets.list'] = 'Tickets de Suporte';
+            menu['tickets.categories'] = 'Categorias';
+            menu['tickets.incident_types'] = 'Tipos de Ataque';
+
+            return menu;
         }
 
         const hasAccess = (module: AppModule) => {
@@ -368,49 +384,44 @@ const AppContent = () => {
              }
         };
 
-        const config: any = {
-            overview: t('nav.overview'),
-        };
-
-        if (hasAccess('inventory')) {
-            config['equipment.inventory'] = t('nav.equipment_list');
-            config['equipment.brands'] = t('nav.brands');
-            config['equipment.types'] = t('nav.types');
-        }
-
+        // Organization
         if (hasAccess('organization')) {
-            config['organizacao.instituicoes'] = t('nav.institutions');
-            config['organizacao.entidades'] = t('nav.entities');
-            config['organizacao.teams'] = t('nav.teams');
+            menu['organizacao.instituicoes'] = t('nav.institutions');
+            menu['organizacao.entidades'] = t('nav.entities');
+            menu['organizacao.teams'] = t('nav.teams');
         }
-
         if (hasAccess('collaborators')) {
-            config.collaborators = t('nav.collaborators');
+            menu.collaborators = t('nav.collaborators');
         }
 
+        // Inventory
+        if (hasAccess('inventory')) {
+            menu['equipment.inventory'] = t('nav.equipment_list');
+            menu['equipment.brands'] = t('nav.brands');
+            menu['equipment.types'] = t('nav.types');
+        }
         if (hasAccess('licensing')) {
-            config.licensing = t('nav.licensing');
+            menu.licensing = t('nav.licensing');
         }
         
-        if (hasAccess('bia')) {
-            config.bia = t('nav.bia');
-        }
-        
-        if (hasAccess('security')) {
-            config.security = 'Segurança';
+        // NIS2
+        if (hasAccess('bia') || hasAccess('security')) {
+            menu.nis2 = { title: 'Norma (NIS2)' };
+            if (hasAccess('bia')) menu['nis2.bia'] = 'BIA (Serviços)';
+            if (hasAccess('security')) menu['nis2.security'] = 'Segurança (Vulnerabilidades)';
         }
 
+        // Support
         if (hasAccess('tickets')) {
-            config.tickets = { title: t('nav.support') };
-             // Add specific sub-tabs for tickets if user has access
-            config['tickets.list'] = 'Tickets de Suporte';
-            // Basic users or Normal usually don't manage categories, but for now assuming Admin or full module access
+            menu.tickets = { title: t('nav.support') };
+            menu['tickets.list'] = 'Tickets de Suporte';
             if (currentUser.role === UserRole.Normal) {
-                config['tickets.categories'] = 'Categorias';
+                menu['tickets.categories'] = 'Categorias';
+                menu['tickets.incident_types'] = 'Tipos de Ataque';
             }
         }
 
-        return config;
+        return menu;
     }, [currentUser, t]);
 
 
@@ -629,16 +640,30 @@ const AppContent = () => {
     };
 
     const handleViewItem = (tab: string, filter: any) => {
-        // Simplified check: if tab starts with "tickets", check permission for parent 'tickets' module
-        if (tab.startsWith('tickets')) {
+        // Redirect generic 'tickets' to list
+        if (tab === 'tickets') {
              if (tabConfig.tickets) {
-                 setActiveTab(tab === 'tickets' ? 'tickets.list' : tab); // Redirect generic 'tickets' to list
+                 setActiveTab('tickets.list');
                  setDashboardFilter(filter);
                  setIsNotificationsModalOpen(false);
              } else {
                  alert("Não tem permissão para aceder a este módulo.");
              }
-        } else if (tabConfig[tab]) {
+             return;
+        }
+        // Redirect 'bia' or 'security' if the user clicked dashboard cards
+        if (tab === 'bia' || tab === 'security') {
+            if (tabConfig[`nis2.${tab}`]) {
+                 setActiveTab(`nis2.${tab}`);
+                 setDashboardFilter(filter);
+                 setIsNotificationsModalOpen(false);
+            } else {
+                alert("Não tem permissão para aceder a este módulo.");
+            }
+            return;
+        }
+
+        if (tabConfig[tab]) {
              setActiveTab(tab);
              setDashboardFilter(filter);
              setIsNotificationsModalOpen(false);
@@ -721,6 +746,18 @@ const AppContent = () => {
             await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); 
             refreshData(); 
         } 
+    }
+
+    // Security Incident Type Handlers
+    const handleCreateSecurityIncidentType = async (type: any) => { await dataService.addSecurityIncidentType(type); refreshData(); }
+    const handleUpdateSecurityIncidentType = async (type: any) => { await dataService.updateSecurityIncidentType(type.id, type); refreshData(); }
+    const handleDeleteSecurityIncidentType = async (id: string) => { await dataService.deleteSecurityIncidentType(id); refreshData(); }
+    const handleToggleSecurityIncidentTypeStatus = async (id: string) => {
+        const type = securityIncidentTypes.find(t => t.id === id);
+        if (type) {
+            await dataService.updateSecurityIncidentType(id, { is_active: !type.is_active });
+            refreshData();
+        }
     }
 
     // BIA Handlers
@@ -868,7 +905,7 @@ const AppContent = () => {
                         onGenerateComplianceReport={() => setReportType('compliance')}
                     />
                 )}
-                {activeTab === 'bia' && tabConfig.bia && (
+                {activeTab === 'nis2.bia' && tabConfig['nis2.bia'] && (
                      <div className="space-y-4">
                         <ServiceDashboard 
                             services={businessServices}
@@ -882,7 +919,7 @@ const AppContent = () => {
                         />
                      </div>
                 )}
-                {activeTab === 'security' && tabConfig.security && (
+                {activeTab === 'nis2.security' && tabConfig['nis2.security'] && (
                     <div className="space-y-4">
                         <VulnerabilityDashboard 
                             vulnerabilities={vulnerabilities}
@@ -1017,6 +1054,11 @@ const AppContent = () => {
                         <CategoryDashboard categories={ticketCategories} tickets={tickets} teams={teams} onEdit={(cat) => { setEditingCategory(cat); setIsAddCategoryModalOpen(true); }} onDelete={handleDeleteCategory} onToggleStatus={handleToggleCategoryStatus} onCreate={() => { setEditingCategory(null); setIsAddCategoryModalOpen(true); }} />
                     </div>
                  )}
+                 {activeTab === 'tickets.incident_types' && tabConfig['tickets.incident_types'] && (
+                    <div className="space-y-4">
+                        <SecurityIncidentTypeDashboard incidentTypes={securityIncidentTypes} tickets={tickets} onEdit={(type) => { setEditingSecurityIncidentType(type); setIsAddSecurityIncidentTypeModalOpen(true); }} onDelete={handleDeleteSecurityIncidentType} onToggleStatus={handleToggleSecurityIncidentTypeStatus} onCreate={() => { setEditingSecurityIncidentType(null); setIsAddSecurityIncidentTypeModalOpen(true); }} />
+                    </div>
+                 )}
 
                  {activeTab === 'organizacao.teams' && tabConfig['organizacao.teams'] && (
                      <div className="space-y-4">
@@ -1096,6 +1138,7 @@ const AppContent = () => {
             {ticketActivitiesOpen && <TicketActivitiesModal ticket={ticketActivitiesOpen} activities={ticketActivities.filter(ta => ta.ticketId === ticketActivitiesOpen.id)} collaborators={collaborators} currentUser={currentUser} equipment={equipment} equipmentTypes={equipmentTypes} entidades={entidades} assignments={assignments} onClose={() => setTicketActivitiesOpen(null)} onAddActivity={handleAddActivity} />}
             {ticketToClose && <CloseTicketModal ticket={ticketToClose} collaborators={collaborators} onClose={() => setTicketToClose(null)} onConfirm={handleCloseTicket} />}
             {isAddCategoryModalOpen && <AddCategoryModal onClose={() => setIsAddCategoryModalOpen(false)} onSave={editingCategory ? handleUpdateCategory : handleCreateCategory} categoryToEdit={editingCategory} teams={teams} />}
+            {isAddSecurityIncidentTypeModalOpen && <AddSecurityIncidentTypeModal onClose={() => setIsAddSecurityIncidentTypeModalOpen(false)} onSave={editingSecurityIncidentType ? handleUpdateSecurityIncidentType : handleCreateSecurityIncidentType} typeToEdit={editingSecurityIncidentType} />}
 
 
             {showDetailCollaborator && <CollaboratorDetailModal collaborator={showDetailCollaborator} assignments={assignments} equipment={equipment} tickets={tickets} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} onClose={() => setShowDetailCollaborator(null)} onShowHistory={(col) => { setShowDetailCollaborator(null); setShowHistoryCollaborator(col); }} onStartChat={(col) => { setActiveChatCollaboratorId(col.id); setIsChatOpen(true); setShowDetailCollaborator(null); }} />}

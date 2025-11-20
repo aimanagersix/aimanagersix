@@ -142,6 +142,7 @@ export enum TicketCategory {
     Maintenance = 'Manutenção'
 }
 
+// Deprecated: Use dynamic types from DB, keeping for fallback
 export enum SecurityIncidentType {
     Ransomware = 'Ransomware',
     Phishing = 'Phishing / Engenharia Social',
@@ -161,6 +162,13 @@ export interface TicketCategoryItem {
     default_team_id?: string;
 }
 
+export interface SecurityIncidentTypeItem {
+    id: string;
+    name: string;
+    description?: string;
+    is_active: boolean;
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -177,7 +185,7 @@ export interface Ticket {
   
   // NIS2 Incident Response Fields
   category?: string; // Changed to string to support dynamic categories
-  securityIncidentType?: SecurityIncidentType; // Specific type of attack
+  securityIncidentType?: string; // Changed to string to support dynamic types
   impactCriticality?: CriticalityLevel; // Specific to this incident
   impactConfidentiality?: CIARating; // Was confidentiality compromised?
   impactIntegrity?: CIARating;      // Was integrity compromised?
