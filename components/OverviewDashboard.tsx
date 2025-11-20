@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus } from '../types';
-import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired } from './common/Icons';
+import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
 
@@ -31,68 +31,72 @@ interface StatCardProps {
     color: string;
     onClick?: () => void;
     subtext?: string;
+    className?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick, subtext }) => (
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick, subtext, className }) => (
     <div 
-        className={`bg-surface-dark p-4 rounded-lg shadow-lg flex items-center space-x-4 ${onClick ? 'cursor-pointer hover:bg-gray-800/50 transition-colors' : ''}`}
+        className={`bg-surface-dark p-4 rounded-lg shadow-lg flex items-center space-x-4 border border-gray-800 ${onClick ? 'cursor-pointer hover:bg-gray-800/50 transition-colors' : ''} ${className || ''}`}
         onClick={onClick}
         role={onClick ? 'button' : 'figure'}
         tabIndex={onClick ? 0 : -1}
         onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClick?.()}
     >
-        <div className={`p-3 rounded-full ${color}`}>
+        <div className={`p-3 rounded-full ${color} text-white shadow-md`}>
             {icon}
         </div>
         <div>
-            <p className="text-sm text-on-surface-dark-secondary font-medium">{title}</p>
+            <p className="text-sm text-on-surface-dark-secondary font-medium uppercase tracking-wide">{title}</p>
             <p className="text-2xl font-bold text-white">{value}</p>
-            {subtext && <p className="text-xs text-gray-400">{subtext}</p>}
+            {subtext && <p className="text-xs text-gray-400 mt-1">{subtext}</p>}
         </div>
     </div>
 );
 
-const BarChart: React.FC<{ title: string; data: { name: string; value: number }[], icon?: React.ReactNode, extraAction?: React.ReactNode }> = ({ title, data, icon, extraAction }) => {
+const BarChart: React.FC<{ title: string; data: { name: string; value: number }[], icon?: React.ReactNode, extraAction?: React.ReactNode, colorBar?: string }> = ({ title, data, icon, extraAction, colorBar = "bg-brand-secondary" }) => {
     const { t } = useLanguage();
     const maxValue = useMemo(() => Math.max(...data.map(item => item.value), 0), [data]);
 
     return (
-        <div className="bg-surface-dark p-6 rounded-lg shadow-lg h-full">
+        <div className="bg-surface-dark p-5 rounded-lg shadow-lg h-full border border-gray-800 flex flex-col">
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <h3 className="text-md font-semibold text-white flex items-center gap-2">
                     {icon}
                     {title}
                 </h3>
                 {extraAction}
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 flex-grow overflow-y-auto max-h-64 pr-2 custom-scrollbar">
                 {data.length > 0 ? data.map((item, index) => (
-                    <div key={index} className="flex items-center" title={`${item.name}: ${item.value}`}>
-                        <div className="w-1/3 text-sm text-on-surface-dark-secondary truncate pr-2">{item.name}</div>
+                    <div key={index} className="flex items-center group" title={`${item.name}: ${item.value}`}>
+                        <div className="w-1/3 text-xs text-on-surface-dark-secondary truncate pr-2 group-hover:text-white transition-colors">{item.name}</div>
                         <div className="w-2/3 flex items-center">
-                            <div className="w-full bg-gray-700 rounded-full h-4">
+                            <div className="w-full bg-gray-700 rounded-full h-2.5">
                                 <div
-                                    className="bg-brand-secondary h-4 rounded-full"
+                                    className={`${colorBar} h-2.5 rounded-full transition-all duration-500 ease-out`}
                                     style={{ width: `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` }}
                                 ></div>
                             </div>
-                            <span className="ml-3 font-semibold text-white text-sm">{item.value}</span>
+                            <span className="ml-3 font-semibold text-white text-xs w-8 text-right">{item.value}</span>
                         </div>
                     </div>
-                )) : <p className="text-on-surface-dark-secondary text-sm">{t('overview.no_activity')}</p>}
+                )) : <div className="flex items-center justify-center h-full text-on-surface-dark-secondary text-sm italic">{t('overview.no_activity')}</div>}
             </div>
         </div>
     );
 };
 
 const RecentActivityItem: React.FC<{ activity: any, icon: React.ReactNode }> = ({ activity, icon }) => (
-    <div className="flex items-start gap-3">
-        <div className="p-2 bg-gray-700 rounded-full mt-1">
+    <div className="flex items-start gap-3 p-3 rounded-md hover:bg-gray-800/30 transition-colors border-l-2 border-transparent hover:border-brand-secondary">
+        <div className="p-2 bg-gray-800 rounded-full mt-1 shadow-sm">
             {icon}
         </div>
         <div>
-            <p className="text-sm text-on-surface-dark" dangerouslySetInnerHTML={{ __html: activity.text }}></p>
-            <p className="text-xs text-gray-400">{new Date(activity.date).toLocaleString()}</p>
+            <p className="text-sm text-on-surface-dark leading-snug" dangerouslySetInnerHTML={{ __html: activity.text }}></p>
+            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <FaCalendarAlt className="h-3 w-3" />
+                {new Date(activity.date).toLocaleString()}
+            </p>
         </div>
     </div>
 );
@@ -100,43 +104,52 @@ const RecentActivityItem: React.FC<{ activity: any, icon: React.ReactNode }> = (
 const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availableSeats: number }[]; onViewAll: () => void; }> = ({ licenses, onViewAll }) => {
     const { t } = useLanguage();
     const totalAvailable = licenses.reduce((sum, l) => sum + l.availableSeats, 0);
-    const topLicenses = licenses.slice(0, 3);
+    const topLicenses = licenses.slice(0, 4);
 
     return (
-        <div className="bg-surface-dark p-4 rounded-lg shadow-lg flex flex-col h-full">
+        <div className="bg-surface-dark p-5 rounded-lg shadow-lg flex flex-col h-full border border-gray-800">
             <div 
-                className={`flex items-center space-x-4 mb-3 ${totalAvailable > 0 ? 'cursor-pointer' : ''}`}
+                className={`flex items-center space-x-4 mb-4 ${totalAvailable > 0 ? 'cursor-pointer' : ''}`}
                 onClick={onViewAll}
             >
-                <div className="p-3 rounded-full bg-teal-500">
-                    <FaBoxOpen className="h-6 w-6 text-white" />
+                <div className="p-3 rounded-full bg-teal-600 text-white shadow-md">
+                    <FaBoxOpen className="h-6 w-6" />
                 </div>
                 <div>
-                    <p className="text-sm text-on-surface-dark-secondary font-medium">{t('overview.available_licenses')}</p>
-                    <p className="text-2xl font-bold text-white">{totalAvailable}</p>
-                    <p className="text-xs text-gray-400">{t('overview.total_seats')}</p>
+                    <p className="text-sm text-on-surface-dark-secondary font-medium uppercase tracking-wide">{t('overview.available_licenses')}</p>
+                    <p className="text-2xl font-bold text-white">{totalAvailable} <span className="text-xs font-normal text-gray-400 lowercase">{t('overview.total_seats')}</span></p>
                 </div>
             </div>
-            <div className="flex-grow space-y-2 text-sm overflow-hidden pt-2 border-t border-gray-700/50">
+            <div className="flex-grow space-y-2 text-sm overflow-hidden">
                 {topLicenses.length > 0 ? topLicenses.map((license, index) => (
-                    <div key={index} className="flex justify-between items-center gap-2">
+                    <div key={index} className="flex justify-between items-center gap-2 py-1 border-b border-gray-800 last:border-0">
                         <span className="text-on-surface-dark truncate" title={license.productName}>{license.productName}</span>
-                        <span className="font-semibold text-white bg-gray-700 px-2 py-0.5 rounded-full text-xs flex-shrink-0">{license.availableSeats}</span>
+                        <span className="font-bold text-teal-400 bg-teal-900/20 px-2 py-0.5 rounded-md text-xs flex-shrink-0">{license.availableSeats} un.</span>
                     </div>
                 )) : (
                     <div className="flex items-center justify-center h-full">
-                        <p className="text-center text-gray-400 text-xs">{t('overview.none_available')}</p>
+                        <p className="text-center text-gray-500 text-xs italic">{t('overview.none_available')}</p>
                     </div>
                 )}
             </div>
             {licenses.length > 0 && (
-                 <button onClick={onViewAll} className="mt-auto pt-2 text-center text-sm text-brand-secondary hover:underline w-full">
-                    {licenses.length > 3 ? t('overview.view_all') : t('overview.view_licenses')}
+                 <button onClick={onViewAll} className="mt-4 pt-2 text-center text-xs font-bold uppercase text-brand-secondary hover:text-brand-primary transition-colors border-t border-gray-700 w-full">
+                    {licenses.length > 4 ? t('overview.view_all') : t('overview.view_licenses')}
                 </button>
             )}
         </div>
     );
 };
+
+const DashboardSection: React.FC<{ title: string; icon?: React.ReactNode; children: React.ReactNode; className?: string }> = ({ title, icon, children, className }) => (
+    <section className={`space-y-4 ${className || ''}`}>
+        <div className="flex items-center gap-2 border-b border-gray-700 pb-2 mb-4">
+            {icon && <span className="text-brand-secondary">{icon}</span>}
+            <h2 className="text-lg font-bold text-white uppercase tracking-wider">{title}</h2>
+        </div>
+        {children}
+    </section>
+);
 
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
@@ -147,20 +160,16 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
     const [lastReviewDate, setLastReviewDate] = useState<string | null>(null);
 
-    // Access Review Logic (NIS2) - Database backed
+    // Access Review Logic (NIS2)
     useEffect(() => {
         const checkAccessReview = async () => {
             const date = await dataService.fetchLastAccessReviewDate();
             setLastReviewDate(date);
-
             if (date) {
                 const diff = new Date().getTime() - new Date(date).getTime();
                 const days = diff / (1000 * 3600 * 24);
-                if (days > 180) { // 6 months
-                    setNeedsAccessReview(true);
-                }
+                if (days > 180) setNeedsAccessReview(true);
             } else {
-                // First time / never reviewed in DB
                 setNeedsAccessReview(true);
             }
         };
@@ -171,7 +180,6 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         await dataService.logAction('ACCESS_REVIEW', 'System', 'Admin manually marked access review as complete.');
         setNeedsAccessReview(false);
         setLastReviewDate(new Date().toISOString());
-        // Open the view as confirmation
         onViewItem('collaborators', { role: 'Admin' });
     };
 
@@ -222,10 +230,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             .map(license => {
                 const usedSeats = usedSeatsMap.get(license.id) || 0;
                 const availableSeats = license.totalSeats - usedSeats;
-                return {
-                    productName: license.productName,
-                    availableSeats,
-                };
+                return { productName: license.productName, availableSeats };
             })
             .filter(license => license.availableSeats > 0)
             .sort((a, b) => b.availableSeats - a.availableSeats);
@@ -234,13 +239,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
     const equipmentByAge = useMemo(() => {
         const now = new Date();
-        const ageGroups = {
-            '< 1 ano': 0,
-            '1-2 anos': 0,
-            '2-4 anos': 0,
-            '4-6 anos': 0,
-            '> 6 anos': 0,
-        };
+        const ageGroups = { '< 1 ano': 0, '1-2 anos': 0, '2-4 anos': 0, '4-6 anos': 0, '> 6 anos': 0 };
 
         equipment.forEach(eq => {
             if (!eq.purchaseDate) return;
@@ -251,17 +250,11 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             else if (ageInYears < 6) ageGroups['4-6 anos']++;
             else ageGroups['> 6 anos']++;
         });
-
         return Object.entries(ageGroups).map(([name, value]) => ({ name, value }));
     }, [equipment]);
 
     const equipmentByCriticality = useMemo(() => {
-        const counts = {
-            [CriticalityLevel.Low]: 0,
-            [CriticalityLevel.Medium]: 0,
-            [CriticalityLevel.High]: 0,
-            [CriticalityLevel.Critical]: 0,
-        };
+        const counts = { [CriticalityLevel.Low]: 0, [CriticalityLevel.Medium]: 0, [CriticalityLevel.High]: 0, [CriticalityLevel.Critical]: 0 };
         equipment.forEach(eq => {
             const level = eq.criticality || CriticalityLevel.Low;
             counts[level] = (counts[level] || 0) + 1;
@@ -279,9 +272,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             return acc;
         }, new Map<string, number>());
 
-        return Array.from(counts.entries())
-            .map(([name, value]) => ({ name, value }))
-            .sort((a,b) => b.value - a.value);
+        return Array.from(counts.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
     }, [tickets, teams]);
     
     const top5EquipmentTypes = useMemo(() => {
@@ -289,9 +280,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             acc[eq.typeId] = (acc[eq.typeId] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-
         const typeMap = new Map(equipmentTypes.map(t => [t.id, t.name]));
-
         return Object.entries(counts)
             .map(([typeId, value]) => ({ name: typeMap.get(typeId) || 'Desconhecido', value }))
             .sort((a,b) => b.value - a.value)
@@ -304,144 +293,171 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         const recentAssignments = assignments
             .sort((a, b) => new Date(b.assignedDate).getTime() - new Date(a.assignedDate).getTime())
-            .slice(0, 5)
+            .slice(0, 6)
             .map(a => ({
                 type: 'assignment',
                 date: a.assignedDate,
-                text: `Equipamento <strong>${equipmentMap.get(a.equipmentId) || 'N/A'}</strong> atribuído a <strong>${collaboratorMap.get(a.collaboratorId!) || 'uma localização'}</strong>.`
+                text: `Equipamento <strong class="text-white">${equipmentMap.get(a.equipmentId) || 'N/A'}</strong> atribuído a <strong class="text-brand-secondary">${collaboratorMap.get(a.collaboratorId!) || 'uma localização'}</strong>.`
             }));
 
         const recentTickets = tickets
             .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
-            .slice(0, 5)
+            .slice(0, 6)
             .map(t => ({
                 type: 'ticket',
                 date: t.requestDate,
-                text: `Novo ticket aberto por <strong>${collaboratorMap.get(t.collaboratorId) || 'N/A'}</strong>: <em>"${t.description.substring(0, 40)}..."</em>`
+                text: `Ticket <strong class="text-white">#${t.id.substring(0,4)}</strong> por <strong class="text-brand-secondary">${collaboratorMap.get(t.collaboratorId) || 'N/A'}</strong>: <em>"${t.description.substring(0, 40)}..."</em>`
             }));
         
         return [...recentAssignments, ...recentTickets]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 5);
+            .slice(0, 8);
     }, [assignments, tickets, equipment, collaborators]);
-
 
     return (
         <div className="space-y-8">
-             {/* Security Vulnerability Alert */}
-            {securityStats.openCritical > 0 && (
-                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-red-600 p-3 rounded-full text-white animate-pulse">
-                            <FaExclamationTriangle className="h-6 w-6" />
+            {/* --- ALERTS SECTION --- */}
+            <div className="space-y-4">
+                {securityStats.openCritical > 0 && (
+                    <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-red-600 p-3 rounded-full text-white animate-pulse shadow-lg shadow-red-900/20">
+                                <FaExclamationTriangle className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Alerta de Segurança Crítico</h3>
+                                <p className="text-red-300 text-sm">
+                                    Foram detetadas <strong>{securityStats.openCritical} vulnerabilidades críticas</strong> ou de alta severidade em aberto. Ação imediata necessária.
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-white">Alerta de Segurança Crítico</h3>
-                            <p className="text-red-200 text-sm">
-                                Foram detetadas <strong>{securityStats.openCritical} vulnerabilidades críticas</strong> ou de alta severidade em aberto.
-                            </p>
-                        </div>
+                        <button 
+                            onClick={() => onViewItem('security', { severity: CriticalityLevel.Critical, status: VulnerabilityStatus.Open })}
+                            className="whitespace-nowrap px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md shadow-lg transition-all hover:scale-105"
+                        >
+                            Resolver Agora
+                        </button>
                     </div>
-                    <button 
-                        onClick={() => onViewItem('security', { severity: CriticalityLevel.Critical, status: VulnerabilityStatus.Open })}
-                        className="whitespace-nowrap px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md shadow-lg transition-colors"
-                    >
-                        Resolver Agora
-                    </button>
-                </div>
-            )}
+                )}
 
-            {/* NIS2 Alert */}
-            {needsAccessReview && (
-                <div className="bg-orange-500/20 border border-orange-500/50 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-orange-500 p-3 rounded-full text-white">
-                            <FaUserShield className="h-6 w-6" />
+                {needsAccessReview && (
+                    <div className="bg-orange-500/10 border border-orange-500/40 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-orange-600 p-3 rounded-full text-white shadow-lg shadow-orange-900/20">
+                                <FaUserShield className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Revisão de Acessos Necessária (Compliance NIS2)</h3>
+                                <p className="text-orange-300 text-sm">
+                                    {lastReviewDate 
+                                        ? `Última revisão: ${new Date(lastReviewDate).toLocaleDateString()}. É obrigatório rever quem tem acesso privilegiado a cada 6 meses.` 
+                                        : "Nunca foi efetuada uma revisão de acessos. É obrigatório rever quem tem acesso privilegiado."}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-white">Revisão de Acessos Necessária (Compliance NIS2)</h3>
-                            <p className="text-orange-200 text-sm">
-                                {lastReviewDate 
-                                    ? `Última revisão: ${new Date(lastReviewDate).toLocaleDateString()}. É obrigatório rever quem tem acesso privilegiado a cada 6 meses.` 
-                                    : "Nunca foi efetuada uma revisão de acessos. É obrigatório rever quem tem acesso privilegiado."}
-                            </p>
-                        </div>
+                        <button 
+                            onClick={handleMarkReviewed}
+                            className="whitespace-nowrap px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-md shadow-lg transition-all hover:scale-105"
+                        >
+                            Rever e Confirmar Acessos
+                        </button>
                     </div>
-                    <button 
-                        onClick={handleMarkReviewed}
-                        className="whitespace-nowrap px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-md shadow-lg transition-colors"
-                    >
-                        Rever e Confirmar Acessos
-                    </button>
-                </div>
-            )}
-
-            <div>
-                <h2 className="text-xl font-bold text-white mb-4">{t('overview.inventory_status')}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard title={t('overview.operational')} value={stats.operational} icon={<FaCheckCircle className="h-6 w-6 text-white" />} color="bg-green-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Operational })} />
-                    <StatCard title={t('overview.stock')} value={stats.stock} icon={<FaWarehouse className="h-6 w-6 text-white" />} color="bg-indigo-500" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Stock })} />
-                    <StatCard title={t('overview.warranty')} value={stats.warranty} icon={<FaTools className="h-6 w-6 text-white" />} color="bg-blue-500" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Warranty })} />
-                    <StatCard title={t('overview.decommissioned')} value={stats.decommissioned} icon={<FaTimesCircle className="h-6 w-6 text-white" />} color="bg-gray-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Decommissioned })} />
-                </div>
+                )}
             </div>
 
-            <div>
-                 <h2 className="text-xl font-bold text-white mb-4">{t('overview.health_support')}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-                    <StatCard title={t('overview.open_tickets')} value={ticketStats.open} icon={<FaTicketAlt className="h-6 w-6 text-white" />} color={ticketStats.open > 0 ? "bg-red-600" : "bg-green-600"} onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} />
-                    <StatCard title={t('overview.expiring_warranties')} value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-6 w-6 text-white" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext={t('overview.next_30_days')}/>
-                    <StatCard title={t('overview.expiring_licenses')} value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-6 w-6 text-white" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext={t('overview.next_30_days')}/>
-                    <StatCard title="Serviços BIA" value={businessServices?.length || 0} icon={<FaNetworkWired className="h-6 w-6 text-white" />} color="bg-purple-600" onClick={() => onViewItem('bia', {})} subtext="Mapeados"/>
-                    <StatCard 
-                        title="Segurança (CVEs)" 
-                        value={securityStats.total} 
-                        icon={<FaShieldAlt className="h-6 w-6 text-white" />} 
-                        color={securityStats.openCritical > 0 ? "bg-red-500 animate-pulse" : "bg-green-500"} 
-                        onClick={() => onViewItem('security', {})} 
-                        subtext={securityStats.openCritical > 0 ? `${securityStats.openCritical} Críticos Abertos` : "Sistema Seguro"}
-                    />
-                    <AvailableLicensesCard licenses={availableLicensesData} onViewAll={() => onViewItem('licensing', { status: 'available' })} />
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className="xl:col-span-2">
-                    <BarChart title={t('overview.equipment_age')} data={equipmentByAge} icon={<FaCalendarAlt />}/>
-                </div>
-                <div>
-                     <BarChart 
-                        title={t('overview.criticality_distribution')} 
-                        data={equipmentByCriticality} 
-                        icon={<FaShieldAlt />}
-                        extraAction={
-                            <button onClick={onGenerateComplianceReport} className="text-xs px-2 py-1 bg-brand-primary hover:bg-brand-secondary text-white rounded">
-                                Relatório NIS2
-                            </button>
-                        }
-                    />
-                </div>
-                <div>
-                     <BarChart title={t('overview.top_types')} data={top5EquipmentTypes} icon={<FaLaptop />}/>
-                </div>
-                 <div className="xl:col-span-2">
-                    <BarChart title={t('overview.tickets_team')} data={ticketsByTeam} icon={<FaUsers />}/>
-                </div>
-                 <div>
-                    <div className="bg-surface-dark p-6 rounded-lg shadow-lg h-full">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><FaHistory /> {t('overview.recent_activity')}</h3>
-                        <div className="space-y-4">
-                             {recentActivity.length > 0 ? recentActivity.map((activity, index) => (
-                                <RecentActivityItem 
-                                    key={index} 
-                                    activity={activity}
-                                    icon={activity.type === 'assignment' ? <FaLaptop className="h-4 w-4 text-green-400"/> : <FaTicketAlt className="h-4 w-4 text-yellow-400" />}
-                                />
-                            )) : <p className="text-on-surface-dark-secondary text-sm">{t('overview.no_activity')}</p>}
-                        </div>
+            {/* --- MODULE 1: SECURITY & RISK --- */}
+            <DashboardSection title="Segurança & Risco (NIS2)" icon={<FaShieldAlt />}>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div className="md:col-span-4 flex flex-col gap-4">
+                        <StatCard 
+                            title="Serviços Críticos (BIA)" 
+                            value={businessServices?.length || 0} 
+                            icon={<FaNetworkWired className="h-6 w-6" />} 
+                            color="bg-purple-600" 
+                            onClick={() => onViewItem('bia', {})} 
+                            subtext="Serviços de negócio mapeados"
+                        />
+                        <StatCard 
+                            title="Vulnerabilidades (CVEs)" 
+                            value={securityStats.total} 
+                            icon={<FaShieldAlt className="h-6 w-6" />} 
+                            color={securityStats.openCritical > 0 ? "bg-red-600" : "bg-green-600"} 
+                            onClick={() => onViewItem('security', {})} 
+                            subtext={securityStats.openCritical > 0 ? `${securityStats.openCritical} Críticas em aberto` : "Sistema Seguro"}
+                        />
+                    </div>
+                    <div className="md:col-span-8">
+                        <BarChart 
+                            title={t('overview.criticality_distribution')} 
+                            data={equipmentByCriticality} 
+                            icon={<FaChartPie />}
+                            colorBar="bg-purple-500"
+                            extraAction={
+                                <button onClick={onGenerateComplianceReport} className="text-xs font-bold px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded transition-colors">
+                                    Relatório NIS2
+                                </button>
+                            }
+                        />
                     </div>
                 </div>
-            </div>
+            </DashboardSection>
+
+            {/* --- MODULE 2: SUPPORT & TICKETS --- */}
+            <DashboardSection title="Suporte Técnico" icon={<FaTicketAlt />}>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div className="md:col-span-3">
+                        <StatCard 
+                            title={t('overview.open_tickets')} 
+                            value={ticketStats.open} 
+                            icon={<FaTicketAlt className="h-8 w-8" />} 
+                            color={ticketStats.open > 0 ? "bg-blue-600" : "bg-green-600"} 
+                            onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} 
+                            className="h-full"
+                            subtext="A aguardar resolução"
+                        />
+                    </div>
+                    <div className="md:col-span-9">
+                        <BarChart title={t('overview.tickets_team')} data={ticketsByTeam} icon={<FaUsers />} colorBar="bg-blue-500" />
+                    </div>
+                </div>
+            </DashboardSection>
+
+            {/* --- MODULE 3: INVENTORY HEALTH & STATUS --- */}
+            <DashboardSection title="Estado do Inventário" icon={<FaWarehouse />}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <StatCard title={t('overview.operational')} value={stats.operational} icon={<FaCheckCircle className="h-5 w-5" />} color="bg-green-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Operational })} />
+                    <StatCard title={t('overview.stock')} value={stats.stock} icon={<FaWarehouse className="h-5 w-5" />} color="bg-indigo-500" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Stock })} />
+                    <StatCard title={t('overview.expiring_warranties')} value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-5 w-5" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext={t('overview.next_30_days')}/>
+                    <StatCard title={t('overview.expiring_licenses')} value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-5 w-5" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext={t('overview.next_30_days')}/>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                     <div className="lg:col-span-1">
+                        <BarChart title={t('overview.equipment_age')} data={equipmentByAge} icon={<FaCalendarAlt />} colorBar="bg-indigo-500"/>
+                    </div>
+                    <div className="lg:col-span-1">
+                         <BarChart title={t('overview.top_types')} data={top5EquipmentTypes} icon={<FaLaptop />} colorBar="bg-indigo-500"/>
+                    </div>
+                    <div className="lg:col-span-1">
+                         <AvailableLicensesCard licenses={availableLicensesData} onViewAll={() => onViewItem('licensing', { status: 'available' })} />
+                    </div>
+                </div>
+            </DashboardSection>
+
+            {/* --- MODULE 4: RECENT ACTIVITY --- */}
+            <DashboardSection title={t('overview.recent_activity')} icon={<FaHistory />}>
+                <div className="bg-surface-dark p-6 rounded-lg shadow-lg border border-gray-800">
+                    <div className="space-y-4">
+                         {recentActivity.length > 0 ? recentActivity.map((activity, index) => (
+                            <RecentActivityItem 
+                                key={index} 
+                                activity={activity}
+                                icon={activity.type === 'assignment' ? <FaLaptop className="h-4 w-4 text-green-400"/> : <FaTicketAlt className="h-4 w-4 text-blue-400" />}
+                            />
+                        )) : <p className="text-on-surface-dark-secondary text-sm py-4 text-center">{t('overview.no_activity')}</p>}
+                    </div>
+                </div>
+            </DashboardSection>
         </div>
     );
 };
