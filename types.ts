@@ -2,6 +2,7 @@
 
 
 
+
 export enum EquipmentStatus {
   Stock = 'Stock',
   Operational = 'Operacional',
