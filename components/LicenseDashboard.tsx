@@ -1,7 +1,6 @@
 
-
 import React, { useMemo, useState, useEffect } from 'react';
-import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel } from '../types';
+import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -20,6 +19,9 @@ interface LicenseDashboardProps {
   onDelete?: (id: string) => void;
   onToggleStatus?: (id: string) => void;
   onGenerateReport?: () => void;
+  // BIA Props
+  businessServices?: BusinessService[];
+  serviceDependencies?: ServiceDependency[];
 }
 
 const getStatusClass = (status?: LicenseStatus) => {
@@ -76,7 +78,9 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
     onGenerateReport, 
     initialFilter, 
     onClearInitialFilter, 
-    onToggleStatus 
+    onToggleStatus,
+    businessServices,
+    serviceDependencies
 }) => {
     
     const [filters, setFilters] = useState({ productName: '', licenseKey: '', status: '', invoiceNumber: '' });
@@ -124,6 +128,24 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         });
         return map;
     }, [licenseAssignments, equipmentMap, activeAssignmentsMap, collaboratorMap]);
+    
+    // Map licenses to critical services (BIA)
+    const licenseCriticalityMap = useMemo(() => {
+        const map = new Map<string, { level: CriticalityLevel, serviceName: string }>();
+        if (serviceDependencies && businessServices) {
+            serviceDependencies.forEach(dep => {
+                if (dep.software_license_id) {
+                    const service = businessServices.find(s => s.id === dep.service_id);
+                    if (service) {
+                         // Use the service if found. If multiple services use the same license, the last one processed wins visually
+                         // (In a more complex version, we'd check for the highest criticality)
+                         map.set(dep.software_license_id, { level: service.criticality, serviceName: service.name });
+                    }
+                }
+            });
+        }
+        return map;
+    }, [serviceDependencies, businessServices]);
 
     const handleToggleExpand = (licenseId: string) => {
         setExpandedLicenseId(prev => (prev === licenseId ? null : licenseId));
@@ -268,6 +290,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                             const status = license.status || LicenseStatus.Ativo;
                             const assignedDetails = assignmentsByLicense.get(license.id) || [];
                             const isExpanded = expandedLicenseId === license.id;
+                            const biaInfo = licenseCriticalityMap.get(license.id);
                             
                             // Logic to disable delete button
                             const isDeleteDisabled = usedSeats > 0;
@@ -282,7 +305,17 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                                 </button>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{license.productName}</td>
+                                        <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
+                                            <div className="flex items-center">
+                                                {license.productName}
+                                                {biaInfo && (
+                                                    <span className="flex h-2 w-2 relative ml-2" title={`Suporta serviço crítico: ${biaInfo.serviceName} (${biaInfo.level})`}>
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 font-mono">{license.licenseKey}</td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 text-xs rounded-full border ${getCriticalityClass(license.criticality || CriticalityLevel.Low)}`}>

@@ -929,7 +929,23 @@ const AppContent = () => {
                                  <PlusIcon /> {t('common.add')}
                              </button>
                          </div>
-                        <LicenseDashboard licenses={softwareLicenses} licenseAssignments={licenseAssignments} equipmentData={equipment} assignments={assignments} collaborators={collaborators} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} initialFilter={dashboardFilter} onClearInitialFilter={() => setDashboardFilter(null)} onEdit={(lic) => { setEditingLicense(lic); setIsAddLicenseModalOpen(true); }} onDelete={handleDeleteLicense} onToggleStatus={handleToggleLicenseStatus} onGenerateReport={() => setReportType('licensing')} />
+                        <LicenseDashboard 
+                            licenses={softwareLicenses} 
+                            licenseAssignments={licenseAssignments} 
+                            equipmentData={equipment} 
+                            assignments={assignments} 
+                            collaborators={collaborators} 
+                            brandMap={brandMap} 
+                            equipmentTypeMap={equipmentTypeMap} 
+                            initialFilter={dashboardFilter} 
+                            onClearInitialFilter={() => setDashboardFilter(null)} 
+                            onEdit={(lic) => { setEditingLicense(lic); setIsAddLicenseModalOpen(true); }} 
+                            onDelete={handleDeleteLicense} 
+                            onToggleStatus={handleToggleLicenseStatus} 
+                            onGenerateReport={() => setReportType('licensing')}
+                            businessServices={businessServices}
+                            serviceDependencies={serviceDependencies}
+                        />
                     </div>
                  )}
                  {(activeTab === 'tickets' || activeTab === 'tickets.list') && tabConfig.tickets && (
