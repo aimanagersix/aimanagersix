@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Team, Collaborator, TeamMember } from '../types';
 import { SearchIcon, SpinnerIcon } from './common/Icons';
-import { FaChevronRight, FaChevronLeft, FaUsers } from 'react-icons/fa';
+import { FaChevronRight, FaChevronLeft, FaUsers, FaExclamationTriangle } from 'react-icons/fa';
 
 interface ManageTeamMembersModalProps {
     onClose: () => void;
@@ -17,15 +18,18 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
     const [searchQuery, setSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [initialized, setInitialized] = useState(false);
 
+    // Initialize state only once to prevent overwrites during updates
     useEffect(() => {
-        if (team && teamMembers) {
+        if (!initialized && team && teamMembers) {
             const initialMemberIds = teamMembers
                 .filter(tm => tm.team_id === team.id)
                 .map(tm => tm.collaborator_id);
             setCurrentMemberIds(new Set(initialMemberIds));
+            setInitialized(true);
         }
-    }, [team, teamMembers]);
+    }, [team, teamMembers, initialized]);
 
     const { teamMembersList, availableCollaborators } = useMemo(() => {
         const members: Collaborator[] = [];
@@ -68,10 +72,10 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
         setError(null);
         try {
             await onSave(team.id, Array.from(currentMemberIds));
-            // The parent component is responsible for closing the modal after save
+            // Parent component handles closing on success
         } catch (error: any) {
             console.error("Failed to save team members:", error);
-            setError(`Erro ao gravar: ${error.message || 'Erro desconhecido'}`);
+            setError(`Erro ao gravar: ${error.message || 'Erro desconhecido'}. Verifique se a tabela 'team_members' foi criada na base de dados.`);
             setIsSaving(false);
         }
     };
@@ -150,8 +154,9 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
                 </div>
 
                 {error && (
-                    <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-md text-red-200 text-sm">
-                        {error}
+                    <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-md text-red-200 text-sm flex items-start gap-2">
+                        <FaExclamationTriangle className="mt-0.5 flex-shrink-0" />
+                        <span>{error}</span>
                     </div>
                 )}
 
