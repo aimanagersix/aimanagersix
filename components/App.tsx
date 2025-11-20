@@ -598,8 +598,8 @@ const AppContent: React.FC = () => {
                     <AddTicketModal
                         onClose={() => { setShowAddTicket(false); setTicketToEdit(null); }}
                         onSave={(t) => {
-                            if (ticketToEdit) simpleSaveWrapper(dataService.updateTicket, t, ticketToEdit.id);
-                            else simpleSaveWrapper(dataService.addTicket, t);
+                            if (ticketToEdit) return simpleSaveWrapper(dataService.updateTicket, t, ticketToEdit.id);
+                            else return simpleSaveWrapper(dataService.addTicket, t);
                         }}
                         ticketToEdit={ticketToEdit}
                         escolasDepartamentos={entidades}
