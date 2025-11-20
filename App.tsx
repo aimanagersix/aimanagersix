@@ -1,4 +1,5 @@
 
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -1159,3 +1160,5 @@ const AppContent: React.FC = () => {
 };
 
 export const App = AppContent;
+=======
+>>>>>>> 9e8d55e72e4beb215bd20577228687b05e59f913
