@@ -1,24 +1,27 @@
 
 import React, { useState, useMemo } from 'react';
-import { TicketCategoryItem, Ticket } from '../types';
+import { TicketCategoryItem, Ticket, Team } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
-import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaToggleOn, FaToggleOff, FaUsers } from 'react-icons/fa';
 
 interface CategoryDashboardProps {
   categories: TicketCategoryItem[];
   tickets: Ticket[];
+  teams: Team[];
   onEdit: (category: TicketCategoryItem) => void;
   onDelete: (id: string) => void;
   onToggleStatus: (id: string) => void;
   onCreate: () => void;
 }
 
-const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories, tickets, onEdit, onDelete, onToggleStatus, onCreate }) => {
+const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories, tickets, teams, onEdit, onDelete, onToggleStatus, onCreate }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     
+    const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
+
     const ticketCountByCategory = React.useMemo(() => {
         return tickets.reduce((acc, curr) => {
             if (curr.category) {
@@ -56,6 +59,7 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories, ticke
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
               <th scope="col" className="px-6 py-3">Nome da Categoria</th>
+              <th scope="col" className="px-6 py-3">Equipa Padrão</th>
               <th scope="col" className="px-6 py-3 text-center">Status</th>
               <th scope="col" className="px-6 py-3 text-center">Nº de Tickets</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
@@ -65,11 +69,22 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories, ticke
             {paginatedCategories.length > 0 ? paginatedCategories.map((cat) => {
                 const count = ticketCountByCategory[cat.name] || 0;
                 const isDeleteDisabled = count > 0;
+                const teamName = cat.default_team_id ? teamMap.get(cat.default_team_id) : null;
                 
                 return (
               <tr key={cat.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                   {cat.name}
+                </td>
+                <td className="px-6 py-4">
+                    {teamName ? (
+                        <div className="flex items-center gap-2 text-brand-secondary">
+                            <FaUsers className="h-3 w-3" />
+                            {teamName}
+                        </div>
+                    ) : (
+                        <span className="text-gray-500 italic">Nenhuma</span>
+                    )}
                 </td>
                 <td className="px-6 py-4 text-center">
                     <span className={`px-2 py-1 text-xs rounded-full ${cat.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
@@ -105,7 +120,7 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories, ticke
               </tr>
             )}) : (
                 <tr>
-                    <td colSpan={4} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma categoria encontrada.</td>
+                    <td colSpan={5} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma categoria encontrada.</td>
                 </tr>
             )}
           </tbody>

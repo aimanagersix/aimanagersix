@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -902,7 +904,7 @@ const AppContent = () => {
                  )}
                  {activeTab === 'tickets.categories' && tabConfig['tickets.categories'] && (
                     <div className="space-y-4">
-                        <CategoryDashboard categories={ticketCategories} tickets={tickets} onEdit={(cat) => { setEditingCategory(cat); setIsAddCategoryModalOpen(true); }} onDelete={handleDeleteCategory} onToggleStatus={handleToggleCategoryStatus} onCreate={() => { setEditingCategory(null); setIsAddCategoryModalOpen(true); }} />
+                        <CategoryDashboard categories={ticketCategories} tickets={tickets} teams={teams} onEdit={(cat) => { setEditingCategory(cat); setIsAddCategoryModalOpen(true); }} onDelete={handleDeleteCategory} onToggleStatus={handleToggleCategoryStatus} onCreate={() => { setEditingCategory(null); setIsAddCategoryModalOpen(true); }} />
                     </div>
                  )}
 
@@ -978,7 +980,7 @@ const AppContent = () => {
             {isAddTicketModalOpen && <AddTicketModal onClose={() => setIsAddTicketModalOpen(false)} onSave={editingTicket ? handleUpdateTicket : handleCreateTicket} ticketToEdit={editingTicket} escolasDepartamentos={entidades} collaborators={collaborators} teams={teams} currentUser={currentUser} userPermissions={{ viewScope: 'all' }} equipment={equipment} equipmentTypes={equipmentTypes} assignments={assignments} categories={ticketCategories} />}
             {ticketActivitiesOpen && <TicketActivitiesModal ticket={ticketActivitiesOpen} activities={ticketActivities.filter(ta => ta.ticketId === ticketActivitiesOpen.id)} collaborators={collaborators} currentUser={currentUser} equipment={equipment} equipmentTypes={equipmentTypes} entidades={entidades} assignments={assignments} onClose={() => setTicketActivitiesOpen(null)} onAddActivity={handleAddActivity} />}
             {ticketToClose && <CloseTicketModal ticket={ticketToClose} collaborators={collaborators} onClose={() => setTicketToClose(null)} onConfirm={handleCloseTicket} />}
-            {isAddCategoryModalOpen && <AddCategoryModal onClose={() => setIsAddCategoryModalOpen(false)} onSave={editingCategory ? handleUpdateCategory : handleCreateCategory} categoryToEdit={editingCategory} />}
+            {isAddCategoryModalOpen && <AddCategoryModal onClose={() => setIsAddCategoryModalOpen(false)} onSave={editingCategory ? handleUpdateCategory : handleCreateCategory} categoryToEdit={editingCategory} teams={teams} />}
 
 
             {showDetailCollaborator && <CollaboratorDetailModal collaborator={showDetailCollaborator} assignments={assignments} equipment={equipment} tickets={tickets} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} onClose={() => setShowDetailCollaborator(null)} onShowHistory={(col) => { setShowDetailCollaborator(null); setShowHistoryCollaborator(col); }} onStartChat={(col) => { setActiveChatCollaboratorId(col.id); setIsChatOpen(true); setShowDetailCollaborator(null); }} />}

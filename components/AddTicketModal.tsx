@@ -4,6 +4,7 @@
 
 
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem } from '../types';
@@ -75,6 +76,12 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             impactIntegrity: CIARating.Low,
             impactAvailability: CIARating.Low,
         };
+        
+        // If default category has a default team, set it initially
+        const defaultCatObj = categories.find(c => c.name === baseData.category);
+        if (defaultCatObj?.default_team_id) {
+            baseData.team_id = defaultCatObj.default_team_id;
+        }
 
         const isUtilizador = userPermissions.viewScope === 'own';
         if (isUtilizador && currentUser) {
@@ -157,7 +164,18 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        
+        if (name === 'category') {
+             // Check if this category has a default team
+             const catObj = categories.find(c => c.name === value);
+             setFormData(prev => ({
+                 ...prev,
+                 category: value,
+                 team_id: catObj?.default_team_id || prev.team_id // Only overwrite if category has a specific team, else keep user selection
+             }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const validate = () => {
@@ -383,6 +401,13 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                                 <option key={team.id} value={team.id}>{team.name}</option>
                             ))}
                         </select>
+                        {formData.team_id && (
+                            <p className="text-xs text-gray-400 mt-1">
+                                {categories.find(c => c.name === formData.category)?.default_team_id === formData.team_id 
+                                ? '(Definida automaticamente pela categoria)' 
+                                : ''}
+                            </p>
+                        )}
                     </div>
                 </div>
 

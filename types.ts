@@ -147,6 +147,7 @@ export interface TicketCategoryItem {
     id: string;
     name: string;
     is_active: boolean;
+    default_team_id?: string;
 }
 
 export interface Ticket {

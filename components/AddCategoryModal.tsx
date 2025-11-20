@@ -1,18 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { TicketCategoryItem } from '../types';
+import { TicketCategoryItem, Team } from '../types';
 
 interface AddCategoryModalProps {
     onClose: () => void;
     onSave: (category: Omit<TicketCategoryItem, 'id'> | TicketCategoryItem) => void;
     categoryToEdit?: TicketCategoryItem | null;
+    teams: Team[];
 }
 
-const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, categoryToEdit }) => {
+const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, categoryToEdit, teams }) => {
     const [formData, setFormData] = useState({
         name: '',
-        is_active: true
+        is_active: true,
+        default_team_id: ''
     });
     const [error, setError] = useState('');
 
@@ -20,7 +22,8 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
         if (categoryToEdit) {
             setFormData({
                 name: categoryToEdit.name,
-                is_active: categoryToEdit.is_active
+                is_active: categoryToEdit.is_active,
+                default_team_id: categoryToEdit.default_team_id || ''
             });
         }
     }, [categoryToEdit]);
@@ -33,10 +36,15 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
         }
         setError('');
         
+        const dataToSave = {
+            ...formData,
+            default_team_id: formData.default_team_id || undefined
+        };
+
         if (categoryToEdit) {
-            onSave({ ...categoryToEdit, ...formData });
+            onSave({ ...categoryToEdit, ...dataToSave });
         } else {
-            onSave(formData);
+            onSave(dataToSave);
         }
         onClose();
     };
@@ -58,6 +66,24 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                     />
                     {error && <p className="text-red-400 text-xs italic mt-1">{error}</p>}
                 </div>
+
+                <div>
+                    <label htmlFor="default_team_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa Padrão (Auto-atribuição)</label>
+                    <select
+                        name="default_team_id"
+                        id="default_team_id"
+                        value={formData.default_team_id}
+                        onChange={(e) => setFormData(prev => ({ ...prev, default_team_id: e.target.value }))}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                    >
+                        <option value="">Nenhuma (Manual)</option>
+                        {teams.map(team => (
+                            <option key={team.id} value={team.id}>{team.name}</option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Tickets criados nesta categoria serão automaticamente encaminhados para esta equipa.</p>
+                </div>
+
                 <div className="flex items-center">
                     <input
                         type="checkbox"
