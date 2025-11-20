@@ -1,5 +1,4 @@
 
-<<<<<<< HEAD
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -1149,7 +1148,7 @@ const AppContent: React.FC = () => {
                             onSelectConversation={(id) => setActiveChatCollaboratorId(id)}
                             unreadMessagesCount={messages.filter(m => m.receiverId === currentUser.id && !m.read).length}
                         />
-                        {/* Fallback chat modal for specific interactions if needed, though widget covers it */}
+                        {/* Fallback chat  modal for specific interactions if needed, though widget covers it */}
                     </>
                 )}
 
@@ -1160,5 +1159,3 @@ const AppContent: React.FC = () => {
 };
 
 export const App = AppContent;
-=======
->>>>>>> 9e8d55e72e4beb215bd20577228687b05e59f913
