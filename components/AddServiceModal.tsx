@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus } from '../types';

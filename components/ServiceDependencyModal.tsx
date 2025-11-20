@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { BusinessService, Equipment, SoftwareLicense, ServiceDependency } from '../types';
