@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -41,6 +44,8 @@ import CredentialsModal from './components/CredentialsModal';
 import ServiceDashboard from './components/ServiceDashboard';
 import AddServiceModal from './components/AddServiceModal';
 import ServiceDependencyModal from './components/ServiceDependencyModal';
+import VulnerabilityDashboard from './components/VulnerabilityDashboard';
+import AddVulnerabilityModal from './components/AddVulnerabilityModal';
 import { ChatWidget } from './components/ChatWidget';
 import * as dataService from './services/dataService';
 import { getSupabase } from './services/supabaseClient';
@@ -48,7 +53,7 @@ import {
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
     Team, TeamMember, EquipmentStatus, TicketStatus, CollaboratorStatus, LicenseStatus, EntidadeStatus, UserRole, TicketCategoryItem,
-    BusinessService, ServiceDependency
+    BusinessService, ServiceDependency, Vulnerability, AppModule
 } from './types';
 import { PlusIcon, FaFileImport, FaUserLock, FaExclamationCircle, SpinnerIcon } from './components/common/Icons';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
@@ -81,9 +86,10 @@ const AppContent = () => {
     const [collaboratorHistory, setCollaboratorHistory] = useState<CollaboratorHistory[]>([]);
     const [ticketCategories, setTicketCategories] = useState<TicketCategoryItem[]>([]);
     
-    // BIA Data State
+    // BIA & Security Data State
     const [businessServices, setBusinessServices] = useState<BusinessService[]>([]);
     const [serviceDependencies, setServiceDependencies] = useState<ServiceDependency[]>([]);
+    const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
 
     // --- Modal States ---
     const [importModalConfig, setImportModalConfig] = useState<ImportConfig | null>(null);
@@ -136,10 +142,12 @@ const AppContent = () => {
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<TicketCategoryItem | null>(null);
     
-    // BIA Modals
+    // BIA & Security Modals
     const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
     const [editingService, setEditingService] = useState<BusinessService | null>(null);
     const [manageDependenciesService, setManageDependenciesService] = useState<BusinessService | null>(null);
+    const [isAddVulnerabilityModalOpen, setIsAddVulnerabilityModalOpen] = useState(false);
+    const [editingVulnerability, setEditingVulnerability] = useState<Vulnerability | null>(null);
 
 
     // Global
@@ -292,6 +300,7 @@ const AppContent = () => {
             setTicketCategories(data.ticketCategories);
             setBusinessServices(data.businessServices);
             setServiceDependencies(data.serviceDependencies);
+            setVulnerabilities(data.vulnerabilities);
         } catch (error: any) {
             console.error("Error loading data", error);
             setDataLoadError(error.message || "Falha ao carregar dados.");
@@ -343,11 +352,12 @@ const AppContent = () => {
                 tickets: { title: t('nav.support') },
                 'tickets.list': 'Tickets de Suporte',
                 'tickets.categories': 'Categorias',
-                bia: t('nav.bia') // BIA Tab
+                bia: t('nav.bia'), // BIA Tab
+                security: 'Segurança' // Security Tab
             };
         }
 
-        const hasAccess = (module: 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets' | 'bia') => {
+        const hasAccess = (module: AppModule) => {
              if (currentUser.allowedModules) {
                  return currentUser.allowedModules.includes(module);
              }
@@ -385,6 +395,10 @@ const AppContent = () => {
         
         if (hasAccess('bia')) {
             config.bia = t('nav.bia');
+        }
+        
+        if (hasAccess('security')) {
+            config.security = 'Segurança';
         }
 
         if (hasAccess('tickets')) {
@@ -716,6 +730,12 @@ const AppContent = () => {
     const handleDeleteService = async (id: string) => { await dataService.deleteBusinessService(id); refreshData(); }
     const handleAddDependency = async (dep: any) => { await dataService.addServiceDependency(dep); refreshData(); }
     const handleRemoveDependency = async (id: string) => { await dataService.deleteServiceDependency(id); refreshData(); }
+    
+    // Security (Vulnerabilities) Handlers
+    const handleCreateVulnerability = async (vuln: any) => { await dataService.addVulnerability(vuln); refreshData(); }
+    const handleUpdateVulnerability = async (vuln: any) => { await dataService.updateVulnerability(vuln.id, vuln); refreshData(); }
+    const handleDeleteVulnerability = async (id: string) => { await dataService.deleteVulnerability(id); refreshData(); }
+
 
     const handleCreateTicket = async (ticket: any) => { try { await dataService.addTicket({ ...ticket, requestDate: new Date().toISOString(), status: TicketStatus.Requested }); refreshData(); } catch (error) { alert("Erro ao criar ticket."); } };
     const handleUpdateTicket = async (ticket: Ticket) => { try { await dataService.updateTicket(ticket.id, ticket); refreshData(); } catch (error) { alert("Erro ao atualizar ticket."); } };
@@ -839,6 +859,16 @@ const AppContent = () => {
                         />
                      </div>
                 )}
+                {activeTab === 'security' && tabConfig.security && (
+                    <div className="space-y-4">
+                        <VulnerabilityDashboard 
+                            vulnerabilities={vulnerabilities}
+                            onEdit={(v) => { setEditingVulnerability(v); setIsAddVulnerabilityModalOpen(true); }}
+                            onDelete={handleDeleteVulnerability}
+                            onCreate={() => { setEditingVulnerability(null); setIsAddVulnerabilityModalOpen(true); }}
+                        />
+                    </div>
+                )}
                 {activeTab === 'equipment.inventory' && tabConfig['equipment.inventory'] && (
                     <div className="space-y-4">
                          <div className="flex justify-end gap-2">
@@ -864,7 +894,6 @@ const AppContent = () => {
                              onAssignMultiple={(list) => { setAssignMultipleList(list); setAssignMultipleModalOpen(true); }}
                              onManageKeys={handleManageKeys}
                              onGenerateReport={() => setReportType('equipment')}
-                             // Pass BIA data to Dashboard -> History Modal
                              businessServices={businessServices}
                              serviceDependencies={serviceDependencies}
                              tickets={tickets}
@@ -1017,6 +1046,8 @@ const AppContent = () => {
             
             {isAddServiceModalOpen && <AddServiceModal onClose={() => setIsAddServiceModalOpen(false)} onSave={editingService ? handleUpdateService : handleCreateService} serviceToEdit={editingService} collaborators={collaborators} />}
             {manageDependenciesService && <ServiceDependencyModal onClose={() => setManageDependenciesService(null)} service={manageDependenciesService} dependencies={serviceDependencies.filter(d => d.service_id === manageDependenciesService.id)} allEquipment={equipment} allLicenses={softwareLicenses} onAddDependency={handleAddDependency} onRemoveDependency={handleRemoveDependency} />}
+
+            {isAddVulnerabilityModalOpen && <AddVulnerabilityModal onClose={() => setIsAddVulnerabilityModalOpen(false)} onSave={editingVulnerability ? handleUpdateVulnerability : handleCreateVulnerability} vulnToEdit={editingVulnerability} />}
 
             {isAddEquipmentModalOpen && <AddEquipmentModal onClose={() => setIsAddEquipmentModalOpen(false)} onSave={editingEquipment ? handleUpdateEquipment : handleCreateEquipment} brands={brands} equipmentTypes={equipmentTypes} equipmentToEdit={editingEquipment} onSaveBrand={async (b) => { await dataService.addBrand(b); const res = await dataService.fetchBrands(); setBrands(res); return res.find((x: any) => x.name === b.name)!; }} onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t); const res = await dataService.fetchEquipmentTypes(); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }} onOpenKitModal={(initialData) => { setIsAddEquipmentModalOpen(false); setKitModalInitialData(initialData); setIsKitModalOpen(true); }} />}
             {isKitModalOpen && <AddEquipmentKitModal onClose={() => setIsKitModalOpen(false)} onSaveKit={handleCreateKit} brands={brands} equipmentTypes={equipmentTypes} initialData={kitModalInitialData} onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t); const res = await dataService.fetchEquipmentTypes(); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }} equipment={equipment} />}

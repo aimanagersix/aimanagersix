@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -248,6 +250,20 @@ CREATE TABLE IF NOT EXISTS service_dependencies (
     created_at timestamptz DEFAULT now()
 );
 
+-- TABELAS PARA GESTÃO DE VULNERABILIDADES (SEGURANÇA)
+
+CREATE TABLE IF NOT EXISTS vulnerabilities (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    cve_id text NOT NULL,
+    description text,
+    severity text DEFAULT 'Média',
+    status text DEFAULT 'Aberto',
+    affected_software text,
+    remediation text,
+    published_date text,
+    created_at timestamptz DEFAULT now()
+);
+
 
 -- ==========================================
 -- CORREÇÃO DA TABELA TEAM_MEMBERS
@@ -306,7 +322,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo foi atualizado para incluir as novas tabelas de <strong>Serviços de Negócio (BIA)</strong> e redefinir as permissões.
+                        O script abaixo foi atualizado para incluir as novas tabelas de <strong>Serviços de Negócio (BIA)</strong> e <strong>Vulnerabilidades (Segurança)</strong>.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

@@ -1,4 +1,5 @@
 
+
 export enum EquipmentStatus {
   Stock = 'Stock',
   Operational = 'Operacional',
@@ -96,7 +97,7 @@ export enum CollaboratorStatus {
     Inativo = 'Inativo',
 }
 
-export type AppModule = 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets' | 'bia';
+export type AppModule = 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets' | 'bia' | 'security';
 
 export interface Collaborator {
   id: string;
@@ -284,4 +285,25 @@ export interface ServiceDependency {
     software_license_id?: string;
     dependency_type?: string; // e.g., "Server", "Database", "Frontend"
     notes?: string;
+}
+
+// --- Vulnerability Management Types ---
+
+export enum VulnerabilityStatus {
+    Open = 'Aberto',
+    InProgress = 'Em Análise',
+    Mitigated = 'Mitigado',
+    Resolved = 'Resolvido',
+    FalsePositive = 'Falso Positivo'
+}
+
+export interface Vulnerability {
+    id: string;
+    cve_id: string; // e.g., CVE-2024-1234
+    description: string;
+    severity: CriticalityLevel;
+    status: VulnerabilityStatus;
+    affected_software?: string;
+    remediation?: string;
+    published_date?: string;
 }

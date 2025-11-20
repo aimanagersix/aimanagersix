@@ -1,9 +1,10 @@
 
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency
+    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency, Vulnerability
 } from '../types';
 
 const handleSupabaseError = (error: any, operation: string) => {
@@ -92,7 +93,7 @@ export const fetchAllData = async () => {
         assignmentsRes, ticketsRes, ticketActivitiesRes, brandsRes,
         equipmentTypesRes, softwareLicensesRes, licenseAssignmentsRes,
         teamsRes, teamMembersRes, messagesRes, historyRes, categoriesRes,
-        servicesRes, dependenciesRes
+        servicesRes, dependenciesRes, vulnerabilitiesRes
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('instituicoes').select('*'),
@@ -111,7 +112,8 @@ export const fetchAllData = async () => {
         supabase.from('collaborator_history').select('*'),
         supabase.from('ticket_categories').select('*').order('name'),
         supabase.from('business_services').select('*'),
-        supabase.from('service_dependencies').select('*')
+        supabase.from('service_dependencies').select('*'),
+        supabase.from('vulnerabilities').select('*')
     ]);
 
     const check = (res: any, name: string) => { if (res.error) handleSupabaseError(res.error, `fetching ${name}`); };
@@ -130,9 +132,10 @@ export const fetchAllData = async () => {
     check(teamMembersRes, 'teamMembers');
     check(messagesRes, 'messages');
     check(historyRes, 'history');
-    // Don't fail strictly on categories or BIA tables to allow smooth migration if table missing
+    // Don't fail strictly on categories, BIA, or Vulnerabilities tables to allow smooth migration
     if (categoriesRes.error) console.warn("Failed to fetch categories, table might be missing.");
     if (servicesRes.error) console.warn("Failed to fetch services, table might be missing.");
+    if (vulnerabilitiesRes.error) console.warn("Failed to fetch vulnerabilities, table might be missing.");
 
     return {
         equipment: equipmentRes.data || [],
@@ -152,7 +155,8 @@ export const fetchAllData = async () => {
         collaboratorHistory: historyRes.data || [],
         ticketCategories: categoriesRes.data || [],
         businessServices: servicesRes.data || [],
-        serviceDependencies: dependenciesRes.data || []
+        serviceDependencies: dependenciesRes.data || [],
+        vulnerabilities: vulnerabilitiesRes.data || []
     };
 };
 
@@ -526,4 +530,25 @@ export const deleteServiceDependency = async (id: string) => {
     const { error } = await getSupabase().from('service_dependencies').delete().eq('id', id);
     handleSupabaseError(error, 'deleting service dependency');
     // Not logging as main action, detail enough
+};
+
+// --- Vulnerabilities (Security) ---
+export const addVulnerability = async (vuln: Omit<Vulnerability, 'id'>) => {
+    const { data, error } = await getSupabase().from('vulnerabilities').insert(vuln).select().single();
+    handleSupabaseError(error, 'adding vulnerability');
+    await logAction('CREATE', 'Vulnerability', `Created CVE ${vuln.cve_id}`, data.id);
+    return data as Vulnerability;
+};
+
+export const updateVulnerability = async (id: string, updates: Partial<Vulnerability>) => {
+    const { data, error } = await getSupabase().from('vulnerabilities').update(updates).eq('id', id).select().single();
+    handleSupabaseError(error, 'updating vulnerability');
+    await logAction('UPDATE', 'Vulnerability', `Updated CVE ${data.cve_id}`, id);
+    return data as Vulnerability;
+};
+
+export const deleteVulnerability = async (id: string) => {
+    const { error } = await getSupabase().from('vulnerabilities').delete().eq('id', id);
+    handleSupabaseError(error, 'deleting vulnerability');
+    await logAction('DELETE', 'Vulnerability', `Deleted CVE`, id);
 };
