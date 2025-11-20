@@ -216,29 +216,59 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
 
         const items = filteredServices.map(service => {
             const serviceDeps = serviceDependencies.filter(d => d.service_id === service.id);
-            const depDetails = serviceDeps.map(d => {
+            
+            // Direct Dependencies
+            const directDependencies = serviceDeps.map(d => {
                 let name = 'Desconhecido';
                 let type = 'Outro';
+                let id = '';
                 if (d.equipment_id) {
                     const eq = equipment.find(e => e.id === d.equipment_id);
                     if (eq) {
                         name = `${eq.description} (S/N: ${eq.serialNumber})`;
                         type = 'Equipamento';
+                        id = eq.id;
                     }
                 } else if (d.software_license_id) {
                     const lic = softwareLicenses.find(l => l.id === d.software_license_id);
                     if (lic) {
                         name = lic.productName;
                         type = 'Software';
+                        id = lic.id;
                     }
                 }
-                return { name, type, notes: d.notes, depType: d.dependency_type };
+                return { name, type, notes: d.notes, depType: d.dependency_type, id, isDirect: true };
+            });
+
+            // Infer Indirect Dependencies (Licenses attached to Dependent Equipment)
+            const indirectDependencies: any[] = [];
+            serviceDeps.forEach(d => {
+                if (d.equipment_id) {
+                    const equipmentName = equipment.find(e => e.id === d.equipment_id)?.description || 'Equipamento';
+                    const linkedLicenses = licenseAssignments.filter(la => la.equipmentId === d.equipment_id);
+                    linkedLicenses.forEach(la => {
+                        const lic = softwareLicenses.find(l => l.id === la.softwareLicenseId);
+                        if (lic) {
+                             // Add if not already present as direct dependency
+                             if (!directDependencies.some(dd => dd.id === lic.id && dd.type === 'Software')) {
+                                 indirectDependencies.push({
+                                     name: lic.productName,
+                                     type: 'Software (via Equipamento)',
+                                     notes: `Instalado em: ${equipmentName}`,
+                                     depType: 'Software Base',
+                                     id: lic.id,
+                                     isDirect: false
+                                 });
+                             }
+                        }
+                    });
+                }
             });
 
             return {
                 service,
                 ownerName: service.owner_id ? collaboratorMap.get(service.owner_id) : 'Não atribuído',
-                dependencies: depDetails
+                dependencies: [...directDependencies, ...indirectDependencies]
             };
         });
 
@@ -246,7 +276,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             type: 'bia' as const,
             items
         };
-    }, [type, businessServices, serviceDependencies, equipment, softwareLicenses, biaFilterCriticality, collaboratorMap]);
+    }, [type, businessServices, serviceDependencies, equipment, softwareLicenses, biaFilterCriticality, collaboratorMap, licenseAssignments]);
 
 
     const equipmentReportData = useMemo(() => {
@@ -454,7 +484,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             ].join(','));
             fileName = `relatorio_compliance_nis2_${new Date().toISOString().split('T')[0]}.csv`;
         } else if (reportData.type === 'bia') {
-            headers = ["Serviço", "Descrição", "Criticidade", "RTO Alvo", "Responsável", "Status", "Dependências (Lista)"];
+            headers = ["Serviço", "Descrição", "Criticidade", "RTO Alvo", "Responsável", "Status", "Dependências (Nome)", "Dependências (Tipo)", "Dependências (Notas)"];
             rows = reportData.items.map(item => [
                 escapeCsv(item.service.name),
                 escapeCsv(item.service.description),
@@ -462,7 +492,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 escapeCsv(item.service.rto_goal),
                 escapeCsv(item.ownerName),
                 escapeCsv(item.service.status),
-                escapeCsv(item.dependencies.map(d => `${d.type}: ${d.name}`).join('; '))
+                escapeCsv(item.dependencies.map(d => `${d.name}`).join('; ')),
+                escapeCsv(item.dependencies.map(d => `${d.type} [${d.isDirect ? 'Direta' : 'Indireta'}]`).join('; ')),
+                escapeCsv(item.dependencies.map(d => `${d.notes || ''}`).join('; '))
             ].join(','));
             fileName = `relatorio_bia_servicos_${new Date().toISOString().split('T')[0]}.csv`;
         }
@@ -790,7 +822,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
              {reportData?.type === 'bia' && (
                 <>
                     <h3 className="text-xl font-bold text-white mb-2">Análise de Impacto no Negócio (BIA)</h3>
-                    <p className="mb-4 text-sm">Inventário de Serviços Críticos e suas dependências para recuperação de desastres.</p>
+                    <p className="mb-4 text-sm">Inventário de Serviços Críticos e suas dependências (Diretas e Indiretas) para recuperação de desastres.</p>
                     
                     {reportData.items.map((item, index) => (
                         <div key={index} className="mb-6 p-4 bg-surface-dark rounded-lg border border-gray-700 break-inside-avoid">
@@ -813,13 +845,22 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                             
                             {item.dependencies.length > 0 ? (
                                 <div className="mt-2">
-                                    <p className="text-xs font-semibold text-gray-400 mb-1">Dependências (Ativos):</p>
-                                    <ul className="list-disc list-inside text-xs space-y-1 pl-2">
+                                    <p className="text-xs font-semibold text-gray-400 mb-1">Dependências Mapeadas:</p>
+                                    <ul className="list-none text-xs space-y-1 pl-2">
                                         {item.dependencies.map((dep, idx) => (
-                                            <li key={idx}>
-                                                <span className="font-medium text-white">{dep.name}</span> 
-                                                <span className="text-gray-500"> ({dep.type})</span>
-                                                {dep.depType && <span className="text-brand-secondary ml-1">[{dep.depType}]</span>}
+                                            <li key={idx} className="flex items-start gap-2">
+                                                <span className="text-gray-500 font-mono">•</span>
+                                                <div>
+                                                    <span className="font-medium text-white">{dep.name}</span> 
+                                                    <span className="text-gray-500"> ({dep.type})</span>
+                                                    {dep.depType && <span className="text-brand-secondary ml-1">[{dep.depType}]</span>}
+                                                    {!dep.isDirect && (
+                                                        <span className="text-yellow-500 ml-1 text-[10px] uppercase tracking-wider border border-yellow-500/30 px-1 rounded">
+                                                            Indireta
+                                                        </span>
+                                                    )}
+                                                    {dep.notes && <div className="text-gray-500 italic ml-1">- {dep.notes}</div>}
+                                                </div>
                                             </li>
                                         ))}
                                     </ul>
