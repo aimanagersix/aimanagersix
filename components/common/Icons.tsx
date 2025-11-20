@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { FC } from 'react';
 // FIX: Add FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, FaDatabase, FaSitemap, FaNetworkWired, FaSearch, FaFilter, FaTimes to the import from react-icons/fa.
 import { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, FaFingerprint, FaClipboardList, FaUserShield, FaQrcode, FaClock, FaDatabase, FaSitemap, FaNetworkWired, FaSearch, FaFilter, FaTimes } from 'react-icons/fa';
 
