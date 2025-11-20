@@ -454,9 +454,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             ].join(','));
             fileName = `relatorio_compliance_nis2_${new Date().toISOString().split('T')[0]}.csv`;
         } else if (reportData.type === 'bia') {
-            headers = ["Serviço", "Criticidade", "RTO Alvo", "Responsável", "Status", "Dependências (Lista)"];
+            headers = ["Serviço", "Descrição", "Criticidade", "RTO Alvo", "Responsável", "Status", "Dependências (Lista)"];
             rows = reportData.items.map(item => [
                 escapeCsv(item.service.name),
+                escapeCsv(item.service.description),
                 escapeCsv(item.service.criticality),
                 escapeCsv(item.service.rto_goal),
                 escapeCsv(item.ownerName),
@@ -796,6 +797,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                             <div className="flex justify-between items-start mb-3 border-b border-gray-600 pb-2">
                                 <div>
                                     <h4 className="text-lg font-bold text-white">{item.service.name}</h4>
+                                    {item.service.description && <p className="text-sm text-gray-300 mb-2">{item.service.description}</p>}
                                     <p className="text-xs text-on-surface-dark-secondary">Responsável: {item.ownerName}</p>
                                 </div>
                                 <div className="text-right">
