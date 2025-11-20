@@ -1,13 +1,13 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Instituicao, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, CriticalityLevel } from '../types';
+import { Equipment, Instituicao, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { MailIcon, FaEye } from './common/Icons';
 import { FaFileCsv } from 'react-icons/fa';
 import PrintPreviewModal from './PrintPreviewModal';
 
 interface ReportModalProps {
-    type: 'equipment' | 'collaborator' | 'ticket' | 'licensing' | 'compliance';
+    type: 'equipment' | 'collaborator' | 'ticket' | 'licensing' | 'compliance' | 'bia';
     onClose: () => void;
     equipment: Equipment[];
     brandMap: Map<string, string>;
@@ -19,6 +19,8 @@ interface ReportModalProps {
     tickets: Ticket[];
     softwareLicenses: SoftwareLicense[];
     licenseAssignments: LicenseAssignment[];
+    businessServices?: BusinessService[];
+    serviceDependencies?: ServiceDependency[];
 }
 
 const BarChart: React.FC<{ title: string; data: { name: string; value: number }[] }> = ({ title, data }) => {
@@ -56,7 +58,7 @@ const getLevelColor = (level?: string) => {
     }
 };
 
-const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, brandMap, equipmentTypeMap, instituicoes, escolasDepartamentos: entidades, collaborators, assignments, tickets, softwareLicenses, licenseAssignments }) => {
+const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, brandMap, equipmentTypeMap, instituicoes, escolasDepartamentos: entidades, collaborators, assignments, tickets, softwareLicenses, licenseAssignments, businessServices = [], serviceDependencies = [] }) => {
     // Equipment Report State
     const [reportLevel, setReportLevel] = useState<'entidade' | 'instituicao'>('entidade');
     const [selectedInstituicaoId, setSelectedInstituicaoId] = useState<string>(instituicoes[0]?.id || '');
@@ -70,8 +72,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
     const [ticketDateFrom, setTicketDateFrom] = useState('');
     const [ticketDateTo, setTicketDateTo] = useState('');
     
-    // Compliance Report State
+    // Compliance & BIA Report State
     const [complianceFilterLevel, setComplianceFilterLevel] = useState<string>('');
+    const [biaFilterCriticality, setBiaFilterCriticality] = useState<string>('');
 
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const reportContentRef = useRef<HTMLDivElement>(null);
@@ -79,6 +82,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
     
     const instituicaoMap = useMemo(() => new Map(instituicoes.map(e => [e.id, e])), [instituicoes]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
 
     const availableCollaborators = useMemo(() => {
         if (!selectedEntidadeId) return [];
@@ -198,6 +202,52 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             items
         };
     }, [type, equipment, complianceFilterLevel]);
+    
+    const biaReportData = useMemo(() => {
+        if (type !== 'bia') return null;
+
+        const filteredServices = businessServices.filter(s => {
+            if (!biaFilterCriticality) return true;
+            return s.criticality === biaFilterCriticality;
+        }).sort((a,b) => {
+             const priority = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
+             return priority[b.criticality] - priority[a.criticality];
+        });
+
+        const items = filteredServices.map(service => {
+            const serviceDeps = serviceDependencies.filter(d => d.service_id === service.id);
+            const depDetails = serviceDeps.map(d => {
+                let name = 'Desconhecido';
+                let type = 'Outro';
+                if (d.equipment_id) {
+                    const eq = equipment.find(e => e.id === d.equipment_id);
+                    if (eq) {
+                        name = `${eq.description} (S/N: ${eq.serialNumber})`;
+                        type = 'Equipamento';
+                    }
+                } else if (d.software_license_id) {
+                    const lic = softwareLicenses.find(l => l.id === d.software_license_id);
+                    if (lic) {
+                        name = lic.productName;
+                        type = 'Software';
+                    }
+                }
+                return { name, type, notes: d.notes, depType: d.dependency_type };
+            });
+
+            return {
+                service,
+                ownerName: service.owner_id ? collaboratorMap.get(service.owner_id) : 'Não atribuído',
+                dependencies: depDetails
+            };
+        });
+
+        return {
+            type: 'bia' as const,
+            items
+        };
+    }, [type, businessServices, serviceDependencies, equipment, softwareLicenses, biaFilterCriticality, collaboratorMap]);
+
 
     const equipmentReportData = useMemo(() => {
         if (type !== 'equipment') return null;
@@ -260,7 +310,12 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
         }
     }, [type, reportLevel, selectedInstituicaoId, selectedEntidadeId, selectedCollaboratorId, assignments, collaborators, instituicoes, equipment, entidades, instituicaoMap]);
 
-    const reportData = type === 'equipment' ? equipmentReportData : (type === 'collaborator' ? collaboratorReportData : type === 'licensing' ? licenseReportData : type === 'compliance' ? complianceReportData : ticketReportData);
+    const reportData = type === 'equipment' ? equipmentReportData : 
+                       (type === 'collaborator' ? collaboratorReportData : 
+                       type === 'licensing' ? licenseReportData : 
+                       type === 'compliance' ? complianceReportData : 
+                       type === 'bia' ? biaReportData :
+                       ticketReportData);
 
     const handlePreview = () => {
         if (reportContentRef.current) {
@@ -297,6 +352,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             emailTo = instituicoes[0]?.email || '';
         } else if (reportData.type === 'compliance') {
             subject = `Relatório de Conformidade NIS2`;
+            emailTo = instituicoes[0]?.email || '';
+        } else if (reportData.type === 'bia') {
+            subject = `Relatório BIA (Business Impact Analysis)`;
             emailTo = instituicoes[0]?.email || '';
         }
         
@@ -395,6 +453,17 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 escapeCsv(item.availability),
             ].join(','));
             fileName = `relatorio_compliance_nis2_${new Date().toISOString().split('T')[0]}.csv`;
+        } else if (reportData.type === 'bia') {
+            headers = ["Serviço", "Criticidade", "RTO Alvo", "Responsável", "Status", "Dependências (Lista)"];
+            rows = reportData.items.map(item => [
+                escapeCsv(item.service.name),
+                escapeCsv(item.service.criticality),
+                escapeCsv(item.service.rto_goal),
+                escapeCsv(item.ownerName),
+                escapeCsv(item.service.status),
+                escapeCsv(item.dependencies.map(d => `${d.type}: ${d.name}`).join('; '))
+            ].join(','));
+            fileName = `relatorio_bia_servicos_${new Date().toISOString().split('T')[0]}.csv`;
         }
         
         const csvContent = [headers.join(','), ...rows].join('\n');
@@ -488,6 +557,20 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             </div>
          </div>
     );
+
+    const renderBiaFilters = () => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+            <div>
+               <label htmlFor="biaLevelSelect" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Criticidade:</label>
+               <select id="biaLevelSelect" value={biaFilterCriticality} onChange={(e) => setBiaFilterCriticality(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                   <option value="">Todas</option>
+                   {Object.values(CriticalityLevel).map(level => (
+                       <option key={level} value={level}>{level}</option>
+                   ))}
+               </select>
+           </div>
+        </div>
+   );
 
     const renderReportPreview = () => (
          <div ref={reportContentRef} className="bg-gray-800 p-6 rounded-lg text-on-surface-dark-secondary">
@@ -701,13 +784,55 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                     {reportData.items.length === 0 && <p className="text-center py-4">Nenhum equipamento encontrado com os filtros selecionados.</p>}
                 </>
             )}
+
+             {/* BIA Report */}
+             {reportData?.type === 'bia' && (
+                <>
+                    <h3 className="text-xl font-bold text-white mb-2">Análise de Impacto no Negócio (BIA)</h3>
+                    <p className="mb-4 text-sm">Inventário de Serviços Críticos e suas dependências para recuperação de desastres.</p>
+                    
+                    {reportData.items.map((item, index) => (
+                        <div key={index} className="mb-6 p-4 bg-surface-dark rounded-lg border border-gray-700 break-inside-avoid">
+                            <div className="flex justify-between items-start mb-3 border-b border-gray-600 pb-2">
+                                <div>
+                                    <h4 className="text-lg font-bold text-white">{item.service.name}</h4>
+                                    <p className="text-xs text-on-surface-dark-secondary">Responsável: {item.ownerName}</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`block text-sm font-bold ${getLevelColor(item.service.criticality)}`}>{item.service.criticality}</span>
+                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</span>
+                                </div>
+                            </div>
+                            
+                            {item.dependencies.length > 0 ? (
+                                <div className="mt-2">
+                                    <p className="text-xs font-semibold text-gray-400 mb-1">Dependências (Ativos):</p>
+                                    <ul className="list-disc list-inside text-xs space-y-1 pl-2">
+                                        {item.dependencies.map((dep, idx) => (
+                                            <li key={idx}>
+                                                <span className="font-medium text-white">{dep.name}</span> 
+                                                <span className="text-gray-500"> ({dep.type})</span>
+                                                {dep.depType && <span className="text-brand-secondary ml-1">[{dep.depType}]</span>}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : (
+                                <p className="text-xs text-gray-500 italic">Sem dependências mapeadas.</p>
+                            )}
+                        </div>
+                    ))}
+
+                    {reportData.items.length === 0 && <p className="text-center py-4">Nenhum serviço encontrado.</p>}
+                </>
+            )}
          </div>
     );
 
 
     return (
         <Modal 
-            title={type === 'equipment' ? 'Relatórios de Equipamentos' : type === 'collaborator' ? 'Relatórios de Colaboradores' : type === 'licensing' ? 'Relatório de Licenciamento' : type === 'compliance' ? 'Relatório de Conformidade NIS2' : 'Relatório de Tickets'} 
+            title={type === 'equipment' ? 'Relatórios de Equipamentos' : type === 'collaborator' ? 'Relatórios de Colaboradores' : type === 'licensing' ? 'Relatório de Licenciamento' : type === 'compliance' ? 'Relatório de Conformidade NIS2' : type === 'bia' ? 'Relatório BIA' : 'Relatório de Tickets'} 
             onClose={onClose}
         >
             {showEmailInstructions && (
@@ -732,7 +857,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             )}
              <div className="space-y-4">
                 
-                {type === 'equipment' ? renderEquipmentFilters() : type === 'collaborator' ? renderCollaboratorFilters() : type === 'ticket' ? renderTicketFilters() : type === 'compliance' ? renderComplianceFilters() : null}
+                {type === 'equipment' ? renderEquipmentFilters() : type === 'collaborator' ? renderCollaboratorFilters() : type === 'ticket' ? renderTicketFilters() : type === 'compliance' ? renderComplianceFilters() : type === 'bia' ? renderBiaFilters() : null}
 
                 <div className="border-t border-gray-700 my-4 no-print"></div>
 

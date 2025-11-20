@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -142,7 +143,7 @@ const AppContent = () => {
 
 
     // Global
-    const [reportType, setReportType] = useState<'equipment' | 'collaborator' | 'ticket' | 'licensing' | 'compliance' | null>(null);
+    const [reportType, setReportType] = useState<'equipment' | 'collaborator' | 'ticket' | 'licensing' | 'compliance' | 'bia' | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
@@ -819,6 +820,7 @@ const AppContent = () => {
                         expiringWarranties={expiringWarranties}
                         expiringLicenses={expiringLicenses}
                         softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments}
+                        businessServices={businessServices}
                         onViewItem={handleViewItem} 
                         onGenerateComplianceReport={() => setReportType('compliance')}
                     />
@@ -833,6 +835,7 @@ const AppContent = () => {
                             onDelete={handleDeleteService}
                             onManageDependencies={(s) => setManageDependenciesService(s)}
                             onCreate={() => { setEditingService(null); setIsAddServiceModalOpen(true); }}
+                            onGenerateReport={() => setReportType('bia')}
                         />
                      </div>
                 )}
@@ -1021,7 +1024,7 @@ const AppContent = () => {
             {showDetailCollaborator && <CollaboratorDetailModal collaborator={showDetailCollaborator} assignments={assignments} equipment={equipment} tickets={tickets} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} onClose={() => setShowDetailCollaborator(null)} onShowHistory={(col) => { setShowDetailCollaborator(null); setShowHistoryCollaborator(col); }} onStartChat={(col) => { setActiveChatCollaboratorId(col.id); setIsChatOpen(true); setShowDetailCollaborator(null); }} />}
             {showHistoryCollaborator && <CollaboratorHistoryModal collaborator={showHistoryCollaborator} history={collaboratorHistory} escolasDepartamentos={entidades} onClose={() => setShowHistoryCollaborator(null)} />}
             
-            {reportType && <ReportModal type={reportType} onClose={() => setReportType(null)} equipment={equipment} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} instituicoes={instituicoes} escolasDepartamentos={entidades} collaborators={collaborators} assignments={assignments} tickets={tickets} softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments} />}
+            {reportType && <ReportModal type={reportType} onClose={() => setReportType(null)} equipment={equipment} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} instituicoes={instituicoes} escolasDepartamentos={entidades} collaborators={collaborators} assignments={assignments} tickets={tickets} softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments} businessServices={businessServices} serviceDependencies={serviceDependencies} />}
 
             {currentUser && <ChatWidget currentUser={currentUser} collaborators={collaborators} messages={messages} onSendMessage={handleSendMessage} onMarkMessagesAsRead={handleMarkMessagesRead} isOpen={isChatOpen} onToggle={() => setIsChatOpen(!isChatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} onSelectConversation={setActiveChatCollaboratorId} unreadMessagesCount={messages.filter(m => m.receiverId === currentUser.id && !m.read).length} />}
         </div>

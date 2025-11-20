@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus, ServiceDependency } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaSitemap } from './common/Icons';
+import { EditIcon, DeleteIcon, PlusIcon, FaSitemap, ReportIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import { FaShieldAlt, FaNetworkWired } from 'react-icons/fa';
 
@@ -12,6 +13,7 @@ interface ServiceDashboardProps {
   onDelete: (id: string) => void;
   onManageDependencies: (service: BusinessService) => void;
   onCreate: () => void;
+  onGenerateReport: () => void;
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -23,7 +25,7 @@ const getCriticalityClass = (level: CriticalityLevel) => {
     }
 };
 
-const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependencies, collaborators, onEdit, onDelete, onManageDependencies, onCreate }) => {
+const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependencies, collaborators, onEdit, onDelete, onManageDependencies, onCreate, onGenerateReport }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -74,6 +76,13 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
                         <option value="">Todas as Criticidades</option>
                         {Object.values(CriticalityLevel).map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
+                     <button
+                        onClick={onGenerateReport}
+                        className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors border border-gray-600"
+                    >
+                        <ReportIcon />
+                        Relatório BIA
+                    </button>
                     <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
                         <PlusIcon /> Novo Serviço
                     </button>

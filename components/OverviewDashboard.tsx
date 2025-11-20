@@ -1,8 +1,7 @@
 
-
 import React, { useMemo, useState, useEffect } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction } from '../types';
-import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield } from './common/Icons';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService } from '../types';
+import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
 
@@ -19,6 +18,7 @@ interface OverviewDashboardProps {
     expiringLicenses: SoftwareLicense[];
     softwareLicenses: SoftwareLicense[];
     licenseAssignments: LicenseAssignment[];
+    businessServices?: BusinessService[];
     onViewItem: (tab: string, filter: any) => void;
     onGenerateComplianceReport: () => void;
 }
@@ -140,7 +140,7 @@ const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availab
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
-    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, onViewItem, onGenerateComplianceReport 
+    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], onViewItem, onGenerateComplianceReport 
 }) => {
     const { t } = useLanguage();
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
@@ -355,7 +355,11 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <StatCard title={t('overview.open_tickets')} value={ticketStats.open} icon={<FaTicketAlt className="h-6 w-6 text-white" />} color={ticketStats.open > 0 ? "bg-red-600" : "bg-green-600"} onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} />
                     <StatCard title={t('overview.expiring_warranties')} value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-6 w-6 text-white" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext={t('overview.next_30_days')}/>
-                    <StatCard title={t('overview.expiring_licenses')} value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-6 w-6 text-white" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext={t('overview.next_30_days')}/>
+                    {businessServices.length > 0 ? (
+                         <StatCard title="Serviços Mapeados" value={businessServices.length} icon={<FaNetworkWired className="h-6 w-6 text-white" />} color="bg-purple-600" onClick={() => onViewItem('bia', {})} subtext="BIA / NIS2"/>
+                    ) : (
+                        <StatCard title={t('overview.expiring_licenses')} value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-6 w-6 text-white" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext={t('overview.next_30_days')}/>
+                    )}
                     <AvailableLicensesCard licenses={availableLicensesData} onViewAll={() => onViewItem('licensing', { status: 'available' })} />
                 </div>
             </div>
