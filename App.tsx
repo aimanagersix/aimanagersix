@@ -1153,6 +1153,7 @@ const AppContent: React.FC = () => {
                 )}
 
             </div>
+            
         </LanguageProvider>
     );
 };
