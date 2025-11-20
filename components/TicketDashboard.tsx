@@ -9,6 +9,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock } from './common/Icons';
@@ -80,16 +82,19 @@ const getSLATimer = (ticket: Ticket) => {
     };
 };
 
-// Helper to get icon for security incident type
+// Helper to get icon for security incident type (Flexible matching for dynamic DB strings)
 const getSecurityIcon = (type?: string) => {
-    switch (type) {
-        case SecurityIncidentType.Ransomware: return <FaSkull className="text-red-500" title="Ransomware" />;
-        case SecurityIncidentType.Phishing: return <FaUserSecret className="text-orange-500" title="Phishing" />;
-        case SecurityIncidentType.Malware: return <FaBug className="text-yellow-500" title="Malware" />;
-        case SecurityIncidentType.DDoS: return <FaNetworkWired className="text-purple-500" title="DDoS" />;
-        case SecurityIncidentType.DataLeak: return <FaLock className="text-red-400" title="Fuga de Dados" />;
-        default: return <FaShieldAlt className="text-red-500" />;
-    }
+    if (!type) return <FaShieldAlt className="text-red-500" />;
+    
+    const lowerType = type.toLowerCase();
+    
+    if (lowerType.includes('ransomware')) return <FaSkull className="text-red-500" title="Ransomware" />;
+    if (lowerType.includes('phishing') || lowerType.includes('engenharia')) return <FaUserSecret className="text-orange-500" title="Phishing" />;
+    if (lowerType.includes('malware') || lowerType.includes('vírus') || lowerType.includes('virus')) return <FaBug className="text-yellow-500" title="Malware" />;
+    if (lowerType.includes('ddos') || lowerType.includes('negação')) return <FaNetworkWired className="text-purple-500" title="DDoS" />;
+    if (lowerType.includes('fuga') || lowerType.includes('leak')) return <FaLock className="text-red-400" title="Fuga de Dados" />;
+    
+    return <FaShieldAlt className="text-red-500" />;
 };
 
 

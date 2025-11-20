@@ -179,6 +179,19 @@ CREATE TABLE IF NOT EXISTS security_incident_types (
     created_at timestamptz DEFAULT now()
 );
 
+-- PREENCHER DADOS INICIAIS DE SEGURANÇA (SEED DATA)
+INSERT INTO security_incident_types (name, description, is_active) VALUES
+('Ransomware', 'Ataque que cifra dados e exige resgate.', true),
+('Phishing / Engenharia Social', 'Tentativa de obter dados sensíveis via engano.', true),
+('Fuga de Dados (Data Leak)', 'Exposição não autorizada de dados confidenciais.', true),
+('Malware / Vírus', 'Software malicioso genérico.', true),
+('Negação de Serviço (DDoS)', 'Interrupção de serviço por sobrecarga.', true),
+('Acesso Não Autorizado / Compromisso de Conta', 'Acesso ilegítimo a contas ou sistemas.', true),
+('Ameaça Interna', 'Ação maliciosa de colaborador ou parceiro.', true),
+('Exploração de Vulnerabilidade', 'Uso de falha de software para ataque.', true),
+('Outro', 'Outros tipos de incidente.', true)
+ON CONFLICT (name) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS tickets (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     title text,
@@ -379,7 +392,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo foi atualizado para incluir a tabela de **Tipos de Incidente de Segurança** e outras colunas essenciais.
+                        O script abaixo foi atualizado para incluir os **Tipos de Ataque Padrão** (Ransomware, Phishing, etc.) automaticamente.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>
