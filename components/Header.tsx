@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield } from './common/Icons';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
 import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
+import DatabaseSchemaModal from './DatabaseSchemaModal';
 
 interface HeaderProps {
   currentUser: Collaborator | null;
@@ -48,6 +49,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     // Security Modals
     const [showMFA, setShowMFA] = useState(false);
     const [showAudit, setShowAudit] = useState(false);
+    const [showDbSchema, setShowDbSchema] = useState(false);
 
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -257,10 +259,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     Configurar 2FA
                                 </button>
                                 {isAdmin && (
-                                     <button onClick={() => setShowAudit(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                        <FaClipboardList className="text-yellow-400" />
-                                        Logs de Auditoria
-                                    </button>
+                                    <>
+                                        <button onClick={() => setShowAudit(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
+                                            <FaClipboardList className="text-yellow-400" />
+                                            Logs de Auditoria
+                                        </button>
+                                        <button onClick={() => setShowDbSchema(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
+                                            <FaDatabase className="text-blue-400" />
+                                            Configuração BD
+                                        </button>
+                                    </>
                                 )}
                              </div>
                              <div className="py-1">
@@ -386,6 +394,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     
     {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
     {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
+    {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}
     </>
   );
 };

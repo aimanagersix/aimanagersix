@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Team, Collaborator, TeamMember } from '../types';
@@ -18,9 +17,10 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
     const [searchQuery, setSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showSqlHelp, setShowSqlHelp] = useState(false);
     const [initialized, setInitialized] = useState(false);
 
-    // Initialize state only once to prevent overwrites during updates
+    // Initialize state only once to prevent overwrites during background updates
     useEffect(() => {
         if (!initialized && team && teamMembers) {
             const initialMemberIds = teamMembers
@@ -70,15 +70,58 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
     const handleSubmit = async () => {
         setIsSaving(true);
         setError(null);
+        setShowSqlHelp(false);
         try {
             await onSave(team.id, Array.from(currentMemberIds));
-            // Parent component handles closing on success
-        } catch (error: any) {
-            console.error("Failed to save team members:", error);
-            setError(`Erro ao gravar: ${error.message || 'Erro desconhecido'}. Verifique se a tabela 'team_members' foi criada na base de dados.`);
+            // If successful, the parent usually refreshes data or closes modal.
+            // We wait for parent to unmount or we can manually close if onSave returns void
+        } catch (err: any) {
+            console.error("Failed to save team members:", err);
+            
+            let friendlyMsg = err.message || "Erro desconhecido ao gravar.";
+            let isDbIssue = false;
+
+            // Check for Supabase/Postgres specific error codes
+            // 42P01: relation does not exist (missing table)
+            // 42501: insufficient privilege (RLS policy missing)
+            // 23503: foreign key violation
+            if (
+                err.code === '42P01' || 
+                err.code === '42501' || 
+                (err.message && (err.message.includes('does not exist') || err.message.includes('policy') || err.message.includes('permission')))
+            ) {
+                isDbIssue = true;
+                if (err.code === '42P01' || err.message.includes('does not exist')) {
+                     friendlyMsg = "A tabela 'team_members' não existe na base de dados.";
+                } else {
+                     friendlyMsg = "Erro de permissões (RLS). O sistema não tem autorização para gravar nesta tabela.";
+                }
+            }
+
+            setError(friendlyMsg);
+            if (isDbIssue) setShowSqlHelp(true);
+        } finally {
             setIsSaving(false);
         }
     };
+
+    // Instructions to fix DB issues
+    const sqlFix = `
+-- 1. Criar tabela se não existir
+CREATE TABLE IF NOT EXISTS team_members (
+  team_id uuid REFERENCES teams(id) ON DELETE CASCADE,
+  collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
+  PRIMARY KEY (team_id, collaborator_id)
+);
+
+-- 2. Desativar RLS temporariamente para garantir acesso total (solução rápida)
+ALTER TABLE team_members DISABLE ROW LEVEL SECURITY;
+
+-- OU, se preferir manter RLS ativo (recomendado), crie uma política permissiva:
+-- ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "Allow all" ON team_members;
+-- CREATE POLICY "Allow all" ON team_members FOR ALL USING (true) WITH CHECK (true);
+`;
 
     return (
         <Modal title={`Gerir Membros da Equipa: ${team.name}`} onClose={onClose} maxWidth="max-w-5xl">
@@ -154,9 +197,21 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
                 </div>
 
                 {error && (
-                    <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-md text-red-200 text-sm flex items-start gap-2">
-                        <FaExclamationTriangle className="mt-0.5 flex-shrink-0" />
-                        <span>{error}</span>
+                    <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-md text-red-200 text-sm animate-pulse">
+                        <div className="flex items-center gap-2 font-bold mb-1">
+                             <FaExclamationTriangle className="flex-shrink-0" />
+                             <span>{error}</span>
+                        </div>
+                        {showSqlHelp && (
+                            <div className="mt-2 bg-black/50 p-3 rounded border border-red-500/30">
+                                <p className="text-xs text-gray-300 mb-2">
+                                    <strong>Solução:</strong> Copie e execute o seguinte comando no Editor SQL do Supabase para corrigir a tabela e permissões:
+                                </p>
+                                <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap overflow-x-auto select-all p-2 bg-gray-900 rounded border border-gray-700">
+                                    {sqlFix}
+                                </pre>
+                            </div>
+                        )}
                     </div>
                 )}
 

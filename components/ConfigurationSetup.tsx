@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
-import { FaKey, FaLink, FaSave } from './common/Icons';
+import { FaKey, FaLink, FaSave, FaDatabase } from './common/Icons';
+import DatabaseSchemaModal from './DatabaseSchemaModal';
 
 // FIX: Define props interface to accept the onConfigured callback.
 interface ConfigurationSetupProps {
@@ -18,6 +18,7 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
         supabaseAnonKey: '',
         apiKey: '',
     });
+    const [showSqlModal, setShowSqlModal] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -125,19 +126,31 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
                             </div>
                             {errors.apiKey && <p className="text-red-400 text-xs italic mt-2">{errors.apiKey}</p>}
                         </div>
-                        <button
-                            onClick={handleSave}
-                            className="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 mt-6"
-                        >
-                            <FaSave />
-                            Guardar e Iniciar
-                        </button>
+                        
+                        <div className="flex flex-col gap-3 mt-6">
+                             <button
+                                onClick={handleSave}
+                                className="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300"
+                            >
+                                <FaSave />
+                                Guardar e Iniciar
+                            </button>
+                            <button
+                                onClick={() => setShowSqlModal(true)}
+                                className="w-full flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-on-surface-dark text-sm font-medium py-2 px-4 rounded-lg focus:outline-none transition-colors duration-300"
+                            >
+                                <FaDatabase className="text-brand-secondary" />
+                                Ver SQL de Configuração
+                            </button>
+                        </div>
+
                     </div>
                 </div>
                 <p className="text-center text-gray-500 text-xs">
                     &copy;{new Date().getFullYear()} AIManager. Todos os direitos reservados.
                 </p>
             </div>
+            {showSqlModal && <DatabaseSchemaModal onClose={() => setShowSqlModal(false)} />}
         </div>
     );
 };
