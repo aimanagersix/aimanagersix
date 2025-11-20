@@ -133,6 +133,14 @@ export enum TicketStatus {
   Finished = 'Finalizado',
 }
 
+export enum TicketCategory {
+    TechnicalFault = 'Falha Técnica',
+    AccessRequest = 'Pedido de Acesso',
+    SecurityIncident = 'Incidente de Segurança',
+    GeneralSupport = 'Suporte Geral',
+    Maintenance = 'Manutenção'
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -146,6 +154,13 @@ export interface Ticket {
   attachments?: { name: string; dataUrl: string }[];
   team_id?: string;
   equipmentId?: string;
+  
+  // NIS2 Incident Response Fields
+  category?: TicketCategory; 
+  impactCriticality?: CriticalityLevel; // Specific to this incident
+  impactConfidentiality?: CIARating; // Was confidentiality compromised?
+  impactIntegrity?: CIARating;      // Was integrity compromised?
+  impactAvailability?: CIARating;   // Was availability compromised?
 }
 
 export interface TicketActivity {
@@ -201,6 +216,7 @@ export interface LicenseAssignment {
   softwareLicenseId: string;
   equipmentId: string;
   assignedDate: string;
+  returnDate?: string;
 }
 
 export interface Team {

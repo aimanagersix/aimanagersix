@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType } from '../types';
-import { EditIcon, FaTasks } from './common/Icons';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory } from '../types';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -29,9 +30,49 @@ const getStatusClass = (status: TicketStatus) => {
     }
 };
 
+// Helper to calculate deadlines for Security Incidents (NIS2)
+const getSLATimer = (ticket: Ticket) => {
+    if (ticket.category !== TicketCategory.SecurityIncident || ticket.status === TicketStatus.Finished) {
+        return null;
+    }
+
+    const requestDate = new Date(ticket.requestDate);
+    const now = new Date();
+    const elapsedHours = (now.getTime() - requestDate.getTime()) / (1000 * 60 * 60);
+
+    // 24h Deadline (Early Warning)
+    if (elapsedHours < 24) {
+        const hoursLeft = Math.ceil(24 - elapsedHours);
+        return {
+            label: 'Alerta Precoce',
+            text: `${hoursLeft}h restantes`,
+            className: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
+            icon: <FaClock className="animate-pulse" />
+        };
+    }
+    // 72h Deadline (Incident Notification)
+    if (elapsedHours < 72) {
+        const hoursLeft = Math.ceil(72 - elapsedHours);
+        return {
+            label: 'Notificação 72h',
+            text: `${hoursLeft}h restantes`,
+            className: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
+            icon: <FaExclamationTriangle />
+        };
+    }
+    // Overdue
+    return {
+        label: 'Prazo Legal Excedido',
+        text: `+${Math.floor(elapsedHours - 72)}h atraso`,
+        className: 'text-red-500 border-red-500/50 bg-red-500/20 font-bold',
+        icon: <FaShieldAlt />
+    };
+};
+
+
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities }) => {
     
-    const [filters, setFilters] = useState<{ status: string | string[], team_id: string }>({ status: '', team_id: '' });
+    const [filters, setFilters] = useState<{ status: string | string[], team_id: string, category: string }>({ status: '', team_id: '', category: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
@@ -66,6 +107,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
         return [...tickets].sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
         .filter(ticket => {
             const teamMatch = !filters.team_id || ticket.team_id === filters.team_id;
+            const categoryMatch = !filters.category || ticket.category === filters.category;
             const statusMatch = (() => {
                 if (!filters.status || (Array.isArray(filters.status) && filters.status.length === 0)) return true;
                 if (Array.isArray(filters.status)) {
@@ -74,7 +116,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                 return ticket.status === filters.status;
             })();
 
-            return teamMatch && statusMatch;
+            return teamMatch && statusMatch && categoryMatch;
         });
     }, [tickets, filters]);
 
@@ -107,7 +149,17 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <h2 className="text-xl font-semibold text-white">Gerenciar Tickets de Suporte</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                        id="categoryFilter"
+                        name="category"
+                        value={filters.category}
+                        onChange={handleFilterChange}
+                        className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                     >
+                        <option value="">Todas as Categorias</option>
+                        {Object.values(TicketCategory).map(c => <option key={c} value={c}>{c}</option>)}
+                     </select>
                      <select
                         id="team_idFilter"
                         name="team_id"
@@ -136,9 +188,9 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
                             <th scope="col" className="px-6 py-3">Entidade / Equipa</th>
-                            <th scope="col" className="px-6 py-3">Colaborador</th>
+                            <th scope="col" className="px-6 py-3">Categoria</th>
                             <th scope="col" className="px-6 py-3">Assunto / Descrição</th>
-                            <th scope="col" className="px-6 py-3">Datas</th>
+                            <th scope="col" className="px-6 py-3">SLA / Prazos</th>
                             <th scope="col" className="px-6 py-3">Técnico</th>
                             <th scope="col" className="px-6 py-3">Estado</th>
                             <th scope="col" className="px-6 py-3 text-center">Ações</th>
@@ -147,13 +199,26 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                     <tbody>
                         {paginatedTickets.length > 0 ? paginatedTickets.map((ticket) => {
                             const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
+                            const sla = getSLATimer(ticket);
+                            const isSecurity = ticket.category === TicketCategory.SecurityIncident;
+
                             return(
-                            <tr key={ticket.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+                            <tr key={ticket.id} className={`border-b border-gray-700 hover:bg-gray-800/50 ${isSecurity ? 'bg-red-900/10' : 'bg-surface-dark'}`}>
                                 <td className="px-6 py-4">
                                     <div>{entidadeMap.get(ticket.entidadeId) || 'N/A'}</div>
                                     {ticket.team_id && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.team_id)}</div>}
                                 </td>
-                                <td className="px-6 py-4">{collaboratorMap.get(ticket.collaboratorId) || 'N/A'}</td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                        {isSecurity && <FaShieldAlt className="text-red-500" title="Incidente de Segurança"/>}
+                                        <span className={isSecurity ? 'text-red-300 font-medium' : ''}>
+                                            {ticket.category || TicketCategory.TechnicalFault}
+                                        </span>
+                                    </div>
+                                    {isSecurity && ticket.impactCriticality && (
+                                        <div className="text-xs mt-1">Impacto: <span className="text-white">{ticket.impactCriticality}</span></div>
+                                    )}
+                                </td>
                                 <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs" title={ticket.description}>
                                     <div className="font-bold mb-1 text-white">
                                         {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-2 text-on-surface-dark-secondary" title={`${ticket.attachments.length} anexo(s)`} />}
@@ -167,10 +232,20 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                             Equip: {associatedEquipment.description} (S/N: {associatedEquipment.serialNumber})
                                         </div>
                                     )}
+                                    <div className="text-xs text-gray-500 mt-1">{new Date(ticket.requestDate).toLocaleString()}</div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div>Pedido: {ticket.requestDate}</div>
-                                    {ticket.finishDate && <div className="text-xs">Fim: {ticket.finishDate}</div>}
+                                    {sla ? (
+                                        <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border ${sla.className}`}>
+                                            {sla.icon}
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">{sla.label}</span>
+                                                <span>{sla.text}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-500 text-xs">Sem SLA definido</span>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : '—'}</td>
                                 <td className="px-6 py-4">

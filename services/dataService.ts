@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
@@ -242,13 +243,10 @@ export const uploadCollaboratorPhoto = async (userId: string, file: File) => {
     const supabase = getSupabase();
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}.${fileExt}`;
-    // Changed to use the existing 'collaborator-photos' bucket directly
-    // We remove the folder prefix since the bucket name itself is descriptive enough,
-    // or you can keep it if you prefer a subfolder structure. Here we put it at root of the bucket.
     const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-        .from('collaborator-photos') // UPDATED: Using your existing bucket
+        .from('collaborator-photos') 
         .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
@@ -399,7 +397,7 @@ export const addMultipleAssignments = async (assignments: any[]) => {
 export const addTicket = async (ticket: Omit<Ticket, 'id'>) => {
     const { data, error } = await getSupabase().from('tickets').insert(ticket).select().single();
     handleSupabaseError(error, 'adding ticket');
-    await logAction('CREATE', 'Ticket', `Created ticket ${ticket.title}`, data.id);
+    await logAction('CREATE', 'Ticket', `Created ticket ${ticket.title} (Category: ${ticket.category})`, data.id);
     return data as Ticket;
 };
 export const updateTicket = async (id: string, updates: Partial<Ticket>) => {

@@ -2,10 +2,10 @@
 
 import React from 'react';
 // FIX: Add FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock to the import from react-icons/fa.
-import { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, FaFingerprint, FaClipboardList, FaUserShield, FaQrcode } from 'react-icons/fa';
+import { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, FaFingerprint, FaClipboardList, FaUserShield, FaQrcode, FaClock } from 'react-icons/fa';
 
 // FIX: Export the newly imported icons.
-export { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, FaFingerprint, FaClipboardList, FaUserShield, FaQrcode };
+export { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, FaFingerprint, FaClipboardList, FaUserShield, FaQrcode, FaClock };
 
 export const PlusIcon: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment } from '../types';
-import { DeleteIcon } from './common/Icons';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating } from '../types';
+import { DeleteIcon, FaShieldAlt, FaExclamationTriangle } from './common/Icons';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -30,7 +31,7 @@ const formatFileSize = (bytes: number): string => {
 
 const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments }) => {
     // Initial State Logic
-    const [formData, setFormData] = useState(() => {
+    const [formData, setFormData] = useState<Partial<Ticket>>(() => {
         if (ticketToEdit) {
             return {
                 title: ticketToEdit.title || '',
@@ -39,29 +40,40 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 description: ticketToEdit.description,
                 team_id: ticketToEdit.team_id || '',
                 equipmentId: ticketToEdit.equipmentId || '',
+                category: ticketToEdit.category || TicketCategory.TechnicalFault,
+                impactCriticality: ticketToEdit.impactCriticality,
+                impactConfidentiality: ticketToEdit.impactConfidentiality,
+                impactIntegrity: ticketToEdit.impactIntegrity,
+                impactAvailability: ticketToEdit.impactAvailability,
             };
         }
         
         // Default values for new ticket
+        const baseData = {
+            title: '',
+            description: '',
+            team_id: '',
+            equipmentId: '',
+            category: TicketCategory.TechnicalFault,
+            impactCriticality: CriticalityLevel.Low,
+            impactConfidentiality: CIARating.Low,
+            impactIntegrity: CIARating.Low,
+            impactAvailability: CIARating.Low,
+        };
+
         const isUtilizador = userPermissions.viewScope === 'own';
         if (isUtilizador && currentUser) {
             return {
-                title: '',
+                ...baseData,
                 entidadeId: currentUser.entidadeId,
                 collaboratorId: currentUser.id,
-                description: '',
-                team_id: '',
-                equipmentId: '',
             };
         }
         
         return {
-            title: '',
+            ...baseData,
             entidadeId: entidades[0]?.id || '',
             collaboratorId: collaborators.find(c => c.entidadeId === entidades[0]?.id)?.id || '',
-            description: '',
-            team_id: '',
-            equipmentId: '',
         };
     });
 
@@ -70,6 +82,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const fileInputRef = useRef<HTMLInputElement>(null);
      
     const isUtilizador = userPermissions.viewScope === 'own';
+    const isSecurityIncident = formData.category === TicketCategory.SecurityIncident;
 
     // Load attachments only once when editing
     useEffect(() => {
@@ -134,10 +147,10 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.title.trim()) newErrors.title = "O assunto é obrigatório.";
+        if (!formData.title?.trim()) newErrors.title = "O assunto é obrigatório.";
         if (!formData.entidadeId) newErrors.entidadeId = "A entidade é obrigatória.";
         if (!formData.collaboratorId) newErrors.collaboratorId = "O colaborador é obrigatório.";
-        if (!formData.description.trim()) newErrors.description = "A descrição do problema é obrigatória.";
+        if (!formData.description?.trim()) newErrors.description = "A descrição do problema é obrigatória.";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -176,12 +189,20 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         e.preventDefault();
         if (!validate()) return;
         
-        const dataToSubmit = {
+        const dataToSubmit: any = {
             ...formData,
             team_id: formData.team_id || undefined,
             equipmentId: formData.equipmentId || undefined,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })),
         };
+        
+        // Clean up Security fields if not security incident
+        if (formData.category !== TicketCategory.SecurityIncident) {
+            delete dataToSubmit.impactCriticality;
+            delete dataToSubmit.impactConfidentiality;
+            delete dataToSubmit.impactIntegrity;
+            delete dataToSubmit.impactAvailability;
+        }
 
         if (ticketToEdit) {
             onSave({ ...ticketToEdit, ...dataToSubmit });
@@ -194,7 +215,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const modalTitle = ticketToEdit ? "Editar Ticket" : "Adicionar Novo Ticket";
 
     return (
-        <Modal title={modalTitle} onClose={onClose}>
+        <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
             <form onSubmit={handleSubmit} className="space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -232,6 +253,61 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                          {errors.collaboratorId && <p className="text-red-400 text-xs italic mt-1">{errors.collaboratorId}</p>}
                     </div>
                 </div>
+                
+                <div>
+                    <label htmlFor="category" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Categoria do Incidente / Pedido</label>
+                    <select
+                        name="category"
+                        id="category"
+                        value={formData.category}
+                        onChange={handleChange}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                    >
+                        {Object.values(TicketCategory).map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {isSecurityIncident && (
+                    <div className="border border-red-500/50 bg-red-900/20 rounded-lg p-4 space-y-3">
+                         <div className="flex items-center gap-2 text-red-400 font-bold border-b border-red-500/30 pb-2 mb-2">
+                            <FaShieldAlt />
+                            <h3>Avaliação de Impacto de Segurança (NIS2)</h3>
+                        </div>
+                        <p className="text-xs text-red-200 mb-2">
+                            <FaExclamationTriangle className="inline mr-1"/>
+                            Incidente de Segurança detetado. Classifique o impacto para definir os prazos legais de notificação (24h/72h).
+                        </p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                             <div>
+                                <label className="block text-xs font-bold text-red-300 mb-1">Criticidade do Incidente</label>
+                                <select name="impactCriticality" value={formData.impactCriticality} onChange={handleChange} className="w-full bg-gray-800 border border-red-700 text-white rounded p-1.5 text-sm">
+                                    {Object.values(CriticalityLevel).map(val => <option key={val} value={val}>{val}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-300 mb-1">Confidencialidade Afetada?</label>
+                                <select name="impactConfidentiality" value={formData.impactConfidentiality} onChange={handleChange} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1.5 text-sm">
+                                    {Object.values(CIARating).map(val => <option key={val} value={val}>{val}</option>)}
+                                </select>
+                            </div>
+                             <div>
+                                <label className="block text-xs font-medium text-gray-300 mb-1">Integridade Afetada?</label>
+                                <select name="impactIntegrity" value={formData.impactIntegrity} onChange={handleChange} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1.5 text-sm">
+                                    {Object.values(CIARating).map(val => <option key={val} value={val}>{val}</option>)}
+                                </select>
+                            </div>
+                             <div>
+                                <label className="block text-xs font-medium text-gray-300 mb-1">Disponibilidade Afetada?</label>
+                                <select name="impactAvailability" value={formData.impactAvailability} onChange={handleChange} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1.5 text-sm">
+                                    {Object.values(CIARating).map(val => <option key={val} value={val}>{val}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div>
                     <label htmlFor="title" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Assunto</label>
