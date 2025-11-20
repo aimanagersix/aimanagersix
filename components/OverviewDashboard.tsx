@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus } from '../types';
-import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie } from './common/Icons';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory } from '../types';
+import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
 
@@ -198,6 +198,10 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
     const ticketStats = useMemo(() => ({
         open: tickets.filter(t => t.status === TicketStatus.Requested || t.status === TicketStatus.InProgress).length,
+        securityIncidents: tickets.filter(t => 
+            (t.category === TicketCategory.SecurityIncident || t.category === 'Incidente de Segurança') && 
+            (t.status === TicketStatus.Requested || t.status === TicketStatus.InProgress)
+        ).length
     }), [tickets]);
     
     const healthStats = useMemo(() => {
@@ -370,6 +374,15 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                     <div className="md:col-span-4 flex flex-col gap-4">
                         <StatCard 
+                            title="Incidentes de Segurança" 
+                            value={ticketStats.securityIncidents} 
+                            icon={ticketStats.securityIncidents > 0 ? <FaExclamationTriangle className="h-6 w-6 animate-bounce" /> : <FaShieldAlt className="h-6 w-6" />} 
+                            color={ticketStats.securityIncidents > 0 ? "bg-red-600 animate-pulse shadow-red-500/50" : "bg-green-600"} 
+                            onClick={() => onViewItem('tickets', { category: 'Incidente de Segurança', status: [TicketStatus.Requested, TicketStatus.InProgress] })} 
+                            subtext={ticketStats.securityIncidents > 0 ? "Atenção: Incidentes Ativos!" : "Sem incidentes ativos"}
+                            className={ticketStats.securityIncidents > 0 ? "border-red-500 border-2" : ""}
+                        />
+                        <StatCard 
                             title="Serviços Críticos (BIA)" 
                             value={businessServices?.length || 0} 
                             icon={<FaNetworkWired className="h-6 w-6" />} 
@@ -380,7 +393,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                         <StatCard 
                             title="Vulnerabilidades (CVEs)" 
                             value={securityStats.total} 
-                            icon={<FaShieldAlt className="h-6 w-6" />} 
+                            icon={<FaSkull className="h-6 w-6" />} 
                             color={securityStats.openCritical > 0 ? "bg-red-600" : "bg-green-600"} 
                             onClick={() => onViewItem('security', {})} 
                             subtext={securityStats.openCritical > 0 ? `${securityStats.openCritical} Críticas em aberto` : "Sistema Seguro"}

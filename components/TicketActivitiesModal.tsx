@@ -1,9 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-// FIX: Import Assignment type.
 import { Ticket, TicketActivity, Collaborator, TicketStatus, Equipment, EquipmentType, Entidade, Assignment } from '../types';
-import { PlusIcon } from './common/Icons';
+import { PlusIcon, FaPrint } from './common/Icons';
 import { FaDownload } from 'react-icons/fa';
 
 interface TicketActivitiesModalProps {
@@ -16,7 +15,6 @@ interface TicketActivitiesModalProps {
     entidades: Entidade[];
     onClose: () => void;
     onAddActivity: (activity: { description: string, equipmentId?: string }) => void;
-    // FIX: Add assignments prop to determine available equipment.
     assignments: Assignment[];
 }
 
@@ -32,7 +30,6 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         const entity = entidades.find(e => e.id === ticket.entidadeId);
         if (!entity) return [];
         return equipment.filter(e => {
-            // FIX: Use the 'assignments' prop to find the current assignment for the equipment.
             const currentAssignment = assignments.find(a => a.equipmentId === e.id && !a.returnDate);
             return currentAssignment && (
                 currentAssignment.collaboratorId === ticket.collaboratorId ||
@@ -56,14 +53,141 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
 
     const requesterName = collaboratorMap.get(ticket.collaboratorId) || 'Desconhecido';
     const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
+    const entidadeName = entidades.find(e => e.id === ticket.entidadeId)?.name || 'Entidade Desconhecida';
     
     const sortedActivities = useMemo(() => {
         return [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [activities]);
 
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert("Por favor, permita pop-ups para imprimir.");
+            return;
+        }
+
+        const activitiesHtml = sortedActivities.map(act => `
+            <div class="activity-item">
+                <div class="activity-header">
+                    <span class="technician">${collaboratorMap.get(act.technicianId) || 'Técnico'}</span>
+                    <span class="date">${new Date(act.date).toLocaleString()}</span>
+                </div>
+                <div class="description">${act.description}</div>
+                ${act.equipmentId ? `<div class="equipment-ref">Equipamento: ${equipmentMap.get(act.equipmentId)?.description} (${equipmentMap.get(act.equipmentId)?.serialNumber})</div>` : ''}
+            </div>
+        `).join('');
+
+        const content = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Ficha de Ticket #${ticket.id.substring(0, 8)}</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #333; }
+                    h1 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px; }
+                    .header-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; background-color: #f9f9f9; pading: 20px; border-radius: 8px; border: 1px solid #ddd; padding: 15px;}
+                    .info-group { margin-bottom: 10px; }
+                    .label { font-weight: bold; color: #555; display: block; font-size: 12px; text-transform: uppercase; }
+                    .value { font-size: 16px; }
+                    .section-title { font-size: 18px; font-weight: bold; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                    .description-box { padding: 15px; background-color: #fff; border: 1px solid #ccc; border-radius: 4px; min-height: 80px; white-space: pre-wrap; }
+                    .activity-item { border-left: 3px solid #0D47A1; padding-left: 15px; margin-bottom: 20px; }
+                    .activity-header { font-size: 12px; color: #777; margin-bottom: 5px; }
+                    .technician { font-weight: bold; color: #0D47A1; margin-right: 10px; }
+                    .equipment-ref { font-size: 12px; color: #666; font-style: italic; margin-top: 5px; }
+                    .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 20px; font-size: 12px; text-align: center; color: #777; }
+                    .signature-box { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+                    .signature-line { border-top: 1px solid #333; padding-top: 5px; text-align: center; font-size: 14px; }
+                    
+                    @media print {
+                        body { padding: 0; }
+                        .no-print { display: none; }
+                        button { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Ficha de Intervenção Técnica</h1>
+                
+                <div class="header-info">
+                    <div>
+                        <div class="info-group">
+                            <span class="label">Ticket ID</span>
+                            <span class="value">#${ticket.id.substring(0, 8)}</span>
+                        </div>
+                        <div class="info-group">
+                            <span class="label">Data do Pedido</span>
+                            <span class="value">${new Date(ticket.requestDate).toLocaleString()}</span>
+                        </div>
+                        <div class="info-group">
+                            <span class="label">Estado Atual</span>
+                            <span class="value">${ticket.status}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="info-group">
+                            <span class="label">Requerente</span>
+                            <span class="value">${requesterName}</span>
+                        </div>
+                        <div class="info-group">
+                            <span class="label">Entidade</span>
+                            <span class="value">${entidadeName}</span>
+                        </div>
+                        ${associatedEquipment ? `
+                        <div class="info-group">
+                            <span class="label">Equipamento</span>
+                            <span class="value">${associatedEquipment.description} (${associatedEquipment.serialNumber})</span>
+                        </div>` : ''}
+                    </div>
+                </div>
+
+                <div class="section-title">Descrição do Problema</div>
+                <div class="description-box">${ticket.description}</div>
+
+                ${sortedActivities.length > 0 ? `
+                    <div class="section-title">Registo de Intervenções</div>
+                    <div>${activitiesHtml}</div>
+                ` : ''}
+
+                <div class="signature-box">
+                    <div>
+                        <br><br><br>
+                        <div class="signature-line">Assinatura do Técnico</div>
+                    </div>
+                    <div>
+                        <br><br><br>
+                        <div class="signature-line">Assinatura do Requerente (Confirmação)</div>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    Gerado por AIManager em ${new Date().toLocaleString()}
+                </div>
+                
+                <script>
+                    window.onload = function() { window.print(); }
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.write(content);
+        printWindow.document.close();
+    };
+
     return (
         <Modal title={`Atividades do Ticket - ${requesterName}`} onClose={onClose}>
-            <div className="space-y-6">
+            <div className="absolute top-5 right-16 no-print">
+                <button 
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-600 transition-colors"
+                    title="Imprimir Ficha de Obra"
+                >
+                    <FaPrint /> Imprimir Ficha
+                </button>
+            </div>
+
+            <div className="space-y-6 mt-2">
                 <div>
                     <h3 className="font-semibold text-on-surface-dark mb-1">Descrição do Pedido:</h3>
                     <p className="p-3 bg-gray-900/50 rounded-md text-on-surface-dark-secondary text-sm">{ticket.description}</p>
