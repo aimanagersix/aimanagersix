@@ -1,8 +1,12 @@
 
 
+
+
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem } from '../types';
 import { DeleteIcon, FaShieldAlt, FaExclamationTriangle } from './common/Icons';
 
 interface AddTicketModalProps {
@@ -17,6 +21,7 @@ interface AddTicketModalProps {
     equipment: Equipment[];
     equipmentTypes: EquipmentType[];
     assignments: Assignment[];
+    categories: TicketCategoryItem[];
 }
 
 const MAX_FILES = 3;
@@ -30,7 +35,16 @@ const formatFileSize = (bytes: number): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments }) => {
+const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories }) => {
+    
+    // Determine available categories. Use active dynamic ones, fallback to Enum if empty.
+    const activeCategories = useMemo(() => {
+         if (categories.length > 0) {
+             return categories.filter(c => c.is_active).map(c => c.name);
+         }
+         return Object.values(TicketCategory);
+    }, [categories]);
+
     // Initial State Logic
     const [formData, setFormData] = useState<Partial<Ticket>>(() => {
         if (ticketToEdit) {
@@ -41,7 +55,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 description: ticketToEdit.description,
                 team_id: ticketToEdit.team_id || '',
                 equipmentId: ticketToEdit.equipmentId || '',
-                category: ticketToEdit.category || TicketCategory.TechnicalFault,
+                category: ticketToEdit.category || activeCategories[0],
                 impactCriticality: ticketToEdit.impactCriticality,
                 impactConfidentiality: ticketToEdit.impactConfidentiality,
                 impactIntegrity: ticketToEdit.impactIntegrity,
@@ -55,7 +69,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             description: '',
             team_id: '',
             equipmentId: '',
-            category: TicketCategory.TechnicalFault,
+            category: activeCategories[0] || 'Falha Técnica',
             impactCriticality: CriticalityLevel.Low,
             impactConfidentiality: CIARating.Low,
             impactIntegrity: CIARating.Low,
@@ -83,7 +97,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const fileInputRef = useRef<HTMLInputElement>(null);
      
     const isUtilizador = userPermissions.viewScope === 'own';
-    const isSecurityIncident = formData.category === TicketCategory.SecurityIncident;
+    const isSecurityIncident = formData.category === TicketCategory.SecurityIncident || formData.category === 'Incidente de Segurança';
 
     // Load attachments only once when editing
     useEffect(() => {
@@ -198,7 +212,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         };
         
         // Clean up Security fields if not security incident
-        if (formData.category !== TicketCategory.SecurityIncident) {
+        if (formData.category !== TicketCategory.SecurityIncident && formData.category !== 'Incidente de Segurança') {
             delete dataToSubmit.impactCriticality;
             delete dataToSubmit.impactConfidentiality;
             delete dataToSubmit.impactIntegrity;
@@ -264,7 +278,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                         onChange={handleChange}
                         className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
                     >
-                        {Object.values(TicketCategory).map(cat => (
+                        {activeCategories.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                     </select>

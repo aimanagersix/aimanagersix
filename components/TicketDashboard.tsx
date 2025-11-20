@@ -1,7 +1,11 @@
 
 
+
+
+
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory } from '../types';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -20,6 +24,7 @@ interface TicketDashboardProps {
   onOpenCloseTicketModal?: (ticket: Ticket) => void;
   onGenerateReport?: () => void;
   onOpenActivities?: (ticket: Ticket) => void;
+  categories: TicketCategoryItem[];
 }
 
 const getStatusClass = (status: TicketStatus) => {
@@ -33,7 +38,7 @@ const getStatusClass = (status: TicketStatus) => {
 
 // Helper to calculate deadlines for Security Incidents (NIS2)
 const getSLATimer = (ticket: Ticket) => {
-    if (ticket.category !== TicketCategory.SecurityIncident || ticket.status === TicketStatus.Finished) {
+    if (ticket.category !== 'Incidente de Segurança' && ticket.category !== TicketCategory.SecurityIncident || ticket.status === TicketStatus.Finished) {
         return null;
     }
 
@@ -71,7 +76,7 @@ const getSLATimer = (ticket: Ticket) => {
 };
 
 
-const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities }) => {
+const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities, categories }) => {
     
     const [filters, setFilters] = useState<{ status: string | string[], team_id: string, category: string }>({ status: '', team_id: '', category: '' });
     const [currentPage, setCurrentPage] = useState(1);
@@ -92,6 +97,9 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
     
+    // Fallback if categories empty
+    const displayCategories = categories.length > 0 ? categories.map(c => c.name) : Object.values(TicketCategory);
+
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFilters(prev => ({...prev, [name]: value}));
@@ -159,7 +167,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                         className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
                      >
                         <option value="">Todas as Categorias</option>
-                        {Object.values(TicketCategory).map(c => <option key={c} value={c}>{c}</option>)}
+                        {displayCategories.map(c => <option key={c} value={c}>{c}</option>)}
                      </select>
                      <select
                         id="team_idFilter"
@@ -201,7 +209,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                         {paginatedTickets.length > 0 ? paginatedTickets.map((ticket) => {
                             const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
                             const sla = getSLATimer(ticket);
-                            const isSecurity = ticket.category === TicketCategory.SecurityIncident;
+                            const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
 
                             return(
                             <tr key={ticket.id} className={`border-b border-gray-700 hover:bg-gray-800/50 ${isSecurity ? 'bg-red-900/10' : 'bg-surface-dark'}`}>

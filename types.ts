@@ -1,5 +1,6 @@
 
 
+
 export enum EquipmentStatus {
   Stock = 'Stock',
   Operational = 'Operacional',
@@ -133,12 +134,19 @@ export enum TicketStatus {
   Finished = 'Finalizado',
 }
 
+// Deprecated: Use dynamic categories from DB, keeping for fallback
 export enum TicketCategory {
     TechnicalFault = 'Falha Técnica',
     AccessRequest = 'Pedido de Acesso',
     SecurityIncident = 'Incidente de Segurança',
     GeneralSupport = 'Suporte Geral',
     Maintenance = 'Manutenção'
+}
+
+export interface TicketCategoryItem {
+    id: string;
+    name: string;
+    is_active: boolean;
 }
 
 export interface Ticket {
@@ -156,7 +164,7 @@ export interface Ticket {
   equipmentId?: string;
   
   // NIS2 Incident Response Fields
-  category?: TicketCategory; 
+  category?: string; // Changed to string to support dynamic categories
   impactCriticality?: CriticalityLevel; // Specific to this incident
   impactConfidentiality?: CIARating; // Was confidentiality compromised?
   impactIntegrity?: CIARating;      // Was integrity compromised?

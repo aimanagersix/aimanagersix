@@ -1,5 +1,8 @@
 
 
+
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield } from './common/Icons';
@@ -44,6 +47,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const inventarioMenuRef = useRef<HTMLDivElement>(null);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
+    const [isTicketsMenuOpen, setIsTicketsMenuOpen] = useState(false);
+    const ticketsMenuRef = useRef<HTMLDivElement>(null);
 
     // Security Modals
     const [showMFA, setShowMFA] = useState(false);
@@ -61,6 +66,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
              if (inventarioMenuRef.current && !inventarioMenuRef.current.contains(event.target as Node)) {
                 setInventarioMenuOpen(false);
             }
+             if (ticketsMenuRef.current && !ticketsMenuRef.current.contains(event.target as Node)) {
+                setIsTicketsMenuOpen(false);
+            }
             if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
                 setIsUserMenuOpen(false);
             }
@@ -73,34 +81,35 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isUserMenuOpen]);
+    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isUserMenuOpen, isTicketsMenuOpen]);
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
         setOrganizacaoMenuOpen(false);
         setInventarioMenuOpen(false);
+        setIsTicketsMenuOpen(false);
         setIsMobileMenuOpen(false);
     }
     
     // Logic to keep mobile menus open if a child is active
     const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
     const isOrganizationActive = activeTab.startsWith('organizacao') || activeTab === 'collaborators';
+    const isTicketsActive = activeTab.startsWith('tickets');
 
     const [isMobileOrganizacaoOpen, setIsMobileOrganizacaoOpen] = useState(isOrganizationActive);
     const [isMobileInventarioOpen, setIsMobileInventarioOpen] = useState(isInventoryActive);
+    const [isMobileTicketsOpen, setIsMobileTicketsOpen] = useState(isTicketsActive);
 
     useEffect(() => {
-        if (isOrganizationActive) {
-            setIsMobileOrganizacaoOpen(true);
-        }
-        if (isInventoryActive) {
-            setIsMobileInventarioOpen(true);
-        }
-    }, [activeTab, isInventoryActive, isOrganizationActive]);
+        if (isOrganizationActive) setIsMobileOrganizacaoOpen(true);
+        if (isInventoryActive) setIsMobileInventarioOpen(true);
+        if (isTicketsActive) setIsMobileTicketsOpen(true);
+    }, [activeTab, isInventoryActive, isOrganizationActive, isTicketsActive]);
 
     // Define if the main menu item should be visible based on children availability
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
+    const hasTicketTabs = tabConfig['tickets'];
     const isAdmin = currentUser?.role === UserRole.Admin;
 
   return (
@@ -171,7 +180,33 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 </div>
               )}
 
-              {tabConfig['tickets'] && <TabButton tab="tickets" label={tabConfig['tickets'].title} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={handleTabChange} />}
+              {hasTicketTabs && (
+                   <div className="relative" ref={ticketsMenuRef}>
+                     <button
+                        onClick={() => setIsTicketsMenuOpen(prev => !prev)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isTicketsActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                        aria-haspopup="true"
+                        aria-expanded={isTicketsMenuOpen}
+                     >
+                        <FaTicketAlt />
+                        {tabConfig['tickets'].title}
+                        {tabConfig['tickets.categories'] && (
+                            <svg className={`w-4 h-4 ml-1 transition-transform transform ${isTicketsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        )}
+                     </button>
+                     {isTicketsMenuOpen && tabConfig['tickets.categories'] ? (
+                        <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
+                             <div className="py-1">
+                                <TabButton tab="tickets.list" label={tabConfig['tickets.list'] || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                                <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                             </div>
+                        </div>
+                     ) : null}
+                     {/* Fallback click behavior handled in button if no dropdown needed? Currently structured to always show menu if present */}
+                   </div>
+              )}
           </nav>
 
           <div className="flex-1 flex items-center justify-end gap-4">
@@ -311,7 +346,31 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         </div>
                     )}
 
-                    {tabConfig['tickets'] && <TabButton tab="tickets" label={tabConfig['tickets'].title} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
+                    {hasTicketTabs && (
+                        <div>
+                            <button
+                                onClick={() => setIsMobileTicketsOpen(prev => !prev)}
+                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isTicketsActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
+                                aria-expanded={isMobileTicketsOpen}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <FaTicketAlt />
+                                    <span>{tabConfig['tickets'].title}</span>
+                                </div>
+                                {tabConfig['tickets.categories'] && (
+                                     <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileTicketsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                )}
+                            </button>
+                            {isMobileTicketsOpen && tabConfig['tickets.categories'] ? (
+                                 <div className="pl-4 mt-1 space-y-1">
+                                    <TabButton tab="tickets.list" label={tabConfig['tickets.list'] || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                                    <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                                 </div>
+                            ) : null}
+                        </div>
+                    )}
                 </div>
             </div>
         )}

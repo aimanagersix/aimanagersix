@@ -1,10 +1,13 @@
 
 
+
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, AuditLogEntry, AuditAction
+    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem
 } from '../types';
 
 const handleSupabaseError = (error: any, operation: string) => {
@@ -92,7 +95,7 @@ export const fetchAllData = async () => {
         equipmentRes, instituicoesRes, entidadesRes, collaboratorsRes,
         assignmentsRes, ticketsRes, ticketActivitiesRes, brandsRes,
         equipmentTypesRes, softwareLicensesRes, licenseAssignmentsRes,
-        teamsRes, teamMembersRes, messagesRes, historyRes
+        teamsRes, teamMembersRes, messagesRes, historyRes, categoriesRes
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('instituicoes').select('*'),
@@ -108,7 +111,8 @@ export const fetchAllData = async () => {
         supabase.from('teams').select('*'),
         supabase.from('team_members').select('*'),
         supabase.from('messages').select('*'),
-        supabase.from('collaborator_history').select('*')
+        supabase.from('collaborator_history').select('*'),
+        supabase.from('ticket_categories').select('*').order('name')
     ]);
 
     const check = (res: any, name: string) => { if (res.error) handleSupabaseError(res.error, `fetching ${name}`); };
@@ -127,6 +131,8 @@ export const fetchAllData = async () => {
     check(teamMembersRes, 'teamMembers');
     check(messagesRes, 'messages');
     check(historyRes, 'history');
+    // Don't fail strictly on categories to allow smooth migration if table missing
+    if (categoriesRes.error) console.warn("Failed to fetch categories, table might be missing.");
 
     return {
         equipment: equipmentRes.data || [],
@@ -143,7 +149,8 @@ export const fetchAllData = async () => {
         teams: teamsRes.data || [],
         teamMembers: teamMembersRes.data || [],
         messages: messagesRes.data || [],
-        collaboratorHistory: historyRes.data || []
+        collaboratorHistory: historyRes.data || [],
+        ticketCategories: categoriesRes.data || []
     };
 };
 
@@ -410,6 +417,27 @@ export const addTicketActivity = async (activity: Omit<TicketActivity, 'id'>) =>
     const { data, error } = await getSupabase().from('ticket_activities').insert(activity).select().single();
     handleSupabaseError(error, 'adding ticket activity');
     return data as TicketActivity;
+};
+
+// --- Ticket Categories ---
+export const addTicketCategory = async (category: Omit<TicketCategoryItem, 'id'>) => {
+    const { data, error } = await getSupabase().from('ticket_categories').insert(category).select().single();
+    handleSupabaseError(error, 'adding ticket category');
+    await logAction('CREATE', 'TicketCategory', `Created category ${category.name}`, data.id);
+    return data as TicketCategoryItem;
+};
+
+export const updateTicketCategory = async (id: string, updates: Partial<TicketCategoryItem>) => {
+    const { data, error } = await getSupabase().from('ticket_categories').update(updates).eq('id', id).select().single();
+    handleSupabaseError(error, 'updating ticket category');
+    await logAction('UPDATE', 'TicketCategory', `Updated category ${data.name}`, id);
+    return data as TicketCategoryItem;
+};
+
+export const deleteTicketCategory = async (id: string) => {
+     const { error } = await getSupabase().from('ticket_categories').delete().eq('id', id);
+    handleSupabaseError(error, 'deleting ticket category');
+    await logAction('DELETE', 'TicketCategory', `Deleted category`, id);
 };
 
 // --- Messages ---
