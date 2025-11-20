@@ -13,9 +13,10 @@
 
 
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -33,6 +34,7 @@ interface TicketDashboardProps {
   onOpenCloseTicketModal?: (ticket: Ticket) => void;
   onGenerateReport?: () => void;
   onOpenActivities?: (ticket: Ticket) => void;
+  onGenerateSecurityReport?: (ticket: Ticket) => void;
   categories: TicketCategoryItem[];
 }
 
@@ -117,7 +119,7 @@ const getSecurityIcon = (type?: string) => {
 };
 
 
-const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities, categories }) => {
+const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities, onGenerateSecurityReport, categories }) => {
     
     const [filters, setFilters] = useState<{ status: string | string[], team_id: string, category: string }>({ status: '', team_id: '', category: '' });
     const [currentPage, setCurrentPage] = useState(1);
@@ -252,29 +254,30 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                             const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
                             const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
                             const sla = getSLATimer(ticket, categoryObj);
-                            const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
+                            const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança' || (categoryObj && (categoryObj.sla_warning_hours > 0 || categoryObj.sla_critical_hours > 0));
+                            const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
 
                             return(
-                            <tr key={ticket.id} className={`border-b border-gray-700 hover:bg-gray-800/50 ${isSecurity ? 'bg-red-900/10' : 'bg-surface-dark'}`}>
+                            <tr key={ticket.id} className={`border-b border-gray-700 hover:bg-gray-800/50 ${isRealSecurity ? 'bg-red-900/10' : 'bg-surface-dark'}`}>
                                 <td className="px-6 py-4">
                                     <div>{entidadeMap.get(ticket.entidadeId) || 'N/A'}</div>
                                     {ticket.team_id && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.team_id)}</div>}
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2">
-                                        {isSecurity && getSecurityIcon(ticket.securityIncidentType)}
-                                        <span className={isSecurity ? 'text-red-300 font-medium' : ''}>
+                                        {isRealSecurity && getSecurityIcon(ticket.securityIncidentType)}
+                                        <span className={isRealSecurity ? 'text-red-300 font-medium' : ''}>
                                             {ticket.category || TicketCategory.TechnicalFault}
                                         </span>
                                     </div>
-                                    {isSecurity && ticket.securityIncidentType && (
+                                    {isRealSecurity && ticket.securityIncidentType && (
                                          <div className="mt-1">
                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-900/50 text-red-200 border border-red-700/50">
                                                 {ticket.securityIncidentType}
                                             </span>
                                         </div>
                                     )}
-                                    {isSecurity && ticket.impactCriticality && (
+                                    {isRealSecurity && ticket.impactCriticality && (
                                         <div className="text-xs mt-1 text-gray-400">Impacto: <span className="text-white font-bold">{ticket.impactCriticality}</span></div>
                                     )}
                                 </td>
@@ -319,6 +322,15 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
+                                        {isRealSecurity && onGenerateSecurityReport && (
+                                             <button
+                                                onClick={() => onGenerateSecurityReport(ticket)}
+                                                className="text-red-400 hover:text-red-300"
+                                                title="Relatório de Notificação Oficial (NIS2)"
+                                            >
+                                                <FaFileContract className="h-5 w-5"/>
+                                            </button>
+                                        )}
                                         {onOpenActivities && (
                                             <button
                                                 onClick={() => onOpenActivities(ticket)}
