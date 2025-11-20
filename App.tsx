@@ -18,7 +18,7 @@ import TeamDashboard from './components/TeamDashboard';
 import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import BrandDashboard from './components/BrandDashboard';
 import CategoryDashboard from './components/CategoryDashboard';
-import SecurityIncidentTypeDashboard from './components/SecurityIncidentTypeDashboard';
+import AddTicketModalDashboard from './components/SecurityIncidentTypeDashboard';
 import ImportModal, { ImportConfig } from './components/ImportModal';
 import ManageAssignedLicensesModal from './components/ManageAssignedLicensesModal';
 import AddCollaboratorModal from './components/AddCollaboratorModal';
