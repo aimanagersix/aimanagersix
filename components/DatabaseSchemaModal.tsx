@@ -26,6 +26,41 @@ END;
 $$ language 'plpgsql';
 
 -- ==========================================
+-- CORREÇÃO DE TABELAS EXISTENTES (CRÍTICO)
+-- ==========================================
+-- Se as tabelas já existem, adicionamos as colunas novas aqui
+
+DO $$ 
+BEGIN 
+    -- Adicionar colunas de NIS2/Segurança à tabela TICKETS se não existirem
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tickets') THEN
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS category text;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactCriticality" text;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactConfidentiality" text;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactIntegrity" text;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactAvailability" text;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
+    END IF;
+
+    -- Adicionar colunas de NIS2 à tabela EQUIPMENT se não existirem
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
+    END IF;
+
+    -- Adicionar colunas de NIS2 à tabela SOFTWARE_LICENSES se não existirem
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'software_licenses') THEN
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
+    END IF;
+END $$;
+
+
+-- ==========================================
 -- CRIAÇÃO DE TABELAS (Se não existirem)
 -- ==========================================
 
@@ -332,7 +367,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo foi atualizado para incluir as novas tabelas de <strong>Serviços de Negócio (BIA)</strong> e <strong>Vulnerabilidades (Segurança)</strong>, além de índices de performance.
+                        O script abaixo foi atualizado para incluir as colunas de **Segurança** e **NIS2** nas tabelas existentes, caso ainda não existam.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>
