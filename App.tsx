@@ -864,6 +864,11 @@ const AppContent = () => {
                              onAssignMultiple={(list) => { setAssignMultipleList(list); setAssignMultipleModalOpen(true); }}
                              onManageKeys={handleManageKeys}
                              onGenerateReport={() => setReportType('equipment')}
+                             // Pass BIA data to Dashboard -> History Modal
+                             businessServices={businessServices}
+                             serviceDependencies={serviceDependencies}
+                             tickets={tickets}
+                             ticketActivities={ticketActivities}
                         />
                     </div>
                 )}
@@ -1001,7 +1006,7 @@ const AppContent = () => {
             {isKitModalOpen && <AddEquipmentKitModal onClose={() => setIsKitModalOpen(false)} onSaveKit={handleCreateKit} brands={brands} equipmentTypes={equipmentTypes} initialData={kitModalInitialData} onSaveEquipmentType={async (t) => { await dataService.addEquipmentType(t); const res = await dataService.fetchEquipmentTypes(); setEquipmentTypes(res); return res.find((x: any) => x.name === t.name)!; }} equipment={equipment} />}
             {assignModalOpen && assignEquipmentItem && <AssignEquipmentModal equipment={assignEquipmentItem} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setAssignModalOpen(false)} onAssign={handleAssignEquipment} />}
             {assignMultipleModalOpen && <AssignMultipleEquipmentModal equipmentList={assignMultipleList} brandMap={brandMap} equipmentTypeMap={equipmentTypeMap} escolasDepartamentos={entidades} collaborators={collaborators} onClose={() => setAssignMultipleModalOpen(false)} onAssign={handleAssignMultiple} />}
-            {showHistoryEquipment && <EquipmentHistoryModal equipment={showHistoryEquipment} assignments={assignments} collaborators={collaborators} escolasDepartamentos={entidades} onClose={() => setShowHistoryEquipment(null)} tickets={tickets} ticketActivities={ticketActivities} />}
+            {showHistoryEquipment && <EquipmentHistoryModal equipment={showHistoryEquipment} assignments={assignments} collaborators={collaborators} escolasDepartamentos={entidades} onClose={() => setShowHistoryEquipment(null)} tickets={tickets} ticketActivities={ticketActivities} businessServices={businessServices} serviceDependencies={serviceDependencies} />}
             {manageLicensesEquipment && <ManageAssignedLicensesModal equipment={manageLicensesEquipment} allLicenses={softwareLicenses} allAssignments={licenseAssignments} onClose={() => setManageLicensesEquipment(null)} onSave={handleSaveAssignedLicenses} />}
             
             {isAddCollaboratorModalOpen && <AddCollaboratorModal onClose={() => setIsAddCollaboratorModalOpen(false)} onSave={editingCollaborator ? handleUpdateCollaborator : handleCreateCollaborator} collaboratorToEdit={editingCollaborator} escolasDepartamentos={entidades} currentUser={currentUser} />}

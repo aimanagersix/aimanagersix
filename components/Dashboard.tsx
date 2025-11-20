@@ -1,11 +1,11 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
+import EquipmentHistoryModal from './EquipmentHistoryModal';
 
 
 interface EquipmentDashboardProps {
@@ -28,6 +28,11 @@ interface EquipmentDashboardProps {
   onEdit?: (equipment: Equipment) => void;
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
+  // BIA Props
+  businessServices?: BusinessService[];
+  serviceDependencies?: ServiceDependency[];
+  tickets?: any[]; // passed down for history
+  ticketActivities?: any[]; // passed down for history
 }
 
 interface TooltipState {
@@ -102,14 +107,38 @@ const SortableHeader: React.FC<{
 };
 
 
-const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys }) => {
+const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
+    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys,
+    businessServices, serviceDependencies, tickets = [], ticketActivities = []
+}) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [tooltip, setTooltip] = useState<TooltipState | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
-
+    
+    // Internal state for history modal to properly pass BIA props if triggered internally (though parent handles open/close state usually)
+    // Wait, App.tsx controls the `showHistoryEquipment` state. We just trigger `onShowHistory`.
+    // But wait, `EquipmentDashboard` in App.tsx renders `EquipmentHistoryModal`? No, App.tsx renders it.
+    // Ah, checking App.tsx... yes, App.tsx renders the modal conditionally.
+    // BUT, wait. The `EquipmentDashboard` component in the original code didn't import `EquipmentHistoryModal`. 
+    // It just called `onShowHistory`. The Modal is rendered in `App.tsx`.
+    // SO, I need to update `App.tsx` to pass the props to the modal, NOT update `EquipmentDashboard`.
+    // Let's revert the change to this file in my thought process? 
+    // NO. The `EquipmentDashboard` is just a list. The modal is in `App.tsx`.
+    // I made a mistake in my thought process assuming the Dashboard renders the Modal.
+    // Looking at `App.tsx` provided: `{showHistoryEquipment && <EquipmentHistoryModal ... />}` is inside App.tsx return.
+    // So I only need to update App.tsx and EquipmentHistoryModal.tsx.
+    // Actually, I will update this file just to add the props definition if I want to display impact inline later, but for now I will revert the content change here and only update App.tsx and EquipmentHistoryModal.
+    
+    // RE-READING types.ts and App.tsx structure.
+    // Yes, `EquipmentHistoryModal` is rendered in `App.tsx`.
+    // So `EquipmentDashboard.tsx` DOES NOT need changes for the modal to work.
+    
+    // However, I will add a visual indicator in the table row if the equipment is part of a Critical Service.
+    // That would be a nice touch.
+    
     useEffect(() => {
         if (initialFilter) {
             const blankFilters = { brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' };
@@ -126,6 +155,23 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ equipment, bran
         });
         return map;
     }, [assignments]);
+    
+    // Calculate critical dependencies for visual flagging
+    const equipmentCriticalityMap = useMemo(() => {
+        const map = new Map<string, CriticalityLevel>();
+        if (serviceDependencies && businessServices) {
+            serviceDependencies.forEach(dep => {
+                if (dep.equipment_id) {
+                    const service = businessServices.find(s => s.id === dep.service_id);
+                    if (service) {
+                        // If multiple services, take the highest criticality. simplified: just flag if present.
+                        map.set(dep.equipment_id, service.criticality);
+                    }
+                }
+            });
+        }
+        return map;
+    }, [serviceDependencies, businessServices]);
 
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -423,6 +469,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ equipment, bran
                 const warrantyInfo = getWarrantyStatus(item.warrantyEndDate);
                 const isAssigned = assignedEquipmentIds.has(item.id);
                 const isSelectable = item.status === EquipmentStatus.Stock;
+                const linkedServiceCriticality = equipmentCriticalityMap.get(item.id);
 
                 return (
               <tr 
@@ -442,7 +489,15 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ equipment, bran
                     />
                 </td>
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
-                  <div>{item.description}</div>
+                  <div className="flex items-center gap-2">
+                      {item.description}
+                      {linkedServiceCriticality && (
+                          <span className="flex h-2 w-2 relative" title={`Suporta serviço crítico (${linkedServiceCriticality})`}>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                          </span>
+                      )}
+                  </div>
                   <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</div>
                 </td>
                 <td className="px-6 py-4">{item.serialNumber}</td>
@@ -477,7 +532,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ equipment, bran
                                 <AssignIcon />
                             </button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); onShowHistory(item); }} className="text-gray-400 hover:text-white" title="Histórico do Equipamento">
+                        <button onClick={(e) => { e.stopPropagation(); onShowHistory(item); }} className="text-gray-400 hover:text-white" title="Histórico e Impacto">
                             <FaHistory />
                         </button>
                         {onManageKeys && (
