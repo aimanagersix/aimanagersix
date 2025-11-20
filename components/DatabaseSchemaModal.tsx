@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -268,7 +266,6 @@ CREATE TABLE IF NOT EXISTS vulnerabilities (
 -- ==========================================
 -- CORREÇÃO DA TABELA TEAM_MEMBERS
 -- ==========================================
--- Esta secção remove a tabela antiga para corrigir erros de Foreign Key e a recria.
 DROP TABLE IF EXISTS team_members;
 
 CREATE TABLE team_members (
@@ -277,6 +274,15 @@ CREATE TABLE team_members (
     created_at timestamptz DEFAULT now(),
     PRIMARY KEY (team_id, collaborator_id)
 );
+
+-- ==========================================
+-- INDÍCES DE PERFORMANCE
+-- ==========================================
+CREATE INDEX IF NOT EXISTS idx_equipment_serial ON equipment("serialNumber");
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+CREATE INDEX IF NOT EXISTS idx_vulnerabilities_status ON vulnerabilities(status);
+CREATE INDEX IF NOT EXISTS idx_assignments_equipment ON assignments("equipmentId");
+CREATE INDEX IF NOT EXISTS idx_assignments_collaborator ON assignments("collaboratorId");
 
 -- ==========================================
 -- CORREÇÃO DE PERMISSÕES (RLS)
@@ -322,7 +328,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo foi atualizado para incluir as novas tabelas de <strong>Serviços de Negócio (BIA)</strong> e <strong>Vulnerabilidades (Segurança)</strong>.
+                        O script abaixo foi atualizado para incluir as novas tabelas de <strong>Serviços de Negócio (BIA)</strong> e <strong>Vulnerabilidades (Segurança)</strong>, além de índices de performance.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

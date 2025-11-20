@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService } from '../types';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
@@ -19,6 +19,7 @@ interface OverviewDashboardProps {
     softwareLicenses: SoftwareLicense[];
     licenseAssignments: LicenseAssignment[];
     businessServices?: BusinessService[];
+    vulnerabilities?: Vulnerability[];
     onViewItem: (tab: string, filter: any) => void;
     onGenerateComplianceReport: () => void;
 }
@@ -140,7 +141,7 @@ const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availab
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
-    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], onViewItem, onGenerateComplianceReport 
+    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], vulnerabilities = [], onViewItem, onGenerateComplianceReport 
 }) => {
     const { t } = useLanguage();
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
@@ -197,6 +198,18 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             expiringLicenses: expiringLicenses.length,
         };
     }, [expiringWarranties, expiringLicenses]);
+    
+    const securityStats = useMemo(() => {
+        const openCritical = vulnerabilities.filter(v => 
+            (v.status === VulnerabilityStatus.Open || v.status === VulnerabilityStatus.InProgress) &&
+            (v.severity === CriticalityLevel.Critical || v.severity === CriticalityLevel.High)
+        ).length;
+        
+        return {
+            openCritical,
+            total: vulnerabilities.length
+        };
+    }, [vulnerabilities]);
 
     const availableLicensesData = useMemo(() => {
         const usedSeatsMap = licenseAssignments.reduce((acc, assignment) => {
@@ -352,11 +365,19 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
             <div>
                  <h2 className="text-xl font-bold text-white mb-4">{t('overview.health_support')}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
                     <StatCard title={t('overview.open_tickets')} value={ticketStats.open} icon={<FaTicketAlt className="h-6 w-6 text-white" />} color={ticketStats.open > 0 ? "bg-red-600" : "bg-green-600"} onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} />
                     <StatCard title={t('overview.expiring_warranties')} value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-6 w-6 text-white" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext={t('overview.next_30_days')}/>
                     <StatCard title={t('overview.expiring_licenses')} value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-6 w-6 text-white" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext={t('overview.next_30_days')}/>
-                    <StatCard title="Serviços Mapeados" value={businessServices?.length || 0} icon={<FaNetworkWired className="h-6 w-6 text-white" />} color="bg-purple-600" onClick={() => onViewItem('bia', {})} subtext="BIA / NIS2"/>
+                    <StatCard title="Serviços BIA" value={businessServices?.length || 0} icon={<FaNetworkWired className="h-6 w-6 text-white" />} color="bg-purple-600" onClick={() => onViewItem('bia', {})} subtext="Mapeados"/>
+                    <StatCard 
+                        title="Segurança (CVEs)" 
+                        value={securityStats.total} 
+                        icon={<FaShieldAlt className="h-6 w-6 text-white" />} 
+                        color={securityStats.openCritical > 0 ? "bg-red-500 animate-pulse" : "bg-green-500"} 
+                        onClick={() => onViewItem('security', {})} 
+                        subtext={securityStats.openCritical > 0 ? `${securityStats.openCritical} Críticos Abertos` : "Sistema Seguro"}
+                    />
                     <AvailableLicensesCard licenses={availableLicensesData} onViewAll={() => onViewItem('licensing', { status: 'available' })} />
                 </div>
             </div>
