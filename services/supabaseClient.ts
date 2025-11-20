@@ -13,28 +13,9 @@ export const getSupabase = (): SupabaseClient => {
         return supabaseInstance;
     }
 
-    // Helper to safely get env vars in Vite/Browser/Node environments
-    const getEnvVar = (key: string) => {
-        // Check import.meta.env (Vite)
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
-            // @ts-ignore
-            return import.meta.env[key];
-        }
-        // Check process.env (Node/Webpack fallback), wrapped in try-catch for strict browsers
-        try {
-            if (typeof process !== 'undefined' && process.env && process.env[key]) {
-                return process.env[key];
-            }
-        } catch (e) {
-            // process not defined
-        }
-        return '';
-    };
-
-    // Prioritize localStorage for user-configured persistence
-    const supabaseUrl = localStorage.getItem('SUPABASE_URL') || getEnvVar('SUPABASE_URL') || getEnvVar('VITE_SUPABASE_URL');
-    const supabaseAnonKey = localStorage.getItem('SUPABASE_ANON_KEY') || getEnvVar('SUPABASE_ANON_KEY') || getEnvVar('VITE_SUPABASE_ANON_KEY');
+    // Prioritize localStorage for persistence, fallback to process.env for dev/build time config
+    const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
+    const supabaseAnonKey = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
 
     if (supabaseUrl && supabaseAnonKey) {
         supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
