@@ -416,12 +416,15 @@ const AppContent: React.FC = () => {
 
     const simpleSaveWrapper = async (saveFn: Function, data: any, editId?: string) => {
         try {
-            if (editId) await saveFn(editId, data);
-            else await saveFn(data);
+            let result;
+            if (editId) result = await saveFn(editId, data);
+            else result = await saveFn(data);
             await refreshData();
+            return result;
         } catch (e) {
             console.error(e);
             alert("Erro ao salvar dados. Verifique a consola.");
+            return null;
         }
     };
 
@@ -830,8 +833,8 @@ const AppContent: React.FC = () => {
                     <AddEquipmentModal
                         onClose={() => { setShowAddEquipment(false); setEquipmentToEdit(null); }}
                         onSave={(eq) => {
-                            if (equipmentToEdit) simpleSaveWrapper(dataService.updateEquipment, eq, equipmentToEdit.id);
-                            else simpleSaveWrapper(dataService.addEquipment, eq);
+                            if (equipmentToEdit) return simpleSaveWrapper(dataService.updateEquipment, eq, equipmentToEdit.id);
+                            else return simpleSaveWrapper(dataService.addEquipment, eq);
                         }}
                         brands={brands}
                         equipmentTypes={equipmentTypes}
@@ -893,8 +896,8 @@ const AppContent: React.FC = () => {
                     <AddEntidadeModal
                         onClose={() => { setShowAddEntidade(false); setEntidadeToEdit(null); }}
                         onSave={(e) => {
-                            if (entidadeToEdit) simpleSaveWrapper(dataService.updateEntidade, e, entidadeToEdit.id);
-                            else simpleSaveWrapper(dataService.addEntidade, e);
+                            if (entidadeToEdit) return simpleSaveWrapper(dataService.updateEntidade, e, entidadeToEdit.id);
+                            else return simpleSaveWrapper(dataService.addEntidade, e);
                         }}
                         entidadeToEdit={entidadeToEdit}
                         instituicoes={instituicoes}
@@ -906,8 +909,8 @@ const AppContent: React.FC = () => {
                     <AddInstituicaoModal
                         onClose={() => { setShowAddInstituicao(false); setInstituicaoToEdit(null); }}
                         onSave={(i) => {
-                            if (instituicaoToEdit) simpleSaveWrapper(dataService.updateInstituicao, i, instituicaoToEdit.id);
-                            else simpleSaveWrapper(dataService.addInstituicao, i);
+                            if (instituicaoToEdit) return simpleSaveWrapper(dataService.updateInstituicao, i, instituicaoToEdit.id);
+                            else return simpleSaveWrapper(dataService.addInstituicao, i);
                         }}
                         instituicaoToEdit={instituicaoToEdit}
                     />
@@ -918,8 +921,8 @@ const AppContent: React.FC = () => {
                     <AddBrandModal
                         onClose={() => { setShowAddBrand(false); setBrandToEdit(null); }}
                         onSave={(b) => {
-                            if (brandToEdit) simpleSaveWrapper(dataService.updateBrand, b, brandToEdit.id);
-                            else simpleSaveWrapper(dataService.addBrand, b);
+                            if (brandToEdit) return simpleSaveWrapper(dataService.updateBrand, b, brandToEdit.id);
+                            else return simpleSaveWrapper(dataService.addBrand, b);
                         }}
                         brandToEdit={brandToEdit}
                     />
@@ -930,8 +933,8 @@ const AppContent: React.FC = () => {
                     <AddEquipmentTypeModal
                         onClose={() => { setShowAddType(false); setTypeToEdit(null); }}
                         onSave={(t) => {
-                            if (typeToEdit) simpleSaveWrapper(dataService.updateEquipmentType, t, typeToEdit.id);
-                            else simpleSaveWrapper(dataService.addEquipmentType, t);
+                            if (typeToEdit) return simpleSaveWrapper(dataService.updateEquipmentType, t, typeToEdit.id);
+                            else return simpleSaveWrapper(dataService.addEquipmentType, t);
                         }}
                         typeToEdit={typeToEdit}
                         teams={teams}
@@ -943,8 +946,8 @@ const AppContent: React.FC = () => {
                     <AddLicenseModal
                         onClose={() => { setShowAddLicense(false); setLicenseToEdit(null); }}
                         onSave={(l) => {
-                            if (licenseToEdit) simpleSaveWrapper(dataService.updateLicense, l, licenseToEdit.id);
-                            else simpleSaveWrapper(dataService.addLicense, l);
+                            if (licenseToEdit) return simpleSaveWrapper(dataService.updateLicense, l, licenseToEdit.id);
+                            else return simpleSaveWrapper(dataService.addLicense, l);
                         }}
                         licenseToEdit={licenseToEdit}
                     />
@@ -955,8 +958,8 @@ const AppContent: React.FC = () => {
                     <AddTeamModal
                         onClose={() => { setShowAddTeam(false); setTeamToEdit(null); }}
                         onSave={(t) => {
-                            if (teamToEdit) simpleSaveWrapper(dataService.updateTeam, t, teamToEdit.id);
-                            else simpleSaveWrapper(dataService.addTeam, t);
+                            if (teamToEdit) return simpleSaveWrapper(dataService.updateTeam, t, teamToEdit.id);
+                            else return simpleSaveWrapper(dataService.addTeam, t);
                         }}
                         teamToEdit={teamToEdit}
                     />
@@ -967,8 +970,8 @@ const AppContent: React.FC = () => {
                     <AddCategoryModal
                         onClose={() => { setShowAddCategory(false); setCategoryToEdit(null); }}
                         onSave={(c) => {
-                            if (categoryToEdit) simpleSaveWrapper(dataService.updateTicketCategory, c, categoryToEdit.id);
-                            else simpleSaveWrapper(dataService.addTicketCategory, c);
+                            if (categoryToEdit) return simpleSaveWrapper(dataService.updateTicketCategory, c, categoryToEdit.id);
+                            else return simpleSaveWrapper(dataService.addTicketCategory, c);
                         }}
                         categoryToEdit={categoryToEdit}
                         teams={teams}
@@ -980,8 +983,8 @@ const AppContent: React.FC = () => {
                     <AddSecurityIncidentTypeModal
                         onClose={() => { setShowAddIncidentType(false); setIncidentTypeToEdit(null); }}
                         onSave={(t) => {
-                            if (incidentTypeToEdit) simpleSaveWrapper(dataService.updateSecurityIncidentType, t, incidentTypeToEdit.id);
-                            else simpleSaveWrapper(dataService.addSecurityIncidentType, t);
+                            if (incidentTypeToEdit) return simpleSaveWrapper(dataService.updateSecurityIncidentType, t, incidentTypeToEdit.id);
+                            else return simpleSaveWrapper(dataService.addSecurityIncidentType, t);
                         }}
                         typeToEdit={incidentTypeToEdit}
                     />
@@ -992,8 +995,8 @@ const AppContent: React.FC = () => {
                     <AddServiceModal
                         onClose={() => { setShowAddService(false); setServiceToEdit(null); }}
                         onSave={(s) => {
-                            if (serviceToEdit) simpleSaveWrapper(dataService.updateBusinessService, s, serviceToEdit.id);
-                            else simpleSaveWrapper(dataService.addBusinessService, s);
+                            if (serviceToEdit) return simpleSaveWrapper(dataService.updateBusinessService, s, serviceToEdit.id);
+                            else return simpleSaveWrapper(dataService.addBusinessService, s);
                         }}
                         serviceToEdit={serviceToEdit}
                         collaborators={collaborators}
@@ -1005,8 +1008,8 @@ const AppContent: React.FC = () => {
                     <AddVulnerabilityModal
                         onClose={() => { setShowAddVulnerability(false); setVulnerabilityToEdit(null); }}
                         onSave={(v) => {
-                            if (vulnerabilityToEdit) simpleSaveWrapper(dataService.updateVulnerability, v, vulnerabilityToEdit.id);
-                            else simpleSaveWrapper(dataService.addVulnerability, v);
+                            if (vulnerabilityToEdit) return simpleSaveWrapper(dataService.updateVulnerability, v, vulnerabilityToEdit.id);
+                            else return simpleSaveWrapper(dataService.addVulnerability, v);
                         }}
                         vulnToEdit={vulnerabilityToEdit}
                     />
