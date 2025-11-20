@@ -1,6 +1,7 @@
 
 
 
+
 export enum EquipmentStatus {
   Stock = 'Stock',
   Operational = 'Operacional',
@@ -259,4 +260,31 @@ export interface AuditLogEntry {
     details?: string; // JSON string or text
     timestamp: string;
     user_email?: string; // Joined for display
+}
+
+// --- NIS2 Business Impact Analysis (BIA) Types ---
+
+export enum ServiceStatus {
+    Ativo = 'Ativo',
+    Inativo = 'Inativo',
+    EmManutencao = 'Em Manutenção'
+}
+
+export interface BusinessService {
+    id: string;
+    name: string;
+    description?: string;
+    criticality: CriticalityLevel;
+    rto_goal?: string; // Recovery Time Objective (e.g. "4h")
+    owner_id?: string; // Collaborator ID (Service Owner)
+    status: ServiceStatus;
+}
+
+export interface ServiceDependency {
+    id: string;
+    service_id: string;
+    equipment_id?: string;
+    software_license_id?: string;
+    dependency_type?: string; // e.g., "Server", "Database", "Frontend"
+    notes?: string;
 }

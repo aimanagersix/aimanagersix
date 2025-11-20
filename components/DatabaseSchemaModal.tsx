@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -224,6 +225,30 @@ CREATE TABLE IF NOT EXISTS user_notification_snoozes (
     created_at timestamptz DEFAULT now()
 );
 
+-- TABELAS PARA GESTÃO DE SERVIÇOS (BIA - NIS2)
+
+CREATE TABLE IF NOT EXISTS business_services (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL,
+    description text,
+    criticality text DEFAULT 'Média',
+    rto_goal text,
+    owner_id uuid REFERENCES collaborators(id),
+    status text DEFAULT 'Ativo',
+    created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS service_dependencies (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    service_id uuid REFERENCES business_services(id) ON DELETE CASCADE,
+    equipment_id uuid REFERENCES equipment(id),
+    software_license_id uuid REFERENCES software_licenses(id),
+    dependency_type text,
+    notes text,
+    created_at timestamptz DEFAULT now()
+);
+
+
 -- ==========================================
 -- CORREÇÃO DA TABELA TEAM_MEMBERS
 -- ==========================================
@@ -281,7 +306,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo foi atualizado para corrigir especificamente o erro <strong>"violates foreign key constraint"</strong> na tabela <code>team_members</code> e redefinir as permissões (RLS).
+                        O script abaixo foi atualizado para incluir as novas tabelas de <strong>Serviços de Negócio (BIA)</strong> e redefinir as permissões.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>
