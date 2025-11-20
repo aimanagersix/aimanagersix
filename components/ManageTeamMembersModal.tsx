@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Team, Collaborator, TeamMember } from '../types';
 import { SearchIcon, SpinnerIcon } from './common/Icons';
-import { FaChevronRight, FaChevronLeft } from 'react-icons/fa';
+import { FaChevronRight, FaChevronLeft, FaUsers } from 'react-icons/fa';
 
 interface ManageTeamMembersModalProps {
     onClose: () => void;
@@ -16,15 +16,16 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
     const [currentMemberIds, setCurrentMemberIds] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Initialize only once when the modal opens for this team
-        const initialMemberIds = teamMembers
-            .filter(tm => tm.team_id === team.id)
-            .map(tm => tm.collaborator_id);
-        setCurrentMemberIds(new Set(initialMemberIds));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [team.id]); // Removed teamMembers from deps to prevent reset on background updates
+        if (team && teamMembers) {
+            const initialMemberIds = teamMembers
+                .filter(tm => tm.team_id === team.id)
+                .map(tm => tm.collaborator_id);
+            setCurrentMemberIds(new Set(initialMemberIds));
+        }
+    }, [team, teamMembers]);
 
     const { teamMembersList, availableCollaborators } = useMemo(() => {
         const members: Collaborator[] = [];
@@ -47,85 +48,132 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
     }, [allCollaborators, currentMemberIds, searchQuery]);
     
     const addMember = (collaboratorId: string) => {
-        setCurrentMemberIds(prev => new Set(prev).add(collaboratorId));
+        setCurrentMemberIds(prev => {
+            const next = new Set(prev);
+            next.add(collaboratorId);
+            return next;
+        });
     };
 
     const removeMember = (collaboratorId: string) => {
         setCurrentMemberIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(collaboratorId);
-            return newSet;
+            const next = new Set(prev);
+            next.delete(collaboratorId);
+            return next;
         });
     };
 
     const handleSubmit = async () => {
         setIsSaving(true);
+        setError(null);
         try {
             await onSave(team.id, Array.from(currentMemberIds));
-            // Modal handling (closing) is usually done by parent after successful save
+            // The parent component is responsible for closing the modal after save
         } catch (error: any) {
             console.error("Failed to save team members:", error);
-            alert(`Erro ao gravar membros da equipa: ${error.message}`);
+            setError(`Erro ao gravar: ${error.message || 'Erro desconhecido'}`);
             setIsSaving(false);
         }
     };
 
     return (
-        <Modal title={`Gerir Membros da Equipa: ${team.name}`} onClose={onClose} maxWidth="max-w-4xl">
-            <div className="flex flex-col md:flex-row gap-4 h-[60vh]">
-                {/* Available Collaborators */}
-                <div className="flex-1 flex flex-col border border-gray-700 rounded-lg p-4 bg-gray-900/50">
-                    <h3 className="text-lg font-semibold text-white mb-2">Colaboradores Disponíveis</h3>
-                    <div className="relative mb-2">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <SearchIcon className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Procurar colaborador..."
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 pl-10 text-sm"
-                        />
-                    </div>
-                    <ul className="flex-1 overflow-y-auto space-y-2 pr-2">
-                        {availableCollaborators.map(col => (
-                            <li key={col.id} className="flex items-center justify-between p-2 bg-surface-dark rounded-md">
-                                <span>{col.fullName}</span>
-                                <button onClick={() => addMember(col.id)} className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-full">
-                                    <FaChevronRight />
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
+        <Modal title={`Gerir Membros da Equipa: ${team.name}`} onClose={onClose} maxWidth="max-w-5xl">
+            <div className="flex flex-col h-[70vh]">
+                <div className="flex items-center gap-2 mb-4 text-sm text-on-surface-dark-secondary bg-blue-900/20 p-3 rounded-md border border-blue-900/50">
+                    <FaUsers className="text-brand-secondary" />
+                    <span>
+                        Adicione ou remova colaboradores desta equipa. As alterações só serão aplicadas ao clicar em "Salvar".
+                    </span>
                 </div>
 
-                {/* Team Members */}
-                 <div className="flex-1 flex flex-col border border-gray-700 rounded-lg p-4 bg-gray-900/50">
-                    <h3 className="text-lg font-semibold text-white mb-2">Membros da Equipa ({teamMembersList.length})</h3>
-                    <ul className="flex-1 overflow-y-auto space-y-2 pr-2">
-                        {teamMembersList.map(col => (
-                            <li key={col.id} className="flex items-center justify-between p-2 bg-surface-dark rounded-md">
-                                <button onClick={() => removeMember(col.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-full">
-                                    <FaChevronLeft />
-                                </button>
-                                <span>{col.fullName}</span>
-                            </li>
-                        ))}
-                    </ul>
+                <div className="flex flex-col md:flex-row gap-4 flex-1 overflow-hidden">
+                    {/* Available Collaborators */}
+                    <div className="flex-1 flex flex-col border border-gray-700 rounded-lg p-4 bg-gray-900/50">
+                        <h3 className="text-lg font-semibold text-white mb-2">Disponíveis</h3>
+                        <div className="relative mb-3">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <SearchIcon className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Procurar colaborador..."
+                                className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 pl-9 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                            />
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-1 pr-2">
+                            {availableCollaborators.length > 0 ? (
+                                availableCollaborators.map(col => (
+                                    <div key={col.id} className="flex items-center justify-between p-2 bg-surface-dark rounded-md border border-gray-700 hover:bg-gray-700 transition-colors">
+                                        <span className="text-sm truncate mr-2" title={col.fullName}>{col.fullName}</span>
+                                        <button 
+                                            onClick={() => addMember(col.id)} 
+                                            className="p-1.5 text-green-400 hover:bg-green-500/20 rounded-full transition-colors"
+                                            title="Adicionar à equipa"
+                                        >
+                                            <FaChevronRight />
+                                        </button>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-center text-gray-500 text-sm mt-4">Nenhum colaborador encontrado.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Team Members */}
+                    <div className="flex-1 flex flex-col border border-gray-700 rounded-lg p-4 bg-gray-900/50 border-l-4 border-l-brand-secondary">
+                        <h3 className="text-lg font-semibold text-white mb-2 flex justify-between">
+                            <span>Membros da Equipa</span>
+                            <span className="text-brand-secondary text-sm bg-brand-secondary/10 px-2 py-0.5 rounded-full">{teamMembersList.length}</span>
+                        </h3>
+                        <div className="flex-1 overflow-y-auto space-y-1 pr-2 mt-12 md:mt-0">
+                            {teamMembersList.length > 0 ? (
+                                teamMembersList.map(col => (
+                                    <div key={col.id} className="flex items-center justify-between p-2 bg-surface-dark rounded-md border border-gray-700 hover:bg-gray-700 transition-colors">
+                                        <button 
+                                            onClick={() => removeMember(col.id)} 
+                                            className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-full transition-colors"
+                                            title="Remover da equipa"
+                                        >
+                                            <FaChevronLeft />
+                                        </button>
+                                        <span className="text-sm truncate ml-2" title={col.fullName}>{col.fullName}</span>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-center text-gray-500 text-sm mt-4">Nenhum membro nesta equipa.</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div className="flex justify-end gap-4 pt-6 mt-4 border-t border-gray-700">
-                <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                <button 
-                    type="button" 
-                    onClick={handleSubmit} 
-                    disabled={isSaving}
-                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50"
-                >
-                    {isSaving && <SpinnerIcon />}
-                    {isSaving ? 'A Gravar...' : 'Salvar Alterações'}
-                </button>
+
+                {error && (
+                    <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-md text-red-200 text-sm">
+                        {error}
+                    </div>
+                )}
+
+                <div className="flex justify-end gap-4 pt-6 mt-4 border-t border-gray-700">
+                    <button 
+                        type="button" 
+                        onClick={onClose} 
+                        className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
+                        disabled={isSaving}
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={handleSubmit} 
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg"
+                    >
+                        {isSaving && <SpinnerIcon className="h-4 w-4" />}
+                        {isSaving ? 'A Gravar...' : 'Salvar Alterações'}
+                    </button>
+                </div>
             </div>
         </Modal>
     );
