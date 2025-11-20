@@ -160,6 +160,8 @@ export interface TicketCategoryItem {
     name: string;
     is_active: boolean;
     default_team_id?: string;
+    sla_warning_hours?: number; // e.g. 24h
+    sla_critical_hours?: number; // e.g. 72h
 }
 
 export interface SecurityIncidentTypeItem {

@@ -40,8 +40,14 @@ BEGIN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactConfidentiality" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactIntegrity" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactAvailability" text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text; -- Coluna essencial para tipos de ataque
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text; 
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
+    END IF;
+    
+    -- Adicionar colunas de SLA à tabela TICKET_CATEGORIES se não existirem
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'ticket_categories') THEN
+        ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_warning_hours integer DEFAULT 0;
+        ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_critical_hours integer DEFAULT 0;
     END IF;
 
     -- Adicionar colunas de NIS2 à tabela EQUIPMENT se não existirem
@@ -167,6 +173,8 @@ CREATE TABLE IF NOT EXISTS ticket_categories (
     name text NOT NULL UNIQUE,
     is_active boolean DEFAULT true,
     default_team_id uuid REFERENCES teams(id),
+    sla_warning_hours integer DEFAULT 0,
+    sla_critical_hours integer DEFAULT 0,
     created_at timestamptz DEFAULT now()
 );
 
@@ -392,7 +400,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo foi atualizado para incluir os **Tipos de Ataque Padrão** (Ransomware, Phishing, etc.) automaticamente.
+                        O script abaixo atualiza a tabela de <strong>Categorias de Tickets</strong> para suportar prazos de SLA configuráveis.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

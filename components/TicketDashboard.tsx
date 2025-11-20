@@ -11,6 +11,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock } from './common/Icons';
@@ -43,43 +45,60 @@ const getStatusClass = (status: TicketStatus) => {
     }
 };
 
-// Helper to calculate deadlines for Security Incidents (NIS2)
-const getSLATimer = (ticket: Ticket) => {
-    if (ticket.category !== 'Incidente de Segurança' && ticket.category !== TicketCategory.SecurityIncident || ticket.status === TicketStatus.Finished) {
+// Helper to calculate deadlines based on Category SLA
+const getSLATimer = (ticket: Ticket, category?: TicketCategoryItem) => {
+    if (ticket.status === TicketStatus.Finished) {
         return null;
     }
+    
+    // If no custom SLA is defined, default to 0 (no timer) or special logic for Security Incident Enum fallback
+    let warningLimit = category?.sla_warning_hours || 0;
+    let criticalLimit = category?.sla_critical_hours || 0;
+
+    // Fallback for hardcoded legacy 'Incidente de Segurança' if not in DB yet
+    if (warningLimit === 0 && criticalLimit === 0 && (ticket.category === 'Incidente de Segurança' || ticket.category === TicketCategory.SecurityIncident)) {
+        warningLimit = 24;
+        criticalLimit = 72;
+    }
+
+    if (warningLimit === 0 && criticalLimit === 0) return null;
 
     const requestDate = new Date(ticket.requestDate);
     const now = new Date();
     const elapsedHours = (now.getTime() - requestDate.getTime()) / (1000 * 60 * 60);
 
-    // 24h Deadline (Early Warning)
-    if (elapsedHours < 24) {
-        const hoursLeft = Math.ceil(24 - elapsedHours);
+    // Warning Zone
+    if (warningLimit > 0 && elapsedHours < warningLimit) {
+        const hoursLeft = Math.ceil(warningLimit - elapsedHours);
         return {
-            label: 'Alerta Precoce',
+            label: 'Alerta',
             text: `${hoursLeft}h restantes`,
             className: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
             icon: <FaClock className="animate-pulse" />
         };
     }
-    // 72h Deadline (Incident Notification)
-    if (elapsedHours < 72) {
-        const hoursLeft = Math.ceil(72 - elapsedHours);
+    // Critical Zone
+    if (criticalLimit > 0 && elapsedHours < criticalLimit) {
+        const hoursLeft = Math.ceil(criticalLimit - elapsedHours);
         return {
-            label: 'Notificação 72h',
+            label: 'Prazo Final',
             text: `${hoursLeft}h restantes`,
             className: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
             icon: <FaExclamationTriangle />
         };
     }
+    
     // Overdue
-    return {
-        label: 'Prazo Legal Excedido',
-        text: `+${Math.floor(elapsedHours - 72)}h atraso`,
-        className: 'text-red-500 border-red-500/50 bg-red-500/20 font-bold',
-        icon: <FaShieldAlt />
-    };
+    if (criticalLimit > 0) {
+        return {
+            label: 'SLA Excedido',
+            text: `+${Math.floor(elapsedHours - criticalLimit)}h atraso`,
+            className: 'text-red-500 border-red-500/50 bg-red-500/20 font-bold',
+            icon: <FaShieldAlt />
+        };
+    }
+
+    return null;
 };
 
 // Helper to get icon for security incident type (Flexible matching for dynamic DB strings)
@@ -118,6 +137,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
+    const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
     
     // Fallback if categories empty
     const displayCategories = categories.length > 0 ? categories.map(c => c.name) : Object.values(TicketCategory);
@@ -230,7 +250,8 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                     <tbody>
                         {paginatedTickets.length > 0 ? paginatedTickets.map((ticket) => {
                             const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
-                            const sla = getSLATimer(ticket);
+                            const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
+                            const sla = getSLATimer(ticket, categoryObj);
                             const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
 
                             return(
