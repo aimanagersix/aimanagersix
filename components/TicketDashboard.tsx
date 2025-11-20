@@ -6,9 +6,11 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle } from './common/Icons';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -75,6 +77,18 @@ const getSLATimer = (ticket: Ticket) => {
         className: 'text-red-500 border-red-500/50 bg-red-500/20 font-bold',
         icon: <FaShieldAlt />
     };
+};
+
+// Helper to get icon for security incident type
+const getSecurityIcon = (type?: SecurityIncidentType) => {
+    switch (type) {
+        case SecurityIncidentType.Ransomware: return <FaSkull className="text-red-500" title="Ransomware" />;
+        case SecurityIncidentType.Phishing: return <FaUserSecret className="text-orange-500" title="Phishing" />;
+        case SecurityIncidentType.Malware: return <FaBug className="text-yellow-500" title="Malware" />;
+        case SecurityIncidentType.DDoS: return <FaNetworkWired className="text-purple-500" title="DDoS" />;
+        case SecurityIncidentType.DataLeak: return <FaLock className="text-red-400" title="Fuga de Dados" />;
+        default: return <FaShieldAlt className="text-red-500" />;
+    }
 };
 
 
@@ -221,18 +235,20 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2">
-                                        {isSecurity && <FaShieldAlt className="text-red-500" title="Incidente de Segurança"/>}
+                                        {isSecurity && getSecurityIcon(ticket.securityIncidentType)}
                                         <span className={isSecurity ? 'text-red-300 font-medium' : ''}>
                                             {ticket.category || TicketCategory.TechnicalFault}
                                         </span>
                                     </div>
                                     {isSecurity && ticket.securityIncidentType && (
-                                         <div className="text-xs text-red-200 font-bold mt-1 border border-red-700/50 bg-red-900/30 px-1 rounded inline-block">
-                                            {ticket.securityIncidentType}
+                                         <div className="mt-1">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-900/50 text-red-200 border border-red-700/50">
+                                                {ticket.securityIncidentType}
+                                            </span>
                                         </div>
                                     )}
                                     {isSecurity && ticket.impactCriticality && (
-                                        <div className="text-xs mt-1">Impacto: <span className="text-white">{ticket.impactCriticality}</span></div>
+                                        <div className="text-xs mt-1 text-gray-400">Impacto: <span className="text-white font-bold">{ticket.impactCriticality}</span></div>
                                     )}
                                 </td>
                                 <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs" title={ticket.description}>

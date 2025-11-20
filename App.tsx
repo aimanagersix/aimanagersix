@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import LoginPage from './components/LoginPage';
@@ -733,9 +735,32 @@ const AppContent = () => {
     const handleUpdateVulnerability = async (vuln: any) => { await dataService.updateVulnerability(vuln.id, vuln); refreshData(); }
     const handleDeleteVulnerability = async (id: string) => { await dataService.deleteVulnerability(id); refreshData(); }
 
+    const handleTicketOperationError = (error: any) => {
+        let msg = error.message;
+        if (msg.includes('Could not find') || msg.includes('column')) {
+            alert(`Erro de Base de Dados: ${msg}\n\nDICA: Aceda ao menu "Configuração BD" (no topo direito) e execute o script SQL para atualizar a base de dados com as novas colunas.`);
+        } else {
+            alert(`Erro na operação: ${msg}`);
+        }
+    };
 
-    const handleCreateTicket = async (ticket: any) => { try { await dataService.addTicket({ ...ticket, requestDate: new Date().toISOString(), status: TicketStatus.Requested }); refreshData(); } catch (error: any) { alert(`Erro ao criar ticket: ${error.message}`); } };
-    const handleUpdateTicket = async (ticket: Ticket) => { try { await dataService.updateTicket(ticket.id, ticket); refreshData(); } catch (error: any) { alert(`Erro ao atualizar ticket: ${error.message}`); } };
+    const handleCreateTicket = async (ticket: any) => { 
+        try { 
+            await dataService.addTicket({ ...ticket, requestDate: new Date().toISOString(), status: TicketStatus.Requested }); 
+            refreshData(); 
+        } catch (error: any) { 
+            handleTicketOperationError(error);
+        } 
+    };
+    const handleUpdateTicket = async (ticket: Ticket) => { 
+        try { 
+            await dataService.updateTicket(ticket.id, ticket); 
+            refreshData(); 
+        } catch (error: any) { 
+            handleTicketOperationError(error);
+        } 
+    };
+
     const handleCloseTicket = async (technicianId: string) => { if (ticketToClose) { try { await dataService.updateTicket(ticketToClose.id, { status: TicketStatus.Finished, finishDate: new Date().toISOString(), technicianId: technicianId }); setTicketToClose(null); refreshData(); } catch (error) { alert("Erro ao finalizar ticket."); } } };
     const handleAddActivity = async (activity: any) => { if (ticketActivitiesOpen && currentUser) { try { await dataService.addTicketActivity({ ...activity, ticketId: ticketActivitiesOpen.id, technicianId: currentUser.id, date: new Date().toISOString() }); if (ticketActivitiesOpen.status === TicketStatus.Requested) { await dataService.updateTicket(ticketActivitiesOpen.id, { status: TicketStatus.InProgress }); } refreshData(); } catch (error) { alert("Erro ao adicionar atividade."); } } };
     const handleSendMessage = async (receiverId: string, content: string) => { if (currentUser) { try { await dataService.addMessage({ id: crypto.randomUUID(), senderId: currentUser.id, receiverId, content, timestamp: new Date().toISOString(), read: false }); refreshData(); } catch (error) { console.error("Error sending message", error); } } };

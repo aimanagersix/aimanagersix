@@ -40,7 +40,7 @@ BEGIN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactConfidentiality" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactIntegrity" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactAvailability" text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text; -- Coluna essencial para tipos de ataque
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
 
@@ -370,7 +370,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo foi atualizado para incluir as colunas de **Segurança** e **NIS2** nas tabelas existentes, caso ainda não existam.
+                        O script abaixo foi atualizado para incluir as colunas de **Segurança** e **NIS2** (como <code>securityIncidentType</code>) nas tabelas existentes, caso ainda não existam.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>
