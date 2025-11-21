@@ -85,9 +85,51 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 return;
             }
 
+            // 1. TENTATIVA PRINCIPAL: ViesAPI.eu (Credenciais Fornecidas)
+            try {
+                const id = 'oRj4r9WYBXhh';
+                const key = 'KwXUigqU31Xy';
+                const auth = btoa(`${id}:${key}`);
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+                const response = await fetch(`https://viesapi.eu/api/v1/get/euvat/${countryCode}${vatNumber}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Basic ${auth}`,
+                        'Accept': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // A API viesapi.eu retorna 'valid' (boolean)
+                    if (data && data.valid) {
+                         setFormData(prev => ({
+                            ...prev,
+                            name: data.traderName || data.name || prev.name, // Prioridade ao traderName
+                            nif: input,
+                            notes: (prev.notes ? prev.notes + '\n\n' : '') + (data.traderAddress || data.address ? `Endereço (VIES): ${data.traderAddress || data.address}` : '')
+                        }));
+                        setIsFetchingVies(false);
+                        return; // Sucesso, sair da função
+                    } else if (data && data.valid === false) {
+                        // Se a API responder explicitamente que é inválido, paramos aqui
+                        alert(`O NIF ${input} não é válido.`);
+                        setIsFetchingVies(false);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn("ViesAPI.eu falhou ou timed out, a tentar proxies públicos...", e);
+            }
+
+            // 2. FALLBACK: Proxies Públicos (Redundância)
             const targetUrl = `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number/${countryCode}/${vatNumber}`;
             
-            // Lista de Proxies atualizada para maior fiabilidade
             const proxies = [
                 {
                     name: 'allorigins-raw',
@@ -113,7 +155,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             for (const proxy of proxies) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout por proxy (aumentado)
+                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout por proxy
 
                     const response = await fetch(proxy.url(targetUrl), { 
                         signal: controller.signal,
@@ -166,12 +208,12 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     alert(`O NIF ${input} não é válido ou não existe na base de dados VIES.`);
                 }
             } else {
-                throw new Error("Todos os proxies falharam");
+                throw new Error("Todos os métodos de consulta falharam");
             }
 
         } catch (e) {
             console.error("Erro VIES:", e);
-            alert("Não foi possível obter dados do VIES automaticamente. O serviço pode estar indisponível ou bloqueado na sua rede. Por favor, preencha os dados manualmente.");
+            alert("Não foi possível obter dados do VIES automaticamente (Erro de rede ou serviço indisponível). Por favor, preencha os dados manualmente.");
         } finally {
             setIsFetchingVies(false);
         }
