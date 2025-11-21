@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, EntidadeStatus } from '../types';
+import { SpinnerIcon } from './common/Icons';
 
 const isPortuguesePhoneNumber = (phone: string): boolean => {
     if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
@@ -27,9 +29,14 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         telefone: '',
         telemovel: '',
         telefoneInterno: '',
-        status: EntidadeStatus.Ativo
+        status: EntidadeStatus.Ativo,
+        address_line: '',
+        postal_code: '',
+        city: '',
+        locality: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isFetchingCP, setIsFetchingCP] = useState(false);
 
     useEffect(() => {
         if (entidadeToEdit) {
@@ -44,6 +51,10 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                 telemovel: entidadeToEdit.telemovel || '',
                 telefoneInterno: entidadeToEdit.telefoneInterno || '',
                 status: entidadeToEdit.status || EntidadeStatus.Ativo,
+                address_line: entidadeToEdit.address_line || entidadeToEdit.address || '',
+                postal_code: entidadeToEdit.postal_code || '',
+                city: entidadeToEdit.city || '',
+                locality: entidadeToEdit.locality || '',
             });
         }
     }, [entidadeToEdit]);
@@ -77,14 +88,54 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        let val = e.target.value;
+        val = val.replace(/[^0-9-]/g, ''); 
+        if (val.length > 4 && val.indexOf('-') === -1) {
+            val = val.slice(0, 4) + '-' + val.slice(4);
+        }
+        if (val.length > 8) val = val.slice(0, 8);
+
+        setFormData(prev => ({ ...prev, postal_code: val }));
+
+        if (/^\d{4}-\d{3}$/.test(val)) {
+            setIsFetchingCP(true);
+            try {
+                const res = await fetch(`https://json.geoapi.pt/cp/${val}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.Concelho) {
+                        let loc = '';
+                        if (data.Freguesia) loc = data.Freguesia;
+                        else if (data.part && data.part.length > 0) loc = data.part[0];
+
+                        setFormData(prev => ({
+                            ...prev,
+                            city: data.Concelho,
+                            locality: loc
+                        }));
+                    }
+                }
+            } catch (err) {
+                console.warn("Erro CP:", err);
+            } finally {
+                setIsFetchingCP(false);
+            }
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         
+        // Create legacy address string
+        const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
+        const finalData = { ...formData, address };
+
         if (entidadeToEdit) {
-            onSave({ ...entidadeToEdit, ...formData });
+            onSave({ ...entidadeToEdit, ...finalData });
         } else {
-            onSave(formData);
+            onSave(finalData);
         }
         onClose();
     };
@@ -135,6 +186,35 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                     <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição</label>
                     <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" ></textarea>
                 </div>
+
+                {/* Address Section */}
+                <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
+                    <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada da Entidade</h4>
+                    <div className="space-y-3">
+                        <div>
+                            <label htmlFor="address_line" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Endereço</label>
+                            <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua Principal, 123" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label htmlFor="postal_code" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Código Postal</label>
+                                <div className="relative">
+                                    <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                                    {isFetchingCP && <div className="absolute right-2 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
+                                </div>
+                            </div>
+                            <div>
+                                <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade / Concelho</label>
+                                <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                            </div>
+                            <div>
+                                <label htmlFor="locality" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Localidade</label>
+                                <input type="text" name="locality" value={formData.locality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                  <div className="border-t border-gray-600 pt-4 mt-4">
                     <h3 className="text-lg font-medium text-on-surface-dark mb-2">Contacto do Responsável</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

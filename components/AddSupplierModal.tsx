@@ -9,6 +9,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
@@ -126,10 +128,14 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     const data = await res.json();
                     // API returns object with Concelho, Distrito, and part (array)
                     if (data && data.Concelho) {
+                        let loc = '';
+                        if (data.Freguesia) loc = data.Freguesia;
+                        else if (data.part && data.part.length > 0) loc = data.part[0];
+
                         setFormData(prev => ({
                             ...prev,
                             city: data.Concelho,
-                            locality: data.Freguesia || (data.part && data.part.length > 0 ? data.part[0] : '')
+                            locality: loc
                         }));
                     }
                 }

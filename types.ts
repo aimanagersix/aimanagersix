@@ -98,6 +98,12 @@ export interface Instituicao {
   name: string;
   email: string;
   telefone: string;
+  // Address
+  address?: string;
+  address_line?: string;
+  postal_code?: string;
+  city?: string;
+  locality?: string;
 }
 
 export enum EntidadeStatus {
@@ -117,6 +123,12 @@ export interface Entidade {
   telemovel?: string;
   telefoneInterno?: string;
   status: EntidadeStatus;
+  // Address
+  address?: string;
+  address_line?: string;
+  postal_code?: string;
+  city?: string;
+  locality?: string;
 }
 
 export enum UserRole {
@@ -143,6 +155,12 @@ export interface Collaborator {
   telemovel?: string;
   photoUrl?: string;
   dateOfBirth?: string;
+  // Address (Optional for Collaborators)
+  address?: string;
+  address_line?: string;
+  postal_code?: string;
+  city?: string;
+  locality?: string;
   // Auth fields
   canLogin: boolean;
   receivesNotifications: boolean;

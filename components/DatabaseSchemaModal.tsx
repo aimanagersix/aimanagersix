@@ -9,6 +9,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -104,6 +106,33 @@ BEGIN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
+
+    -- Adicionar colunas de morada à tabela INSTITUICOES
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
+        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address text;
+        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address_line text;
+        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS postal_code text;
+        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS city text;
+        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS locality text;
+    END IF;
+
+    -- Adicionar colunas de morada à tabela ENTIDADES
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'entidades') THEN
+        ALTER TABLE entidades ADD COLUMN IF NOT EXISTS address text;
+        ALTER TABLE entidades ADD COLUMN IF NOT EXISTS address_line text;
+        ALTER TABLE entidades ADD COLUMN IF NOT EXISTS postal_code text;
+        ALTER TABLE entidades ADD COLUMN IF NOT EXISTS city text;
+        ALTER TABLE entidades ADD COLUMN IF NOT EXISTS locality text;
+    END IF;
+
+    -- Adicionar colunas de morada à tabela COLLABORATORS
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'collaborators') THEN
+        ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS address text;
+        ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS address_line text;
+        ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS postal_code text;
+        ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS city text;
+        ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS locality text;
+    END IF;
 END $$;
 
 
@@ -117,6 +146,11 @@ CREATE TABLE IF NOT EXISTS instituicoes (
     codigo text,
     email text,
     telefone text,
+    address text,
+    address_line text,
+    postal_code text,
+    city text,
+    locality text,
     created_at timestamptz DEFAULT now()
 );
 
@@ -132,6 +166,11 @@ CREATE TABLE IF NOT EXISTS entidades (
     telemovel text,
     "telefoneInterno" text,
     status text DEFAULT 'Ativo',
+    address text,
+    address_line text,
+    postal_code text,
+    city text,
+    locality text,
     created_at timestamptz DEFAULT now()
 );
 
@@ -149,7 +188,12 @@ CREATE TABLE IF NOT EXISTS collaborators (
     "receivesNotifications" boolean DEFAULT true,
     role text DEFAULT 'Utilizador',
     status text DEFAULT 'Ativo',
-    "allowedModules" text[], 
+    "allowedModules" text[],
+    address text,
+    address_line text,
+    postal_code text,
+    city text,
+    locality text,
     created_at timestamptz DEFAULT now()
 );
 
@@ -470,7 +514,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo atualiza a tabela de <strong>Suppliers (Fornecedores)</strong> com colunas para <strong>Endereço, Código Postal e Localidade</strong> estruturados.
+                        O script abaixo atualiza as tabelas para adicionar campos de <strong>Morada Estruturada</strong> a Instituições, Entidades e Colaboradores.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

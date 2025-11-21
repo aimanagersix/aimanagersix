@@ -9,6 +9,8 @@
 
 
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
@@ -151,8 +153,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
     const hasNis2Tabs = tabConfig['nis2.bia'] || tabConfig['nis2.security'];
     const hasTicketTabs = tabConfig['tickets'];
-    const hasTicketCategories = tabConfig['tickets.categories'];
-    const hasIncidentTypes = tabConfig['tickets.incident_types'];
+    // Fixed visibility check: Look inside the nested tickets object if present
+    const hasTicketCategories = tabConfig.tickets?.categories;
+    const hasIncidentTypes = tabConfig.tickets?.incident_types;
     const isAdmin = currentUser?.role === UserRole.Admin;
 
   return (
