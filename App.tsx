@@ -486,7 +486,7 @@ const InnerApp: React.FC = () => {
         'licensing': 'Licenciamento',
         'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets', categories: 'Categorias', incident_types: 'Tipos de Incidente' },
-        'nis2': { title: 'Norma (NIS2)', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Restauro & Backups' }
+        'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Restauro & Backups' }
     };
 
     return (

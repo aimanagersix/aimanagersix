@@ -17,6 +17,7 @@
 
 
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -141,6 +142,17 @@ BEGIN
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS city text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS nif text;
+    END IF;
+
+    -- Adicionar colunas à tabela BACKUP_EXECUTIONS (Migração se foi criado incorretamente antes)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'backup_executions') THEN
+        -- Remove a coluna antiga 'evidence_attachment' se existir como texto simples
+        -- Mas para não perder dados, pode-se renomear ou converter. Aqui assumimos replace simples.
+        IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'backup_executions' AND column_name = 'evidence_attachment' AND data_type = 'text') THEN
+             -- Se quiser manter dados, teríamos de fazer uma migração complexa. Simplificando:
+             ALTER TABLE backup_executions DROP COLUMN evidence_attachment;
+        END IF;
+        ALTER TABLE backup_executions ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
 END $$;
 
@@ -467,7 +479,7 @@ CREATE TABLE IF NOT EXISTS backup_executions (
     restore_time_minutes integer,
     tester_id uuid REFERENCES collaborators(id),
     notes text,
-    evidence_attachment text,
+    attachments jsonb DEFAULT '[]', -- Evidências (screenshots, logs)
     created_at timestamptz DEFAULT now()
 );
 

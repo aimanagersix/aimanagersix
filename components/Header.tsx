@@ -16,6 +16,8 @@
 
 
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
@@ -235,7 +237,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 </div>
               )}
 
-              {/* 3. Norma (NIS2) */}
+              {/* 3. Norma (NIS2) / Compliance */}
               {hasNis2Tabs && (
                  <div className="relative" ref={nis2MenuRef}>
                     <button
@@ -245,7 +247,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         aria-expanded={isNis2MenuOpen}
                     >
                         <FaShieldAlt className="h-5 w-5"/>
-                        {tabConfig.nis2?.title || 'Norma (NIS2)'}
+                        {tabConfig.nis2?.title || 'Compliance'}
                         <svg className={`w-4 h-4 ml-1 transition-transform transform ${isNis2MenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
@@ -465,7 +467,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         </div>
                     )}
                     
-                    {/* 3. Norma (NIS2) Mobile */}
+                    {/* 3. Norma (NIS2) / Compliance Mobile */}
                     {hasNis2Tabs && (
                         <div>
                             <button
@@ -475,7 +477,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             >
                                 <div className="flex items-center gap-2">
                                     <FaShieldAlt className="h-5 w-5"/>
-                                    <span>{tabConfig.nis2?.title || 'Norma (NIS2)'}</span>
+                                    <span>{tabConfig.nis2?.title || 'Compliance'}</span>
                                 </div>
                                 <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileNis2Open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

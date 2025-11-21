@@ -409,5 +409,5 @@ export interface BackupExecution {
     restore_time_minutes?: number; // RTO verification
     tester_id: string; // Collaborator who tested
     notes?: string;
-    evidence_attachment?: string; // URL to screenshot or log
+    attachments?: { name: string; dataUrl: string }[]; // Evidences (screenshots, logs)
 }

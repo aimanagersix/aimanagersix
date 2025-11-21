@@ -1,7 +1,9 @@
 
+
+
 import React, { useState, useMemo } from 'react';
 import { BackupExecution, Collaborator, BackupType } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaServer, FaSearch, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaClock } from './common/Icons';
+import { EditIcon, DeleteIcon, PlusIcon, FaServer, FaSearch, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaClock, FaPaperclip } from './common/Icons';
 import Pagination from './common/Pagination';
 
 interface BackupDashboardProps {
@@ -70,7 +72,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                         Registo de Testes de Restauro (Backups)
                     </h2>
                     <p className="text-sm text-on-surface-dark-secondary mt-1">
-                        Monitorização e evidência de testes de recuperação de dados (Conformidade NIS2).
+                        Monitorização e evidência de testes de recuperação de dados (Compliance NIS2).
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -119,6 +121,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                             <th className="px-6 py-3">Data Backup</th>
                             <th className="px-6 py-3 text-center">RTO (min)</th>
                             <th className="px-6 py-3 text-center">Status</th>
+                            <th className="px-6 py-3 text-center">Evidências</th>
                             <th className="px-6 py-3">Testado Por</th>
                             <th className="px-6 py-3 text-center">Ações</th>
                         </tr>
@@ -139,6 +142,16 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                                         {getStatusIcon(backup.status)} {backup.status}
                                     </span>
                                 </td>
+                                <td className="px-6 py-4 text-center">
+                                    {backup.attachments && backup.attachments.length > 0 ? (
+                                        <div className="flex items-center justify-center gap-1 text-brand-secondary" title={`${backup.attachments.length} anexo(s)`}>
+                                            <FaPaperclip />
+                                            <span className="text-xs">{backup.attachments.length}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-600 text-xs">-</span>
+                                    )}
+                                </td>
                                 <td className="px-6 py-4">{collaboratorMap.get(backup.tester_id) || 'Desconhecido'}</td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
@@ -153,7 +166,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={8} className="text-center py-8 text-on-surface-dark-secondary">
+                                <td colSpan={9} className="text-center py-8 text-on-surface-dark-secondary">
                                     Nenhum teste de backup registado.
                                 </td>
                             </tr>
