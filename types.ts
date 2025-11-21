@@ -25,6 +25,22 @@ export interface Brand {
   name: string;
 }
 
+// --- Supplier / Vendor Risk Management (NIS2) ---
+export interface Supplier {
+    id: string;
+    name: string;
+    contact_name?: string;
+    contact_email?: string;
+    contact_phone?: string;
+    nif?: string;
+    website?: string;
+    notes?: string;
+    // Security Fields
+    is_iso27001_certified: boolean;
+    security_contact_email?: string;
+    risk_level: CriticalityLevel; // Vendor Risk Rating
+}
+
 export interface EquipmentType {
   id: string;
   name: string;
@@ -59,6 +75,8 @@ export interface Equipment {
   // Security & Patching
   os_version?: string;
   last_security_update?: string;
+  // Vendor Link
+  supplier_id?: string;
 }
 
 export interface Instituicao {
@@ -243,6 +261,8 @@ export interface SoftwareLicense {
   confidentiality?: CIARating;
   integrity?: CIARating;
   availability?: CIARating;
+  // Vendor Link
+  supplier_id?: string;
 }
 
 export interface LicenseAssignment {
@@ -302,6 +322,8 @@ export interface BusinessService {
     rto_goal?: string; // Recovery Time Objective (e.g. "4h")
     owner_id?: string; // Collaborator ID (Service Owner)
     status: ServiceStatus;
+    // External Provider Link
+    external_provider_id?: string; // FK to Supplier
 }
 
 export interface ServiceDependency {

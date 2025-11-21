@@ -1,17 +1,20 @@
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating } from '../types';
+import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating, Supplier } from '../types';
 import { FaShieldAlt } from './common/Icons';
 
 interface AddLicenseModalProps {
     onClose: () => void;
     onSave: (license: Omit<SoftwareLicense, 'id'> | SoftwareLicense) => Promise<any>;
     licenseToEdit?: SoftwareLicense | null;
+    suppliers?: Supplier[];
 }
 
-const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, licenseToEdit }) => {
+const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, licenseToEdit, suppliers = [] }) => {
     const [formData, setFormData] = useState<Partial<SoftwareLicense>>({
         productName: '',
         licenseKey: '',
@@ -25,6 +28,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         confidentiality: CIARating.Low,
         integrity: CIARating.Low,
         availability: CIARating.Low,
+        supplier_id: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -43,6 +47,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                 confidentiality: licenseToEdit.confidentiality || CIARating.Low,
                 integrity: licenseToEdit.integrity || CIARating.Low,
                 availability: licenseToEdit.availability || CIARating.Low,
+                supplier_id: licenseToEdit.supplier_id || '',
             });
         }
     }, [licenseToEdit]);
@@ -90,6 +95,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
             expiryDate: formData.expiryDate || undefined,
             purchaseEmail: formData.purchaseEmail || undefined,
             invoiceNumber: formData.invoiceNumber || undefined,
+            supplier_id: formData.supplier_id || undefined
         };
 
         if (licenseToEdit) {
@@ -130,6 +136,21 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                         <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
                             {Object.values(LicenseStatus).map(s => (
                                 <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="supplier_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fornecedor (Revendedor)</label>
+                        <select 
+                            name="supplier_id" 
+                            id="supplier_id" 
+                            value={formData.supplier_id} 
+                            onChange={handleChange} 
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                        >
+                            <option value="">-- Selecione Fornecedor --</option>
+                            {suppliers.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
                         </select>
                     </div>

@@ -2,11 +2,13 @@
 
 
 
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency, Vulnerability, SecurityIncidentTypeItem
+    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency, Vulnerability, SecurityIncidentTypeItem, Supplier
 } from '../types';
 
 const handleSupabaseError = (error: any, operation: string) => {
@@ -95,7 +97,7 @@ export const fetchAllData = async () => {
         assignmentsRes, ticketsRes, ticketActivitiesRes, brandsRes,
         equipmentTypesRes, softwareLicensesRes, licenseAssignmentsRes,
         teamsRes, teamMembersRes, messagesRes, historyRes, categoriesRes,
-        servicesRes, dependenciesRes, vulnerabilitiesRes, incidentTypesRes
+        servicesRes, dependenciesRes, vulnerabilitiesRes, incidentTypesRes, suppliersRes
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('instituicoes').select('*'),
@@ -116,7 +118,8 @@ export const fetchAllData = async () => {
         supabase.from('business_services').select('*'),
         supabase.from('service_dependencies').select('*'),
         supabase.from('vulnerabilities').select('*'),
-        supabase.from('security_incident_types').select('*').order('name')
+        supabase.from('security_incident_types').select('*').order('name'),
+        supabase.from('suppliers').select('*').order('name')
     ]);
 
     const check = (res: any, name: string) => { if (res.error) handleSupabaseError(res.error, `fetching ${name}`); };
@@ -135,11 +138,12 @@ export const fetchAllData = async () => {
     check(teamMembersRes, 'teamMembers');
     check(messagesRes, 'messages');
     check(historyRes, 'history');
-    // Don't fail strictly on categories, BIA, or Vulnerabilities tables to allow smooth migration
+    // Don't fail strictly on newer tables to allow smooth migration
     if (categoriesRes.error) console.warn("Failed to fetch categories, table might be missing.");
     if (servicesRes.error) console.warn("Failed to fetch services, table might be missing.");
     if (vulnerabilitiesRes.error) console.warn("Failed to fetch vulnerabilities, table might be missing.");
     if (incidentTypesRes.error) console.warn("Failed to fetch incident types, table might be missing.");
+    if (suppliersRes.error) console.warn("Failed to fetch suppliers, table might be missing.");
 
     return {
         equipment: equipmentRes.data || [],
@@ -162,6 +166,7 @@ export const fetchAllData = async () => {
         serviceDependencies: dependenciesRes.data || [],
         vulnerabilities: vulnerabilitiesRes.data || [],
         securityIncidentTypes: incidentTypesRes.data || [],
+        suppliers: suppliersRes.data || [],
     };
 };
 
@@ -187,6 +192,25 @@ export const deleteBrand = async (id: string) => {
     const { error } = await getSupabase().from('brands').delete().eq('id', id);
     handleSupabaseError(error, 'deleting brand');
     await logAction('DELETE', 'Brand', `Deleted brand`, id);
+};
+
+// --- Suppliers (Fornecedores) ---
+export const addSupplier = async (supplier: Omit<Supplier, 'id'>) => {
+    const { data, error } = await getSupabase().from('suppliers').insert(supplier).select().single();
+    handleSupabaseError(error, 'adding supplier');
+    await logAction('CREATE', 'Supplier', `Created supplier ${supplier.name}`, data.id);
+    return data as Supplier;
+};
+export const updateSupplier = async (id: string, updates: Partial<Supplier>) => {
+    const { data, error } = await getSupabase().from('suppliers').update(updates).eq('id', id).select().single();
+    handleSupabaseError(error, 'updating supplier');
+    await logAction('UPDATE', 'Supplier', `Updated supplier ${data.name}`, id);
+    return data as Supplier;
+};
+export const deleteSupplier = async (id: string) => {
+    const { error } = await getSupabase().from('suppliers').delete().eq('id', id);
+    handleSupabaseError(error, 'deleting supplier');
+    await logAction('DELETE', 'Supplier', `Deleted supplier`, id);
 };
 
 // --- Equipment Types ---

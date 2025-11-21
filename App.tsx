@@ -1,9 +1,11 @@
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
-  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel
+  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -58,6 +60,8 @@ import AddEquipmentKitModal from './components/AddEquipmentKitModal';
 import ConfirmationModal from './components/common/ConfirmationModal';
 import CloseTicketModal from './components/CloseTicketModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
+import SupplierDashboard from './components/SupplierDashboard';
+import AddSupplierModal from './components/AddSupplierModal';
 
 type Session = any;
 
@@ -87,6 +91,7 @@ const InnerApp: React.FC = () => {
     const [businessServices, setBusinessServices] = useState<BusinessService[]>([]);
     const [serviceDependencies, setServiceDependencies] = useState<ServiceDependency[]>([]);
     const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
     // UI State
     const [isConfigured, setIsConfigured] = useState(!!localStorage.getItem('SUPABASE_URL'));
@@ -142,6 +147,8 @@ const InnerApp: React.FC = () => {
     const [confirmationModal, setConfirmationModal] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
     const [showCloseTicket, setShowCloseTicket] = useState<Ticket | null>(null);
     const [equipmentForHistory, setEquipmentForHistory] = useState<Equipment | null>(null);
+    const [showAddSupplier, setShowAddSupplier] = useState(false);
+    const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
 
     // Maps
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -173,6 +180,7 @@ const InnerApp: React.FC = () => {
             setServiceDependencies(data.serviceDependencies);
             setVulnerabilities(data.vulnerabilities);
             setSecurityIncidentTypes(data.securityIncidentTypes);
+            setSuppliers(data.suppliers);
         } catch (error) {
             console.error("Failed to load data:", error);
         } finally {
@@ -245,6 +253,7 @@ const InnerApp: React.FC = () => {
                  setServiceDependencies(data.serviceDependencies);
                  setVulnerabilities(data.vulnerabilities);
                  setSecurityIncidentTypes(data.securityIncidentTypes);
+                 setSuppliers(data.suppliers);
              } else {
                  console.warn("User logged in but not found in collaborators table");
              }
@@ -469,6 +478,7 @@ const InnerApp: React.FC = () => {
         'organizacao.teams': 'Equipas',
         'collaborators': 'Colaboradores',
         'licensing': 'Licenciamento',
+        'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets', categories: 'Categorias', incident_types: 'Tipos de Incidente' },
         'nis2': { title: 'Norma (NIS2)', bia: 'BIA (Serviços)', security: 'Segurança (CVE)' }
     };
@@ -664,6 +674,15 @@ const InnerApp: React.FC = () => {
                     />
                 )}
 
+                {activeTab === 'organizacao.suppliers' && (
+                    <SupplierDashboard
+                        suppliers={suppliers}
+                        onEdit={(s) => { setSupplierToEdit(s); setShowAddSupplier(true); }}
+                        onDelete={(id) => handleDelete('Excluir Fornecedor', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteSupplier, id))}
+                        onCreate={() => { setSupplierToEdit(null); setShowAddSupplier(true); }}
+                    />
+                )}
+
                 {activeTab === 'tickets.categories' && (
                     <CategoryDashboard
                         categories={ticketCategories}
@@ -741,6 +760,7 @@ const InnerApp: React.FC = () => {
                     licenseAssignments={licenseAssignments}
                     vulnerabilities={vulnerabilities}
                     onClose={() => setEquipmentForHistory(null)}
+                    suppliers={suppliers}
                 />
             )}
 
@@ -824,6 +844,7 @@ const InnerApp: React.FC = () => {
                         setKitInitialData(data);
                         setShowAddKit(true);
                     }}
+                    suppliers={suppliers}
                 />
             )}
 
@@ -920,6 +941,7 @@ const InnerApp: React.FC = () => {
                         else return simpleSaveWrapper(dataService.addLicense, l);
                     }}
                     licenseToEdit={licenseToEdit}
+                    suppliers={suppliers}
                 />
             )}
 
@@ -966,6 +988,7 @@ const InnerApp: React.FC = () => {
                     }}
                     serviceToEdit={serviceToEdit}
                     collaborators={collaborators}
+                    suppliers={suppliers}
                 />
             )}
 
@@ -977,6 +1000,17 @@ const InnerApp: React.FC = () => {
                         else return simpleSaveWrapper(dataService.addVulnerability, v);
                     }}
                     vulnToEdit={vulnerabilityToEdit}
+                />
+            )}
+            
+            {showAddSupplier && (
+                <AddSupplierModal
+                    onClose={() => { setShowAddSupplier(false); setSupplierToEdit(null); }}
+                    onSave={(s) => {
+                        if (supplierToEdit) return simpleSaveWrapper(dataService.updateSupplier, s, supplierToEdit.id);
+                        else return simpleSaveWrapper(dataService.addSupplier, s);
+                    }}
+                    supplierToEdit={supplierToEdit}
                 />
             )}
 

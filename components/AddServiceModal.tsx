@@ -1,29 +1,33 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus } from '../types';
+import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus, Supplier } from '../types';
 
 interface AddServiceModalProps {
     onClose: () => void;
     onSave: (service: Omit<BusinessService, 'id'> | BusinessService) => Promise<any>;
     serviceToEdit?: BusinessService | null;
     collaborators: Collaborator[];
+    suppliers?: Supplier[];
 }
 
-const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serviceToEdit, collaborators }) => {
+const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serviceToEdit, collaborators, suppliers = [] }) => {
     const [formData, setFormData] = useState<Partial<BusinessService>>({
         name: '',
         description: '',
         criticality: CriticalityLevel.Medium,
         rto_goal: '',
         owner_id: '',
-        status: ServiceStatus.Ativo
+        status: ServiceStatus.Ativo,
+        external_provider_id: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         if (serviceToEdit) {
-            setFormData({ ...serviceToEdit });
+            setFormData({ ...serviceToEdit, external_provider_id: serviceToEdit.external_provider_id || '' });
         }
     }, [serviceToEdit]);
 
@@ -47,6 +51,7 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
         // Clean up optional fields
         if (!dataToSave.owner_id) delete dataToSave.owner_id;
         if (!dataToSave.rto_goal) delete dataToSave.rto_goal;
+        if (!dataToSave.external_provider_id) delete dataToSave.external_provider_id;
 
         if (serviceToEdit) {
             onSave({ ...serviceToEdit, ...dataToSave });
@@ -97,11 +102,21 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado</label>
-                         <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                            {Object.values(ServiceStatus).map(st => <option key={st} value={st}>{st}</option>)}
+                        <label htmlFor="external_provider_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fornecedor Externo (Outsourcing)</label>
+                        <select name="external_provider_id" value={formData.external_provider_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                            <option value="">Nenhum (Interno)</option>
+                            {suppliers.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
                         </select>
                     </div>
+                </div>
+                
+                <div>
+                    <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado</label>
+                        <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                        {Object.values(ServiceStatus).map(st => <option key={st} value={st}>{st}</option>)}
+                    </select>
                 </div>
 
                 <div>

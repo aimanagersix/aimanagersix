@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -59,6 +61,8 @@ BEGIN
         -- NOVAS COLUNAS DE PATCHING E VERSÃO
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS os_version text;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS last_security_update text;
+        -- COLUNA DE FORNECEDOR
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS supplier_id uuid;
     END IF;
 
     -- Adicionar colunas de NIS2 à tabela SOFTWARE_LICENSES se não existirem
@@ -67,6 +71,13 @@ BEGIN
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
+        -- COLUNA DE FORNECEDOR
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS supplier_id uuid;
+    END IF;
+
+    -- Adicionar coluna de fornecedor externo a BUSINESS_SERVICES
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'business_services') THEN
+        ALTER TABLE business_services ADD COLUMN IF NOT EXISTS external_provider_id uuid;
     END IF;
 END $$;
 
@@ -122,6 +133,22 @@ CREATE TABLE IF NOT EXISTS brands (
     name text NOT NULL UNIQUE
 );
 
+-- NOVA TABELA: FORNECEDORES (SUPPLIERS)
+CREATE TABLE IF NOT EXISTS suppliers (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    contact_name text,
+    contact_email text,
+    contact_phone text,
+    nif text,
+    website text,
+    notes text,
+    is_iso27001_certified boolean DEFAULT false,
+    security_contact_email text,
+    risk_level text DEFAULT 'Baixa', -- Vendor Risk Rating
+    created_at timestamptz DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS teams (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL,
@@ -159,6 +186,7 @@ CREATE TABLE IF NOT EXISTS equipment (
     availability text DEFAULT 'Baixo',
     os_version text,
     last_security_update text,
+    supplier_id uuid REFERENCES suppliers(id),
     "creationDate" text DEFAULT to_char(now(), 'YYYY-MM-DD'),
     "modifiedDate" text DEFAULT to_char(now(), 'YYYY-MM-DD')
 );
@@ -250,6 +278,7 @@ CREATE TABLE IF NOT EXISTS software_licenses (
     confidentiality text DEFAULT 'Baixo',
     integrity text DEFAULT 'Baixo',
     availability text DEFAULT 'Baixo',
+    supplier_id uuid REFERENCES suppliers(id),
     created_at timestamptz DEFAULT now()
 );
 
@@ -308,6 +337,7 @@ CREATE TABLE IF NOT EXISTS business_services (
     rto_goal text,
     owner_id uuid REFERENCES collaborators(id),
     status text DEFAULT 'Ativo',
+    external_provider_id uuid REFERENCES suppliers(id),
     created_at timestamptz DEFAULT now()
 );
 

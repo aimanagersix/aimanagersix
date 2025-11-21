@@ -1,8 +1,10 @@
 
 
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating } from '../types';
+import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
 import { FaExclamationTriangle } from 'react-icons/fa';
@@ -16,6 +18,7 @@ interface AddEquipmentModalProps {
     onSaveBrand: (brand: Omit<Brand, 'id'>) => Promise<Brand>;
     onSaveEquipmentType: (type: Omit<EquipmentType, 'id'>) => Promise<EquipmentType>;
     onOpenKitModal: (initialData: Partial<Equipment>) => void;
+    suppliers?: Supplier[];
 }
 
 interface CameraScannerProps {
@@ -150,7 +153,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
     );
 };
 
-const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal }) => {
+const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, suppliers = [] }) => {
     const [formData, setFormData] = useState<Partial<Equipment>>({
         brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: '',
         criticality: CriticalityLevel.Low,
@@ -159,6 +162,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         availability: CIARating.Low,
         os_version: '',
         last_security_update: '',
+        supplier_id: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -192,6 +196,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 availability: equipmentToEdit.availability || CIARating.Low,
                 os_version: equipmentToEdit.os_version || '',
                 last_security_update: equipmentToEdit.last_security_update || '',
+                supplier_id: equipmentToEdit.supplier_id || '',
             });
         } else {
             setFormData({
@@ -212,6 +217,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 availability: CIARating.Low,
                 os_version: '',
                 last_security_update: '',
+                supplier_id: ''
             });
         }
     }, [equipmentToEdit, brands, equipmentTypes]);
@@ -363,6 +369,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             warrantyEndDate: formData.warrantyEndDate || undefined,
             os_version: formData.os_version || undefined,
             last_security_update: formData.last_security_update || undefined,
+            supplier_id: formData.supplier_id || undefined,
         };
 
         if (equipmentToEdit) {
@@ -521,21 +528,39 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                         />
                     </div>
                 )}
-                <div>
-                    <label htmlFor="warrantyEndDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fim da Garantia (Opcional)</label>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="date"
-                            name="warrantyEndDate"
-                            id="warrantyEndDate"
-                            value={formData.warrantyEndDate}
-                            onChange={handleChange}
-                            className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.warrantyEndDate ? 'border-red-500' : 'border-gray-600'}`}
-                        />
-                        <button type="button" onClick={() => handleSetWarranty(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
-                        <button type="button" onClick={() => handleSetWarranty(3)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">3 Anos</button>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="warrantyEndDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fim da Garantia (Opcional)</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                name="warrantyEndDate"
+                                id="warrantyEndDate"
+                                value={formData.warrantyEndDate}
+                                onChange={handleChange}
+                                className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.warrantyEndDate ? 'border-red-500' : 'border-gray-600'}`}
+                            />
+                            <button type="button" onClick={() => handleSetWarranty(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
+                            <button type="button" onClick={() => handleSetWarranty(3)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">3 Anos</button>
+                        </div>
+                        {errors.warrantyEndDate && <p className="text-red-400 text-xs italic mt-1">{errors.warrantyEndDate}</p>}
                     </div>
-                    {errors.warrantyEndDate && <p className="text-red-400 text-xs italic mt-1">{errors.warrantyEndDate}</p>}
+                    <div>
+                        <label htmlFor="supplier_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fornecedor</label>
+                        <select 
+                            name="supplier_id" 
+                            id="supplier_id" 
+                            value={formData.supplier_id} 
+                            onChange={handleChange} 
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                        >
+                            <option value="">-- Selecione Fornecedor --</option>
+                            {suppliers.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 {/* NIS2 Compliance Section */}

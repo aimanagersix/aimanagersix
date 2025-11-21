@@ -1,9 +1,11 @@
 
 
+
+
 import React, { useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug } from 'react-icons/fa';
+import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope } from 'react-icons/fa';
 
 interface EquipmentHistoryModalProps {
     equipment: Equipment;
@@ -18,6 +20,7 @@ interface EquipmentHistoryModalProps {
     softwareLicenses?: SoftwareLicense[];
     licenseAssignments?: LicenseAssignment[];
     vulnerabilities?: Vulnerability[];
+    suppliers?: Supplier[];
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -31,7 +34,7 @@ const getCriticalityClass = (level: CriticalityLevel) => {
 
 const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({ 
     equipment, assignments, collaborators, escolasDepartamentos: entidades, onClose, tickets, ticketActivities,
-    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = []
+    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = []
 }) => {
     // Memoize maps for efficient lookups
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
@@ -88,6 +91,11 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
             return terms.some(term => searchText.includes(term));
         });
     }, [vulnerabilities, equipment, installedSoftware]);
+    
+    const equipmentSupplier = useMemo(() => {
+        if (!equipment.supplier_id) return null;
+        return suppliers.find(s => s.id === equipment.supplier_id);
+    }, [equipment.supplier_id, suppliers]);
 
     const getStatusText = (assignment: Assignment) => {
         return assignment.returnDate ? 'Concluída' : 'Ativa';
@@ -155,6 +163,39 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                         )}
                     </div>
                 </div>
+                
+                {/* Supplier Section */}
+                {equipmentSupplier && (
+                    <div className="border border-gray-700 bg-gray-800/30 rounded-lg p-4">
+                        <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
+                            <FaShieldAlt className="text-blue-400"/>
+                            Fornecedor & Risco
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p className="font-semibold text-white text-base">{equipmentSupplier.name}</p>
+                                {equipmentSupplier.website && <p className="text-xs text-blue-300 mt-1"><FaGlobe className="inline mr-1"/> {equipmentSupplier.website}</p>}
+                                <div className="mt-2 space-y-1 text-gray-400">
+                                    {equipmentSupplier.contact_email && <p><FaEnvelope className="inline mr-1"/> {equipmentSupplier.contact_email}</p>}
+                                    {equipmentSupplier.contact_phone && <p><FaPhone className="inline mr-1"/> {equipmentSupplier.contact_phone}</p>}
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="mb-2">
+                                    <span className="text-gray-400 text-xs block mb-1">Nível de Risco:</span>
+                                    <span className={`px-2 py-1 text-xs rounded border ${getCriticalityClass(equipmentSupplier.risk_level)}`}>
+                                        {equipmentSupplier.risk_level}
+                                    </span>
+                                </div>
+                                {equipmentSupplier.is_iso27001_certified && (
+                                    <span className="text-xs bg-green-900/30 text-green-400 border border-green-500/30 px-2 py-1 rounded">
+                                        Certificado ISO 27001
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Potential Vulnerabilities (Automated Correlation) */}
                 {potentialVulnerabilities.length > 0 && (
