@@ -90,7 +90,7 @@ BEGIN
         ALTER TABLE brands ADD COLUMN IF NOT EXISTS security_contact_email text;
     END IF;
 
-    -- 9. Adicionar colunas a SUPPLIERS, INSTITUICOES, ENTIDADES, COLLABORATORS
+    -- 9. Adicionar colunas a SUPPLIERS (incluindo certificações extra)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'suppliers') THEN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address text;
@@ -99,7 +99,9 @@ BEGIN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS city text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS other_certifications jsonb DEFAULT '[]';
     END IF;
+    
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address text;
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address_line text;
@@ -218,6 +220,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     iso_certificate_expiry text,
     security_contact_email text,
     risk_level text DEFAULT 'Baixa',
+    other_certifications jsonb DEFAULT '[]',
     created_at timestamptz DEFAULT now()
 );
 
@@ -494,7 +497,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script foi atualizado para corrigir o erro <strong>"Erro ao salvar"</strong>. Ele adiciona a coluna <code>requiresBackupTest</code> em falta na base de dados.
+                        Este script foi atualizado para adicionar a coluna <code>other_certifications</code> à tabela de fornecedores.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

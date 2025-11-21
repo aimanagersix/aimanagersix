@@ -52,6 +52,9 @@ export interface Supplier {
     iso_certificate_expiry?: string; 
     security_contact_email?: string;
     risk_level: CriticalityLevel; // Vendor Risk Rating
+    
+    // New: Extra certificates
+    other_certifications?: { name: string; expiryDate?: string }[];
 }
 
 export interface EquipmentType {

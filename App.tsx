@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -1038,6 +1040,15 @@ const InnerApp: React.FC = () => {
                         else return simpleSaveWrapper(dataService.addSupplier, s);
                     }}
                     supplierToEdit={supplierToEdit}
+                    teams={teams}
+                    onCreateTicket={(ticketData) => {
+                        const ticket = {
+                            ...ticketData,
+                            entidadeId: entidades[0]?.id, // Default or link to admin entity
+                            collaboratorId: currentUser?.id
+                        };
+                        simpleSaveWrapper(dataService.addTicket, ticket as Ticket);
+                    }}
                 />
             )}
             
@@ -1053,13 +1064,11 @@ const InnerApp: React.FC = () => {
                     equipmentList={equipment}
                     equipmentTypes={equipmentTypes}
                     onCreateTicket={(ticketData) => {
-                        // We inject default values here as well to be safe
                         const ticket = {
                             ...ticketData,
-                            entidadeId: entidades[0]?.id, // Or link to equipment entity
-                            collaboratorId: currentUser?.id // Or link to user
+                            entidadeId: entidades[0]?.id,
+                            collaboratorId: currentUser?.id
                         };
-                        // Try to find better defaults
                         if(ticketData.equipmentId) {
                             const eq = equipment.find(e => e.id === ticketData.equipmentId);
                             const assign = assignments.find(a => a.equipmentId === eq?.id && !a.returnDate);
