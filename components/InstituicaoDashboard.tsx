@@ -1,7 +1,8 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { Instituicao, Entidade } from '../types';
-import { EditIcon, DeleteIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 
 interface InstituicaoDashboardProps {
@@ -9,9 +10,10 @@ interface InstituicaoDashboardProps {
   escolasDepartamentos: Entidade[];
   onEdit?: (instituicao: Instituicao) => void;
   onDelete?: (id: string) => void;
+  onCreate?: () => void;
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, onEdit, onDelete }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, onEdit, onDelete, onCreate }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -39,7 +41,14 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
 
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <h2 className="text-xl font-semibold text-white mb-4">Gerenciar Instituições</h2>
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-white">Gerenciar Instituições</h2>
+            {onCreate && (
+                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                    <PlusIcon /> Adicionar
+                </button>
+            )}
+        </div>
       
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">

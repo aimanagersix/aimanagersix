@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -557,6 +554,7 @@ const InnerApp: React.FC = () => {
                             serviceDependencies={serviceDependencies}
                             onGenerateReport={() => setShowReport({ type: 'equipment', visible: true })}
                             onManageKeys={(eq) => setShowManageLicenses(eq)}
+                            onCreate={() => { setEquipmentToEdit(null); setShowAddEquipment(true); }}
                         />
                     )}
                 
@@ -566,6 +564,7 @@ const InnerApp: React.FC = () => {
                         equipment={equipment}
                         onEdit={(b) => { setBrandToEdit(b); setShowAddBrand(true); }}
                         onDelete={(id) => handleDelete('Excluir Marca', 'Tem a certeza que deseja excluir esta marca? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteBrand, id))}
+                        onCreate={() => { setBrandToEdit(null); setShowAddBrand(true); }}
                     />
                 )}
 
@@ -575,6 +574,7 @@ const InnerApp: React.FC = () => {
                         equipment={equipment}
                         onEdit={(t) => { setTypeToEdit(t); setShowAddType(true); }}
                         onDelete={(id) => handleDelete('Excluir Tipo de Equipamento', 'Tem a certeza que deseja excluir este tipo? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteEquipmentType, id))}
+                        onCreate={() => { setTypeToEdit(null); setShowAddType(true); }}
                     />
                 )}
 
@@ -584,6 +584,7 @@ const InnerApp: React.FC = () => {
                         escolasDepartamentos={entidades}
                         onEdit={(i) => { setInstituicaoToEdit(i); setShowAddInstituicao(true); }}
                         onDelete={(id) => handleDelete('Excluir Instituição', 'Tem a certeza que deseja excluir esta instituição?', () => simpleSaveWrapper(dataService.deleteInstituicao, id))}
+                        onCreate={() => { setInstituicaoToEdit(null); setShowAddInstituicao(true); }}
                     />
                 )}
 
@@ -597,6 +598,7 @@ const InnerApp: React.FC = () => {
                         collaboratorHistory={collaboratorHistory}
                         onEdit={(e) => { setEntidadeToEdit(e); setShowAddEntidade(true); }}
                         onDelete={(id) => handleDelete('Excluir Entidade', 'Tem a certeza que deseja excluir esta entidade?', () => simpleSaveWrapper(dataService.deleteEntidade, id))}
+                        onCreate={() => { setEntidadeToEdit(null); setShowAddEntidade(true); }}
                         onToggleStatus={(id) => {
                             const ent = entidades.find(e => e.id === id);
                             if (ent) {
@@ -625,6 +627,7 @@ const InnerApp: React.FC = () => {
                         onShowDetails={(c) => { setDetailCollaborator(c); }}
                         onGenerateReport={() => setShowReport({ type: 'collaborator', visible: true })}
                         onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
+                        onCreate={() => { setCollaboratorToEdit(null); setShowAddCollaborator(true); }}
                         onToggleStatus={(id) => {
                             const col = collaborators.find(c => c.id === id);
                             if (col) {
@@ -658,6 +661,7 @@ const InnerApp: React.FC = () => {
                         onGenerateReport={() => setShowReport({ type: 'licensing', visible: true })}
                         businessServices={businessServices}
                         serviceDependencies={serviceDependencies}
+                        onCreate={() => { setLicenseToEdit(null); setShowAddLicense(true); }}
                     />
                 )}
 
@@ -671,6 +675,7 @@ const InnerApp: React.FC = () => {
                         onEdit={(t) => { setTeamToEdit(t); setShowAddTeam(true); }}
                         onDelete={(id) => handleDelete('Excluir Equipa', 'Tem a certeza que deseja excluir esta equipa?', () => simpleSaveWrapper(dataService.deleteTeam, id))}
                         onManageMembers={(t) => { setTeamToEdit(t); setShowManageTeamMembers(t); }}
+                        onCreate={() => { setTeamToEdit(null); setShowAddTeam(true); }}
                     />
                 )}
 

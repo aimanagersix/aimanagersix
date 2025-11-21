@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Brand, Equipment } from '../types';
-import { EditIcon, DeleteIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 
 interface BrandDashboardProps {
@@ -9,9 +9,10 @@ interface BrandDashboardProps {
   equipment: Equipment[];
   onEdit?: (brand: Brand) => void;
   onDelete?: (id: string) => void;
+  onCreate?: () => void;
 }
 
-const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEdit, onDelete }) => {
+const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEdit, onDelete, onCreate }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -39,7 +40,14 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
 
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <h2 className="text-xl font-semibold text-white mb-4">Gerenciar Marcas</h2>
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-white">Gerenciar Marcas</h2>
+            {onCreate && (
+                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                    <PlusIcon /> Adicionar
+                </button>
+            )}
+        </div>
       
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">

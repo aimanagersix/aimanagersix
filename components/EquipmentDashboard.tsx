@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
-import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey } from './common/Icons';
+import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
@@ -29,6 +29,7 @@ interface EquipmentDashboardProps {
   onEdit?: (equipment: Equipment) => void;
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
+  onCreate?: () => void;
   // BIA Props
   businessServices?: BusinessService[];
   serviceDependencies?: ServiceDependency[];
@@ -109,7 +110,7 @@ const SortableHeader: React.FC<{
 
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
-    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys,
+    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
     businessServices, serviceDependencies, tickets = [], ticketActivities = []
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
@@ -355,7 +356,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
 
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
             <h2 className="text-xl font-semibold text-white">Inventário de Equipamentos</h2>
              <div className="flex items-center gap-2">
                 {onGenerateReport && (
@@ -374,6 +375,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     >
                         <AssignIcon />
                         Atribuir Selecionados ({selectedIds.size})
+                    </button>
+                )}
+                {onCreate && (
+                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <PlusIcon /> Adicionar
                     </button>
                 )}
             </div>

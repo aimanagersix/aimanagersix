@@ -1,7 +1,8 @@
 
+
 import React, { useMemo } from 'react';
 import { Team, TeamMember, Collaborator, Ticket, EquipmentType } from '../types';
-import { EditIcon, DeleteIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
 import { FaUsers } from 'react-icons/fa';
 
 interface TeamDashboardProps {
@@ -13,9 +14,10 @@ interface TeamDashboardProps {
     onEdit: (team: Team) => void;
     onDelete: (id: string) => void;
     onManageMembers: (team: Team) => void;
+    onCreate?: () => void;
 }
 
-const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, collaborators, tickets, equipmentTypes, onEdit, onDelete, onManageMembers }) => {
+const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, collaborators, tickets, equipmentTypes, onEdit, onDelete, onManageMembers, onCreate }) => {
     
     const memberCountByTeam = useMemo(() => {
         return teamMembers.reduce((acc, member) => {
@@ -48,7 +50,14 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
 
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-            <h2 className="text-xl font-semibold text-white mb-4">Gerir Equipas de Suporte</h2>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-white">Gerir Equipas de Suporte</h2>
+                {onCreate && (
+                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <PlusIcon /> Adicionar
+                    </button>
+                )}
+            </div>
             
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">

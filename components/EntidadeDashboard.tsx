@@ -1,7 +1,8 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory } from '../types';
-import { EditIcon, DeleteIcon, SearchIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, SearchIcon, PlusIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -15,6 +16,7 @@ interface EntidadeDashboardProps {
   onEdit?: (entidade: Entidade) => void;
   onDelete?: (id: string) => void;
   onToggleStatus?: (id: string) => void;
+  onCreate?: () => void;
 }
 
 const getStatusClass = (status: EntidadeStatus) => {
@@ -28,7 +30,7 @@ const getStatusClass = (status: EntidadeStatus) => {
     }
 };
 
-const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus }) => {
+const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ instituicaoId: '' });
@@ -98,7 +100,14 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
 
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <h2 className="text-xl font-semibold text-white mb-4">Gerenciar Entidades</h2>
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-white">Gerenciar Entidades</h2>
+            {onCreate && (
+                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                    <PlusIcon /> Adicionar
+                </button>
+            )}
+        </div>
 
         <div className="space-y-4 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">

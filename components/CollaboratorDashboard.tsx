@@ -1,7 +1,8 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message } from '../types';
-import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -23,6 +24,7 @@ interface CollaboratorDashboardProps {
   onGenerateReport?: () => void;
   onStartChat?: (collaborator: Collaborator) => void;
   onToggleStatus?: (id: string) => void;
+  onCreate?: () => void;
 }
 
 interface TooltipState {
@@ -60,7 +62,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     onGenerateReport, 
     onStartChat, 
     currentUser, 
-    onToggleStatus 
+    onToggleStatus,
+    onCreate
 }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
@@ -204,15 +207,22 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
             <h2 className="text-xl font-semibold text-white">Gerenciar Colaboradores</h2>
-             {onGenerateReport && (
-                <button
-                    onClick={onGenerateReport}
-                    className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
-                >
-                    <ReportIcon />
-                    Gerar Relatório
-                </button>
-            )}
+             <div className="flex items-center gap-2">
+                {onGenerateReport && (
+                    <button
+                        onClick={onGenerateReport}
+                        className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
+                    >
+                        <ReportIcon />
+                        Gerar Relatório
+                    </button>
+                )}
+                {onCreate && (
+                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <PlusIcon /> Adicionar
+                    </button>
+                )}
+            </div>
         </div>
 
         <div className="space-y-4 mb-6">

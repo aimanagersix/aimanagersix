@@ -1,7 +1,8 @@
 
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
-import { EditIcon, DeleteIcon, ReportIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, ReportIcon, PlusIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -19,6 +20,7 @@ interface LicenseDashboardProps {
   onDelete?: (id: string) => void;
   onToggleStatus?: (id: string) => void;
   onGenerateReport?: () => void;
+  onCreate?: () => void;
   // BIA Props
   businessServices?: BusinessService[];
   serviceDependencies?: ServiceDependency[];
@@ -79,6 +81,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
     initialFilter, 
     onClearInitialFilter, 
     onToggleStatus,
+    onCreate,
     businessServices,
     serviceDependencies
 }) => {
@@ -237,15 +240,22 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <h2 className="text-xl font-semibold text-white">Gerenciar Licenças de Software</h2>
-                 {onGenerateReport && (
-                    <button
-                        onClick={onGenerateReport}
-                        className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
-                    >
-                        <ReportIcon />
-                        Gerar Relatório
-                    </button>
-                )}
+                 <div className="flex items-center gap-2">
+                    {onGenerateReport && (
+                        <button
+                            onClick={onGenerateReport}
+                            className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
+                        >
+                            <ReportIcon />
+                            Gerar Relatório
+                        </button>
+                    )}
+                    {onCreate && (
+                        <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                            <PlusIcon /> Adicionar
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="space-y-4 mb-6">

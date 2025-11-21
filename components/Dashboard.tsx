@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
-import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey } from './common/Icons';
+import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
@@ -28,6 +28,7 @@ interface EquipmentDashboardProps {
   onEdit?: (equipment: Equipment) => void;
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
+  onCreate?: () => void;
   // BIA Props
   businessServices?: BusinessService[];
   serviceDependencies?: ServiceDependency[];
@@ -108,7 +109,7 @@ const SortableHeader: React.FC<{
 
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
-    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys,
+    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
     businessServices, serviceDependencies, tickets = [], ticketActivities = []
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
@@ -117,27 +118,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
-    
-    // Internal state for history modal to properly pass BIA props if triggered internally (though parent handles open/close state usually)
-    // Wait, App.tsx controls the `showHistoryEquipment` state. We just trigger `onShowHistory`.
-    // But wait, `EquipmentDashboard` in App.tsx renders `EquipmentHistoryModal`? No, App.tsx renders it.
-    // Ah, checking App.tsx... yes, App.tsx renders the modal conditionally.
-    // BUT, wait. The `EquipmentDashboard` component in the original code didn't import `EquipmentHistoryModal`. 
-    // It just called `onShowHistory`. The Modal is rendered in `App.tsx`.
-    // SO, I need to update `App.tsx` to pass the props to the modal, NOT update `EquipmentDashboard`.
-    // Let's revert the change to this file in my thought process? 
-    // NO. The `EquipmentDashboard` is just a list. The modal is in `App.tsx`.
-    // I made a mistake in my thought process assuming the Dashboard renders the Modal.
-    // Looking at `App.tsx` provided: `{showHistoryEquipment && <EquipmentHistoryModal ... />}` is inside App.tsx return.
-    // So I only need to update App.tsx and EquipmentHistoryModal.tsx.
-    // Actually, I will update this file just to add the props definition if I want to display impact inline later, but for now I will revert the content change here and only update App.tsx and EquipmentHistoryModal.
-    
-    // RE-READING types.ts and App.tsx structure.
-    // Yes, `EquipmentHistoryModal` is rendered in `App.tsx`.
-    // So `EquipmentDashboard.tsx` DOES NOT need changes for the modal to work.
-    
-    // However, I will add a visual indicator in the table row if the equipment is part of a Critical Service.
-    // That would be a nice touch.
     
     useEffect(() => {
         if (initialFilter) {
@@ -344,6 +324,8 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <p><strong className="text-on-surface-dark-secondary">Confidencialidade:</strong> {item.confidentiality || 'N/A'}</p>
                 <p><strong className="text-on-surface-dark-secondary">Integridade:</strong> {item.integrity || 'N/A'}</p>
                 <p><strong className="text-on-surface-dark-secondary">Disponibilidade:</strong> {item.availability || 'N/A'}</p>
+                <p><strong className="text-on-surface-dark-secondary">SO:</strong> {item.os_version || 'N/A'}</p>
+                <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> {item.last_security_update || 'N/A'}</p>
             </div>
         );
 
@@ -373,7 +355,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
 
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
             <h2 className="text-xl font-semibold text-white">Inventário de Equipamentos</h2>
              <div className="flex items-center gap-2">
                 {onGenerateReport && (
@@ -392,6 +374,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     >
                         <AssignIcon />
                         Atribuir Selecionados ({selectedIds.size})
+                    </button>
+                )}
+                {onCreate && (
+                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <PlusIcon /> Adicionar
                     </button>
                 )}
             </div>
