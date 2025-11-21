@@ -1,16 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
@@ -25,6 +13,7 @@ interface AddSupplierModalProps {
 
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
 
 const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -55,7 +44,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         attachments: []
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [isFetchingVies, setIsFetchingVies] = useState(false);
+    const [isFetchingNif, setIsFetchingNif] = useState(false);
     const [isFetchingCP, setIsFetchingCP] = useState(false);
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const [showLetter, setShowLetter] = useState(false);
@@ -147,13 +136,21 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         }
     };
 
-    const handleFetchVies = async () => {
+    const handleFetchNifData = async () => {
         if (!formData.nif?.trim()) {
             setErrors(prev => ({ ...prev, nif: "Insira um NIF para pesquisar." }));
             return;
         }
 
-        setIsFetchingVies(true);
+        const nif = formData.nif.trim().replace(/[^0-9]/g, '');
+        
+        // Validar NIF português (9 dígitos)
+        if (nif.length !== 9) {
+             setErrors(prev => ({ ...prev, nif: "O NIF deve ter 9 dígitos." }));
+             return;
+        }
+
+        setIsFetchingNif(true);
         setErrors(prev => {
             const newErr = { ...prev };
             delete newErr.nif;
@@ -161,63 +158,41 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         });
 
         try {
-            let input = formData.nif.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-            let countryCode = 'PT'; 
-            let vatNumber = input;
-
-            const countryMatch = input.match(/^([A-Z]{2})(.+)$/);
-            if (countryMatch) {
-                countryCode = countryMatch[1];
-                vatNumber = countryMatch[2];
-            }
-
-            if (vatNumber.length < 2) {
-                setErrors(prev => ({ ...prev, nif: "Formato de NIF inválido." }));
-                setIsFetchingVies(false);
-                return;
-            }
-
-            let success = false;
-            let resultData: any = null;
-
-            // Proxy 1
-            try {
-                const response = await fetch(`https://corsproxy.io/?https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number/${countryCode}/${vatNumber}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data && (data.isValid || data.valid)) {
-                        resultData = {
-                            name: data.name,
-                            address: data.address // VIES address is usually a single string
-                        };
-                        success = true;
-                    }
+            // Using corsproxy to avoid CORS issues from browser if nif.pt doesn't support it directly
+            const response = await fetch(`https://corsproxy.io/?https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                if (data.result === 'success' && data.records && data.records[nif]) {
+                    const record = data.records[nif];
+                    
+                    setFormData(prev => ({
+                        ...prev,
+                        name: record.title, // Nif.pt uses 'title' for company name
+                        nif: nif,
+                        address_line: record.address,
+                        postal_code: record.pc4 && record.pc3 ? `${record.pc4}-${record.pc3}` : prev.postal_code,
+                        city: record.city,
+                        locality: record.city, // Often city corresponds to locality in this API
+                        contact_email: record.contacts?.email || prev.contact_email,
+                        contact_phone: record.contacts?.phone || prev.contact_phone,
+                        website: record.website || prev.website,
+                        // Map activity/CAE to notes if currently empty
+                        notes: prev.notes || (record.activity ? `Atividade (CAE ${record.cae}): ${record.activity}` : '')
+                    }));
+                } else {
+                     setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
                 }
-            } catch (e) {
-                console.warn("Proxy VIES 1 falhou", e);
-            }
-
-            if (success && resultData) {
-                setFormData(prev => ({
-                    ...prev,
-                    name: resultData.name || prev.name,
-                    nif: input,
-                    address_line: resultData.address || prev.address_line // Map raw VIES address to address_line
-                }));
-                setErrors(prev => {
-                    const newErr = { ...prev };
-                    delete newErr.nif;
-                    return newErr;
-                });
             } else {
-                setErrors(prev => ({ ...prev, nif: "Não foi possível validar ou obter dados automaticamente. Preencha manualmente." }));
+                 setErrors(prev => ({ ...prev, nif: "Erro ao comunicar com o serviço de validação." }));
             }
 
         } catch (e) {
-            console.error("Erro VIES:", e);
-            setErrors(prev => ({ ...prev, nif: "Erro na consulta VIES." }));
+            console.error("Erro NIF.pt:", e);
+            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF." }));
         } finally {
-            setIsFetchingVies(false);
+            setIsFetchingNif(false);
         }
     };
 
@@ -328,12 +303,12 @@ Data: ${today}
                             />
                             <button 
                                 type="button" 
-                                onClick={handleFetchVies}
-                                disabled={isFetchingVies || !formData.nif}
+                                onClick={handleFetchNifData}
+                                disabled={isFetchingNif || !formData.nif}
                                 className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white transition-colors border-t border-b border-r border-gray-600 flex items-center justify-center min-w-[3rem]"
-                                title="Pesquisar no VIES (Europa)"
+                                title="Pesquisar Empresa (NIF.pt)"
                             >
-                                {isFetchingVies ? <SpinnerIcon /> : <SearchIcon />}
+                                {isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}
                             </button>
                         </div>
                         {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
