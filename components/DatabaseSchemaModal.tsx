@@ -18,6 +18,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -153,6 +155,13 @@ BEGIN
              ALTER TABLE backup_executions DROP COLUMN evidence_attachment;
         END IF;
         ALTER TABLE backup_executions ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
+        -- Adicionar Ligação a Equipamento
+        ALTER TABLE backup_executions ADD COLUMN IF NOT EXISTS equipment_id uuid;
+    END IF;
+
+    -- Adicionar flag 'requiresBackupTest' a EQUIPMENT_TYPES
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
     END IF;
 END $$;
 
@@ -266,7 +275,8 @@ CREATE TABLE IF NOT EXISTS equipment_types (
     "requiresMacWIFI" boolean DEFAULT false,
     "requiresMacCabo" boolean DEFAULT false,
     "requiresInventoryNumber" boolean DEFAULT false,
-    default_team_id uuid REFERENCES teams(id)
+    default_team_id uuid REFERENCES teams(id),
+    "requiresBackupTest" boolean DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS equipment (
@@ -480,6 +490,7 @@ CREATE TABLE IF NOT EXISTS backup_executions (
     tester_id uuid REFERENCES collaborators(id),
     notes text,
     attachments jsonb DEFAULT '[]', -- Evidências (screenshots, logs)
+    equipment_id uuid REFERENCES equipment(id),
     created_at timestamptz DEFAULT now()
 );
 

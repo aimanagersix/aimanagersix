@@ -62,6 +62,7 @@ export interface EquipmentType {
   requiresMacCabo?: boolean;
   requiresInventoryNumber?: boolean;
   default_team_id?: string;
+  requiresBackupTest?: boolean; // New field for Backup linkage
 }
 
 export interface Equipment {
@@ -401,7 +402,8 @@ export enum BackupType {
 
 export interface BackupExecution {
     id: string;
-    system_name: string; // e.g. "Servidor ERP"
+    system_name: string; // e.g. "Servidor ERP" (can be derived from equipment)
+    equipment_id?: string; // Link to physical/virtual asset
     backup_date: string;
     test_date: string; // When the restore test was performed
     status: 'Sucesso' | 'Falha' | 'Parcial';

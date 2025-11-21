@@ -1,14 +1,17 @@
 
 
 
+
+
 import React, { useState, useMemo } from 'react';
-import { BackupExecution, Collaborator, BackupType } from '../types';
+import { BackupExecution, Collaborator, BackupType, Equipment } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaServer, FaSearch, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaClock, FaPaperclip } from './common/Icons';
 import Pagination from './common/Pagination';
 
 interface BackupDashboardProps {
     backups: BackupExecution[];
     collaborators: Collaborator[];
+    equipment: Equipment[]; // Added prop
     onEdit: (backup: BackupExecution) => void;
     onDelete: (id: string) => void;
     onCreate: () => void;
@@ -32,24 +35,29 @@ const getStatusClass = (status: string) => {
     }
 };
 
-const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborators, onEdit, onDelete, onCreate }) => {
+const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborators, equipment, onEdit, onDelete, onCreate }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
 
     const filteredBackups = useMemo(() => {
         return backups.filter(b => {
+            const linkedEq = b.equipment_id ? equipmentMap.get(b.equipment_id) : null;
+            const linkedEqName = linkedEq ? linkedEq.description : '';
+
             const searchMatch = searchQuery === '' || 
                 b.system_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                linkedEqName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (b.notes && b.notes.toLowerCase().includes(searchQuery.toLowerCase()));
             
             const statusMatch = filterStatus === '' || b.status === filterStatus;
             return searchMatch && statusMatch;
         });
-    }, [backups, searchQuery, filterStatus]);
+    }, [backups, searchQuery, filterStatus, equipmentMap]);
 
     const totalPages = Math.ceil(filteredBackups.length / itemsPerPage);
     const paginatedBackups = useMemo(() => {
@@ -95,7 +103,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Procurar sistema..."
+                        placeholder="Procurar sistema, equipamento..."
                         className="w-full bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm"
                     />
                 </div>
@@ -116,7 +124,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
                             <th className="px-6 py-3">Data Teste</th>
-                            <th className="px-6 py-3">Sistema</th>
+                            <th className="px-6 py-3">Sistema / Equipamento</th>
                             <th className="px-6 py-3">Tipo Backup</th>
                             <th className="px-6 py-3">Data Backup</th>
                             <th className="px-6 py-3 text-center">RTO (min)</th>
@@ -127,12 +135,21 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedBackups.length > 0 ? paginatedBackups.map((backup) => (
+                        {paginatedBackups.length > 0 ? paginatedBackups.map((backup) => {
+                            const linkedEquipment = backup.equipment_id ? equipmentMap.get(backup.equipment_id) : null;
+                            return (
                             <tr key={backup.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                                 <td className="px-6 py-4 text-white">{backup.test_date}</td>
                                 <td className="px-6 py-4 font-medium text-on-surface-dark">
-                                    {backup.system_name}
-                                    {backup.notes && <p className="text-xs text-gray-500 truncate max-w-xs">{backup.notes}</p>}
+                                    {linkedEquipment ? (
+                                        <div>
+                                            <span className="block text-indigo-300">{linkedEquipment.description}</span>
+                                            <span className="text-xs text-gray-500">S/N: {linkedEquipment.serialNumber}</span>
+                                        </div>
+                                    ) : (
+                                        <span>{backup.system_name}</span>
+                                    )}
+                                    {backup.notes && <p className="text-xs text-gray-500 truncate max-w-xs mt-1">{backup.notes}</p>}
                                 </td>
                                 <td className="px-6 py-4">{backup.type}</td>
                                 <td className="px-6 py-4 text-xs">{backup.backup_date}</td>
@@ -164,7 +181,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                                     </div>
                                 </td>
                             </tr>
-                        )) : (
+                        )}) : (
                             <tr>
                                 <td colSpan={9} className="text-center py-8 text-on-surface-dark-secondary">
                                     Nenhum teste de backup registado.

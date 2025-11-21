@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -754,6 +756,7 @@ const InnerApp: React.FC = () => {
                     <BackupDashboard
                         backups={backupExecutions}
                         collaborators={collaborators}
+                        equipment={equipment}
                         onEdit={(b) => { setBackupToEdit(b); setShowAddBackup(true); }}
                         onDelete={(id) => handleDelete('Excluir Teste de Backup', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBackupExecution, id))}
                         onCreate={() => { setBackupToEdit(null); setShowAddBackup(true); }}
@@ -1047,6 +1050,26 @@ const InnerApp: React.FC = () => {
                     }}
                     backupToEdit={backupToEdit}
                     currentUser={currentUser}
+                    equipmentList={equipment}
+                    equipmentTypes={equipmentTypes}
+                    onCreateTicket={(ticketData) => {
+                        // We inject default values here as well to be safe
+                        const ticket = {
+                            ...ticketData,
+                            entidadeId: entidades[0]?.id, // Or link to equipment entity
+                            collaboratorId: currentUser?.id // Or link to user
+                        };
+                        // Try to find better defaults
+                        if(ticketData.equipmentId) {
+                            const eq = equipment.find(e => e.id === ticketData.equipmentId);
+                            const assign = assignments.find(a => a.equipmentId === eq?.id && !a.returnDate);
+                            if(assign) {
+                                ticket.entidadeId = assign.entidadeId;
+                                if(assign.collaboratorId) ticket.collaboratorId = assign.collaboratorId;
+                            }
+                        }
+                        simpleSaveWrapper(dataService.addTicket, ticket as Ticket);
+                    }}
                 />
             )}
 

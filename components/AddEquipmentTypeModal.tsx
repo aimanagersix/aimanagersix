@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { EquipmentType, Team } from '../types';
@@ -17,6 +18,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requiresMacCabo: false,
         requiresInventoryNumber: false,
         default_team_id: '',
+        requiresBackupTest: false,
     });
     const [error, setError] = useState('');
 
@@ -29,6 +31,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requiresMacCabo: typeToEdit.requiresMacCabo || false,
                 requiresInventoryNumber: typeToEdit.requiresInventoryNumber || false,
                 default_team_id: typeToEdit.default_team_id || '',
+                requiresBackupTest: typeToEdit.requiresBackupTest || false,
             });
         }
     }, [typeToEdit]);
@@ -99,7 +102,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
 
 
                 <div className="border-t border-gray-700 pt-4">
-                    <h3 className="text-md font-medium text-on-surface-dark mb-2">Campos Adicionais do Equipamento</h3>
+                    <h3 className="text-md font-medium text-on-surface-dark mb-2">Campos e Requisitos</h3>
                      <div className="space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requiresNomeNaRede" checked={formData.requiresNomeNaRede} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
@@ -116,6 +119,10 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requiresInventoryNumber" checked={formData.requiresInventoryNumber} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Número de Inventário"</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer sm:col-span-2 mt-2 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">
+                            <input type="checkbox" name="requiresBackupTest" checked={formData.requiresBackupTest} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-indigo-200 font-bold">Requer Teste de Restauro (Backups)</span>
                         </label>
                     </div>
                 </div>
