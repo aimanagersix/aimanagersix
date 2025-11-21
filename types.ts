@@ -153,6 +153,7 @@ export interface Collaborator {
   fullName: string;
   entidadeId: string;
   email: string;
+  nif?: string;
   telefoneInterno?: string;
   telemovel?: string;
   photoUrl?: string;

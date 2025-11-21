@@ -13,6 +13,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -129,13 +131,14 @@ BEGIN
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS nif text;
     END IF;
 
-    -- Adicionar colunas de morada à tabela COLLABORATORS
+    -- Adicionar colunas de morada e NIF à tabela COLLABORATORS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'collaborators') THEN
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS address text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS address_line text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS postal_code text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS city text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS locality text;
+        ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS nif text;
     END IF;
 END $$;
 
@@ -188,6 +191,7 @@ CREATE TABLE IF NOT EXISTS collaborators (
     email text,
     "telefoneInterno" text,
     telemovel text,
+    nif text,
     "photoUrl" text,
     "dateOfBirth" text,
     "canLogin" boolean DEFAULT false,
@@ -520,7 +524,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo atualiza as tabelas para adicionar campos de <strong>Morada Estruturada</strong> e <strong>NIF</strong> a Instituições e Entidades.
+                        O script abaixo atualiza as tabelas para adicionar campos de <strong>Morada Estruturada</strong> e <strong>NIF</strong> a Instituições, Entidades e Colaboradores.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, AppModule } from '../types';
@@ -59,6 +61,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         numeroMecanografico: '',
         fullName: '',
         email: '',
+        nif: '',
         entidadeId: entidades[0]?.id || '',
         telefoneInterno: '',
         telemovel: '',
@@ -91,6 +94,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 numeroMecanografico: collaboratorToEdit.numeroMecanografico,
                 fullName: collaboratorToEdit.fullName,
                 email: collaboratorToEdit.email,
+                nif: collaboratorToEdit.nif || '',
                 entidadeId: collaboratorToEdit.entidadeId,
                 telefoneInterno: collaboratorToEdit.telefoneInterno || '',
                 telemovel: collaboratorToEdit.telemovel || '',
@@ -114,6 +118,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 numeroMecanografico: '',
                 fullName: '',
                 email: '',
+                nif: '',
                 entidadeId: entidades[0]?.id || '',
                 telefoneInterno: '',
                 telemovel: '',
@@ -273,6 +278,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             dateOfBirth: formData.dateOfBirth || undefined,
             telefoneInterno: formData.telefoneInterno?.trim() || undefined,
             telemovel: formData.telemovel?.trim() || undefined,
+            nif: formData.nif?.trim() || undefined,
             address
         };
         
@@ -326,6 +332,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 <input type="text" name="fullName" id="fullName" value={formData.fullName} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.fullName ? 'border-red-500' : 'border-gray-600'}`} />
                                 {errors.fullName && <p className="text-red-400 text-xs italic mt-1">{errors.fullName}</p>}
                             </div>
+                        </div>
+                        <div>
+                            <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF (Opcional)</label>
+                            <input type="text" name="nif" id="nif" value={formData.nif} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600" />
                         </div>
                     </div>
                 </div>

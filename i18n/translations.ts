@@ -1,9 +1,11 @@
 
+
 export const translations = {
   pt: {
     "app.title": "Gestão Inteligente",
     "nav.overview": "Visão Geral",
-    "nav.inventory": "Inventário",
+    "nav.inventory": "Assets",
+    "nav.assets_inventory": "Inventário",
     "nav.organization": "Organização",
     "nav.collaborators": "Colaboradores",
     "nav.licensing": "Licenciamento",
@@ -58,7 +60,8 @@ export const translations = {
   en: {
     "app.title": "Intelligent Management",
     "nav.overview": "Overview",
-    "nav.inventory": "Inventory",
+    "nav.inventory": "Assets",
+    "nav.assets_inventory": "Inventory",
     "nav.organization": "Organization",
     "nav.collaborators": "Collaborators",
     "nav.licensing": "Licensing",
