@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -6,6 +7,7 @@ import {
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
+import Sidebar from './components/Sidebar';
 import EquipmentDashboard from './components/Dashboard';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import AssignEquipmentModal from './components/AssignEquipmentModal';
@@ -24,6 +26,7 @@ import AddTicketModal from './components/AddTicketModal';
 import TicketActivitiesModal from './components/TicketActivitiesModal';
 import ConfigurationSetup from './components/ConfigurationSetup';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { LayoutProvider, useLayout } from './contexts/LayoutContext';
 import ForgotPasswordModal from './components/ForgotPasswordModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
 import CredentialsModal from './components/CredentialsModal';
@@ -66,6 +69,7 @@ type Session = any;
 
 const InnerApp: React.FC = () => {
     const { t } = useLanguage();
+    const { layoutMode } = useLayout();
     const [activeTab, setActiveTab] = useState('overview');
     const [initialFilter, setInitialFilter] = useState<any>(null);
     
@@ -488,18 +492,30 @@ const InnerApp: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background-dark flex flex-col">
-            <Header 
-                currentUser={currentUser} 
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                onLogout={handleLogout}
-                tabConfig={tabConfig}
-                notificationCount={notificationCount}
-                onNotificationClick={() => setShowNotifications(true)}
-            />
+        <div className={`min-h-screen bg-background-dark flex ${layoutMode === 'side' ? 'flex-row' : 'flex-col'}`}>
+            {layoutMode === 'top' ? (
+                <Header 
+                    currentUser={currentUser} 
+                    activeTab={activeTab} 
+                    setActiveTab={setActiveTab} 
+                    onLogout={handleLogout}
+                    tabConfig={tabConfig}
+                    notificationCount={notificationCount}
+                    onNotificationClick={() => setShowNotifications(true)}
+                />
+            ) : (
+                <Sidebar
+                    currentUser={currentUser}
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    onLogout={handleLogout}
+                    tabConfig={tabConfig}
+                    notificationCount={notificationCount}
+                    onNotificationClick={() => setShowNotifications(true)}
+                />
+            )}
 
-            <main className="flex-grow max-w-screen-xl mx-auto w-full p-4 sm:p-6 lg:p-8">
+            <main className={`flex-grow max-w-screen-xl mx-auto w-full p-4 sm:p-6 lg:p-8 ${layoutMode === 'side' ? 'ml-64' : ''}`}>
                 {activeTab === 'overview' && (
                     <OverviewDashboard
                         equipment={equipment}
@@ -1225,7 +1241,9 @@ const InnerApp: React.FC = () => {
 export const App: React.FC = () => {
     return (
         <LanguageProvider>
-            <InnerApp />
+            <LayoutProvider>
+                <InnerApp />
+            </LayoutProvider>
         </LanguageProvider>
     );
 };
