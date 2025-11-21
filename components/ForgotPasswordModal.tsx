@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { getSupabase } from '../services/supabaseClient';
@@ -24,7 +25,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
 
         try {
             const supabase = getSupabase();
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+            const { error: resetError } = await (supabase.auth as any).resetPasswordForEmail(email, {
                  redirectTo: window.location.origin,
             });
 

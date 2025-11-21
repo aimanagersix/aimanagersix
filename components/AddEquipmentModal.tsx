@@ -157,6 +157,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         confidentiality: CIARating.Low,
         integrity: CIARating.Low,
         availability: CIARating.Low,
+        os_version: '',
+        last_security_update: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -188,6 +190,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 confidentiality: equipmentToEdit.confidentiality || CIARating.Low,
                 integrity: equipmentToEdit.integrity || CIARating.Low,
                 availability: equipmentToEdit.availability || CIARating.Low,
+                os_version: equipmentToEdit.os_version || '',
+                last_security_update: equipmentToEdit.last_security_update || '',
             });
         } else {
             setFormData({
@@ -206,6 +210,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 confidentiality: CIARating.Low,
                 integrity: CIARating.Low,
                 availability: CIARating.Low,
+                os_version: '',
+                last_security_update: '',
             });
         }
     }, [equipmentToEdit, brands, equipmentTypes]);
@@ -355,6 +361,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             macAddressWIFI: formData.macAddressWIFI || undefined,
             macAddressCabo: formData.macAddressCabo || undefined,
             warrantyEndDate: formData.warrantyEndDate || undefined,
+            os_version: formData.os_version || undefined,
+            last_security_update: formData.last_security_update || undefined,
         };
 
         if (equipmentToEdit) {
@@ -536,7 +544,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                         <FaShieldAlt className="text-yellow-400" />
                         Classificação de Risco & Conformidade (NIS2)
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label htmlFor="criticality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nível de Criticidade</label>
                             <select 
@@ -592,6 +600,33 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                                     <option key={rating} value={rating}>{rating}</option>
                                 ))}
                             </select>
+                        </div>
+                    </div>
+                    
+                    {/* New Security Patching Fields */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-700 pt-4">
+                        <div>
+                            <label htmlFor="os_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do SO / Firmware</label>
+                            <input 
+                                type="text" 
+                                name="os_version" 
+                                id="os_version" 
+                                value={formData.os_version} 
+                                onChange={handleChange} 
+                                placeholder="Ex: Windows 11 Pro 23H2"
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="last_security_update" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data Última Atualização Segurança</label>
+                            <input 
+                                type="date" 
+                                name="last_security_update" 
+                                id="last_security_update" 
+                                value={formData.last_security_update} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
+                            />
                         </div>
                     </div>
                 </div>

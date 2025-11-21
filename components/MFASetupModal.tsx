@@ -22,7 +22,7 @@ const MFASetupModal: React.FC<MFASetupModalProps> = ({ onClose }) => {
         setError('');
         try {
             const supabase = getSupabase();
-            const { data, error } = await supabase.auth.mfa.enroll({
+            const { data, error } = await (supabase.auth as any).mfa.enroll({
                 factorType: 'totp'
             });
 
@@ -44,7 +44,7 @@ const MFASetupModal: React.FC<MFASetupModalProps> = ({ onClose }) => {
         setError('');
         try {
             const supabase = getSupabase();
-            const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+            const { data, error } = await (supabase.auth as any).mfa.challengeAndVerify({
                 factorId,
                 code: verifyCode
             });

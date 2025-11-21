@@ -1,8 +1,9 @@
 
+
 import React, { useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel } from '../types';
-import { FaShieldAlt, FaExclamationTriangle } from 'react-icons/fa';
+import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability } from '../types';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug } from 'react-icons/fa';
 
 interface EquipmentHistoryModalProps {
     equipment: Equipment;
@@ -14,6 +15,9 @@ interface EquipmentHistoryModalProps {
     ticketActivities: TicketActivity[];
     businessServices?: BusinessService[];
     serviceDependencies?: ServiceDependency[];
+    softwareLicenses?: SoftwareLicense[];
+    licenseAssignments?: LicenseAssignment[];
+    vulnerabilities?: Vulnerability[];
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -27,7 +31,7 @@ const getCriticalityClass = (level: CriticalityLevel) => {
 
 const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({ 
     equipment, assignments, collaborators, escolasDepartamentos: entidades, onClose, tickets, ticketActivities,
-    businessServices = [], serviceDependencies = [] 
+    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = []
 }) => {
     // Memoize maps for efficient lookups
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
@@ -65,23 +69,121 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                 return priority[b.criticality] - priority[a.criticality];
             });
     }, [businessServices, serviceDependencies, equipment.id]);
+    
+    const installedSoftware = useMemo(() => {
+        const assigned = licenseAssignments.filter(la => la.equipmentId === equipment.id);
+        return assigned.map(la => softwareLicenses.find(l => l.id === la.softwareLicenseId)).filter(Boolean) as SoftwareLicense[];
+    }, [licenseAssignments, softwareLicenses, equipment.id]);
+
+    const potentialVulnerabilities = useMemo(() => {
+        const searchText = [
+            equipment.description,
+            equipment.brandId, // Assuming brand names are unique enough if mapped, but let's stick to description
+            ...installedSoftware.map(s => s.productName)
+        ].join(' ').toLowerCase();
+
+        return vulnerabilities.filter(v => {
+            if (!v.affected_software) return false;
+            const terms = v.affected_software.toLowerCase().split(',').map(t => t.trim());
+            return terms.some(term => searchText.includes(term));
+        });
+    }, [vulnerabilities, equipment, installedSoftware]);
 
     const getStatusText = (assignment: Assignment) => {
         return assignment.returnDate ? 'Concluída' : 'Ativa';
     };
+    
+    const isPatchOutdated = useMemo(() => {
+        if (!equipment.last_security_update) return false;
+        const lastUpdate = new Date(equipment.last_security_update);
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        return lastUpdate < ninetyDaysAgo;
+    }, [equipment.last_security_update]);
 
     return (
-        <Modal title={`Histórico do Equipamento: ${equipment.serialNumber}`} onClose={onClose}>
+        <Modal title={`Histórico do Equipamento: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
             <div className="space-y-6">
                  <div className="bg-gray-900/50 p-3 rounded-lg text-sm grid grid-cols-2 gap-x-4">
                     <p><span className="font-semibold text-on-surface-dark-secondary">Nº Inventário:</span> {equipment.inventoryNumber || 'N/A'}</p>
                     <p><span className="font-semibold text-on-surface-dark-secondary">Nº Fatura:</span> {equipment.invoiceNumber || 'N/A'}</p>
                 </div>
 
+                {/* Security & Patching Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="border border-gray-700 bg-gray-800/30 rounded-lg p-4">
+                        <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
+                            <FaShieldAlt className="text-brand-secondary"/>
+                            Postura de Segurança
+                        </h3>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-400">Versão do SO:</span>
+                                <span className="text-white font-mono">{equipment.os_version || 'Não especificada'}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400">Último Patch:</span>
+                                <span className={`font-mono ${isPatchOutdated ? 'text-red-400 font-bold' : 'text-green-400'}`}>
+                                    {equipment.last_security_update || 'N/A'}
+                                </span>
+                            </div>
+                            {isPatchOutdated && (
+                                <p className="text-xs text-red-400 mt-2 bg-red-900/20 p-2 rounded border border-red-500/30">
+                                    <FaExclamationTriangle className="inline mr-1"/>
+                                    Atenção: Sistema desatualizado há mais de 90 dias. Risco elevado.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="border border-gray-700 bg-gray-800/30 rounded-lg p-4">
+                        <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
+                            <FaKey className="text-yellow-500"/>
+                            Software Instalado
+                        </h3>
+                        {installedSoftware.length > 0 ? (
+                            <ul className="space-y-1 text-sm max-h-32 overflow-y-auto">
+                                {installedSoftware.map(sw => (
+                                    <li key={sw.id} className="flex justify-between text-gray-300">
+                                        <span>{sw.productName}</span>
+                                        <span className="text-xs text-gray-500 bg-gray-900 px-1 rounded">{sw.licenseKey.substring(0, 8)}...</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-gray-500 italic">Nenhuma licença associada.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Potential Vulnerabilities (Automated Correlation) */}
+                {potentialVulnerabilities.length > 0 && (
+                    <div className="border border-red-500/30 bg-red-900/10 rounded-lg p-4">
+                        <h3 className="text-lg font-bold text-red-400 mb-2 flex items-center gap-2">
+                            <FaBug />
+                            Vulnerabilidades Potenciais (CVEs Detetados)
+                        </h3>
+                        <p className="text-xs text-gray-400 mb-2">Baseado na correspondência automática com o software instalado e descrição do ativo.</p>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {potentialVulnerabilities.map(vuln => (
+                                <div key={vuln.id} className="flex justify-between items-start bg-surface-dark p-2 rounded border border-red-900/50">
+                                    <div>
+                                        <div className="font-bold text-white text-sm">{vuln.cve_id}</div>
+                                        <div className="text-xs text-gray-400">{vuln.description.substring(0, 100)}...</div>
+                                    </div>
+                                    <span className={`px-2 py-1 text-xs rounded border whitespace-nowrap ${getCriticalityClass(vuln.severity)}`}>
+                                        {vuln.severity}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Impact Analysis Section (BIA) */}
                 {impactedServices.length > 0 && (
-                    <div className="border border-red-500/30 bg-red-900/10 rounded-lg p-4">
-                         <h3 className="text-lg font-bold text-red-400 mb-2 flex items-center gap-2">
+                    <div className="border border-orange-500/30 bg-orange-900/10 rounded-lg p-4">
+                         <h3 className="text-lg font-bold text-orange-400 mb-2 flex items-center gap-2">
                             <FaExclamationTriangle />
                             Impacto no Negócio (Serviços Dependentes)
                         </h3>

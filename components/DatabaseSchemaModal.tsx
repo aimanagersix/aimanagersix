@@ -56,6 +56,9 @@ BEGIN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
+        -- NOVAS COLUNAS DE PATCHING E VERSÃO
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS os_version text;
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS last_security_update text;
     END IF;
 
     -- Adicionar colunas de NIS2 à tabela SOFTWARE_LICENSES se não existirem
@@ -154,6 +157,8 @@ CREATE TABLE IF NOT EXISTS equipment (
     confidentiality text DEFAULT 'Baixo',
     integrity text DEFAULT 'Baixo',
     availability text DEFAULT 'Baixo',
+    os_version text,
+    last_security_update text,
     "creationDate" text DEFAULT to_char(now(), 'YYYY-MM-DD'),
     "modifiedDate" text DEFAULT to_char(now(), 'YYYY-MM-DD')
 );

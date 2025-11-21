@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -28,7 +29,7 @@ import ForgotPasswordModal from './components/ForgotPasswordModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
 import CredentialsModal from './components/CredentialsModal';
 import { getSupabase } from './services/supabaseClient';
-import { Session } from '@supabase/supabase-js';
+// import { Session } from '@supabase/supabase-js';
 import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import AddEquipmentTypeModal from './components/AddEquipmentTypeModal';
 import BrandDashboard from './components/BrandDashboard';
@@ -56,7 +57,9 @@ import PrintPreviewModal from './components/PrintPreviewModal';
 import AddEquipmentKitModal from './components/AddEquipmentKitModal';
 import ConfirmationModal from './components/common/ConfirmationModal';
 import CloseTicketModal from './components/CloseTicketModal';
+import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 
+type Session = any;
 
 const InnerApp: React.FC = () => {
     const { t } = useLanguage();
@@ -138,6 +141,7 @@ const InnerApp: React.FC = () => {
     const [kitInitialData, setKitInitialData] = useState<Partial<Equipment> | null>(null);
     const [confirmationModal, setConfirmationModal] = useState<{ show: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
     const [showCloseTicket, setShowCloseTicket] = useState<Ticket | null>(null);
+    const [equipmentForHistory, setEquipmentForHistory] = useState<Equipment | null>(null);
 
     // Maps
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -181,7 +185,7 @@ const InnerApp: React.FC = () => {
         if (!isConfigured) return;
 
         const supabase = getSupabase();
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        (supabase.auth as any).getSession().then(({ data: { session } }: any) => {
             setSession(session);
             if (session) loadUser(session.user.id);
             else setLoading(false);
@@ -193,7 +197,7 @@ const InnerApp: React.FC = () => {
             }
         });
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => {
             setSession(session);
             if (session) loadUser(session.user.id);
             else {
@@ -257,7 +261,7 @@ const InnerApp: React.FC = () => {
 
     const handleLogout = async () => {
         const supabase = getSupabase();
-        await supabase.auth.signOut();
+        await (supabase.auth as any).signOut();
         setCurrentUser(null);
         setSession(null);
     };
@@ -537,7 +541,7 @@ const InnerApp: React.FC = () => {
                             initialFilter={initialFilter}
                             onClearInitialFilter={() => setInitialFilter(null)}
                             onAssign={(eq) => setShowAssignEquipment(eq)}
-                            onShowHistory={(eq) => { /* Implement history view logic in modal not main tab */ }}
+                            onShowHistory={(eq) => setEquipmentForHistory(eq)}
                             onEdit={(eq) => { setEquipmentToEdit(eq); setShowAddEquipment(true); }}
                             businessServices={businessServices}
                             serviceDependencies={serviceDependencies}
@@ -723,6 +727,23 @@ const InnerApp: React.FC = () => {
                 />
             )}
             
+            {equipmentForHistory && (
+                <EquipmentHistoryModal
+                    equipment={equipmentForHistory}
+                    assignments={assignments}
+                    collaborators={collaborators}
+                    escolasDepartamentos={entidades}
+                    tickets={tickets}
+                    ticketActivities={ticketActivities}
+                    businessServices={businessServices}
+                    serviceDependencies={serviceDependencies}
+                    softwareLicenses={softwareLicenses}
+                    licenseAssignments={licenseAssignments}
+                    vulnerabilities={vulnerabilities}
+                    onClose={() => setEquipmentForHistory(null)}
+                />
+            )}
+
             {showAddTicket && (
                 <AddTicketModal
                     onClose={() => { setShowAddTicket(false); setTicketToEdit(null); }}
@@ -829,7 +850,7 @@ const InnerApp: React.FC = () => {
                             
                             if (password && result) {
                                 const supabase = getSupabase();
-                                const { error } = await supabase.auth.signUp({
+                                const { error } = await (supabase.auth as any).signUp({
                                     email: col.email,
                                     password: password,
                                     options: { data: { collaborator_id: result.id } }

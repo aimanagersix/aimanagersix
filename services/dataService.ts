@@ -1,6 +1,7 @@
 
 
 
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
@@ -18,7 +19,7 @@ const handleSupabaseError = (error: any, operation: string) => {
 // --- Audit Logging ---
 export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
     const supabase = getSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await (supabase.auth as any).getUser();
     
     if (!user) return; // System action or no user logged in
 

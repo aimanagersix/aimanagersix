@@ -56,6 +56,9 @@ export interface Equipment {
   confidentiality?: CIARating;
   integrity?: CIARating;
   availability?: CIARating;
+  // Security & Patching
+  os_version?: string;
+  last_security_update?: string;
 }
 
 export interface Instituicao {

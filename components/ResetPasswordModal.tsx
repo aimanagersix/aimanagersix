@@ -1,8 +1,11 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { getSupabase } from '../services/supabaseClient';
 import { SpinnerIcon, FaEye, FaEyeSlash } from './common/Icons';
-import { Session } from '@supabase/supabase-js';
+// import { Session } from '@supabase/supabase-js';
+
+type Session = any;
 
 interface ResetPasswordModalProps {
     onClose: () => void;
@@ -43,12 +46,12 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ onClose, sessio
 
         try {
             const supabase = getSupabase();
-            const { error: updateError } = await supabase.auth.updateUser({ password: password });
+            const { error: updateError } = await (supabase.auth as any).updateUser({ password: password });
 
             if (updateError) throw updateError;
             
             setMessage('A sua password foi atualizada com sucesso! Pode agora fazer login com a nova password.');
-            await supabase.auth.signOut();
+            await (supabase.auth as any).signOut();
         } catch(e: any) {
             setError(e.message || 'Ocorreu um erro ao atualizar a sua password. O link pode ter expirado. Por favor, tente novamente.');
             console.error("Password update error:", e);

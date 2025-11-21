@@ -49,7 +49,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
         
         // We intercept the standard onLogin to check for MFA first manually
         const supabase = getSupabase();
-        const { data, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error: loginError } = await (supabase.auth as any).signInWithPassword({ email, password });
 
         if (loginError) {
             setIsLoading(false);
@@ -58,14 +58,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
         }
 
         if (data.user) {
-            const factors = await supabase.auth.mfa.listFactors();
+            const factors = await (supabase.auth as any).mfa.listFactors();
             if (error) {
                  setIsLoading(false);
                  setError("Erro ao verificar MFA.");
                  return;
             }
 
-            const totpFactor = factors.data?.totp.find(f => f.status === 'verified');
+            const totpFactor = factors.data?.totp.find((f: any) => f.status === 'verified');
             
             if (totpFactor) {
                 setStep('mfa'); // Move to MFA step
@@ -85,13 +85,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
 
         try {
             const supabase = getSupabase();
-            const factors = await supabase.auth.mfa.listFactors();
+            const factors = await (supabase.auth as any).mfa.listFactors();
             const factorId = factors.data?.totp[0].id;
 
-            const challenge = await supabase.auth.mfa.challenge({ factorId: factorId! });
+            const challenge = await (supabase.auth as any).mfa.challenge({ factorId: factorId! });
             if (challenge.error) throw challenge.error;
 
-            const verify = await supabase.auth.mfa.verify({
+            const verify = await (supabase.auth as any).mfa.verify({
                 factorId: factorId!,
                 challengeId: challenge.data.id,
                 code: mfaCode
