@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
 import { BackupExecution, BackupType, Collaborator, Equipment, EquipmentType, Ticket, TicketStatus } from '../types';
@@ -140,8 +139,10 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             ...formData,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
         };
+        // Clean up optional fields to avoid empty strings in UUID/Integer columns
         if (!dataToSave.restore_time_minutes) delete dataToSave.restore_time_minutes;
         if (!dataToSave.equipment_id) delete dataToSave.equipment_id;
+        if (!dataToSave.tester_id) delete dataToSave.tester_id;
 
         if (backupToEdit) {
             onSave({ ...backupToEdit, ...dataToSave });
@@ -162,7 +163,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                 requestDate: ticketDate, // This will be the scheduled date
                 status: TicketStatus.Requested,
                 equipmentId: formData.equipment_id || undefined,
-                category: 'Manutenção' // Fallback category if dynamic ones exist, usually fine
+                category: 'Manutenção' // Fallback category
             };
             onCreateTicket(ticketPayload);
         }
@@ -187,9 +188,11 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                         className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm mb-2"
                     >
                         <option value="">-- Selecione Equipamento (Opcional) --</option>
-                        {eligibleEquipment.map(eq => (
+                        {eligibleEquipment.length > 0 ? eligibleEquipment.map(eq => (
                             <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
-                        ))}
+                        )) : (
+                            <option value="" disabled>Nenhum equipamento marcado para backup</option>
+                        )}
                     </select>
                     
                     <label htmlFor="system_name" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Nome do Sistema (Manual se não selecionado)</label>

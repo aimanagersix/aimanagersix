@@ -1,25 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -49,11 +27,21 @@ $$ language 'plpgsql';
 -- ==========================================
 -- CORREÇÃO DE TABELAS EXISTENTES (CRÍTICO)
 -- ==========================================
--- Se as tabelas já existem, adicionamos as colunas novas aqui
 
 DO $$ 
 BEGIN 
-    -- Adicionar colunas de NIS2/Segurança à tabela TICKETS se não existirem
+    -- 1. Adicionar flag 'requiresBackupTest' a EQUIPMENT_TYPES (Para o erro "Erro ao salvar")
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
+    END IF;
+
+    -- 2. Adicionar colunas à tabela BACKUP_EXECUTIONS
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'backup_executions') THEN
+        ALTER TABLE backup_executions ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
+        ALTER TABLE backup_executions ADD COLUMN IF NOT EXISTS equipment_id uuid;
+    END IF;
+
+    -- 3. Adicionar colunas de NIS2/Segurança à tabela TICKETS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tickets') THEN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS category text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactCriticality" text;
@@ -64,48 +52,45 @@ BEGIN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
     
-    -- Adicionar colunas de SLA à tabela TICKET_CATEGORIES se não existirem
+    -- 4. Adicionar colunas de SLA à tabela TICKET_CATEGORIES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'ticket_categories') THEN
         ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_warning_hours integer DEFAULT 0;
         ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_critical_hours integer DEFAULT 0;
     END IF;
 
-    -- Adicionar colunas de NIS2 à tabela EQUIPMENT se não existirem
+    -- 5. Adicionar colunas de NIS2 à tabela EQUIPMENT
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
-        -- NOVAS COLUNAS DE PATCHING E VERSÃO
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS os_version text;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS last_security_update text;
-        -- COLUNA DE FORNECEDOR
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS supplier_id uuid;
     END IF;
 
-    -- Adicionar colunas de NIS2 à tabela SOFTWARE_LICENSES se não existirem
+    -- 6. Adicionar colunas de NIS2 à tabela SOFTWARE_LICENSES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'software_licenses') THEN
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
-        -- COLUNA DE FORNECEDOR
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS supplier_id uuid;
     END IF;
 
-    -- Adicionar coluna de fornecedor externo a BUSINESS_SERVICES
+    -- 7. Adicionar coluna de fornecedor externo a BUSINESS_SERVICES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'business_services') THEN
         ALTER TABLE business_services ADD COLUMN IF NOT EXISTS external_provider_id uuid;
     END IF;
 
-    -- Adicionar colunas de Risco à tabela BRANDS (Fabricantes)
+    -- 8. Adicionar colunas de Risco à tabela BRANDS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'brands') THEN
         ALTER TABLE brands ADD COLUMN IF NOT EXISTS risk_level text DEFAULT 'Baixa';
         ALTER TABLE brands ADD COLUMN IF NOT EXISTS is_iso27001_certified boolean DEFAULT false;
         ALTER TABLE brands ADD COLUMN IF NOT EXISTS security_contact_email text;
     END IF;
 
-    -- Adicionar coluna de validade de certificado, morada e anexos à tabela SUPPLIERS
+    -- 9. Adicionar colunas a SUPPLIERS, INSTITUICOES, ENTIDADES, COLLABORATORS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'suppliers') THEN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address text;
@@ -115,8 +100,6 @@ BEGIN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
-
-    -- Adicionar colunas de morada e NIF à tabela INSTITUICOES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address text;
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address_line text;
@@ -125,8 +108,6 @@ BEGIN
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS nif text;
     END IF;
-
-    -- Adicionar colunas de morada e NIF à tabela ENTIDADES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'entidades') THEN
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS address text;
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS address_line text;
@@ -135,8 +116,6 @@ BEGIN
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS nif text;
     END IF;
-
-    -- Adicionar colunas de morada e NIF à tabela COLLABORATORS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'collaborators') THEN
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS address text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS address_line text;
@@ -144,24 +123,6 @@ BEGIN
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS city text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS nif text;
-    END IF;
-
-    -- Adicionar colunas à tabela BACKUP_EXECUTIONS (Migração se foi criado incorretamente antes)
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'backup_executions') THEN
-        -- Remove a coluna antiga 'evidence_attachment' se existir como texto simples
-        -- Mas para não perder dados, pode-se renomear ou converter. Aqui assumimos replace simples.
-        IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'backup_executions' AND column_name = 'evidence_attachment' AND data_type = 'text') THEN
-             -- Se quiser manter dados, teríamos de fazer uma migração complexa. Simplificando:
-             ALTER TABLE backup_executions DROP COLUMN evidence_attachment;
-        END IF;
-        ALTER TABLE backup_executions ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
-        -- Adicionar Ligação a Equipamento
-        ALTER TABLE backup_executions ADD COLUMN IF NOT EXISTS equipment_id uuid;
-    END IF;
-
-    -- Adicionar flag 'requiresBackupTest' a EQUIPMENT_TYPES
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
-        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
     END IF;
 END $$;
 
@@ -238,7 +199,6 @@ CREATE TABLE IF NOT EXISTS brands (
     security_contact_email text
 );
 
--- NOVA TABELA: FORNECEDORES (SUPPLIERS)
 CREATE TABLE IF NOT EXISTS suppliers (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL UNIQUE,
@@ -257,7 +217,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     is_iso27001_certified boolean DEFAULT false,
     iso_certificate_expiry text,
     security_contact_email text,
-    risk_level text DEFAULT 'Baixa', -- Vendor Risk Rating
+    risk_level text DEFAULT 'Baixa',
     created_at timestamptz DEFAULT now()
 );
 
@@ -324,7 +284,6 @@ CREATE TABLE IF NOT EXISTS ticket_categories (
     created_at timestamptz DEFAULT now()
 );
 
--- NOVA TABELA: TIPOS DE INCIDENTE DE SEGURANÇA
 CREATE TABLE IF NOT EXISTS security_incident_types (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL UNIQUE,
@@ -333,7 +292,6 @@ CREATE TABLE IF NOT EXISTS security_incident_types (
     created_at timestamptz DEFAULT now()
 );
 
--- PREENCHER DADOS INICIAIS DE SEGURANÇA (SEED DATA)
 INSERT INTO security_incident_types (name, description, is_active) VALUES
 ('Ransomware', 'Ataque que cifra dados e exige resgate.', true),
 ('Phishing / Engenharia Social', 'Tentativa de obter dados sensíveis via engano.', true),
@@ -440,8 +398,6 @@ CREATE TABLE IF NOT EXISTS user_notification_snoozes (
     created_at timestamptz DEFAULT now()
 );
 
--- TABELAS PARA GESTÃO DE SERVIÇOS (BIA - NIS2)
-
 CREATE TABLE IF NOT EXISTS business_services (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL,
@@ -464,8 +420,6 @@ CREATE TABLE IF NOT EXISTS service_dependencies (
     created_at timestamptz DEFAULT now()
 );
 
--- TABELAS PARA GESTÃO DE VULNERABILIDADES (SEGURANÇA)
-
 CREATE TABLE IF NOT EXISTS vulnerabilities (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     cve_id text NOT NULL,
@@ -478,22 +432,20 @@ CREATE TABLE IF NOT EXISTS vulnerabilities (
     created_at timestamptz DEFAULT now()
 );
 
--- NOVA TABELA: TESTES DE BACKUPS (NIS2)
 CREATE TABLE IF NOT EXISTS backup_executions (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     system_name text NOT NULL,
     backup_date text NOT NULL,
     test_date text NOT NULL,
-    status text NOT NULL, -- 'Sucesso', 'Falha', 'Parcial'
+    status text NOT NULL,
     type text DEFAULT 'Completo',
     restore_time_minutes integer,
     tester_id uuid REFERENCES collaborators(id),
     notes text,
-    attachments jsonb DEFAULT '[]', -- Evidências (screenshots, logs)
+    attachments jsonb DEFAULT '[]',
     equipment_id uuid REFERENCES equipment(id),
     created_at timestamptz DEFAULT now()
 );
-
 
 -- ==========================================
 -- CORREÇÃO DA TABELA TEAM_MEMBERS
@@ -508,24 +460,8 @@ CREATE TABLE team_members (
 );
 
 -- ==========================================
--- INDÍCES DE PERFORMANCE
--- ==========================================
-CREATE INDEX IF NOT EXISTS idx_equipment_serial ON equipment("serialNumber");
-CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
-CREATE INDEX IF NOT EXISTS idx_assignments_equipment ON assignments("equipmentId");
-CREATE INDEX IF NOT EXISTS idx_assignments_collaborator ON assignments("collaboratorId");
-
--- Índices Novos para Segurança e BIA
-CREATE INDEX IF NOT EXISTS idx_vulnerabilities_status ON vulnerabilities(status);
-CREATE INDEX IF NOT EXISTS idx_vulnerabilities_severity ON vulnerabilities(severity);
-CREATE INDEX IF NOT EXISTS idx_business_services_criticality ON business_services(criticality);
-CREATE INDEX IF NOT EXISTS idx_backup_executions_test_date ON backup_executions(test_date);
-
--- ==========================================
 -- CORREÇÃO DE PERMISSÕES (RLS)
 -- ==========================================
--- Habilita RLS e cria uma política 'Allow all' universal
-
 DO $$ 
 DECLARE 
     t text;
@@ -534,17 +470,10 @@ BEGIN
         SELECT table_name FROM information_schema.tables 
         WHERE table_schema = 'public' 
     LOOP 
-        -- 1. Ativar RLS
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
-        
-        -- 2. Limpar políticas antigas (para evitar conflitos)
         BEGIN
             EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t);
-            EXECUTE format('DROP POLICY IF EXISTS "Permitir escrita a Admins e Normais" ON %I;', t);
-            EXECUTE format('DROP POLICY IF EXISTS "Permitir leitura a utilizadores autenticados" ON %I;', t);
         EXCEPTION WHEN OTHERS THEN NULL; END;
-
-        -- 3. Criar nova política permissiva
         EXECUTE format('CREATE POLICY "Allow all" ON %I FOR ALL USING (true) WITH CHECK (true);', t); 
     END LOOP; 
 END $$;
@@ -565,7 +494,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo atualiza as tabelas para adicionar campos de <strong>Morada Estruturada</strong> e <strong>NIF</strong> a Instituições, Entidades e Colaboradores.
+                        Este script foi atualizado para corrigir o erro <strong>"Erro ao salvar"</strong>. Ele adiciona a coluna <code>requiresBackupTest</code> em falta na base de dados.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>
