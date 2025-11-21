@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -519,9 +520,9 @@ const InnerApp: React.FC = () => {
                 />
             )}
 
-            <main className={`flex-grow p-4 sm:p-6 lg:p-8 ${
+            <main className={`flex-grow p-4 sm:p-6 lg:p-8 transition-all duration-300 ease-in-out ${
                 layoutMode === 'side' 
-                    ? `${sidebarExpanded ? 'ml-64' : 'ml-20'} w-auto bg-background-dark min-h-screen transition-all duration-300 ease-in-out`
+                    ? `${sidebarExpanded ? 'ml-64' : 'ml-20'} w-auto bg-background-dark min-h-screen`
                     : 'max-w-screen-xl mx-auto w-full' // Topbar mode: centered, max width
             }`}>
                 {activeTab === 'overview' && (

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
@@ -62,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             title={!isExpanded ? label : undefined}
         >
             <span className="text-lg flex-shrink-0 w-6 flex justify-center">{icon}</span>
-            <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0'}`}>
+            <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
                 {label}
             </span>
         </button>
@@ -73,7 +74,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
         <aside 
             className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-all duration-300 ease-in-out ${isExpanded ? 'w-64' : 'w-20'}`}
             onMouseEnter={() => onHover(true)}
-            onMouseLeave={() => onHover(false)}
+            onMouseLeave={() => {
+                onHover(false);
+                setIsUserMenuOpen(false); // Auto close menus on leave for cleaner UX
+            }}
         >
             {/* Brand Header */}
             <div className="flex items-center justify-center h-20 flex-shrink-0 bg-gray-900 border-b border-gray-800 overflow-hidden whitespace-nowrap">
@@ -100,7 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
                                 <FaSitemap className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0'}`}>{t('nav.organization')}</span>
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.organization')}</span>
                             </div>
                             {isExpanded && (
                                 <span className={`transition-transform duration-200 ${isOrganizacaoOpen ? 'rotate-90' : ''}`}>
@@ -130,7 +134,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
                                 <FaBoxOpen className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0'}`}>{t('nav.inventory')}</span>
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.inventory')}</span>
                             </div>
                             {isExpanded && (
                                 <span className={`transition-transform duration-200 ${isInventarioOpen ? 'rotate-90' : ''}`}>
@@ -159,7 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
                                 <FaShieldAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0'}`}>{tabConfig.nis2?.title || 'Compliance'}</span>
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{tabConfig.nis2?.title || 'Compliance'}</span>
                             </div>
                             {isExpanded && (
                                 <span className={`transition-transform duration-200 ${isNis2Open ? 'rotate-90' : ''}`}>
@@ -190,7 +194,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
                                 <FaTicketAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0'}`}>{tabConfig.tickets?.title || 'Tickets'}</span>
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{tabConfig.tickets?.title || 'Tickets'}</span>
                             </div>
                             {isExpanded && (hasTicketCategories || hasIncidentTypes) && (
                                 <span className={`transition-transform duration-200 ${isTicketsOpen ? 'rotate-90' : ''}`}>
@@ -210,7 +214,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             </nav>
 
             {/* Footer Actions */}
-            <div className="p-4 border-t border-gray-800 space-y-4 bg-gray-900 overflow-hidden">
+            {/* CRITICAL FIX: Removed 'overflow-hidden' from this container so the popup menu can be seen */}
+            <div className="p-4 border-t border-gray-800 space-y-4 bg-gray-900">
                 
                 {/* Utils Row */}
                 <div className={`flex items-center transition-all duration-300 ${isExpanded ? 'justify-between' : 'flex-col gap-4 justify-center'}`}>
@@ -261,7 +266,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
                         {isUserMenuOpen && (
                             <div 
-                                className={`absolute bottom-full mb-2 bg-gray-800 rounded-md shadow-lg border border-gray-700 divide-y divide-gray-700 overflow-hidden z-50 ${isExpanded ? 'left-0 w-full' : 'left-10 w-56'}`}
+                                className={`absolute bottom-full mb-2 bg-gray-800 rounded-md shadow-lg border border-gray-700 divide-y divide-gray-700 z-50 min-w-[220px] ${isExpanded ? 'left-0 w-full' : 'left-12'}`}
                             >
                                 <div className="py-1">
                                     <button onClick={() => setLayoutMode('top')} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
