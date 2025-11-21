@@ -30,6 +30,8 @@ $os = Get-WmiObject -Class Win32_OperatingSystem
 $comp = Get-WmiObject -Class Win32_ComputerSystem
 
 $serialNumber = $bios.SerialNumber
+$manufacturer = $comp.Manufacturer
+$model = $comp.Model
 $osName = $os.Caption
 $osVersion = $os.Version
 $pcName = $comp.Name
@@ -46,6 +48,8 @@ $defenderStatus = @{
 # 3. Payload para envio
 $payload = @{
     serialNumber = $serialNumber
+    manufacturer = $manufacturer
+    model = $model
     hostname = $pcName
     os_version = "$osName ($osVersion)"
     last_security_update = (Get-Date).ToString("yyyy-MM-dd") # Data da execução
@@ -85,7 +89,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { serialNumber, os_version, defender } = await req.json()
+    const { serialNumber, manufacturer, model, hostname, os_version, defender } = await req.json()
 
     // 1. Procurar equipamento pelo Serial Number
     const { data: equipment } = await supabase
@@ -95,6 +99,7 @@ serve(async (req) => {
       .single()
 
     if (equipment) {
+      // --- CENÁRIO A: EQUIPAMENTO EXISTE ---
       // 2. Atualizar dados do SO e Patch
       await supabase
         .from('equipment')
@@ -113,7 +118,7 @@ serve(async (req) => {
             .select('id')
             .eq('equipmentId', equipment.id)
             .eq('category', 'Incidente de Segurança')
-            .eq('status', 'Pedido') // Apenas se ainda estiver aberto
+            .eq('status', 'Pedido')
             .single()
          
          if (!existingTicket) {
@@ -129,6 +134,37 @@ serve(async (req) => {
              })
          }
       }
+    } else {
+        // --- CENÁRIO B: EQUIPAMENTO NÃO EXISTE (ROGUE DEVICE) ---
+        // Criar um alerta de segurança informando que um dispositivo desconhecido tentou comunicar
+        
+        // Verificar se já existe um ticket de alerta para este Serial Number recentemente para evitar spam
+        const { data: existingAlert } = await supabase
+            .from('tickets')
+            .select('id')
+            .ilike('description', \`%serial: \${serialNumber}%\`)
+            .eq('status', 'Pedido')
+            .single()
+
+        if (!existingAlert) {
+            // Obter a primeira entidade (admin) por defeito para associar o ticket
+            const { data: defaultEntity } = await supabase.from('entidades').select('id').limit(1).single()
+            const { data: defaultUser } = await supabase.from('collaborators').select('id').limit(1).single()
+
+            if (defaultEntity && defaultUser) {
+                await supabase.from('tickets').insert({
+                    title: 'Alerta: Dispositivo Não Inventariado Detetado',
+                    description: \`O agente foi executado num dispositivo não registado.\\n\\nDados recolhidos:\\nHostname: \${hostname}\\nSerial: \${serialNumber}\\nMarca/Modelo: \${manufacturer} \${model}\\nSO: \${os_version}\`,
+                    entidadeId: defaultEntity.id,
+                    collaboratorId: defaultUser.id, // Associar ao admin/sistema
+                    category: 'Incidente de Segurança',
+                    securityIncidentType: 'Acesso Não Autorizado / Compromisso de Conta',
+                    impactCriticality: 'Média',
+                    requestDate: new Date().toISOString(),
+                    status: 'Pedido'
+                })
+            }
+        }
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -220,7 +256,11 @@ serve(async (req) => {
                                     Este código deve ser colocado numa <strong>Supabase Edge Function</strong> chamada <code>sync-agent</code>.
                                 </p>
                                 <p className="mt-2">
-                                    <strong>Lógica Automática:</strong> Quando recebe dados, atualiza o inventário. Se detetar que o <strong>Antivírus está desligado</strong>, sobe a criticidade do equipamento para "Alta" e cria um Ticket de Segurança automaticamente.
+                                    <strong>Lógica Automática:</strong>
+                                    <ul className="list-disc list-inside mt-1 ml-2 text-xs">
+                                        <li>Se o PC existe: Atualiza dados e verifica o Antivírus (Cria alerta se desligado).</li>
+                                        <li>Se o PC <strong>NÃO</strong> existe: Cria um ticket de <strong>Segurança (Dispositivo Desconhecido)</strong>.</li>
+                                    </ul>
                                 </p>
                             </div>
 
