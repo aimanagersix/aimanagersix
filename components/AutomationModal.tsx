@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import Modal from './common/Modal';
-import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
+import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal } from 'react-icons/fa';
 
 interface AutomationModalProps {
     onClose: () => void;
@@ -16,109 +16,232 @@ const AutomationModal: React.FC<AutomationModalProps> = ({ onClose }) => {
     const supabaseKey = localStorage.getItem('SUPABASE_ANON_KEY') || 'SUA-CHAVE-PUBLICA';
 
     // The PowerShell Agent Script (DIRECT REST API VERSION)
+    // Updated to include Creation logic (Register)
     const clientScript = `# ==========================================
-# AIManager - Agente de Inventário (Modo Direto)
+# AIManager - Agente de Inventário (v2.0 - Auto Registo)
 # ==========================================
 
 $SupabaseUrl = "${supabaseUrl}"
 $SupabaseKey = "${supabaseKey}"
 $BaseUrl = "$SupabaseUrl/rest/v1"
 
-# Headers de Autenticação
+# Configuração
 $Headers = @{
     "apikey" = $SupabaseKey
     "Authorization" = "Bearer $SupabaseKey"
     "Content-Type" = "application/json"
-    "Prefer" = "return=representation"
+    "Prefer" = "return=representation" # Retorna o objeto criado/atualizado
+}
+
+# --- Funções Auxiliares ---
+function Get-DbId($Table, $Col, $Val) {
+    try {
+        $url = "$BaseUrl/$Table?$Col=eq.$([Uri]::EscapeDataString($Val))&select=id"
+        $res = Invoke-RestMethod -Uri $url -Method Get -Headers $Headers
+        if ($res.Count -gt 0) { return $res[0].id }
+    } catch { return $null }
+    return $null
+}
+
+function Create-Record($Table, $Body) {
+    try {
+        $json = $Body | ConvertTo-Json -Depth 2
+        $url = "$BaseUrl/$Table"
+        $res = Invoke-RestMethod -Uri $url -Method Post -Body $json -Headers $Headers
+        return $res
+    } catch {
+        Write-Host "Erro ao criar registo em $Table : $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
 }
 
 # 1. Recolha de Dados do Equipamento
-try {
-    $bios = Get-WmiObject -Class Win32_BIOS
-    $os = Get-WmiObject -Class Win32_OperatingSystem
-    $comp = Get-WmiObject -Class Win32_ComputerSystem
-    $defender = Get-MpComputerStatus
+Write-Host "1. A recolher dados do sistema..." -ForegroundColor Cyan
+$bios = Get-WmiObject -Class Win32_BIOS
+$os = Get-WmiObject -Class Win32_OperatingSystem
+$comp = Get-WmiObject -Class Win32_ComputerSystem
+$defender = Get-MpComputerStatus
 
-    $serialNumber = $bios.SerialNumber.Trim()
-    $manufacturer = $comp.Manufacturer
-    $model = $comp.Model
-    $osName = $os.Caption
-    $osVersion = $os.Version
-    $hostname = $comp.Name
-    
-    Write-Host "A verificar equipamento: $hostname (S/N: $serialNumber)..." -ForegroundColor Cyan
+$serialNumber = $bios.SerialNumber.Trim()
+$manufacturer = $comp.Manufacturer.Trim()
+$model = $comp.Model.Trim()
+$osName = $os.Caption.Trim()
+$osVersion = $os.Version
+$hostname = $comp.Name
+$description = "$manufacturer $model ($hostname)"
 
-    # 2. Verificar se existe na BD
-    $CheckUrl = "$BaseUrl/equipment?serialNumber=eq.$serialNumber&select=*"
-    $EquipmentList = Invoke-RestMethod -Uri $CheckUrl -Method Get -Headers $Headers
+# Determinar Tipo (Simples)
+$chassis = Get-WmiObject -Class Win32_SystemEnclosure
+$typeStr = "Desktop"
+if ($chassis.ChassisTypes -contains 9 -or $chassis.ChassisTypes -contains 10) { $typeStr = "Laptop" }
 
-    if ($EquipmentList.Count -gt 0) {
-        $eq = $EquipmentList[0]
-        Write-Host " > Equipamento encontrado: $($eq.description)" -ForegroundColor Green
+Write-Host " > Sistema detetado: $description [$typeStr] S/N: $serialNumber" -ForegroundColor Gray
 
-        # 3. Atualizar Dados (SO e Patch)
-        $UpdateUrl = "$BaseUrl/equipment?id=eq.$($eq.id)"
-        $UpdateBody = @{
-            os_version = "$osName ($osVersion)"
-            last_security_update = (Get-Date).ToString("yyyy-MM-dd")
-        } | ConvertTo-Json
+# 2. Sincronização (Marca & Tipo)
+Write-Host "2. A sincronizar dependências..." -ForegroundColor Cyan
 
-        Invoke-RestMethod -Uri $UpdateUrl -Method Patch -Body $UpdateBody -Headers $Headers
-        Write-Host " > Informação de segurança atualizada." -ForegroundColor Green
-
-        # 4. Verificação de Segurança (Windows Defender)
-        if (-not $defender.RealTimeProtectionEnabled) {
-            Write-Host " ! ALERTA: Antivírus Desativado!" -ForegroundColor Red
-            
-            # Verificar se já existe ticket aberto
-            $TicketCheckUrl = "$BaseUrl/tickets?equipmentId=eq.$($eq.id)&status=eq.Pedido&category=eq.Incidente de Segurança&select=id"
-            $ExistingTickets = Invoke-RestMethod -Uri $TicketCheckUrl -Method Get -Headers $Headers
-
-            if ($ExistingTickets.Count -eq 0) {
-                $TicketUrl = "$BaseUrl/tickets"
-                $TicketBody = @{
-                    title = "Alerta Crítico: Antivírus Desativado"
-                    description = "O agente detetou que o Windows Defender está desativado em $hostname."
-                    entidadeId = $eq.entidadeId # Assumindo que o equipamento já tem entidade
-                    collaboratorId = $eq.collaboratorId # Assumindo colaborador associado
-                    equipmentId = $eq.id
-                    category = "Incidente de Segurança"
-                    securityIncidentType = "Malware / Vírus"
-                    impactCriticality = "Alta"
-                    requestDate = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssK")
-                    status = "Pedido"
-                } | ConvertTo-Json
-                
-                # Só cria ticket se tiver entidade associada (obrigatório)
-                if ($eq.entidadeId) {
-                    Invoke-RestMethod -Uri $TicketUrl -Method Post -Body $TicketBody -Headers $Headers
-                    Write-Host " > Ticket de incidente criado." -ForegroundColor Yellow
-                }
-            }
-        }
-    } else {
-        Write-Host " ! Equipamento NÃO encontrado na base de dados." -ForegroundColor Yellow
-        
-        # Opcional: Criar alerta de dispositivo desconhecido (Requer ID de entidade default, ignorado neste script simples)
-        Write-Host " > Por favor, registe o S/N $serialNumber manualmente no AIManager."
-    }
-
-} catch {
-    Write-Host "Erro de execução: $_" -ForegroundColor Red
-    Write-Host "Detalhes: $($_.Exception.Response.StatusCode) - $($_.Exception.Message)"
+# Marca
+$brandId = Get-DbId "brands" "name" $manufacturer
+if (-not $brandId) {
+    Write-Host " > Marca '$manufacturer' nova. A registar..." -ForegroundColor Yellow
+    $newBrand = Create-Record "brands" @{ name = $manufacturer; risk_level = "Baixa" }
+    $brandId = $newBrand.id
 }
+
+# Tipo
+$typeId = Get-DbId "equipment_types" "name" $typeStr
+if (-not $typeId) {
+    Write-Host " > Tipo '$typeStr' novo. A registar..." -ForegroundColor Yellow
+    $newType = Create-Record "equipment_types" @{ name = $typeStr }
+    $typeId = $newType.id
+}
+
+# 3. Registar ou Atualizar Equipamento
+Write-Host "3. A processar equipamento..." -ForegroundColor Cyan
+$eqId = Get-DbId "equipment" "serialNumber" $serialNumber
+
+$eqPayload = @{
+    description = $description
+    os_version = "$osName ($osVersion)"
+    last_security_update = (Get-Date).ToString("yyyy-MM-dd")
+}
+
+if ($eqId) {
+    # --- OPÇÃO A: ATUALIZAR ---
+    Write-Host " > Equipamento já existe. A atualizar dados..." -ForegroundColor Green
+    $updateUrl = "$BaseUrl/equipment?id=eq.$eqId"
+    Invoke-RestMethod -Uri $updateUrl -Method Patch -Body ($eqPayload | ConvertTo-Json) -Headers $Headers
+} else {
+    # --- OPÇÃO B: REGISTAR ---
+    Write-Host " > Novo equipamento detetado. A registar..." -ForegroundColor Green
+    $newEqPayload = $eqPayload + @{
+        serialNumber = $serialNumber
+        brandId = $brandId
+        typeId = $typeId
+        status = "Stock"
+        criticality = "Baixa"
+    }
+    $newEq = Create-Record "equipment" $newEqPayload
+    $eqId = $newEq.id
+}
+
+# 4. Verificação de Segurança (Ticket Automático)
+Write-Host "4. A verificar conformidade de segurança..." -ForegroundColor Cyan
+if (-not $defender.RealTimeProtectionEnabled) {
+    Write-Host " ! ALERTA CRÍTICO: Antivírus Desativado!" -ForegroundColor Red
+    
+    if ($eqId) {
+        # Verificar se já existe ticket aberto
+        $checkTicketUrl = "$BaseUrl/tickets?equipmentId=eq.$eqId&status=eq.Pedido&category=eq.Incidente de Segurança&select=id"
+        $existingTickets = Invoke-RestMethod -Uri $checkTicketUrl -Method Get -Headers $Headers
+
+        if ($existingTickets.Count -eq 0) {
+            # --- OPÇÃO C: CRIAR TICKET DE ALERTA ---
+            Write-Host " > A criar ticket de incidente de segurança..." -ForegroundColor Yellow
+            $ticketBody = @{
+                title = "Alerta Automático: Antivírus Desativado"
+                description = "O agente detetou que o Windows Defender está desativado em $hostname ($serialNumber)."
+                equipmentId = $eqId
+                # Nota: Campos obrigatórios como entidadeId dependem da atribuição prévia. 
+                # Este script assume que o registo permite nulos ou tem defaults na BD.
+                category = "Incidente de Segurança"
+                securityIncidentType = "Malware / Vírus"
+                impactCriticality = "Alta"
+                requestDate = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssK")
+                status = "Pedido"
+            }
+            Create-Record "tickets" $ticketBody | Out-Null
+        } else {
+            Write-Host " > Ticket já existe. Nenhuma ação necessária." -ForegroundColor Gray
+        }
+    }
+} else {
+    Write-Host " > Sistema Seguro (Antivírus Ativo)." -ForegroundColor Green
+}
+
+Write-Host "--- Concluído com sucesso ---" -ForegroundColor Cyan
 `;
 
-    // The Supabase Edge Function Code (Reference)
-    const serverScript = `// Para cenários avançados (NIS2 Compliance & Segurança)
-// Deploy via CLI: supabase functions deploy sync-agent
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+    // Instructions and Code for Supabase Edge Function
+    const edgeFunctionCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
-  // ... lógica avançada de validação e criação automática de ativos ...
-  return new Response("Esta funcionalidade requer deploy no Supabase.", { status: 501 })
+  // 1. Handle CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    // 2. Initialize Client (Service Role recommended for Agents)
+    // Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in Function Secrets
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // 3. Parse Request
+    const { serialNumber, manufacturer, model, hostname, os_version, defender_status } = await req.json()
+
+    if (!serialNumber) throw new Error("Missing Serial Number")
+
+    // 4. Sync Brand
+    let { data: brand } = await supabase.from('brands').select('id').eq('name', manufacturer).single()
+    if (!brand) {
+        const { data: newBrand } = await supabase.from('brands').insert({ name: manufacturer }).select('id').single()
+        brand = newBrand
+    }
+
+    // 5. Upsert Equipment
+    // First try to find it
+    let { data: equipment } = await supabase.from('equipment').select('id, description').eq('serialNumber', serialNumber).single()
+    
+    const updateData = {
+        os_version,
+        last_security_update: new Date().toISOString().split('T')[0],
+        modifiedDate: new Date().toISOString().split('T')[0]
+    }
+
+    if (equipment) {
+        // Update
+        await supabase.from('equipment').update(updateData).eq('id', equipment.id)
+    } else {
+        // Create
+        // Find default type (e.g. Desktop)
+        const { data: type } = await supabase.from('equipment_types').select('id').limit(1).single()
+        
+        const { data: newEq } = await supabase.from('equipment').insert({
+            serialNumber,
+            description: \`\${manufacturer} \${model}\`,
+            brandId: brand?.id,
+            typeId: type?.id,
+            status: 'Stock',
+            ...updateData
+        }).select().single()
+        equipment = newEq
+    }
+
+    // 6. Security Logic
+    if (defender_status && !defender_status.RealTimeProtectionEnabled) {
+        // Create ticket logic here...
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, equipmentId: equipment?.id }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+    )
+  }
 })
 `;
 
@@ -133,15 +256,15 @@ serve(async (req) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'agent_aimanager_direct.ps1';
+        a.download = 'agent_aimanager_v2.ps1';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
     };
 
     return (
-        <Modal title="Automação e Agentes" onClose={onClose} maxWidth="max-w-4xl">
-            <div className="flex flex-col h-[70vh]">
+        <Modal title="Automação e Agentes" onClose={onClose} maxWidth="max-w-5xl">
+            <div className="flex flex-col h-[75vh]">
                 <div className="flex gap-4 mb-4 border-b border-gray-700 pb-2">
                     <button
                         onClick={() => setActiveTab('client')}
@@ -149,7 +272,7 @@ serve(async (req) => {
                             activeTab === 'client' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaWindows /> 1. Script do PC (Ligação Direta)
+                        <FaWindows /> 1. Script do PC (PowerShell)
                     </button>
                     <button
                         onClick={() => setActiveTab('server')}
@@ -157,7 +280,7 @@ serve(async (req) => {
                             activeTab === 'server' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaServer /> 2. Servidor (Edge Function)
+                        <FaServer /> 2. Edge Function (Supabase)
                     </button>
                 </div>
 
@@ -168,16 +291,17 @@ serve(async (req) => {
                                 <div className="flex items-center gap-2 font-bold mb-2">
                                     <FaDatabase /> Modo Direto (Sem Servidor)
                                 </div>
-                                <p>
-                                    Este script liga-se <strong>diretamente</strong> à sua base de dados para atualizar o equipamento.
-                                    <br/>
-                                    Resolve o erro "404 Not Found" pois não depende de configuração extra no servidor.
+                                <p className="mb-2">
+                                    Este script PowerShell executa as <strong>3 operações essenciais</strong> diretamente na base de dados:
                                 </p>
-                                <ul className="list-disc list-inside mt-2 text-xs text-gray-400">
-                                    <li>Recolhe o Serial Number e procura na lista de Equipamentos.</li>
-                                    <li>Se encontrar: Atualiza a versão do SO e a data de segurança.</li>
-                                    <li>Se o Antivírus estiver desligado: Tenta criar um Ticket de Alerta.</li>
-                                </ul>
+                                <ol className="list-decimal list-inside text-xs text-gray-300 space-y-1">
+                                    <li><strong>Registo Automático:</strong> Se o equipamento (Serial Number) não existir, cria-o (incluindo Marca e Tipo se necessário).</li>
+                                    <li><strong>Atualização:</strong> Se existir, atualiza a informação do SO e data do último patch de segurança.</li>
+                                    <li><strong>Alerta de Segurança:</strong> Verifica o Windows Defender e cria um Ticket crítico se estiver desativado.</li>
+                                </ol>
+                                <p className="mt-2 text-xs text-yellow-400">
+                                    Nota: Certifique-se que a chave "Anon" tem permissões para INSERT/UPDATE nas tabelas 'equipment', 'brands', 'equipment_types' e 'tickets' (RLS Policies).
+                                </p>
                             </div>
                             
                             <div className="relative flex-grow">
@@ -200,25 +324,56 @@ serve(async (req) => {
                     )}
 
                     {activeTab === 'server' && (
-                        <div className="flex flex-col h-full space-y-4">
+                        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2">
                             <div className="bg-purple-900/20 border border-purple-900/50 p-4 rounded-lg text-sm text-purple-200">
-                                <p className="font-bold mb-1">Lógica Avançada (Opcional):</p>
+                                <div className="flex items-center gap-2 font-bold mb-2">
+                                    <FaCode /> Criar Supabase Edge Function
+                                </div>
                                 <p>
-                                    Para empresas maiores, recomenda-se o uso de uma Edge Function para não expor a lógica de negócio no script do cliente.
-                                    Requer deploy via <code>supabase functions deploy</code>.
+                                    Use esta opção para maior segurança. O script do cliente envia dados para esta função, que lida com a lógica de negócio usando a chave de administração (Service Role).
                                 </p>
                             </div>
 
-                            <div className="relative flex-grow flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700">
-                                <div className="text-center p-8">
-                                    <FaServer className="mx-auto h-12 w-12 text-gray-600 mb-4" />
-                                    <h3 className="text-lg font-medium text-white">Configuração Avançada</h3>
-                                    <p className="text-gray-400 text-sm mt-2 max-w-md">
-                                        O código da Edge Function está disponível na documentação técnica para administradores de sistema que desejem configurar pipelines de CI/CD.
-                                    </p>
-                                    <button onClick={() => handleCopy(serverScript)} className="mt-4 text-brand-secondary hover:text-white text-xs underline">
-                                        Ver esboço do código
-                                    </button>
+                            <div className="space-y-4">
+                                <div className="bg-black/30 p-4 rounded border border-gray-700">
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaTerminal className="text-gray-400"/> 1. Preparação (Terminal)</h4>
+                                    <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap select-all">
+{`# Instalar CLI (se necessário)
+brew install supabase/tap/supabase  # macOS
+scoop bucket add supabase https://github.com/supabase/scoop-bucket.git && scoop install supabase  # Windows
+
+# Login e Inicialização
+supabase login
+supabase init
+
+# Criar a nova função
+supabase functions new sync-agent`}
+                                    </pre>
+                                </div>
+
+                                <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaCode className="text-yellow-400"/> 2. Código da Função (index.ts)</h4>
+                                    <p className="text-xs text-gray-400 mb-2">Copie este código para o ficheiro <code>supabase/functions/sync-agent/index.ts</code>:</p>
+                                    <div className="relative">
+                                        <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64">
+                                            {edgeFunctionCode}
+                                        </pre>
+                                        <button onClick={() => handleCopy(edgeFunctionCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                            <FaCopy />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-black/30 p-4 rounded border border-gray-700">
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaServer className="text-purple-400"/> 3. Deploy</h4>
+                                    <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap select-all">
+{`# Deploy da função para o projeto
+supabase functions deploy sync-agent --project-ref ${supabaseUrl.split('.')[0].replace('https://', '')} --no-verify-jwt
+
+# Definir Variáveis de Ambiente (Secrets)
+supabase secrets set SUPABASE_URL=${supabaseUrl}
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui`}
+                                    </pre>
                                 </div>
                             </div>
                         </div>
