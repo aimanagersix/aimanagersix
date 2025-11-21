@@ -85,6 +85,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 return;
             }
 
+            let success = false;
+            let resultData: any = null;
+
             // 1. TENTATIVA PRINCIPAL: ViesAPI.eu (Credenciais Fornecidas)
             try {
                 const id = 'oRj4r9WYBXhh';
@@ -108,14 +111,11 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     const data = await response.json();
                     // A API viesapi.eu retorna 'valid' (boolean)
                     if (data && data.valid) {
-                         setFormData(prev => ({
-                            ...prev,
-                            name: data.traderName || data.name || prev.name, // Prioridade ao traderName
-                            nif: input,
-                            notes: (prev.notes ? prev.notes + '\n\n' : '') + (data.traderAddress || data.address ? `Endereço (VIES): ${data.traderAddress || data.address}` : '')
-                        }));
-                        setIsFetchingVies(false);
-                        return; // Sucesso, sair da função
+                        resultData = {
+                            name: data.traderName || data.name,
+                            address: data.traderAddress || data.address
+                        };
+                        success = true;
                     } else if (data && data.valid === false) {
                         // Se a API responder explicitamente que é inválido, paramos aqui
                         alert(`O NIF ${input} não é válido.`);
@@ -127,86 +127,66 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 console.warn("ViesAPI.eu falhou ou timed out, a tentar proxies públicos...", e);
             }
 
-            // 2. FALLBACK: Proxies Públicos (Redundância)
-            const targetUrl = `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number/${countryCode}/${vatNumber}`;
-            
-            const proxies = [
-                {
-                    name: 'allorigins-raw',
-                    url: (target: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-                    isWrapper: false
-                },
-                {
-                    name: 'corsproxy',
-                    url: (target: string) => `https://corsproxy.io/?${encodeURIComponent(target)}`,
-                    isWrapper: false
-                },
-                {
-                    name: 'thingproxy',
-                    url: (target: string) => `https://thingproxy.freeboard.io/fetch/${target}`,
-                    isWrapper: false
-                }
-            ];
-
-            let data: any = null;
-            let success = false;
-
-            // Tenta os proxies sequencialmente
-            for (const proxy of proxies) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout por proxy
-
-                    const response = await fetch(proxy.url(targetUrl), { 
-                        signal: controller.signal,
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-                    clearTimeout(timeoutId);
-
-                    if (response.ok) {
-                        const text = await response.text();
-                        let json;
-                        try {
-                            json = JSON.parse(text);
-                        } catch (e) {
-                            console.warn(`JSON parse error on ${proxy.name}`);
-                            continue; 
-                        }
-
-                        if (proxy.isWrapper && json.contents) {
-                             try {
-                                data = JSON.parse(json.contents);
-                            } catch (e) {
-                                data = json.contents;
-                            }
-                        } else {
-                            data = json;
-                        }
-
-                        // Verificar validade VIES
-                        if (data && (typeof data.isValid === 'boolean' || typeof data.valid === 'boolean')) {
-                            success = true;
-                            break; 
-                        }
+            // 2. FALLBACK: Proxies Públicos (Redundância para o serviço público da UE)
+            if (!success) {
+                const targetUrl = `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number/${countryCode}/${vatNumber}`;
+                
+                const proxies = [
+                    {
+                        name: 'allorigins-raw',
+                        url: (target: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+                        isWrapper: false
+                    },
+                    {
+                        name: 'corsproxy',
+                        url: (target: string) => `https://corsproxy.io/?${encodeURIComponent(target)}`,
+                        isWrapper: false
                     }
-                } catch (err) {
-                    console.warn(`Falha no proxy ${proxy.name}`, err);
+                ];
+
+                // Tenta os proxies sequencialmente
+                for (const proxy of proxies) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout por proxy
+
+                        const response = await fetch(proxy.url(targetUrl), { 
+                            signal: controller.signal,
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        clearTimeout(timeoutId);
+
+                        if (response.ok) {
+                            const text = await response.text();
+                            let json;
+                            try {
+                                json = JSON.parse(text);
+                            } catch (e) { continue; }
+
+                            const data = proxy.isWrapper && json.contents ? JSON.parse(json.contents) : json;
+
+                            if (data && (data.isValid || data.valid)) {
+                                resultData = {
+                                    name: data.name,
+                                    address: data.address
+                                };
+                                success = true;
+                                break; 
+                            }
+                        }
+                    } catch (err) {
+                        console.warn(`Falha no proxy ${proxy.name}`, err);
+                    }
                 }
             }
 
-            if (success && data) {
-                if (data.isValid || data.valid) {
-                    setFormData(prev => ({
-                        ...prev,
-                        name: data.name || prev.name,
-                        nif: input,
-                        notes: (prev.notes ? prev.notes + '\n\n' : '') + (data.address ? `Endereço (VIES): ${data.address}` : '')
-                    }));
-                } else {
-                    alert(`O NIF ${input} não é válido ou não existe na base de dados VIES.`);
-                }
+            if (success && resultData) {
+                setFormData(prev => ({
+                    ...prev,
+                    name: resultData.name || prev.name,
+                    nif: input,
+                    notes: (prev.notes ? prev.notes + '\n\n' : '') + (resultData.address ? `Endereço (VIES): ${resultData.address}` : '')
+                }));
             } else {
                 throw new Error("Todos os métodos de consulta falharam");
             }
