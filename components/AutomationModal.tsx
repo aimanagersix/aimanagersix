@@ -99,7 +99,8 @@ serve(async (req) => {
       .single()
 
     if (equipment) {
-      // --- CENÁRIO A: EQUIPAMENTO EXISTE ---
+      // --- CENÁRIO A: EQUIPAMENTO EXISTE (Atualização) ---
+      
       // 2. Atualizar dados do SO e Patch
       await supabase
         .from('equipment')
@@ -135,8 +136,7 @@ serve(async (req) => {
          }
       }
     } else {
-        // --- CENÁRIO B: EQUIPAMENTO NÃO EXISTE (ROGUE DEVICE) ---
-        // Criar um alerta de segurança informando que um dispositivo desconhecido tentou comunicar
+        // --- CENÁRIO B: EQUIPAMENTO NÃO EXISTE (Dispositivo Desconhecido / Intruso) ---
         
         // Verificar se já existe um ticket de alerta para este Serial Number recentemente para evitar spam
         const { data: existingAlert } = await supabase
@@ -147,16 +147,17 @@ serve(async (req) => {
             .single()
 
         if (!existingAlert) {
-            // Obter a primeira entidade (admin) por defeito para associar o ticket
+            // Obter a primeira entidade (admin/default) para associar o ticket
             const { data: defaultEntity } = await supabase.from('entidades').select('id').limit(1).single()
+            // Obter um admin para associar (fallback)
             const { data: defaultUser } = await supabase.from('collaborators').select('id').limit(1).single()
 
             if (defaultEntity && defaultUser) {
                 await supabase.from('tickets').insert({
-                    title: 'Alerta: Dispositivo Não Inventariado Detetado',
-                    description: \`O agente foi executado num dispositivo não registado.\\n\\nDados recolhidos:\\nHostname: \${hostname}\\nSerial: \${serialNumber}\\nMarca/Modelo: \${manufacturer} \${model}\\nSO: \${os_version}\`,
+                    title: 'Alerta de Segurança: Dispositivo Não Inventariado na Rede',
+                    description: \`O agente foi executado num dispositivo não registado na base de dados.\\n\\nDados detetados:\\nHostname: \${hostname}\\nSerial: \${serialNumber}\\nMarca: \${manufacturer}\\nModelo: \${model}\\nSO: \${os_version}\`,
                     entidadeId: defaultEntity.id,
-                    collaboratorId: defaultUser.id, // Associar ao admin/sistema
+                    collaboratorId: defaultUser.id, 
                     category: 'Incidente de Segurança',
                     securityIncidentType: 'Acesso Não Autorizado / Compromisso de Conta',
                     impactCriticality: 'Média',
@@ -206,7 +207,7 @@ serve(async (req) => {
                             activeTab === 'client' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaWindows /> 1. Script do PC (Agente)
+                        <FaWindows /> 1. Script do PC (Local)
                     </button>
                     <button
                         onClick={() => setActiveTab('server')}
@@ -214,7 +215,7 @@ serve(async (req) => {
                             activeTab === 'server' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaServer /> 2. Configuração Servidor (Edge Function)
+                        <FaServer /> 2. Servidor (Edge Function)
                     </button>
                 </div>
 
@@ -222,12 +223,15 @@ serve(async (req) => {
                     {activeTab === 'client' && (
                         <div className="flex flex-col h-full space-y-4">
                             <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
+                                <p className="font-bold mb-1">Instruções para o Script Local:</p>
                                 <p>
-                                    Este script deve ser executado nos computadores da organização. Ele recolhe o Nº de Série, Versão do Windows e o <strong>Estado do Windows Defender</strong> e envia para a plataforma.
+                                    Este script recolhe o Nº de Série, Marca, Modelo e o <strong>Estado do Antivírus</strong>.
                                 </p>
-                                <p className="mt-2 text-xs text-gray-400">
-                                    <strong>Como usar:</strong> Pode executar via GPO (Política de Grupo), Microsoft Intune ou Agendador de Tarefas do Windows.
-                                </p>
+                                <ul className="list-disc list-inside mt-2 text-xs text-gray-400">
+                                    <li>Copie o código ou faça download do ficheiro <code>.ps1</code>.</li>
+                                    <li>Execute nos computadores da organização (manualmente, via GPO ou Intune).</li>
+                                    <li>O script enviará os dados automaticamente para a sua base de dados.</li>
+                                </ul>
                             </div>
                             
                             <div className="relative flex-grow">
@@ -252,16 +256,14 @@ serve(async (req) => {
                     {activeTab === 'server' && (
                         <div className="flex flex-col h-full space-y-4">
                             <div className="bg-purple-900/20 border border-purple-900/50 p-4 rounded-lg text-sm text-purple-200">
+                                <p className="font-bold mb-1">Lógica da Edge Function (Cérebro):</p>
                                 <p>
-                                    Este código deve ser colocado numa <strong>Supabase Edge Function</strong> chamada <code>sync-agent</code>.
+                                    Este código processa os dados recebidos dos agentes.
                                 </p>
-                                <p className="mt-2">
-                                    <strong>Lógica Automática:</strong>
-                                    <ul className="list-disc list-inside mt-1 ml-2 text-xs">
-                                        <li>Se o PC existe: Atualiza dados e verifica o Antivírus (Cria alerta se desligado).</li>
-                                        <li>Se o PC <strong>NÃO</strong> existe: Cria um ticket de <strong>Segurança (Dispositivo Desconhecido)</strong>.</li>
-                                    </ul>
-                                </p>
+                                <ul className="list-disc list-inside mt-2 text-xs text-gray-300">
+                                    <li><strong>Se o PC existe:</strong> Atualiza versão do SO e verifica se o Windows Defender está ativo. Se inativo, cria ticket crítico.</li>
+                                    <li><strong>Se o PC NÃO existe:</strong> Cria um Ticket de Segurança alertando para "Dispositivo Não Inventariado na Rede".</li>
+                                </ul>
                             </div>
 
                             <div className="relative flex-grow">
