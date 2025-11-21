@@ -9,7 +9,7 @@ interface AddSupplierModalProps {
     onSave: (supplier: Omit<Supplier, 'id'> | Supplier) => Promise<any>;
     supplierToEdit?: Supplier | null;
     teams?: Team[]; // To select team for ticket
-    onCreateTicket?: (ticket: Partial<Ticket>) => void; // Function to create ticket
+    onCreateTicket?: (ticket: Partial<Ticket>) => Promise<void> | void; // Function to create ticket
 }
 
 const MAX_FILES = 3;
@@ -251,7 +251,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         
@@ -262,33 +262,37 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
         };
 
-        if (supplierToEdit) {
-            onSave({ ...supplierToEdit, ...dataToSave });
-        } else {
-            onSave(dataToSave);
-        }
-
-        // Ticket Creation Logic
-        if (createTicket && onCreateTicket && formData.is_iso27001_certified && formData.iso_certificate_expiry) {
-            let requestDate = customTicketDate;
-            if (reminderOffset !== 'custom') {
-                const expiry = new Date(formData.iso_certificate_expiry);
-                expiry.setMonth(expiry.getMonth() - parseInt(reminderOffset));
-                requestDate = expiry.toISOString().split('T')[0];
+        try {
+            if (supplierToEdit) {
+                await onSave({ ...supplierToEdit, ...dataToSave });
+            } else {
+                await onSave(dataToSave);
             }
 
-            const ticketPayload: Partial<Ticket> = {
-                title: `Renovação Certificado ISO 27001: ${formData.name}`,
-                description: `O certificado ISO 27001 do fornecedor ${formData.name} expira em ${formData.iso_certificate_expiry}. Por favor iniciar processo de renovação ou solicitar novo certificado.`,
-                requestDate: requestDate,
-                status: TicketStatus.Requested,
-                team_id: ticketTeamId,
-                category: 'Manutenção'
-            };
-            onCreateTicket(ticketPayload);
-        }
+            // Ticket Creation Logic
+            if (createTicket && onCreateTicket && formData.is_iso27001_certified && formData.iso_certificate_expiry) {
+                let requestDate = customTicketDate;
+                if (reminderOffset !== 'custom') {
+                    const expiry = new Date(formData.iso_certificate_expiry);
+                    expiry.setMonth(expiry.getMonth() - parseInt(reminderOffset));
+                    requestDate = expiry.toISOString().split('T')[0];
+                }
 
-        onClose();
+                const ticketPayload: Partial<Ticket> = {
+                    title: `Renovação Certificado ISO 27001: ${formData.name}`,
+                    description: `O certificado ISO 27001 do fornecedor ${formData.name} expira em ${formData.iso_certificate_expiry}. Por favor iniciar processo de renovação ou solicitar novo certificado.`,
+                    requestDate: requestDate,
+                    status: TicketStatus.Requested,
+                    team_id: ticketTeamId,
+                    category: 'Manutenção'
+                };
+                await onCreateTicket(ticketPayload);
+            }
+            onClose();
+        } catch (error) {
+            console.error("Erro ao salvar fornecedor ou ticket:", error);
+            // Optionally handle error feedback here
+        }
     };
     
     const modalTitle = supplierToEdit ? "Editar Fornecedor" : "Adicionar Novo Fornecedor";

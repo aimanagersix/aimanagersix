@@ -1,27 +1,7 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
@@ -248,9 +228,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     >
                         <FaShieldAlt className="h-5 w-5"/>
                         {tabConfig.nis2?.title || 'Compliance'}
-                        <svg className={`w-4 h-4 ml-1 transition-transform transform ${isNis2MenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                        {isNis2MenuOpen ? (
+                            <FaUnlock className="w-4 h-4 ml-1 text-brand-secondary" />
+                        ) : (
+                            <FaLock className="w-4 h-4 ml-1 text-gray-400" />
+                        )}
                     </button>
                     {isNis2MenuOpen && (
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
@@ -479,9 +461,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     <FaShieldAlt className="h-5 w-5"/>
                                     <span>{tabConfig.nis2?.title || 'Compliance'}</span>
                                 </div>
-                                <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileNis2Open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
+                                {isMobileNis2Open ? (
+                                    <FaUnlock className="w-4 h-4 ml-1 text-brand-secondary" />
+                                ) : (
+                                    <FaLock className="w-4 h-4 ml-1 text-gray-400" />
+                                )}
                             </button>
                             {isMobileNis2Open && (
                                 <div className="pl-4 mt-1 space-y-1">

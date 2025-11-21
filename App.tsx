@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -1043,13 +1035,25 @@ const InnerApp: React.FC = () => {
                     }}
                     supplierToEdit={supplierToEdit}
                     teams={teams}
-                    onCreateTicket={(ticketData) => {
+                    onCreateTicket={async (ticketData) => {
+                        if (!currentUser) return;
                         const ticket = {
                             ...ticketData,
-                            entidadeId: entidades[0]?.id, // Default or link to admin entity
-                            collaboratorId: currentUser?.id
+                            entidadeId: currentUser.entidadeId || entidades[0]?.id, // Use current user's entity as fallback or admin entity
+                            collaboratorId: currentUser.id,
+                            requestDate: ticketData.requestDate || new Date().toISOString(),
+                            description: ticketData.description || 'Renovação de Fornecedor',
+                            title: ticketData.title || 'Renovação',
+                            status: TicketStatus.Requested
                         };
-                        simpleSaveWrapper(dataService.addTicket, ticket as Ticket);
+                        
+                        // Ensure mandatory fields
+                        if(!ticket.entidadeId || !ticket.collaboratorId) {
+                            alert("Erro ao criar ticket: Utilizador ou Entidade não definidos.");
+                            return;
+                        }
+
+                        await simpleSaveWrapper(dataService.addTicket, ticket as Ticket);
                     }}
                 />
             )}
