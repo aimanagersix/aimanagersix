@@ -11,6 +11,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -107,22 +109,24 @@ BEGIN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
 
-    -- Adicionar colunas de morada à tabela INSTITUICOES
+    -- Adicionar colunas de morada e NIF à tabela INSTITUICOES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address text;
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address_line text;
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS postal_code text;
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS city text;
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS locality text;
+        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS nif text;
     END IF;
 
-    -- Adicionar colunas de morada à tabela ENTIDADES
+    -- Adicionar colunas de morada e NIF à tabela ENTIDADES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'entidades') THEN
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS address text;
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS address_line text;
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS postal_code text;
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS city text;
         ALTER TABLE entidades ADD COLUMN IF NOT EXISTS locality text;
+        ALTER TABLE entidades ADD COLUMN IF NOT EXISTS nif text;
     END IF;
 
     -- Adicionar colunas de morada à tabela COLLABORATORS
@@ -146,6 +150,7 @@ CREATE TABLE IF NOT EXISTS instituicoes (
     codigo text,
     email text,
     telefone text,
+    nif text,
     address text,
     address_line text,
     postal_code text,
@@ -165,6 +170,7 @@ CREATE TABLE IF NOT EXISTS entidades (
     telefone text,
     telemovel text,
     "telefoneInterno" text,
+    nif text,
     status text DEFAULT 'Ativo',
     address text,
     address_line text,
@@ -514,7 +520,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo atualiza as tabelas para adicionar campos de <strong>Morada Estruturada</strong> a Instituições, Entidades e Colaboradores.
+                        O script abaixo atualiza as tabelas para adicionar campos de <strong>Morada Estruturada</strong> e <strong>NIF</strong> a Instituições e Entidades.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

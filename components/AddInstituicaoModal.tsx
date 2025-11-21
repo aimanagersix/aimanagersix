@@ -1,8 +1,12 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Instituicao } from '../types';
-import { SpinnerIcon } from './common/Icons';
+import { SpinnerIcon, SearchIcon } from './common/Icons';
+
+const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
 
 const isPortuguesePhoneNumber = (phone: string): boolean => {
     if (!phone || phone.trim() === '') return false;
@@ -23,6 +27,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         name: '',
         email: '',
         telefone: '',
+        nif: '',
         address_line: '',
         postal_code: '',
         city: '',
@@ -30,6 +35,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isFetchingCP, setIsFetchingCP] = useState(false);
+    const [isFetchingNif, setIsFetchingNif] = useState(false);
 
     useEffect(() => {
         if (instituicaoToEdit) {
@@ -38,6 +44,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 name: instituicaoToEdit.name,
                 email: instituicaoToEdit.email,
                 telefone: instituicaoToEdit.telefone,
+                nif: instituicaoToEdit.nif || '',
                 address_line: instituicaoToEdit.address_line || instituicaoToEdit.address || '',
                 postal_code: instituicaoToEdit.postal_code || '',
                 city: instituicaoToEdit.city || '',
@@ -71,6 +78,70 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
+    };
+
+    const handleFetchNifData = async () => {
+        if (!formData.nif?.trim()) {
+            setErrors(prev => ({ ...prev, nif: "Insira um NIF para pesquisar." }));
+            return;
+        }
+
+        const nif = formData.nif.trim().replace(/[^0-9]/g, '');
+        
+        // Validar NIF português (9 dígitos)
+        if (nif.length !== 9) {
+             setErrors(prev => ({ ...prev, nif: "O NIF deve ter 9 dígitos." }));
+             return;
+        }
+
+        setIsFetchingNif(true);
+        setErrors(prev => {
+            const newErr = { ...prev };
+            delete newErr.nif;
+            return newErr;
+        });
+
+        try {
+            // Using corsproxy to avoid CORS issues from browser if nif.pt doesn't support it directly
+            const response = await fetch(`https://corsproxy.io/?https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                if (data.result === 'success' && data.records && data.records[nif]) {
+                    const record = data.records[nif];
+                    
+                    setFormData(prev => ({
+                        ...prev,
+                        name: prev.name || record.title, // Fill name if empty or overwrite? Let's overwrite or fallback
+                        nif: nif,
+                        address_line: record.address,
+                        postal_code: record.pc4 && record.pc3 ? `${record.pc4}-${record.pc3}` : prev.postal_code,
+                        city: record.city,
+                        locality: record.city, // Often city corresponds to locality in this API
+                        email: record.contacts?.email || prev.email,
+                        telefone: record.contacts?.phone || prev.telefone,
+                    }));
+                } else {
+                     setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
+                }
+            } else {
+                 setErrors(prev => ({ ...prev, nif: "Erro ao comunicar com o serviço de validação." }));
+            }
+
+        } catch (e) {
+            console.error("Erro NIF.pt:", e);
+            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF." }));
+        } finally {
+            setIsFetchingNif(false);
+        }
     };
 
     const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,18 +201,44 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     return (
         <Modal title={modalTitle} onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
+                        <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF (Opcional)</label>
+                        <div className="flex">
+                            <input 
+                                type="text" 
+                                name="nif" 
+                                id="nif" 
+                                value={formData.nif} 
+                                onChange={handleChange} 
+                                placeholder="NIF"
+                                className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
+                            />
+                            <button 
+                                type="button" 
+                                onClick={handleFetchNifData}
+                                disabled={isFetchingNif || !formData.nif}
+                                className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white transition-colors border-t border-b border-r border-gray-600 flex items-center justify-center min-w-[3rem]"
+                                title="Preencher dados via NIF"
+                            >
+                                {isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}
+                            </button>
+                        </div>
+                        {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
+                    </div>
+                    <div className="md:col-span-2">
                         <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome da Instituição</label>
                         <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.name ? 'border-red-500' : 'border-gray-600'}`} />
                         {errors.name && <p className="text-red-400 text-xs italic mt-1">{errors.name}</p>}
                     </div>
-                    <div>
-                        <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código</label>
-                        <input type="text" name="codigo" id="codigo" value={formData.codigo} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.codigo ? 'border-red-500' : 'border-gray-600'}`} />
-                         {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
-                    </div>
                 </div>
+                
+                <div>
+                    <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código</label>
+                    <input type="text" name="codigo" id="codigo" value={formData.codigo} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.codigo ? 'border-red-500' : 'border-gray-600'}`} />
+                        {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
+                </div>
+
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>

@@ -98,6 +98,7 @@ export interface Instituicao {
   name: string;
   email: string;
   telefone: string;
+  nif?: string;
   // Address
   address?: string;
   address_line?: string;
@@ -118,6 +119,7 @@ export interface Entidade {
   name: string;
   description: string;
   email: string;
+  nif?: string;
   responsavel?: string;
   telefone?: string;
   telemovel?: string;
