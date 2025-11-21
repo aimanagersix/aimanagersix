@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -73,6 +72,9 @@ const InnerApp: React.FC = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [initialFilter, setInitialFilter] = useState<any>(null);
     
+    // UI State for Sidebar Expansion
+    const [sidebarExpanded, setSidebarExpanded] = useState(false);
+
     // State for Data
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [instituicoes, setInstituicoes] = useState<Instituicao[]>([]);
@@ -512,12 +514,14 @@ const InnerApp: React.FC = () => {
                     tabConfig={tabConfig}
                     notificationCount={notificationCount}
                     onNotificationClick={() => setShowNotifications(true)}
+                    isExpanded={sidebarExpanded}
+                    onHover={setSidebarExpanded}
                 />
             )}
 
             <main className={`flex-grow p-4 sm:p-6 lg:p-8 ${
                 layoutMode === 'side' 
-                    ? 'ml-20 w-auto bg-background-dark min-h-screen transition-all duration-300' // Sidebar mode: margin matches collapsed sidebar width
+                    ? `${sidebarExpanded ? 'ml-64' : 'ml-20'} w-auto bg-background-dark min-h-screen transition-all duration-300 ease-in-out`
                     : 'max-w-screen-xl mx-auto w-full' // Topbar mode: centered, max width
             }`}>
                 {activeTab === 'overview' && (
