@@ -39,8 +39,8 @@ export interface Supplier {
     nif?: string;
     website?: string;
     notes?: string;
-    address?: string; // New field
-    attachments?: { name: string; dataUrl: string }[]; // New field
+    address?: string; // New field for address from VIES
+    attachments?: { name: string; dataUrl: string }[]; // New field for files
     // Security Fields
     is_iso27001_certified: boolean;
     iso_certificate_expiry?: string; // New field for certificate validity
