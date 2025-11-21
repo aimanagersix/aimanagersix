@@ -80,31 +80,55 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             // API VIES da Comissão Europeia
             const targetUrl = `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number/${countryCode}/${vatNumber}`;
             
-            // Utilizar um Proxy CORS para evitar bloqueio do browser (corsproxy.io é um serviço público gratuito)
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+            let data = null;
+            let fetchError = null;
 
-            const response = await fetch(proxyUrl);
-            
-            if (!response.ok) {
-                throw new Error('Falha na comunicação com o serviço VIES.');
+            // Tenta Proxy 1 (corsproxy.io)
+            try {
+                const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+                if (response.ok) {
+                    data = await response.json();
+                } else {
+                    throw new Error("Proxy 1 falhou");
+                }
+            } catch (err1) {
+                console.warn("Tentativa 1 VIES falhou, tentando fallback...", err1);
+                // Tenta Proxy 2 (allorigins.win) como fallback
+                try {
+                    const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.contents) {
+                            data = JSON.parse(result.contents);
+                        }
+                    } else {
+                        throw new Error("Proxy 2 falhou");
+                    }
+                } catch (err2) {
+                    console.error("Todas as tentativas de VIES falharam", err2);
+                    fetchError = err2;
+                }
             }
 
-            const data = await response.json();
-
-            if (data.isValid) {
-                setFormData(prev => ({
-                    ...prev,
-                    name: data.name || prev.name,
-                    nif: input, // Mantém o input normalizado
-                    // Adiciona o endereço às notas se existir, sem apagar notas anteriores
-                    notes: (prev.notes ? prev.notes + '\n\n' : '') + (data.address ? `Endereço (VIES): ${data.address}` : '')
-                }));
+            if (data) {
+                if (data.isValid) {
+                    setFormData(prev => ({
+                        ...prev,
+                        name: data.name || prev.name,
+                        nif: input, // Mantém o input normalizado
+                        // Adiciona o endereço às notas se existir, sem apagar notas anteriores
+                        notes: (prev.notes ? prev.notes + '\n\n' : '') + (data.address ? `Endereço (VIES): ${data.address}` : '')
+                    }));
+                } else {
+                    alert("O NIF inserido não é válido ou não existe na base de dados VIES.");
+                }
             } else {
-                alert("O NIF inserido não é válido ou não existe na base de dados VIES.");
+                throw fetchError || new Error("Falha ao obter dados");
             }
+
         } catch (e) {
             console.error("Erro VIES:", e);
-            alert("Não foi possível obter dados do VIES automaticamente (Erro de rede ou serviço indisponível). Por favor, preencha os dados manualmente.");
+            alert("Não foi possível obter dados do VIES automaticamente. O serviço pode estar indisponível ou bloqueado na sua rede. Por favor, preencha os dados manualmente.");
         } finally {
             setIsFetchingVies(false);
         }
