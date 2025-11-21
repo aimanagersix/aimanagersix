@@ -50,6 +50,15 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             ...prev, 
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value 
         }));
+        
+        // Limpar erro do campo ao digitar
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
     };
 
     const handleFetchVies = async () => {
@@ -80,7 +89,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
             // Validação básica de formato antes de chamar API
             if (vatNumber.length < 2) {
-                alert("NIF inválido.");
+                setErrors(prev => ({ ...prev, nif: "Formato de NIF inválido." }));
                 setIsFetchingVies(false);
                 return;
             }
@@ -118,7 +127,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         success = true;
                     } else if (data && data.valid === false) {
                         // Se a API responder explicitamente que é inválido, paramos aqui
-                        alert(`O NIF ${input} não é válido.`);
+                        setErrors(prev => ({ ...prev, nif: `O NIF ${input} não é válido no sistema VIES.` }));
                         setIsFetchingVies(false);
                         return;
                     }
@@ -187,13 +196,23 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     nif: input,
                     notes: (prev.notes ? prev.notes + '\n\n' : '') + (resultData.address ? `Endereço (VIES): ${resultData.address}` : '')
                 }));
+                // Limpar erro se houver sucesso
+                setErrors(prev => {
+                    const newErr = { ...prev };
+                    delete newErr.nif;
+                    return newErr;
+                });
             } else {
                 throw new Error("Todos os métodos de consulta falharam");
             }
 
         } catch (e) {
             console.error("Erro VIES:", e);
-            alert("Não foi possível obter dados do VIES automaticamente (Erro de rede ou serviço indisponível). Por favor, preencha os dados manualmente.");
+            // Definir a mensagem de erro específica solicitada no campo NIF
+            setErrors(prev => ({
+                ...prev,
+                nif: "Não foi possível obter dados do VIES automaticamente (Erro de rede ou serviço indisponível). Por favor, preencha os dados manualmente."
+            }));
         } finally {
             setIsFetchingVies(false);
         }
