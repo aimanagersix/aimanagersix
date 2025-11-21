@@ -13,6 +13,7 @@
 
 
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
@@ -194,8 +195,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             <div className="py-1">
                                 {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
+                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
                                 {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={tabConfig['organizacao.suppliers']} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                             </div>
                         </div>
@@ -284,8 +285,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
                              <div className="py-1">
                                 <TabButton tab="tickets.list" label={tabConfig['tickets.list'] || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
-                                {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig['tickets.incident_types']} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
+                                {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig['tickets.incident_types']} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
                              </div>
                         </div>
                      ) : null}
@@ -425,8 +426,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                 <div className="pl-4 mt-1 space-y-1">
                                     {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
                                     {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
-                                    {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem className="pl-4" />}
+                                    {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
                                     {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={tabConfig['organizacao.suppliers']} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 </div>
                             )}
@@ -513,8 +514,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             {isMobileTicketsOpen && (hasTicketCategories || hasIncidentTypes) ? (
                                  <div className="pl-4 mt-1 space-y-1">
                                     <TabButton tab="tickets.list" label={tabConfig['tickets.list'] || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
-                                    {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig['tickets.incident_types']} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
+                                    {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig['tickets.incident_types']} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
                                  </div>
                             ) : null}
                         </div>
