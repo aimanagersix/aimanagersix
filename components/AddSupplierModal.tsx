@@ -66,69 +66,111 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         });
 
         try {
+            // Normalização do NIF
             let input = formData.nif.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-            let countryCode = 'PT'; // Default to Portugal
+            let countryCode = 'PT'; // Default Portugal
             let vatNumber = input;
 
-            // Se o input começar por letras (ex: ES, FR), extrai o código do país
+            // Detetar prefixo de país (ex: PT501..., ES123...)
             const countryMatch = input.match(/^([A-Z]{2})(.+)$/);
             if (countryMatch) {
                 countryCode = countryMatch[1];
                 vatNumber = countryMatch[2];
             }
 
-            // API VIES da Comissão Europeia
+            // Validação básica de formato antes de chamar API
+            if (vatNumber.length < 2) {
+                alert("NIF inválido.");
+                setIsFetchingVies(false);
+                return;
+            }
+
             const targetUrl = `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number/${countryCode}/${vatNumber}`;
             
-            let data = null;
-            let fetchError = null;
-
-            // Tenta Proxy 1 (corsproxy.io)
-            try {
-                const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-                if (response.ok) {
-                    data = await response.json();
-                } else {
-                    throw new Error("Proxy 1 falhou");
+            // Lista de Proxies para redundância (CORS bypass)
+            const proxies = [
+                {
+                    name: 'corsproxy.io',
+                    url: (target: string) => `https://corsproxy.io/?${encodeURIComponent(target)}`,
+                    isWrapper: false
+                },
+                {
+                    name: 'allorigins',
+                    url: (target: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`,
+                    isWrapper: true
+                },
+                {
+                    name: 'codetabs',
+                    url: (target: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+                    isWrapper: false
                 }
-            } catch (err1) {
-                console.warn("Tentativa 1 VIES falhou, tentando fallback...", err1);
-                // Tenta Proxy 2 (allorigins.win) como fallback
+            ];
+
+            let data: any = null;
+            let success = false;
+
+            // Tenta os proxies sequencialmente
+            for (const proxy of proxies) {
                 try {
-                    const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout por proxy
+
+                    const response = await fetch(proxy.url(targetUrl), { 
+                        signal: controller.signal 
+                    });
+                    clearTimeout(timeoutId);
+
                     if (response.ok) {
-                        const result = await response.json();
-                        if (result.contents) {
-                            data = JSON.parse(result.contents);
+                        const text = await response.text();
+                        let json;
+                        try {
+                            json = JSON.parse(text);
+                        } catch (e) {
+                            continue; // Resposta não é JSON válido
                         }
-                    } else {
-                        throw new Error("Proxy 2 falhou");
+
+                        if (proxy.isWrapper) {
+                            if (json.contents) {
+                                try {
+                                    data = JSON.parse(json.contents);
+                                } catch (e) {
+                                    data = json.contents; // fallback se já for objeto
+                                }
+                            }
+                        } else {
+                            data = json;
+                        }
+
+                        // Verificar se a resposta tem a estrutura esperada do VIES (isValid)
+                        if (data && (typeof data.isValid === 'boolean' || typeof data.valid === 'boolean')) {
+                            success = true;
+                            break; // Sucesso! Sair do loop
+                        }
                     }
-                } catch (err2) {
-                    console.error("Todas as tentativas de VIES falharam", err2);
-                    fetchError = err2;
+                } catch (err) {
+                    console.warn(`Falha no proxy ${proxy.name}`, err);
+                    // Continua para o próximo proxy
                 }
             }
 
-            if (data) {
+            if (success && data) {
                 if (data.isValid) {
                     setFormData(prev => ({
                         ...prev,
                         name: data.name || prev.name,
-                        nif: input, // Mantém o input normalizado
-                        // Adiciona o endereço às notas se existir, sem apagar notas anteriores
+                        nif: input,
                         notes: (prev.notes ? prev.notes + '\n\n' : '') + (data.address ? `Endereço (VIES): ${data.address}` : '')
                     }));
                 } else {
-                    alert("O NIF inserido não é válido ou não existe na base de dados VIES.");
+                    alert(`O NIF ${input} não é válido ou não existe na base de dados VIES.`);
                 }
             } else {
-                throw fetchError || new Error("Falha ao obter dados");
+                throw new Error("Todos os proxies falharam");
             }
 
         } catch (e) {
             console.error("Erro VIES:", e);
-            alert("Não foi possível obter dados do VIES automaticamente. O serviço pode estar indisponível ou bloqueado na sua rede. Por favor, preencha os dados manualmente.");
+            alert("Não foi possível obter dados do VIES automaticamente (Erro de rede ou serviço indisponível). Por favor, preencha os dados manualmente.");
         } finally {
             setIsFetchingVies(false);
         }
