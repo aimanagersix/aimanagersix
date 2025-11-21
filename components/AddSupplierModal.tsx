@@ -87,21 +87,21 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
             const targetUrl = `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number/${countryCode}/${vatNumber}`;
             
-            // Lista de Proxies para redundância (CORS bypass)
+            // Lista de Proxies atualizada para maior fiabilidade
             const proxies = [
                 {
-                    name: 'corsproxy.io',
+                    name: 'allorigins-raw',
+                    url: (target: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+                    isWrapper: false
+                },
+                {
+                    name: 'corsproxy',
                     url: (target: string) => `https://corsproxy.io/?${encodeURIComponent(target)}`,
                     isWrapper: false
                 },
                 {
-                    name: 'allorigins',
-                    url: (target: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`,
-                    isWrapper: true
-                },
-                {
-                    name: 'codetabs',
-                    url: (target: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+                    name: 'thingproxy',
+                    url: (target: string) => `https://thingproxy.freeboard.io/fetch/${target}`,
                     isWrapper: false
                 }
             ];
@@ -113,10 +113,13 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             for (const proxy of proxies) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout por proxy
+                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout por proxy (aumentado)
 
                     const response = await fetch(proxy.url(targetUrl), { 
-                        signal: controller.signal 
+                        signal: controller.signal,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
                     });
                     clearTimeout(timeoutId);
 
@@ -126,35 +129,33 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         try {
                             json = JSON.parse(text);
                         } catch (e) {
-                            continue; // Resposta não é JSON válido
+                            console.warn(`JSON parse error on ${proxy.name}`);
+                            continue; 
                         }
 
-                        if (proxy.isWrapper) {
-                            if (json.contents) {
-                                try {
-                                    data = JSON.parse(json.contents);
-                                } catch (e) {
-                                    data = json.contents; // fallback se já for objeto
-                                }
+                        if (proxy.isWrapper && json.contents) {
+                             try {
+                                data = JSON.parse(json.contents);
+                            } catch (e) {
+                                data = json.contents;
                             }
                         } else {
                             data = json;
                         }
 
-                        // Verificar se a resposta tem a estrutura esperada do VIES (isValid)
+                        // Verificar validade VIES
                         if (data && (typeof data.isValid === 'boolean' || typeof data.valid === 'boolean')) {
                             success = true;
-                            break; // Sucesso! Sair do loop
+                            break; 
                         }
                     }
                 } catch (err) {
                     console.warn(`Falha no proxy ${proxy.name}`, err);
-                    // Continua para o próximo proxy
                 }
             }
 
             if (success && data) {
-                if (data.isValid) {
+                if (data.isValid || data.valid) {
                     setFormData(prev => ({
                         ...prev,
                         name: data.name || prev.name,
@@ -170,7 +171,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
         } catch (e) {
             console.error("Erro VIES:", e);
-            alert("Não foi possível obter dados do VIES automaticamente (Erro de rede ou serviço indisponível). Por favor, preencha os dados manualmente.");
+            alert("Não foi possível obter dados do VIES automaticamente. O serviço pode estar indisponível ou bloqueado na sua rede. Por favor, preencha os dados manualmente.");
         } finally {
             setIsFetchingVies(false);
         }
