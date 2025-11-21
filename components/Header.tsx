@@ -14,10 +14,12 @@
 
 
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
@@ -154,11 +156,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     // Define if the main menu item should be visible based on children availability
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
-    const hasNis2Tabs = tabConfig['nis2.bia'] || tabConfig['nis2.security'];
+    // Access nested properties safely for NIS2 and Tickets
+    const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups;
     const hasTicketTabs = tabConfig['tickets'];
-    // Fixed visibility check: Look inside the nested tickets object if present
     const hasTicketCategories = tabConfig.tickets?.categories;
     const hasIncidentTypes = tabConfig.tickets?.incident_types;
+    
     const isAdmin = currentUser?.role === UserRole.Admin;
 
   return (
@@ -243,15 +246,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     >
                         <FaShieldAlt className="h-5 w-5"/>
                         {tabConfig.nis2?.title || 'Norma (NIS2)'}
-                        <svg className={`w-4 h-4 ml-1 transition-transform transform ${isNis2MenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className={`w-4 h-4 ml-1 transition-transform transform ${isNis2MenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                     {isNis2MenuOpen && (
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
                             <div className="py-1">
-                                {tabConfig['nis2.bia'] && <TabButton tab="nis2.bia" label={tabConfig['nis2.bia']} icon={<FaNetworkWired className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['nis2.security'] && <TabButton tab="nis2.security" label={tabConfig['nis2.security']} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={tabConfig.nis2.bia} icon={<FaNetworkWired className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={tabConfig.nis2.security} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={tabConfig.nis2.backups} icon={<FaServer className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                             </div>
                         </div>
                     )}
@@ -274,7 +278,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         aria-expanded={isTicketsMenuOpen}
                      >
                         <FaTicketAlt />
-                        {tabConfig['tickets'].title}
+                        {tabConfig.tickets?.title || 'Tickets'}
                         {(hasTicketCategories || hasIncidentTypes) && (
                             <svg className={`w-4 h-4 ml-1 transition-transform transform ${isTicketsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -284,9 +288,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                      {isTicketsMenuOpen && (hasTicketCategories || hasIncidentTypes) ? (
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
                              <div className="py-1">
-                                <TabButton tab="tickets.list" label={tabConfig['tickets.list'] || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
-                                {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
-                                {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig['tickets.incident_types']} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
+                                <TabButton tab="tickets.list" label={tabConfig.tickets?.list || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                                {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig.tickets.categories} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
+                                {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig.tickets.incident_types} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
                              </div>
                         </div>
                      ) : null}
@@ -473,14 +477,15 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     <FaShieldAlt className="h-5 w-5"/>
                                     <span>{tabConfig.nis2?.title || 'Norma (NIS2)'}</span>
                                 </div>
-                                <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileNis2Open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileNis2Open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
                             {isMobileNis2Open && (
                                 <div className="pl-4 mt-1 space-y-1">
-                                    {tabConfig['nis2.bia'] && <TabButton tab="nis2.bia" label={tabConfig['nis2.bia']} icon={<FaNetworkWired />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
-                                    {tabConfig['nis2.security'] && <TabButton tab="nis2.security" label={tabConfig['nis2.security']} icon={<FaShieldAlt />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
+                                    {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={tabConfig.nis2.bia} icon={<FaNetworkWired />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
+                                    {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={tabConfig.nis2.security} icon={<FaShieldAlt />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
+                                    {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={tabConfig.nis2.backups} icon={<FaServer />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
                                 </div>
                             )}
                         </div>
@@ -503,7 +508,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             >
                                 <div className="flex items-center gap-2">
                                     <FaTicketAlt />
-                                    <span>{tabConfig['tickets'].title}</span>
+                                    <span>{tabConfig.tickets?.title || 'Tickets'}</span>
                                 </div>
                                 {(hasTicketCategories || hasIncidentTypes) && (
                                      <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileTicketsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -513,9 +518,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             </button>
                             {isMobileTicketsOpen && (hasTicketCategories || hasIncidentTypes) ? (
                                  <div className="pl-4 mt-1 space-y-1">
-                                    <TabButton tab="tickets.list" label={tabConfig['tickets.list'] || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
-                                    {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig['tickets.categories']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
-                                    {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig['tickets.incident_types']} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
+                                    <TabButton tab="tickets.list" label={tabConfig.tickets?.list || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                                    {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig.tickets.categories} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
+                                    {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig.tickets.incident_types} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
                                  </div>
                             ) : null}
                         </div>

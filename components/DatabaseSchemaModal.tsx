@@ -15,6 +15,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -454,6 +456,21 @@ CREATE TABLE IF NOT EXISTS vulnerabilities (
     created_at timestamptz DEFAULT now()
 );
 
+-- NOVA TABELA: TESTES DE BACKUPS (NIS2)
+CREATE TABLE IF NOT EXISTS backup_executions (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    system_name text NOT NULL,
+    backup_date text NOT NULL,
+    test_date text NOT NULL,
+    status text NOT NULL, -- 'Sucesso', 'Falha', 'Parcial'
+    type text DEFAULT 'Completo',
+    restore_time_minutes integer,
+    tester_id uuid REFERENCES collaborators(id),
+    notes text,
+    evidence_attachment text,
+    created_at timestamptz DEFAULT now()
+);
+
 
 -- ==========================================
 -- CORREÇÃO DA TABELA TEAM_MEMBERS
@@ -479,6 +496,7 @@ CREATE INDEX IF NOT EXISTS idx_assignments_collaborator ON assignments("collabor
 CREATE INDEX IF NOT EXISTS idx_vulnerabilities_status ON vulnerabilities(status);
 CREATE INDEX IF NOT EXISTS idx_vulnerabilities_severity ON vulnerabilities(severity);
 CREATE INDEX IF NOT EXISTS idx_business_services_criticality ON business_services(criticality);
+CREATE INDEX IF NOT EXISTS idx_backup_executions_test_date ON backup_executions(test_date);
 
 -- ==========================================
 -- CORREÇÃO DE PERMISSÕES (RLS)

@@ -1,8 +1,10 @@
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
-  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier
+  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -59,6 +61,8 @@ import CloseTicketModal from './components/CloseTicketModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 import SupplierDashboard from './components/SupplierDashboard';
 import AddSupplierModal from './components/AddSupplierModal';
+import BackupDashboard from './components/BackupDashboard';
+import AddBackupModal from './components/AddBackupModal';
 
 type Session = any;
 
@@ -89,6 +93,7 @@ const InnerApp: React.FC = () => {
     const [serviceDependencies, setServiceDependencies] = useState<ServiceDependency[]>([]);
     const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [backupExecutions, setBackupExecutions] = useState<BackupExecution[]>([]);
 
     // UI State
     const [isConfigured, setIsConfigured] = useState(!!localStorage.getItem('SUPABASE_URL'));
@@ -146,6 +151,8 @@ const InnerApp: React.FC = () => {
     const [equipmentForHistory, setEquipmentForHistory] = useState<Equipment | null>(null);
     const [showAddSupplier, setShowAddSupplier] = useState(false);
     const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
+    const [showAddBackup, setShowAddBackup] = useState(false);
+    const [backupToEdit, setBackupToEdit] = useState<BackupExecution | null>(null);
 
     // Maps
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -178,6 +185,7 @@ const InnerApp: React.FC = () => {
             setVulnerabilities(data.vulnerabilities);
             setSecurityIncidentTypes(data.securityIncidentTypes);
             setSuppliers(data.suppliers);
+            setBackupExecutions(data.backupExecutions);
         } catch (error) {
             console.error("Failed to load data:", error);
         } finally {
@@ -251,6 +259,7 @@ const InnerApp: React.FC = () => {
                  setVulnerabilities(data.vulnerabilities);
                  setSecurityIncidentTypes(data.securityIncidentTypes);
                  setSuppliers(data.suppliers);
+                 setBackupExecutions(data.backupExecutions);
              } else {
                  console.warn("User logged in but not found in collaborators table");
              }
@@ -477,7 +486,7 @@ const InnerApp: React.FC = () => {
         'licensing': 'Licenciamento',
         'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets', categories: 'Categorias', incident_types: 'Tipos de Incidente' },
-        'nis2': { title: 'Norma (NIS2)', bia: 'BIA (Serviços)', security: 'Segurança (CVE)' }
+        'nis2': { title: 'Norma (NIS2)', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Restauro & Backups' }
     };
 
     return (
@@ -738,6 +747,16 @@ const InnerApp: React.FC = () => {
                         onEdit={(v) => { setVulnerabilityToEdit(v); setShowAddVulnerability(true); }}
                         onDelete={(id) => handleDelete('Excluir Vulnerabilidade', 'Tem a certeza que deseja excluir este registo?', () => simpleSaveWrapper(dataService.deleteVulnerability, id))}
                         onCreate={() => { setVulnerabilityToEdit(null); setShowAddVulnerability(true); }}
+                    />
+                )}
+                
+                {activeTab === 'nis2.backups' && (
+                    <BackupDashboard
+                        backups={backupExecutions}
+                        collaborators={collaborators}
+                        onEdit={(b) => { setBackupToEdit(b); setShowAddBackup(true); }}
+                        onDelete={(id) => handleDelete('Excluir Teste de Backup', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBackupExecution, id))}
+                        onCreate={() => { setBackupToEdit(null); setShowAddBackup(true); }}
                     />
                 )}
 
@@ -1016,6 +1035,18 @@ const InnerApp: React.FC = () => {
                         else return simpleSaveWrapper(dataService.addSupplier, s);
                     }}
                     supplierToEdit={supplierToEdit}
+                />
+            )}
+            
+            {showAddBackup && (
+                <AddBackupModal
+                    onClose={() => { setShowAddBackup(false); setBackupToEdit(null); }}
+                    onSave={(b) => {
+                        if (backupToEdit) return simpleSaveWrapper(dataService.updateBackupExecution, b, backupToEdit.id);
+                        else return simpleSaveWrapper(dataService.addBackupExecution, b);
+                    }}
+                    backupToEdit={backupToEdit}
+                    currentUser={currentUser}
                 />
             )}
 

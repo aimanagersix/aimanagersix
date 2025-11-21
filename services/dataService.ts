@@ -4,11 +4,13 @@
 
 
 
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Instituicao, Entidade, Collaborator, Assignment, EquipmentType, Brand, 
     Ticket, TicketActivity, CollaboratorHistory, Message, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency, Vulnerability, SecurityIncidentTypeItem, Supplier
+    Team, TeamMember, AuditLogEntry, AuditAction, TicketCategoryItem, BusinessService, ServiceDependency, Vulnerability, SecurityIncidentTypeItem, Supplier, BackupExecution
 } from '../types';
 
 const handleSupabaseError = (error: any, operation: string) => {
@@ -97,7 +99,7 @@ export const fetchAllData = async () => {
         assignmentsRes, ticketsRes, ticketActivitiesRes, brandsRes,
         equipmentTypesRes, softwareLicensesRes, licenseAssignmentsRes,
         teamsRes, teamMembersRes, messagesRes, historyRes, categoriesRes,
-        servicesRes, dependenciesRes, vulnerabilitiesRes, incidentTypesRes, suppliersRes
+        servicesRes, dependenciesRes, vulnerabilitiesRes, incidentTypesRes, suppliersRes, backupsRes
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('instituicoes').select('*'),
@@ -119,7 +121,8 @@ export const fetchAllData = async () => {
         supabase.from('service_dependencies').select('*'),
         supabase.from('vulnerabilities').select('*'),
         supabase.from('security_incident_types').select('*').order('name'),
-        supabase.from('suppliers').select('*').order('name')
+        supabase.from('suppliers').select('*').order('name'),
+        supabase.from('backup_executions').select('*').order('test_date', { ascending: false })
     ]);
 
     const check = (res: any, name: string) => { if (res.error) handleSupabaseError(res.error, `fetching ${name}`); };
@@ -144,6 +147,7 @@ export const fetchAllData = async () => {
     if (vulnerabilitiesRes.error) console.warn("Failed to fetch vulnerabilities, table might be missing.");
     if (incidentTypesRes.error) console.warn("Failed to fetch incident types, table might be missing.");
     if (suppliersRes.error) console.warn("Failed to fetch suppliers, table might be missing.");
+    if (backupsRes.error) console.warn("Failed to fetch backups, table might be missing.");
 
     return {
         equipment: equipmentRes.data || [],
@@ -167,6 +171,7 @@ export const fetchAllData = async () => {
         vulnerabilities: vulnerabilitiesRes.data || [],
         securityIncidentTypes: incidentTypesRes.data || [],
         suppliers: suppliersRes.data || [],
+        backupExecutions: backupsRes.data || []
     };
 };
 
@@ -601,4 +606,24 @@ export const deleteVulnerability = async (id: string) => {
     const { error } = await getSupabase().from('vulnerabilities').delete().eq('id', id);
     handleSupabaseError(error, 'deleting vulnerability');
     await logAction('DELETE', 'Vulnerability', `Deleted CVE`, id);
+};
+
+// --- Backup Executions ---
+export const addBackupExecution = async (backup: Omit<BackupExecution, 'id'>) => {
+    const { data, error } = await getSupabase().from('backup_executions').insert(backup).select().single();
+    handleSupabaseError(error, 'adding backup execution');
+    await logAction('CREATE', 'Backup', `Logged backup test for ${backup.system_name} (${backup.status})`, data.id);
+    return data as BackupExecution;
+};
+
+export const updateBackupExecution = async (id: string, updates: Partial<BackupExecution>) => {
+    const { data, error } = await getSupabase().from('backup_executions').update(updates).eq('id', id).select().single();
+    handleSupabaseError(error, 'updating backup execution');
+    return data as BackupExecution;
+};
+
+export const deleteBackupExecution = async (id: string) => {
+    const { error } = await getSupabase().from('backup_executions').delete().eq('id', id);
+    handleSupabaseError(error, 'deleting backup execution');
+    await logAction('DELETE', 'Backup', `Deleted backup log`, id);
 };

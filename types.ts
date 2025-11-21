@@ -389,3 +389,25 @@ export interface Vulnerability {
     remediation?: string;
     published_date?: string;
 }
+
+// --- Backup & Restore Testing (NIS2) ---
+
+export enum BackupType {
+    Full = 'Completo',
+    Incremental = 'Incremental',
+    Differential = 'Diferencial',
+    Snapshot = 'Snapshot VM'
+}
+
+export interface BackupExecution {
+    id: string;
+    system_name: string; // e.g. "Servidor ERP"
+    backup_date: string;
+    test_date: string; // When the restore test was performed
+    status: 'Sucesso' | 'Falha' | 'Parcial';
+    type: BackupType;
+    restore_time_minutes?: number; // RTO verification
+    tester_id: string; // Collaborator who tested
+    notes?: string;
+    evidence_attachment?: string; // URL to screenshot or log
+}
