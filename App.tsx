@@ -515,7 +515,11 @@ const InnerApp: React.FC = () => {
                 />
             )}
 
-            <main className={`flex-grow max-w-screen-xl mx-auto w-full p-4 sm:p-6 lg:p-8 ${layoutMode === 'side' ? 'ml-64' : ''}`}>
+            <main className={`flex-grow p-4 sm:p-6 lg:p-8 ${
+                layoutMode === 'side' 
+                    ? 'ml-64 w-auto bg-background-dark min-h-screen' // Sidebar mode: push right, auto width
+                    : 'max-w-screen-xl mx-auto w-full' // Topbar mode: centered, max width
+            }`}>
                 {activeTab === 'overview' && (
                     <OverviewDashboard
                         equipment={equipment}
