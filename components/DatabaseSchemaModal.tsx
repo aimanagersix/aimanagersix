@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -89,9 +91,11 @@ BEGIN
         ALTER TABLE brands ADD COLUMN IF NOT EXISTS security_contact_email text;
     END IF;
 
-    -- Adicionar coluna de validade de certificado à tabela SUPPLIERS
+    -- Adicionar coluna de validade de certificado, morada e anexos à tabela SUPPLIERS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'suppliers') THEN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry text;
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address text;
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
 END $$;
 
@@ -160,6 +164,8 @@ CREATE TABLE IF NOT EXISTS suppliers (
     nif text,
     website text,
     notes text,
+    address text,
+    attachments jsonb DEFAULT '[]',
     is_iso27001_certified boolean DEFAULT false,
     iso_certificate_expiry text,
     security_contact_email text,
@@ -453,7 +459,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo atualiza a tabela de <strong>Categorias de Tickets</strong>, <strong>Marcas</strong> e <strong>Fornecedores</strong> com novos campos de conformidade NIS2.
+                        O script abaixo atualiza a tabela de <strong>Suppliers (Fornecedores)</strong> com colunas para <strong>Morada</strong> e <strong>Anexos</strong> (para certificados e contratos).
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

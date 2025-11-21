@@ -5,10 +5,12 @@
 
 
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
@@ -63,6 +65,29 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
+    
+    // PWA Install Prompt State
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+    useEffect(() => {
+        const handler = (e: any) => {
+            e.preventDefault(); // Prevent the mini-infobar from appearing on mobile
+            setDeferredPrompt(e); // Stash the event so it can be triggered later.
+        };
+        window.addEventListener('beforeinstallprompt', handler);
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+    }, []);
+
+    const handleInstallApp = () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult: any) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+            }
+            setDeferredPrompt(null);
+        });
+    };
 
      useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -262,6 +287,17 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
           </nav>
 
           <div className="flex-1 flex items-center justify-end gap-4">
+             {deferredPrompt && (
+                <button
+                    onClick={handleInstallApp}
+                    className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 transition-colors animate-bounce"
+                    title="Instalar Aplicação"
+                >
+                    <FaDownload />
+                    Instalar App
+                </button>
+             )}
+
              {/* Language Switcher */}
             <button
                 onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
@@ -350,6 +386,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
        {isMobileMenuOpen && (
             <div ref={mobileMenuRef} className="md:hidden" id="mobile-menu">
                 <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                    {deferredPrompt && (
+                        <button
+                            onClick={handleInstallApp}
+                            className="w-full flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded hover:bg-green-700 transition-colors mb-2"
+                        >
+                            <FaDownload />
+                            Instalar Aplicação
+                        </button>
+                    )}
+
                     {tabConfig['overview'] && <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
                     
                     {/* 1. Organização Mobile */}
