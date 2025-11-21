@@ -64,6 +64,7 @@ import SupplierDashboard from './components/SupplierDashboard';
 import AddSupplierModal from './components/AddSupplierModal';
 import BackupDashboard from './components/BackupDashboard';
 import AddBackupModal from './components/AddBackupModal';
+import AutomationModal from './components/AutomationModal';
 
 type Session = any;
 
@@ -158,6 +159,7 @@ const InnerApp: React.FC = () => {
     const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
     const [showAddBackup, setShowAddBackup] = useState(false);
     const [backupToEdit, setBackupToEdit] = useState<BackupExecution | null>(null);
+    const [showAutomationModal, setShowAutomationModal] = useState(false);
 
     // Maps
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -505,6 +507,7 @@ const InnerApp: React.FC = () => {
                     tabConfig={tabConfig}
                     notificationCount={notificationCount}
                     onNotificationClick={() => setShowNotifications(true)}
+                    onOpenAutomation={() => setShowAutomationModal(true)}
                 />
             ) : (
                 <Sidebar
@@ -517,6 +520,7 @@ const InnerApp: React.FC = () => {
                     onNotificationClick={() => setShowNotifications(true)}
                     isExpanded={sidebarExpanded}
                     onHover={setSidebarExpanded}
+                    onOpenAutomation={() => setShowAutomationModal(true)}
                 />
             )}
 
@@ -1225,6 +1229,7 @@ const InnerApp: React.FC = () => {
 
             {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
             {showResetPassword && session && <ResetPasswordModal onClose={() => setShowResetPassword(false)} session={session} />}
+            {showAutomationModal && <AutomationModal onClose={() => setShowAutomationModal(false)} />}
 
             {currentUser && (
                 <>
