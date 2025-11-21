@@ -517,7 +517,7 @@ const InnerApp: React.FC = () => {
 
             <main className={`flex-grow p-4 sm:p-6 lg:p-8 ${
                 layoutMode === 'side' 
-                    ? 'ml-64 w-auto bg-background-dark min-h-screen' // Sidebar mode: push right, auto width
+                    ? 'ml-20 w-auto bg-background-dark min-h-screen transition-all duration-300' // Sidebar mode: margin matches collapsed sidebar width
                     : 'max-w-screen-xl mx-auto w-full' // Topbar mode: centered, max width
             }`}>
                 {activeTab === 'overview' && (
