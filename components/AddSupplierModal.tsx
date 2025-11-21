@@ -1,10 +1,9 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
-import { FaShieldAlt, FaGlobe, FaCheck } from 'react-icons/fa';
+import { FaShieldAlt, FaGlobe } from 'react-icons/fa';
+import { SearchIcon, SpinnerIcon } from './common/Icons';
 
 interface AddSupplierModalProps {
     onClose: () => void;
@@ -26,6 +25,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         risk_level: CriticalityLevel.Low
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isFetchingVies, setIsFetchingVies] = useState(false);
 
     useEffect(() => {
         if (supplierToEdit) {
@@ -36,6 +36,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.name?.trim()) newErrors.name = "O nome do fornecedor é obrigatório.";
+        if (!formData.nif?.trim()) newErrors.nif = "O NIF é obrigatório.";
         if (formData.contact_email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) {
             newErrors.contact_email = "Email inválido.";
         }
@@ -49,6 +50,64 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             ...prev, 
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value 
         }));
+    };
+
+    const handleFetchVies = async () => {
+        if (!formData.nif?.trim()) {
+            setErrors(prev => ({ ...prev, nif: "Insira um NIF para pesquisar." }));
+            return;
+        }
+
+        setIsFetchingVies(true);
+        setErrors(prev => {
+            const newErr = { ...prev };
+            delete newErr.nif;
+            return newErr;
+        });
+
+        try {
+            let input = formData.nif.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            let countryCode = 'PT'; // Default to Portugal
+            let vatNumber = input;
+
+            // Se o input começar por letras (ex: ES, FR), extrai o código do país
+            const countryMatch = input.match(/^([A-Z]{2})(.+)$/);
+            if (countryMatch) {
+                countryCode = countryMatch[1];
+                vatNumber = countryMatch[2];
+            }
+
+            // API VIES da Comissão Europeia
+            const targetUrl = `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number/${countryCode}/${vatNumber}`;
+            
+            // Utilizar um Proxy CORS para evitar bloqueio do browser (corsproxy.io é um serviço público gratuito)
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
+            const response = await fetch(proxyUrl);
+            
+            if (!response.ok) {
+                throw new Error('Falha na comunicação com o serviço VIES.');
+            }
+
+            const data = await response.json();
+
+            if (data.isValid) {
+                setFormData(prev => ({
+                    ...prev,
+                    name: data.name || prev.name,
+                    nif: input, // Mantém o input normalizado
+                    // Adiciona o endereço às notas se existir, sem apagar notas anteriores
+                    notes: (prev.notes ? prev.notes + '\n\n' : '') + (data.address ? `Endereço (VIES): ${data.address}` : '')
+                }));
+            } else {
+                alert("O NIF inserido não é válido ou não existe na base de dados VIES.");
+            }
+        } catch (e) {
+            console.error("Erro VIES:", e);
+            alert("Não foi possível obter dados do VIES automaticamente (Erro de rede ou serviço indisponível). Por favor, preencha os dados manualmente.");
+        } finally {
+            setIsFetchingVies(false);
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -72,7 +131,32 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome da Empresa</label>
+                        <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF / VAT Number <span className="text-red-400">*</span></label>
+                        <div className="flex">
+                            <input 
+                                type="text" 
+                                name="nif" 
+                                id="nif" 
+                                value={formData.nif} 
+                                onChange={handleChange} 
+                                placeholder="Ex: 501234567"
+                                className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
+                            />
+                            <button 
+                                type="button" 
+                                onClick={handleFetchVies}
+                                disabled={isFetchingVies || !formData.nif}
+                                className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white transition-colors border-t border-b border-r border-gray-600 flex items-center justify-center min-w-[3rem]"
+                                title="Pesquisar no VIES (Europa)"
+                            >
+                                {isFetchingVies ? <SpinnerIcon /> : <SearchIcon />}
+                            </button>
+                        </div>
+                        {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
+                        <p className="text-[10px] text-gray-500 mt-1">Clique na lupa para preencher Nome e Endereço automaticamente.</p>
+                    </div>
+                    <div>
+                        <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome da Empresa <span className="text-red-400">*</span></label>
                         <input 
                             type="text" 
                             name="name" 
@@ -82,17 +166,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.name ? 'border-red-500' : 'border-gray-600'}`}
                         />
                         {errors.name && <p className="text-red-400 text-xs italic mt-1">{errors.name}</p>}
-                    </div>
-                    <div>
-                        <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF (Opcional)</label>
-                        <input 
-                            type="text" 
-                            name="nif" 
-                            id="nif" 
-                            value={formData.nif} 
-                            onChange={handleChange} 
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                        />
                     </div>
                 </div>
 
@@ -167,7 +240,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 </div>
 
                 <div>
-                    <label htmlFor="notes" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Notas Adicionais</label>
+                    <label htmlFor="notes" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Notas Adicionais / Endereço</label>
                     <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"></textarea>
                 </div>
 
