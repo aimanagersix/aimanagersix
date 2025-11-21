@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
@@ -21,6 +23,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         website: '',
         notes: '',
         is_iso27001_certified: false,
+        iso_certificate_expiry: '',
         security_contact_email: '',
         risk_level: CriticalityLevel.Low
     });
@@ -29,7 +32,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
     useEffect(() => {
         if (supplierToEdit) {
-            setFormData({ ...supplierToEdit });
+            setFormData({ ...supplierToEdit, iso_certificate_expiry: supplierToEdit.iso_certificate_expiry || '' });
         }
     }, [supplierToEdit]);
 
@@ -39,6 +42,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         if (!formData.nif?.trim()) newErrors.nif = "O NIF é obrigatório.";
         if (formData.contact_email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) {
             newErrors.contact_email = "Email inválido.";
+        }
+        if (formData.is_iso27001_certified && !formData.iso_certificate_expiry) {
+            newErrors.iso_certificate_expiry = "Se tem certificação, a data de validade é obrigatória.";
         }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -223,6 +229,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         if (!validate()) return;
         
         const dataToSave: any = { ...formData };
+        if (!dataToSave.iso_certificate_expiry) delete dataToSave.iso_certificate_expiry;
+
         if (supplierToEdit) {
             onSave({ ...supplierToEdit, ...dataToSave });
         } else {
@@ -329,8 +337,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono text-sm"
                             />
                         </div>
-                        <div className="md:col-span-2">
-                            <div className="flex items-center p-3 bg-gray-900/50 rounded border border-gray-600">
+                        
+                        {/* ISO Certification Check */}
+                        <div className="md:col-span-2 flex flex-col gap-3 bg-gray-900/50 p-3 rounded border border-gray-600">
+                            <div className="flex items-center">
                                 <input
                                     type="checkbox"
                                     name="is_iso27001_certified"
@@ -343,6 +353,21 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                     Possui Certificação ISO 27001 (Segurança da Informação)?
                                 </label>
                             </div>
+                            
+                            {formData.is_iso27001_certified && (
+                                <div className="ml-8 animate-fade-in">
+                                    <label htmlFor="iso_certificate_expiry" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Data de Validade do Certificado <span className="text-red-400">*</span></label>
+                                    <input 
+                                        type="date" 
+                                        name="iso_certificate_expiry" 
+                                        id="iso_certificate_expiry" 
+                                        value={formData.iso_certificate_expiry} 
+                                        onChange={handleChange} 
+                                        className={`w-full sm:w-48 bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.iso_certificate_expiry ? 'border-red-500' : 'border-gray-600'}`}
+                                    />
+                                    {errors.iso_certificate_expiry && <p className="text-red-400 text-xs italic mt-1">{errors.iso_certificate_expiry}</p>}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

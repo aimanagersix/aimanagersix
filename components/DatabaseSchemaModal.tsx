@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -79,6 +81,18 @@ BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'business_services') THEN
         ALTER TABLE business_services ADD COLUMN IF NOT EXISTS external_provider_id uuid;
     END IF;
+
+    -- Adicionar colunas de Risco à tabela BRANDS (Fabricantes)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'brands') THEN
+        ALTER TABLE brands ADD COLUMN IF NOT EXISTS risk_level text DEFAULT 'Baixa';
+        ALTER TABLE brands ADD COLUMN IF NOT EXISTS is_iso27001_certified boolean DEFAULT false;
+        ALTER TABLE brands ADD COLUMN IF NOT EXISTS security_contact_email text;
+    END IF;
+
+    -- Adicionar coluna de validade de certificado à tabela SUPPLIERS
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'suppliers') THEN
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry text;
+    END IF;
 END $$;
 
 
@@ -130,7 +144,10 @@ CREATE TABLE IF NOT EXISTS collaborators (
 
 CREATE TABLE IF NOT EXISTS brands (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE
+    name text NOT NULL UNIQUE,
+    risk_level text DEFAULT 'Baixa',
+    is_iso27001_certified boolean DEFAULT false,
+    security_contact_email text
 );
 
 -- NOVA TABELA: FORNECEDORES (SUPPLIERS)
@@ -144,6 +161,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     website text,
     notes text,
     is_iso27001_certified boolean DEFAULT false,
+    iso_certificate_expiry text,
     security_contact_email text,
     risk_level text DEFAULT 'Baixa', -- Vendor Risk Rating
     created_at timestamptz DEFAULT now()
@@ -435,7 +453,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo atualiza a tabela de <strong>Categorias de Tickets</strong> para suportar prazos de SLA configuráveis.
+                        O script abaixo atualiza a tabela de <strong>Categorias de Tickets</strong>, <strong>Marcas</strong> e <strong>Fornecedores</strong> com novos campos de conformidade NIS2.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

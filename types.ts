@@ -23,6 +23,10 @@ export enum CIARating {
 export interface Brand {
   id: string;
   name: string;
+  // Supply Chain Security Fields
+  risk_level?: CriticalityLevel;
+  is_iso27001_certified?: boolean;
+  security_contact_email?: string;
 }
 
 // --- Supplier / Vendor Risk Management (NIS2) ---
@@ -37,6 +41,7 @@ export interface Supplier {
     notes?: string;
     // Security Fields
     is_iso27001_certified: boolean;
+    iso_certificate_expiry?: string; // New field for certificate validity
     security_contact_email?: string;
     risk_level: CriticalityLevel; // Vendor Risk Rating
 }
