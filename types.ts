@@ -39,11 +39,17 @@ export interface Supplier {
     nif?: string;
     website?: string;
     notes?: string;
-    address?: string; // New field for address from VIES
-    attachments?: { name: string; dataUrl: string }[]; // New field for files
+    address?: string; // Legacy/Full formatted string
+    // Structured Address Fields
+    address_line?: string;
+    postal_code?: string;
+    city?: string;
+    locality?: string;
+    
+    attachments?: { name: string; dataUrl: string }[]; 
     // Security Fields
     is_iso27001_certified: boolean;
-    iso_certificate_expiry?: string; // New field for certificate validity
+    iso_certificate_expiry?: string; 
     security_contact_email?: string;
     risk_level: CriticalityLevel; // Vendor Risk Rating
 }

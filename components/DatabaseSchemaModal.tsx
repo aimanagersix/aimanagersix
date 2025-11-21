@@ -8,6 +8,7 @@
 
 
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -97,6 +98,10 @@ BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'suppliers') THEN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address text;
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address_line text;
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS postal_code text;
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS city text;
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
     END IF;
 END $$;
@@ -167,6 +172,10 @@ CREATE TABLE IF NOT EXISTS suppliers (
     website text,
     notes text,
     address text,
+    address_line text,
+    postal_code text,
+    city text,
+    locality text,
     attachments jsonb DEFAULT '[]',
     is_iso27001_certified boolean DEFAULT false,
     iso_certificate_expiry text,
@@ -461,7 +470,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        O script abaixo atualiza a tabela de <strong>Suppliers (Fornecedores)</strong> com colunas para <strong>Morada</strong> e <strong>Anexos</strong> (para certificados e contratos).
+                        O script abaixo atualiza a tabela de <strong>Suppliers (Fornecedores)</strong> com colunas para <strong>Endereço, Código Postal e Localidade</strong> estruturados.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

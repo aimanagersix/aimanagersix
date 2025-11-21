@@ -7,6 +7,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
@@ -38,7 +40,11 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         contact_phone: '',
         nif: '',
         website: '',
-        address: '',
+        address: '', // Legacy
+        address_line: '',
+        postal_code: '',
+        city: '',
+        locality: '',
         notes: '',
         is_iso27001_certified: false,
         iso_certificate_expiry: '',
@@ -48,6 +54,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isFetchingVies, setIsFetchingVies] = useState(false);
+    const [isFetchingCP, setIsFetchingCP] = useState(false);
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const [showLetter, setShowLetter] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,7 +64,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             setFormData({ 
                 ...supplierToEdit, 
                 iso_certificate_expiry: supplierToEdit.iso_certificate_expiry || '',
-                address: supplierToEdit.address || '',
+                address_line: supplierToEdit.address_line || supplierToEdit.address || '', // Fallback to legacy if struct is empty
+                postal_code: supplierToEdit.postal_code || '',
+                city: supplierToEdit.city || '',
+                locality: supplierToEdit.locality || '',
             });
             if (supplierToEdit.attachments) {
                 setAttachments(supplierToEdit.attachments.map(a => ({ ...a, size: 0 })));
@@ -92,6 +102,42 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 delete newErrors[name];
                 return newErrors;
             });
+        }
+    };
+
+    // Automatically fetch City/Locality when Postal Code changes and is valid (XXXX-XXX)
+    const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        let val = e.target.value;
+        // Enforce pattern XXXX-XXX if user is typing digits
+        val = val.replace(/[^0-9-]/g, ''); 
+        if (val.length > 4 && val.indexOf('-') === -1) {
+            val = val.slice(0, 4) + '-' + val.slice(4);
+        }
+        if (val.length > 8) val = val.slice(0, 8);
+
+        setFormData(prev => ({ ...prev, postal_code: val }));
+
+        // Fetch if valid format
+        if (/^\d{4}-\d{3}$/.test(val)) {
+            setIsFetchingCP(true);
+            try {
+                const res = await fetch(`https://json.geoapi.pt/cp/${val}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    // API returns object with Concelho, Distrito, and part (array)
+                    if (data && data.Concelho) {
+                        setFormData(prev => ({
+                            ...prev,
+                            city: data.Concelho,
+                            locality: data.Freguesia || (data.part && data.part.length > 0 ? data.part[0] : '')
+                        }));
+                    }
+                }
+            } catch (err) {
+                console.warn("Erro ao obter dados do CP:", err);
+            } finally {
+                setIsFetchingCP(false);
+            }
         }
     };
 
@@ -136,7 +182,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     if (data && (data.isValid || data.valid)) {
                         resultData = {
                             name: data.name,
-                            address: data.address
+                            address: data.address // VIES address is usually a single string
                         };
                         success = true;
                     }
@@ -150,7 +196,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     ...prev,
                     name: resultData.name || prev.name,
                     nif: input,
-                    address: resultData.address || prev.address // Map directly to address field
+                    address_line: resultData.address || prev.address_line // Map raw VIES address to address_line
                 }));
                 setErrors(prev => {
                     const newErr = { ...prev };
@@ -158,7 +204,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     return newErr;
                 });
             } else {
-                // If silent fail or invalid, just let user type
                 setErrors(prev => ({ ...prev, nif: "Não foi possível validar ou obter dados automaticamente. Preencha manualmente." }));
             }
 
@@ -234,8 +279,16 @@ Data: ${today}
         e.preventDefault();
         if (!validate()) return;
         
+        // Update full composite address for legacy purposes
+        const fullAddress = [
+            formData.address_line,
+            formData.postal_code,
+            formData.city
+        ].filter(Boolean).join(', ');
+
         const dataToSave: any = { 
             ...formData,
+            address: fullAddress,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
         };
         if (!dataToSave.iso_certificate_expiry) delete dataToSave.iso_certificate_expiry;
@@ -294,18 +347,62 @@ Data: ${today}
                     </div>
                 </div>
 
-                {/* Address Field - New */}
-                <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Morada Completa</label>
-                    <textarea 
-                        name="address" 
-                        id="address" 
-                        value={formData.address} 
-                        onChange={handleChange} 
-                        rows={2} 
-                        placeholder="Rua, Código Postal, Cidade..."
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                    ></textarea>
+                {/* Structured Address Section */}
+                <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700">
+                    <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada</h4>
+                    <div className="space-y-3">
+                        <div>
+                            <label htmlFor="address_line" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Endereço (Rua, Nº, Andar)</label>
+                            <input 
+                                type="text" 
+                                name="address_line" 
+                                id="address_line" 
+                                value={formData.address_line} 
+                                onChange={handleChange} 
+                                placeholder="Rua Principal, 123"
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label htmlFor="postal_code" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Código Postal</label>
+                                <div className="relative">
+                                    <input 
+                                        type="text" 
+                                        name="postal_code" 
+                                        id="postal_code" 
+                                        value={formData.postal_code} 
+                                        onChange={handlePostalCodeChange} 
+                                        placeholder="0000-000"
+                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                                    />
+                                    {isFetchingCP && <div className="absolute right-2 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
+                                </div>
+                            </div>
+                            <div>
+                                <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade / Concelho</label>
+                                <input 
+                                    type="text" 
+                                    name="city" 
+                                    id="city" 
+                                    value={formData.city} 
+                                    onChange={handleChange} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="locality" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Localidade / Freguesia</label>
+                                <input 
+                                    type="text" 
+                                    name="locality" 
+                                    id="locality" 
+                                    value={formData.locality} 
+                                    onChange={handleChange} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Contact Info */}
@@ -400,7 +497,7 @@ Data: ${today}
                     </div>
                 </div>
 
-                {/* Attachments Section - New */}
+                {/* Attachments Section */}
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-2">Anexos (Contratos, Certificados, NDAs)</label>
                     <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700">
