@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -890,6 +892,11 @@ const InnerApp: React.FC = () => {
                     vulnerabilities={vulnerabilities}
                     onClose={() => setEquipmentForHistory(null)}
                     suppliers={suppliers}
+                    onEdit={(eq) => {
+                        setEquipmentForHistory(null);
+                        setEquipmentToEdit(eq);
+                        setShowAddEquipment(true);
+                    }}
                 />
             )}
 
