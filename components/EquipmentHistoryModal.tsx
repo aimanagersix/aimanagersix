@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React, { useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
@@ -23,6 +18,7 @@ interface EquipmentHistoryModalProps {
     licenseAssignments?: LicenseAssignment[];
     vulnerabilities?: Vulnerability[];
     suppliers?: Supplier[];
+    onEdit?: (equipment: Equipment) => void; // Added onEdit prop
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -36,7 +32,7 @@ const getCriticalityClass = (level: CriticalityLevel) => {
 
 const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({ 
     equipment, assignments, collaborators, escolasDepartamentos: entidades, onClose, tickets, ticketActivities,
-    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = []
+    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit
 }) => {
     // Memoize maps for efficient lookups
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
@@ -143,9 +139,20 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     return (
         <Modal title={`Histórico do Equipamento: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
             <div className="space-y-6">
-                 <div className="bg-gray-900/50 p-3 rounded-lg text-sm grid grid-cols-2 gap-x-4">
-                    <p><span className="font-semibold text-on-surface-dark-secondary">Nº Inventário:</span> {equipment.inventoryNumber || 'N/A'}</p>
-                    <p><span className="font-semibold text-on-surface-dark-secondary">Nº Fatura:</span> {equipment.invoiceNumber || 'N/A'}</p>
+                 {/* Top Bar with Details and Edit Button */}
+                 <div className="bg-gray-900/50 p-3 rounded-lg text-sm flex justify-between items-center">
+                    <div className="grid grid-cols-2 gap-x-4">
+                        <p><span className="font-semibold text-on-surface-dark-secondary">Nº Inventário:</span> {equipment.inventoryNumber || 'N/A'}</p>
+                        <p><span className="font-semibold text-on-surface-dark-secondary">Nº Fatura:</span> {equipment.invoiceNumber || 'N/A'}</p>
+                    </div>
+                    {onEdit && (
+                        <button 
+                            onClick={() => { onClose(); onEdit(equipment); }} 
+                            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg"
+                        >
+                            Editar Equipamento
+                        </button>
+                    )}
                 </div>
 
                 {/* Security & Patching Section */}

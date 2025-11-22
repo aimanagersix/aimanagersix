@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus } from '../types';
@@ -13,6 +14,7 @@ interface CollaboratorDetailModalProps {
     onClose: () => void;
     onShowHistory: (collaborator: Collaborator) => void;
     onStartChat: (collaborator: Collaborator) => void;
+    onEdit: (collaborator: Collaborator) => void; // Added onEdit prop
 }
 
 const getStatusClass = (status: CollaboratorStatus) => {
@@ -42,6 +44,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     onClose,
     onShowHistory,
     onStartChat,
+    onEdit
 }) => {
     const assignedEquipment = useMemo(() => {
         const collaboratorEquipmentIds = new Set(
@@ -94,6 +97,12 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                         </div>
                     </div>
                      <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                        <button 
+                            onClick={() => { onClose(); onEdit(collaborator); }} 
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors shadow-lg"
+                        >
+                            Editar Dados
+                        </button>
                         <button onClick={handleChatClick} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
                             <FaComment /> Enviar Mensagem
                         </button>

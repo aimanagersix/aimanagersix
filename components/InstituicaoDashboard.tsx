@@ -1,9 +1,9 @@
 
-
 import React, { useMemo, useState } from 'react';
 import { Instituicao, Entidade } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
+import InstituicaoDetailModal from './InstituicaoDetailModal';
 
 interface InstituicaoDashboardProps {
   instituicoes: Instituicao[];
@@ -17,6 +17,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [selectedInstituicao, setSelectedInstituicao] = useState<Instituicao | null>(null);
     
     const entidadesCountByInstituicao = useMemo(() => {
         return entidades.reduce((acc, curr) => {
@@ -65,7 +66,11 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
             {paginatedInstituicoes.length > 0 ? paginatedInstituicoes.map((instituicao) => {
                 const isDeleteDisabled = (entidadesCountByInstituicao[instituicao.id] || 0) > 0;
                 return (
-              <tr key={instituicao.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+              <tr 
+                key={instituicao.id} 
+                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
+                onClick={() => setSelectedInstituicao(instituicao)}
+              >
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                   {instituicao.name}
                 </td>
@@ -78,7 +83,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                 <td className="px-6 py-4 text-center">
                     <div className="flex justify-center items-center gap-4">
                         {onEdit && (
-                            <button onClick={() => onEdit(instituicao)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${instituicao.name}`}>
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(instituicao); }} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${instituicao.name}`}>
                                 <EditIcon />
                             </button>
                         )}
@@ -115,6 +120,18 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
             onItemsPerPageChange={handleItemsPerPageChange}
             totalItems={sortedInstituicoes.length}
         />
+
+        {selectedInstituicao && (
+            <InstituicaoDetailModal
+                instituicao={selectedInstituicao}
+                entidades={entidades}
+                onClose={() => setSelectedInstituicao(null)}
+                onEdit={() => {
+                    setSelectedInstituicao(null);
+                    if (onEdit) onEdit(selectedInstituicao);
+                }}
+            />
+        )}
     </div>
   );
 };

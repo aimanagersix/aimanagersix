@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -1225,6 +1227,7 @@ const InnerApp: React.FC = () => {
                     onClose={() => setDetailCollaborator(null)}
                     onShowHistory={(c) => { setDetailCollaborator(null); setHistoryCollaborator(c); }}
                     onStartChat={(c) => { setDetailCollaborator(null); setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
+                    onEdit={(c) => { setDetailCollaborator(null); setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
                 />
             )}
 

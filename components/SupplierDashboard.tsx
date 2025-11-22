@@ -1,10 +1,9 @@
 
-
-
 import React, { useState, useMemo } from 'react';
 import { Supplier, CriticalityLevel } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch } from './common/Icons';
 import Pagination from './common/Pagination';
+import SupplierDetailModal from './SupplierDetailModal';
 
 interface SupplierDashboardProps {
   suppliers: Supplier[];
@@ -28,6 +27,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
     const filteredSuppliers = useMemo(() => {
         return suppliers.filter(s => 
@@ -85,12 +85,16 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                     </thead>
                     <tbody>
                         {paginatedSuppliers.length > 0 ? paginatedSuppliers.map((supplier) => (
-                            <tr key={supplier.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+                            <tr 
+                                key={supplier.id} 
+                                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
+                                onClick={() => setSelectedSupplier(supplier)}
+                            >
                                 <td className="px-6 py-4 font-medium text-on-surface-dark">
                                     <div className="text-base">{supplier.name}</div>
                                     {supplier.nif && <div className="text-xs text-gray-500">NIF: {supplier.nif}</div>}
                                     {supplier.website && (
-                                        <a href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-secondary hover:underline flex items-center gap-1 mt-1">
+                                        <a href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-brand-secondary hover:underline flex items-center gap-1 mt-1">
                                             <FaGlobe className="h-3 w-3"/> Website
                                         </a>
                                     )}
@@ -121,10 +125,10 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
-                                        <button onClick={() => onEdit(supplier)} className="text-blue-400 hover:text-blue-300" title="Editar">
+                                        <button onClick={(e) => { e.stopPropagation(); onEdit(supplier); }} className="text-blue-400 hover:text-blue-300" title="Editar">
                                             <EditIcon />
                                         </button>
-                                        <button onClick={() => onDelete(supplier.id)} className="text-red-400 hover:text-red-300" title="Excluir">
+                                        <button onClick={(e) => { e.stopPropagation(); onDelete(supplier.id); }} className="text-red-400 hover:text-red-300" title="Excluir">
                                             <DeleteIcon />
                                         </button>
                                     </div>
@@ -148,6 +152,17 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                 onItemsPerPageChange={setItemsPerPage}
                 totalItems={filteredSuppliers.length}
             />
+
+            {selectedSupplier && (
+                <SupplierDetailModal
+                    supplier={selectedSupplier}
+                    onClose={() => setSelectedSupplier(null)}
+                    onEdit={() => {
+                        setSelectedSupplier(null);
+                        if (onEdit) onEdit(selectedSupplier);
+                    }}
+                />
+            )}
         </div>
     );
 };

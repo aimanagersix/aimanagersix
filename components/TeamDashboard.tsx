@@ -1,9 +1,9 @@
 
-
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Team, TeamMember, Collaborator, Ticket, EquipmentType } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
 import { FaUsers } from 'react-icons/fa';
+import TeamDetailModal from './TeamDetailModal';
 
 interface TeamDashboardProps {
     teams: Team[];
@@ -19,6 +19,8 @@ interface TeamDashboardProps {
 
 const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, collaborators, tickets, equipmentTypes, onEdit, onDelete, onManageMembers, onCreate }) => {
     
+    const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+
     const memberCountByTeam = useMemo(() => {
         return teamMembers.reduce((acc, member) => {
             acc[member.team_id] = (acc[member.team_id] || 0) + 1;
@@ -84,17 +86,21 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                             else if (eqTypeCount > 0) disabledReason = "Está associada a tipos de equipamento";
 
                             return (
-                            <tr key={team.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+                            <tr 
+                                key={team.id} 
+                                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
+                                onClick={() => setSelectedTeam(team)}
+                            >
                                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{team.name}</td>
                                 <td className="px-6 py-4">{team.description || '—'}</td>
                                 <td className="px-6 py-4 text-center">{memberCount}</td>
                                 <td className="px-6 py-4 text-center">{ticketCount}</td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
-                                        <button onClick={() => onManageMembers(team)} className="text-green-400 hover:text-green-300" title="Gerir Membros">
+                                        <button onClick={(e) => { e.stopPropagation(); onManageMembers(team); }} className="text-green-400 hover:text-green-300" title="Gerir Membros">
                                             <FaUsers />
                                         </button>
-                                        <button onClick={() => onEdit(team)} className="text-blue-400 hover:text-blue-300" title="Editar Equipa">
+                                        <button onClick={(e) => { e.stopPropagation(); onEdit(team); }} className="text-blue-400 hover:text-blue-300" title="Editar Equipa">
                                             <EditIcon />
                                         </button>
                                         <button 
@@ -120,6 +126,19 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                     </tbody>
                 </table>
             </div>
+
+            {selectedTeam && (
+                <TeamDetailModal
+                    team={selectedTeam}
+                    teamMembers={teamMembers}
+                    collaborators={collaborators}
+                    onClose={() => setSelectedTeam(null)}
+                    onEdit={() => {
+                        setSelectedTeam(null);
+                        if (onEdit) onEdit(selectedTeam);
+                    }}
+                />
+            )}
         </div>
     );
 };

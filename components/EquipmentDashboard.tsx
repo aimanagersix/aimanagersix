@@ -118,6 +118,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [equipmentForHistory, setEquipmentForHistory] = useState<Equipment | null>(null);
     
     useEffect(() => {
         if (initialFilter) {
@@ -465,7 +466,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={() => onShowHistory(item)}
+                onClick={() => setEquipmentForHistory(item)}
               >
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input
@@ -566,6 +567,24 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             onItemsPerPageChange={handleItemsPerPageChange}
             totalItems={filteredEquipment.length}
         />
+
+        {equipmentForHistory && (
+            <EquipmentHistoryModal
+                equipment={equipmentForHistory}
+                assignments={assignments}
+                collaborators={collaborators}
+                escolasDepartamentos={entidades}
+                tickets={tickets}
+                ticketActivities={ticketActivities}
+                businessServices={businessServices}
+                serviceDependencies={serviceDependencies}
+                onClose={() => setEquipmentForHistory(null)}
+                onEdit={(eq) => {
+                    setEquipmentForHistory(null);
+                    if (onEdit) onEdit(eq);
+                }}
+            />
+        )}
     </div>
   );
 };
