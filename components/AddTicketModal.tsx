@@ -1,18 +1,9 @@
 
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem } from '../types';
-import { DeleteIcon, FaShieldAlt, FaExclamationTriangle } from './common/Icons';
+import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck } from './common/Icons';
+import { analyzeTicketRequest } from '../services/geminiService';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -117,6 +108,10 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    // AI Analysis State
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [aiSuggestion, setAiSuggestion] = useState<{category: string, priority: string, solution: string} | null>(null);
      
     const isUtilizador = userPermissions.viewScope === 'own';
     const isSecurityIncident = formData.category === TicketCategory.SecurityIncident || formData.category === 'Incidente de Segurança';
@@ -232,6 +227,56 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     
     const handleRemoveAttachment = (indexToRemove: number) => {
         setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
+    };
+
+    // AI Triage Handler
+    const handleAiAnalyze = async () => {
+        if (!formData.description || formData.description.length < 10) {
+            alert("Por favor, descreva o problema com mais detalhe antes de analisar.");
+            return;
+        }
+        setIsAnalyzing(true);
+        setAiSuggestion(null);
+        try {
+            const result = await analyzeTicketRequest(formData.description);
+            
+            // Map result priority to enum
+            let mappedPriority = CriticalityLevel.Low;
+            if (result.suggestedPriority === 'Crítica') mappedPriority = CriticalityLevel.Critical;
+            else if (result.suggestedPriority === 'Alta') mappedPriority = CriticalityLevel.High;
+            else if (result.suggestedPriority === 'Média') mappedPriority = CriticalityLevel.Medium;
+
+            // Find best matching category
+            let bestCategory = activeCategories.find(c => c.toLowerCase() === result.suggestedCategory.toLowerCase()) || result.suggestedCategory;
+            if (result.isSecurityIncident) {
+                bestCategory = 'Incidente de Segurança'; // Force security if detected
+            }
+
+            setAiSuggestion({
+                category: bestCategory,
+                priority: mappedPriority,
+                solution: result.suggestedSolution
+            });
+
+        } catch (error) {
+            console.error("AI Analysis failed", error);
+            alert("Não foi possível analisar o ticket no momento.");
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const applyAiSuggestions = () => {
+        if (!aiSuggestion) return;
+        setFormData(prev => ({
+            ...prev,
+            category: aiSuggestion.category,
+            impactCriticality: aiSuggestion.priority as CriticalityLevel,
+            // If suggestion includes solution, append it to description or handle it differently?
+            // Let's just append it as a note for now
+            description: prev.description + `\n\n[Sugestão IA: ${aiSuggestion.solution}]`
+        }));
+        setAiSuggestion(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -390,8 +435,20 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                     {errors.title && <p className="text-red-400 text-xs italic mt-1">{errors.title}</p>}
                 </div>
 
-                <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição Detalhada</label>
+                <div className="relative">
+                    <div className="flex justify-between items-center mb-1">
+                        <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary">Descrição Detalhada</label>
+                        <button
+                            type="button"
+                            onClick={handleAiAnalyze}
+                            disabled={isAnalyzing}
+                            className="text-xs flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors"
+                            title="Sugerir categoria e prioridade com IA"
+                        >
+                            {isAnalyzing ? <FaSpinner className="animate-spin" /> : <FaMagic />}
+                            {isAnalyzing ? 'A analisar...' : 'Triagem IA'}
+                        </button>
+                    </div>
                     <textarea 
                         name="description" 
                         id="description" 
@@ -402,6 +459,35 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                         className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} 
                     ></textarea>
                     {errors.description && <p className="text-red-400 text-xs italic mt-1">{errors.description}</p>}
+                    
+                    {aiSuggestion && (
+                        <div className="absolute z-10 left-0 right-0 mt-2 p-3 bg-purple-900/90 backdrop-blur-sm border border-purple-500 rounded-md shadow-xl animate-fade-in">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="text-xs font-bold text-purple-200 mb-1">Sugestão Inteligente:</p>
+                                    <p className="text-sm text-white">Categoria: <strong>{aiSuggestion.category}</strong></p>
+                                    <p className="text-sm text-white">Prioridade: <strong>{aiSuggestion.priority}</strong></p>
+                                    <p className="text-xs text-purple-200 mt-1 italic">"{aiSuggestion.solution}"</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={applyAiSuggestions} 
+                                        className="bg-purple-600 hover:bg-purple-500 text-white p-1.5 rounded text-xs flex items-center gap-1"
+                                    >
+                                        <FaCheck /> Aplicar
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setAiSuggestion(null)} 
+                                        className="bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded text-xs"
+                                    >
+                                        Ignorar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

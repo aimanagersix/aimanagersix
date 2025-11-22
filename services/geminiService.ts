@@ -215,3 +215,100 @@ export const parseNaturalLanguageAction = async (
         return { intent: 'unknown', confidence: 0 };
     }
 };
+
+// --- AI Reporting (Idea 2) ---
+
+export const generateExecutiveReport = async (
+    reportType: string,
+    dataContext: any
+): Promise<string> => {
+    try {
+        const ai = getAiClient();
+        
+        // Truncate data context if too large (Gemini has limits, though high)
+        const contextString = JSON.stringify(dataContext).substring(0, 30000); 
+
+        const prompt = `
+        Act as an Expert IT Manager & CIO. Analyze the provided JSON data for a "${reportType}" report.
+        
+        Data Context: ${contextString}
+
+        Generate an HTML (no markdown) Executive Summary with the following sections:
+        1. **Executive Summary**: High-level overview of the current status.
+        2. **Risk Analysis (NIS2 Focus)**: Identify potential security risks, outdated equipment, or single points of failure.
+        3. **Operational Insights**: Efficiency, ticket volume trends, or asset utilization.
+        4. **Recommendations**: 3-5 actionable bullet points for the administration (e.g., budget for upgrades, training needs).
+
+        Style Guide:
+        - Use <h3> for headers.
+        - Use <ul>/<li> for lists.
+        - Use <strong> for emphasis.
+        - Keep it professional, concise, and data-driven.
+        - If data is empty, state that there is insufficient data for analysis.
+        - Language: Portuguese (Portugal).
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+
+        return response.text || "<p>Não foi possível gerar o relatório.</p>";
+
+    } catch (error) {
+        console.error("Error generating report:", error);
+        return "<p>Erro ao gerar análise IA. Verifique a sua chave API.</p>";
+    }
+};
+
+// --- AI Ticket Triage (Idea 3) ---
+
+export interface TicketTriageResult {
+    suggestedCategory: string;
+    suggestedPriority: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+    suggestedSolution: string;
+    isSecurityIncident: boolean;
+}
+
+export const analyzeTicketRequest = async (description: string): Promise<TicketTriageResult> => {
+    try {
+        const ai = getAiClient();
+        
+        const prompt = `
+        Analyze this IT support ticket description: "${description}".
+        
+        Tasks:
+        1. Categorize the issue (Hardware, Software, Network, Access, Security Incident, Other).
+        2. Estimate priority based on business impact (Low, Medium, High, Critical).
+        3. Suggest a "First Aid" solution or quick fix the user/technician can try.
+        4. Determine if this sounds like a Security Incident (phishing, virus, ransomware).
+
+        Return JSON.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        suggestedCategory: { type: Type.STRING },
+                        suggestedPriority: { type: Type.STRING, enum: ['Baixa', 'Média', 'Alta', 'Crítica'] },
+                        suggestedSolution: { type: Type.STRING },
+                        isSecurityIncident: { type: Type.BOOLEAN }
+                    },
+                    required: ["suggestedCategory", "suggestedPriority", "suggestedSolution", "isSecurityIncident"]
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "{}";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error analyzing ticket:", error);
+        throw new Error("Failed to analyze ticket.");
+    }
+};
