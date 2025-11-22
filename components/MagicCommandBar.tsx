@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { FaMagic, FaSpinner, FaArrowRight, FaMicrophone } from 'react-icons/fa';
-import { parseNaturalLanguageAction } from '../services/geminiService';
+import { parseNaturalLanguageAction, isAiConfigured } from '../services/geminiService';
 import { Brand, EquipmentType, Collaborator } from '../types';
 
 interface MagicCommandBarProps {
@@ -17,9 +17,11 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const aiConfigured = isAiConfigured();
 
     // Hotkey listener (Ctrl+K or Cmd+K)
     useEffect(() => {
+        if (!aiConfigured) return;
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();
@@ -32,7 +34,7 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [aiConfigured]);
 
     // Auto-focus input when opened
     useEffect(() => {
@@ -43,7 +45,7 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!input.trim() || !aiConfigured) return;
 
         setIsLoading(true);
         try {
@@ -70,6 +72,8 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
             setIsLoading(false);
         }
     };
+
+    if (!aiConfigured) return null;
 
     if (!isOpen) {
         return (

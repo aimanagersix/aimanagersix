@@ -1,10 +1,8 @@
 
-
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier } from '../types';
-import { extractTextFromImage, getDeviceInfoFromText } from '../services/geminiService';
+import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
 import { FaExclamationTriangle, FaEuroSign, FaCalendarCheck } from 'react-icons/fa';
 
@@ -173,6 +171,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
     const [isAddingType, setIsAddingType] = useState(false);
     const [newTypeName, setNewTypeName] = useState('');
     const [showKitButton, setShowKitButton] = useState(false);
+    const aiConfigured = isAiConfigured();
 
 
     useEffect(() => {
@@ -400,10 +399,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                         <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Série</label>
                         <div className="flex">
                             <input type="text" name="serialNumber" id="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} />
-                            <button type="button" onClick={() => setIsScanning(true)} className="p-2 bg-brand-primary text-white hover:bg-brand-secondary transition-colors">
+                            <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className={`p-2 bg-brand-primary text-white hover:bg-brand-secondary transition-colors ${!aiConfigured ? 'opacity-50 cursor-not-allowed' : ''}`} title={!aiConfigured ? "Scanner IA indisponível (API Key)" : "Scan"}>
                                 {isLoading.serial ? <SpinnerIcon /> : <CameraIcon />}
                             </button>
-                             <button type="button" onClick={() => handleFetchInfo(formData.serialNumber!)} disabled={!formData.serialNumber || isLoading.info} className="p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50">
+                             <button type="button" onClick={() => handleFetchInfo(formData.serialNumber!)} disabled={!formData.serialNumber || isLoading.info || !aiConfigured} className={`p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50 ${!aiConfigured ? 'cursor-not-allowed' : ''}`} title={!aiConfigured ? "Lookup IA indisponível (API Key)" : "Lookup"}>
                                 {isLoading.info ? <SpinnerIcon /> : <SearchIcon />}
                             </button>
                         </div>

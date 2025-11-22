@@ -4,7 +4,7 @@ import Modal from './common/Modal';
 import { BackupExecution, BackupType, Collaborator, Equipment, EquipmentType, Ticket, TicketStatus } from '../types';
 import { FaServer, FaFileContract, FaDownload, FaTicketAlt, FaCalendarPlus, FaRobot } from 'react-icons/fa';
 import { DeleteIcon, SpinnerIcon } from './common/Icons';
-import { analyzeBackupScreenshot } from '../services/geminiService';
+import { analyzeBackupScreenshot, isAiConfigured } from '../services/geminiService';
 
 interface AddBackupModalProps {
     onClose: () => void;
@@ -49,6 +49,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
     
     // AI Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const aiConfigured = isAiConfigured();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,7 +102,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
     };
 
     const handleAiAnalysis = async (file: File, dataUrl: string) => {
-        if (!file.type.startsWith('image/')) return;
+        if (!aiConfigured || !file.type.startsWith('image/')) return;
         
         if (!confirm("Pretende que a IA analise este print screen para preencher os dados automaticamente?")) return;
 
@@ -297,10 +298,12 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-2">Evidências (Print Screens, Logs)</label>
                     
-                    <div className="mb-2 p-2 bg-indigo-900/30 rounded border border-indigo-500/30 text-xs text-indigo-200 flex items-center gap-2">
-                        <FaRobot />
-                        <span>Dica: Anexe um print screen do sucesso do backup para preenchimento automático dos campos pela IA.</span>
-                    </div>
+                    {aiConfigured && (
+                        <div className="mb-2 p-2 bg-indigo-900/30 rounded border border-indigo-500/30 text-xs text-indigo-200 flex items-center gap-2">
+                            <FaRobot />
+                            <span>Dica: Anexe um print screen do sucesso do backup para preenchimento automático dos campos pela IA.</span>
+                        </div>
+                    )}
 
                     <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700">
                         {attachments.length > 0 && (
@@ -337,7 +340,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                             disabled={attachments.length >= MAX_FILES}
                             className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dashed border border-gray-500"
                         >
-                            {`+ Anexar e Validar Evidências (${attachments.length}/${MAX_FILES})`}
+                            {`+ Anexar Evidências (${attachments.length}/${MAX_FILES})`}
                         </button>
                     </div>
                 </div>

@@ -3,6 +3,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 let aiInstance: GoogleGenAI | null = null;
 const model = "gemini-2.5-flash";
 
+export const isAiConfigured = (): boolean => {
+    const key = process.env.API_KEY;
+    return !!key && key.length > 0;
+};
+
 const getAiClient = (): GoogleGenAI => {
     if (aiInstance) {
         return aiInstance;

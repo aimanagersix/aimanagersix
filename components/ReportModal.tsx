@@ -5,7 +5,7 @@ import { Equipment, Instituicao, Entidade, Collaborator, Assignment, Ticket, Sof
 import { MailIcon, FaEye, FaMagic } from './common/Icons';
 import { FaFileCsv, FaRobot, FaSpinner } from 'react-icons/fa';
 import PrintPreviewModal from './PrintPreviewModal';
-import { generateExecutiveReport } from '../services/geminiService';
+import { generateExecutiveReport, isAiConfigured } from '../services/geminiService';
 
 interface ReportModalProps {
     type: 'equipment' | 'collaborator' | 'ticket' | 'licensing' | 'compliance' | 'bia';
@@ -84,6 +84,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
     // AI Analysis State
     const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+    const aiConfigured = isAiConfigured();
     
     const instituicaoMap = useMemo(() => new Map(instituicoes.map(e => [e.id, e])), [instituicoes]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
@@ -365,7 +366,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
     };
     
     const handleGenerateAI = async () => {
-        if (!reportData) return;
+        if (!reportData || !aiConfigured) return;
         setIsGeneratingAI(true);
         setAiAnalysis(null);
         
@@ -875,7 +876,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                 </div>
                                 <div className="text-right">
                                     <span className={`block text-sm font-bold ${getLevelColor(item.service.criticality)}`}>{item.service.criticality}</span>
-                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</span> 
+                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</p> 
                                 </div>
                             </div>
                             
@@ -950,8 +951,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 <div className="flex flex-wrap justify-end gap-4 pt-4 no-print">
                     <button 
                         onClick={handleGenerateAI} 
-                        disabled={!reportData || isGeneratingAI}
-                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 shadow-lg"
+                        disabled={!reportData || isGeneratingAI || !aiConfigured}
+                        className={`flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 shadow-lg ${!aiConfigured ? 'cursor-not-allowed grayscale opacity-50' : ''}`}
+                        title={!aiConfigured ? "Funcionalidade indisponível: Chave API não configurada" : "Gerar Análise IA"}
                     >
                         {isGeneratingAI ? <FaSpinner className="animate-spin" /> : <FaMagic />} 
                         Gerar Análise IA

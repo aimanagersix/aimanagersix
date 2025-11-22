@@ -1,13 +1,9 @@
 
-
-
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus } from '../types';
 import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck } from './common/Icons';
-import { analyzeTicketRequest, findSimilarPastTickets } from '../services/geminiService';
+import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
 import { FaLightbulb } from 'react-icons/fa';
 
 interface AddTicketModalProps {
@@ -114,6 +110,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState<{category: string, priority: string, solution: string} | null>(null);
     const [similarTicket, setSimilarTicket] = useState<{id: string, resolution: string, reason: string} | null>(null);
+    const aiConfigured = isAiConfigured();
      
     const isUtilizador = userPermissions.viewScope === 'own';
     const isSecurityIncident = formData.category === TicketCategory.SecurityIncident || formData.category === 'Incidente de Segurança';
@@ -228,6 +225,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
 
     // AI Triage Handler with RAG
     const handleAiAnalyze = async () => {
+        if (!aiConfigured) return;
         if (!formData.description || formData.description.length < 10) {
             alert("Por favor, descreva o problema com mais detalhe antes de analisar.");
             return;
@@ -456,9 +454,9 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                         <button
                             type="button"
                             onClick={handleAiAnalyze}
-                            disabled={isAnalyzing}
-                            className="text-xs flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors"
-                            title="Sugerir categoria, prioridade e encontrar tickets semelhantes"
+                            disabled={isAnalyzing || !aiConfigured}
+                            className={`text-xs flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors ${!aiConfigured ? 'cursor-not-allowed opacity-50' : ''}`}
+                            title={!aiConfigured ? "Funcionalidade indisponível: Chave API não configurada" : "Sugerir categoria, prioridade e encontrar tickets semelhantes"}
                         >
                             {isAnalyzing ? <FaSpinner className="animate-spin" /> : <FaMagic />}
                             {isAnalyzing ? 'A analisar...' : 'Triagem IA'}
