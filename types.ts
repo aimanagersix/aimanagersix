@@ -251,6 +251,9 @@ export interface Ticket {
   impactConfidentiality?: CIARating; // Was confidentiality compromised?
   impactIntegrity?: CIARating;      // Was integrity compromised?
   impactAvailability?: CIARating;   // Was availability compromised?
+  
+  // KB / RAG Fields
+  resolution_summary?: string; // For AI Knowledge Base
 }
 
 export interface TicketActivity {

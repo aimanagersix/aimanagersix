@@ -1,16 +1,22 @@
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Collaborator } from '../types';
+import { Ticket, Collaborator, TicketActivity } from '../types';
+import { FaMagic, FaSpinner } from './common/Icons';
+import { generateTicketResolutionSummary } from '../services/geminiService';
 
 interface CloseTicketModalProps {
     ticket: Ticket;
     collaborators: Collaborator[];
     onClose: () => void;
-    onConfirm: (technicianId: string) => void;
+    onConfirm: (technicianId: string, resolutionSummary?: string) => void;
+    activities?: TicketActivity[];
 }
 
-const CloseTicketModal: React.FC<CloseTicketModalProps> = ({ ticket, collaborators, onClose, onConfirm }) => {
+const CloseTicketModal: React.FC<CloseTicketModalProps> = ({ ticket, collaborators, onClose, onConfirm, activities = [] }) => {
     const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>(collaborators[0]?.id || '');
+    const [resolutionSummary, setResolutionSummary] = useState(ticket.resolution_summary || '');
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -18,7 +24,21 @@ const CloseTicketModal: React.FC<CloseTicketModalProps> = ({ ticket, collaborato
             alert("Por favor, selecione o técnico que resolveu o ticket.");
             return;
         }
-        onConfirm(selectedTechnicianId);
+        onConfirm(selectedTechnicianId, resolutionSummary);
+    };
+
+    const handleGenerateSummary = async () => {
+        setIsGenerating(true);
+        try {
+            const activityTexts = activities.map(a => a.description);
+            const summary = await generateTicketResolutionSummary(ticket.description, activityTexts);
+            setResolutionSummary(summary);
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao gerar resumo.");
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
@@ -46,6 +66,32 @@ const CloseTicketModal: React.FC<CloseTicketModalProps> = ({ ticket, collaborato
                         ))}
                     </select>
                 </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-1">
+                        <label htmlFor="resolutionSummary" className="block text-sm font-medium text-on-surface-dark-secondary">Resumo da Resolução (KB)</label>
+                        <button
+                            type="button"
+                            onClick={handleGenerateSummary}
+                            disabled={isGenerating}
+                            className="text-xs flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors"
+                            title="Gerar resumo automático baseado nas notas"
+                        >
+                            {isGenerating ? <FaSpinner className="animate-spin" /> : <FaMagic />}
+                            {isGenerating ? 'A gerar...' : '✨ Gerar Resumo KB'}
+                        </button>
+                    </div>
+                    <textarea
+                        id="resolutionSummary"
+                        value={resolutionSummary}
+                        onChange={(e) => setResolutionSummary(e.target.value)}
+                        rows={4}
+                        placeholder="Descreva a solução aplicada para futura referência..."
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Este resumo será usado pela IA para sugerir soluções em tickets futuros.</p>
+                </div>
+
                 <div className="flex justify-end gap-4 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
                     <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Confirmar e Finalizar</button>

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -51,6 +53,8 @@ BEGIN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactAvailability" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text; 
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
+        -- New for KB RAG
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_summary text;
     END IF;
     
     -- 4. Adicionar colunas de SLA à tabela TICKET_CATEGORIES
@@ -327,6 +331,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     "impactIntegrity" text,
     "impactAvailability" text,
     attachments jsonb DEFAULT '[]',
+    resolution_summary text,
     created_at timestamptz DEFAULT now()
 );
 
@@ -498,7 +503,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script foi atualizado para adicionar a coluna <code>other_certifications</code> à tabela de fornecedores.
+                        Este script foi atualizado para adicionar a coluna <code>resolution_summary</code> à tabela de tickets (Base de Conhecimento).
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

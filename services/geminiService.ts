@@ -1,4 +1,6 @@
 
+
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -310,5 +312,91 @@ export const analyzeTicketRequest = async (description: string): Promise<TicketT
     } catch (error) {
         console.error("Error analyzing ticket:", error);
         throw new Error("Failed to analyze ticket.");
+    }
+};
+
+// --- AI Knowledge Base (RAG Lite) ---
+
+export const generateTicketResolutionSummary = async (
+    ticketDescription: string,
+    activities: string[]
+): Promise<string> => {
+    try {
+        const ai = getAiClient();
+        const prompt = `
+        Act as a Knowledge Base Manager. 
+        Original Problem: "${ticketDescription}"
+        Technician Notes: ${JSON.stringify(activities)}
+
+        Create a concise, structured KB summary in Portuguese.
+        Format:
+        **Problema:** [1 sentence summary]
+        **Causa:** [Likely cause based on notes]
+        **Resolução:** [Steps taken to fix it]
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+
+        return response.text ? response.text.trim() : "";
+    } catch (error) {
+        console.error("Error generating summary:", error);
+        return "Não foi possível gerar o resumo automático.";
+    }
+};
+
+export const findSimilarPastTickets = async (
+    currentDescription: string,
+    pastResolvedTickets: Array<{id: string, description: string, resolution: string}>
+): Promise<{ found: boolean, ticketId?: string, similarityReason?: string, resolution?: string }> => {
+    try {
+        const ai = getAiClient();
+        
+        // Limit context size
+        const context = pastResolvedTickets.slice(0, 50).map(t => ({
+            id: t.id,
+            desc: t.description.substring(0, 100), // Truncate to save tokens
+            res: t.resolution
+        }));
+
+        const prompt = `
+        I have a new support ticket: "${currentDescription}".
+        
+        Here is a list of past resolved tickets (ID, Description, Resolution):
+        ${JSON.stringify(context)}
+
+        Is there a ticket in this list that solves the EXACT SAME problem?
+        If yes, return the ID, the resolution, and why it is similar.
+        If no, return found: false.
+        
+        Return JSON.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        found: { type: Type.BOOLEAN },
+                        ticketId: { type: Type.STRING },
+                        similarityReason: { type: Type.STRING },
+                        resolution: { type: Type.STRING }
+                    },
+                    required: ["found"]
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "{}";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error finding similar tickets:", error);
+        return { found: false };
     }
 };

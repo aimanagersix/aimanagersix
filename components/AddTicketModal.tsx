@@ -1,9 +1,12 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus } from '../types';
 import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck } from './common/Icons';
-import { analyzeTicketRequest } from '../services/geminiService';
+import { analyzeTicketRequest, findSimilarPastTickets } from '../services/geminiService';
+import { FaLightbulb } from 'react-icons/fa';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -18,7 +21,8 @@ interface AddTicketModalProps {
     equipmentTypes: EquipmentType[];
     assignments: Assignment[];
     categories: TicketCategoryItem[];
-    securityIncidentTypes?: SecurityIncidentTypeItem[]; // Added prop for dynamic incident types
+    securityIncidentTypes?: SecurityIncidentTypeItem[]; 
+    pastTickets?: Ticket[]; // Pass existing tickets for RAG
 }
 
 const MAX_FILES = 3;
@@ -32,9 +36,8 @@ const formatFileSize = (bytes: number): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [] }) => {
+const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [] }) => {
     
-    // Determine available categories. Use active dynamic ones, fallback to Enum if empty.
     const activeCategories = useMemo(() => {
          if (categories.length > 0) {
              return categories.filter(c => c.is_active).map(c => c.name);
@@ -42,15 +45,13 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
          return Object.values(TicketCategory);
     }, [categories]);
 
-    // Determine available Security Incident Types
     const activeSecurityIncidentTypes = useMemo(() => {
         if (securityIncidentTypes.length > 0) {
             return securityIncidentTypes.filter(t => t.is_active).map(t => t.name);
         }
-        return Object.values(SecurityIncidentType); // Fallback to Enum
+        return Object.values(SecurityIncidentType);
     }, [securityIncidentTypes]);
 
-    // Initial State Logic
     const [formData, setFormData] = useState<Partial<Ticket>>(() => {
         if (ticketToEdit) {
             return {
@@ -69,7 +70,6 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             };
         }
         
-        // Default values for new ticket
         const baseData = {
             title: '',
             description: '',
@@ -83,7 +83,6 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             impactAvailability: CIARating.Low,
         };
         
-        // If default category has a default team, set it initially
         const defaultCatObj = categories.find(c => c.name === baseData.category);
         if (defaultCatObj?.default_team_id) {
             baseData.team_id = defaultCatObj.default_team_id;
@@ -112,11 +111,11 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     // AI Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState<{category: string, priority: string, solution: string} | null>(null);
+    const [similarTicket, setSimilarTicket] = useState<{id: string, resolution: string, reason: string} | null>(null);
      
     const isUtilizador = userPermissions.viewScope === 'own';
     const isSecurityIncident = formData.category === TicketCategory.SecurityIncident || formData.category === 'Incidente de Segurança';
 
-    // Load attachments only once when editing
     useEffect(() => {
         if (ticketToEdit) {
             setAttachments(ticketToEdit.attachments?.map(a => ({ ...a, size: 0 })) || []);
@@ -147,7 +146,6 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         return equipment.filter(e => equipmentIds.has(e.id));
     }, [formData.entidadeId, formData.collaboratorId, assignments, equipment]);
     
-    // Auto-select team based on equipment type
     useEffect(() => {
         if (formData.equipmentId) {
             const selectedEquipment = equipment.find(e => e.id === formData.equipmentId);
@@ -160,10 +158,8 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         }
     }, [formData.equipmentId, equipment, equipmentTypes]);
 
-    // Auto-select first collaborator when entity changes (only for new tickets by admins)
     useEffect(() => {
         if (!ticketToEdit && !isUtilizador && availableCollaborators.length > 0) {
-             // Only update if current collaborator is not valid for the new entity
              const currentIsValid = availableCollaborators.some(c => c.id === formData.collaboratorId);
              if (!currentIsValid) {
                  setFormData(prev => ({...prev, collaboratorId: availableCollaborators[0].id}));
@@ -176,12 +172,11 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         const { name, value } = e.target;
         
         if (name === 'category') {
-             // Check if this category has a default team
              const catObj = categories.find(c => c.name === value);
              setFormData(prev => ({
                  ...prev,
                  category: value,
-                 team_id: catObj?.default_team_id || prev.team_id // Only overwrite if category has a specific team, else keep user selection
+                 team_id: catObj?.default_team_id || prev.team_id 
              }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
@@ -229,7 +224,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
     };
 
-    // AI Triage Handler
+    // AI Triage Handler with RAG
     const handleAiAnalyze = async () => {
         if (!formData.description || formData.description.length < 10) {
             alert("Por favor, descreva o problema com mais detalhe antes de analisar.");
@@ -237,19 +232,20 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         }
         setIsAnalyzing(true);
         setAiSuggestion(null);
+        setSimilarTicket(null);
+
         try {
+            // 1. Analyze Category & Priority
             const result = await analyzeTicketRequest(formData.description);
             
-            // Map result priority to enum
             let mappedPriority = CriticalityLevel.Low;
             if (result.suggestedPriority === 'Crítica') mappedPriority = CriticalityLevel.Critical;
             else if (result.suggestedPriority === 'Alta') mappedPriority = CriticalityLevel.High;
             else if (result.suggestedPriority === 'Média') mappedPriority = CriticalityLevel.Medium;
 
-            // Find best matching category
             let bestCategory = activeCategories.find(c => c.toLowerCase() === result.suggestedCategory.toLowerCase()) || result.suggestedCategory;
             if (result.isSecurityIncident) {
-                bestCategory = 'Incidente de Segurança'; // Force security if detected
+                bestCategory = 'Incidente de Segurança'; 
             }
 
             setAiSuggestion({
@@ -257,6 +253,26 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 priority: mappedPriority,
                 solution: result.suggestedSolution
             });
+
+            // 2. Find Similar Tickets (RAG)
+            const resolvedTickets = pastTickets
+                .filter(t => t.status === TicketStatus.Finished && t.resolution_summary)
+                .map(t => ({
+                    id: t.id,
+                    description: t.description,
+                    resolution: t.resolution_summary!
+                }));
+
+            if (resolvedTickets.length > 0) {
+                const similar = await findSimilarPastTickets(formData.description, resolvedTickets);
+                if (similar.found && similar.ticketId) {
+                    setSimilarTicket({
+                        id: similar.ticketId,
+                        resolution: similar.resolution || '',
+                        reason: similar.similarityReason || ''
+                    });
+                }
+            }
 
         } catch (error) {
             console.error("AI Analysis failed", error);
@@ -272,8 +288,6 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             ...prev,
             category: aiSuggestion.category,
             impactCriticality: aiSuggestion.priority as CriticalityLevel,
-            // If suggestion includes solution, append it to description or handle it differently?
-            // Let's just append it as a note for now
             description: prev.description + `\n\n[Sugestão IA: ${aiSuggestion.solution}]`
         }));
         setAiSuggestion(null);
@@ -290,7 +304,6 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })),
         };
         
-        // Clean up Security fields if not security incident
         if (formData.category !== TicketCategory.SecurityIncident && formData.category !== 'Incidente de Segurança') {
             delete dataToSubmit.securityIncidentType;
             delete dataToSubmit.impactCriticality;
@@ -443,7 +456,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                             onClick={handleAiAnalyze}
                             disabled={isAnalyzing}
                             className="text-xs flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors"
-                            title="Sugerir categoria e prioridade com IA"
+                            title="Sugerir categoria, prioridade e encontrar tickets semelhantes"
                         >
                             {isAnalyzing ? <FaSpinner className="animate-spin" /> : <FaMagic />}
                             {isAnalyzing ? 'A analisar...' : 'Triagem IA'}
@@ -461,31 +474,31 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                     {errors.description && <p className="text-red-400 text-xs italic mt-1">{errors.description}</p>}
                     
                     {aiSuggestion && (
-                        <div className="absolute z-10 left-0 right-0 mt-2 p-3 bg-purple-900/90 backdrop-blur-sm border border-purple-500 rounded-md shadow-xl animate-fade-in">
-                            <div className="flex justify-between items-start">
+                        <div className="mt-2 p-3 bg-purple-900/20 border border-purple-500 rounded-md shadow-xl animate-fade-in">
+                            <div className="flex justify-between items-start mb-2">
                                 <div>
                                     <p className="text-xs font-bold text-purple-200 mb-1">Sugestão Inteligente:</p>
-                                    <p className="text-sm text-white">Categoria: <strong>{aiSuggestion.category}</strong></p>
-                                    <p className="text-sm text-white">Prioridade: <strong>{aiSuggestion.priority}</strong></p>
+                                    <p className="text-sm text-white">Categoria: <strong>{aiSuggestion.category}</strong> | Prioridade: <strong>{aiSuggestion.priority}</strong></p>
                                     <p className="text-xs text-purple-200 mt-1 italic">"{aiSuggestion.solution}"</p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button 
-                                        type="button" 
-                                        onClick={applyAiSuggestions} 
-                                        className="bg-purple-600 hover:bg-purple-500 text-white p-1.5 rounded text-xs flex items-center gap-1"
-                                    >
-                                        <FaCheck /> Aplicar
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setAiSuggestion(null)} 
-                                        className="bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded text-xs"
-                                    >
-                                        Ignorar
-                                    </button>
+                                    <button type="button" onClick={applyAiSuggestions} className="bg-purple-600 hover:bg-purple-500 text-white p-1.5 rounded text-xs flex items-center gap-1"><FaCheck /> Aplicar</button>
+                                    <button type="button" onClick={() => setAiSuggestion(null)} className="bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded text-xs">Ignorar</button>
                                 </div>
                             </div>
+                            
+                            {similarTicket && (
+                                <div className="border-t border-purple-500/30 pt-2 mt-2">
+                                    <div className="flex items-center gap-2 text-yellow-400 text-xs font-bold mb-1">
+                                        <FaLightbulb /> Solução Semelhante Encontrada
+                                    </div>
+                                    <p className="text-xs text-gray-300">
+                                        O ticket #{similarTicket.id.substring(0,6)} teve um problema idêntico.
+                                        <br/>
+                                        <strong>Resolução Anteriror:</strong> {similarTicket.resolution}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

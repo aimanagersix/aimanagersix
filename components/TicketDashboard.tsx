@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon } from './common/Icons';
@@ -187,7 +189,14 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                <h2 className="text-xl font-semibold text-white">Gerenciar Tickets de Suporte</h2>
+                <div>
+                    <h2 className="text-xl font-semibold text-white">Gerenciar Tickets de Suporte</h2>
+                    <p className="text-sm text-on-surface-dark-secondary mt-1">
+                        <button onClick={onGenerateReport} className="hover:text-white hover:underline">
+                            Ver Relatório Geral & Análise IA
+                        </button>
+                    </p>
+                </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* Create Button added here */}
                     {onCreate && (

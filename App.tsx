@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -905,6 +907,7 @@ const InnerApp: React.FC = () => {
                     assignments={assignments}
                     categories={ticketCategories}
                     securityIncidentTypes={securityIncidentTypes}
+                    pastTickets={tickets} // Pass tickets for RAG similarity search
                 />
             )}
 
@@ -1242,10 +1245,16 @@ const InnerApp: React.FC = () => {
                 <CloseTicketModal
                     ticket={showCloseTicket}
                     collaborators={collaborators}
+                    activities={ticketActivities.filter(a => a.ticketId === showCloseTicket.id)}
                     onClose={() => setShowCloseTicket(null)}
-                    onConfirm={(technicianId) => {
+                    onConfirm={(technicianId, resolutionSummary) => {
                         const now = new Date().toISOString();
-                        simpleSaveWrapper(dataService.updateTicket, { status: TicketStatus.Finished, finishDate: now, technicianId }, showCloseTicket.id);
+                        simpleSaveWrapper(dataService.updateTicket, { 
+                            status: TicketStatus.Finished, 
+                            finishDate: now, 
+                            technicianId,
+                            resolution_summary: resolutionSummary 
+                        }, showCloseTicket.id);
                         setShowCloseTicket(null);
                     }}
                 />
