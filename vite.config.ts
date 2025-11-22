@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
   
   // 2. Configuração do Google Gemini (Inteligência Artificial)
   // Obtenha a chave gratuita em: https://aistudio.google.com/app/apikey
-  const HARDCODED_API_KEY = "";           // <--- COLE AQUI A SUA CHAVE GEMINI (Ex: "AIzaSyD...")
+  const HARDCODED_API_KEY = "AIzaSyDZeldUKNcsKsH-drgHHQFDFPl_t1HUCPs";           // <--- COLE AQUI A SUA CHAVE GEMINI (Ex: "AIzaSyD...")
   
   // --------------------------------------------------
 
