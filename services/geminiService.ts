@@ -233,14 +233,14 @@ export const generateExecutiveReport = async (
         
         Data Context: ${contextString}
 
-        Generate an HTML (no markdown) Executive Summary with the following sections:
+        Generate an HTML (no markdown, just inner HTML tags) Executive Summary with the following sections:
         1. **Executive Summary**: High-level overview of the current status.
         2. **Risk Analysis (NIS2 Focus)**: Identify potential security risks, outdated equipment, or single points of failure.
         3. **Operational Insights**: Efficiency, ticket volume trends, or asset utilization.
         4. **Recommendations**: 3-5 actionable bullet points for the administration (e.g., budget for upgrades, training needs).
 
         Style Guide:
-        - Use <h3> for headers.
+        - Use <h3> for headers (text-white/text-purple-300).
         - Use <ul>/<li> for lists.
         - Use <strong> for emphasis.
         - Keep it professional, concise, and data-driven.

@@ -875,7 +875,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                 </div>
                                 <div className="text-right">
                                     <span className={`block text-sm font-bold ${getLevelColor(item.service.criticality)}`}>{item.service.criticality}</span>
-                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</p>
+                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</span> 
                                 </div>
                             </div>
                             

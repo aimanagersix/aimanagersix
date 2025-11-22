@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -21,6 +21,7 @@ interface TicketDashboardProps {
   onOpenActivities?: (ticket: Ticket) => void;
   onGenerateSecurityReport?: (ticket: Ticket) => void;
   categories: TicketCategoryItem[];
+  onCreate?: () => void; // Added onCreate prop
 }
 
 const getStatusClass = (status: TicketStatus) => {
@@ -104,7 +105,7 @@ const getSecurityIcon = (type?: string) => {
 };
 
 
-const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities, onGenerateSecurityReport, categories }) => {
+const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities, onGenerateSecurityReport, categories, onCreate }) => {
     
     const [filters, setFilters] = useState<{ status: string | string[], team_id: string, category: string }>({ status: '', team_id: '', category: '' });
     const [currentPage, setCurrentPage] = useState(1);
@@ -188,6 +189,13 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <h2 className="text-xl font-semibold text-white">Gerenciar Tickets de Suporte</h2>
                 <div className="flex items-center gap-2 flex-wrap">
+                    {/* Create Button added here */}
+                    {onCreate && (
+                        <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors mr-2">
+                            <PlusIcon /> Abrir Ticket
+                        </button>
+                    )}
+                    
                     <select
                         id="categoryFilter"
                         name="category"

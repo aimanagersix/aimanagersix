@@ -625,6 +625,7 @@ const InnerApp: React.FC = () => {
                         onOpenActivities={(t) => setTicketActivitiesModal(t)}
                         onGenerateReport={() => setShowReport({ type: 'ticket', visible: true })}
                         onGenerateSecurityReport={handleGenerateSecurityReport}
+                        onCreate={() => { setTicketToEdit(null); setInitialTicketData(null); setShowAddTicket(true); }}
                     />
                 )}
                 
