@@ -6,11 +6,16 @@ export default defineConfig(({ mode }) => {
   // Carrega as variáveis de ambiente do ficheiro .env na pasta raiz do projeto.
   const env = loadEnv(mode, (process as any).cwd(), '');
 
-  // --- DADOS DE ACESSO (COLE AS SUAS CHAVES AQUI) ---
-  // Para aceder de qualquer lugar sem configurar manualmente, preencha estas variáveis:
+  // --- DADOS DE ACESSO (COLE AS SUAS CHAVES DENTRO DAS ASPAS ABAIXO) ---
+  
+  // 1. Configuração do Supabase (Base de Dados)
   const HARDCODED_SUPABASE_URL = "";      // Ex: "https://vossa-url.supabase.co"
   const HARDCODED_SUPABASE_ANON_KEY = ""; // Ex: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  const HARDCODED_API_KEY = "";           // Ex: "AIzaSyD..."
+  
+  // 2. Configuração do Google Gemini (Inteligência Artificial)
+  // Obtenha a chave gratuita em: https://aistudio.google.com/app/apikey
+  const HARDCODED_API_KEY = "";           // <--- COLE AQUI A SUA CHAVE GEMINI (Ex: "AIzaSyD...")
+  
   // --------------------------------------------------
 
   return {
