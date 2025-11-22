@@ -3,6 +3,8 @@
 
 
 
+
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -400,5 +402,56 @@ export const findSimilarPastTickets = async (
     } catch (error) {
         console.error("Error finding similar tickets:", error);
         return { found: false };
+    }
+};
+
+// --- Backup Audit (Vision) ---
+
+export const analyzeBackupScreenshot = async (base64Image: string, mimeType: string = 'image/jpeg'): Promise<{ status: 'Sucesso' | 'Falha' | 'Parcial', date: string, systemName?: string }> => {
+    try {
+        const ai = getAiClient();
+        
+        const imagePart = {
+            inlineData: {
+                data: base64Image,
+                mimeType,
+            },
+        };
+        
+        const prompt = `
+        Analyze this backup software screenshot/log.
+        1. Determine the backup status (Success, Failed, or Partial/Warning). Map 'Completed successfully' to 'Sucesso'.
+        2. Extract the date of the backup operation (YYYY-MM-DD format). If multiple, prefer the latest 'end time'.
+        3. Try to identify the system name or job name.
+
+        Return JSON.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: {
+                role: 'user',
+                parts: [imagePart, { text: prompt }]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        status: { type: Type.STRING, enum: ['Sucesso', 'Falha', 'Parcial'] },
+                        date: { type: Type.STRING },
+                        systemName: { type: Type.STRING }
+                    },
+                    required: ["status", "date"]
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "{}";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error analyzing backup screenshot:", error);
+        throw new Error("Failed to analyze image.");
     }
 };

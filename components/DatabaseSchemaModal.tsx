@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -65,7 +67,7 @@ BEGIN
         ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_critical_hours integer DEFAULT 0;
     END IF;
 
-    -- 5. Adicionar colunas de NIS2 à tabela EQUIPMENT
+    -- 5. Adicionar colunas de NIS2 e FinOps à tabela EQUIPMENT
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
@@ -74,15 +76,20 @@ BEGIN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS os_version text;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS last_security_update text;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS supplier_id uuid;
+        -- FinOps
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "acquisitionCost" numeric DEFAULT 0;
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "expectedLifespanYears" integer DEFAULT 4;
     END IF;
 
-    -- 6. Adicionar colunas de NIS2 à tabela SOFTWARE_LICENSES
+    -- 6. Adicionar colunas de NIS2 e FinOps à tabela SOFTWARE_LICENSES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'software_licenses') THEN
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS supplier_id uuid;
+        -- FinOps
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS "unitCost" numeric DEFAULT 0;
     END IF;
 
     -- 7. Adicionar coluna de fornecedor externo a BUSINESS_SERVICES
@@ -270,6 +277,8 @@ CREATE TABLE IF NOT EXISTS equipment (
     os_version text,
     last_security_update text,
     supplier_id uuid REFERENCES suppliers(id),
+    "acquisitionCost" numeric DEFAULT 0,
+    "expectedLifespanYears" integer DEFAULT 4,
     "creationDate" text DEFAULT to_char(now(), 'YYYY-MM-DD'),
     "modifiedDate" text DEFAULT to_char(now(), 'YYYY-MM-DD')
 );
@@ -361,6 +370,7 @@ CREATE TABLE IF NOT EXISTS software_licenses (
     integrity text DEFAULT 'Baixo',
     availability text DEFAULT 'Baixo',
     supplier_id uuid REFERENCES suppliers(id),
+    "unitCost" numeric DEFAULT 0,
     created_at timestamptz DEFAULT now()
 );
 
@@ -505,7 +515,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script foi atualizado para adicionar a coluna <code>resolution_summary</code> à tabela de tickets (Base de Conhecimento).
+                        Este script foi atualizado para adicionar campos de <strong>FinOps</strong> (Custos) às tabelas de equipamentos e licenças.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

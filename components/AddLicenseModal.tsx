@@ -2,10 +2,12 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating, Supplier } from '../types';
-import { FaShieldAlt } from './common/Icons';
+import { FaShieldAlt, FaEuroSign } from 'react-icons/fa';
 
 interface AddLicenseModalProps {
     onClose: () => void;
@@ -28,7 +30,8 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         confidentiality: CIARating.Low,
         integrity: CIARating.Low,
         availability: CIARating.Low,
-        supplier_id: ''
+        supplier_id: '',
+        unitCost: 0
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -48,6 +51,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                 integrity: licenseToEdit.integrity || CIARating.Low,
                 availability: licenseToEdit.availability || CIARating.Low,
                 supplier_id: licenseToEdit.supplier_id || '',
+                unitCost: licenseToEdit.unitCost || 0
             });
         }
     }, [licenseToEdit]);
@@ -66,7 +70,7 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseInt(value, 10) : value }));
+        setFormData(prev => ({ ...prev, [name]: (type === 'number' ? parseFloat(value) : value) }));
     };
 
     const handleSetExpiry = (years: number) => {
@@ -95,7 +99,8 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
             expiryDate: formData.expiryDate || undefined,
             purchaseEmail: formData.purchaseEmail || undefined,
             invoiceNumber: formData.invoiceNumber || undefined,
-            supplier_id: formData.supplier_id || undefined
+            supplier_id: formData.supplier_id || undefined,
+            unitCost: formData.unitCost || 0
         };
 
         if (licenseToEdit) {
@@ -171,6 +176,29 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                             <button type="button" onClick={() => handleSetExpiry(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
                             <button type="button" onClick={handleSetLifetime} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">Vitalícia</button>
                         </div>
+                    </div>
+                </div>
+                
+                {/* FinOps Section */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaEuroSign className="text-green-400" />
+                        Custos (FinOps)
+                    </h3>
+                    <div>
+                        <label htmlFor="unitCost" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Custo Unitário (€)</label>
+                        <input 
+                            type="number" 
+                            name="unitCost" 
+                            id="unitCost" 
+                            value={formData.unitCost} 
+                            onChange={handleChange} 
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Preço por licença/utilizador para cálculo de TCO.</p>
                     </div>
                 </div>
 

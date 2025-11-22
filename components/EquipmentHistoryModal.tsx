@@ -2,10 +2,12 @@
 
 
 
+
+
 import React, { useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine } from 'react-icons/fa';
 
 interface EquipmentHistoryModalProps {
     equipment: Equipment;
@@ -109,6 +111,35 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
         return lastUpdate < ninetyDaysAgo;
     }, [equipment.last_security_update]);
 
+    // --- FinOps Calculations ---
+    const finOpsData = useMemo(() => {
+        const purchaseDate = equipment.purchaseDate ? new Date(equipment.purchaseDate) : new Date();
+        const acquisitionCost = equipment.acquisitionCost || 0;
+        const lifespanYears = equipment.expectedLifespanYears || 4;
+        const ageInYears = (new Date().getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+        
+        // Linear Depreciation
+        const annualDepreciation = acquisitionCost / lifespanYears;
+        const accumulatedDepreciation = Math.min(annualDepreciation * ageInYears, acquisitionCost);
+        const currentValue = Math.max(acquisitionCost - accumulatedDepreciation, 0);
+        
+        // TCO Components
+        const softwareCost = installedSoftware.reduce((acc, lic) => acc + (lic.unitCost || 0), 0);
+        // Estimate Support Cost: 40€ per hour/activity
+        const supportCost = equipmentActivities.length * 40; 
+        
+        const tco = acquisitionCost + softwareCost + supportCost;
+
+        return {
+            currentValue,
+            accumulatedDepreciation,
+            tco,
+            softwareCost,
+            supportCost
+        };
+    }, [equipment, installedSoftware, equipmentActivities]);
+
+
     return (
         <Modal title={`Histórico do Equipamento: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
             <div className="space-y-6">
@@ -161,6 +192,42 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                         ) : (
                             <p className="text-sm text-gray-500 italic">Nenhuma licença associada.</p>
                         )}
+                    </div>
+                </div>
+                
+                {/* FinOps Section */}
+                <div className="border border-green-500/30 bg-green-900/10 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-green-400 mb-3 flex items-center gap-2 border-b border-green-500/30 pb-2">
+                        <FaEuroSign />
+                        Análise Financeira (FinOps) & TCO
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                        <div>
+                            <p className="text-gray-400 text-xs uppercase tracking-wider">Investimento Inicial</p>
+                            <p className="text-xl font-bold text-white mt-1">€ {equipment.acquisitionCost?.toFixed(2) || '0.00'}</p>
+                            <p className="text-xs text-gray-500 mt-1">Compra: {equipment.purchaseDate}</p>
+                        </div>
+                        <div>
+                            <p className="text-gray-400 text-xs uppercase tracking-wider">Valor Atual (Depreciado)</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xl font-bold text-white">€ {finOpsData.currentValue.toFixed(2)}</p>
+                                <span className="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">Vida útil: {equipment.expectedLifespanYears} anos</span>
+                            </div>
+                            <div className="w-full bg-gray-700 h-1.5 mt-2 rounded-full">
+                                <div 
+                                    className="bg-green-500 h-1.5 rounded-full" 
+                                    style={{ width: `${(finOpsData.currentValue / (equipment.acquisitionCost || 1)) * 100}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-gray-400 text-xs uppercase tracking-wider">Total Cost of Ownership (TCO)</p>
+                            <p className="text-xl font-bold text-white mt-1">€ {finOpsData.tco.toFixed(2)}</p>
+                            <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                                <p>+ Licenças: € {finOpsData.softwareCost.toFixed(2)}</p>
+                                <p>+ Suporte (Est.): € {finOpsData.supportCost.toFixed(2)}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 

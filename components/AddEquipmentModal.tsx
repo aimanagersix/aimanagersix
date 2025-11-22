@@ -1,10 +1,12 @@
 
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
-import { FaExclamationTriangle } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaCalendarCheck } from 'react-icons/fa';
 
 interface AddEquipmentModalProps {
     onClose: () => void;
@@ -159,7 +161,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         availability: CIARating.Low,
         os_version: '',
         last_security_update: '',
-        supplier_id: ''
+        supplier_id: '',
+        acquisitionCost: 0,
+        expectedLifespanYears: 4
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -173,7 +177,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
 
     useEffect(() => {
         if (equipmentToEdit) {
-            // If equipmentToEdit has an ID, it's a real edit. If not, it might be an AI pre-fill (without ID)
             setFormData({
                 brandId: equipmentToEdit.brandId || '',
                 typeId: equipmentToEdit.typeId || '',
@@ -194,6 +197,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 os_version: equipmentToEdit.os_version || '',
                 last_security_update: equipmentToEdit.last_security_update || '',
                 supplier_id: equipmentToEdit.supplier_id || '',
+                acquisitionCost: equipmentToEdit.acquisitionCost || 0,
+                expectedLifespanYears: equipmentToEdit.expectedLifespanYears || 4,
             });
         } else {
             setFormData({
@@ -214,14 +219,15 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 availability: CIARating.Low,
                 os_version: '',
                 last_security_update: '',
-                supplier_id: ''
+                supplier_id: '',
+                acquisitionCost: 0,
+                expectedLifespanYears: 4,
             });
         }
     }, [equipmentToEdit, brands, equipmentTypes]);
 
     // Auto-fill description based on brand and type for new equipment
     useEffect(() => {
-        // Only auto-fill if it's a new item (no ID) and description matches pattern or is empty
         if (equipmentToEdit?.id) return; 
 
         const brandName = brands.find(b => b.id === formData.brandId)?.name;
@@ -281,7 +287,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        setFormData(prev => ({ 
+            ...prev, 
+            [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : value) 
+        }));
     };
 
     const handleSetWarranty = (years: number) => {
@@ -366,6 +375,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             os_version: formData.os_version || undefined,
             last_security_update: formData.last_security_update || undefined,
             supplier_id: formData.supplier_id || undefined,
+            acquisitionCost: formData.acquisitionCost || 0,
+            expectedLifespanYears: formData.expectedLifespanYears || 4
         };
 
         if (equipmentToEdit && equipmentToEdit.id) {
@@ -513,18 +524,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                         <input type="text" name="invoiceNumber" id="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                     </div>
                 </div>
-                 {isEditMode && (
-                    <div>
-                        <label htmlFor="creationDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Criação</label>
-                        <input 
-                            type="date" 
-                            id="creationDate" 
-                            value={equipmentToEdit.creationDate} 
-                            disabled 
-                            className="w-full bg-gray-800 border border-gray-600 text-on-surface-dark-secondary rounded-md p-2 cursor-not-allowed" 
-                        />
-                    </div>
-                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -557,6 +556,42 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                                 <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
                         </select>
+                    </div>
+                </div>
+
+                {/* FinOps Section */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaEuroSign className="text-green-400" />
+                        Gestão Financeira (FinOps)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="acquisitionCost" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Custo de Aquisição (€)</label>
+                            <input 
+                                type="number" 
+                                name="acquisitionCost" 
+                                id="acquisitionCost" 
+                                value={formData.acquisitionCost} 
+                                onChange={handleChange} 
+                                placeholder="0.00"
+                                min="0"
+                                step="0.01"
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="expectedLifespanYears" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Vida Útil Esperada (Anos)</label>
+                            <input 
+                                type="number" 
+                                name="expectedLifespanYears" 
+                                id="expectedLifespanYears" 
+                                value={formData.expectedLifespanYears} 
+                                onChange={handleChange} 
+                                min="1"
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
+                            />
+                        </div>
                     </div>
                 </div>
 

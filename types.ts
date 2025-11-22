@@ -94,6 +94,10 @@ export interface Equipment {
   last_security_update?: string;
   // Vendor Link
   supplier_id?: string;
+  
+  // FinOps Fields
+  acquisitionCost?: number; // Cost in EUR
+  expectedLifespanYears?: number; // e.g. 4 years
 }
 
 export interface Instituicao {
@@ -304,6 +308,9 @@ export interface SoftwareLicense {
   availability?: CIARating;
   // Vendor Link
   supplier_id?: string;
+  
+  // FinOps
+  unitCost?: number; // Cost per seat or total? Usually unit cost for TCO.
 }
 
 export interface LicenseAssignment {
