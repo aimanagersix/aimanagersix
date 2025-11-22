@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier } from '../types';
@@ -176,20 +173,20 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
 
     useEffect(() => {
         if (equipmentToEdit) {
+            // If equipmentToEdit has an ID, it's a real edit. If not, it might be an AI pre-fill (without ID)
             setFormData({
-                brandId: equipmentToEdit.brandId,
-                typeId: equipmentToEdit.typeId,
-                description: equipmentToEdit.description,
-                serialNumber: equipmentToEdit.serialNumber,
+                brandId: equipmentToEdit.brandId || '',
+                typeId: equipmentToEdit.typeId || '',
+                description: equipmentToEdit.description || '',
+                serialNumber: equipmentToEdit.serialNumber || '',
                 inventoryNumber: equipmentToEdit.inventoryNumber || '',
                 nomeNaRede: equipmentToEdit.nomeNaRede || '',
                 macAddressWIFI: equipmentToEdit.macAddressWIFI || '',
                 macAddressCabo: equipmentToEdit.macAddressCabo || '',
-                purchaseDate: equipmentToEdit.purchaseDate,
+                purchaseDate: equipmentToEdit.purchaseDate || new Date().toISOString().split('T')[0],
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 invoiceNumber: equipmentToEdit.invoiceNumber || '',
                 creationDate: equipmentToEdit.creationDate,
-                // NIS2 fields
                 criticality: equipmentToEdit.criticality || CriticalityLevel.Low,
                 confidentiality: equipmentToEdit.confidentiality || CIARating.Low,
                 integrity: equipmentToEdit.integrity || CIARating.Low,
@@ -224,7 +221,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
 
     // Auto-fill description based on brand and type for new equipment
     useEffect(() => {
-        if (equipmentToEdit) return; // Only for new equipment
+        // Only auto-fill if it's a new item (no ID) and description matches pattern or is empty
+        if (equipmentToEdit?.id) return; 
 
         const brandName = brands.find(b => b.id === formData.brandId)?.name;
         const typeName = equipmentTypes.find(t => t.id === formData.typeId)?.name;
@@ -232,7 +230,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         const isDescriptionDefaultOrEmpty = () => {
             const currentDesc = (formData.description || '').trim();
             if (currentDesc === '') return true;
-            // Check if it matches any possible combination of brand + type to allow re-triggering if user clears field
             for (const b of brands) {
                 for (const t of equipmentTypes) {
                     if (currentDesc === `${b.name} ${t.name}`) return true;
@@ -244,7 +241,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         if (brandName && typeName && isDescriptionDefaultOrEmpty()) {
             setFormData(prev => ({ ...prev, description: `${brandName} ${typeName} ` }));
         }
-    // Listen to description changes to allow re-triggering if user clears the field.
     }, [formData.brandId, formData.typeId, brands, equipmentTypes, equipmentToEdit, formData.description]);
 
     const selectedType = useMemo(() => {
@@ -372,7 +368,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             supplier_id: formData.supplier_id || undefined,
         };
 
-        if (equipmentToEdit) {
+        if (equipmentToEdit && equipmentToEdit.id) {
             onSave({ ...equipmentToEdit, ...dataToSubmit });
         } else {
             onSave(dataToSubmit as Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>);
@@ -380,8 +376,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         onClose();
     };
     
-    const modalTitle = equipmentToEdit ? "Editar Equipamento" : "Adicionar Novo Equipamento";
-    const submitButtonText = equipmentToEdit ? "Salvar Alterações" : "Adicionar";
+    const isEditMode = equipmentToEdit && equipmentToEdit.id;
+    const modalTitle = isEditMode ? "Editar Equipamento" : "Adicionar Novo Equipamento";
+    const submitButtonText = isEditMode ? "Salvar Alterações" : "Adicionar";
 
     return (
         <Modal title={modalTitle} onClose={onClose}>
@@ -516,7 +513,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                         <input type="text" name="invoiceNumber" id="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                     </div>
                 </div>
-                 {equipmentToEdit && (
+                 {isEditMode && (
                     <div>
                         <label htmlFor="creationDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Criação</label>
                         <input 

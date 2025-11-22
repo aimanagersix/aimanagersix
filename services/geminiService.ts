@@ -133,3 +133,85 @@ export const suggestPeripheralsForKit = async (primaryDevice: { brand: string; t
         throw new Error("Failed to get peripheral suggestions with Gemini API.");
     }
 };
+
+// --- Magic Command Bar Logic ---
+
+export interface MagicActionResponse {
+    intent: 'create_equipment' | 'create_ticket' | 'search' | 'unknown';
+    data?: any;
+    confidence: number;
+}
+
+export const parseNaturalLanguageAction = async (
+    text: string, 
+    context: { brands: string[], types: string[], users: {name: string, id: string}[], currentUser: string }
+): Promise<MagicActionResponse> => {
+    try {
+        const ai = getAiClient();
+        
+        const prompt = `
+        You are an IT Asset Manager Assistant. Analyze the following user request: "${text}".
+        
+        Context Data (for fuzzy matching):
+        - Known Brands: ${JSON.stringify(context.brands)}
+        - Known Equipment Types: ${JSON.stringify(context.types)}
+        - Known Users: ${JSON.stringify(context.users.map(u => u.name))}
+        - Current User ID: "${context.currentUser}"
+
+        Determine the intent and extract entities.
+        If user wants to add equipment, map to known Brand/Type if possible.
+        If user wants to create a ticket/incident, infer priority and category.
+        If user wants to search, extract the query.
+
+        Supported Intents: 'create_equipment', 'create_ticket', 'search'.
+
+        Return JSON matching the schema.
+        For 'create_equipment', return 'data' with { brandName, typeName, serialNumber, description, assignedToUserName }.
+        For 'create_ticket', return 'data' with { title, description, requesterName, priority (Baixa, Média, Alta, Crítica) }.
+        For 'search', return 'data' with { query }.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        intent: {
+                            type: Type.STRING,
+                            enum: ['create_equipment', 'create_ticket', 'search', 'unknown']
+                        },
+                        data: {
+                            type: Type.OBJECT,
+                            properties: {
+                                // Equipment Fields
+                                brandName: { type: Type.STRING },
+                                typeName: { type: Type.STRING },
+                                serialNumber: { type: Type.STRING },
+                                description: { type: Type.STRING },
+                                assignedToUserName: { type: Type.STRING },
+                                // Ticket Fields
+                                title: { type: Type.STRING },
+                                requesterName: { type: Type.STRING },
+                                priority: { type: Type.STRING },
+                                // Search Fields
+                                query: { type: Type.STRING }
+                            }
+                        },
+                        confidence: { type: Type.NUMBER }
+                    },
+                    required: ["intent", "confidence"]
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "{}";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error parsing natural language:", error);
+        return { intent: 'unknown', confidence: 0 };
+    }
+};

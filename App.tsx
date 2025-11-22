@@ -65,6 +65,7 @@ import AddSupplierModal from './components/AddSupplierModal';
 import BackupDashboard from './components/BackupDashboard';
 import AddBackupModal from './components/AddBackupModal';
 import AutomationModal from './components/AutomationModal';
+import MagicCommandBar from './components/MagicCommandBar';
 
 type Session = any;
 
@@ -110,6 +111,9 @@ const InnerApp: React.FC = () => {
     // Modals State
     const [showAddEquipment, setShowAddEquipment] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
+    // New State for AI Pre-filling
+    const [initialEquipmentData, setInitialEquipmentData] = useState<Partial<Equipment> | null>(null);
+    
     const [showAssignEquipment, setShowAssignEquipment] = useState<Equipment | null>(null);
     const [showAddCollaborator, setShowAddCollaborator] = useState(false);
     const [collaboratorToEdit, setCollaboratorToEdit] = useState<Collaborator | null>(null);
@@ -125,6 +129,9 @@ const InnerApp: React.FC = () => {
     const [newCredentials, setNewCredentials] = useState<{email: string, password?: string} | null>(null);
     const [showAddTicket, setShowAddTicket] = useState(false);
     const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
+    // New State for AI Pre-filling
+    const [initialTicketData, setInitialTicketData] = useState<Partial<Ticket> | null>(null);
+
     const [ticketActivitiesModal, setTicketActivitiesModal] = useState<Ticket | null>(null);
     const [showAddType, setShowAddType] = useState(false);
     const [typeToEdit, setTypeToEdit] = useState<EquipmentType | null>(null);
@@ -274,6 +281,57 @@ const InnerApp: React.FC = () => {
             console.error("Error loading user data", e);
         } finally {
              setLoading(false);
+        }
+    };
+
+    // --- Magic Command Bar Logic ---
+    const handleMagicAction = (intent: string, data: any) => {
+        if (intent === 'search') {
+            // Simple Global Search implementation (could be improved)
+            if (data.query) {
+                const query = data.query.toLowerCase();
+                // Heuristic: if starts with "ticket", switch to tickets tab
+                if (query.includes('ticket') || query.includes('suporte')) {
+                    setActiveTab('tickets.list');
+                    setInitialFilter({ status: '', description: query }); // Fake property just for context
+                } else if (query.includes('user') || query.includes('colaborador')) {
+                    setActiveTab('collaborators');
+                } else {
+                    setActiveTab('equipment.inventory');
+                    setInitialFilter({ description: data.query });
+                }
+            }
+        } else if (intent === 'create_equipment') {
+            // Resolve IDs from names
+            const brand = brands.find(b => b.name.toLowerCase() === data.brandName?.toLowerCase());
+            const type = equipmentTypes.find(t => t.name.toLowerCase() === data.typeName?.toLowerCase());
+            
+            setEquipmentToEdit(null);
+            setInitialEquipmentData({
+                brandId: brand?.id || '',
+                typeId: type?.id || '',
+                serialNumber: data.serialNumber || '',
+                description: data.description || '',
+            });
+            setShowAddEquipment(true);
+        } else if (intent === 'create_ticket') {
+            const requester = collaborators.find(c => c.fullName.toLowerCase() === data.requesterName?.toLowerCase());
+            
+            let priority = CriticalityLevel.Low;
+            if (data.priority?.toLowerCase().includes('alta')) priority = CriticalityLevel.High;
+            if (data.priority?.toLowerCase().includes('crítica')) priority = CriticalityLevel.Critical;
+            if (data.priority?.toLowerCase().includes('média')) priority = CriticalityLevel.Medium;
+
+            setTicketToEdit(null);
+            setInitialTicketData({
+                title: data.title || '',
+                description: data.description || '',
+                collaboratorId: requester?.id || '',
+                entidadeId: requester?.entidadeId || '',
+                // Could map urgency to impactCriticality
+                impactCriticality: priority
+            });
+            setShowAddTicket(true);
         }
     };
 
@@ -590,7 +648,7 @@ const InnerApp: React.FC = () => {
                             serviceDependencies={serviceDependencies}
                             onGenerateReport={() => setShowReport({ type: 'equipment', visible: true })}
                             onManageKeys={(eq) => setShowManageLicenses(eq)}
-                            onCreate={() => { setEquipmentToEdit(null); setShowAddEquipment(true); }}
+                            onCreate={() => { setEquipmentToEdit(null); setInitialEquipmentData(null); setShowAddEquipment(true); }}
                         />
                     )}
                 
@@ -791,6 +849,18 @@ const InnerApp: React.FC = () => {
             </main>
 
             {/* --- MODALS --- */}
+            
+            {/* Magic Command Bar - Floating UI */}
+            {currentUser && (
+                <MagicCommandBar 
+                    brands={brands} 
+                    types={equipmentTypes} 
+                    collaborators={collaborators}
+                    currentUser={currentUser}
+                    onAction={handleMagicAction}
+                />
+            )}
+
             {securityReportHtml && (
                 <PrintPreviewModal 
                     onClose={() => setSecurityReportHtml(null)} 
@@ -818,12 +888,12 @@ const InnerApp: React.FC = () => {
 
             {showAddTicket && (
                 <AddTicketModal
-                    onClose={() => { setShowAddTicket(false); setTicketToEdit(null); }}
+                    onClose={() => { setShowAddTicket(false); setTicketToEdit(null); setInitialTicketData(null); }}
                     onSave={(t) => {
                         if (ticketToEdit) return simpleSaveWrapper(dataService.updateTicket, t, ticketToEdit.id);
                         else return simpleSaveWrapper(dataService.addTicket, t);
                     }}
-                    ticketToEdit={ticketToEdit}
+                    ticketToEdit={ticketToEdit || (initialTicketData ? initialTicketData as Ticket : null)} // Use initial data if present but no edit
                     escolasDepartamentos={entidades}
                     collaborators={collaborators}
                     teams={teams}
@@ -881,14 +951,14 @@ const InnerApp: React.FC = () => {
 
             {showAddEquipment && (
                 <AddEquipmentModal
-                    onClose={() => { setShowAddEquipment(false); setEquipmentToEdit(null); }}
+                    onClose={() => { setShowAddEquipment(false); setEquipmentToEdit(null); setInitialEquipmentData(null); }}
                     onSave={(eq) => {
                         if (equipmentToEdit) return simpleSaveWrapper(dataService.updateEquipment, eq, equipmentToEdit.id);
                         else return simpleSaveWrapper(dataService.addEquipment, eq);
                     }}
                     brands={brands}
                     equipmentTypes={equipmentTypes}
-                    equipmentToEdit={equipmentToEdit}
+                    equipmentToEdit={equipmentToEdit || (initialEquipmentData ? initialEquipmentData as Equipment : null)} // Allow pre-filling for new items
                     onSaveBrand={(b) => dataService.addBrand(b).then(res => { refreshData(); return res; })}
                     onSaveEquipmentType={(t) => dataService.addEquipmentType(t).then(res => { refreshData(); return res; })}
                     onOpenKitModal={(data) => {
