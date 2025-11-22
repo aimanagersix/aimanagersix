@@ -16,7 +16,7 @@ const AutomationModal: React.FC<AutomationModalProps> = ({ onClose }) => {
     const supabaseKey = localStorage.getItem('SUPABASE_ANON_KEY') || 'SUA-CHAVE-PUBLICA';
 
     // The PowerShell Agent Script (DIRECT REST API VERSION)
-    // Updated to include Creation logic (Register)
+    // Logic: 1. Check/Register Brand, 2. Check/Register Type, 3. Register/Update Equipment
     const clientScript = `# ==========================================
 # AIManager - Agente de Inventário (v2.0 - Auto Registo)
 # ==========================================
@@ -77,27 +77,31 @@ if ($chassis.ChassisTypes -contains 9 -or $chassis.ChassisTypes -contains 10) { 
 
 Write-Host " > Sistema detetado: $description [$typeStr] S/N: $serialNumber" -ForegroundColor Gray
 
-# 2. Sincronização (Marca & Tipo)
-Write-Host "2. A sincronizar dependências..." -ForegroundColor Cyan
+# 2. Sincronização (Marca & Tipo) - AS 3 OPÇÕES PARA REGISTO
+Write-Host "2. A verificar dependências de registo..." -ForegroundColor Cyan
 
-# Marca
+# Opção 1: Marca
 $brandId = Get-DbId "brands" "name" $manufacturer
 if (-not $brandId) {
-    Write-Host " > Marca '$manufacturer' nova. A registar..." -ForegroundColor Yellow
+    Write-Host " > Marca '$manufacturer' inexistente. A criar..." -ForegroundColor Yellow
     $newBrand = Create-Record "brands" @{ name = $manufacturer; risk_level = "Baixa" }
     $brandId = $newBrand.id
+} else {
+    Write-Host " > Marca '$manufacturer' validada." -ForegroundColor Gray
 }
 
-# Tipo
+# Opção 2: Tipo de Equipamento
 $typeId = Get-DbId "equipment_types" "name" $typeStr
 if (-not $typeId) {
-    Write-Host " > Tipo '$typeStr' novo. A registar..." -ForegroundColor Yellow
+    Write-Host " > Tipo '$typeStr' inexistente. A criar..." -ForegroundColor Yellow
     $newType = Create-Record "equipment_types" @{ name = $typeStr }
     $typeId = $newType.id
+} else {
+    Write-Host " > Tipo '$typeStr' validado." -ForegroundColor Gray
 }
 
-# 3. Registar ou Atualizar Equipamento
-Write-Host "3. A processar equipamento..." -ForegroundColor Cyan
+# 3. Registar ou Atualizar Equipamento (Opção 3)
+Write-Host "3. A processar registo do equipamento..." -ForegroundColor Cyan
 $eqId = Get-DbId "equipment" "serialNumber" $serialNumber
 
 $eqPayload = @{
@@ -107,13 +111,13 @@ $eqPayload = @{
 }
 
 if ($eqId) {
-    # --- OPÇÃO A: ATUALIZAR ---
-    Write-Host " > Equipamento já existe. A atualizar dados..." -ForegroundColor Green
+    # --- ATUALIZAR ---
+    Write-Host " > Equipamento já registado. A atualizar dados..." -ForegroundColor Green
     $updateUrl = "$BaseUrl/equipment?id=eq.$eqId"
     Invoke-RestMethod -Uri $updateUrl -Method Patch -Body ($eqPayload | ConvertTo-Json) -Headers $Headers
 } else {
-    # --- OPÇÃO B: REGISTAR ---
-    Write-Host " > Novo equipamento detetado. A registar..." -ForegroundColor Green
+    # --- CRIAR NOVO ---
+    Write-Host " > Novo equipamento detetado. A efetuar registo completo..." -ForegroundColor Green
     $newEqPayload = $eqPayload + @{
         serialNumber = $serialNumber
         brandId = $brandId
@@ -136,14 +140,11 @@ if (-not $defender.RealTimeProtectionEnabled) {
         $existingTickets = Invoke-RestMethod -Uri $checkTicketUrl -Method Get -Headers $Headers
 
         if ($existingTickets.Count -eq 0) {
-            # --- OPÇÃO C: CRIAR TICKET DE ALERTA ---
             Write-Host " > A criar ticket de incidente de segurança..." -ForegroundColor Yellow
             $ticketBody = @{
                 title = "Alerta Automático: Antivírus Desativado"
                 description = "O agente detetou que o Windows Defender está desativado em $hostname ($serialNumber)."
                 equipmentId = $eqId
-                # Nota: Campos obrigatórios como entidadeId dependem da atribuição prévia. 
-                # Este script assume que o registo permite nulos ou tem defaults na BD.
                 category = "Incidente de Segurança"
                 securityIncidentType = "Malware / Vírus"
                 impactCriticality = "Alta"
@@ -159,7 +160,7 @@ if (-not $defender.RealTimeProtectionEnabled) {
     Write-Host " > Sistema Seguro (Antivírus Ativo)." -ForegroundColor Green
 }
 
-Write-Host "--- Concluído com sucesso ---" -ForegroundColor Cyan
+Write-Host "--- Sincronização Concluída ---" -ForegroundColor Cyan
 `;
 
     // Instructions and Code for Supabase Edge Function
@@ -172,67 +173,95 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // 1. Handle CORS
+  // 1. Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // 2. Initialize Client (Service Role recommended for Agents)
-    // Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in Function Secrets
+    // 2. Initialize Client (Service Role needed for upserts/creates)
+    // Define environment variables in Supabase Dashboard > Edge Functions > Secrets
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 3. Parse Request
+    // 3. Parse Request Body
     const { serialNumber, manufacturer, model, hostname, os_version, defender_status } = await req.json()
 
     if (!serialNumber) throw new Error("Missing Serial Number")
 
-    // 4. Sync Brand
+    // 4. Sync Brand (Opção 1)
     let { data: brand } = await supabase.from('brands').select('id').eq('name', manufacturer).single()
     if (!brand) {
+        // Create if missing
         const { data: newBrand } = await supabase.from('brands').insert({ name: manufacturer }).select('id').single()
         brand = newBrand
     }
 
-    // 5. Upsert Equipment
-    // First try to find it
+    // 5. Find or Create Type (Opção 2)
+    // Simplificação: Assume 'Desktop' por defeito se não enviado
+    const typeName = model.toLowerCase().includes('laptop') ? 'Laptop' : 'Desktop';
+    let { data: type } = await supabase.from('equipment_types').select('id').eq('name', typeName).single()
+    if (!type) {
+         const { data: newType } = await supabase.from('equipment_types').insert({ name: typeName }).select('id').single()
+         type = newType
+    }
+
+    // 6. Upsert Equipment (Opção 3)
+    // Check existence
     let { data: equipment } = await supabase.from('equipment').select('id, description').eq('serialNumber', serialNumber).single()
     
     const updateData = {
         os_version,
         last_security_update: new Date().toISOString().split('T')[0],
-        modifiedDate: new Date().toISOString().split('T')[0]
+        modifiedDate: new Date().toISOString().split('T')[0],
+        // Update description if hostname changed
+        description: \`\${manufacturer} \${model} (\${hostname})\`
     }
 
     if (equipment) {
-        // Update
+        // Update existing
         await supabase.from('equipment').update(updateData).eq('id', equipment.id)
     } else {
-        // Create
-        // Find default type (e.g. Desktop)
-        const { data: type } = await supabase.from('equipment_types').select('id').limit(1).single()
-        
+        // Create new
         const { data: newEq } = await supabase.from('equipment').insert({
             serialNumber,
-            description: \`\${manufacturer} \${model}\`,
+            description: \`\${manufacturer} \${model} (\${hostname})\`,
             brandId: brand?.id,
             typeId: type?.id,
             status: 'Stock',
+            criticality: 'Baixa',
             ...updateData
         }).select().single()
         equipment = newEq
     }
 
-    // 6. Security Logic
+    // 7. Security Logic (Create Ticket)
     if (defender_status && !defender_status.RealTimeProtectionEnabled) {
-        // Create ticket logic here...
+        // Check for existing open ticket
+        const { data: tickets } = await supabase.from('tickets')
+            .select('id')
+            .eq('equipmentId', equipment.id)
+            .eq('status', 'Pedido')
+            .eq('category', 'Incidente de Segurança')
+        
+        if (!tickets || tickets.length === 0) {
+             await supabase.from('tickets').insert({
+                title: "Alerta Automático: Antivírus Desativado",
+                description: \`Detetado Windows Defender desativado em \${hostname}.\`,
+                equipmentId: equipment.id,
+                category: "Incidente de Segurança",
+                securityIncidentType: "Malware / Vírus",
+                impactCriticality: "Alta",
+                requestDate: new Date().toISOString(),
+                status: "Pedido"
+             })
+        }
     }
 
     return new Response(
-      JSON.stringify({ success: true, equipmentId: equipment?.id }),
+      JSON.stringify({ success: true, equipmentId: equipment?.id, action: equipment ? 'updated' : 'created' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
@@ -289,18 +318,18 @@ serve(async (req) => {
                         <div className="flex flex-col h-full space-y-4">
                             <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
                                 <div className="flex items-center gap-2 font-bold mb-2">
-                                    <FaDatabase /> Modo Direto (Sem Servidor)
+                                    <FaDatabase /> Modo Direto (Auto-Registo Completo)
                                 </div>
                                 <p className="mb-2">
-                                    Este script PowerShell executa as <strong>3 operações essenciais</strong> diretamente na base de dados:
+                                    Este script PowerShell executa as <strong>3 opções essenciais</strong> para garantir que o equipamento fica registado corretamente:
                                 </p>
                                 <ol className="list-decimal list-inside text-xs text-gray-300 space-y-1">
-                                    <li><strong>Registo Automático:</strong> Se o equipamento (Serial Number) não existir, cria-o (incluindo Marca e Tipo se necessário).</li>
-                                    <li><strong>Atualização:</strong> Se existir, atualiza a informação do SO e data do último patch de segurança.</li>
-                                    <li><strong>Alerta de Segurança:</strong> Verifica o Windows Defender e cria um Ticket crítico se estiver desativado.</li>
+                                    <li><strong>Verificar/Criar Marca:</strong> Se a marca detetada não existir na base de dados, é criada automaticamente.</li>
+                                    <li><strong>Verificar/Criar Tipo:</strong> Se o tipo (Desktop/Laptop) não existir, é criado automaticamente.</li>
+                                    <li><strong>Registar Equipamento:</strong> Cria o equipamento com todas as relações corretas ou atualiza os dados de segurança se já existir.</li>
                                 </ol>
                                 <p className="mt-2 text-xs text-yellow-400">
-                                    Nota: Certifique-se que a chave "Anon" tem permissões para INSERT/UPDATE nas tabelas 'equipment', 'brands', 'equipment_types' e 'tickets' (RLS Policies).
+                                    Nota: O script utiliza a chave "Anon" configurada localmente.
                                 </p>
                             </div>
                             
@@ -327,10 +356,10 @@ serve(async (req) => {
                         <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2">
                             <div className="bg-purple-900/20 border border-purple-900/50 p-4 rounded-lg text-sm text-purple-200">
                                 <div className="flex items-center gap-2 font-bold mb-2">
-                                    <FaCode /> Criar Supabase Edge Function
+                                    <FaCode /> Criar Supabase Edge Function (Segurança Avançada)
                                 </div>
                                 <p>
-                                    Use esta opção para maior segurança. O script do cliente envia dados para esta função, que lida com a lógica de negócio usando a chave de administração (Service Role).
+                                    Use esta opção para centralizar a lógica no servidor. O script do cliente envia apenas o JSON, e a função gere as 3 opções de registo usando a chave de administração.
                                 </p>
                             </div>
 
@@ -338,22 +367,25 @@ serve(async (req) => {
                                 <div className="bg-black/30 p-4 rounded border border-gray-700">
                                     <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaTerminal className="text-gray-400"/> 1. Preparação (Terminal)</h4>
                                     <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap select-all">
-{`# Instalar CLI (se necessário)
+{`# Instalar CLI do Supabase (se necessário)
 brew install supabase/tap/supabase  # macOS
 scoop bucket add supabase https://github.com/supabase/scoop-bucket.git && scoop install supabase  # Windows
 
-# Login e Inicialização
+# Login e Inicialização do Projeto Local
 supabase login
 supabase init
 
-# Criar a nova função
+# Criar a nova função chamada 'sync-agent'
 supabase functions new sync-agent`}
                                     </pre>
                                 </div>
 
                                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaCode className="text-yellow-400"/> 2. Código da Função (index.ts)</h4>
-                                    <p className="text-xs text-gray-400 mb-2">Copie este código para o ficheiro <code>supabase/functions/sync-agent/index.ts</code>:</p>
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaCode className="text-yellow-400"/> 2. Código da Função (Copiar para index.ts)</h4>
+                                    <p className="text-xs text-gray-400 mb-2">
+                                        Substitua o conteúdo do ficheiro <code>supabase/functions/sync-agent/index.ts</code> pelo seguinte código.
+                                        Este código implementa a lógica de auto-registo de Marca, Tipo e Equipamento.
+                                    </p>
                                     <div className="relative">
                                         <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64">
                                             {edgeFunctionCode}
@@ -365,14 +397,17 @@ supabase functions new sync-agent`}
                                 </div>
 
                                 <div className="bg-black/30 p-4 rounded border border-gray-700">
-                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaServer className="text-purple-400"/> 3. Deploy</h4>
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaServer className="text-purple-400"/> 3. Deploy e Configuração</h4>
                                     <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap select-all">
-{`# Deploy da função para o projeto
-supabase functions deploy sync-agent --project-ref ${supabaseUrl.split('.')[0].replace('https://', '')} --no-verify-jwt
+{`# Obter o ID do projeto (Reference ID) nas definições do Supabase
+# Exemplo: se o URL é https://abcdefgh.supabase.co, o ID é 'abcdefgh'
 
-# Definir Variáveis de Ambiente (Secrets)
-supabase secrets set SUPABASE_URL=${supabaseUrl}
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui`}
+# Deploy da função para a nuvem
+supabase functions deploy sync-agent --project-ref SEU_PROJECT_ID --no-verify-jwt
+
+# Definir Variáveis de Ambiente (Secrets) para a função funcionar
+supabase secrets set SUPABASE_URL=${supabaseUrl} --project-ref SEU_PROJECT_ID
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --project-ref SEU_PROJECT_ID`}
                                     </pre>
                                 </div>
                             </div>
