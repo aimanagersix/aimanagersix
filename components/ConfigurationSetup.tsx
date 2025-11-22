@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { FaKey, FaLink, FaSave, FaDatabase } from './common/Icons';
+import { FaLink, FaSave, FaDatabase, FaKey } from './common/Icons';
 import DatabaseSchemaModal from './DatabaseSchemaModal';
 
-// FIX: Define props interface to accept the onConfigured callback.
 interface ConfigurationSetupProps {
     onConfigured: () => void;
 }
@@ -11,12 +10,10 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
     const [keys, setKeys] = useState({
         supabaseUrl: '',
         supabaseAnonKey: '',
-        apiKey: '',
     });
     const [errors, setErrors] = useState({
         supabaseUrl: '',
         supabaseAnonKey: '',
-        apiKey: '',
     });
     const [showSqlModal, setShowSqlModal] = useState(false);
 
@@ -29,7 +26,7 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
     };
 
     const validate = () => {
-        const newErrors = { supabaseUrl: '', supabaseAnonKey: '', apiKey: '' };
+        const newErrors = { supabaseUrl: '', supabaseAnonKey: '' };
         let isValid = true;
         if (!keys.supabaseUrl.trim()) {
             newErrors.supabaseUrl = 'A URL do Supabase é obrigatória.';
@@ -42,10 +39,7 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
             newErrors.supabaseAnonKey = 'A Chave Pública (Anon) do Supabase é obrigatória.';
             isValid = false;
         }
-        if (!keys.apiKey.trim()) {
-            newErrors.apiKey = 'A Chave da API Gemini é obrigatória.';
-            isValid = false;
-        }
+        
         setErrors(newErrors);
         return isValid;
     };
@@ -55,9 +49,8 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
         
         localStorage.setItem('SUPABASE_URL', keys.supabaseUrl);
         localStorage.setItem('SUPABASE_ANON_KEY', keys.supabaseAnonKey);
-        localStorage.setItem('API_KEY', keys.apiKey);
         
-        // FIX: Call the onConfigured callback instead of reloading the page for a smoother user experience.
+        // Call the onConfigured callback instead of reloading the page for a smoother user experience.
         onConfigured();
     };
     
@@ -74,7 +67,7 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
                     <div className="mb-6 text-center">
                         <h2 className="text-2xl font-bold text-white">Bem-vindo!</h2>
                         <p className="text-on-surface-dark-secondary mt-2 text-sm">
-                            Antes de começar, precisamos de configurar a ligação aos serviços. As suas chaves serão guardadas localmente no seu navegador para uso futuro.
+                            Configure a ligação ao Supabase para começar.
                         </p>
                     </div>
                     <div className="space-y-4">
@@ -109,22 +102,6 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
                                 />
                             </div>
                             {errors.supabaseAnonKey && <p className="text-red-400 text-xs italic mt-2">{errors.supabaseAnonKey}</p>}
-                        </div>
-                        <div>
-                            <label htmlFor="apiKey" className="block text-on-surface-dark-secondary text-sm font-bold mb-2">Gemini API Key</label>
-                             <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FaKey className="h-5 w-5 text-gray-400" /></div>
-                                <input
-                                    type="password"
-                                    name="apiKey"
-                                    id="apiKey"
-                                    value={keys.apiKey}
-                                    onChange={handleChange}
-                                    placeholder="Chave da API do Google AI Studio"
-                                    className={`bg-gray-700 border ${errors.apiKey ? 'border-red-500' : 'border-gray-600'} focus:ring-brand-secondary focus:border-brand-secondary shadow appearance-none rounded w-full py-3 pl-10 pr-3 text-on-surface-dark leading-tight focus:outline-none focus:shadow-outline`}
-                                />
-                            </div>
-                            {errors.apiKey && <p className="text-red-400 text-xs italic mt-2">{errors.apiKey}</p>}
                         </div>
                         
                         <div className="flex flex-col gap-3 mt-6">

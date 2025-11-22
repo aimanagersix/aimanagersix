@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -15,26 +8,12 @@ const getAiClient = (): GoogleGenAI => {
         return aiInstance;
     }
 
-    // Helper to safely get env vars
-    const getEnvVar = (key: string) => {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
-            // @ts-ignore
-            return import.meta.env[key];
-        }
-        try {
-            if (typeof process !== 'undefined' && process.env && process.env[key]) {
-                return process.env[key];
-            }
-        } catch (e) {}
-        return '';
-    };
-
-    // Prioritize localStorage
-    const API_KEY = localStorage.getItem('API_KEY') || getEnvVar('API_KEY') || getEnvVar('VITE_API_KEY');
+    // STRICTLY use process.env.API_KEY as per instructions.
+    // The application must not ask the user for the key.
+    const API_KEY = process.env.API_KEY;
 
     if (!API_KEY) {
-        console.error("A chave da API Gemini não está configurada.");
+        console.error("A chave da API Gemini não está configurada em process.env.API_KEY.");
         throw new Error("A chave da API Gemini não está configurada.");
     }
 
@@ -263,7 +242,8 @@ export const generateExecutiveReport = async (
 
     } catch (error) {
         console.error("Error generating report:", error);
-        return "<p>Erro ao gerar análise IA. Verifique a sua chave API.</p>";
+        // Return a user-friendly error message if key is missing or quota exceeded
+        return "<p>Erro ao gerar análise IA. Verifique a sua chave API no ambiente ou a disponibilidade do serviço.</p>";
     }
 };
 
