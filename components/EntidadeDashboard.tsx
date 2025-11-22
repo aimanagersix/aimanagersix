@@ -1,10 +1,10 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory } from '../types';
 import { EditIcon, DeleteIcon, SearchIcon, PlusIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
+import EntidadeDetailModal from './EntidadeDetailModal';
 
 interface EntidadeDashboardProps {
   escolasDepartamentos: Entidade[];
@@ -36,6 +36,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
     const [filters, setFilters] = useState({ instituicaoId: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [selectedEntidade, setSelectedEntidade] = useState<Entidade | null>(null);
     
     const instituicaoMap = useMemo(() => new Map(instituicoes.map(e => [e.id, e.name])), [instituicoes]);
 
@@ -173,7 +174,11 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                 else if (dependencyMap.has(entidade.id)) disabledReason = "Existem registos associados (equipamentos, tickets ou histórico)";
 
                 return (
-              <tr key={entidade.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+              <tr 
+                key={entidade.id} 
+                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
+                onClick={() => setSelectedEntidade(entidade)}
+              >
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                   <div>{entidade.name}</div>
                   <div className="text-xs text-on-surface-dark-secondary">Código: {entidade.codigo}</div>
@@ -190,7 +195,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                     <div className="flex justify-center items-center gap-4">
                         {onToggleStatus && (
                             <button 
-                                onClick={() => onToggleStatus && onToggleStatus(entidade.id)} 
+                                onClick={(e) => { e.stopPropagation(); onToggleStatus && onToggleStatus(entidade.id); }}
                                 className={`text-xl ${entidade.status === EntidadeStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
                                 title={entidade.status === EntidadeStatus.Ativo ? 'Inativar' : 'Ativar'}
                             >
@@ -198,7 +203,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                             </button>
                         )}
                         {onEdit && (
-                            <button onClick={() => onEdit(entidade)} className="text-blue-400 hover:text-blue-300" aria-label={`Edit ${entidade.name}`}>
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(entidade); }} className="text-blue-400 hover:text-blue-300" aria-label={`Edit ${entidade.name}`}>
                                 <EditIcon />
                             </button>
                         )}
@@ -235,6 +240,19 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
             onItemsPerPageChange={handleItemsPerPageChange}
             totalItems={filteredEntidades.length}
         />
+
+        {selectedEntidade && (
+            <EntidadeDetailModal 
+                entidade={selectedEntidade}
+                instituicao={instituicoes.find(i => i.id === selectedEntidade.instituicaoId)}
+                collaborators={collaborators}
+                onClose={() => setSelectedEntidade(null)}
+                onEdit={() => {
+                    setSelectedEntidade(null);
+                    if (onEdit) onEdit(selectedEntidade);
+                }}
+            />
+        )}
     </div>
   );
 };

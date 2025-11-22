@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon } from './common/Icons';
@@ -262,7 +258,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                             const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
 
                             return(
-                            <tr key={ticket.id} className={`border-b border-gray-700 hover:bg-gray-800/50 ${isRealSecurity ? 'bg-red-900/10' : 'bg-surface-dark'}`}>
+                            <tr 
+                                key={ticket.id} 
+                                className={`border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer ${isRealSecurity ? 'bg-red-900/10' : 'bg-surface-dark'}`}
+                                onClick={() => onOpenActivities && onOpenActivities(ticket)}
+                            >
                                 <td className="px-6 py-4">
                                     <div>{entidadeMap.get(ticket.entidadeId) || 'N/A'}</div>
                                     {ticket.team_id && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.team_id)}</div>}
@@ -314,7 +314,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                     )}
                                 </td>
                                 <td className="px-6 py-4">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : '—'}</td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                      <select
                                         value={ticket.status}
                                         onChange={(e) => handleStatusChange(ticket, e.target.value as TicketStatus)}
@@ -328,7 +328,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                     <div className="flex justify-center items-center gap-4">
                                         {isRealSecurity && onGenerateSecurityReport && (
                                              <button
-                                                onClick={() => onGenerateSecurityReport(ticket)}
+                                                onClick={(e) => { e.stopPropagation(); onGenerateSecurityReport(ticket); }}
                                                 className="text-red-400 hover:text-red-300"
                                                 title="Relatório de Notificação Oficial (NIS2)"
                                             >
@@ -337,7 +337,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                         )}
                                         {onOpenActivities && (
                                             <button
-                                                onClick={() => onOpenActivities(ticket)}
+                                                onClick={(e) => { e.stopPropagation(); onOpenActivities(ticket); }}
                                                 className="text-teal-400 hover:text-teal-300"
                                                 title="Registar Intervenção / Ver Atividades"
                                             >
@@ -345,7 +345,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                             </button>
                                         )}
                                         {onEdit && (
-                                            <button onClick={() => onEdit(ticket)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ticket de ${collaboratorMap.get(ticket.collaboratorId)}`}>
+                                            <button onClick={(e) => { e.stopPropagation(); onEdit(ticket); }} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ticket de ${collaboratorMap.get(ticket.collaboratorId)}`}>
                                                 <EditIcon />
                                             </button>
                                         )}

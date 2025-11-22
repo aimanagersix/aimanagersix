@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -438,5 +439,73 @@ export const analyzeBackupScreenshot = async (base64Image: string, mimeType: str
     } catch (error) {
         console.error("Error analyzing backup screenshot:", error);
         throw new Error("Failed to analyze image.");
+    }
+};
+
+// --- Automated Vulnerability Scanner (Using Gemini Intelligence) ---
+
+export interface ScannedVulnerability {
+    cve_id: string;
+    description: string;
+    severity: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+    affected_software: string;
+    remediation: string;
+}
+
+export const scanForVulnerabilities = async (inventory: string[]): Promise<ScannedVulnerability[]> => {
+    try {
+        const ai = getAiClient();
+        
+        const prompt = `
+        Act as a Cybersecurity Vulnerability Scanner (NVD/MITRE Expert).
+        I will provide a list of software/OS inventory found in my network.
+        
+        Inventory List:
+        ${JSON.stringify(inventory)}
+
+        Task:
+        Identify potential high-profile or critical CVEs (Common Vulnerabilities and Exposures) that are COMMONLY associated with versions of this software (assume latest few versions if version not specified, or flag general risk).
+        Focus on recent (last 2 years) and critical vulnerabilities.
+        
+        Return a JSON array of up to 5 most critical vulnerabilities found.
+        Format:
+        {
+            cve_id: "CVE-XXXX-XXXX",
+            description: "Short summary in Portuguese",
+            severity: "Crítica" | "Alta" | "Média" | "Baixa",
+            affected_software: "Name of the item from my list",
+            remediation: "Brief fix action in Portuguese (e.g. 'Atualizar para v2.0')"
+        }
+        If no major vulnerabilities are obvious for this generic list, return an empty array.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            cve_id: { type: Type.STRING },
+                            description: { type: Type.STRING },
+                            severity: { type: Type.STRING, enum: ['Baixa', 'Média', 'Alta', 'Crítica'] },
+                            affected_software: { type: Type.STRING },
+                            remediation: { type: Type.STRING }
+                        },
+                        required: ["cve_id", "description", "severity", "affected_software", "remediation"]
+                    }
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "[]";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error scanning vulnerabilities:", error);
+        return [];
     }
 };

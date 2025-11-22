@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -462,12 +461,13 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 return (
               <tr 
                 key={item.id} 
-                className={`border-b border-gray-700 ${selectedIds.has(item.id) ? 'bg-brand-primary/10' : 'bg-surface-dark hover:bg-gray-800/50'}`}
+                className={`border-b border-gray-700 ${selectedIds.has(item.id) ? 'bg-brand-primary/10' : 'bg-surface-dark hover:bg-gray-800/50'} cursor-pointer`}
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
+                onClick={() => onShowHistory(item)}
               >
-                <td className="px-4 py-4">
+                <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input
                         type="checkbox"
                         className="rounded border-gray-500 bg-gray-700 text-brand-secondary focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -498,13 +498,12 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <td className="px-6 py-4">
                     <span className={warrantyInfo.className}>{warrantyInfo.text}</span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                   <select
                     value={item.status}
                     onChange={(e) => handleStatusChange(item, e.target.value as EquipmentStatus)}
                     className={`px-2 py-1 rounded-md text-xs border bg-transparent ${getStatusClass(item.status)} focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70`}
                     disabled={!onUpdateStatus}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     {Object.values(EquipmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
