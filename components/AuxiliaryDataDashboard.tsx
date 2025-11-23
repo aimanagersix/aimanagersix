@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem } from '../types';
+import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -28,6 +28,17 @@ interface AuxiliaryDataDashboardProps {
     tickets: Ticket[];
     teams: Team[];
     securityIncidentTypes: SecurityIncidentTypeItem[];
+
+    // NEW PROPS for integrity checks
+    collaborators: Collaborator[];
+    softwareLicenses: SoftwareLicense[];
+    businessServices: BusinessService[];
+    backupExecutions: BackupExecution[];
+    securityTrainings: SecurityTrainingRecord[];
+    resilienceTests: ResilienceTest[];
+    suppliers: Supplier[];
+    entidades: Entidade[];
+    instituicoes: Instituicao[];
 
     // Complex Handlers
     onEditBrand: (b: Brand) => void;
@@ -64,7 +75,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     brands, equipment, onEditBrand, onDeleteBrand, onCreateBrand,
     equipmentTypes, onEditType, onDeleteType, onCreateType,
     ticketCategories, tickets, teams, onEditCategory, onDeleteCategory, onToggleCategoryStatus, onCreateCategory,
-    securityIncidentTypes, onEditIncidentType, onDeleteIncidentType, onToggleIncidentTypeStatus, onCreateIncidentType
+    securityIncidentTypes, onEditIncidentType, onDeleteIncidentType, onToggleIncidentTypeStatus, onCreateIncidentType,
+    // Data for checks
+    collaborators, softwareLicenses, businessServices, backupExecutions, securityTrainings, resilienceTests, suppliers, entidades, instituicoes
 }) => {
     const [selectedMenuId, setSelectedMenuId] = useState<string>('brands'); // Default view
     
@@ -122,6 +135,51 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
     const currentSelection = getCurrentSelection();
 
+    // Helper to check if item is in use
+    const checkUsage = (tableName: string, item: ConfigItem): boolean => {
+        const name = item.name;
+        switch (tableName) {
+            case 'config_equipment_statuses':
+                return equipment.some(e => e.status === name);
+            case 'config_user_roles':
+                return collaborators.some(c => c.role === name);
+            case 'config_criticality_levels':
+                return equipment.some(e => e.criticality === name) || 
+                       softwareLicenses.some(l => l.criticality === name) ||
+                       businessServices.some(s => s.criticality === name);
+            case 'config_cia_ratings':
+                return equipment.some(e => e.confidentiality === name || e.integrity === name || e.availability === name) ||
+                       softwareLicenses.some(l => l.confidentiality === name || l.integrity === name || l.availability === name);
+            case 'config_service_statuses':
+                return businessServices.some(s => s.status === name);
+            case 'config_backup_types':
+                return backupExecutions.some(b => b.type === name);
+            case 'config_training_types':
+                return securityTrainings.some(t => t.training_type === name);
+            case 'config_resilience_test_types':
+                return resilienceTests.some(t => t.test_type === name);
+            case 'contact_titles': {
+                if (collaborators.some(c => c.title === name)) return true;
+                const allContacts = [
+                    ...suppliers.flatMap(s => s.contacts || []),
+                    ...entidades.flatMap(e => e.contacts || []),
+                    ...instituicoes.flatMap(i => i.contacts || [])
+                ];
+                return allContacts.some(c => c.title === name);
+            }
+            case 'contact_roles': {
+                const allContacts = [
+                    ...suppliers.flatMap(s => s.contacts || []),
+                    ...entidades.flatMap(e => e.contacts || []),
+                    ...instituicoes.flatMap(i => i.contacts || [])
+                ];
+                return allContacts.some(c => c.role === name);
+            }
+            default:
+                return false;
+        }
+    };
+
     // Generic Handlers
     const handleGenericAdd = async () => {
         if (currentSelection.type !== 'generic' || currentSelection.tableIndex === undefined) return;
@@ -162,13 +220,13 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         if (currentSelection.type !== 'generic' || currentSelection.tableIndex === undefined) return;
         const tableInfo = configTables[currentSelection.tableIndex];
 
-        if (!confirm("Tem a certeza que deseja excluir este item? Se estiver em uso, poderá causar erros de visualização.")) return;
+        if (!confirm("Tem a certeza que deseja excluir este item?")) return;
         try {
             await dataService.deleteConfigItem(tableInfo.tableName, id);
             onRefresh();
         } catch (e: any) {
             console.error(e);
-            setError(e.message || 'Erro ao excluir item. Verifique se está em uso.');
+            setError(e.message || 'Erro ao excluir item.');
         }
     };
 
@@ -242,37 +300,48 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 </thead>
                                 <tbody className="divide-y divide-gray-700">
                                     {configTables[currentSelection.tableIndex].data.length > 0 ? (
-                                        configTables[currentSelection.tableIndex].data.sort((a,b) => a.name.localeCompare(b.name)).map(item => (
-                                            <tr key={item.id} className="hover:bg-gray-700/50">
-                                                <td className="px-4 py-3">
-                                                    {editingItem?.id === item.id ? (
-                                                        <input
-                                                            type="text"
-                                                            value={editingItem.name}
-                                                            onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                                                            className="w-full bg-gray-600 border border-gray-500 text-white rounded p-1"
-                                                            autoFocus
-                                                            onKeyDown={(e) => e.key === 'Enter' && handleGenericUpdate()}
-                                                        />
-                                                    ) : (
-                                                        <span className="text-white">{item.name}</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    {editingItem?.id === item.id ? (
-                                                        <div className="flex justify-end gap-2">
-                                                            <button onClick={handleGenericUpdate} className="text-green-400 hover:text-green-300"><FaSave /></button>
-                                                            <button onClick={() => setEditingItem(null)} className="text-red-400 hover:text-red-300"><FaTimes /></button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex justify-end gap-2">
-                                                            <button onClick={() => setEditingItem(item)} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>
-                                                            <button onClick={() => handleGenericDelete(item.id)} className="text-red-400 hover:text-red-300"><DeleteIcon /></button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))
+                                        configTables[currentSelection.tableIndex].data.sort((a,b) => a.name.localeCompare(b.name)).map(item => {
+                                            const isUsed = checkUsage(configTables[currentSelection.tableIndex!].tableName, item);
+                                            
+                                            return (
+                                                <tr key={item.id} className="hover:bg-gray-700/50">
+                                                    <td className="px-4 py-3">
+                                                        {editingItem?.id === item.id ? (
+                                                            <input
+                                                                type="text"
+                                                                value={editingItem.name}
+                                                                onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                                                                className="w-full bg-gray-600 border border-gray-500 text-white rounded p-1"
+                                                                autoFocus
+                                                                onKeyDown={(e) => e.key === 'Enter' && handleGenericUpdate()}
+                                                            />
+                                                        ) : (
+                                                            <span className="text-white">{item.name}</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        {editingItem?.id === item.id ? (
+                                                            <div className="flex justify-end gap-2">
+                                                                <button onClick={handleGenericUpdate} className="text-green-400 hover:text-green-300"><FaSave /></button>
+                                                                <button onClick={() => setEditingItem(null)} className="text-red-400 hover:text-red-300"><FaTimes /></button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex justify-end gap-2">
+                                                                <button onClick={() => setEditingItem(item)} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>
+                                                                <button 
+                                                                    onClick={() => handleGenericDelete(item.id)} 
+                                                                    className={isUsed ? "text-gray-600 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                                                    disabled={isUsed}
+                                                                    title={isUsed ? "Este item está a ser utilizado e não pode ser apagado." : "Excluir"}
+                                                                >
+                                                                    {isUsed ? <FaLock className="h-3 w-3"/> : <DeleteIcon />}
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     ) : (
                                         <tr>
                                             <td colSpan={2} className="p-4 text-center text-gray-500 italic">Nenhum item registado.</td>

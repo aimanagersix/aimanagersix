@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -740,6 +741,17 @@ const InnerApp: React.FC = () => {
                         tickets={tickets}
                         teams={teams}
                         securityIncidentTypes={securityIncidentTypes}
+                        // NEW PROPS for integrity checks
+                        collaborators={collaborators}
+                        softwareLicenses={softwareLicenses}
+                        businessServices={businessServices}
+                        backupExecutions={backupExecutions}
+                        securityTrainings={securityTrainings}
+                        resilienceTests={resilienceTests}
+                        suppliers={suppliers}
+                        entidades={entidades}
+                        instituicoes={instituicoes}
+
                         // Pass complex handlers
                         onCreateBrand={() => { setBrandToEdit(null); setShowAddBrand(true); }}
                         onEditBrand={(b) => { setBrandToEdit(b); setShowAddBrand(true); }}
