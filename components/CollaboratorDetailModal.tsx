@@ -101,7 +101,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                             onClick={() => { onClose(); onEdit(collaborator); }} 
                             className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors shadow-lg font-semibold"
                         >
-                            <FaEdit /> Editar Dados
+                            <FaEdit /> Corrigir Dados
                         </button>
                         <button onClick={handleChatClick} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
                             <FaComment /> Enviar Mensagem

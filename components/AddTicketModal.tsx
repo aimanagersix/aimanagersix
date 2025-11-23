@@ -164,7 +164,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                     // Automatically upgrade criticality if it's lower than the asset's criticality
                     if (formData.impactCriticality !== selectedEquipment.criticality) {
                         setFormData(prev => ({ ...prev, impactCriticality: selectedEquipment.criticality }));
-                        setAutoSeverityMessage(`Compliance NIS2: Nível de risco escalado automaticamente porque o ativo "${selectedEquipment.description}" é crítico.`);
+                        setAutoSeverityMessage(`Nível de risco escalado automaticamente devido à criticidade do ativo (NIS2).`);
                     }
                 } else {
                     setAutoSeverityMessage(null);
@@ -545,8 +545,8 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                         {autoSeverityMessage && (
                             <div className="mt-2 p-3 bg-orange-600/20 border border-orange-500/50 rounded text-xs text-orange-200 flex flex-col gap-1 animate-fade-in shadow-md">
                                 <div className="flex items-center gap-2 font-bold">
-                                    <FaLock className="flex-shrink-0" />
-                                    <span>Segurança & Compliance</span>
+                                    <FaShieldAlt className="flex-shrink-0" />
+                                    <span>Compliance Alert (NIS2)</span>
                                 </div>
                                 <p>{autoSeverityMessage}</p>
                             </div>
