@@ -22,6 +22,7 @@ interface AddEquipmentModalProps {
     statusOptions?: ConfigItem[];
     criticalityOptions?: ConfigItem[];
     ciaOptions?: ConfigItem[];
+    initialData?: Partial<Equipment> | null;
 }
 
 interface CameraScannerProps {
@@ -174,7 +175,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ 
     onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, 
     suppliers = [], softwareLicenses = [], entidades = [], collaborators = [], 
-    statusOptions, criticalityOptions, ciaOptions 
+    statusOptions, criticalityOptions, ciaOptions, initialData 
 }) => {
     // Use dynamic options if available, else fallback to enum values
     const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(o => o.name) : Object.values(EquipmentStatus);
@@ -243,31 +244,31 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             });
         } else {
             setFormData({
-                brandId: brands[0]?.id || '',
-                typeId: equipmentTypes[0]?.id || '',
-                description: '',
-                serialNumber: '',
-                inventoryNumber: '',
-                nomeNaRede: '',
-                macAddressWIFI: '',
-                macAddressCabo: '',
-                purchaseDate: new Date().toISOString().split('T')[0],
-                warrantyEndDate: '',
-                invoiceNumber: '',
-                status: EquipmentStatus.Stock,
-                criticality: CriticalityLevel.Low,
-                confidentiality: CIARating.Low,
-                integrity: CIARating.Low,
-                availability: CIARating.Low,
-                os_version: '',
-                last_security_update: '',
-                supplier_id: '',
-                acquisitionCost: 0,
-                expectedLifespanYears: 4,
-                embedded_license_key: ''
+                brandId: initialData?.brandId || brands[0]?.id || '',
+                typeId: initialData?.typeId || equipmentTypes[0]?.id || '',
+                description: initialData?.description || '',
+                serialNumber: initialData?.serialNumber || '',
+                inventoryNumber: initialData?.inventoryNumber || '',
+                nomeNaRede: initialData?.nomeNaRede || '',
+                macAddressWIFI: initialData?.macAddressWIFI || '',
+                macAddressCabo: initialData?.macAddressCabo || '',
+                purchaseDate: initialData?.purchaseDate || new Date().toISOString().split('T')[0],
+                warrantyEndDate: initialData?.warrantyEndDate || '',
+                invoiceNumber: initialData?.invoiceNumber || '',
+                status: (initialData?.status as EquipmentStatus) || EquipmentStatus.Stock,
+                criticality: (initialData?.criticality as CriticalityLevel) || CriticalityLevel.Low,
+                confidentiality: (initialData?.confidentiality as CIARating) || CIARating.Low,
+                integrity: (initialData?.integrity as CIARating) || CIARating.Low,
+                availability: (initialData?.availability as CIARating) || CIARating.Low,
+                os_version: initialData?.os_version || '',
+                last_security_update: initialData?.last_security_update || '',
+                supplier_id: initialData?.supplier_id || '',
+                acquisitionCost: initialData?.acquisitionCost || 0,
+                expectedLifespanYears: initialData?.expectedLifespanYears || 4,
+                embedded_license_key: initialData?.embedded_license_key || ''
             });
         }
-    }, [equipmentToEdit, brands, equipmentTypes]);
+    }, [equipmentToEdit, brands, equipmentTypes, initialData]);
 
     // Auto-fill description based on brand and type for new equipment
     useEffect(() => {

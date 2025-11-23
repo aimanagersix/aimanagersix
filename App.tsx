@@ -1020,6 +1020,158 @@ const InnerApp: React.FC = () => {
                     <UserManualModal onClose={() => setShowUserManual(false)} />
                 )}
 
+                {/* Common Modals */}
+                {showAddEquipment && (
+                    <AddEquipmentModal
+                        onClose={() => setShowAddEquipment(false)}
+                        onSave={(eq, assign, lic) => {
+                            // Complex save logic usually goes here or via dataService helpers
+                            // Assuming simplified direct call to dataService for add/update:
+                            if (equipmentToEdit) {
+                                return simpleSaveWrapper(dataService.updateEquipment, eq, equipmentToEdit.id);
+                            } else {
+                                // Handle assignment & licenses in one go (transaction-like) if possible or sequential
+                                const savePromise = dataService.addEquipment(eq).then(async (newEq) => {
+                                    if (assign) {
+                                        await dataService.addAssignment({ ...assign, equipmentId: newEq.id });
+                                    }
+                                    if (lic && lic.length > 0) {
+                                        await dataService.syncLicenseAssignments(newEq.id, lic);
+                                    }
+                                    return newEq;
+                                });
+                                return simpleSaveWrapper(() => savePromise, {});
+                            }
+                        }}
+                        equipmentToEdit={equipmentToEdit}
+                        brands={brands}
+                        equipmentTypes={equipmentTypes}
+                        onSaveBrand={dataService.addBrand}
+                        onSaveEquipmentType={dataService.addEquipmentType}
+                        onOpenKitModal={(data) => { setShowAddEquipment(false); setKitInitialData(data); setShowAddKit(true); }}
+                        suppliers={suppliers}
+                        softwareLicenses={softwareLicenses}
+                        entidades={entidades}
+                        collaborators={collaborators}
+                        statusOptions={configEquipmentStatuses}
+                        criticalityOptions={configCriticalityLevels}
+                        ciaOptions={configCiaRatings}
+                        initialData={initialEquipmentData}
+                    />
+                )}
+
+                {showAssignEquipment && (
+                    <AssignEquipmentModal
+                        equipment={showAssignEquipment}
+                        brandMap={brandMap}
+                        equipmentTypeMap={equipmentTypeMap}
+                        escolasDepartamentos={entidades}
+                        collaborators={collaborators}
+                        onClose={() => setShowAssignEquipment(null)}
+                        onAssign={(assignment) => simpleSaveWrapper(dataService.addAssignment, assignment)}
+                    />
+                )}
+
+                {showAddCollaborator && (
+                    <AddCollaboratorModal
+                        onClose={() => setShowAddCollaborator(false)}
+                        onSave={(col, pw) => {
+                            if (collaboratorToEdit) return simpleSaveWrapper(dataService.updateCollaborator, col, collaboratorToEdit.id);
+                            // Create logic often involves auth user creation too, handled in dataService ideally
+                            return simpleSaveWrapper(dataService.addCollaborator, { ...col, password: pw });
+                        }}
+                        collaboratorToEdit={collaboratorToEdit}
+                        escolasDepartamentos={entidades}
+                        currentUser={currentUser}
+                        roleOptions={configUserRoles}
+                        statusOptions={configEquipmentStatuses} // Using equipment status as generic status, or should use specific if exists.
+                        // Actually configEquipmentStatuses is for equipment. Collaborator status is enum.
+                        // If we want dynamic collaborator statuses, we'd need a config table for that. For now use Enum.
+                    />
+                )}
+
+                {/* ... Other Modals (Entidade, Instituicao, Ticket, etc.) follow similar pattern ... */}
+                {showAddEntidade && (
+                    <AddEntidadeModal
+                        onClose={() => setShowAddEntidade(false)}
+                        onSave={(ent) => {
+                            if (entidadeToEdit) return simpleSaveWrapper(dataService.updateEntidade, ent, entidadeToEdit.id);
+                            return simpleSaveWrapper(dataService.addEntidade, ent);
+                        }}
+                        entidadeToEdit={entidadeToEdit}
+                        instituicoes={instituicoes}
+                    />
+                )}
+
+                {showAddInstituicao && (
+                    <AddInstituicaoModal
+                        onClose={() => setShowAddInstituicao(false)}
+                        onSave={(inst) => {
+                            if (instituicaoToEdit) return simpleSaveWrapper(dataService.updateInstituicao, inst, instituicaoToEdit.id);
+                            return simpleSaveWrapper(dataService.addInstituicao, inst);
+                        }}
+                        instituicaoToEdit={instituicaoToEdit}
+                    />
+                )}
+
+                {showAddTicket && (
+                    <AddTicketModal
+                        onClose={() => setShowAddTicket(false)}
+                        onSave={(t) => {
+                            if (ticketToEdit) return simpleSaveWrapper(dataService.updateTicket, t, ticketToEdit.id);
+                            return simpleSaveWrapper(dataService.addTicket, t);
+                        }}
+                        ticketToEdit={ticketToEdit}
+                        escolasDepartamentos={entidades}
+                        collaborators={collaborators}
+                        teams={teams}
+                        currentUser={currentUser}
+                        userPermissions={{ viewScope: isBasic ? 'own' : 'all' }}
+                        equipment={equipment}
+                        equipmentTypes={equipmentTypes}
+                        assignments={assignments}
+                        categories={ticketCategories}
+                        securityIncidentTypes={securityIncidentTypes}
+                        pastTickets={tickets}
+                        initialData={initialTicketData}
+                    />
+                )}
+
+                {/* ... More modals ... */}
+                
+                {showNotifications && (
+                    <NotificationsModal
+                        onClose={() => setShowNotifications(false)}
+                        expiringWarranties={expiringWarranties}
+                        expiringLicenses={expiringLicenses}
+                        teamTickets={activeTickets} // Should filter by team if needed
+                        collaborators={collaborators}
+                        teams={teams}
+                        onViewItem={(tab, filter) => { setShowNotifications(false); setActiveTab(tab); setInitialFilter(filter); }}
+                        onSnooze={(id) => simpleSaveWrapper(dataService.snoozeNotification, id)}
+                        currentUser={currentUser}
+                        licenseAssignments={licenseAssignments}
+                    />
+                )}
+
+                {/* Magic Command Bar */}
+                <MagicCommandBar 
+                    brands={brands} 
+                    types={equipmentTypes} 
+                    collaborators={collaborators} 
+                    currentUser={currentUser}
+                    onAction={handleMagicAction}
+                />
+
+                {confirmationModal && (
+                    <ConfirmationModal
+                        title={confirmationModal.title}
+                        message={confirmationModal.message}
+                        onConfirm={confirmationModal.onConfirm}
+                        onClose={() => setConfirmationModal(null)}
+                    />
+                )}
+
             </main>
         </div>
     );

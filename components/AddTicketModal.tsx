@@ -1,12 +1,4 @@
 
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier } from '../types';
@@ -31,6 +23,7 @@ interface AddTicketModalProps {
     categories: TicketCategoryItem[];
     securityIncidentTypes?: SecurityIncidentTypeItem[]; 
     pastTickets?: Ticket[]; // Pass existing tickets for RAG
+    initialData?: Partial<Ticket> | null;
 }
 
 const MAX_FILES = 3;
@@ -44,7 +37,7 @@ const formatFileSize = (bytes: number): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [] }) => {
+const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [], initialData }) => {
     
     const activeCategories = useMemo(() => {
          if (categories.length > 0) {
@@ -80,16 +73,16 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         }
         
         const baseData = {
-            title: '',
-            description: '',
+            title: initialData?.title || '',
+            description: initialData?.description || '',
             team_id: '',
             equipmentId: '',
-            category: activeCategories[0] || 'Falha Técnica',
-            securityIncidentType: undefined,
-            impactCriticality: CriticalityLevel.Low,
-            impactConfidentiality: CIARating.Low,
-            impactIntegrity: CIARating.Low,
-            impactAvailability: CIARating.Low,
+            category: initialData?.category || activeCategories[0] || 'Falha Técnica',
+            securityIncidentType: initialData?.securityIncidentType,
+            impactCriticality: (initialData?.impactCriticality as CriticalityLevel) || CriticalityLevel.Low,
+            impactConfidentiality: (initialData?.impactConfidentiality as CIARating) || CIARating.Low,
+            impactIntegrity: (initialData?.impactIntegrity as CIARating) || CIARating.Low,
+            impactAvailability: (initialData?.impactAvailability as CIARating) || CIARating.Low,
         };
         
         const defaultCatObj = categories.find(c => c.name === baseData.category);
@@ -108,8 +101,8 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         
         return {
             ...baseData,
-            entidadeId: entidades[0]?.id || '',
-            collaboratorId: collaborators.find(c => c.entidadeId === entidades[0]?.id)?.id || '',
+            entidadeId: initialData?.entidadeId || entidades[0]?.id || '',
+            collaboratorId: initialData?.collaboratorId || collaborators.find(c => c.entidadeId === (initialData?.entidadeId || entidades[0]?.id))?.id || '',
         };
     });
 

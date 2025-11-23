@@ -84,6 +84,8 @@ END $$;
 -- ==========================================
 
 DO $$ 
+DECLARE
+    t text;
 BEGIN 
     -- Tickets
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tickets') THEN
