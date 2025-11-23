@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ResourceContact, ContactRole } from '../../types';
+import { ResourceContact, ContactRole, ContactTitle } from '../../types';
 import { FaPlus, FaUserTie, FaEnvelope, FaPhone, FaTrash, FaCog } from 'react-icons/fa';
 import * as dataService from '../../services/dataService';
 import ManageContactRolesModal from '../ManageContactRolesModal';
+import ManageContactTitlesModal from '../ManageContactTitlesModal';
 
 interface ContactListProps {
     contacts: ResourceContact[];
@@ -12,30 +13,37 @@ interface ContactListProps {
 
 export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, resourceType }) => {
     const [newContact, setNewContact] = useState<Partial<ResourceContact>>({
+        title: '',
         name: '',
         role: 'Técnico',
         email: '',
         phone: ''
     });
     const [roles, setRoles] = useState<string[]>([]);
+    const [titles, setTitles] = useState<string[]>([]);
     const [showManageRoles, setShowManageRoles] = useState(false);
+    const [showManageTitles, setShowManageTitles] = useState(false);
 
-    const loadRoles = async () => {
+    const loadData = async () => {
         try {
             const data = await dataService.fetchAllData();
             if (data.contactRoles && data.contactRoles.length > 0) {
                 setRoles(data.contactRoles.map((r: any) => r.name).sort());
             } else {
-                // Fallback defaults if empty
                 setRoles(['Técnico', 'Comercial', 'Financeiro', 'DPO/CISO', 'Diretor', 'Secretaria']);
             }
+            if (data.contactTitles && data.contactTitles.length > 0) {
+                setTitles(data.contactTitles.map((t: any) => t.name).sort());
+            } else {
+                setTitles(['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª']);
+            }
         } catch (e) {
-            console.error("Failed to load contact roles", e);
+            console.error("Failed to load contact metadata", e);
         }
     };
 
     useEffect(() => {
-        loadRoles();
+        loadData();
     }, []);
 
     const handleAddContact = () => {
@@ -48,6 +56,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
             id: crypto.randomUUID(),
             resource_type: resourceType,
             resource_id: '', // Will be set on save of parent
+            title: newContact.title,
             name: newContact.name || '',
             role: newContact.role || 'Técnico',
             email: newContact.email || '',
@@ -55,7 +64,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
         };
 
         onChange([...contacts, contact]);
-        setNewContact({ name: '', role: roles[0] || 'Técnico', email: '', phone: '' });
+        setNewContact({ title: '', name: '', role: roles[0] || 'Técnico', email: '', phone: '' });
     };
 
     const handleRemoveContact = (index: number) => {
@@ -66,8 +75,29 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
         <div className="space-y-4 p-1">
             <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                 <h4 className="text-white font-bold mb-4 flex items-center gap-2"><FaPlus /> Adicionar Contacto</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
+                        <label className="block text-xs text-gray-400 mb-1">Trato</label>
+                        <div className="flex gap-2">
+                            <select 
+                                value={newContact.title}
+                                onChange={(e) => setNewContact({...newContact, title: e.target.value})}
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                            >
+                                <option value="">--</option>
+                                {titles.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <button 
+                                type="button" 
+                                onClick={() => setShowManageTitles(true)}
+                                className="bg-gray-600 text-white px-2 rounded hover:bg-gray-500"
+                                title="Gerir Tratos"
+                            >
+                                <FaCog />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="md:col-span-2">
                         <label className="block text-xs text-gray-400 mb-1">Nome</label>
                         <input 
                             type="text" 
@@ -77,6 +107,8 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                             placeholder="Ex: João Silva"
                         />
                     </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                         <label className="block text-xs text-gray-400 mb-1">Papel / Função</label>
                         <div className="flex gap-2">
@@ -91,7 +123,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                                 type="button" 
                                 onClick={() => setShowManageRoles(true)}
                                 className="bg-gray-600 text-white px-2 rounded hover:bg-gray-500"
-                                title="Gerir Funções (Adicionar/Editar)"
+                                title="Gerir Funções"
                             >
                                 <FaCog />
                             </button>
@@ -134,7 +166,9 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         <div key={idx} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center">
                             <div>
                                 <p className="font-bold text-white text-sm flex items-center gap-2">
-                                    <FaUserTie className="text-gray-400"/> {contact.name} 
+                                    <FaUserTie className="text-gray-400"/> 
+                                    {contact.title && <span className="text-gray-300 font-normal">{contact.title}</span>}
+                                    {contact.name} 
                                     <span className="text-xs font-normal bg-gray-700 px-2 rounded text-gray-300">{contact.role}</span>
                                 </p>
                                 <div className="text-xs text-gray-400 flex gap-3 mt-1">
@@ -160,7 +194,14 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
             {showManageRoles && (
                 <ManageContactRolesModal 
                     onClose={() => setShowManageRoles(false)} 
-                    onRolesUpdated={loadRoles} 
+                    onRolesUpdated={loadData} 
+                />
+            )}
+            
+            {showManageTitles && (
+                <ManageContactTitlesModal 
+                    onClose={() => setShowManageTitles(false)} 
+                    onTitlesUpdated={loadData} 
                 />
             )}
         </div>

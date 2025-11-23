@@ -55,10 +55,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
         setActiveTab(tab);
     };
 
+    // Using anchor tags allows middle-click / right-click -> open new tab natively
     const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '' }: { tab: string, label: string, icon: React.ReactNode, activeTab: string, setActiveTab: (tab: string) => void, isDropdownItem?: boolean, className?: string }) => (
-        <button
-            onClick={(e) => { e.preventDefault(); handleTabClick(tab); }}
-            className={`flex items-center gap-3 w-full text-left transition-colors duration-200 rounded-md overflow-hidden whitespace-nowrap ${
+        <a
+            href={`#${tab}`}
+            onClick={(e) => { 
+                // Only prevent default if it's a standard left click without modifiers
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                    e.preventDefault(); 
+                    handleTabClick(tab); 
+                }
+            }}
+            className={`flex items-center gap-3 w-full text-left transition-colors duration-200 rounded-md overflow-hidden whitespace-nowrap cursor-pointer no-underline ${
                 isDropdownItem 
                 ? `px-4 py-2 text-sm ${activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
                 : `px-4 py-3 text-sm font-medium ${activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
@@ -71,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
                 {label}
             </span>
-        </button>
+        </a>
     );
 
     return (

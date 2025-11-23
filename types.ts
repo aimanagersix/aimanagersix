@@ -48,6 +48,7 @@ export interface ResourceContact {
     id: string;
     resource_type: 'supplier' | 'entidade' | 'instituicao';
     resource_id: string;
+    title?: string; // e.g. "Eng.", "Dr."
     name: string;
     role: string; // Managed via ContactRole
     email: string;
@@ -60,6 +61,11 @@ export interface SupplierContact extends ResourceContact {}
 export interface ContactRole {
     id: string;
     name: string;
+}
+
+export interface ContactTitle {
+    id: string;
+    name: string; // e.g. "Eng.", "Dr.", "Sr."
 }
 
 export interface Supplier {
@@ -203,6 +209,7 @@ export type AppModule = 'inventory' | 'organization' | 'collaborators' | 'licens
 export interface Collaborator {
   id: string;
   numeroMecanografico: string;
+  title?: string; // Trato
   fullName: string;
   entidadeId: string;
   email: string;

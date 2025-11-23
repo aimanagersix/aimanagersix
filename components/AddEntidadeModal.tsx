@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, EntidadeStatus, ResourceContact } from '../types';
@@ -77,29 +71,26 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.instituicaoId) newErrors.instituicaoId = "A instituição é obrigatória.";
         if (!formData.name?.trim()) newErrors.name = "O nome é obrigatório.";
         if (!formData.codigo?.trim()) newErrors.codigo = "O código é obrigatório.";
-        if (!formData.email?.trim()) {
-            newErrors.email = "O email é obrigatório.";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            newErrors.email = "O formato do email é inválido.";
+        if (!formData.instituicaoId) newErrors.instituicaoId = "A instituição é obrigatória.";
+        
+        if (formData.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            newErrors.email = "Email inválido.";
         }
+        
         if (formData.telefone?.trim() && !isPortuguesePhoneNumber(formData.telefone)) {
-            newErrors.telefone = "Número de telefone inválido. Use um número português de 9 dígitos.";
+            newErrors.telefone = "Telefone inválido.";
         }
         if (formData.telemovel?.trim() && !isPortuguesePhoneNumber(formData.telemovel)) {
-            newErrors.telemovel = "Número de telemóvel inválido. Use um número português de 9 dígitos.";
-        }
-        if (formData.telefoneInterno && !/^\d+$/.test(formData.telefoneInterno)) {
-            newErrors.telefoneInterno = "O telefone interno deve conter apenas números.";
+            newErrors.telemovel = "Telemóvel inválido.";
         }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
         if (errors[name]) {
@@ -112,35 +103,17 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
     };
 
     const handleFetchNifData = async () => {
-        if (!formData.nif?.trim()) {
-            setErrors(prev => ({ ...prev, nif: "Insira um NIF para pesquisar." }));
-            return;
-        }
-
+        if (!formData.nif?.trim()) return;
         const nif = formData.nif.trim().replace(/[^0-9]/g, '');
-        
-        // Validar NIF português (9 dígitos)
-        if (nif.length !== 9) {
-             setErrors(prev => ({ ...prev, nif: "O NIF deve ter 9 dígitos." }));
-             return;
-        }
+        if (nif.length !== 9) return;
 
         setIsFetchingNif(true);
-        setErrors(prev => {
-            const newErr = { ...prev };
-            delete newErr.nif;
-            return newErr;
-        });
-
         try {
             const response = await fetch(`https://corsproxy.io/?https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`);
-            
             if (response.ok) {
                 const data = await response.json();
-                
                 if (data.result === 'success' && data.records && data.records[nif]) {
                     const record = data.records[nif];
-                    
                     setFormData(prev => ({
                         ...prev,
                         name: prev.name || record.title,
@@ -152,16 +125,10 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         email: record.contacts?.email || prev.email,
                         telefone: record.contacts?.phone || prev.telefone,
                     }));
-                } else {
-                     setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
                 }
-            } else {
-                 setErrors(prev => ({ ...prev, nif: "Erro ao comunicar com o serviço de validação." }));
             }
-
         } catch (e) {
-            console.error("Erro NIF.pt:", e);
-            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF." }));
+            console.error("Erro NIF:", e);
         } finally {
             setIsFetchingNif(false);
         }
@@ -211,10 +178,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         e.preventDefault();
         if (!validate()) return;
         
-        // Create legacy address string
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
-        
-        // Separate main data and contacts
         const dataToSave: any = { ...formData, address };
         const contacts = dataToSave.contacts;
         delete dataToSave.contacts;
@@ -227,21 +191,20 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                 result = await onSave(dataToSave);
             }
 
-            // Save contacts if result has ID
             if (result && result.id) {
                 await dataService.syncResourceContacts('entidade', result.id, contacts);
             }
             onClose();
         } catch (e) {
-            console.error("Failed to save entity", e);
-            alert("Erro ao salvar a entidade.");
+            console.error(e);
+            alert("Erro ao salvar entidade.");
         }
     };
-    
+
     const modalTitle = entidadeToEdit ? "Editar Entidade" : "Adicionar Nova Entidade";
 
     return (
-        <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title={modalTitle} onClose={onClose}>
             <div className="flex border-b border-gray-700 mb-4">
                 <button 
                     onClick={() => setActiveTab('general')} 
@@ -261,15 +224,18 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                 {activeTab === 'general' && (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div>
+                            <div>
                                 <label htmlFor="instituicaoId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Instituição</label>
-                                <select name="instituicaoId" id="instituicaoId" value={formData.instituicaoId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.instituicaoId ? 'border-red-500' : 'border-gray-600'}`} >
-                                     <option value="" disabled>Selecione uma Instituição</option>
-                                     {instituicoes.map(ent => (
-                                         <option key={ent.id} value={ent.id}>{ent.name}</option>
-                                     ))}
+                                <select 
+                                    name="instituicaoId" 
+                                    id="instituicaoId" 
+                                    value={formData.instituicaoId} 
+                                    onChange={handleChange} 
+                                    className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.instituicaoId ? 'border-red-500' : 'border-gray-600'}`}
+                                >
+                                    {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
                                 </select>
-                                 {errors.instituicaoId && <p className="text-red-400 text-xs italic mt-1">{errors.instituicaoId}</p>}
+                                {errors.instituicaoId && <p className="text-red-400 text-xs italic mt-1">{errors.instituicaoId}</p>}
                             </div>
                             <div>
                                 <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF (Opcional)</label>
@@ -280,61 +246,73 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                                         id="nif" 
                                         value={formData.nif} 
                                         onChange={handleChange} 
-                                        placeholder="NIF"
-                                        className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
+                                        className="flex-grow bg-gray-700 border border-gray-600 text-white rounded-l-md p-2"
                                     />
                                     <button 
                                         type="button" 
                                         onClick={handleFetchNifData}
-                                        disabled={isFetchingNif || !formData.nif}
-                                        className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white transition-colors border-t border-b border-r border-gray-600 flex items-center justify-center min-w-[3rem]"
-                                        title="Preencher dados via NIF"
+                                        disabled={isFetchingNif}
+                                        className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white border-t border-b border-r border-gray-600"
                                     >
                                         {isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}
                                     </button>
                                 </div>
-                                {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome da Entidade</label>
-                                <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.name ? 'border-red-500' : 'border-gray-600'}`} />
-                                {errors.name && <p className="text-red-400 text-xs italic mt-1">{errors.name}</p>}
-                            </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código</label>
                                 <input type="text" name="codigo" id="codigo" value={formData.codigo} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.codigo ? 'border-red-500' : 'border-gray-600'}`} />
                                 {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
                             </div>
-                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div>
-                                <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Status</label>
-                                <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" >
-                                     {Object.values(EntidadeStatus).map(status => (
-                                         <option key={status} value={status}>{status}</option>
-                                     ))}
-                                </select>
+                            <div className="md:col-span-2">
+                                <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome</label>
+                                <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.name ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.name && <p className="text-red-400 text-xs italic mt-1">{errors.name}</p>}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição</label>
+                            <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={2} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"></textarea>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="responsavel" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Responsável</label>
+                                <input type="text" name="responsavel" id="responsavel" value={formData.responsavel} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                             </div>
                             <div>
                                 <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>
                                 <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.email ? 'border-red-500' : 'border-gray-600'}`} />
                                 {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
                             </div>
-                         </div>
-                        <div>
-                            <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição</label>
-                            <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" ></textarea>
                         </div>
 
-                        {/* Address Section */}
-                        <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
-                            <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada da Entidade</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label htmlFor="telefone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone</label>
+                                <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.telefone && <p className="text-red-400 text-xs italic mt-1">{errors.telefone}</p>}
+                            </div>
+                            <div>
+                                <label htmlFor="telemovel" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telemóvel</label>
+                                <input type="tel" name="telemovel" id="telemovel" value={formData.telemovel} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telemovel ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.telemovel && <p className="text-red-400 text-xs italic mt-1">{errors.telemovel}</p>}
+                            </div>
+                            <div>
+                                <label htmlFor="telefoneInterno" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Extensão</label>
+                                <input type="text" name="telefoneInterno" id="telefoneInterno" value={formData.telefoneInterno} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700">
+                            <h4 className="text-sm font-semibold text-white mb-2">Morada</h4>
                             <div className="space-y-3">
                                 <div>
                                     <label htmlFor="address_line" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Endereço</label>
-                                    <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua Principal, 123" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                                    <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div>
@@ -345,7 +323,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                                         </div>
                                     </div>
                                     <div>
-                                        <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade / Concelho</label>
+                                        <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade</label>
                                         <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
                                     </div>
                                     <div>
@@ -356,29 +334,11 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                             </div>
                         </div>
 
-                         <div className="border-t border-gray-600 pt-4 mt-4">
-                            <h3 className="text-lg font-medium text-on-surface-dark mb-2">Contacto do Responsável</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="responsavel" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome do Responsável (Opcional)</label>
-                                    <input type="text" name="responsavel" id="responsavel" value={formData.responsavel} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                                <div>
-                                    <label htmlFor="telefone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone (Opcional)</label>
-                                    <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} />
-                                     {errors.telefone && <p className="text-red-400 text-xs italic mt-1">{errors.telefone}</p>}
-                                </div>
-                                <div>
-                                    <label htmlFor="telemovel" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telemóvel (Opcional)</label>
-                                    <input type="tel" name="telemovel" id="telemovel" value={formData.telemovel} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telemovel ? 'border-red-500' : 'border-gray-600'}`} />
-                                    {errors.telemovel && <p className="text-red-400 text-xs italic mt-1">{errors.telemovel}</p>}
-                                </div>
-                                <div>
-                                    <label htmlFor="telefoneInterno" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone Interno (Opcional)</label>
-                                    <input type="text" name="telefoneInterno" id="telefoneInterno" value={formData.telefoneInterno} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefoneInterno ? 'border-red-500' : 'border-gray-600'}`} />
-                                    {errors.telefoneInterno && <p className="text-red-400 text-xs italic mt-1">{errors.telefoneInterno}</p>}
-                                </div>
-                            </div>
+                        <div>
+                            <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Status</label>
+                            <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {Object.values(EntidadeStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
                         </div>
                     </>
                 )}

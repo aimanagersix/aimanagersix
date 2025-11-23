@@ -5,7 +5,7 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
-    ResourceContact, ContactRole
+    ResourceContact, ContactRole, ContactTitle
 } from '../types';
 
 // --- Helper to fetch all data concurrently ---
@@ -16,7 +16,7 @@ export const fetchAllData = async () => {
         assignments, tickets, ticketActivities, softwareLicenses, licenseAssignments, 
         teams, teamMembers, messages, collaboratorHistory, ticketCategories, 
         securityIncidentTypes, businessServices, serviceDependencies, vulnerabilities, 
-        suppliers, backupExecutions, resilienceTests, securityTrainings, resourceContacts, contactRoles
+        suppliers, backupExecutions, resilienceTests, securityTrainings, resourceContacts, contactRoles, contactTitles
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -43,7 +43,8 @@ export const fetchAllData = async () => {
         supabase.from('resilience_tests').select('*'),
         supabase.from('security_training_records').select('*'),
         supabase.from('resource_contacts').select('*'),
-        supabase.from('contact_roles').select('*')
+        supabase.from('contact_roles').select('*'),
+        supabase.from('contact_titles').select('*')
     ]);
 
     // Helper to attach contacts
@@ -79,7 +80,8 @@ export const fetchAllData = async () => {
         backupExecutions: backupExecutions.data || [],
         resilienceTests: resilienceTests.data || [],
         securityTrainings: securityTrainings.data || [],
-        contactRoles: contactRoles.data || []
+        contactRoles: contactRoles.data || [],
+        contactTitles: contactTitles.data || []
     };
 };
 
@@ -323,6 +325,7 @@ export const updateSupplier = async (id: string, data: any) => {
              const contactsWithId = contacts.map((c: any) => ({ 
                  resource_id: id,
                  resource_type: 'supplier',
+                 title: c.title,
                  name: c.name, 
                  role: c.role, 
                  email: c.email, 
@@ -391,6 +394,11 @@ export const addContactRole = (data: any) => create('contact_roles', data);
 export const updateContactRole = (id: string, data: any) => update('contact_roles', id, data);
 export const deleteContactRole = (id: string) => remove('contact_roles', id);
 
+// Contact Titles (Tratos)
+export const addContactTitle = (data: any) => create('contact_titles', data);
+export const updateContactTitle = (id: string, data: any) => update('contact_titles', id, data);
+export const deleteContactTitle = (id: string) => remove('contact_titles', id);
+
 // Contacts Generic
 export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade' | 'instituicao', resourceId: string, contacts: any[]) => {
     const supabase = getSupabase();
@@ -400,6 +408,7 @@ export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade'
         const inserts = contacts.map(c => ({
             resource_type: resourceType,
             resource_id: resourceId,
+            title: c.title,
             name: c.name,
             role: c.role,
             email: c.email,

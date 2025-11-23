@@ -77,8 +77,33 @@ type Session = any;
 const InnerApp: React.FC = () => {
     const { t } = useLanguage();
     const { layoutMode } = useLayout();
-    const [activeTab, setActiveTab] = useState('overview');
+    
+    // Initialize activeTab from URL hash if present
+    const getTabFromHash = () => {
+        const hash = window.location.hash.replace('#', '');
+        return hash || 'overview';
+    };
+
+    const [activeTab, setActiveTabState] = useState(getTabFromHash());
     const [initialFilter, setInitialFilter] = useState<any>(null);
+    
+    // Update URL hash when tab changes
+    const setActiveTab = (tab: string) => {
+        setActiveTabState(tab);
+        window.location.hash = tab;
+    };
+
+    // Listen for hash changes (e.g., back button or manual URL change)
+    useEffect(() => {
+        const handleHashChange = () => {
+            const newTab = getTabFromHash();
+            if (newTab !== activeTab) {
+                setActiveTabState(newTab);
+            }
+        };
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, [activeTab]);
     
     // UI State for Sidebar Expansion
     const [sidebarExpanded, setSidebarExpanded] = useState(false);
@@ -581,7 +606,7 @@ const InnerApp: React.FC = () => {
         'organizacao.entidades': 'Entidades',
         'organizacao.teams': 'Equipas',
         'collaborators': 'Colaboradores',
-        'organizacao.agenda': 'Agenda de Contactos', // Added
+        'organizacao.agenda': 'Agenda de Contactos',
         'licensing': 'Licenciamento',
         'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets', categories: 'Categorias', incident_types: 'Tipos de Incidente' },

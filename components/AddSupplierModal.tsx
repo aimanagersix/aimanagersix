@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, SupplierContact } from '../types';
 import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope } from 'react-icons/fa';
 import { SearchIcon, SpinnerIcon, DeleteIcon, PlusIcon } from './common/Icons';
+import { ContactList } from './common/ContactList'; // Import generic contact list
 
 interface AddSupplierModalProps {
     onClose: () => void;
@@ -66,14 +66,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     // Extra Certificates State
     const [newCertName, setNewCertName] = useState('');
     const [newCertDate, setNewCertDate] = useState('');
-
-    // Contacts State
-    const [newContact, setNewContact] = useState<Partial<SupplierContact>>({
-        name: '',
-        role: 'Técnico',
-        email: '',
-        phone: ''
-    });
 
     // Contracts State
     const [newContract, setNewContract] = useState<Partial<SupplierContract>>({
@@ -278,41 +270,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         }));
     };
 
-    // Contact Handlers
-    const handleAddContact = () => {
-        if (!newContact.name?.trim()) {
-            alert("O nome do contacto é obrigatório.");
-            return;
-        }
-        
-        const contact: SupplierContact = {
-            id: crypto.randomUUID(),
-            resource_type: 'supplier',
-            resource_id: '', // Set on save
-            name: newContact.name || '',
-            role: newContact.role || 'Técnico',
-            email: newContact.email || '',
-            phone: newContact.phone || ''
-        };
-
-        setFormData(prev => ({
-            ...prev,
-            contacts: [...(prev.contacts || []), contact]
-        }));
-
-        setNewContact({
-            name: '',
-            role: 'Técnico',
-            email: '',
-            phone: ''
-        });
-    };
-
-    const handleRemoveContact = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            contacts: (prev.contacts || []).filter((_, i) => i !== index)
-        }));
+    const handleContactsChange = (contacts: SupplierContact[]) => {
+        setFormData(prev => ({ ...prev, contacts }));
     };
 
     // Contract Handlers
@@ -778,94 +737,11 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     )}
 
                     {activeTab === 'contacts' && (
-                        <div className="space-y-6 p-1">
-                            <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                <h4 className="text-white font-bold mb-4 flex items-center gap-2"><FaPlus /> Adicionar Contacto</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Nome</label>
-                                        <input 
-                                            type="text" 
-                                            value={newContact.name}
-                                            onChange={(e) => setNewContact({...newContact, name: e.target.value})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                            placeholder="Ex: João Silva"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Papel / Função</label>
-                                        <select 
-                                            value={newContact.role}
-                                            onChange={(e) => setNewContact({...newContact, role: e.target.value})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                        >
-                                            <option value="Técnico">Técnico</option>
-                                            <option value="Comercial">Comercial</option>
-                                            <option value="Financeiro">Financeiro</option>
-                                            <option value="DPO/CISO">DPO / CISO</option>
-                                            <option value="Gestor de Conta">Gestor de Conta</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Email</label>
-                                        <input 
-                                            type="email" 
-                                            value={newContact.email}
-                                            onChange={(e) => setNewContact({...newContact, email: e.target.value})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                            placeholder="email@fornecedor.com"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Telefone</label>
-                                        <input 
-                                            type="text" 
-                                            value={newContact.phone}
-                                            onChange={(e) => setNewContact({...newContact, phone: e.target.value})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                            placeholder="+351..."
-                                        />
-                                    </div>
-                                </div>
-                                <button 
-                                    type="button" 
-                                    onClick={handleAddContact}
-                                    className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded flex items-center justify-center gap-2 transition-colors"
-                                >
-                                    <FaUserTie /> Adicionar Pessoa
-                                </button>
-                            </div>
-
-                            <div>
-                                <h4 className="text-white font-bold mb-3 border-b border-gray-700 pb-1">Lista de Contactos ({formData.contacts?.length || 0})</h4>
-                                <div className="space-y-2">
-                                    {(formData.contacts || []).map((contact, idx) => (
-                                        <div key={idx} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-bold text-white text-sm flex items-center gap-2">
-                                                    <FaUserTie className="text-gray-400"/> {contact.name} 
-                                                    <span className="text-xs font-normal bg-gray-700 px-2 rounded text-gray-300">{contact.role}</span>
-                                                </p>
-                                                <div className="text-xs text-gray-400 flex gap-3 mt-1">
-                                                    {contact.email && <span className="flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {contact.email}</span>}
-                                                    {contact.phone && <span className="flex items-center gap-1"><FaPhone className="h-3 w-3"/> {contact.phone}</span>}
-                                                </div>
-                                            </div>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => handleRemoveContact(idx)}
-                                                className="text-red-400 hover:text-red-300 p-2"
-                                            >
-                                                <DeleteIcon className="h-4 w-4"/>
-                                            </button>
-                                        </div>
-                                    ))}
-                                    {(formData.contacts || []).length === 0 && (
-                                        <p className="text-center text-gray-500 text-sm py-4 italic">Nenhum contacto adicional registado.</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                        <ContactList 
+                            contacts={formData.contacts || []} 
+                            onChange={handleContactsChange} 
+                            resourceType="supplier"
+                        />
                     )}
 
                     {activeTab === 'contracts' && (

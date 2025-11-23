@@ -1,14 +1,10 @@
-
-
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, AppModule } from '../types';
-import { FaMagic, FaEye, FaEyeSlash, UserIcon, CameraIcon, DeleteIcon, FaLock } from './common/Icons';
+import { FaMagic, FaEye, FaEyeSlash, UserIcon, CameraIcon, DeleteIcon, FaLock, FaCog } from './common/Icons';
 import * as dataService from '../services/dataService';
 import { SpinnerIcon } from './common/Icons';
+import ManageContactTitlesModal from './ManageContactTitlesModal';
 
 const isPortuguesePhoneNumber = (phone: string): boolean => {
     if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
@@ -59,6 +55,7 @@ interface AddCollaboratorModalProps {
 const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, onSave, collaboratorToEdit, escolasDepartamentos: entidades, currentUser }) => {
     const [formData, setFormData] = useState<Partial<Collaborator>>({
         numeroMecanografico: '',
+        title: '',
         fullName: '',
         email: '',
         nif: '',
@@ -85,13 +82,34 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isFetchingCP, setIsFetchingCP] = useState(false);
     
+    const [titles, setTitles] = useState<string[]>([]);
+    const [showManageTitles, setShowManageTitles] = useState(false);
+    
     const isAdmin = currentUser?.role === UserRole.Admin;
     const isTargetAdmin = formData.role === UserRole.Admin;
+
+    const loadTitles = async () => {
+        try {
+            const data = await dataService.fetchAllData();
+            if (data.contactTitles && data.contactTitles.length > 0) {
+                setTitles(data.contactTitles.map((t: any) => t.name).sort());
+            } else {
+                setTitles(['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª']);
+            }
+        } catch (e) {
+            console.error("Failed to load titles", e);
+        }
+    };
+
+    useEffect(() => {
+        loadTitles();
+    }, []);
 
     useEffect(() => {
         if (collaboratorToEdit) {
             setFormData({
                 numeroMecanografico: collaboratorToEdit.numeroMecanografico,
+                title: collaboratorToEdit.title || '',
                 fullName: collaboratorToEdit.fullName,
                 email: collaboratorToEdit.email,
                 nif: collaboratorToEdit.nif || '',
@@ -116,6 +134,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         } else {
              setFormData({
                 numeroMecanografico: '',
+                title: '',
                 fullName: '',
                 email: '',
                 nif: '',
@@ -328,10 +347,33 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 {errors.numeroMecanografico && <p className="text-red-400 text-xs italic mt-1">{errors.numeroMecanografico}</p>}
                             </div>
                             <div>
-                                <label htmlFor="fullName" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome Completo</label>
-                                <input type="text" name="fullName" id="fullName" value={formData.fullName} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.fullName ? 'border-red-500' : 'border-gray-600'}`} />
-                                {errors.fullName && <p className="text-red-400 text-xs italic mt-1">{errors.fullName}</p>}
+                                <label htmlFor="title" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Trato (Opcional)</label>
+                                <div className="flex gap-2">
+                                    <select 
+                                        name="title" 
+                                        id="title" 
+                                        value={formData.title} 
+                                        onChange={handleChange} 
+                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                                    >
+                                        <option value="">--</option>
+                                        {titles.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowManageTitles(true)}
+                                        className="bg-gray-600 text-white px-2 rounded hover:bg-gray-500"
+                                        title="Gerir Tratos"
+                                    >
+                                        <FaCog />
+                                    </button>
+                                </div>
                             </div>
+                        </div>
+                        <div>
+                            <label htmlFor="fullName" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome Completo</label>
+                            <input type="text" name="fullName" id="fullName" value={formData.fullName} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.fullName ? 'border-red-500' : 'border-gray-600'}`} />
+                            {errors.fullName && <p className="text-red-400 text-xs italic mt-1">{errors.fullName}</p>}
                         </div>
                         <div>
                             <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF (Opcional)</label>
@@ -550,6 +592,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
                 </div>
             </form>
+            
+            {showManageTitles && (
+                <ManageContactTitlesModal 
+                    onClose={() => setShowManageTitles(false)} 
+                    onTitlesUpdated={loadTitles} 
+                />
+            )}
         </Modal>
     );
 };

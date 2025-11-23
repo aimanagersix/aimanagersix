@@ -1,25 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -178,6 +156,13 @@ BEGIN
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS city text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS nif text;
+        -- Novo: Trato
+        ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS title text;
+    END IF;
+    
+    -- Resource Contacts: Adicionar campo Title
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'resource_contacts') THEN
+        ALTER TABLE resource_contacts ADD COLUMN IF NOT EXISTS title text;
     END IF;
 END $$;
 
@@ -191,6 +176,7 @@ CREATE TABLE IF NOT EXISTS resource_contacts (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     resource_type text NOT NULL CHECK (resource_type IN ('supplier', 'entidade', 'instituicao')),
     resource_id uuid NOT NULL,
+    title text,
     name text NOT NULL,
     role text,
     email text,
@@ -205,9 +191,21 @@ CREATE TABLE IF NOT EXISTS contact_roles (
     created_at timestamptz DEFAULT now()
 );
 
+-- Titles/Honorifics for contacts (User configurable)
+CREATE TABLE IF NOT EXISTS contact_titles (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    created_at timestamptz DEFAULT now()
+);
+
 -- Insert default roles
 INSERT INTO contact_roles (name) VALUES 
 ('Técnico'), ('Comercial'), ('Financeiro'), ('DPO / CISO'), ('Gestor de Conta'), ('Diretor'), ('Secretaria')
+ON CONFLICT (name) DO NOTHING;
+
+-- Insert default titles
+INSERT INTO contact_titles (name) VALUES
+('Sr.'), ('Sra.'), ('Dr.'), ('Dra.'), ('Eng.'), ('Eng.ª'), ('Arq.'), ('Prof.')
 ON CONFLICT (name) DO NOTHING;
 
 -- Keep supplier_contacts for legacy compatibility, but consider migrating data
@@ -252,6 +250,7 @@ CREATE TABLE IF NOT EXISTS entidades (
 CREATE TABLE IF NOT EXISTS collaborators (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     "numeroMecanografico" text,
+    title text,
     "fullName" text NOT NULL,
     "entidadeId" uuid REFERENCES entidades(id),
     email text,
