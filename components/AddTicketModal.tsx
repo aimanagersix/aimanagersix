@@ -4,7 +4,7 @@ import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus } from '../types';
 import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck } from './common/Icons';
 import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
-import { FaLightbulb } from 'react-icons/fa';
+import { FaLightbulb, FaLock } from 'react-icons/fa';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -164,12 +164,14 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                     // Automatically upgrade criticality if it's lower than the asset's criticality
                     if (formData.impactCriticality !== selectedEquipment.criticality) {
                         setFormData(prev => ({ ...prev, impactCriticality: selectedEquipment.criticality }));
-                        setAutoSeverityMessage(`Prioridade ajustada automaticamente: Este ativo é classificado como '${selectedEquipment.criticality}' (NIS2).`);
-                        // Auto-dismiss message
-                        setTimeout(() => setAutoSeverityMessage(null), 8000);
+                        setAutoSeverityMessage(`Compliance NIS2: Nível de risco escalado automaticamente porque o ativo "${selectedEquipment.description}" é crítico.`);
                     }
+                } else {
+                    setAutoSeverityMessage(null);
                 }
             }
+        } else {
+            setAutoSeverityMessage(null);
         }
     }, [formData.equipmentId, equipment, equipmentTypes]);
 
@@ -541,9 +543,12 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                             })}
                         </select>
                         {autoSeverityMessage && (
-                            <div className="mt-1 p-2 bg-yellow-600/20 border border-yellow-600/50 rounded text-xs text-yellow-200 flex items-center gap-2 animate-fade-in">
-                                <FaExclamationTriangle className="flex-shrink-0" />
-                                {autoSeverityMessage}
+                            <div className="mt-2 p-3 bg-orange-600/20 border border-orange-500/50 rounded text-xs text-orange-200 flex flex-col gap-1 animate-fade-in shadow-md">
+                                <div className="flex items-center gap-2 font-bold">
+                                    <FaLock className="flex-shrink-0" />
+                                    <span>Segurança & Compliance</span>
+                                </div>
+                                <p>{autoSeverityMessage}</p>
                             </div>
                         )}
                     </div>
