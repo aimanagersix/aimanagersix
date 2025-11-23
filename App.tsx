@@ -1,8 +1,10 @@
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
-  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution
+  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -65,6 +67,7 @@ import BackupDashboard from './components/BackupDashboard';
 import AddBackupModal from './components/AddBackupModal';
 import AutomationModal from './components/AutomationModal';
 import MagicCommandBar from './components/MagicCommandBar';
+import ResilienceDashboard from './components/ResilienceDashboard';
 
 type Session = any;
 
@@ -100,6 +103,7 @@ const InnerApp: React.FC = () => {
     const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [backupExecutions, setBackupExecutions] = useState<BackupExecution[]>([]);
+    const [resilienceTests, setResilienceTests] = useState<ResilienceTest[]>([]);
 
     // UI State
     const [isConfigured, setIsConfigured] = useState(!!localStorage.getItem('SUPABASE_URL'));
@@ -199,6 +203,7 @@ const InnerApp: React.FC = () => {
             setSecurityIncidentTypes(data.securityIncidentTypes);
             setSuppliers(data.suppliers);
             setBackupExecutions(data.backupExecutions);
+            setResilienceTests(data.resilienceTests);
         } catch (error) {
             console.error("Failed to load data:", error);
         } finally {
@@ -273,6 +278,7 @@ const InnerApp: React.FC = () => {
                  setSecurityIncidentTypes(data.securityIncidentTypes);
                  setSuppliers(data.suppliers);
                  setBackupExecutions(data.backupExecutions);
+                 setResilienceTests(data.resilienceTests);
              } else {
                  console.warn("User logged in but not found in collaborators table");
              }
@@ -550,7 +556,7 @@ const InnerApp: React.FC = () => {
         'licensing': 'Licenciamento',
         'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets', categories: 'Categorias', incident_types: 'Tipos de Incidente' },
-        'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Restauro & Backups' }
+        'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' }
     };
 
     return (
@@ -847,6 +853,16 @@ const InnerApp: React.FC = () => {
                     />
                 )}
 
+                {activeTab === 'nis2.resilience' && (
+                    <ResilienceDashboard
+                        resilienceTests={resilienceTests}
+                        onCreate={() => { /* Handled by internal state */ }}
+                        onEdit={() => {} /* Handled by internal state */ }
+                        onDelete={(id) => handleDelete('Excluir Teste', 'Tem a certeza? Os relatórios associados serão perdidos.', () => simpleSaveWrapper(dataService.deleteResilienceTest, id))}
+                        onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
+                    />
+                )}
+
             </main>
 
             {/* --- MODALS --- */}
@@ -879,9 +895,6 @@ const InnerApp: React.FC = () => {
                     ticketActivities={ticketActivities}
                     businessServices={businessServices}
                     serviceDependencies={serviceDependencies}
-                    softwareLicenses={softwareLicenses}
-                    licenseAssignments={licenseAssignments}
-                    vulnerabilities={vulnerabilities}
                     onClose={() => setEquipmentForHistory(null)}
                     suppliers={suppliers}
                     onEdit={(eq) => {

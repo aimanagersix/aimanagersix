@@ -10,6 +10,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -484,6 +486,35 @@ CREATE TABLE IF NOT EXISTS backup_executions (
 );
 
 -- ==========================================
+-- NOVAS TABELAS: NIS2 FORMAÇÃO E RESILIÊNCIA
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS security_training_records (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
+    training_type text NOT NULL,
+    completion_date text NOT NULL,
+    status text DEFAULT 'Concluído',
+    score integer,
+    notes text,
+    valid_until text,
+    created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS resilience_tests (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    title text NOT NULL,
+    test_type text NOT NULL,
+    planned_date text NOT NULL,
+    executed_date text,
+    status text DEFAULT 'Planeado',
+    auditor_entity text,
+    summary_findings text,
+    attachments jsonb DEFAULT '[]',
+    created_at timestamptz DEFAULT now()
+);
+
+-- ==========================================
 -- CORREÇÃO DA TABELA TEAM_MEMBERS
 -- ==========================================
 DROP TABLE IF EXISTS team_members;
@@ -530,7 +561,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script foi atualizado para adicionar campos de <strong>DORA (Contratos)</strong> e <strong>Notificações Regulatórias (NIS2)</strong>.
+                        Este script foi atualizado para adicionar tabelas de <strong>Formação de Segurança</strong> e <strong>Testes de Resiliência</strong>.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

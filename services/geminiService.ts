@@ -1,5 +1,7 @@
 
 
+
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -570,5 +572,136 @@ export const generateNis2Notification = async (ticket: any, activities: any[]): 
     } catch (error) {
         console.error("Error generating regulatory notification:", error);
         throw new Error("Failed to generate report.");
+    }
+};
+
+// --- Human Risk Analysis (Training Suggestion) ---
+
+export interface TrainingRecommendation {
+    needsTraining: boolean;
+    reason: string;
+    recommendedModule: string; // e.g., "Phishing Awareness", "Password Security"
+}
+
+export const analyzeCollaboratorRisk = async (ticketHistory: any[]): Promise<TrainingRecommendation> => {
+    try {
+        const ai = getAiClient();
+        
+        const context = ticketHistory.map(t => ({
+            category: t.category,
+            type: t.securityIncidentType,
+            description: t.description,
+            date: t.requestDate
+        }));
+
+        const prompt = `
+        Act as a Cybersecurity Awareness Officer.
+        Analyze the ticket history of a collaborator to identify risky behavior patterns.
+        
+        Ticket History:
+        ${JSON.stringify(context)}
+
+        Task:
+        Determine if this user demonstrates a need for specific security training (e.g., clicking links, forgetting passwords often, losing devices).
+        
+        Return JSON:
+        {
+            "needsTraining": boolean,
+            "reason": "Short explanation in Portuguese (e.g., 'Usuário reportou 3 incidentes de vírus/phishing este ano')",
+            "recommendedModule": "Specific training topic (e.g., 'Navegação Segura', 'Gestão de Senhas', 'Simulação Phishing')"
+        }
+        If history is clean or sparse, return needsTraining: false.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        needsTraining: { type: Type.BOOLEAN },
+                        reason: { type: Type.STRING },
+                        recommendedModule: { type: Type.STRING }
+                    },
+                    required: ["needsTraining", "reason", "recommendedModule"]
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "{}";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error analyzing collaborator risk:", error);
+        return { needsTraining: false, reason: "", recommendedModule: "" };
+    }
+};
+
+// --- Pentest Report Parsing (DORA) ---
+
+export interface PentestFinding {
+    title: string;
+    description: string;
+    severity: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+    remediation: string;
+}
+
+export const extractFindingsFromReport = async (base64File: string, mimeType: string): Promise<PentestFinding[]> => {
+    try {
+        const ai = getAiClient();
+        
+        const filePart = {
+            inlineData: {
+                data: base64File,
+                mimeType: mimeType,
+            },
+        };
+
+        const prompt = `
+        Act as a Cybersecurity Auditor.
+        Analyze this Pentest/Audit Report (image/pdf).
+        Extract the critical technical findings/vulnerabilities.
+        
+        For each finding, provide:
+        - Title
+        - Description (Brief summary)
+        - Severity (Map to: Baixa, Média, Alta, Crítica)
+        - Remediation (Suggested fix)
+
+        Return a JSON Array of objects.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: {
+                role: 'user',
+                parts: [filePart, { text: prompt }]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            title: { type: Type.STRING },
+                            description: { type: Type.STRING },
+                            severity: { type: Type.STRING, enum: ['Baixa', 'Média', 'Alta', 'Crítica'] },
+                            remediation: { type: Type.STRING }
+                        },
+                        required: ["title", "description", "severity", "remediation"]
+                    }
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "[]";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error parsing report:", error);
+        throw new Error("Failed to analyze report.");
     }
 };

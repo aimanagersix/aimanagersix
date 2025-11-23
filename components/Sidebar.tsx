@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
@@ -41,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     // Logic
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
-    const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups;
+    const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience;
     const hasTicketTabs = tabConfig['tickets'];
     const hasTicketCategories = tabConfig.tickets?.categories;
     const hasIncidentTypes = tabConfig.tickets?.incident_types;
@@ -177,6 +176,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                 {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={tabConfig.nis2.bia} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={tabConfig.nis2.security} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={tabConfig.nis2.backups} icon={<FaServer />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={tabConfig.nis2.resilience} icon={<FaShieldAlt className="text-purple-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                             </div>
                         )}
                     </div>
@@ -214,101 +214,72 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 )}
             </nav>
 
-            {/* Footer Actions */}
-            {/* CRITICAL FIX: Removed 'overflow-hidden' from this container so the popup menu can be seen */}
-            <div className="p-4 border-t border-gray-800 space-y-4 bg-gray-900">
-                
-                {/* Utils Row */}
-                <div className={`flex items-center transition-all duration-300 ${isExpanded ? 'justify-between' : 'flex-col gap-4 justify-center'}`}>
-                    <button
-                        onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
-                        className="flex items-center justify-center gap-1 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs text-white transition-colors border border-gray-700"
-                        title={language === 'pt' ? 'Switch to English' : 'Mudar para Português'}
-                    >
-                        <FaGlobe className="text-brand-secondary" />
-                        {isExpanded && <span className="font-bold">{language.toUpperCase()}</span>}
-                    </button>
-
-                    <button
-                        onClick={onNotificationClick}
-                        className="relative p-2 rounded-md text-on-surface-dark-secondary hover:bg-gray-800 hover:text-white transition-colors"
-                        title={t('common.notifications')}
-                    >
-                        <FaBell className="h-5 w-5" />
-                        {notificationCount > 0 && (
-                            <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-gray-900" />
-                        )}
-                    </button>
-                </div>
-
-                {/* User Menu */}
-                {currentUser && (
+            {/* Footer / User Section */}
+            <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0 relative">
+                {currentUser ? (
                     <div className="relative">
-                        <button
+                        <button 
                             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                            className={`flex items-center gap-3 w-full p-2 rounded-md hover:bg-gray-800 text-left transition-colors ${!isExpanded ? 'justify-center' : ''}`}
+                            className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-gray-800 transition-colors"
                             title={!isExpanded ? currentUser.fullName : undefined}
                         >
                             {currentUser.photoUrl ? (
-                                <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-9 w-9 rounded-full object-cover border border-gray-600 flex-shrink-0" />
+                                <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
                             ) : (
-                                <div className="h-9 w-9 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-sm flex-shrink-0">
-                                    {currentUser.fullName.charAt(0)}
-                                </div>
+                                <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0 text-xs">{currentUser.fullName.charAt(0)}</div>
                             )}
-                            <div className={`flex-grow overflow-hidden transition-opacity duration-200 ${isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 hidden'}`}>
+                            <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}`}>
                                 <p className="text-sm font-medium text-white truncate">{currentUser.fullName}</p>
-                                <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
+                                <p className="text-xs text-gray-400 truncate">{currentUser.role}</p>
                             </div>
-                            {isExpanded && (
-                                <FaChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-                            )}
+                            {isExpanded && <FaChevronDown className="w-3 h-3 ml-auto text-gray-500" />}
                         </button>
 
+                        {/* User Menu Popup (Positioned to the right or top) */}
                         {isUserMenuOpen && (
-                            <div 
-                                className={`absolute bottom-full mb-2 bg-gray-800 rounded-md shadow-lg border border-gray-700 divide-y divide-gray-700 z-50 min-w-[220px] ${isExpanded ? 'left-0 w-full' : 'left-12'}`}
-                            >
-                                <div className="py-1">
-                                    <button onClick={() => setLayoutMode('top')} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                        <FaColumns className="text-blue-400" />
-                                        <span>Menu Superior</span>
-                                    </button>
-                                    <button onClick={() => setShowMFA(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                        <FaFingerprint className="text-brand-secondary" />
-                                        <span>Configurar 2FA</span>
-                                    </button>
-                                    {isAdmin && (
-                                        <>
-                                            {onOpenAutomation && (
-                                                <button onClick={onOpenAutomation} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                                    <FaRobot className="text-purple-400" />
-                                                    <span>Automação & Agentes</span>
-                                                </button>
-                                            )}
-                                            <button onClick={() => setShowAudit(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                                <FaClipboardList className="text-yellow-400" />
-                                                <span>Logs Auditoria</span>
+                            <div className="absolute bottom-full left-0 w-full mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50 min-w-[200px]">
+                                <button onClick={() => setLayoutMode('top')} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                    <FaColumns className="text-blue-400 w-4 h-4" />
+                                    {isExpanded && "Menu Topo"}
+                                </button>
+                                <button onClick={() => setShowMFA(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                    <FaFingerprint className="text-brand-secondary w-4 h-4" />
+                                    {isExpanded && "Configurar 2FA"}
+                                </button>
+                                {isAdmin && (
+                                    <>
+                                        {onOpenAutomation && (
+                                            <button onClick={onOpenAutomation} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                                <FaRobot className="text-purple-400 w-4 h-4" />
+                                                {isExpanded && "Automação"}
                                             </button>
-                                            <button onClick={() => setShowDbSchema(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                                <FaDatabase className="text-green-400" />
-                                                <span>Configuração BD</span>
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                                <div className="py-1">
-                                    <button onClick={onLogout} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-gray-700">
-                                        <LogoutIcon className="h-4 w-4" />
-                                        <span>{t('common.logout')}</span>
-                                    </button>
-                                </div>
+                                        )}
+                                        <button onClick={() => setShowAudit(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                            <FaClipboardList className="text-yellow-400 w-4 h-4" />
+                                            {isExpanded && "Logs Auditoria"}
+                                        </button>
+                                        <button onClick={() => setShowDbSchema(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                            <FaDatabase className="text-green-400 w-4 h-4" />
+                                            {isExpanded && "Config BD"}
+                                        </button>
+                                    </>
+                                )}
+                                <div className="border-t border-gray-700 my-1"></div>
+                                <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-gray-700">
+                                    <LogoutIcon className="w-4 h-4" />
+                                    {isExpanded && t('common.logout')}
+                                </button>
                             </div>
                         )}
                     </div>
+                ) : (
+                    <button onClick={onLogout} className="flex items-center justify-center w-full p-2 text-gray-400 hover:text-white">
+                        <LogoutIcon className="w-6 h-6" />
+                    </button>
                 )}
             </div>
         </aside>
+        
         {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
         {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
         {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}

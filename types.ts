@@ -447,3 +447,47 @@ export interface BackupExecution {
     notes?: string;
     attachments?: { name: string; dataUrl: string }[]; // Evidences (screenshots, logs)
 }
+
+// --- NIS2 Training & Awareness ---
+
+export enum TrainingType {
+    PhishingSimulation = 'Simulação Phishing',
+    SecurityPolicy = 'Leitura Política Segurança',
+    CyberHygiene = 'Higiene Cibernética (Geral)',
+    GDPR = 'RGPD / Privacidade',
+    SpecificTool = 'Ferramenta Específica'
+}
+
+export interface SecurityTrainingRecord {
+    id: string;
+    collaborator_id: string;
+    training_type: TrainingType;
+    completion_date: string;
+    status: 'Concluído' | 'Pendente' | 'Falhou';
+    score?: number; // e.g. 80/100
+    notes?: string;
+    valid_until?: string; // For recurring training
+}
+
+// --- DORA Resilience Testing ---
+
+export enum ResilienceTestType {
+    VulnerabilityScan = 'Scan Vulnerabilidades',
+    PenetrationTest = 'Penetration Test (Pentest)',
+    TLPT = 'TLPT (Red Teaming)',
+    TabletopExercise = 'Exercício de Mesa (DRP)',
+    DisasterRecovery = 'Recuperação de Desastres (Full)'
+}
+
+export interface ResilienceTest {
+    id: string;
+    title: string;
+    test_type: ResilienceTestType;
+    planned_date: string;
+    executed_date?: string;
+    status: 'Planeado' | 'Em Execução' | 'Concluído' | 'Cancelado';
+    auditor_entity?: string; // Internal or External Company
+    summary_findings?: string;
+    attachments?: { name: string; dataUrl: string }[]; // Reports
+    created_at?: string;
+}
