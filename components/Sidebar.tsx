@@ -61,6 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             href={`#${tab}`}
             onClick={(e) => { 
                 // Only prevent default if it's a standard left click without modifiers
+                // This allows Ctrl+Click or Middle Click to open in new tab naturally
                 if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
                     e.preventDefault(); 
                     handleTabClick(tab); 

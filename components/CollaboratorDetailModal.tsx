@@ -1,12 +1,10 @@
-
-
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner } from './common/Icons';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey } from './common/Icons';
 import { analyzeCollaboratorRisk, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
+import { getSupabase } from '../services/supabaseClient';
 
 interface CollaboratorDetailModalProps {
     collaborator: Collaborator;
@@ -53,7 +51,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     const [activeTab, setActiveTab] = useState<'overview' | 'training'>('overview');
     
     // Training State
-    const [trainings, setTrainings] = useState<SecurityTrainingRecord[]>([]); // Should be passed as prop in real app, fetching here for simplicity
+    const [trainings, setTrainings] = useState<SecurityTrainingRecord[]>([]);
     const [isLoadingTraining, setIsLoadingTraining] = useState(false);
     const [showAddTraining, setShowAddTraining] = useState(false);
     const [newTraining, setNewTraining] = useState<Partial<SecurityTrainingRecord>>({
@@ -63,16 +61,36 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         score: 100
     });
     
+    // Password Change State
+    const [isCurrentUser, setIsCurrentUser] = useState(false);
+    const [showPasswordChange, setShowPasswordChange] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordError, setPasswordError] = useState('');
+    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+    
     // AI Analysis State
     const [isAnalyzingRisk, setIsAnalyzingRisk] = useState(false);
     const [aiRiskAnalysis, setAiRiskAnalysis] = useState<{ needsTraining: boolean, reason: string, recommendedModule: string } | null>(null);
     const aiConfigured = isAiConfigured();
 
+    // Check if current user
+    useEffect(() => {
+        const checkUser = async () => {
+            const supabase = getSupabase();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user && user.id === collaborator.id) {
+                setIsCurrentUser(true);
+            }
+        };
+        checkUser();
+    }, [collaborator.id]);
+
     // Fetch training on mount
-    React.useEffect(() => {
+    useEffect(() => {
         const fetchTraining = async () => {
             setIsLoadingTraining(true);
-            const allData = await dataService.fetchAllData(); // ideally we'd have a specific endpoint
+            const allData = await dataService.fetchAllData(); 
             const userTraining = (allData.securityTrainings || []).filter((t: any) => t.collaborator_id === collaborator.id);
             setTrainings(userTraining);
             setIsLoadingTraining(false);
@@ -116,6 +134,35 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         } catch (e) {
             console.error(e);
             alert("Erro ao adicionar formação.");
+        }
+    };
+
+    const handleUpdatePassword = async () => {
+        setPasswordError('');
+        if (!newPassword || newPassword.length < 6) {
+            setPasswordError('A password deve ter pelo menos 6 caracteres.');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setPasswordError('As passwords não coincidem.');
+            return;
+        }
+
+        setIsUpdatingPassword(true);
+        try {
+            const supabase = getSupabase();
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            
+            alert("Password atualizada com sucesso!");
+            setShowPasswordChange(false);
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (e: any) {
+            console.error("Error updating password:", e);
+            setPasswordError(e.message || "Erro ao atualizar password.");
+        } finally {
+            setIsUpdatingPassword(false);
         }
     };
 
@@ -192,6 +239,58 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                     
                     {activeTab === 'overview' && (
                         <>
+                            {/* Change Password Section (Only for Current User) */}
+                            {isCurrentUser && (
+                                <section className="bg-gray-800/30 p-4 rounded-lg border border-gray-700">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                            <FaKey className="text-yellow-500" /> Segurança da Conta
+                                        </h3>
+                                        <button 
+                                            onClick={() => setShowPasswordChange(!showPasswordChange)}
+                                            className="text-xs text-brand-secondary hover:text-white underline"
+                                        >
+                                            {showPasswordChange ? 'Cancelar' : 'Alterar Password'}
+                                        </button>
+                                    </div>
+                                    
+                                    {showPasswordChange && (
+                                        <div className="mt-4 space-y-3 animate-fade-in bg-gray-900/50 p-3 rounded border border-gray-600">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs text-gray-400 mb-1">Nova Password</label>
+                                                    <input 
+                                                        type="password" 
+                                                        value={newPassword}
+                                                        onChange={(e) => setNewPassword(e.target.value)}
+                                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-gray-400 mb-1">Confirmar Password</label>
+                                                    <input 
+                                                        type="password" 
+                                                        value={confirmPassword}
+                                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                            {passwordError && <p className="text-red-400 text-xs">{passwordError}</p>}
+                                            <div className="flex justify-end">
+                                                <button 
+                                                    onClick={handleUpdatePassword}
+                                                    disabled={isUpdatingPassword}
+                                                    className="px-4 py-2 bg-brand-primary text-white rounded text-sm hover:bg-brand-secondary disabled:opacity-50"
+                                                >
+                                                    {isUpdatingPassword ? 'A atualizar...' : 'Atualizar Password'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </section>
+                            )}
+
                             {/* Assigned Equipment Section */}
                             <section>
                                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2"><FaLaptop /> Equipamentos Atribuídos ({assignedEquipment.length})</h3>

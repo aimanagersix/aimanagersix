@@ -246,7 +246,7 @@ const AgendaDashboard: React.FC = () => {
                                     {item.phone && (
                                         <div className="flex items-center gap-2 text-gray-300">
                                             <FaPhone className="text-gray-500 w-3 h-3" />
-                                            <span>{item.phone}</span>
+                                            <a href={`tel:${item.phone}`} className="hover:text-brand-secondary hover:underline">{item.phone}</a>
                                         </div>
                                     )}
                                 </div>

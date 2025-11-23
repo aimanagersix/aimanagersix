@@ -24,9 +24,16 @@ interface HeaderProps {
 }
 
 const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '' }: { tab: string, label: string, icon: React.ReactNode, activeTab: string, setActiveTab: (tab: string) => void, isDropdownItem?: boolean, className?: string }) => (
-    <button
-        onClick={(e) => { e.preventDefault(); setActiveTab(tab); }}
-        className={`flex items-center gap-2 w-full text-left transition-colors duration-200 rounded-md ${
+    <a
+        href={`#${tab}`}
+        onClick={(e) => { 
+            // Allow normal link behavior for modifiers (ctrl+click), hijack left click for SPA nav
+            if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                e.preventDefault(); 
+                setActiveTab(tab); 
+            }
+        }}
+        className={`flex items-center gap-2 w-full text-left transition-colors duration-200 rounded-md no-underline ${
             isDropdownItem 
             ? `px-4 py-2 text-sm ${activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
             : `px-3 py-2 text-sm font-medium ${activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
@@ -36,7 +43,7 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
     >
         {icon}
         <span>{label}</span>
-    </button>
+    </a>
 );
 
 
