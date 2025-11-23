@@ -426,7 +426,12 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-red-500/30">
                              <div>
                                 <label className="block text-xs font-bold text-red-300 mb-1">Criticidade do Impacto</label>
-                                <select name="impactCriticality" value={formData.impactCriticality} onChange={handleChange} className="w-full bg-gray-800 border border-red-700 text-white rounded p-1.5 text-sm">
+                                <select 
+                                    name="impactCriticality" 
+                                    value={formData.impactCriticality} 
+                                    onChange={handleChange} 
+                                    className={`w-full bg-gray-800 border text-white rounded p-1.5 text-sm ${autoSeverityMessage ? 'border-red-500 ring-2 ring-red-500/50' : 'border-red-700'}`}
+                                >
                                     {Object.values(CriticalityLevel).map(val => <option key={val} value={val}>{val}</option>)}
                                 </select>
                             </div>

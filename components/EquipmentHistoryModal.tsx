@@ -148,9 +148,9 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                     {onEdit && (
                         <button 
                             onClick={() => { onClose(); onEdit(equipment); }} 
-                            className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors shadow-lg font-semibold"
+                            className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg font-semibold"
                         >
-                            <FaEdit /> Corrigir / Editar Dados
+                            <FaEdit /> Corrigir Dados
                         </button>
                     )}
                 </div>

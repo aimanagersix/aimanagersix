@@ -1,8 +1,7 @@
-
 import React from 'react';
 
-// This component is a stub to prevent build errors caused by a duplicate App.tsx in the components directory.
-// The main application entry point is src/App.tsx (or root App.tsx).
+// This file is a stub to prevent build errors. 
+// The actual application entry point is located at src/App.tsx (root).
 const AppStub: React.FC = () => {
     return null;
 };
