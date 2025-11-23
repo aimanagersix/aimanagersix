@@ -5,6 +5,7 @@
 
 
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -104,7 +105,7 @@ BEGIN
         ALTER TABLE brands ADD COLUMN IF NOT EXISTS security_contact_email text;
     END IF;
 
-    -- 9. Adicionar colunas a SUPPLIERS (incluindo certificações extra)
+    -- 9. Adicionar colunas a SUPPLIERS (incluindo contratos DORA)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'suppliers') THEN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address text;
@@ -114,6 +115,8 @@ BEGIN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS locality text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS other_certifications jsonb DEFAULT '[]';
+        -- DORA Article 28: Information Register
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contracts jsonb DEFAULT '[]';
     END IF;
     
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
@@ -235,6 +238,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     security_contact_email text,
     risk_level text DEFAULT 'Baixa',
     other_certifications jsonb DEFAULT '[]',
+    contracts jsonb DEFAULT '[]',
     created_at timestamptz DEFAULT now()
 );
 
@@ -515,7 +519,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script foi atualizado para adicionar campos de <strong>FinOps</strong> (Custos) às tabelas de equipamentos e licenças.
+                        Este script foi atualizado para adicionar campos de <strong>DORA (Contratos)</strong> às tabelas de fornecedores.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

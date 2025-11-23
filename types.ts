@@ -29,7 +29,20 @@ export interface Brand {
   security_contact_email?: string;
 }
 
-// --- Supplier / Vendor Risk Management (NIS2) ---
+// --- Supplier / Vendor Risk Management (NIS2 / DORA) ---
+
+export interface SupplierContract {
+    id: string; // UUID or temp ID
+    ref_number: string; // Contract Reference
+    description: string; // e.g. "SLA Gold Hosting"
+    start_date: string;
+    end_date: string;
+    notice_period_days: number; // Exit clause notice
+    exit_strategy: string; // DORA Art. 28 (Mandatory for critical functions)
+    supported_service_ids: string[]; // Link to BusinessService IDs
+    is_active: boolean;
+}
+
 export interface Supplier {
     id: string;
     name: string;
@@ -55,6 +68,9 @@ export interface Supplier {
     
     // New: Extra certificates
     other_certifications?: { name: string; expiryDate?: string }[];
+    
+    // DORA: Contract Information
+    contracts?: SupplierContract[];
 }
 
 export interface EquipmentType {

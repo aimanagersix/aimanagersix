@@ -2,7 +2,7 @@
 import React from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
-import { FaShieldAlt, FaPhone, FaEnvelope, FaGlobe, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaCertificate, FaDownload } from './common/Icons';
+import { FaShieldAlt, FaPhone, FaEnvelope, FaGlobe, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaCertificate, FaDownload, FaFileContract, FaDoorOpen } from './common/Icons';
 
 interface SupplierDetailModalProps {
     supplier: Supplier;
@@ -22,7 +22,7 @@ const getRiskClass = (level: CriticalityLevel) => {
 
 const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onClose, onEdit }) => {
     return (
-        <Modal title={`Detalhes do Fornecedor: ${supplier.name}`} onClose={onClose} maxWidth="max-w-3xl">
+        <Modal title={`Detalhes do Fornecedor: ${supplier.name}`} onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
@@ -102,6 +102,44 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                         </div>
                     </div>
                 </div>
+
+                {/* Contracts Section (DORA) */}
+                {supplier.contracts && supplier.contracts.length > 0 && (
+                    <div className="bg-gray-900/20 border border-blue-900/50 p-4 rounded-lg">
+                        <h3 className="text-sm font-bold text-blue-200 uppercase tracking-wider border-b border-blue-900/50 pb-2 mb-3 flex items-center gap-2">
+                            <FaFileContract /> Registo de Contratos (DORA Art. 28º)
+                        </h3>
+                        <div className="grid grid-cols-1 gap-3">
+                            {supplier.contracts.map((contract, idx) => (
+                                <div key={idx} className="bg-surface-dark p-3 rounded border border-gray-700">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <span className="text-white font-bold text-sm">{contract.ref_number}</span>
+                                            <span className="text-gray-400 text-xs ml-2">- {contract.description}</span>
+                                        </div>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded ${contract.is_active ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'}`}>
+                                            {contract.is_active ? 'Ativo' : 'Inativo'}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-400 mb-2">
+                                        <div><span className="block text-[10px] uppercase">Início</span> {contract.start_date}</div>
+                                        <div><span className="block text-[10px] uppercase">Fim</span> {contract.end_date}</div>
+                                        <div><span className="block text-[10px] uppercase">Pré-Aviso</span> {contract.notice_period_days} dias</div>
+                                        <div><span className="block text-[10px] uppercase">Serviços</span> {contract.supported_service_ids?.length || 0}</div>
+                                    </div>
+                                    {contract.exit_strategy && (
+                                        <div className="text-xs bg-gray-800 p-2 rounded text-gray-300 mt-2 border-l-2 border-red-500">
+                                            <div className="flex items-center gap-1 font-bold text-red-400 mb-1">
+                                                <FaDoorOpen /> Estratégia de Saída:
+                                            </div>
+                                            {contract.exit_strategy}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Other Certifications & Files */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Supplier, CriticalityLevel } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch } from './common/Icons';
+import { Supplier, CriticalityLevel, BusinessService } from '../types';
+import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle } from './common/Icons';
 import Pagination from './common/Pagination';
 import SupplierDetailModal from './SupplierDetailModal';
 
@@ -10,6 +10,7 @@ interface SupplierDashboardProps {
   onEdit: (supplier: Supplier) => void;
   onDelete: (id: string) => void;
   onCreate: () => void;
+  businessServices: BusinessService[];
 }
 
 const getRiskClass = (level: CriticalityLevel) => {
@@ -22,7 +23,64 @@ const getRiskClass = (level: CriticalityLevel) => {
     }
 };
 
-const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit, onDelete, onCreate }) => {
+const ConcentrationRiskWidget: React.FC<{ services: BusinessService[], suppliers: Supplier[] }> = ({ services, suppliers }) => {
+    // Filter Critical Services
+    const criticalServices = services.filter(s => s.criticality === CriticalityLevel.Critical || s.criticality === CriticalityLevel.High);
+    
+    if (criticalServices.length === 0) return null;
+
+    // Count per supplier
+    const supplierMap = new Map(suppliers.map(s => [s.id, s.name]));
+    const supplierCounts: Record<string, number> = {};
+    
+    criticalServices.forEach(s => {
+        const supplierId = s.external_provider_id || 'internal';
+        supplierCounts[supplierId] = (supplierCounts[supplierId] || 0) + 1;
+    });
+
+    // Determine Max Concentration
+    let maxSupplierId = 'internal';
+    let maxCount = 0;
+    Object.entries(supplierCounts).forEach(([id, count]) => {
+        if (count > maxCount) {
+            maxCount = count;
+            maxSupplierId = id;
+        }
+    });
+
+    const percentage = Math.round((maxCount / criticalServices.length) * 100);
+    const supplierName = maxSupplierId === 'internal' ? 'Recursos Internos' : (supplierMap.get(maxSupplierId) || 'Desconhecido');
+    
+    // Alert Threshold (e.g., > 50% dependence on one vendor for critical services)
+    const isHighConcentration = percentage > 50; 
+
+    return (
+        <div className={`mb-6 p-4 rounded-lg border flex items-center justify-between gap-4 ${isHighConcentration ? 'bg-orange-900/20 border-orange-500/50' : 'bg-green-900/20 border-green-500/50'}`}>
+            <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-full ${isHighConcentration ? 'bg-orange-600 text-white' : 'bg-green-600 text-white'}`}>
+                    {isHighConcentration ? <FaExclamationTriangle className="h-5 w-5" /> : <FaCheckCircle className="h-5 w-5" />}
+                </div>
+                <div>
+                    <h3 className={`font-bold text-lg ${isHighConcentration ? 'text-orange-400' : 'text-green-400'}`}>
+                        Análise de Concentração (DORA Art. 28º)
+                    </h3>
+                    <p className="text-sm text-gray-300 mt-1">
+                        {isHighConcentration 
+                            ? `Alerta: ${percentage}% dos serviços críticos dependem do fornecedor "${supplierName}". Risco de concentração elevado.`
+                            : `Risco de concentração controlado. O maior fornecedor (${supplierName}) suporta ${percentage}% dos serviços críticos.`
+                        }
+                    </p>
+                </div>
+            </div>
+            <div className="text-right hidden sm:block">
+                <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Dependência Máxima</div>
+                <div className={`text-2xl font-bold ${isHighConcentration ? 'text-orange-400' : 'text-green-400'}`}>{percentage}%</div>
+            </div>
+        </div>
+    );
+};
+
+const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit, onDelete, onCreate, businessServices }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -50,13 +108,15 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                         Gestão de Risco de Fornecedores
                     </h2>
                     <p className="text-sm text-on-surface-dark-secondary mt-1">
-                        Avaliação e controlo de fornecedores críticos para a cadeia de abastecimento (NIS2).
+                        Avaliação e controlo de fornecedores críticos para a cadeia de abastecimento (NIS2 / DORA).
                     </p>
                 </div>
                 <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
                     <PlusIcon /> Novo Fornecedor
                 </button>
             </div>
+
+            <ConcentrationRiskWidget services={businessServices} suppliers={suppliers} />
 
             <div className="mb-4 relative max-w-md">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -79,7 +139,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                             <th scope="col" className="px-6 py-3">Contactos</th>
                             <th scope="col" className="px-6 py-3 text-center">ISO 27001</th>
                             <th scope="col" className="px-6 py-3 text-center">Nível de Risco</th>
-                            <th scope="col" className="px-6 py-3">Contacto de Segurança</th>
+                            <th scope="col" className="px-6 py-3">Contratos</th>
                             <th scope="col" className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
@@ -117,10 +177,12 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                     </span>
                                 </td>
                                 <td className="px-6 py-4">
-                                    {supplier.security_contact_email ? (
-                                        <span className="text-xs font-mono bg-gray-800 px-1 rounded">{supplier.security_contact_email}</span>
+                                    {supplier.contracts && supplier.contracts.length > 0 ? (
+                                        <span className="text-xs bg-gray-700 px-2 py-1 rounded-full text-white">
+                                            {supplier.contracts.length} Contrato(s)
+                                        </span>
                                     ) : (
-                                        <span className="text-xs text-gray-500 italic">Não definido</span>
+                                        <span className="text-xs text-gray-500 italic">--</span>
                                     )}
                                 </td>
                                 <td className="px-6 py-4 text-center">

@@ -779,6 +779,7 @@ const InnerApp: React.FC = () => {
                         onEdit={(s) => { setSupplierToEdit(s); setShowAddSupplier(true); }}
                         onDelete={(id) => handleDelete('Excluir Fornecedor', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteSupplier, id))}
                         onCreate={() => { setSupplierToEdit(null); setShowAddSupplier(true); }}
+                        businessServices={businessServices}
                     />
                 )}
 
