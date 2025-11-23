@@ -167,7 +167,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             )}
                         </button>
                         {isOrganizacaoOpen && isExpanded && (
-                            <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
+                            <div className="space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
                                 {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
@@ -272,7 +272,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
                                 {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={tabConfig['tools'].agenda} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {onOpenCalendar && <TabButton label="Calendário" icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={onOpenCalendar} />}
-                                {onOpenManual && <TabButton label="Manual" icon={<FaBook className="text-green-400" />} isDropdownItem onClick={onOpenManual} />}
+                                {onOpenManual && <TabButton label="Manual de utilização" icon={<FaBook className="text-green-400" />} isDropdownItem onClick={onOpenManual} />}
                             </div>
                         )}
                     </div>

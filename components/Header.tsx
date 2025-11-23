@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -26,7 +25,6 @@ interface HeaderProps {
 
 const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
     const handleClick = (e: React.MouseEvent) => {
-        // Allow normal link behavior for modifiers (ctrl+click, right click, etc.)
         if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) {
             return;
         }
@@ -55,8 +53,8 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
 
 
 const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
-    const { t, language, setLanguage } = useLanguage();
-    const { layoutMode, setLayoutMode } = useLayout();
+    const { t } = useLanguage();
+    const { setLayoutMode } = useLayout();
     const [isOrganizacaoMenuOpen, setOrganizacaoMenuOpen] = useState(false);
     const organizacaoMenuRef = useRef<HTMLDivElement>(null);
     const [isInventarioMenuOpen, setInventarioMenuOpen] = useState(false);
@@ -86,8 +84,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
 
     useEffect(() => {
         const handler = (e: any) => {
-            e.preventDefault(); // Prevent the mini-infobar from appearing on mobile
-            setDeferredPrompt(e); // Stash the event so it can be triggered later.
+            e.preventDefault(); 
+            setDeferredPrompt(e); 
         };
         window.addEventListener('beforeinstallprompt', handler);
         return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -138,18 +136,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         };
     }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isNis2MenuOpen, isUserMenuOpen, isTicketsMenuOpen, isOverviewMenuOpen, isToolsMenuOpen]);
 
-    const handleTabChange = (tab: string) => {
-        setActiveTab(tab);
-        setOrganizacaoMenuOpen(false);
-        setInventarioMenuOpen(false);
-        setIsNis2MenuOpen(false);
-        setIsTicketsMenuOpen(false);
-        setIsOverviewMenuOpen(false);
-        setIsToolsMenuOpen(false);
-        setIsMobileMenuOpen(false);
-    }
-    
-    // Logic to keep mobile menus open if a child is active
     const isOrganizationActive = activeTab.startsWith('organizacao') || activeTab === 'collaborators';
     const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
     const isNis2Active = activeTab.startsWith('nis2');
@@ -157,30 +143,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const isOverviewActive = activeTab.startsWith('overview');
     const isToolsActive = activeTab.startsWith('tools');
 
-    const [isMobileOrganizacaoOpen, setIsMobileOrganizacaoOpen] = useState(isOrganizationActive);
-    const [isMobileInventarioOpen, setIsMobileInventarioOpen] = useState(isInventoryActive);
-    const [isMobileNis2Open, setIsMobileNis2Open] = useState(isNis2Active);
-    const [isMobileTicketsOpen, setIsMobileTicketsOpen] = useState(isTicketsActive);
-    const [isMobileOverviewOpen, setIsMobileOverviewOpen] = useState(isOverviewActive);
-    const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(isToolsActive);
-
-    useEffect(() => {
-        if (isOrganizationActive) setIsMobileOrganizacaoOpen(true);
-        if (isInventoryActive) setIsMobileInventarioOpen(true);
-        if (isNis2Active) setIsMobileNis2Open(true);
-        if (isTicketsActive) setIsMobileTicketsOpen(true);
-        if (isOverviewActive) setIsMobileOverviewOpen(true);
-        if (isToolsActive) setIsMobileToolsOpen(true);
-    }, [activeTab, isInventoryActive, isOrganizationActive, isNis2Active, isTicketsActive, isOverviewActive, isToolsActive]);
-
-    // Define if the main menu item should be visible based on children availability
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
-    // Access nested properties safely for NIS2 and Tickets
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience;
     const hasTicketTabs = tabConfig['tickets'];
-    const hasTicketCategories = tabConfig.tickets?.categories;
-    const hasIncidentTypes = tabConfig.tickets?.incident_types;
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
     
     const isAdmin = currentUser?.role === UserRole.Admin;
@@ -214,484 +180,211 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             </svg>
                         </button>
                         {isOverviewMenuOpen && (
-                            <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
-                                <div className="py-1">
-                                    <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
-                                    <TabButton tab="overview.smart" label={tabConfig['overview.smart']} icon={<FaTachometerAlt className="h-5 w-5 text-purple-400" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                            <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                <div className="py-1" role="menu" aria-orientation="vertical">
+                                    <TabButton tab="overview" label="Dashboard Geral" icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                    <TabButton tab="overview.smart" label={tabConfig['overview.smart']} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
                                 </div>
                             </div>
                         )}
                     </div>
                   ) : (
-                    <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange}/>
+                    <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={setActiveTab}/>
                   )
               )}
-              
-              {/* 1. Organização */}
+
+              {/* Organização */}
               {hasOrganizacaoTabs && (
-                <div className="relative" ref={organizacaoMenuRef}>
-                    <button
-                        onClick={() => setOrganizacaoMenuOpen(prev => !prev)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isOrganizationActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
-                        aria-haspopup="true"
-                        aria-expanded={isOrganizacaoMenuOpen}
-                    >
-                        <FaSitemap />
-                        {t('nav.organization')}
-                        <svg className={`w-4 h-4 ml-1 transition-transform transform ${isOrganizacaoMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-                    {isOrganizacaoMenuOpen && (
-                        <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
-                            <div className="py-1">
-                                {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={tabConfig['organizacao.suppliers']} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                  <div className="relative" ref={organizacaoMenuRef}>
+                      <button
+                          onClick={() => setOrganizacaoMenuOpen(prev => !prev)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isOrganizationActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                      >
+                          <FaSitemap />
+                          {t('nav.organization')}
+                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isOrganizacaoMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                      </button>
+                      {isOrganizacaoMenuOpen && (
+                          <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                              <div className="py-1">
+                                  {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={tabConfig['organizacao.suppliers']} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                              </div>
+                          </div>
+                      )}
+                  </div>
               )}
 
-              {/* 2. Inventário / Assets */}
+              {/* Inventário */}
               {hasInventarioTabs && (
-                 <div className="relative" ref={inventarioMenuRef}>
-                    <button
-                        onClick={() => setInventarioMenuOpen(prev => !prev)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isInventoryActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
-                        aria-haspopup="true"
-                        aria-expanded={isInventarioMenuOpen}
-                    >
-                        <FaBoxOpen className="h-5 w-5"/>
-                        {t('nav.inventory')}
-                        <svg className={`w-4 h-4 ml-1 transition-transform transform ${isInventarioMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-                    {isInventarioMenuOpen && (
-                        <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
-                            <div className="py-1">
-                                {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<ClipboardListIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label={tabConfig['equipment.brands']} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8"/>}
-                                {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label={tabConfig['equipment.types']} icon={<FaShapes />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
-                                {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                  <div className="relative" ref={inventarioMenuRef}>
+                      <button
+                          onClick={() => setInventarioMenuOpen(prev => !prev)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isInventoryActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                      >
+                          <FaBoxOpen />
+                          {t('nav.inventory')}
+                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isInventarioMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                      </button>
+                      {isInventarioMenuOpen && (
+                          <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                              <div className="py-1">
+                                  {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<ClipboardListIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                              </div>
+                          </div>
+                      )}
+                  </div>
               )}
 
-              {/* 3. Norma (NIS2) / Compliance */}
+              {/* NIS2 */}
               {hasNis2Tabs && (
-                 <div className="relative" ref={nis2MenuRef}>
-                    <button
-                        onClick={() => setIsNis2MenuOpen(prev => !prev)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isNis2Active ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
-                        aria-haspopup="true"
-                        aria-expanded={isNis2MenuOpen}
-                    >
-                        <FaShieldAlt className="h-5 w-5"/>
-                        {tabConfig.nis2?.title || 'Compliance'}
-                        {isNis2MenuOpen ? (
-                            <FaUnlock className="w-4 h-4 ml-1 text-brand-secondary" />
-                        ) : (
-                            <FaLock className="w-4 h-4 ml-1 text-gray-400" />
-                        )}
-                    </button>
-                    {isNis2MenuOpen && (
-                        <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
-                            <div className="py-1">
-                                {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={tabConfig.nis2.bia} icon={<FaNetworkWired className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={tabConfig.nis2.security} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={tabConfig.nis2.backups} icon={<FaServer className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={tabConfig.nis2.resilience} icon={<FaShieldAlt className="h-5 w-5 text-purple-400" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                            </div>
-                        </div>
-                    )}
-                </div>
-              )}
-              
-              {/* 4. Suporte */}
-              {hasTicketTabs && (
-                   <div className="relative" ref={ticketsMenuRef}>
-                     <button
-                        onClick={() => {
-                            if (hasTicketCategories || hasIncidentTypes) {
-                                setIsTicketsMenuOpen(prev => !prev);
-                            } else {
-                                handleTabChange('tickets.list');
-                            }
-                        }}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isTicketsActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
-                        aria-haspopup={hasTicketCategories || hasIncidentTypes ? "true" : "false"}
-                        aria-expanded={isTicketsMenuOpen}
-                     >
-                        <FaTicketAlt />
-                        {tabConfig.tickets?.title || 'Tickets'}
-                        {(hasTicketCategories || hasIncidentTypes) && (
-                            <svg className={`w-4 h-4 ml-1 transition-transform transform ${isTicketsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        )}
-                     </button>
-                     {isTicketsMenuOpen && (hasTicketCategories || hasIncidentTypes) ? (
-                        <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
-                             <div className="py-1">
-                                <TabButton tab="tickets.list" label={tabConfig.tickets?.list || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
-                                {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig.tickets.categories} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
-                                {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig.tickets.incident_types} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
-                             </div>
-                        </div>
-                     ) : null}
-                   </div>
+                  <div className="relative" ref={nis2MenuRef}>
+                      <button
+                          onClick={() => setIsNis2MenuOpen(prev => !prev)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isNis2Active ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                      >
+                          <FaShieldAlt />
+                          {tabConfig.nis2?.title || 'Compliance'}
+                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isNis2MenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                      </button>
+                      {isNis2MenuOpen && (
+                          <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                              <div className="py-1">
+                                  {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={tabConfig.nis2.bia} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={tabConfig.nis2.security} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={tabConfig.nis2.backups} icon={<FaServer />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={tabConfig.nis2.resilience} icon={<FaShieldAlt className="text-purple-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                              </div>
+                          </div>
+                      )}
+                  </div>
               )}
 
-              {/* 5. Tools */}
+              {/* Tickets */}
+              {hasTicketTabs && (
+                  <TabButton tab="tickets.list" label={tabConfig.tickets?.title || 'Tickets'} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>
+              )}
+
+              {/* Tools */}
               {hasToolsTabs && (
-                <div className="relative" ref={toolsMenuRef}>
-                    <button
-                        onClick={() => setIsToolsMenuOpen(prev => !prev)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab.startsWith('tools') ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
-                        aria-haspopup="true"
-                        aria-expanded={isToolsMenuOpen}
-                    >
-                        <FaToolbox />
-                        Tools
-                        <svg className={`w-4 h-4 ml-1 transition-transform transform ${isToolsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-                    {isToolsMenuOpen && (
-                        <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
-                            <div className="py-1">
-                                {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={tabConfig['tools'].agenda} icon={<FaAddressBook className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {onOpenCalendar && (
-                                    <TabButton label="Calendário" icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem={true} onClick={onOpenCalendar} />
-                                )}
-                                {onOpenManual && (
-                                    <TabButton label="Manual de Utilizador" icon={<FaBook className="text-green-400" />} isDropdownItem={true} onClick={onOpenManual} />
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                  <div className="relative" ref={toolsMenuRef}>
+                      <button
+                          onClick={() => setIsToolsMenuOpen(prev => !prev)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isToolsActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                      >
+                          <FaToolbox />
+                          Tools
+                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isToolsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                      </button>
+                      {isToolsMenuOpen && (
+                          <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                              <div className="py-1">
+                                  {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={tabConfig['tools'].agenda} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {onOpenCalendar && <TabButton label="Calendário" icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={onOpenCalendar} />}
+                                  {onOpenManual && <TabButton label="Manual de utilização" icon={<FaBook className="text-green-400" />} isDropdownItem onClick={onOpenManual} />}
+                              </div>
+                          </div>
+                      )}
+                  </div>
               )}
           </nav>
 
-          <div className="flex-1 flex items-center justify-end gap-4">
-             {deferredPrompt && (
-                <button
-                    onClick={handleInstallApp}
-                    className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 transition-colors animate-bounce"
-                    title="Instalar Aplicação"
-                >
-                    <FaDownload />
-                    Instalar App
-                </button>
-             )}
-
-             {/* Language Switcher */}
-            <button
-                onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-700 hover:bg-gray-600 text-xs text-white transition-colors border border-gray-600"
-                title={language === 'pt' ? 'Switch to English' : 'Mudar para Português'}
-            >
-                <FaGlobe className="text-brand-secondary" />
-                <span className="font-bold">{language.toUpperCase()}</span>
-            </button>
-
-            <button
-                onClick={onNotificationClick}
-                className="relative p-2 rounded-md text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white transition-colors"
-                title={t('common.notifications')}
-                aria-label={t('common.notifications')}
-            >
-                <FaBell className="h-5 w-5" />
+          {/* Right Side Icons */}
+          <div className="flex items-center space-x-4">
+            <button onClick={onNotificationClick} className="relative p-2 text-gray-400 hover:text-white transition-colors">
+                <FaBell className="w-6 h-6" />
                 {notificationCount > 0 && (
-                    <span className="absolute top-1 right-1 block h-3 w-3 rounded-full bg-red-500 border-2 border-gray-800" />
+                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">
+                        {notificationCount}
+                    </span>
                 )}
             </button>
 
-             {currentUser && (
-                <div className="relative" ref={userMenuRef}>
-                    <button
-                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                        className="flex items-center gap-2 text-sm text-on-surface-dark-secondary hover:text-white"
-                    >
-                        <div className="hidden sm:flex items-center gap-2">
-                             {currentUser.photoUrl ? (
+            {/* User Menu */}
+            <div className="relative" ref={userMenuRef}>
+                <button 
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-800 transition-colors"
+                >
+                    {currentUser ? (
+                        <>
+                            {currentUser.photoUrl ? (
                                 <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" />
                             ) : (
-                                 <UserIcon className="h-5 w-5 text-brand-secondary"/>
+                                <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser.fullName.charAt(0)}</div>
                             )}
-                            <span>{t('common.welcome')}, {currentUser.fullName}</span>
-                        </div>
-                    </button>
-                    
-                    {isUserMenuOpen && (
-                        <div className="absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5 divide-y divide-gray-700" role="menu">
-                             <div className="py-1">
-                                {onOpenProfile && (
-                                    <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                        <FaUserCircle className="text-brand-secondary" />
-                                        Meu Perfil
-                                    </button>
-                                )}
-                                <button onClick={() => setLayoutMode('side')} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                    <FaColumns className="text-gray-400" />
-                                    Menu Lateral
-                                </button>
-                                <button onClick={() => setShowMFA(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                    <FaFingerprint className="text-brand-secondary" />
-                                    Configurar 2FA
-                                </button>
-                                {isAdmin && (
-                                    <>
-                                        <TabButton 
-                                            tab="settings" 
-                                            label="Configurações" 
-                                            icon={<FaCog className="text-brand-secondary w-4 h-4"/>} 
-                                            isDropdownItem 
-                                            activeTab={activeTab} 
-                                            setActiveTab={handleTabChange}
-                                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700"
-                                        />
-                                        {onOpenAutomation && (
-                                            <button onClick={onOpenAutomation} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                                <FaRobot className="text-purple-400" />
-                                                Automação & Agentes
-                                            </button>
-                                        )}
-                                        <button onClick={() => setShowAudit(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                            <FaClipboardList className="text-yellow-400" />
-                                            Logs de Auditoria
-                                        </button>
-                                        <button onClick={() => setShowDbSchema(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                            <FaDatabase className="text-green-400" />
-                                            Configuração BD
-                                        </button>
-                                    </>
-                                )}
-                             </div>
-                             <div className="py-1">
-                                <button onClick={onLogout} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-gray-700" role="menuitem">
-                                    <LogoutIcon className="h-4 w-4" />
-                                    {t('common.logout')}
-                                </button>
-                             </div>
-                        </div>
+                            <FaChevronDown className="w-3 h-3 text-gray-500" />
+                        </>
+                    ) : (
+                        <LogoutIcon className="w-6 h-6 text-gray-400" />
                     )}
-                </div>
-             )}
-
-             <div className="flex items-center md:hidden">
-                <button
-                    ref={mobileMenuButtonRef}
-                    onClick={() => setIsMobileMenuOpen(prev => !prev)}
-                    className="inline-flex items-center justify-center p-2 rounded-md text-on-surface-dark-secondary hover:text-white hover:bg-surface-dark focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                    aria-controls="mobile-menu"
-                    aria-expanded={isMobileMenuOpen}
-                >
-                    <span className="sr-only">Abrir menu principal</span>
-                    <MenuIcon className="h-6 w-6" />
                 </button>
+
+                {isUserMenuOpen && currentUser && (
+                    <div className="absolute right-0 mt-2 w-56 rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden z-50">
+                        <div className="px-4 py-3 border-b border-gray-700">
+                            <p className="text-sm text-white font-medium truncate">{currentUser.fullName}</p>
+                            <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
+                        </div>
+                        <div className="py-1">
+                            {onOpenProfile && (
+                                <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                    <FaUserCircle className="mr-3 text-brand-secondary" /> Meu Perfil
+                                </button>
+                            )}
+                            <button onClick={() => setLayoutMode('side')} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                <FaColumns className="mr-3 text-gray-400" /> Menu Lateral
+                            </button>
+                            <button onClick={() => setShowMFA(true)} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                <FaFingerprint className="mr-3 text-brand-secondary" /> Configurar 2FA
+                            </button>
+                            {isAdmin && (
+                                <>
+                                    <TabButton 
+                                        tab="settings" 
+                                        label="Configurações" 
+                                        icon={<FaCog className="mr-3 text-brand-secondary"/>} 
+                                        isDropdownItem 
+                                        activeTab={activeTab} 
+                                        setActiveTab={(tab) => { setActiveTab(tab); setIsUserMenuOpen(false); }}
+                                        className="text-gray-300 hover:bg-gray-700 hover:text-white flex w-full items-center px-4 py-2 text-sm"
+                                    />
+                                    {onOpenAutomation && (
+                                        <button onClick={() => { onOpenAutomation(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                            <FaRobot className="mr-3 text-purple-400" /> Automação
+                                        </button>
+                                    )}
+                                    <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                        <FaClipboardList className="mr-3 text-yellow-400" /> Logs Auditoria
+                                    </button>
+                                    <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                        <FaDatabase className="mr-3 text-green-400" /> Config BD
+                                    </button>
+                                </>
+                            )}
+                            <div className="border-t border-gray-700 my-1"></div>
+                            <button onClick={onLogout} className="flex w-full items-center px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300">
+                                <LogoutIcon className="mr-3" /> {t('common.logout')}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
           </div>
         </div>
       </div>
-
-       {isMobileMenuOpen && (
-            <div ref={mobileMenuRef} className="md:hidden" id="mobile-menu">
-                <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                    {deferredPrompt && (
-                        <button
-                            onClick={handleInstallApp}
-                            className="w-full flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded hover:bg-green-700 transition-colors mb-2"
-                        >
-                            <FaDownload />
-                            Instalar Aplicação
-                        </button>
-                    )}
-
-                    {/* Visão Geral Mobile */}
-                    {tabConfig['overview'] && (
-                        tabConfig['overview.smart'] ? (
-                            <div>
-                                <button
-                                    onClick={() => setIsMobileOverviewOpen(prev => !prev)}
-                                    className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isOverviewActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
-                                    aria-expanded={isMobileOverviewOpen}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <FaChartBar />
-                                        <span>{t('nav.overview')}</span>
-                                    </div>
-                                    <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileOverviewOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                {isMobileOverviewOpen && (
-                                    <div className="pl-4 mt-1 space-y-1">
-                                        <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />
-                                        <TabButton tab="overview.smart" label={tabConfig['overview.smart']} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>
-                        )
-                    )}
-                    
-                    {/* 1. Organização Mobile */}
-                    {hasOrganizacaoTabs && (
-                        <div>
-                            <button
-                                onClick={() => setIsMobileOrganizacaoOpen(prev => !prev)}
-                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isOrganizationActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
-                                aria-expanded={isMobileOrganizacaoOpen}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <FaSitemap />
-                                    <span>{t('nav.organization')}</span>
-                                </div>
-                                <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileOrganizacaoOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            {isMobileOrganizacaoOpen && (
-                                <div className="pl-4 mt-1 space-y-1">
-                                    {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
-                                    {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={tabConfig['organizacao.suppliers']} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    
-                    {/* 2. Inventário / Assets Mobile */}
-                     {hasInventarioTabs && (
-                        <div>
-                            <button
-                                onClick={() => setIsMobileInventarioOpen(prev => !prev)}
-                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isInventoryActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
-                                aria-expanded={isMobileInventarioOpen}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <FaBoxOpen className="h-5 w-5"/>
-                                    <span>{t('nav.inventory')}</span>
-                                </div>
-                                <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileInventarioOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            {isMobileInventarioOpen && (
-                                <div className="pl-4 mt-1 space-y-1">
-                                    {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<ClipboardListIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label={tabConfig['equipment.brands']} icon={<FaTags />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
-                                    {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label={tabConfig['equipment.types']} icon={<FaShapes />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
-                                    {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    
-                    {/* 3. Norma (NIS2) / Compliance Mobile */}
-                    {hasNis2Tabs && (
-                        <div>
-                            <button
-                                onClick={() => setIsMobileNis2Open(prev => !prev)}
-                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isNis2Active ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
-                                aria-expanded={isMobileNis2Open}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <FaShieldAlt className="h-5 w-5"/>
-                                    <span>{tabConfig.nis2?.title || 'Compliance'}</span>
-                                </div>
-                                {isMobileNis2Open ? (
-                                    <FaUnlock className="w-4 h-4 ml-1 text-brand-secondary" />
-                                ) : (
-                                    <FaLock className="w-4 h-4 ml-1 text-gray-400" />
-                                )}
-                            </button>
-                            {isMobileNis2Open && (
-                                <div className="pl-4 mt-1 space-y-1">
-                                    {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={tabConfig.nis2.bia} icon={<FaNetworkWired />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
-                                    {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={tabConfig.nis2.security} icon={<FaShieldAlt />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
-                                    {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={tabConfig.nis2.backups} icon={<FaServer />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
-                                    {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={tabConfig.nis2.resilience} icon={<FaShieldAlt className="text-purple-400"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* 4. Suporte Mobile */}
-                    {hasTicketTabs && (
-                        <div>
-                            <button
-                                onClick={() => {
-                                    if (hasTicketCategories || hasIncidentTypes) {
-                                        setIsMobileTicketsOpen(prev => !prev);
-                                    } else {
-                                        handleTabChange('tickets.list');
-                                        setIsMobileMenuOpen(false);
-                                    }
-                                }}
-                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isTicketsActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
-                                aria-expanded={isMobileTicketsOpen}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <FaTicketAlt />
-                                    <span>{tabConfig.tickets?.title || 'Tickets'}</span>
-                                </div>
-                                {(hasTicketCategories || hasIncidentTypes) && (
-                                     <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileTicketsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                )}
-                            </button>
-                            {isMobileTicketsOpen && (hasTicketCategories || hasIncidentTypes) ? (
-                                 <div className="pl-4 mt-1 space-y-1">
-                                    <TabButton tab="tickets.list" label={tabConfig.tickets?.list || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
-                                    {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig.tickets.categories} icon={<FaTags />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
-                                    {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig.tickets.incident_types} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
-                                 </div>
-                            ) : null}
-                        </div>
-                    )}
-
-                    {/* 5. Tools Mobile */}
-                    {hasToolsTabs && (
-                        <div>
-                            <button
-                                onClick={() => setIsToolsMenuOpen(prev => !prev)}
-                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${activeTab.startsWith('tools') ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
-                                aria-expanded={isToolsMenuOpen}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <FaToolbox />
-                                    <span>Tools</span>
-                                </div>
-                                <svg className={`w-4 h-4 ml-1 transition-transform transform ${isToolsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            {isToolsMenuOpen && (
-                                <div className="pl-4 mt-1 space-y-1">
-                                    {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={tabConfig['tools'].agenda} icon={<FaAddressBook className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {onOpenCalendar && <TabButton label="Calendário" icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem={true} onClick={onOpenCalendar} />}
-                                    {onOpenManual && <TabButton label="Manual de Utilizador" icon={<FaBook className="text-green-400" />} isDropdownItem={true} onClick={onOpenManual} />}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
-        )}
     </header>
     
     {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
