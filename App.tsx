@@ -71,6 +71,7 @@ import ResilienceDashboard from './components/ResilienceDashboard';
 import AddResilienceTestModal from './components/AddResilienceTestModal';
 import SmartDashboard from './components/SmartDashboard';
 import CalendarModal from './components/CalendarModal';
+import UserManualModal from './components/UserManualModal';
 
 type Session = any;
 
@@ -181,6 +182,7 @@ const InnerApp: React.FC = () => {
     // New Modals for User Menu
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showCalendarModal, setShowCalendarModal] = useState(false);
+    const [showUserManual, setShowUserManual] = useState(false);
 
     // Maps
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -599,6 +601,7 @@ const InnerApp: React.FC = () => {
                     onOpenAutomation={() => setShowAutomationModal(true)}
                     onOpenProfile={() => setShowProfileModal(true)}
                     onOpenCalendar={() => setShowCalendarModal(true)}
+                    onOpenManual={() => setShowUserManual(true)}
                 />
             ) : (
                 <Sidebar
@@ -614,6 +617,7 @@ const InnerApp: React.FC = () => {
                     onOpenAutomation={() => setShowAutomationModal(true)}
                     onOpenProfile={() => setShowProfileModal(true)}
                     onOpenCalendar={() => setShowCalendarModal(true)}
+                    onOpenManual={() => setShowUserManual(true)}
                 />
             )}
 
@@ -1425,6 +1429,10 @@ const InnerApp: React.FC = () => {
                         setTicketActivitiesModal(t); // Or open ticket details/edit
                     }}
                 />
+            )}
+
+            {showUserManual && (
+                <UserManualModal onClose={() => setShowUserManual(false)} />
             )}
 
         </div>

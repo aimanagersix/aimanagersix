@@ -1,8 +1,10 @@
 
 
+
+
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt } from './common/Icons';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
 import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
@@ -23,9 +25,10 @@ interface SidebarProps {
   onOpenAutomation?: () => void;
   onOpenProfile?: () => void;
   onOpenCalendar?: () => void;
+  onOpenManual?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenAutomation, onOpenProfile, onOpenCalendar }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
     const { t, language, setLanguage } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     
@@ -287,6 +290,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                     <button onClick={() => { onOpenCalendar(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
                                         <FaCalendarAlt className="text-blue-400 w-4 h-4" />
                                         {isExpanded && "Calendário"}
+                                    </button>
+                                )}
+                                {onOpenManual && (
+                                    <button onClick={() => { onOpenManual(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                        <FaBook className="text-green-400 w-4 h-4" />
+                                        {isExpanded && "Manual"}
                                     </button>
                                 )}
                                 <button onClick={() => setLayoutMode('top')} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">

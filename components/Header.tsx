@@ -1,8 +1,10 @@
 
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt } from './common/Icons';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
 import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
@@ -22,6 +24,7 @@ interface HeaderProps {
   onOpenAutomation?: () => void;
   onOpenProfile?: () => void;
   onOpenCalendar?: () => void;
+  onOpenManual?: () => void;
 }
 
 const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '' }: { tab: string, label: string, icon: React.ReactNode, activeTab: string, setActiveTab: (tab: string) => void, isDropdownItem?: boolean, className?: string }) => (
@@ -41,7 +44,7 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
 );
 
 
-const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenAutomation, onOpenProfile, onOpenCalendar }) => {
+const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
     const { t, language, setLanguage } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     const [isOrganizacaoMenuOpen, setOrganizacaoMenuOpen] = useState(false);
@@ -390,6 +393,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     <button onClick={() => { onOpenCalendar(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
                                         <FaCalendarAlt className="text-blue-400" />
                                         Calendário
+                                    </button>
+                                )}
+                                {onOpenManual && (
+                                    <button onClick={() => { onOpenManual(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
+                                        <FaBook className="text-green-400" />
+                                        Manual de Utilizador
                                     </button>
                                 )}
                                 <button onClick={() => setLayoutMode('side')} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
