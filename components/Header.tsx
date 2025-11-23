@@ -1,9 +1,7 @@
 
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt } from './common/Icons';
 import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
@@ -21,6 +19,8 @@ interface HeaderProps {
   notificationCount: number;
   onNotificationClick: () => void;
   onOpenAutomation?: () => void;
+  onOpenProfile?: () => void;
+  onOpenCalendar?: () => void;
 }
 
 const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '' }: { tab: string, label: string, icon: React.ReactNode, activeTab: string, setActiveTab: (tab: string) => void, isDropdownItem?: boolean, className?: string }) => (
@@ -40,7 +40,7 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
 );
 
 
-const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenAutomation }) => {
+const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenAutomation, onOpenProfile, onOpenCalendar }) => {
     const { t, language, setLanguage } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     const [isOrganizacaoMenuOpen, setOrganizacaoMenuOpen] = useState(false);
@@ -342,8 +342,20 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     {isUserMenuOpen && (
                         <div className="absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5 divide-y divide-gray-700" role="menu">
                              <div className="py-1">
+                                {onOpenProfile && (
+                                    <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
+                                        <FaUserCircle className="text-brand-secondary" />
+                                        Meu Perfil
+                                    </button>
+                                )}
+                                {onOpenCalendar && (
+                                    <button onClick={() => { onOpenCalendar(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
+                                        <FaCalendarAlt className="text-blue-400" />
+                                        Calendário
+                                    </button>
+                                )}
                                 <button onClick={() => setLayoutMode('side')} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                    <FaColumns className="text-blue-400" />
+                                    <FaColumns className="text-gray-400" />
                                     Menu Lateral
                                 </button>
                                 <button onClick={() => setShowMFA(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">

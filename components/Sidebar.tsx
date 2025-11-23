@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt } from './common/Icons';
 import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
@@ -20,9 +20,11 @@ interface SidebarProps {
   isExpanded: boolean;
   onHover: (state: boolean) => void;
   onOpenAutomation?: () => void;
+  onOpenProfile?: () => void;
+  onOpenCalendar?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenAutomation }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenAutomation, onOpenProfile, onOpenCalendar }) => {
     const { t, language, setLanguage } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     
@@ -274,8 +276,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         {/* User Menu Popup (Positioned to the right or top) */}
                         {isUserMenuOpen && (
                             <div className="absolute bottom-full left-0 w-full mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50 min-w-[200px]">
+                                {onOpenProfile && (
+                                    <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                        <FaUserCircle className="text-brand-secondary w-4 h-4" />
+                                        {isExpanded && "Meu Perfil"}
+                                    </button>
+                                )}
+                                {onOpenCalendar && (
+                                    <button onClick={() => { onOpenCalendar(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                        <FaCalendarAlt className="text-blue-400 w-4 h-4" />
+                                        {isExpanded && "Calendário"}
+                                    </button>
+                                )}
                                 <button onClick={() => setLayoutMode('top')} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                    <FaColumns className="text-blue-400 w-4 h-4" />
+                                    <FaColumns className="text-gray-400 w-4 h-4" />
                                     {isExpanded && "Menu Topo"}
                                 </button>
                                 <button onClick={() => setShowMFA(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">

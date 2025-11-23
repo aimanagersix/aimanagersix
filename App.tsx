@@ -69,6 +69,7 @@ import MagicCommandBar from './components/MagicCommandBar';
 import ResilienceDashboard from './components/ResilienceDashboard';
 import AddResilienceTestModal from './components/AddResilienceTestModal';
 import SmartDashboard from './components/SmartDashboard';
+import CalendarModal from './components/CalendarModal';
 
 type Session = any;
 
@@ -175,6 +176,10 @@ const InnerApp: React.FC = () => {
     
     const [showAddResilienceTest, setShowAddResilienceTest] = useState(false);
     const [resilienceTestToEdit, setResilienceTestToEdit] = useState<ResilienceTest | null>(null);
+    
+    // New Modals for User Menu
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [showCalendarModal, setShowCalendarModal] = useState(false);
 
     // Maps
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -591,6 +596,8 @@ const InnerApp: React.FC = () => {
                     notificationCount={notificationCount}
                     onNotificationClick={() => setShowNotifications(true)}
                     onOpenAutomation={() => setShowAutomationModal(true)}
+                    onOpenProfile={() => setShowProfileModal(true)}
+                    onOpenCalendar={() => setShowCalendarModal(true)}
                 />
             ) : (
                 <Sidebar
@@ -604,6 +611,8 @@ const InnerApp: React.FC = () => {
                     isExpanded={sidebarExpanded}
                     onHover={setSidebarExpanded}
                     onOpenAutomation={() => setShowAutomationModal(true)}
+                    onOpenProfile={() => setShowProfileModal(true)}
+                    onOpenCalendar={() => setShowCalendarModal(true)}
                 />
             )}
 
@@ -1383,6 +1392,37 @@ const InnerApp: React.FC = () => {
                     onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
                     entidades={entidades}
                     suppliers={suppliers}
+                />
+            )}
+
+            {/* New Modals */}
+            {showProfileModal && currentUser && (
+                <CollaboratorDetailModal
+                    collaborator={currentUser}
+                    assignments={assignments}
+                    equipment={equipment}
+                    tickets={tickets}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    onClose={() => setShowProfileModal(false)}
+                    onShowHistory={(c) => setHistoryCollaborator(c)}
+                    onStartChat={(c) => { setShowProfileModal(false); /* Chat with self? Or remove for self */ }}
+                    onEdit={(c) => { setShowProfileModal(false); setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
+                />
+            )}
+
+            {showCalendarModal && currentUser && (
+                <CalendarModal
+                    onClose={() => setShowCalendarModal(false)}
+                    tickets={tickets}
+                    currentUser={currentUser}
+                    teams={teams}
+                    teamMembers={teamMembers}
+                    collaborators={collaborators}
+                    onViewTicket={(t) => {
+                        setShowCalendarModal(false);
+                        setTicketActivitiesModal(t); // Or open ticket details/edit
+                    }}
                 />
             )}
 
