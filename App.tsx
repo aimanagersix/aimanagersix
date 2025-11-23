@@ -635,17 +635,15 @@ const InnerApp: React.FC = () => {
         'overview': !isBasic ? 'Visão Geral' : undefined, // Hide Overview for Basic users
         'overview.smart': isAdmin ? 'C-Level Dashboard' : undefined, // Only Admin sees Smart Dashboard
         'equipment.inventory': 'Inventário',
-        // 'equipment.brands': 'Marcas', // REMOVED: Managed in Settings
-        // 'equipment.types': 'Tipos',   // REMOVED: Managed in Settings
         'organizacao.instituicoes': 'Instituições',
         'organizacao.entidades': 'Entidades',
         'organizacao.teams': 'Equipas',
         'collaborators': 'Colaboradores',
-        'organizacao.agenda': 'Agenda de Contactos',
         'licensing': 'Licenciamento',
         'organizacao.suppliers': 'Fornecedores (Risco)',
-        'tickets': { title: 'Tickets', list: 'Lista de Tickets' }, // Removed categories/incident_types tabs
+        'tickets': { title: 'Tickets', list: 'Lista de Tickets' },
         'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' },
+        'tools': { title: 'Ferramenta', agenda: 'Agenda de Contactos' },
         'settings': isAdmin ? 'Configurações' : undefined
     };
 
@@ -926,7 +924,7 @@ const InnerApp: React.FC = () => {
                     />
                 )}
 
-                {activeTab === 'organizacao.agenda' && (
+                {activeTab === 'tools.agenda' && (
                     <AgendaDashboard />
                 )}
 

@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -24,29 +24,34 @@ interface HeaderProps {
   onOpenManual?: () => void;
 }
 
-const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '' }: { tab: string, label: string, icon: React.ReactNode, activeTab: string, setActiveTab: (tab: string) => void, isDropdownItem?: boolean, className?: string }) => (
-    <a
-        href={`#${tab}`}
-        onClick={(e) => { 
-            // Allow normal link behavior for modifiers (ctrl+click, right click, etc.)
-            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) {
-                return;
-            }
-            e.preventDefault(); 
-            setActiveTab(tab); 
-        }}
-        className={`flex items-center gap-2 w-full text-left transition-colors duration-200 rounded-md no-underline ${
-            isDropdownItem 
-            ? `px-4 py-2 text-sm ${activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
-            : `px-3 py-2 text-sm font-medium ${activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
-        } ${className}`}
-        role={isDropdownItem ? 'menuitem' : 'tab'}
-        aria-current={activeTab === tab ? 'page' : undefined}
-    >
-        {icon}
-        <span>{label}</span>
-    </a>
-);
+const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
+    const handleClick = (e: React.MouseEvent) => {
+        // Allow normal link behavior for modifiers (ctrl+click, right click, etc.)
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) {
+            return;
+        }
+        e.preventDefault();
+        if (onClick) onClick();
+        else if (tab && setActiveTab) setActiveTab(tab);
+    };
+
+    return (
+        <a
+            href={tab ? `#${tab}` : '#'}
+            onClick={handleClick}
+            className={`flex items-center gap-2 w-full text-left transition-colors duration-200 rounded-md no-underline ${
+                isDropdownItem 
+                ? `px-4 py-2 text-sm ${tab && activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
+                : `px-3 py-2 text-sm font-medium ${tab && activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
+            } ${className}`}
+            role={isDropdownItem ? 'menuitem' : 'tab'}
+            aria-current={tab && activeTab === tab ? 'page' : undefined}
+        >
+            {icon}
+            <span>{label}</span>
+        </a>
+    );
+};
 
 
 const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
@@ -64,6 +69,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const ticketsMenuRef = useRef<HTMLDivElement>(null);
     const [isOverviewMenuOpen, setIsOverviewMenuOpen] = useState(false);
     const overviewMenuRef = useRef<HTMLDivElement>(null);
+    const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+    const toolsMenuRef = useRef<HTMLDivElement>(null);
 
     // Security Modals
     const [showMFA, setShowMFA] = useState(false);
@@ -114,6 +121,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
             if (overviewMenuRef.current && !overviewMenuRef.current.contains(event.target as Node)) {
                 setIsOverviewMenuOpen(false);
             }
+            if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
+                setIsToolsMenuOpen(false);
+            }
             if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
                 setIsUserMenuOpen(false);
             }
@@ -126,7 +136,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isNis2MenuOpen, isUserMenuOpen, isTicketsMenuOpen, isOverviewMenuOpen]);
+    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isNis2MenuOpen, isUserMenuOpen, isTicketsMenuOpen, isOverviewMenuOpen, isToolsMenuOpen]);
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
@@ -135,6 +145,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         setIsNis2MenuOpen(false);
         setIsTicketsMenuOpen(false);
         setIsOverviewMenuOpen(false);
+        setIsToolsMenuOpen(false);
         setIsMobileMenuOpen(false);
     }
     
@@ -144,12 +155,14 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const isNis2Active = activeTab.startsWith('nis2');
     const isTicketsActive = activeTab.startsWith('tickets');
     const isOverviewActive = activeTab.startsWith('overview');
+    const isToolsActive = activeTab.startsWith('tools');
 
     const [isMobileOrganizacaoOpen, setIsMobileOrganizacaoOpen] = useState(isOrganizationActive);
     const [isMobileInventarioOpen, setIsMobileInventarioOpen] = useState(isInventoryActive);
     const [isMobileNis2Open, setIsMobileNis2Open] = useState(isNis2Active);
     const [isMobileTicketsOpen, setIsMobileTicketsOpen] = useState(isTicketsActive);
     const [isMobileOverviewOpen, setIsMobileOverviewOpen] = useState(isOverviewActive);
+    const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(isToolsActive);
 
     useEffect(() => {
         if (isOrganizationActive) setIsMobileOrganizacaoOpen(true);
@@ -157,16 +170,18 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         if (isNis2Active) setIsMobileNis2Open(true);
         if (isTicketsActive) setIsMobileTicketsOpen(true);
         if (isOverviewActive) setIsMobileOverviewOpen(true);
-    }, [activeTab, isInventoryActive, isOrganizationActive, isNis2Active, isTicketsActive, isOverviewActive]);
+        if (isToolsActive) setIsMobileToolsOpen(true);
+    }, [activeTab, isInventoryActive, isOrganizationActive, isNis2Active, isTicketsActive, isOverviewActive, isToolsActive]);
 
     // Define if the main menu item should be visible based on children availability
-    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'] || tabConfig['organizacao.agenda'];
+    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
     // Access nested properties safely for NIS2 and Tickets
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience;
     const hasTicketTabs = tabConfig['tickets'];
     const hasTicketCategories = tabConfig.tickets?.categories;
     const hasIncidentTypes = tabConfig.tickets?.incident_types;
+    const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
     
     const isAdmin = currentUser?.role === UserRole.Admin;
 
@@ -230,11 +245,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     {isOrganizacaoMenuOpen && (
                         <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
                             <div className="py-1">
-                                {tabConfig['organizacao.agenda'] && <TabButton tab="organizacao.agenda" label={tabConfig['organizacao.agenda']} icon={<FaAddressBook className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
-                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-8" />}
+                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={tabConfig['organizacao.suppliers']} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                             </div>
                         </div>
@@ -334,6 +348,37 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                      ) : null}
                    </div>
               )}
+
+              {/* 5. Tools */}
+              {hasToolsTabs && (
+                <div className="relative" ref={toolsMenuRef}>
+                    <button
+                        onClick={() => setIsToolsMenuOpen(prev => !prev)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab.startsWith('tools') ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                        aria-haspopup="true"
+                        aria-expanded={isToolsMenuOpen}
+                    >
+                        <FaToolbox />
+                        Tools
+                        <svg className={`w-4 h-4 ml-1 transition-transform transform ${isToolsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    {isToolsMenuOpen && (
+                        <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
+                            <div className="py-1">
+                                {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={tabConfig['tools'].agenda} icon={<FaAddressBook className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                {onOpenCalendar && (
+                                    <TabButton label="Calendário" icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem={true} onClick={onOpenCalendar} />
+                                )}
+                                {onOpenManual && (
+                                    <TabButton label="Manual de Utilizador" icon={<FaBook className="text-green-400" />} isDropdownItem={true} onClick={onOpenManual} />
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+              )}
           </nav>
 
           <div className="flex-1 flex items-center justify-end gap-4">
@@ -393,18 +438,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
                                         <FaUserCircle className="text-brand-secondary" />
                                         Meu Perfil
-                                    </button>
-                                )}
-                                {onOpenCalendar && (
-                                    <button onClick={() => { onOpenCalendar(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                        <FaCalendarAlt className="text-blue-400" />
-                                        Calendário
-                                    </button>
-                                )}
-                                {onOpenManual && (
-                                    <button onClick={() => { onOpenManual(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
-                                        <FaBook className="text-green-400" />
-                                        Manual de Utilizador
                                     </button>
                                 )}
                                 <button onClick={() => setLayoutMode('side')} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700" role="menuitem">
@@ -530,11 +563,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             </button>
                             {isMobileOrganizacaoOpen && (
                                 <div className="pl-4 mt-1 space-y-1">
-                                    {tabConfig['organizacao.agenda'] && <TabButton tab="organizacao.agenda" label={tabConfig['organizacao.agenda']} icon={<FaAddressBook className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                     {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
                                     {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon className="h-5 w-5" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />}
-                                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem className="pl-4" />}
-                                    {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
+                                    {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon className="h-5 w-5"/>} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem />}
+                                    {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                     {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={tabConfig['organizacao.suppliers']} icon={<FaShieldAlt className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
                                 </div>
                             )}
@@ -629,6 +661,32 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig.tickets.incident_types} icon={<FaShieldAlt />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} className="pl-4" />}
                                  </div>
                             ) : null}
+                        </div>
+                    )}
+
+                    {/* 5. Tools Mobile */}
+                    {hasToolsTabs && (
+                        <div>
+                            <button
+                                onClick={() => setIsToolsMenuOpen(prev => !prev)}
+                                className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${activeTab.startsWith('tools') ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
+                                aria-expanded={isToolsMenuOpen}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <FaToolbox />
+                                    <span>Tools</span>
+                                </div>
+                                <svg className={`w-4 h-4 ml-1 transition-transform transform ${isToolsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            {isToolsMenuOpen && (
+                                <div className="pl-4 mt-1 space-y-1">
+                                    {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={tabConfig['tools'].agenda} icon={<FaAddressBook className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />}
+                                    {onOpenCalendar && <TabButton label="Calendário" icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem={true} onClick={onOpenCalendar} />}
+                                    {onOpenManual && <TabButton label="Manual de Utilizador" icon={<FaBook className="text-green-400" />} isDropdownItem={true} onClick={onOpenManual} />}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog } from 'react-icons/fa';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, FaKey, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook } from './common/Icons';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -26,7 +26,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
-    const { t, language, setLanguage } = useLanguage();
+    const { t } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     
     // Sidebar toggle states for accordions
@@ -35,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const [isNis2Open, setIsNis2Open] = useState(activeTab.startsWith('nis2'));
     const [isTicketsOpen, setIsTicketsOpen] = useState(activeTab.startsWith('tickets'));
     const [isOverviewOpen, setIsOverviewOpen] = useState(activeTab.startsWith('overview'));
+    const [isToolsOpen, setIsToolsOpen] = useState(activeTab.startsWith('tools'));
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
     // Security Modals
@@ -44,10 +45,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
     // Logic
     const hasOverviewTabs = tabConfig['overview'] || tabConfig['overview.smart'];
-    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'] || tabConfig['organizacao.agenda'];
+    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'];
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience;
     const hasTicketTabs = tabConfig['tickets'];
+    const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
     
     const isAdmin = currentUser?.role === UserRole.Admin;
 
@@ -56,32 +58,37 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     };
 
     // Using anchor tags allows middle-click / right-click -> open new tab natively
-    const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '' }: { tab: string, label: string, icon: React.ReactNode, activeTab: string, setActiveTab: (tab: string) => void, isDropdownItem?: boolean, className?: string }) => (
-        <a
-            href={`#${tab}`}
-            onClick={(e) => { 
-                // Allow normal link behavior for modifiers (ctrl+click, right click, etc.)
-                if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) {
-                    return;
-                }
-                e.preventDefault(); 
-                handleTabClick(tab); 
-            }}
-            className={`flex items-center gap-3 w-full text-left transition-colors duration-200 rounded-md overflow-hidden whitespace-nowrap cursor-pointer no-underline ${
-                isDropdownItem 
-                ? `px-4 py-2 text-sm ${activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
-                : `px-4 py-3 text-sm font-medium ${activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
-            } ${className}`}
-            role={isDropdownItem ? 'menuitem' : 'tab'}
-            aria-current={activeTab === tab ? 'page' : undefined}
-            title={!isExpanded ? label : undefined}
-        >
-            <span className="text-lg flex-shrink-0 w-6 flex justify-center">{icon}</span>
-            <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
-                {label}
-            </span>
-        </a>
-    );
+    const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
+        const handleClick = (e: React.MouseEvent) => {
+            // Allow normal link behavior for modifiers (ctrl+click, right click, etc.)
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) {
+                return;
+            }
+            e.preventDefault();
+            if (onClick) onClick();
+            else if (tab && setActiveTab) setActiveTab(tab); 
+        };
+
+        return (
+            <a
+                href={tab ? `#${tab}` : '#'}
+                onClick={handleClick}
+                className={`flex items-center gap-3 w-full text-left transition-colors duration-200 rounded-md overflow-hidden whitespace-nowrap cursor-pointer no-underline ${
+                    isDropdownItem 
+                    ? `px-4 py-2 text-sm ${tab && activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
+                    : `px-4 py-3 text-sm font-medium ${tab && activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
+                } ${className}`}
+                role={isDropdownItem ? 'menuitem' : 'tab'}
+                aria-current={tab && activeTab === tab ? 'page' : undefined}
+                title={!isExpanded ? label : undefined}
+            >
+                <span className="text-lg flex-shrink-0 w-6 flex justify-center">{icon}</span>
+                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+                    {label}
+                </span>
+            </a>
+        );
+    };
 
     return (
         <>
@@ -161,7 +168,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         </button>
                         {isOrganizacaoOpen && isExpanded && (
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
-                                {tabConfig['organizacao.agenda'] && <TabButton tab="organizacao.agenda" label={tabConfig['organizacao.agenda']} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
@@ -243,6 +249,34 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         </button>
                     </div>
                 )}
+
+                {/* Tools Menu */}
+                {hasToolsTabs && (
+                    <div className="space-y-1">
+                        <button
+                            onClick={() => setIsToolsOpen(!isToolsOpen)}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            title={!isExpanded ? 'Tools' : undefined}
+                        >
+                            <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
+                                <FaToolbox className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Tools</span>
+                            </div>
+                            {isExpanded && (
+                                <span className={`transition-transform duration-200 ${isToolsOpen ? 'rotate-90' : ''}`}>
+                                    <FaChevronRight className="w-3 h-3" />
+                                </span>
+                            )}
+                        </button>
+                        {isToolsOpen && isExpanded && (
+                            <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
+                                {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={tabConfig['tools'].agenda} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {onOpenCalendar && <TabButton label="Calendário" icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={onOpenCalendar} />}
+                                {onOpenManual && <TabButton label="Manual" icon={<FaBook className="text-green-400" />} isDropdownItem onClick={onOpenManual} />}
+                            </div>
+                        )}
+                    </div>
+                )}
             </nav>
 
             {/* Footer / User Section */}
@@ -273,18 +307,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                     <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
                                         <FaUserCircle className="text-brand-secondary w-4 h-4" />
                                         {isExpanded && "Meu Perfil"}
-                                    </button>
-                                )}
-                                {onOpenCalendar && (
-                                    <button onClick={() => { onOpenCalendar(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                        <FaCalendarAlt className="text-blue-400 w-4 h-4" />
-                                        {isExpanded && "Calendário"}
-                                    </button>
-                                )}
-                                {onOpenManual && (
-                                    <button onClick={() => { onOpenManual(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                        <FaBook className="text-green-400 w-4 h-4" />
-                                        {isExpanded && "Manual"}
                                     </button>
                                 )}
                                 <button onClick={() => setLayoutMode('top')} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
