@@ -158,58 +158,71 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     </select>
                 </div>
 
-                <div className="bg-gray-900/30 p-3 rounded border border-gray-700">
-                    <h4 className="text-sm font-bold text-white mb-2">Endereço</h4>
-                    <div className="space-y-2">
-                        <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Morada" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                        <div className="grid grid-cols-3 gap-2">
-                            <input type="text" name="postal_code" value={formData.postal_code} onChange={handleChange} placeholder="Cód. Postal" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                            <input type="text" name="city" value={formData.city} onChange={handleChange} placeholder="Cidade" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                            <input type="text" name="locality" value={formData.locality} onChange={handleChange} placeholder="Localidade" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Perfil de Acesso</label>
+                        <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                            {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
+                        <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4 pt-2">
+                    <label className="flex items-center cursor-pointer">
+                        <input type="checkbox" name="canLogin" checked={formData.canLogin} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                        <span className="ml-2 text-sm text-gray-300">Permitir Login</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer">
+                        <input type="checkbox" name="receivesNotifications" checked={formData.receivesNotifications} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                        <span className="ml-2 text-sm text-gray-300">Recebe Notificações</span>
+                    </label>
+                </div>
+
+                <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
+                    <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada (Pessoal)</h4>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Endereço</label>
+                            <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua..." className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Código Postal</label>
+                                <input type="text" name="postal_code" value={formData.postal_code} onChange={handleChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Cidade</label>
+                                <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Localidade</label>
+                                <input type="text" name="locality" value={formData.locality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gray-900/30 p-3 rounded border border-gray-700">
-                    <h4 className="text-sm font-bold text-white mb-2">Acesso ao Sistema</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                        <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Perfil</label>
-                            <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                                {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Estado</label>
-                            <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
+                {!collaboratorToEdit && formData.canLogin && (
+                    <div className="border-t border-gray-600 pt-4">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Password Inicial</label>
+                        <input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Opcional (será gerada se vazio)" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                        <p className="text-xs text-gray-500 mt-1">Se deixar em branco, o utilizador terá de fazer "Esqueci-me da password".</p>
                     </div>
-                    <div className="flex items-center gap-4 mb-2">
-                        <label className="flex items-center">
-                            <input type="checkbox" name="canLogin" checked={formData.canLogin} onChange={handleChange} className="mr-2" />
-                            <span className="text-sm text-white">Permitir Login</span>
-                        </label>
-                        <label className="flex items-center">
-                            <input type="checkbox" name="receivesNotifications" checked={formData.receivesNotifications} onChange={handleChange} className="mr-2" />
-                            <span className="text-sm text-white">Recebe Notificações</span>
-                        </label>
-                    </div>
-                    {!collaboratorToEdit && formData.canLogin && (
-                        <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Password Inicial</label>
-                            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                        </div>
-                    )}
-                </div>
+                )}
 
-                {error && <p className="text-red-400 text-sm bg-red-900/20 p-2 rounded">{error}</p>}
+                {error && <p className="text-red-400 text-xs">{error}</p>}
 
-                <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2">
-                        {isSaving && <SpinnerIcon />} Salvar
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
+                        {isSaving && <SpinnerIcon className="h-4 w-4" />}
+                        Salvar
                     </button>
                 </div>
             </form>

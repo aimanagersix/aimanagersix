@@ -406,7 +406,7 @@ const InnerApp: React.FC = () => {
         } else if (intent === 'create_ticket') {
             const requester = collaborators.find(c => c.fullName.toLowerCase() === data.requesterName?.toLowerCase());
             
-            let priority: CriticalityLevel = CriticalityLevel.Low;
+            let priority: string = CriticalityLevel.Low;
             if (data.priority?.toLowerCase().includes('alta')) priority = CriticalityLevel.High;
             if (data.priority?.toLowerCase().includes('crítica')) priority = CriticalityLevel.Critical;
             if (data.priority?.toLowerCase().includes('média')) priority = CriticalityLevel.Medium;
