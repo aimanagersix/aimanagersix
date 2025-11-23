@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt } from './common/Icons';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit } from './common/Icons';
 
 interface CollaboratorDetailModalProps {
     collaborator: Collaborator;
@@ -101,7 +101,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                             onClick={() => { onClose(); onEdit(collaborator); }} 
                             className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors shadow-lg"
                         >
-                            Editar Dados
+                            <FaEdit /> Editar Dados
                         </button>
                         <button onClick={handleChatClick} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
                             <FaComment /> Enviar Mensagem

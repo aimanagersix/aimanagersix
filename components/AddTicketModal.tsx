@@ -110,6 +110,8 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState<{category: string, priority: string, solution: string} | null>(null);
     const [similarTicket, setSimilarTicket] = useState<{id: string, resolution: string, reason: string} | null>(null);
+    const [autoSeverityMessage, setAutoSeverityMessage] = useState<string | null>(null);
+    
     const aiConfigured = isAiConfigured();
      
     const isUtilizador = userPermissions.viewScope === 'own';
@@ -145,13 +147,26 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         return equipment.filter(e => equipmentIds.has(e.id));
     }, [formData.entidadeId, formData.collaboratorId, assignments, equipment]);
     
+    // Smart Compliance: Inherit Risk & Team from Equipment
     useEffect(() => {
         if (formData.equipmentId) {
             const selectedEquipment = equipment.find(e => e.id === formData.equipmentId);
             if (selectedEquipment) {
+                // 1. Auto-assign team
                 const type = equipmentTypes.find(t => t.id === selectedEquipment.typeId);
-                if (type?.default_team_id) {
+                if (type?.default_team_id && !formData.team_id) {
                     setFormData(prev => ({ ...prev, team_id: type.default_team_id! }));
+                }
+
+                // 2. Auto-inherit Criticality (Risk Inheritance)
+                // Only automate if the asset is High/Critical to ensure safety
+                if (selectedEquipment.criticality === CriticalityLevel.High || selectedEquipment.criticality === CriticalityLevel.Critical) {
+                    if (formData.impactCriticality !== selectedEquipment.criticality) {
+                        setFormData(prev => ({ ...prev, impactCriticality: selectedEquipment.criticality }));
+                        setAutoSeverityMessage(`Prioridade ajustada automaticamente: Este ativo é classificado como '${selectedEquipment.criticality}'.`);
+                        // Auto-dismiss message
+                        setTimeout(() => setAutoSeverityMessage(null), 6000);
+                    }
                 }
             }
         }
@@ -378,7 +393,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 </div>
 
                 {isSecurityIncident && (
-                    <div className="border border-red-500/50 bg-red-900/20 rounded-lg p-4 space-y-4">
+                    <div className="border border-red-500/50 bg-red-900/20 rounded-lg p-4 space-y-4 animate-fade-in">
                          <div className="flex items-center gap-2 text-red-400 font-bold border-b border-red-500/30 pb-2 mb-2">
                             <FaShieldAlt />
                             <h3>Classificação de Incidente de Segurança (NIS2)</h3>
@@ -519,6 +534,12 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                                 <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
                             ))}
                         </select>
+                        {autoSeverityMessage && (
+                            <div className="mt-1 p-2 bg-yellow-600/20 border border-yellow-600/50 rounded text-xs text-yellow-200 flex items-center gap-2 animate-fade-in">
+                                <FaExclamationTriangle />
+                                {autoSeverityMessage}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label htmlFor="team_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Atribuir à Equipa (Opcional)</label>
