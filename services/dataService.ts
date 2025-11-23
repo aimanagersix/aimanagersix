@@ -1,7 +1,3 @@
-
-
-
-
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -392,6 +388,7 @@ export const snoozeNotification = async (userId: string, referenceId: string, ty
 
 // Contact Roles
 export const addContactRole = (data: any) => create('contact_roles', data);
+export const updateContactRole = (id: string, data: any) => update('contact_roles', id, data);
 export const deleteContactRole = (id: string) => remove('contact_roles', id);
 
 // Contacts Generic

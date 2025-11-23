@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -74,6 +70,7 @@ import AddResilienceTestModal from './components/AddResilienceTestModal';
 import SmartDashboard from './components/SmartDashboard';
 import CalendarModal from './components/CalendarModal';
 import UserManualModal from './components/UserManualModal';
+import AgendaDashboard from './components/AgendaDashboard';
 
 type Session = any;
 
@@ -584,6 +581,7 @@ const InnerApp: React.FC = () => {
         'organizacao.entidades': 'Entidades',
         'organizacao.teams': 'Equipas',
         'collaborators': 'Colaboradores',
+        'organizacao.agenda': 'Agenda de Contactos', // Added
         'licensing': 'Licenciamento',
         'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets', categories: 'Categorias', incident_types: 'Tipos de Incidente' },
@@ -835,6 +833,10 @@ const InnerApp: React.FC = () => {
                         onCreate={() => { setSupplierToEdit(null); setShowAddSupplier(true); }}
                         businessServices={businessServices}
                     />
+                )}
+
+                {activeTab === 'organizacao.agenda' && (
+                    <AgendaDashboard />
                 )}
 
                 {activeTab === 'tickets.categories' && (

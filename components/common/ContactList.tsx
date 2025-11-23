@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { ResourceContact, ContactRole } from '../../types';
-import { FaPlus, FaUserTie, FaEnvelope, FaPhone, FaTimes, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaUserTie, FaEnvelope, FaPhone, FaTrash, FaCog } from 'react-icons/fa';
 import * as dataService from '../../services/dataService';
+import ManageContactRolesModal from '../ManageContactRolesModal';
 
 interface ContactListProps {
     contacts: ResourceContact[];
-    contactRoles?: ContactRole[];
     onChange: (contacts: ResourceContact[]) => void;
     resourceType: 'supplier' | 'entidade' | 'instituicao';
 }
@@ -19,23 +18,23 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
         phone: ''
     });
     const [roles, setRoles] = useState<string[]>([]);
-    const [isAddingRole, setIsAddingRole] = useState(false);
-    const [newRoleName, setNewRoleName] = useState('');
+    const [showManageRoles, setShowManageRoles] = useState(false);
+
+    const loadRoles = async () => {
+        try {
+            const data = await dataService.fetchAllData();
+            if (data.contactRoles && data.contactRoles.length > 0) {
+                setRoles(data.contactRoles.map((r: any) => r.name).sort());
+            } else {
+                // Fallback defaults if empty
+                setRoles(['Técnico', 'Comercial', 'Financeiro', 'DPO/CISO', 'Diretor', 'Secretaria']);
+            }
+        } catch (e) {
+            console.error("Failed to load contact roles", e);
+        }
+    };
 
     useEffect(() => {
-        const loadRoles = async () => {
-            try {
-                const data = await dataService.fetchAllData();
-                if (data.contactRoles) {
-                    setRoles(data.contactRoles.map((r: any) => r.name));
-                } else {
-                    // Fallback defaults
-                    setRoles(['Técnico', 'Comercial', 'Financeiro', 'DPO/CISO', 'Diretor', 'Secretaria']);
-                }
-            } catch (e) {
-                console.error("Failed to load contact roles", e);
-            }
-        };
         loadRoles();
     }, []);
 
@@ -56,30 +55,11 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
         };
 
         onChange([...contacts, contact]);
-        setNewContact({ name: '', role: 'Técnico', email: '', phone: '' });
+        setNewContact({ name: '', role: roles[0] || 'Técnico', email: '', phone: '' });
     };
 
     const handleRemoveContact = (index: number) => {
         onChange(contacts.filter((_, i) => i !== index));
-    };
-
-    const handleAddNewRole = async () => {
-        if (newRoleName.trim()) {
-            try {
-                // In a real scenario, we might just add to local list and let DB handle duplicate on insert,
-                // but here we assume role names are managed centrally or locally.
-                // Simple approach: Add to local list for selection
-                if (!roles.includes(newRoleName)) {
-                    setRoles([...roles, newRoleName]);
-                    await dataService.addContactRole({ name: newRoleName });
-                }
-                setNewContact(prev => ({ ...prev, role: newRoleName }));
-                setNewRoleName('');
-                setIsAddingRole(false);
-            } catch (e) {
-                console.error(e);
-            }
-        }
     };
 
     return (
@@ -109,25 +89,13 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                             </select>
                             <button 
                                 type="button" 
-                                onClick={() => setIsAddingRole(!isAddingRole)}
+                                onClick={() => setShowManageRoles(true)}
                                 className="bg-gray-600 text-white px-2 rounded hover:bg-gray-500"
-                                title="Criar novo papel"
+                                title="Gerir Funções (Adicionar/Editar)"
                             >
-                                <FaPlus />
+                                <FaCog />
                             </button>
                         </div>
-                        {isAddingRole && (
-                            <div className="mt-2 flex gap-2">
-                                <input 
-                                    type="text" 
-                                    value={newRoleName} 
-                                    onChange={(e) => setNewRoleName(e.target.value)} 
-                                    className="w-full bg-gray-800 border border-gray-500 text-white rounded p-1 text-xs"
-                                    placeholder="Nova Função..."
-                                />
-                                <button type="button" onClick={handleAddNewRole} className="bg-green-600 text-white px-2 rounded text-xs">OK</button>
-                            </div>
-                        )}
                     </div>
                     <div>
                         <label className="block text-xs text-gray-400 mb-1">Email</label>
@@ -188,6 +156,13 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                     )}
                 </div>
             </div>
+
+            {showManageRoles && (
+                <ManageContactRolesModal 
+                    onClose={() => setShowManageRoles(false)} 
+                    onRolesUpdated={loadRoles} 
+                />
+            )}
         </div>
     );
 };
