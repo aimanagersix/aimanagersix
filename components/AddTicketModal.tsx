@@ -543,12 +543,12 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                             })}
                         </select>
                         {autoSeverityMessage && (
-                            <div className="mt-2 p-3 bg-orange-600/20 border border-orange-500/50 rounded text-xs text-orange-200 flex flex-col gap-1 animate-fade-in shadow-md">
-                                <div className="flex items-center gap-2 font-bold">
-                                    <FaShieldAlt className="flex-shrink-0" />
-                                    <span>Compliance Alert (NIS2)</span>
+                            <div className="mt-2 p-3 bg-gradient-to-r from-orange-900/40 to-red-900/40 border border-orange-500/70 rounded-md text-xs text-orange-100 flex flex-col gap-1 animate-pulse shadow-lg">
+                                <div className="flex items-center gap-2 font-bold text-orange-300">
+                                    <FaShieldAlt className="flex-shrink-0 h-4 w-4" />
+                                    <span className="uppercase tracking-wider">Compliance Alert (NIS2)</span>
                                 </div>
-                                <p>{autoSeverityMessage}</p>
+                                <p className="font-medium">{autoSeverityMessage}</p>
                             </div>
                         )}
                     </div>
