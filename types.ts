@@ -43,13 +43,23 @@ export interface SupplierContract {
     is_active: boolean;
 }
 
-export interface SupplierContact {
+// Generic Contact used for Suppliers, Entities, Institutions
+export interface ResourceContact {
     id: string;
-    supplier_id: string;
+    resource_type: 'supplier' | 'entidade' | 'instituicao';
+    resource_id: string;
     name: string;
-    role: string; // 'Comercial', 'Técnico', 'Financeiro', 'DPO/CISO'
+    role: string; // Managed via ContactRole
     email: string;
     phone?: string;
+}
+
+// Alias for backward compatibility during migration, though we prefer ResourceContact
+export interface SupplierContact extends ResourceContact {}
+
+export interface ContactRole {
+    id: string;
+    name: string;
 }
 
 export interface Supplier {
@@ -82,7 +92,7 @@ export interface Supplier {
     contracts?: SupplierContract[];
     
     // New: Multiple Contacts
-    contacts?: SupplierContact[];
+    contacts?: ResourceContact[];
 }
 
 export interface EquipmentType {
@@ -144,6 +154,8 @@ export interface Instituicao {
   postal_code?: string;
   city?: string;
   locality?: string;
+  
+  contacts?: ResourceContact[];
 }
 
 export enum EntidadeStatus {
@@ -170,6 +182,8 @@ export interface Entidade {
   postal_code?: string;
   city?: string;
   locality?: string;
+  
+  contacts?: ResourceContact[];
 }
 
 export enum UserRole {

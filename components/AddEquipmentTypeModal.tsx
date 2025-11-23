@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { EquipmentType, Team } from '../types';
@@ -8,9 +10,10 @@ interface AddEquipmentTypeModalProps {
     onSave: (type: Omit<EquipmentType, 'id'> | EquipmentType) => Promise<any>;
     typeToEdit?: EquipmentType | null;
     teams: Team[];
+    existingTypes?: EquipmentType[];
 }
 
-const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit, teams }) => {
+const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit, teams, existingTypes = [] }) => {
     const [formData, setFormData] = useState({
         name: '',
         requiresNomeNaRede: false,
@@ -43,18 +46,32 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+        setError('');
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (formData.name.trim() === '') {
+        const name = formData.name.trim();
+        
+        if (name === '') {
             setError('O nome do tipo é obrigatório.');
             return;
         }
-        setError('');
+
+        // Check duplicates (case insensitive)
+        const isDuplicate = existingTypes.some(t => 
+            t.name.toLowerCase() === name.toLowerCase() && 
+            (!typeToEdit || t.id !== typeToEdit.id)
+        );
+
+        if (isDuplicate) {
+            setError('Já existe um tipo com este nome.');
+            return;
+        }
         
         const dataToSave = {
             ...formData,
+            name,
             default_team_id: formData.default_team_id || undefined,
         };
 

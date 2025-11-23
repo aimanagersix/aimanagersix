@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -36,6 +38,10 @@ interface EquipmentDashboardProps {
   serviceDependencies?: ServiceDependency[];
   tickets?: any[]; // passed down for history
   ticketActivities?: any[]; // passed down for history
+  softwareLicenses?: any[];
+  licenseAssignments?: any[];
+  vulnerabilities?: any[];
+  suppliers?: any[];
 }
 
 interface TooltipState {
@@ -112,7 +118,7 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
-    businessServices, serviceDependencies, tickets = [], ticketActivities = []
+    businessServices, serviceDependencies, tickets = [], ticketActivities = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = []
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -121,6 +127,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [equipmentForHistory, setEquipmentForHistory] = useState<Equipment | null>(null);
+    const [manageLicenseEquipment, setManageLicenseEquipment] = useState<Equipment | null>(null);
     
     useEffect(() => {
         if (initialFilter) {
@@ -468,7 +475,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={() => onShowHistory(item)}
+                onClick={() => setEquipmentForHistory(item)}
               >
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input
@@ -522,7 +529,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                 <AssignIcon />
                             </button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); onShowHistory(item); }} className="text-gray-400 hover:text-white" title="Histórico e Impacto">
+                        <button onClick={(e) => { e.stopPropagation(); setEquipmentForHistory(item); }} className="text-gray-400 hover:text-white" title="Histórico e Impacto">
                             <FaHistory />
                         </button>
                         {onManageKeys && (
@@ -581,6 +588,10 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 businessServices={businessServices}
                 serviceDependencies={serviceDependencies}
                 onClose={() => setEquipmentForHistory(null)}
+                softwareLicenses={softwareLicenses}
+                licenseAssignments={licenseAssignments}
+                vulnerabilities={vulnerabilities}
+                suppliers={suppliers}
                 onEdit={(eq) => {
                     setEquipmentForHistory(null);
                     if (onEdit) onEdit(eq);

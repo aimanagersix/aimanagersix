@@ -1,8 +1,12 @@
 
-import React, { useMemo } from 'react';
+
+
+import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus } from 'react-icons/fa';
+import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
+import * as dataService from '../services/dataService';
 
 interface EquipmentHistoryModalProps {
     equipment: Equipment;
@@ -34,6 +38,8 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     equipment, assignments, collaborators, escolasDepartamentos: entidades, onClose, tickets, ticketActivities,
     businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit
 }) => {
+    const [showManageLicenses, setShowManageLicenses] = useState(false);
+
     // Memoize maps for efficient lookups
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
@@ -135,6 +141,11 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
         };
     }, [equipment, installedSoftware, equipmentActivities]);
 
+    const handleSaveLicenses = async (eqId: string, licenseIds: string[]) => {
+        await dataService.syncLicenseAssignments(eqId, licenseIds);
+        setShowManageLicenses(false);
+        window.location.reload(); // Force refresh to update licenses list here
+    };
 
     return (
         <Modal title={`Histórico do Equipamento: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
@@ -183,10 +194,19 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                     </div>
 
                     <div className="border border-gray-700 bg-gray-800/30 rounded-lg p-4">
-                        <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
-                            <FaKey className="text-yellow-500"/>
-                            Software Instalado
-                        </h3>
+                        <div className="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                <FaKey className="text-yellow-500"/>
+                                Software Instalado
+                            </h3>
+                            <button 
+                                onClick={() => setShowManageLicenses(true)}
+                                className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-500 flex items-center gap-1"
+                            >
+                                <FaPlus className="h-3 w-3"/> Gerir
+                            </button>
+                        </div>
+                        
                         {installedSoftware.length > 0 ? (
                             <ul className="space-y-1 text-sm max-h-32 overflow-y-auto">
                                 {installedSoftware.map(sw => (
@@ -198,6 +218,12 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                             </ul>
                         ) : (
                             <p className="text-sm text-gray-500 italic">Nenhuma licença associada.</p>
+                        )}
+                        
+                        {equipment.embedded_license_key && (
+                            <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-gray-400">
+                                <span className="font-bold text-blue-300">Chave OEM (BIOS):</span> {equipment.embedded_license_key}
+                            </div>
                         )}
                     </div>
                 </div>
@@ -406,6 +432,15 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                     <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar</button>
                 </div>
             </div>
+            {showManageLicenses && (
+                <ManageAssignedLicensesModal
+                    equipment={equipment}
+                    allLicenses={softwareLicenses || []}
+                    allAssignments={licenseAssignments || []}
+                    onClose={() => setShowManageLicenses(false)}
+                    onSave={handleSaveLicenses}
+                />
+            )}
         </Modal>
     );
 };

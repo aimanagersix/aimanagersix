@@ -18,6 +18,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -184,16 +186,32 @@ END $$;
 -- CRIAÇÃO DE TABELAS
 -- ==========================================
 
--- Supplier Contacts (Nova)
-CREATE TABLE IF NOT EXISTS supplier_contacts (
+-- Generic Resource Contacts (Substitui supplier_contacts e expande para entidades/instituicoes)
+CREATE TABLE IF NOT EXISTS resource_contacts (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    supplier_id uuid REFERENCES suppliers(id) ON DELETE CASCADE,
+    resource_type text NOT NULL CHECK (resource_type IN ('supplier', 'entidade', 'instituicao')),
+    resource_id uuid NOT NULL,
     name text NOT NULL,
     role text,
     email text,
     phone text,
     created_at timestamptz DEFAULT now()
 );
+
+-- Roles for contacts (User configurable)
+CREATE TABLE IF NOT EXISTS contact_roles (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    created_at timestamptz DEFAULT now()
+);
+
+-- Insert default roles
+INSERT INTO contact_roles (name) VALUES 
+('Técnico'), ('Comercial'), ('Financeiro'), ('DPO / CISO'), ('Gestor de Conta'), ('Diretor'), ('Secretaria')
+ON CONFLICT (name) DO NOTHING;
+
+-- Keep supplier_contacts for legacy compatibility, but consider migrating data
+-- CREATE TABLE IF NOT EXISTS supplier_contacts ... (Deprecated)
 
 CREATE TABLE IF NOT EXISTS instituicoes (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -597,7 +615,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script adiciona a flag <strong>is_oem</strong> às licenças, bem como outras tabelas necessárias para o novo fluxo.
+                        Este script adiciona tabelas para Contactos Genéricos (Entidades, Instituições, Fornecedores) e Tipos de Contacto.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

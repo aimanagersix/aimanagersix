@@ -1,12 +1,15 @@
 
 
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
     Assignment, Ticket, TicketActivity, SoftwareLicense, LicenseAssignment, 
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
-    BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction
+    BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
+    ResourceContact, ContactRole
 } from '../types';
 
 // --- Helper to fetch all data concurrently ---
@@ -17,7 +20,7 @@ export const fetchAllData = async () => {
         assignments, tickets, ticketActivities, softwareLicenses, licenseAssignments, 
         teams, teamMembers, messages, collaboratorHistory, ticketCategories, 
         securityIncidentTypes, businessServices, serviceDependencies, vulnerabilities, 
-        suppliers, supplierContacts, backupExecutions, resilienceTests, securityTrainings
+        suppliers, backupExecutions, resilienceTests, securityTrainings, resourceContacts, contactRoles
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -40,24 +43,27 @@ export const fetchAllData = async () => {
         supabase.from('service_dependencies').select('*'),
         supabase.from('vulnerabilities').select('*'),
         supabase.from('suppliers').select('*'),
-        supabase.from('supplier_contacts').select('*'), // New
         supabase.from('backup_executions').select('*'),
         supabase.from('resilience_tests').select('*'),
-        supabase.from('security_training_records').select('*')
+        supabase.from('security_training_records').select('*'),
+        supabase.from('resource_contacts').select('*'),
+        supabase.from('contact_roles').select('*')
     ]);
 
-    // Map contacts to suppliers
-    const suppliersData = (suppliers.data || []).map((s: any) => ({
-        ...s,
-        contacts: (supplierContacts.data || []).filter((c: any) => c.supplier_id === s.id)
-    }));
+    // Helper to attach contacts
+    const attachContacts = (items: any[], type: string) => {
+        return items.map(item => ({
+            ...item,
+            contacts: (resourceContacts.data || []).filter((c: any) => c.resource_type === type && c.resource_id === item.id)
+        }));
+    };
 
     return {
         equipment: equipment.data || [],
         brands: brands.data || [],
         equipmentTypes: equipmentTypes.data || [],
-        instituicoes: instituicoes.data || [],
-        entidades: entidades.data || [],
+        instituicoes: attachContacts(instituicoes.data || [], 'instituicao'),
+        entidades: attachContacts(entidades.data || [], 'entidade'),
         collaborators: collaborators.data || [],
         assignments: assignments.data || [],
         tickets: tickets.data || [],
@@ -73,10 +79,11 @@ export const fetchAllData = async () => {
         businessServices: businessServices.data || [],
         serviceDependencies: serviceDependencies.data || [],
         vulnerabilities: vulnerabilities.data || [],
-        suppliers: suppliersData,
+        suppliers: attachContacts(suppliers.data || [], 'supplier'),
         backupExecutions: backupExecutions.data || [],
         resilienceTests: resilienceTests.data || [],
-        securityTrainings: securityTrainings.data || []
+        securityTrainings: securityTrainings.data || [],
+        contactRoles: contactRoles.data || []
     };
 };
 
@@ -286,7 +293,6 @@ export const addAssignment = async (data: any) => {
 
 // Suppliers
 export const addSupplier = async (data: any) => {
-    // Handle contacts separately (though this simple helper doesn't do transactions easily)
     const contacts = data.contacts || [];
     const supplierData = { ...data };
     delete supplierData.contacts;
@@ -295,8 +301,13 @@ export const addSupplier = async (data: any) => {
     
     if (contacts.length > 0 && supplier.id) {
         const supabase = getSupabase();
-        const contactsWithId = contacts.map((c: any) => ({ ...c, supplier_id: supplier.id }));
-        await supabase.from('supplier_contacts').insert(contactsWithId);
+        const contactsWithId = contacts.map((c: any) => ({ 
+            ...c, 
+            supplier_id: undefined, // Remove legacy field if present in payload
+            resource_id: supplier.id, 
+            resource_type: 'supplier' 
+        }));
+        await supabase.from('resource_contacts').insert(contactsWithId);
     }
     return supplier;
 };
@@ -310,17 +321,18 @@ export const updateSupplier = async (id: string, data: any) => {
     
     if (supplier) {
         const supabase = getSupabase();
-        // Simplified sync: Delete all and re-insert (easiest for this architecture without complex diffing)
-        await supabase.from('supplier_contacts').delete().eq('supplier_id', id);
+        // Sync contacts logic
+        await supabase.from('resource_contacts').delete().eq('resource_id', id).eq('resource_type', 'supplier');
         if (contacts.length > 0) {
              const contactsWithId = contacts.map((c: any) => ({ 
-                 supplier_id: id, 
+                 resource_id: id,
+                 resource_type: 'supplier',
                  name: c.name, 
                  role: c.role, 
                  email: c.email, 
                  phone: c.phone 
             }));
-            await supabase.from('supplier_contacts').insert(contactsWithId);
+            await supabase.from('resource_contacts').insert(contactsWithId);
         }
     }
     return supplier;
@@ -376,4 +388,26 @@ export const snoozeNotification = async (userId: string, referenceId: string, ty
         notification_type: type,
         snooze_until: snoozeUntil.toISOString()
     });
+};
+
+// Contact Roles
+export const addContactRole = (data: any) => create('contact_roles', data);
+export const deleteContactRole = (id: string) => remove('contact_roles', id);
+
+// Contacts Generic
+export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade' | 'instituicao', resourceId: string, contacts: any[]) => {
+    const supabase = getSupabase();
+    await supabase.from('resource_contacts').delete().eq('resource_id', resourceId).eq('resource_type', resourceType);
+    
+    if (contacts.length > 0) {
+        const inserts = contacts.map(c => ({
+            resource_type: resourceType,
+            resource_id: resourceId,
+            name: c.name,
+            role: c.role,
+            email: c.email,
+            phone: c.phone
+        }));
+        await supabase.from('resource_contacts').insert(inserts);
+    }
 };

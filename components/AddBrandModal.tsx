@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Brand, CriticalityLevel } from '../types';
@@ -7,9 +8,10 @@ interface AddBrandModalProps {
     onClose: () => void;
     onSave: (brand: Omit<Brand, 'id'> | Brand) => Promise<any>;
     brandToEdit?: Brand | null;
+    existingBrands?: Brand[];
 }
 
-const AddBrandModal: React.FC<AddBrandModalProps> = ({ onClose, onSave, brandToEdit }) => {
+const AddBrandModal: React.FC<AddBrandModalProps> = ({ onClose, onSave, brandToEdit, existingBrands = [] }) => {
     const [formData, setFormData] = useState<Partial<Brand>>({
         name: '',
         risk_level: CriticalityLevel.Low,
@@ -35,18 +37,30 @@ const AddBrandModal: React.FC<AddBrandModalProps> = ({ onClose, onSave, brandToE
             ...prev, 
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value 
         }));
+        setError('');
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name?.trim()) {
+        const name = formData.name?.trim();
+        
+        if (!name) {
             setError('O nome da marca é obrigatório.');
             return;
         }
-        setError('');
+
+        // Check duplicates (case insensitive)
+        const isDuplicate = existingBrands.some(b => 
+            b.name.toLowerCase() === name.toLowerCase() && 
+            (!brandToEdit || b.id !== brandToEdit.id)
+        );
+
+        if (isDuplicate) {
+            setError('Já existe uma marca com este nome.');
+            return;
+        }
         
-        const dataToSave = { ...formData };
-        if (!dataToSave.name) return; // Should be handled by validation above
+        const dataToSave = { ...formData, name };
 
         if (brandToEdit) {
             onSave({ ...brandToEdit, ...dataToSave } as Brand);

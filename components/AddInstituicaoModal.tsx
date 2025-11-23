@@ -3,10 +3,14 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Instituicao } from '../types';
+import { Instituicao, ResourceContact } from '../types';
 import { SpinnerIcon, SearchIcon } from './common/Icons';
+import { ContactList } from './common/ContactList';
+import * as dataService from '../services/dataService';
 
 const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
 
@@ -24,7 +28,8 @@ interface AddInstituicaoModalProps {
 }
 
 const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSave, instituicaoToEdit }) => {
-    const [formData, setFormData] = useState({
+    const [activeTab, setActiveTab] = useState<'general' | 'contacts'>('general');
+    const [formData, setFormData] = useState<Partial<Instituicao>>({
         codigo: '',
         name: '',
         email: '',
@@ -34,6 +39,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         postal_code: '',
         city: '',
         locality: '',
+        contacts: []
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isFetchingCP, setIsFetchingCP] = useState(false);
@@ -51,22 +57,23 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 postal_code: instituicaoToEdit.postal_code || '',
                 city: instituicaoToEdit.city || '',
                 locality: instituicaoToEdit.locality || '',
+                contacts: instituicaoToEdit.contacts || []
             });
         }
     }, [instituicaoToEdit]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.name.trim()) newErrors.name = "O nome da instituição é obrigatório.";
-        if (!formData.codigo.trim()) newErrors.codigo = "O código é obrigatório.";
+        if (!formData.name?.trim()) newErrors.name = "O nome da instituição é obrigatório.";
+        if (!formData.codigo?.trim()) newErrors.codigo = "O código é obrigatório.";
         
-        if (!formData.email.trim()) {
+        if (!formData.email?.trim()) {
             newErrors.email = "O email é obrigatório.";
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = "O formato do email é inválido.";
         }
         
-        if (!formData.telefone.trim()) {
+        if (!formData.telefone?.trim()) {
             newErrors.telefone = "O telefone é obrigatório.";
         } else if (!isPortuguesePhoneNumber(formData.telefone)) {
             newErrors.telefone = "Número inválido. Deve ser um número português de 9 dígitos.";
@@ -182,105 +189,149 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleContactsChange = (contacts: ResourceContact[]) => {
+        setFormData(prev => ({ ...prev, contacts }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         
         // Create legacy address string
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
-        const finalData = { ...formData, address };
+        
+        const dataToSave: any = { ...formData, address };
+        const contacts = dataToSave.contacts;
+        delete dataToSave.contacts;
 
-        if (instituicaoToEdit) {
-            onSave({ ...instituicaoToEdit, ...finalData });
-        } else {
-            onSave(finalData);
+        try {
+            let result;
+            if (instituicaoToEdit) {
+                result = await onSave({ ...instituicaoToEdit, ...dataToSave });
+            } else {
+                result = await onSave(dataToSave);
+            }
+
+            if (result && result.id) {
+                await dataService.syncResourceContacts('instituicao', result.id, contacts);
+            }
+            onClose();
+        } catch (e) {
+            console.error("Failed to save institution", e);
+            alert("Erro ao salvar a instituição.");
         }
-        onClose();
     };
     
     const modalTitle = instituicaoToEdit ? "Editar Instituição" : "Adicionar Nova Instituição";
 
     return (
         <Modal title={modalTitle} onClose={onClose}>
+            <div className="flex border-b border-gray-700 mb-4">
+                <button 
+                    onClick={() => setActiveTab('general')} 
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'general' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                >
+                    Dados Gerais
+                </button>
+                <button 
+                    onClick={() => setActiveTab('contacts')} 
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                >
+                    Contactos Adicionais
+                </button>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF (Opcional)</label>
-                        <div className="flex">
-                            <input 
-                                type="text" 
-                                name="nif" 
-                                id="nif" 
-                                value={formData.nif} 
-                                onChange={handleChange} 
-                                placeholder="NIF"
-                                className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
-                            />
-                            <button 
-                                type="button" 
-                                onClick={handleFetchNifData}
-                                disabled={isFetchingNif || !formData.nif}
-                                className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white transition-colors border-t border-b border-r border-gray-600 flex items-center justify-center min-w-[3rem]"
-                                title="Preencher dados via NIF"
-                            >
-                                {isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}
-                            </button>
-                        </div>
-                        {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
-                    </div>
-                    <div className="md:col-span-2">
-                        <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome da Instituição</label>
-                        <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.name ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.name && <p className="text-red-400 text-xs italic mt-1">{errors.name}</p>}
-                    </div>
-                </div>
-                
-                <div>
-                    <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código</label>
-                    <input type="text" name="codigo" id="codigo" value={formData.codigo} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.codigo ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
-                </div>
-
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>
-                        <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.email ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
-                    </div>
-                     <div>
-                        <label htmlFor="telefone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone</label>
-                        <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.telefone && <p className="text-red-400 text-xs italic mt-1">{errors.telefone}</p>}
-                    </div>
-                </div>
-
-                {/* Address Section */}
-                <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
-                    <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada da Instituição</h4>
-                    <div className="space-y-3">
-                        <div>
-                            <label htmlFor="address_line" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Endereço</label>
-                            <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua Principal, 123" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {activeTab === 'general' && (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label htmlFor="postal_code" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Código Postal</label>
-                                <div className="relative">
-                                    <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                                    {isFetchingCP && <div className="absolute right-2 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
+                                <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF (Opcional)</label>
+                                <div className="flex">
+                                    <input 
+                                        type="text" 
+                                        name="nif" 
+                                        id="nif" 
+                                        value={formData.nif} 
+                                        onChange={handleChange} 
+                                        placeholder="NIF"
+                                        className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={handleFetchNifData}
+                                        disabled={isFetchingNif || !formData.nif}
+                                        className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white transition-colors border-t border-b border-r border-gray-600 flex items-center justify-center min-w-[3rem]"
+                                        title="Preencher dados via NIF"
+                                    >
+                                        {isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}
+                                    </button>
+                                </div>
+                                {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
+                            </div>
+                            <div className="md:col-span-2">
+                                <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome da Instituição</label>
+                                <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.name ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.name && <p className="text-red-400 text-xs italic mt-1">{errors.name}</p>}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código</label>
+                            <input type="text" name="codigo" id="codigo" value={formData.codigo} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.codigo ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
+                        </div>
+
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>
+                                <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.email ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
+                            </div>
+                             <div>
+                                <label htmlFor="telefone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone</label>
+                                <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} />
+                                {errors.telefone && <p className="text-red-400 text-xs italic mt-1">{errors.telefone}</p>}
+                            </div>
+                        </div>
+
+                        {/* Address Section */}
+                        <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
+                            <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada da Instituição</h4>
+                            <div className="space-y-3">
+                                <div>
+                                    <label htmlFor="address_line" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Endereço</label>
+                                    <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua Principal, 123" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label htmlFor="postal_code" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Código Postal</label>
+                                        <div className="relative">
+                                            <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                                            {isFetchingCP && <div className="absolute right-2 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade / Concelho</label>
+                                        <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="locality" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Localidade</label>
+                                        <input type="text" name="locality" value={formData.locality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade / Concelho</label>
-                                <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                            </div>
-                            <div>
-                                <label htmlFor="locality" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Localidade</label>
-                                <input type="text" name="locality" value={formData.locality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                            </div>
                         </div>
-                    </div>
-                </div>
+                    </>
+                )}
+
+                {activeTab === 'contacts' && (
+                    <ContactList 
+                        contacts={formData.contacts || []} 
+                        onChange={handleContactsChange} 
+                        resourceType="instituicao"
+                    />
+                )}
 
                 <div className="flex justify-end gap-4 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>

@@ -287,7 +287,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         
         const contact: SupplierContact = {
             id: crypto.randomUUID(),
-            supplier_id: '', // Set on save
+            resource_type: 'supplier',
+            resource_id: '', // Set on save
             name: newContact.name || '',
             role: newContact.role || 'Técnico',
             email: newContact.email || '',

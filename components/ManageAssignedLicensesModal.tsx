@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, LicenseAssignment } from '../types';
-import { PlusIcon, DeleteIcon } from './common/Icons';
+import { PlusIcon, DeleteIcon, FaExclamationTriangle } from './common/Icons';
 
 interface ManageAssignedLicensesModalProps {
     onClose: () => void;
@@ -14,6 +15,7 @@ interface ManageAssignedLicensesModalProps {
 const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = ({ onClose, onSave, equipment, allLicenses, allAssignments }) => {
     const [assignedLicenseIds, setAssignedLicenseIds] = useState<Set<string>>(new Set());
     const [selectedLicenseToAdd, setSelectedLicenseToAdd] = useState('');
+    const [warningMessage, setWarningMessage] = useState('');
 
     useEffect(() => {
         const initialIds = allAssignments
@@ -34,7 +36,7 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
             const usedSeats = usedSeatsMap.get(license.id) || 0;
             const isAssignedToCurrent = assignedLicenseIds.has(license.id);
             // Available if it's not yet assigned to this PC AND has free seats
-            return !isAssignedToCurrent && usedSeats < license.totalSeats;
+            return !isAssignedToCurrent && (license.is_oem || usedSeats < license.totalSeats);
         });
     }, [allLicenses, usedSeatsMap, assignedLicenseIds]);
 
@@ -44,6 +46,31 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
 
     const handleAddLicense = () => {
         if (!selectedLicenseToAdd) return;
+        
+        const licenseToAdd = allLicenses.find(l => l.id === selectedLicenseToAdd);
+        
+        // Simple heuristic for OS detection: check for "Windows" or "macOS" in product name
+        // Ideally, SoftwareLicense should have a 'type' field (OS, Application, etc.)
+        const isOS = licenseToAdd && (
+            licenseToAdd.productName.toLowerCase().includes('windows') || 
+            licenseToAdd.productName.toLowerCase().includes('macos') ||
+            licenseToAdd.is_oem // OEM implies base software often
+        );
+
+        if (isOS) {
+            const existingOS = assignedLicensesDetails.find(l => 
+                l.productName.toLowerCase().includes('windows') || 
+                l.productName.toLowerCase().includes('macos') ||
+                l.is_oem
+            );
+
+            if (existingOS) {
+                if (!confirm(`Este equipamento já tem uma licença de sistema associada: "${existingOS.productName}".\n\nDeseja adicionar outra? Normalmente deve desassociar a antiga primeiro.`)) {
+                    return;
+                }
+            }
+        }
+
         setAssignedLicenseIds(prev => new Set(prev).add(selectedLicenseToAdd));
         setSelectedLicenseToAdd(''); // Reset dropdown
     };
