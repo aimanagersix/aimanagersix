@@ -12,6 +12,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -44,6 +46,20 @@ $$ language 'plpgsql';
 
 DO $$ 
 BEGIN 
+    -- Tickets: Adicionar Fornecedor Requerente
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tickets') THEN
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS requester_supplier_id uuid;
+        -- Other fields just in case
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS category text;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text; 
+    END IF;
+
+    -- Resilience Tests: Adicionar Links
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'resilience_tests') THEN
+        ALTER TABLE resilience_tests ADD COLUMN IF NOT EXISTS auditor_supplier_id uuid;
+        ALTER TABLE resilience_tests ADD COLUMN IF NOT EXISTS auditor_internal_entidade_id uuid;
+    END IF;
+
     -- 1. Adicionar flag 'requiresBackupTest' a EQUIPMENT_TYPES (Para o erro "Erro ao salvar")
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
@@ -57,12 +73,10 @@ BEGIN
 
     -- 3. Adicionar colunas de NIS2/Segurança à tabela TICKETS
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tickets') THEN
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS category text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactCriticality" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactConfidentiality" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactIntegrity" text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactAvailability" text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text; 
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
         -- New for KB RAG
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_summary text;
@@ -157,8 +171,19 @@ END $$;
 
 
 -- ==========================================
--- CRIAÇÃO DE TABELAS (Se não existirem)
+-- CRIAÇÃO DE TABELAS
 -- ==========================================
+
+-- Supplier Contacts (Nova)
+CREATE TABLE IF NOT EXISTS supplier_contacts (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    supplier_id uuid REFERENCES suppliers(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    role text,
+    email text,
+    phone text,
+    created_at timestamptz DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS instituicoes (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -349,6 +374,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     "technicianId" uuid REFERENCES collaborators(id),
     team_id uuid REFERENCES teams(id),
     "equipmentId" uuid REFERENCES equipment(id),
+    requester_supplier_id uuid REFERENCES suppliers(id),
     category text,
     "securityIncidentType" text,
     "impactCriticality" text,
@@ -485,10 +511,6 @@ CREATE TABLE IF NOT EXISTS backup_executions (
     created_at timestamptz DEFAULT now()
 );
 
--- ==========================================
--- NOVAS TABELAS: NIS2 FORMAÇÃO E RESILIÊNCIA
--- ==========================================
-
 CREATE TABLE IF NOT EXISTS security_training_records (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
@@ -509,6 +531,8 @@ CREATE TABLE IF NOT EXISTS resilience_tests (
     executed_date text,
     status text DEFAULT 'Planeado',
     auditor_entity text,
+    auditor_supplier_id uuid REFERENCES suppliers(id),
+    auditor_internal_entidade_id uuid REFERENCES entidades(id),
     summary_findings text,
     attachments jsonb DEFAULT '[]',
     created_at timestamptz DEFAULT now()
@@ -561,7 +585,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script foi atualizado para adicionar tabelas de <strong>Formação de Segurança</strong> e <strong>Testes de Resiliência</strong>.
+                        Este script adiciona a tabela de <strong>Contactos de Fornecedores</strong> e os campos para agendamento de testes e requerentes externos nos Tickets.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

@@ -43,6 +43,15 @@ export interface SupplierContract {
     is_active: boolean;
 }
 
+export interface SupplierContact {
+    id: string;
+    supplier_id: string;
+    name: string;
+    role: string; // 'Comercial', 'Técnico', 'Financeiro', 'DPO/CISO'
+    email: string;
+    phone?: string;
+}
+
 export interface Supplier {
     id: string;
     name: string;
@@ -71,6 +80,9 @@ export interface Supplier {
     
     // DORA: Contract Information
     contracts?: SupplierContract[];
+    
+    // New: Multiple Contacts
+    contacts?: SupplierContact[];
 }
 
 export interface EquipmentType {
@@ -263,6 +275,9 @@ export interface Ticket {
   attachments?: { name: string; dataUrl: string }[];
   team_id?: string;
   equipmentId?: string;
+  
+  // Supplier Request Support
+  requester_supplier_id?: string; // If set, collaboratorId might be ignored or set to a system user
   
   // NIS2 Incident Response Fields
   category?: string; // Changed to string to support dynamic categories
@@ -486,7 +501,12 @@ export interface ResilienceTest {
     planned_date: string;
     executed_date?: string;
     status: 'Planeado' | 'Em Execução' | 'Concluído' | 'Cancelado';
-    auditor_entity?: string; // Internal or External Company
+    
+    auditor_entity?: string; // Name Display
+    // Linked Entity/Supplier
+    auditor_supplier_id?: string;
+    auditor_internal_entidade_id?: string;
+    
     summary_findings?: string;
     attachments?: { name: string; dataUrl: string }[]; // Reports
     created_at?: string;

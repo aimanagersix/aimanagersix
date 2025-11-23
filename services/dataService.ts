@@ -16,7 +16,7 @@ export const fetchAllData = async () => {
         assignments, tickets, ticketActivities, softwareLicenses, licenseAssignments, 
         teams, teamMembers, messages, collaboratorHistory, ticketCategories, 
         securityIncidentTypes, businessServices, serviceDependencies, vulnerabilities, 
-        suppliers, backupExecutions, resilienceTests, securityTrainings
+        suppliers, supplierContacts, backupExecutions, resilienceTests, securityTrainings
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -39,10 +39,17 @@ export const fetchAllData = async () => {
         supabase.from('service_dependencies').select('*'),
         supabase.from('vulnerabilities').select('*'),
         supabase.from('suppliers').select('*'),
+        supabase.from('supplier_contacts').select('*'), // New
         supabase.from('backup_executions').select('*'),
         supabase.from('resilience_tests').select('*'),
         supabase.from('security_training_records').select('*')
     ]);
+
+    // Map contacts to suppliers
+    const suppliersData = (suppliers.data || []).map((s: any) => ({
+        ...s,
+        contacts: (supplierContacts.data || []).filter((c: any) => c.supplier_id === s.id)
+    }));
 
     return {
         equipment: equipment.data || [],
@@ -65,7 +72,7 @@ export const fetchAllData = async () => {
         businessServices: businessServices.data || [],
         serviceDependencies: serviceDependencies.data || [],
         vulnerabilities: vulnerabilities.data || [],
-        suppliers: suppliers.data || [],
+        suppliers: suppliersData,
         backupExecutions: backupExecutions.data || [],
         resilienceTests: resilienceTests.data || [],
         securityTrainings: securityTrainings.data || []
@@ -89,22 +96,9 @@ export const logAction = async (action: AuditAction, resourceType: string, detai
 
 export const fetchAuditLogs = async () => {
     const supabase = getSupabase();
-    // Use a manual join approach or view if direct join is hard with simple query, 
-    // but standard supabase select can join linked tables.
-    // Assuming FK exists. If not, we fetch and map manually or rely on RLS.
-    // Let's assume we fetch basic logs and map user emails in frontend if needed, 
-    // or use a view. For now, basic fetch.
-    
-    // Trying to join with collaborators via user_id if possible, but auth.users is separate.
-    // We'll fetch logs and mapping will be done in UI via collaborators list if user_id matches collaborator id.
-    // However, auth.users != collaborators.id usually unless synced.
-    // We'll just return logs for now.
     const { data, error } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false });
     if (error) throw error;
     
-    // Enrich with email if possible (requires admin rights to see auth.users or a public profile table)
-    // For this app, we assume collaborators table has the user info.
-    // Let's fetch collaborators to map emails.
     const { data: users } = await supabase.from('collaborators').select('id, email');
     const userMap = new Map(users?.map((u: any) => [u.id, u.email]));
 
@@ -152,7 +146,6 @@ export const fetchLastRiskAcknowledgement = async (): Promise<{ timestamp: strin
             return null;
         }
         
-        // Fetch email manually since simple join might fail if relation not defined
         const { data: user } = await supabase.from('collaborators').select('email').eq('id', data.user_id).single();
         
         return {
@@ -247,9 +240,7 @@ export const updateTeam = (id: string, data: any) => update('teams', id, data);
 export const deleteTeam = (id: string) => remove('teams', id);
 export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
     const supabase = getSupabase();
-    // Delete existing
     await supabase.from('team_members').delete().eq('team_id', teamId);
-    // Insert new
     if (memberIds.length > 0) {
         const inserts = memberIds.map(mid => ({ team_id: teamId, collaborator_id: mid }));
         await supabase.from('team_members').insert(inserts);
@@ -284,21 +275,56 @@ export const deleteSecurityIncidentType = (id: string) => remove('security_incid
 
 // Assignments
 export const addAssignment = async (data: any) => {
-    // Logic to close previous assignment for this equipment if exists
     const supabase = getSupabase();
-    // 1. Close existing open assignment for this equipment
     await supabase.from('assignments')
         .update({ returnDate: new Date().toISOString().split('T')[0] })
         .eq('equipmentId', data.equipmentId)
         .is('returnDate', null);
-        
-    // 2. Create new
     return create('assignments', data);
 };
 
 // Suppliers
-export const addSupplier = (data: any) => create('suppliers', data);
-export const updateSupplier = (id: string, data: any) => update('suppliers', id, data);
+export const addSupplier = async (data: any) => {
+    // Handle contacts separately (though this simple helper doesn't do transactions easily)
+    const contacts = data.contacts || [];
+    const supplierData = { ...data };
+    delete supplierData.contacts;
+    
+    const supplier = await create('suppliers', supplierData);
+    
+    if (contacts.length > 0 && supplier.id) {
+        const supabase = getSupabase();
+        const contactsWithId = contacts.map((c: any) => ({ ...c, supplier_id: supplier.id }));
+        await supabase.from('supplier_contacts').insert(contactsWithId);
+    }
+    return supplier;
+};
+
+export const updateSupplier = async (id: string, data: any) => {
+    const contacts = data.contacts || [];
+    const supplierData = { ...data };
+    delete supplierData.contacts;
+    
+    const supplier = await update('suppliers', id, supplierData);
+    
+    if (supplier) {
+        const supabase = getSupabase();
+        // Simplified sync: Delete all and re-insert (easiest for this architecture without complex diffing)
+        await supabase.from('supplier_contacts').delete().eq('supplier_id', id);
+        if (contacts.length > 0) {
+             const contactsWithId = contacts.map((c: any) => ({ 
+                 supplier_id: id, 
+                 name: c.name, 
+                 role: c.role, 
+                 email: c.email, 
+                 phone: c.phone 
+            }));
+            await supabase.from('supplier_contacts').insert(contactsWithId);
+        }
+    }
+    return supplier;
+};
+
 export const deleteSupplier = (id: string) => remove('suppliers', id);
 
 // Business Services (BIA)
@@ -341,7 +367,7 @@ export const markMessagesAsRead = async (senderId: string, receiverId: string) =
 export const snoozeNotification = async (userId: string, referenceId: string, type: string) => {
     const supabase = getSupabase();
     const snoozeUntil = new Date();
-    snoozeUntil.setDate(snoozeUntil.getDate() + 7); // Snooze for 7 days
+    snoozeUntil.setDate(snoozeUntil.getDate() + 7); 
     
     await supabase.from('user_notification_snoozes').insert({
         user_id: userId,

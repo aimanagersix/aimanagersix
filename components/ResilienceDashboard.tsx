@@ -1,8 +1,10 @@
 
 
 
-import React, { useState, useMemo } from 'react';
-import { ResilienceTest, ResilienceTestType, Ticket } from '../types';
+
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { ResilienceTest, ResilienceTestType, Ticket, Entidade, Supplier } from '../types';
 import { FaShieldAlt, FaSearch, FaPlus, FaCheckCircle, FaTimesCircle, FaClock, FaFilePdf, FaExclamationTriangle, FaCalendarAlt } from './common/Icons';
 import Pagination from './common/Pagination';
 import AddResilienceTestModal from './AddResilienceTestModal';
@@ -32,6 +34,19 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [showAddModal, setShowAddModal] = useState(false);
     const [testToEdit, setTestToEdit] = useState<ResilienceTest | null>(null);
+    
+    // Data for modal
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [entidades, setEntidades] = useState<Entidade[]>([]);
+
+    useEffect(() => {
+        const loadData = async () => {
+            const data = await dataService.fetchAllData();
+            setSuppliers(data.suppliers);
+            setEntidades(data.entidades);
+        };
+        loadData();
+    }, []);
 
     const filteredTests = useMemo(() => {
         return resilienceTests.filter(t => 
@@ -52,8 +67,6 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
             } else {
                 await dataService.addResilienceTest(test);
             }
-            // Ideally trigger a refresh here, assuming parent component handles it via props or context updates.
-            // Since we are injecting this, let's assume `onCreate` in parent triggers refresh or we reload.
             window.location.reload(); 
         } catch (e) {
             console.error(e);
@@ -193,6 +206,8 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
                     onSave={handleSaveTest}
                     testToEdit={testToEdit}
                     onCreateTicket={onCreateTicket}
+                    suppliers={suppliers}
+                    entidades={entidades}
                 />
             )}
         </div>

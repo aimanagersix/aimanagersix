@@ -1,13 +1,10 @@
 
-
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
+import * as dataService from '../services/dataService'; // To fetch suppliers map if not passed prop, but ideally passed prop
 
 interface TicketDashboardProps {
   tickets: Ticket[];
@@ -25,7 +22,7 @@ interface TicketDashboardProps {
   onOpenActivities?: (ticket: Ticket) => void;
   onGenerateSecurityReport?: (ticket: Ticket) => void;
   categories: TicketCategoryItem[];
-  onCreate?: () => void; // Added onCreate prop
+  onCreate?: () => void; 
 }
 
 const getStatusClass = (status: TicketStatus) => {
@@ -145,6 +142,17 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
     const [filters, setFilters] = useState<{ status: string | string[], team_id: string, category: string }>({ status: '', team_id: '', category: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [supplierMap, setSupplierMap] = useState<Map<string, string>>(new Map());
+
+    useEffect(() => {
+        // Fetch suppliers for mapping requester IDs
+        const loadSuppliers = async () => {
+            const data = await dataService.fetchAllData();
+            const map = new Map<string, string>(data.suppliers.map((s: any) => [s.id, s.name]));
+            setSupplierMap(map);
+        };
+        loadSuppliers();
+    }, []);
 
     useEffect(() => {
         if (initialFilter) {
@@ -292,6 +300,13 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                             const nis2Countdown = getNis2Countdown(ticket);
                             const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança' || (categoryObj && (categoryObj.sla_warning_hours > 0 || categoryObj.sla_critical_hours > 0));
                             const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
+                            
+                            // Determine requester display
+                            const requesterName = ticket.requester_supplier_id 
+                                ? supplierMap.get(ticket.requester_supplier_id) 
+                                : (collaboratorMap.get(ticket.collaboratorId) || 'N/A');
+                            
+                            const isSupplierRequester = !!ticket.requester_supplier_id;
 
                             return(
                             <tr 
@@ -325,6 +340,10 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                     <div className="font-bold mb-1 text-white">
                                         {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-2 text-on-surface-dark-secondary" title={`${ticket.attachments.length} anexo(s)`} />}
                                         {ticket.title || '(Sem Assunto)'}
+                                    </div>
+                                    <div className="text-xs text-gray-300 mb-1 flex items-center gap-1">
+                                        {isSupplierRequester ? <FaTruck className="text-yellow-500"/> : null}
+                                        Solicitante: {requesterName}
                                     </div>
                                     <div className="text-on-surface-dark-secondary truncate text-xs">
                                         {ticket.description}
@@ -389,7 +408,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                             </button>
                                         )}
                                         {onEdit && (
-                                            <button onClick={(e) => { e.stopPropagation(); onEdit(ticket); }} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ticket de ${collaboratorMap.get(ticket.collaboratorId)}`}>
+                                            <button onClick={(e) => { e.stopPropagation(); onEdit(ticket); }} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ticket de ${requesterName}`}>
                                                 <EditIcon />
                                             </button>
                                         )}

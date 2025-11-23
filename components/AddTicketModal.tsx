@@ -3,13 +3,16 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier } from '../types';
 import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark } from './common/Icons';
 import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
-import { FaLightbulb, FaLock } from 'react-icons/fa';
+import { FaLightbulb, FaLock, FaUserTie, FaTruck } from 'react-icons/fa';
 import RegulatoryNotificationModal from './RegulatoryNotificationModal';
+import * as dataService from '../services/dataService';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -61,6 +64,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 title: ticketToEdit.title || '',
                 entidadeId: ticketToEdit.entidadeId,
                 collaboratorId: ticketToEdit.collaboratorId,
+                requester_supplier_id: ticketToEdit.requester_supplier_id,
                 description: ticketToEdit.description,
                 team_id: ticketToEdit.team_id || '',
                 equipmentId: ticketToEdit.equipmentId || '',
@@ -111,6 +115,10 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const [errors, setErrors] = useState<Record<string, string>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
     
+    // Requester Type
+    const [requesterType, setRequesterType] = useState<'internal' | 'external'>('internal');
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
     // AI Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState<{category: string, priority: string, solution: string} | null>(null);
@@ -126,8 +134,20 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     useEffect(() => {
         if (ticketToEdit) {
             setAttachments(ticketToEdit.attachments?.map(a => ({ ...a, size: 0 })) || []);
+            if (ticketToEdit.requester_supplier_id) {
+                setRequesterType('external');
+            }
         }
     }, [ticketToEdit]);
+
+    // Fetch suppliers
+    useEffect(() => {
+        const loadSuppliers = async () => {
+            const data = await dataService.fetchAllData();
+            setSuppliers(data.suppliers);
+        };
+        loadSuppliers();
+    }, []);
 
     const availableCollaborators = useMemo(() => {
         if (isUtilizador && currentUser) {
@@ -182,13 +202,13 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     }, [formData.equipmentId, equipment, equipmentTypes]);
 
     useEffect(() => {
-        if (!ticketToEdit && !isUtilizador && availableCollaborators.length > 0) {
+        if (!ticketToEdit && !isUtilizador && requesterType === 'internal' && availableCollaborators.length > 0) {
              const currentIsValid = availableCollaborators.some(c => c.id === formData.collaboratorId);
              if (!currentIsValid) {
                  setFormData(prev => ({...prev, collaboratorId: availableCollaborators[0].id}));
              }
         }
-    }, [formData.entidadeId, availableCollaborators, ticketToEdit, isUtilizador, formData.collaboratorId]);
+    }, [formData.entidadeId, availableCollaborators, ticketToEdit, isUtilizador, formData.collaboratorId, requesterType]);
 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -209,8 +229,15 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.title?.trim()) newErrors.title = "O assunto é obrigatório.";
-        if (!formData.entidadeId) newErrors.entidadeId = "A entidade é obrigatória.";
-        if (!formData.collaboratorId) newErrors.collaboratorId = "O colaborador é obrigatório.";
+        if (!formData.entidadeId && requesterType === 'internal') newErrors.entidadeId = "A entidade é obrigatória.";
+        
+        if (requesterType === 'internal' && !formData.collaboratorId) {
+            newErrors.collaboratorId = "O colaborador é obrigatório.";
+        }
+        if (requesterType === 'external' && !formData.requester_supplier_id) {
+            newErrors.requester_supplier_id = "O fornecedor é obrigatório.";
+        }
+
         if (!formData.description?.trim()) newErrors.description = "A descrição do problema é obrigatória.";
         if (isSecurityIncident && !formData.securityIncidentType) newErrors.securityIncidentType = "Por favor, selecione o tipo de incidente de segurança.";
         setErrors(newErrors);
@@ -328,6 +355,16 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })),
         };
         
+        if (requesterType === 'external') {
+            // If external supplier, clear collaborator/entity fields (or set to a default System entity if needed by FK)
+            // For simplicity in this data model, we allow nulls or use the requester_supplier_id as primary logic in dashboard
+            dataToSubmit.collaboratorId = undefined;
+            // We might need a dummy Entity if FK is strict, but usually 'entidadeId' is nullable or we use a system entity.
+            // Assuming 'entidadeId' can be kept if it's relevant to where the work is done, but 'collaboratorId' is cleared.
+        } else {
+            dataToSubmit.requester_supplier_id = undefined;
+        }
+
         if (formData.category !== TicketCategory.SecurityIncident && formData.category !== 'Incidente de Segurança') {
             delete dataToSubmit.securityIncidentType;
             delete dataToSubmit.impactCriticality;
@@ -350,41 +387,83 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         <>
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
             <form onSubmit={handleSubmit} className="space-y-4">
+                
+                {/* Requester Toggle */}
+                <div className="flex justify-center pb-2 border-b border-gray-700 mb-4">
+                    <div className="flex bg-gray-700 p-1 rounded-lg">
+                        <button
+                            type="button"
+                            onClick={() => setRequesterType('internal')}
+                            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${requesterType === 'internal' ? 'bg-brand-primary text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            <FaUserTie /> Interno
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRequesterType('external')}
+                            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${requesterType === 'external' ? 'bg-brand-primary text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            <FaTruck /> Fornecedor
+                        </button>
+                    </div>
+                </div>
+
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="entidadeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
-                        <select 
-                            name="entidadeId" 
-                            id="entidadeId" 
-                            value={formData.entidadeId} 
-                            onChange={handleChange} 
-                            className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.entidadeId ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:cursor-not-allowed`}
-                            disabled={isUtilizador}
-                        >
-                            <option value="" disabled>Selecione uma entidade</option>
-                            {entidades.map(entidade => (
-                                <option key={entidade.id} value={entidade.id}>{entidade.name}</option>
-                            ))}
-                        </select>
-                        {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
-                    </div>
-                    <div>
-                        <label htmlFor="collaboratorId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Colaborador</label>
-                        <select 
-                            name="collaboratorId" 
-                            id="collaboratorId" 
-                            value={formData.collaboratorId} 
-                            onChange={handleChange} 
-                            className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.collaboratorId ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:cursor-not-allowed`}
-                             disabled={isUtilizador || availableCollaborators.length === 0}
-                        >
-                            <option value="" disabled>Selecione um colaborador</option>
-                            {availableCollaborators.map(col => (
-                                <option key={col.id} value={col.id}>{col.fullName}</option>
-                            ))}
-                        </select>
-                         {errors.collaboratorId && <p className="text-red-400 text-xs italic mt-1">{errors.collaboratorId}</p>}
-                    </div>
+                    {requesterType === 'internal' ? (
+                        <>
+                            <div>
+                                <label htmlFor="entidadeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
+                                <select 
+                                    name="entidadeId" 
+                                    id="entidadeId" 
+                                    value={formData.entidadeId} 
+                                    onChange={handleChange} 
+                                    className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.entidadeId ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:cursor-not-allowed`}
+                                    disabled={isUtilizador}
+                                >
+                                    <option value="" disabled>Selecione uma entidade</option>
+                                    {entidades.map(entidade => (
+                                        <option key={entidade.id} value={entidade.id}>{entidade.name}</option>
+                                    ))}
+                                </select>
+                                {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
+                            </div>
+                            <div>
+                                <label htmlFor="collaboratorId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Colaborador</label>
+                                <select 
+                                    name="collaboratorId" 
+                                    id="collaboratorId" 
+                                    value={formData.collaboratorId} 
+                                    onChange={handleChange} 
+                                    className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.collaboratorId ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:cursor-not-allowed`}
+                                    disabled={isUtilizador || availableCollaborators.length === 0}
+                                >
+                                    <option value="" disabled>Selecione um colaborador</option>
+                                    {availableCollaborators.map(col => (
+                                        <option key={col.id} value={col.id}>{col.fullName}</option>
+                                    ))}
+                                </select>
+                                {errors.collaboratorId && <p className="text-red-400 text-xs italic mt-1">{errors.collaboratorId}</p>}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="col-span-2">
+                            <label htmlFor="requester_supplier_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fornecedor Solicitante</label>
+                            <select 
+                                name="requester_supplier_id" 
+                                id="requester_supplier_id" 
+                                value={formData.requester_supplier_id} 
+                                onChange={handleChange} 
+                                className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.requester_supplier_id ? 'border-red-500' : 'border-gray-600'}`}
+                            >
+                                <option value="" disabled>Selecione um fornecedor</option>
+                                {suppliers.map(sup => (
+                                    <option key={sup.id} value={sup.id}>{sup.name}</option>
+                                ))}
+                            </select>
+                            {errors.requester_supplier_id && <p className="text-red-400 text-xs italic mt-1">{errors.requester_supplier_id}</p>}
+                        </div>
+                    )}
                 </div>
                 
                 <div>
@@ -553,7 +632,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                             value={formData.equipmentId}
                             onChange={handleChange}
                             className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed"
-                            disabled={availableEquipment.length === 0}
+                            disabled={requesterType === 'external' || availableEquipment.length === 0}
                         >
                             <option value="">Nenhum</option>
                             {availableEquipment.map(eq => {
