@@ -1,7 +1,9 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -30,6 +32,37 @@ const getStatusClass = (status: TicketStatus) => {
         case TicketStatus.InProgress: return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
         case TicketStatus.Finished: return 'bg-green-500/20 text-green-400 border-green-500/30';
         default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
+};
+
+// Helper to calculate NIS2 Regulatory Deadline (24h)
+const getNis2Countdown = (ticket: Ticket) => {
+    if (ticket.status === TicketStatus.Finished) return null;
+    
+    const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
+    if (!isSecurity) return null;
+
+    const requestDate = new Date(ticket.requestDate);
+    const now = new Date();
+    const deadline24h = requestDate.getTime() + 24 * 60 * 60 * 1000;
+    const diffMs = deadline24h - now.getTime();
+    const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+
+    if (diffMs < 0) {
+        return {
+            text: `NIS2 Expirado (+${Math.abs(hoursLeft)}h)`,
+            className: 'bg-red-600 text-white font-bold border-red-800 animate-pulse'
+        };
+    } else if (hoursLeft < 4) {
+        return {
+            text: `NIS2: ${hoursLeft}h (Alerta)`,
+            className: 'bg-red-900/50 text-red-300 border-red-500 font-bold animate-pulse'
+        };
+    } else {
+        return {
+            text: `NIS2: ${hoursLeft}h`,
+            className: 'bg-blue-900/30 text-blue-300 border-blue-500/50'
+        };
     }
 };
 
@@ -254,6 +287,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                             const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
                             const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
                             const sla = getSLATimer(ticket, categoryObj);
+                            const nis2Countdown = getNis2Countdown(ticket);
                             const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança' || (categoryObj && (categoryObj.sla_warning_hours > 0 || categoryObj.sla_critical_hours > 0));
                             const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
 
@@ -301,17 +335,25 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                     <div className="text-xs text-gray-500 mt-1">{new Date(ticket.requestDate).toLocaleString()}</div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    {sla ? (
-                                        <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border ${sla.className}`}>
-                                            {sla.icon}
-                                            <div className="flex flex-col">
-                                                <span className="font-bold">{sla.label}</span>
-                                                <span>{sla.text}</span>
+                                    <div className="flex flex-col gap-2">
+                                        {nis2Countdown && (
+                                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border ${nis2Countdown.className}`} title="Prazo legal de notificação (Alerta Precoce 24h)">
+                                                <FaLandmark className="h-3 w-3"/>
+                                                {nis2Countdown.text}
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <span className="text-gray-500 text-xs">Sem SLA definido</span>
-                                    )}
+                                        )}
+                                        {sla ? (
+                                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border ${sla.className}`}>
+                                                {sla.icon}
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold">{sla.label}</span>
+                                                    <span>{sla.text}</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            !nis2Countdown && <span className="text-gray-500 text-xs">Sem SLA definido</span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : '—'}</td>
                                 <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>

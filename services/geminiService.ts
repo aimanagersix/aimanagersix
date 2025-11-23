@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -507,5 +508,67 @@ export const scanForVulnerabilities = async (inventory: string[]): Promise<Scann
     } catch (error) {
         console.error("Error scanning vulnerabilities:", error);
         return [];
+    }
+};
+
+// --- Regulatory Notification Generation (NIS2/DORA) ---
+
+export interface RegulatoryNotificationData {
+    report_json: string;
+    report_summary_html: string;
+}
+
+export const generateNis2Notification = async (ticket: any, activities: any[]): Promise<RegulatoryNotificationData> => {
+    try {
+        const ai = getAiClient();
+        
+        const prompt = `
+        Act as a Cybersecurity Compliance Officer (CSIRT/ENISA context).
+        
+        Task: Generate a mandatory incident notification report (JSON format) for NIS2/DORA compliance authorities (e.g. CNCS Portugal).
+        
+        Input Data:
+        - Incident Title: ${ticket.title}
+        - Description: ${ticket.description}
+        - Type: ${ticket.securityIncidentType}
+        - Criticality: ${ticket.impactCriticality}
+        - Date Detected: ${ticket.requestDate}
+        - Activities Log: ${JSON.stringify(activities.map(a => a.description))}
+        - Impact: Confidentiality (${ticket.impactConfidentiality}), Integrity (${ticket.impactIntegrity}), Availability (${ticket.impactAvailability})
+
+        Requirements:
+        1. **Anonymize PII**: Replace any person names or emails with placeholders (e.g., "REDACTED_USER_1").
+        2. **Structure**: Create a JSON object with fields: 'incident_id', 'category', 'discovery_time', 'description', 'root_cause', 'impact_analysis', 'mitigation_status', 'is_personal_data_breach'.
+        3. **Summary**: Also provide a brief HTML summary (<h3>, <p>, <ul>) for the user to preview.
+
+        Return Schema:
+        {
+            "report_json": "Stringified JSON of the official report",
+            "report_summary_html": "HTML string for preview"
+        }
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        report_json: { type: Type.STRING },
+                        report_summary_html: { type: Type.STRING }
+                    },
+                    required: ["report_json", "report_summary_html"]
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "{}";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error generating regulatory notification:", error);
+        throw new Error("Failed to generate report.");
     }
 };

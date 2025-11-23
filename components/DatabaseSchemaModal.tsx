@@ -6,6 +6,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -60,6 +62,10 @@ BEGIN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
         -- New for KB RAG
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_summary text;
+        -- New for NIS2 Regulatory Reporting
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS regulatory_status text DEFAULT 'NotRequired';
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS regulatory_24h_deadline timestamptz;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS regulatory_72h_deadline timestamptz;
     END IF;
     
     -- 4. Adicionar colunas de SLA à tabela TICKET_CATEGORIES
@@ -347,6 +353,9 @@ CREATE TABLE IF NOT EXISTS tickets (
     "impactAvailability" text,
     attachments jsonb DEFAULT '[]',
     resolution_summary text,
+    regulatory_status text DEFAULT 'NotRequired',
+    regulatory_24h_deadline timestamptz,
+    regulatory_72h_deadline timestamptz,
     created_at timestamptz DEFAULT now()
 );
 
@@ -519,7 +528,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script foi atualizado para adicionar campos de <strong>DORA (Contratos)</strong> às tabelas de fornecedores.
+                        Este script foi atualizado para adicionar campos de <strong>DORA (Contratos)</strong> e <strong>Notificações Regulatórias (NIS2)</strong>.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

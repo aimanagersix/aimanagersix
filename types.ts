@@ -274,6 +274,11 @@ export interface Ticket {
   
   // KB / RAG Fields
   resolution_summary?: string; // For AI Knowledge Base
+
+  // DORA / NIS2 Regulatory Reporting
+  regulatory_status?: 'NotRequired' | 'Pending' | 'EarlyWarningSent' | 'NotificationSent';
+  regulatory_24h_deadline?: string; // Calculated 24h from requestDate
+  regulatory_72h_deadline?: string; // Calculated 72h from requestDate
 }
 
 export interface TicketActivity {

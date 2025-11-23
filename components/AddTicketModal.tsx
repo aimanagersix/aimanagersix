@@ -1,10 +1,13 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus } from '../types';
-import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck } from './common/Icons';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity } from '../types';
+import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark } from './common/Icons';
 import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
 import { FaLightbulb, FaLock } from 'react-icons/fa';
+import RegulatoryNotificationModal from './RegulatoryNotificationModal';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -111,6 +114,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const [aiSuggestion, setAiSuggestion] = useState<{category: string, priority: string, solution: string} | null>(null);
     const [similarTicket, setSimilarTicket] = useState<{id: string, resolution: string, reason: string} | null>(null);
     const [autoSeverityMessage, setAutoSeverityMessage] = useState<string | null>(null);
+    const [showRegulatoryModal, setShowRegulatoryModal] = useState(false);
     
     const aiConfigured = isAiConfigured();
      
@@ -341,6 +345,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const modalTitle = ticketToEdit ? "Editar Ticket" : "Adicionar Novo Ticket";
 
     return (
+        <>
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
             <form onSubmit={handleSubmit} className="space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -397,9 +402,20 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
 
                 {isSecurityIncident && (
                     <div className="border border-red-500/50 bg-red-900/20 rounded-lg p-4 space-y-4 animate-fade-in">
-                         <div className="flex items-center gap-2 text-red-400 font-bold border-b border-red-500/30 pb-2 mb-2">
-                            <FaShieldAlt />
-                            <h3>Classificação de Incidente de Segurança (NIS2)</h3>
+                         <div className="flex items-center justify-between border-b border-red-500/30 pb-2 mb-2">
+                            <div className="flex items-center gap-2 text-red-400 font-bold">
+                                <FaShieldAlt />
+                                <h3>Classificação de Incidente de Segurança (NIS2)</h3>
+                            </div>
+                            {ticketToEdit && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRegulatoryModal(true)}
+                                    className="text-xs flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded shadow-lg font-bold transition-colors"
+                                >
+                                    <FaLandmark /> Gerar Notificação Regulatória
+                                </button>
+                            )}
                         </div>
                         <p className="text-xs text-red-200 mb-2">
                             <FaExclamationTriangle className="inline mr-1"/>
@@ -624,6 +640,14 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 </div>
             </form>
         </Modal>
+        {showRegulatoryModal && ticketToEdit && (
+            <RegulatoryNotificationModal 
+                ticket={ticketToEdit} 
+                activities={[]} // Passing empty activities for now as they are fetched in dashboard, or could be passed as prop if available
+                onClose={() => setShowRegulatoryModal(false)} 
+            />
+        )}
+        </>
     );
 };
 
