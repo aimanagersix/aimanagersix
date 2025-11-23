@@ -161,11 +161,12 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                 // 2. Auto-inherit Criticality (Risk Inheritance)
                 // Only automate if the asset is High/Critical to ensure safety
                 if (selectedEquipment.criticality === CriticalityLevel.High || selectedEquipment.criticality === CriticalityLevel.Critical) {
+                    // Automatically upgrade criticality if it's lower than the asset's criticality
                     if (formData.impactCriticality !== selectedEquipment.criticality) {
                         setFormData(prev => ({ ...prev, impactCriticality: selectedEquipment.criticality }));
-                        setAutoSeverityMessage(`Prioridade ajustada automaticamente: Este ativo é classificado como '${selectedEquipment.criticality}'.`);
+                        setAutoSeverityMessage(`Prioridade ajustada automaticamente: Este ativo é classificado como '${selectedEquipment.criticality}' (NIS2).`);
                         // Auto-dismiss message
-                        setTimeout(() => setAutoSeverityMessage(null), 6000);
+                        setTimeout(() => setAutoSeverityMessage(null), 8000);
                     }
                 }
             }
@@ -530,13 +531,18 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                             disabled={availableEquipment.length === 0}
                         >
                             <option value="">Nenhum</option>
-                            {availableEquipment.map(eq => (
-                                <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
-                            ))}
+                            {availableEquipment.map(eq => {
+                                const isCritical = eq.criticality === CriticalityLevel.High || eq.criticality === CriticalityLevel.Critical;
+                                return (
+                                    <option key={eq.id} value={eq.id}>
+                                        {eq.description} (S/N: {eq.serialNumber}) {isCritical ? '⚠️ [CRÍTICO]' : ''}
+                                    </option>
+                                );
+                            })}
                         </select>
                         {autoSeverityMessage && (
                             <div className="mt-1 p-2 bg-yellow-600/20 border border-yellow-600/50 rounded text-xs text-yellow-200 flex items-center gap-2 animate-fade-in">
-                                <FaExclamationTriangle />
+                                <FaExclamationTriangle className="flex-shrink-0" />
                                 {autoSeverityMessage}
                             </div>
                         )}
