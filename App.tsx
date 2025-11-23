@@ -1,10 +1,12 @@
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
-  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest
+  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest, SecurityTrainingRecord
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -68,6 +70,8 @@ import AddBackupModal from './components/AddBackupModal';
 import AutomationModal from './components/AutomationModal';
 import MagicCommandBar from './components/MagicCommandBar';
 import ResilienceDashboard from './components/ResilienceDashboard';
+import AddResilienceTestModal from './components/AddResilienceTestModal';
+import SmartDashboard from './components/SmartDashboard';
 
 type Session = any;
 
@@ -104,6 +108,7 @@ const InnerApp: React.FC = () => {
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [backupExecutions, setBackupExecutions] = useState<BackupExecution[]>([]);
     const [resilienceTests, setResilienceTests] = useState<ResilienceTest[]>([]);
+    const [securityTrainings, setSecurityTrainings] = useState<SecurityTrainingRecord[]>([]);
 
     // UI State
     const [isConfigured, setIsConfigured] = useState(!!localStorage.getItem('SUPABASE_URL'));
@@ -170,6 +175,9 @@ const InnerApp: React.FC = () => {
     const [showAddBackup, setShowAddBackup] = useState(false);
     const [backupToEdit, setBackupToEdit] = useState<BackupExecution | null>(null);
     const [showAutomationModal, setShowAutomationModal] = useState(false);
+    
+    const [showAddResilienceTest, setShowAddResilienceTest] = useState(false);
+    const [resilienceTestToEdit, setResilienceTestToEdit] = useState<ResilienceTest | null>(null);
 
     // Maps
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
@@ -204,6 +212,7 @@ const InnerApp: React.FC = () => {
             setSuppliers(data.suppliers);
             setBackupExecutions(data.backupExecutions);
             setResilienceTests(data.resilienceTests);
+            setSecurityTrainings(data.securityTrainings);
         } catch (error) {
             console.error("Failed to load data:", error);
         } finally {
@@ -279,6 +288,7 @@ const InnerApp: React.FC = () => {
                  setSuppliers(data.suppliers);
                  setBackupExecutions(data.backupExecutions);
                  setResilienceTests(data.resilienceTests);
+                 setSecurityTrainings(data.securityTrainings);
              } else {
                  console.warn("User logged in but not found in collaborators table");
              }
@@ -288,6 +298,17 @@ const InnerApp: React.FC = () => {
              setLoading(false);
         }
     };
+    
+    // Role Based Access Logic
+    const isAdmin = currentUser?.role === UserRole.Admin;
+    const isBasic = currentUser?.role === UserRole.Basic || currentUser?.role === UserRole.Utilizador;
+
+    // Set default tab for Basic Users
+    useEffect(() => {
+        if (isBasic && activeTab === 'overview') {
+            setActiveTab('tickets.list');
+        }
+    }, [isBasic, activeTab]);
 
     // --- Magic Command Bar Logic ---
     const handleMagicAction = (intent: string, data: any) => {
@@ -544,8 +565,10 @@ const InnerApp: React.FC = () => {
         return <LoginPage onLogin={handleLogin} onForgotPassword={() => setShowForgotPassword(true)} />;
     }
     
+    // Define Tabs Config based on role
     const tabConfig: any = {
-        'overview': 'Visão Geral',
+        'overview': !isBasic ? 'Visão Geral' : undefined, // Hide Overview for Basic users
+        'overview.smart': isAdmin ? 'C-Level Dashboard' : undefined, // Only Admin sees Smart Dashboard
         'equipment.inventory': 'Inventário',
         'equipment.brands': 'Marcas',
         'equipment.types': 'Tipos',
@@ -592,7 +615,7 @@ const InnerApp: React.FC = () => {
                     ? `${sidebarExpanded ? 'ml-64' : 'ml-20'} w-auto bg-background-dark min-h-screen`
                     : 'max-w-screen-xl mx-auto w-full' // Topbar mode: centered, max width
             }`}>
-                {activeTab === 'overview' && (
+                {activeTab === 'overview' && !isBasic && (
                     <OverviewDashboard
                         equipment={equipment}
                         instituicoes={instituicoes}
@@ -610,6 +633,17 @@ const InnerApp: React.FC = () => {
                         vulnerabilities={vulnerabilities}
                         onViewItem={(tab, filter) => { setActiveTab(tab); setInitialFilter(filter); }}
                         onGenerateComplianceReport={() => { setShowReport({ type: 'compliance', visible: true }); }}
+                    />
+                )}
+
+                {activeTab === 'overview.smart' && isAdmin && (
+                    <SmartDashboard 
+                        tickets={tickets}
+                        vulnerabilities={vulnerabilities}
+                        backups={backupExecutions}
+                        trainings={securityTrainings}
+                        collaborators={collaborators}
+                        currentUser={currentUser}
                     />
                 )}
 
@@ -856,8 +890,8 @@ const InnerApp: React.FC = () => {
                 {activeTab === 'nis2.resilience' && (
                     <ResilienceDashboard
                         resilienceTests={resilienceTests}
-                        onCreate={() => { /* Handled by internal state */ }}
-                        onEdit={() => {} /* Handled by internal state */ }
+                        onCreate={() => { setResilienceTestToEdit(null); setShowAddResilienceTest(true); }}
+                        onEdit={(t) => { setResilienceTestToEdit(t); setShowAddResilienceTest(true); }}
                         onDelete={(id) => handleDelete('Excluir Teste', 'Tem a certeza? Os relatórios associados serão perdidos.', () => simpleSaveWrapper(dataService.deleteResilienceTest, id))}
                         onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
                     />
@@ -1216,6 +1250,18 @@ const InnerApp: React.FC = () => {
                     initialData={kitInitialData}
                     onSaveEquipmentType={(t) => dataService.addEquipmentType(t)}
                     equipment={equipment}
+                />
+            )}
+            
+            {showAddResilienceTest && (
+                <AddResilienceTestModal 
+                    onClose={() => { setShowAddResilienceTest(false); setResilienceTestToEdit(null); }}
+                    onSave={(t) => {
+                        if (resilienceTestToEdit) return simpleSaveWrapper(dataService.updateResilienceTest, t, resilienceTestToEdit.id);
+                        else return simpleSaveWrapper(dataService.addResilienceTest, t);
+                    }}
+                    testToEdit={resilienceTestToEdit}
+                    onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
                 />
             )}
 

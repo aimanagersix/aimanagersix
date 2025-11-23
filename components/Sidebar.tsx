@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -30,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const [isInventarioOpen, setInventarioOpen] = useState(activeTab.startsWith('equipment') || activeTab === 'licensing');
     const [isNis2Open, setIsNis2Open] = useState(activeTab.startsWith('nis2'));
     const [isTicketsOpen, setIsTicketsOpen] = useState(activeTab.startsWith('tickets'));
+    const [isOverviewOpen, setIsOverviewOpen] = useState(activeTab.startsWith('overview'));
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
     // Security Modals
@@ -38,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const [showDbSchema, setShowDbSchema] = useState(false);
 
     // Logic
+    const hasOverviewTabs = tabConfig['overview'] || tabConfig['overview.smart'];
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience;
@@ -92,7 +95,40 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
             {/* Navigation */}
             <nav className="flex-grow py-4 px-2 space-y-1 overflow-y-auto custom-scrollbar overflow-x-hidden">
-                {tabConfig['overview'] && <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                
+                {/* Visão Geral (With Submenu for Admin) */}
+                {hasOverviewTabs && (
+                    <div className="space-y-1">
+                        {/* Check if it needs a dropdown (if admin has access to Smart Dashboard) */}
+                        {tabConfig['overview.smart'] ? (
+                            <>
+                                <button
+                                    onClick={() => setIsOverviewOpen(!isOverviewOpen)}
+                                    className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOverviewOpen ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                                    title={!isExpanded ? t('nav.overview') : undefined}
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
+                                        <FaChartBar className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                        <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.overview')}</span>
+                                    </div>
+                                    {isExpanded && (
+                                        <span className={`transition-transform duration-200 ${isOverviewOpen ? 'rotate-90' : ''}`}>
+                                            <FaChevronRight className="w-3 h-3" />
+                                        </span>
+                                    )}
+                                </button>
+                                {isOverviewOpen && isExpanded && (
+                                    <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
+                                        <TabButton tab="overview" label="Dashboard Geral" icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                        <TabButton tab="overview.smart" label={tabConfig['overview.smart']} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={setActiveTab}/>
+                        )}
+                    </div>
+                )}
 
                 {/* Organização */}
                 {hasOrganizacaoTabs && (
