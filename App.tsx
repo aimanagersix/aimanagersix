@@ -751,6 +751,7 @@ const InnerApp: React.FC = () => {
                         suppliers={suppliers}
                         entidades={entidades}
                         instituicoes={instituicoes}
+                        vulnerabilities={vulnerabilities}
 
                         // Pass complex handlers
                         onCreateBrand={() => { setBrandToEdit(null); setShowAddBrand(true); }}
@@ -1019,6 +1020,7 @@ const InnerApp: React.FC = () => {
                     <UserManualModal onClose={() => setShowUserManual(false)} />
                 )}
 
+            </main>
         </div>
     );
 };

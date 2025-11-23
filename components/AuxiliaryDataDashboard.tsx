@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao } from '../types';
+import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
 import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
@@ -39,6 +39,7 @@ interface AuxiliaryDataDashboardProps {
     suppliers: Supplier[];
     entidades: Entidade[];
     instituicoes: Instituicao[];
+    vulnerabilities: Vulnerability[];
 
     // Complex Handlers
     onEditBrand: (b: Brand) => void;
@@ -77,7 +78,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     ticketCategories, tickets, teams, onEditCategory, onDeleteCategory, onToggleCategoryStatus, onCreateCategory,
     securityIncidentTypes, onEditIncidentType, onDeleteIncidentType, onToggleIncidentTypeStatus, onCreateIncidentType,
     // Data for checks
-    collaborators, softwareLicenses, businessServices, backupExecutions, securityTrainings, resilienceTests, suppliers, entidades, instituicoes
+    collaborators, softwareLicenses, businessServices, backupExecutions, securityTrainings, resilienceTests, suppliers, entidades, instituicoes, vulnerabilities
 }) => {
     const [selectedMenuId, setSelectedMenuId] = useState<string>('brands'); // Default view
     
@@ -146,7 +147,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             case 'config_criticality_levels':
                 return equipment.some(e => e.criticality === name) || 
                        softwareLicenses.some(l => l.criticality === name) ||
-                       businessServices.some(s => s.criticality === name);
+                       businessServices.some(s => s.criticality === name) ||
+                       vulnerabilities.some(v => v.severity === name);
             case 'config_cia_ratings':
                 return equipment.some(e => e.confidentiality === name || e.integrity === name || e.availability === name) ||
                        softwareLicenses.some(l => l.confidentiality === name || l.integrity === name || l.availability === name);
