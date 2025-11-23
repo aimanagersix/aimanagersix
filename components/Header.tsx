@@ -1,8 +1,9 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -53,6 +54,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const userMenuRef = useRef<HTMLDivElement>(null);
     const [isTicketsMenuOpen, setIsTicketsMenuOpen] = useState(false);
     const ticketsMenuRef = useRef<HTMLDivElement>(null);
+    const [isOverviewMenuOpen, setIsOverviewMenuOpen] = useState(false);
+    const overviewMenuRef = useRef<HTMLDivElement>(null);
 
     // Security Modals
     const [showMFA, setShowMFA] = useState(false);
@@ -100,6 +103,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
              if (ticketsMenuRef.current && !ticketsMenuRef.current.contains(event.target as Node)) {
                 setIsTicketsMenuOpen(false);
             }
+            if (overviewMenuRef.current && !overviewMenuRef.current.contains(event.target as Node)) {
+                setIsOverviewMenuOpen(false);
+            }
             if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
                 setIsUserMenuOpen(false);
             }
@@ -112,7 +118,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isNis2MenuOpen, isUserMenuOpen, isTicketsMenuOpen]);
+    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isNis2MenuOpen, isUserMenuOpen, isTicketsMenuOpen, isOverviewMenuOpen]);
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
@@ -120,6 +126,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         setInventarioMenuOpen(false);
         setIsNis2MenuOpen(false);
         setIsTicketsMenuOpen(false);
+        setIsOverviewMenuOpen(false);
         setIsMobileMenuOpen(false);
     }
     
@@ -128,18 +135,21 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
     const isNis2Active = activeTab.startsWith('nis2');
     const isTicketsActive = activeTab.startsWith('tickets');
+    const isOverviewActive = activeTab.startsWith('overview');
 
     const [isMobileOrganizacaoOpen, setIsMobileOrganizacaoOpen] = useState(isOrganizationActive);
     const [isMobileInventarioOpen, setIsMobileInventarioOpen] = useState(isInventoryActive);
     const [isMobileNis2Open, setIsMobileNis2Open] = useState(isNis2Active);
     const [isMobileTicketsOpen, setIsMobileTicketsOpen] = useState(isTicketsActive);
+    const [isMobileOverviewOpen, setIsMobileOverviewOpen] = useState(isOverviewActive);
 
     useEffect(() => {
         if (isOrganizationActive) setIsMobileOrganizacaoOpen(true);
         if (isInventoryActive) setIsMobileInventarioOpen(true);
         if (isNis2Active) setIsMobileNis2Open(true);
         if (isTicketsActive) setIsMobileTicketsOpen(true);
-    }, [activeTab, isInventoryActive, isOrganizationActive, isNis2Active, isTicketsActive]);
+        if (isOverviewActive) setIsMobileOverviewOpen(true);
+    }, [activeTab, isInventoryActive, isOrganizationActive, isNis2Active, isTicketsActive, isOverviewActive]);
 
     // Define if the main menu item should be visible based on children availability
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
@@ -164,7 +174,35 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
           </div>
 
           <nav className="hidden md:flex items-center space-x-2">
-              {tabConfig['overview'] && <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange}/>}
+              {/* Visão Geral */}
+              {tabConfig['overview'] && (
+                  tabConfig['overview.smart'] ? (
+                    <div className="relative" ref={overviewMenuRef}>
+                        <button
+                            onClick={() => setIsOverviewMenuOpen(prev => !prev)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isOverviewActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                            aria-haspopup="true"
+                            aria-expanded={isOverviewMenuOpen}
+                        >
+                            <FaChartBar />
+                            {t('nav.overview')}
+                            <svg className={`w-4 h-4 ml-1 transition-transform transform ${isOverviewMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {isOverviewMenuOpen && (
+                            <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md shadow-lg bg-surface-dark ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical">
+                                <div className="py-1">
+                                    <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar className="h-5 w-5" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                                    <TabButton tab="overview.smart" label={tabConfig['overview.smart']} icon={<FaTachometerAlt className="h-5 w-5 text-purple-400" />} isDropdownItem={true} activeTab={activeTab} setActiveTab={handleTabChange} />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                  ) : (
+                    <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange}/>
+                  )
+              )}
               
               {/* 1. Organização */}
               {hasOrganizacaoTabs && (
@@ -421,7 +459,34 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         </button>
                     )}
 
-                    {tabConfig['overview'] && <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>}
+                    {/* Visão Geral Mobile */}
+                    {tabConfig['overview'] && (
+                        tabConfig['overview.smart'] ? (
+                            <div>
+                                <button
+                                    onClick={() => setIsMobileOverviewOpen(prev => !prev)}
+                                    className={`flex items-center justify-between w-full text-left transition-colors duration-200 px-4 py-2 text-sm rounded-md ${isOverviewActive ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}`}
+                                    aria-expanded={isMobileOverviewOpen}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <FaChartBar />
+                                        <span>{t('nav.overview')}</span>
+                                    </div>
+                                    <svg className={`w-4 h-4 ml-1 transition-transform transform ${isMobileOverviewOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                {isMobileOverviewOpen && (
+                                    <div className="pl-4 mt-1 space-y-1">
+                                        <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />
+                                        <TabButton tab="overview.smart" label={tabConfig['overview.smart']} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={handleTabChange} />
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={handleTabChange} isDropdownItem/>
+                        )
+                    )}
                     
                     {/* 1. Organização Mobile */}
                     {hasOrganizacaoTabs && (

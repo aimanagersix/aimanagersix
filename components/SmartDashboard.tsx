@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Ticket, TicketStatus, CriticalityLevel, Vulnerability, VulnerabilityStatus, BackupExecution, SecurityTrainingRecord, Collaborator, UserRole } from '../types';
 import { FaShieldAlt, FaTachometerAlt, FaExclamationTriangle, FaCheckCircle, FaUserShield, FaFileSignature, FaSpinner } from './common/Icons';
