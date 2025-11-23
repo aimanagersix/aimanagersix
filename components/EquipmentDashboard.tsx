@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -466,7 +468,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={() => setEquipmentForHistory(item)}
+                onClick={() => onShowHistory(item)}
               >
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input

@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon, PlusIcon } from './common/Icons';
@@ -192,10 +194,11 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                 if (filters.status === LicenseStatus.Ativo) return (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo;
                 if (filters.status === LicenseStatus.Inativo) return license.status === LicenseStatus.Inativo;
                 const usedSeats = usedSeatsMap.get(license.id) || 0;
-                const availableSeats = license.totalSeats - usedSeats;
+                const availableSeats = license.is_oem ? 100 : (license.totalSeats - usedSeats); // Treat OEM as always available for filter logic
+                
                 if (filters.status === 'available' && availableSeats <= 0) return false;
                 if (filters.status === 'in_use' && usedSeats === 0) return false;
-                if (filters.status === 'depleted' && availableSeats > 0) return false;
+                if (filters.status === 'depleted' && availableSeats > 0 && !license.is_oem) return false;
                 return true;
             })();
             
@@ -210,8 +213,8 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                 if (sortConfig.key === 'usage') {
                     const aUsed = usedSeatsMap.get(a.id) || 0;
                     const bUsed = usedSeatsMap.get(b.id) || 0;
-                    aValue = a.totalSeats > 0 ? aUsed / a.totalSeats : 0;
-                    bValue = b.totalSeats > 0 ? bUsed / b.totalSeats : 0;
+                    aValue = a.is_oem ? 0 : (a.totalSeats > 0 ? aUsed / a.totalSeats : 0);
+                    bValue = b.is_oem ? 0 : (b.totalSeats > 0 ? bUsed / b.totalSeats : 0);
                 } else {
                     aValue = a[sortConfig.key as keyof SoftwareLicense] ?? '';
                     bValue = b[sortConfig.key as keyof SoftwareLicense] ?? '';
@@ -318,6 +321,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                         <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                                             <div className="flex items-center">
                                                 {license.productName}
+                                                {license.is_oem && <span className="ml-2 text-[10px] bg-blue-900/30 text-blue-300 px-1 rounded border border-blue-500/30">OEM</span>}
                                                 {biaInfo && (
                                                     <span className="flex h-2 w-2 relative ml-2" title={`Suporta serviço crítico: ${biaInfo.serviceName} (${biaInfo.level})`}>
                                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -338,7 +342,15 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className="font-semibold text-white">{license.totalSeats}</span> / <span>{usedSeats}</span> / <span className={`font-bold ${availableSeats > 0 ? 'text-green-400' : 'text-red-400'}`}>{availableSeats}</span>
+                                            {license.is_oem ? (
+                                                <span className="text-xs text-gray-400">
+                                                    <span className="font-bold text-blue-300">{usedSeats}</span> instalada(s) (Dinâmico)
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <span className="font-semibold text-white">{license.totalSeats}</span> / <span>{usedSeats}</span> / <span className={`font-bold ${availableSeats > 0 ? 'text-green-400' : 'text-red-400'}`}>{availableSeats}</span>
+                                                </>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-xs">
                                             {license.purchaseDate && <div>Compra: {license.purchaseDate}</div>}

@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull } from './common/Icons';
@@ -251,12 +253,12 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         // 2. Calculate OEM Licenses (from Equipment)
         // OEM Logic:
-        // - A license exists if equipment.has_embedded_license is true.
+        // - A license exists if equipment.embedded_license_key is present.
         // - It is considered "Used" if equipment is Operational/Assigned.
         // - It is considered "Available" if equipment is in Stock (since the license comes with the hardware).
         const oemCounts: Record<string, number> = {};
         equipment.forEach(eq => {
-            if (eq.has_embedded_license && eq.os_version) {
+            if (eq.embedded_license_key && eq.os_version) {
                 // Clean up version name to grouping
                 const osName = eq.os_version;
                 

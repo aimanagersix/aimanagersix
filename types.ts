@@ -128,8 +128,7 @@ export interface Equipment {
   expectedLifespanYears?: number; // e.g. 4 years
 
   // OEM / Embedded License
-  has_embedded_license?: boolean;
-  embedded_license_key?: string;
+  embedded_license_key?: string; // Unique key for this machine
 }
 
 export interface Instituicao {
@@ -351,6 +350,9 @@ export interface SoftwareLicense {
   
   // FinOps
   unitCost?: number; // Cost per seat or total? Usually unit cost for TCO.
+  
+  // OEM Logic
+  is_oem?: boolean; // If true, totalSeats is dynamic/ignored
 }
 
 export interface LicenseAssignment {

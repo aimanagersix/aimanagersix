@@ -1,14 +1,16 @@
 
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier } from '../types';
+import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaCalendarCheck, FaWindows } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaWindows, FaUserTag, FaKey } from 'react-icons/fa';
 
 interface AddEquipmentModalProps {
     onClose: () => void;
-    onSave: (equipment: Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'> | Equipment) => Promise<any>;
+    onSave: (equipment: Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'> | Equipment, assignment?: any, licenseIds?: string[]) => Promise<any>;
     brands: Brand[];
     equipmentTypes: EquipmentType[];
     equipmentToEdit?: Equipment | null;
@@ -16,6 +18,9 @@ interface AddEquipmentModalProps {
     onSaveEquipmentType: (type: Omit<EquipmentType, 'id'>) => Promise<EquipmentType>;
     onOpenKitModal: (initialData: Partial<Equipment>) => void;
     suppliers?: Supplier[];
+    softwareLicenses?: SoftwareLicense[];
+    entidades?: Entidade[];
+    collaborators?: Collaborator[];
 }
 
 interface CameraScannerProps {
@@ -165,7 +170,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
     );
 };
 
-const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, suppliers = [] }) => {
+const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, suppliers = [], softwareLicenses = [], entidades = [], collaborators = [] }) => {
     const [formData, setFormData] = useState<Partial<Equipment>>({
         brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: '',
         criticality: CriticalityLevel.Low,
@@ -177,7 +182,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         supplier_id: '',
         acquisitionCost: 0,
         expectedLifespanYears: 4,
-        has_embedded_license: false,
         embedded_license_key: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -188,8 +192,16 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
     const [isAddingType, setIsAddingType] = useState(false);
     const [newTypeName, setNewTypeName] = useState('');
     const [showKitButton, setShowKitButton] = useState(false);
-    const aiConfigured = isAiConfigured();
+    
+    // --- New Assignment Logic ---
+    const [assignToEntityId, setAssignToEntityId] = useState('');
+    const [assignToCollaboratorId, setAssignToCollaboratorId] = useState('');
+    
+    // --- New License Logic ---
+    const [selectedLicenseIds, setSelectedLicenseIds] = useState<Set<string>>(new Set());
+    const [selectedOemLicenseId, setSelectedOemLicenseId] = useState('');
 
+    const aiConfigured = isAiConfigured();
 
     useEffect(() => {
         if (equipmentToEdit) {
@@ -215,7 +227,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 supplier_id: equipmentToEdit.supplier_id || '',
                 acquisitionCost: equipmentToEdit.acquisitionCost || 0,
                 expectedLifespanYears: equipmentToEdit.expectedLifespanYears || 4,
-                has_embedded_license: equipmentToEdit.has_embedded_license || false,
                 embedded_license_key: equipmentToEdit.embedded_license_key || ''
             });
         } else {
@@ -240,7 +251,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 supplier_id: '',
                 acquisitionCost: 0,
                 expectedLifespanYears: 4,
-                has_embedded_license: false,
                 embedded_license_key: ''
             });
         }
@@ -273,15 +283,35 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         return equipmentTypes.find(t => t.id === formData.typeId);
     }, [formData.typeId, equipmentTypes]);
 
+    // Determine if computing device (for enhanced UI options)
+    const isComputingDevice = useMemo(() => {
+        const name = selectedType?.name.toLowerCase() || '';
+        return name.includes('desktop') || name.includes('laptop') || name.includes('portátil') || name.includes('servidor');
+    }, [selectedType]);
+
      useEffect(() => {
-        if (formData.typeId) {
-            const type = equipmentTypes.find(t => t.id === formData.typeId);
-            const typeName = type?.name.toLowerCase() || '';
-            setShowKitButton(['desktop', 'laptop', 'portátil'].includes(typeName));
+        if (isComputingDevice) {
+            setShowKitButton(true);
         } else {
             setShowKitButton(false);
         }
-    }, [formData.typeId, equipmentTypes]);
+    }, [isComputingDevice]);
+
+    // Filtered Collaborators for Assignment
+    const filteredCollaborators = useMemo(() => {
+        if (!assignToEntityId) return [];
+        return collaborators.filter(c => c.entidadeId === assignToEntityId && c.status === CollaboratorStatus.Ativo);
+    }, [assignToEntityId, collaborators]);
+
+    // Filter OEM Licenses
+    const oemLicenses = useMemo(() => {
+        return softwareLicenses.filter(l => l.is_oem);
+    }, [softwareLicenses]);
+
+    // Filter Other Licenses
+    const availableVolumeLicenses = useMemo(() => {
+        return softwareLicenses.filter(l => !l.is_oem && !selectedLicenseIds.has(l.id));
+    }, [softwareLicenses, selectedLicenseIds]);
 
     const validate = useCallback(() => {
         const newErrors: Record<string, string> = {};
@@ -300,9 +330,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         if (formData.warrantyEndDate && formData.purchaseDate && new Date(formData.warrantyEndDate) < new Date(formData.purchaseDate)) {
             newErrors.warrantyEndDate = "A data de fim da garantia não pode ser anterior à data de compra.";
         }
-        if (formData.has_embedded_license && !formData.os_version) {
-            newErrors.os_version = "Se o equipamento tem licença, indique a versão do Windows.";
-        }
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     }, [formData]);
@@ -383,6 +411,15 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         setIsAddingType(false);
     };
 
+    const handleToggleLicense = (licenseId: string) => {
+        setSelectedLicenseIds(prev => {
+            const next = new Set(prev);
+            if (next.has(licenseId)) next.delete(licenseId);
+            else next.add(licenseId);
+            return next;
+        });
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
@@ -400,14 +437,28 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             supplier_id: formData.supplier_id || undefined,
             acquisitionCost: formData.acquisitionCost || 0,
             expectedLifespanYears: formData.expectedLifespanYears || 4,
-            has_embedded_license: formData.has_embedded_license || false,
             embedded_license_key: formData.embedded_license_key || undefined
         };
 
+        // Prepare auxiliary data
+        let assignment = null;
+        if (assignToEntityId) {
+            assignment = {
+                entidadeId: assignToEntityId,
+                collaboratorId: assignToCollaboratorId || undefined,
+                assignedDate: new Date().toISOString().split('T')[0]
+            };
+        }
+
+        const licenses = Array.from(selectedLicenseIds);
+        if (selectedOemLicenseId) licenses.push(selectedOemLicenseId);
+
         if (equipmentToEdit && equipmentToEdit.id) {
-            onSave({ ...equipmentToEdit, ...dataToSubmit });
+            // Edit mode might need different handling for assignments/licenses if simplified here
+            // For now, just update main equipment data
+            onSave({ ...equipmentToEdit, ...dataToSubmit }, assignment, licenses);
         } else {
-            onSave(dataToSubmit as Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>);
+            onSave(dataToSubmit as Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>, assignment, licenses);
         }
         onClose();
     };
@@ -417,9 +468,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
     const submitButtonText = isEditMode ? "Salvar Alterações" : "Adicionar";
 
     return (
-        <Modal title={modalTitle} onClose={onClose}>
+        <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
             {isScanning && <CameraScanner onCapture={handleScanComplete} onClose={() => setIsScanning(false)} />}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[80vh] pr-2 custom-scrollbar">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="relative">
                         <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Série</label>
@@ -584,91 +635,115 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                     </div>
                 </div>
 
-                {/* Software & OS Section */}
-                <div className="border-t border-gray-600 pt-4 mt-4">
-                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
-                        <FaWindows className="text-blue-400" />
-                        Software & Sistema Operativo
-                    </h3>
-                    
-                    {/* Embedded License Checkbox */}
-                    <div className="mb-3 bg-gray-800/50 p-3 rounded border border-gray-600">
-                        <label className="flex items-center cursor-pointer mb-2">
-                            <input 
-                                type="checkbox" 
-                                name="has_embedded_license" 
-                                checked={formData.has_embedded_license} 
-                                onChange={handleChange} 
-                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                            />
-                            <span className="ml-2 text-white font-medium">Licença Windows OEM/Embutida</span>
-                        </label>
-                        
-                        {formData.has_embedded_license && (
-                            <div className="ml-6 space-y-2 animate-fade-in">
-                                <p className="text-xs text-gray-400">Esta licença será contabilizada automaticamente no dashboard geral.</p>
-                                <div>
-                                    <label htmlFor="os_version" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Versão do Windows (Obrigatório)</label>
-                                    <input 
-                                        list="os_versions_list"
-                                        type="text" 
-                                        name="os_version" 
-                                        id="os_version" 
-                                        value={formData.os_version} 
-                                        onChange={handleChange} 
-                                        placeholder="Ex: Windows 11 Pro"
-                                        className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.os_version ? 'border-red-500' : 'border-gray-600'}`} 
-                                    />
-                                    <datalist id="os_versions_list">
-                                        {WINDOWS_VERSIONS.map(ver => <option key={ver} value={ver} />)}
-                                    </datalist>
-                                    {errors.os_version && <p className="text-red-400 text-xs italic mt-1">{errors.os_version}</p>}
-                                </div>
-                                <div>
-                                    <label htmlFor="embedded_license_key" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Chave de Licença (Opcional)</label>
-                                    <input 
-                                        type="text" 
-                                        name="embedded_license_key" 
-                                        id="embedded_license_key" 
-                                        value={formData.embedded_license_key} 
-                                        onChange={handleChange} 
-                                        placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono text-sm" 
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Legacy / General OS Info (Only show if Embedded License is NOT checked to avoid duplication confusion) */}
-                    {!formData.has_embedded_license && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-700 pt-2">
+                {/* --- NEW: INITIAL ASSIGNMENT SECTION --- */}
+                {!isEditMode && isComputingDevice && (
+                    <div className="border-t border-gray-600 pt-4 mt-4">
+                        <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                            <FaUserTag className="text-blue-400" />
+                            Atribuição Inicial (Opcional)
+                        </h3>
+                        <div className="bg-gray-800/50 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="os_version_legacy" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do SO / Firmware</label>
-                                <input 
-                                    type="text" 
-                                    name="os_version" 
-                                    id="os_version_legacy" 
-                                    value={formData.os_version} 
-                                    onChange={handleChange} 
-                                    placeholder="Ex: Windows 11 Pro 23H2"
-                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
-                                />
+                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
+                                <select 
+                                    value={assignToEntityId} 
+                                    onChange={(e) => {
+                                        setAssignToEntityId(e.target.value);
+                                        setAssignToCollaboratorId('');
+                                    }} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                                >
+                                    <option value="">-- Em Stock (Sem Atribuição) --</option>
+                                    {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                </select>
                             </div>
                             <div>
-                                <label htmlFor="last_security_update" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data Última Atualização Segurança</label>
-                                <input 
-                                    type="date" 
-                                    name="last_security_update" 
-                                    id="last_security_update" 
-                                    value={formData.last_security_update} 
-                                    onChange={handleChange} 
-                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
-                                />
+                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Colaborador</label>
+                                <select 
+                                    value={assignToCollaboratorId} 
+                                    onChange={(e) => setAssignToCollaboratorId(e.target.value)} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm disabled:bg-gray-800 disabled:cursor-not-allowed"
+                                    disabled={!assignToEntityId}
+                                >
+                                    <option value="">-- Atribuir à Localização --</option>
+                                    {filteredCollaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                                </select>
                             </div>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
+
+                {/* --- NEW: SOFTWARE & OS SECTION --- */}
+                {isComputingDevice && (
+                    <div className="border-t border-gray-600 pt-4 mt-4">
+                        <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                            <FaWindows className="text-blue-400" />
+                            Software & Sistema Operativo
+                        </h3>
+                        
+                        <div className="bg-gray-800/50 p-3 rounded border border-gray-600 space-y-4">
+                            {/* OEM License Selection */}
+                            <div>
+                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Sistema Operativo (Licença OEM/Volume)</label>
+                                <div className="flex gap-2 items-center">
+                                    <select 
+                                        value={selectedOemLicenseId} 
+                                        onChange={(e) => setSelectedOemLicenseId(e.target.value)} 
+                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                                    >
+                                        <option value="">-- Selecione Sistema Operativo --</option>
+                                        {oemLicenses.map(l => (
+                                            <option key={l.id} value={l.id}>{l.productName} ({l.licenseKey})</option>
+                                        ))}
+                                    </select>
+                                    {selectedOemLicenseId && (
+                                        <button type="button" onClick={() => setSelectedOemLicenseId('')} className="text-red-400 hover:text-red-300 p-2" title="Limpar seleção">
+                                            <XIcon className="h-4 w-4"/>
+                                        </button>
+                                    )}
+                                </div>
+                                {selectedOemLicenseId && (
+                                    <div className="mt-2">
+                                        <label htmlFor="embedded_license_key" className="block text-[10px] font-medium text-gray-400 mb-1">Chave Específica deste PC (BIOS/Autocolante) - Opcional</label>
+                                        <input 
+                                            type="text" 
+                                            name="embedded_license_key" 
+                                            value={formData.embedded_license_key} 
+                                            onChange={handleChange} 
+                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-1.5 text-xs font-mono" 
+                                            placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Additional Licenses */}
+                            <div>
+                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Software Adicional (Office, Adobe, etc.)</label>
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {Array.from(selectedLicenseIds).map(id => {
+                                        const lic = softwareLicenses.find(l => l.id === id);
+                                        return lic ? (
+                                            <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-900/30 text-blue-200 border border-blue-500/30">
+                                                <FaKey className="h-3 w-3"/> {lic.productName}
+                                                <button type="button" onClick={() => handleToggleLicense(id)} className="ml-1 hover:text-white"><XIcon className="h-3 w-3"/></button>
+                                            </span>
+                                        ) : null;
+                                    })}
+                                </div>
+                                <select 
+                                    onChange={(e) => { if (e.target.value) handleToggleLicense(e.target.value); e.target.value = ''; }} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                                >
+                                    <option value="">+ Adicionar Licença...</option>
+                                    {availableVolumeLicenses.map(l => (
+                                        <option key={l.id} value={l.id}>{l.productName} ({l.totalSeats} vagas)</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* FinOps Section */}
                 <div className="border-t border-gray-600 pt-4 mt-4">
@@ -772,7 +847,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                     </div>
                 </div>
                 
-                {showKitButton && (
+                {showKitButton && !isEditMode && (
                     <div className="pt-4 mt-4 border-t border-gray-600">
                         <button
                             type="button"

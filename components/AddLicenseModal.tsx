@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating, Supplier } from '../types';
@@ -31,7 +33,8 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         integrity: CIARating.Low,
         availability: CIARating.Low,
         supplier_id: '',
-        unitCost: 0
+        unitCost: 0,
+        is_oem: false
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -51,7 +54,8 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                 integrity: licenseToEdit.integrity || CIARating.Low,
                 availability: licenseToEdit.availability || CIARating.Low,
                 supplier_id: licenseToEdit.supplier_id || '',
-                unitCost: licenseToEdit.unitCost || 0
+                unitCost: licenseToEdit.unitCost || 0,
+                is_oem: licenseToEdit.is_oem || false
             });
         }
     }, [licenseToEdit]);
@@ -59,8 +63,13 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.productName?.trim()) newErrors.productName = "O nome do produto é obrigatório.";
-        if (!formData.licenseKey?.trim()) newErrors.licenseKey = "A chave de licença é obrigatória.";
-        if ((formData.totalSeats || 0) < 1) newErrors.totalSeats = "O total deve ser pelo menos 1.";
+        if (!formData.licenseKey?.trim()) newErrors.licenseKey = "A chave de licença (ou identificador) é obrigatória.";
+        
+        // Total seats required only if NOT OEM
+        if (!formData.is_oem && (formData.totalSeats || 0) < 1) {
+            newErrors.totalSeats = "O total deve ser pelo menos 1.";
+        }
+        
         if (formData.purchaseEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.purchaseEmail)) {
             newErrors.purchaseEmail = "O formato do email é inválido.";
         }
@@ -70,7 +79,12 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        setFormData(prev => ({ ...prev, [name]: (type === 'number' ? parseFloat(value) : value) }));
+        const checked = (e.target as HTMLInputElement).checked;
+        
+        setFormData(prev => ({ 
+            ...prev, 
+            [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : value) 
+        }));
     };
 
     const handleSetExpiry = (years: number) => {
@@ -93,14 +107,17 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
             ...formData,
             productName: formData.productName!,
             licenseKey: formData.licenseKey!,
-            totalSeats: formData.totalSeats!,
+            // If OEM, totalSeats is 0 or ignored, but DB expects int usually. Let's set 1 as placeholder or 0 if allowed.
+            // Logic says total activations updates automatically, so 0 or high number is fine.
+            totalSeats: formData.is_oem ? 0 : formData.totalSeats!,
             status: formData.status!,
             purchaseDate: formData.purchaseDate || undefined,
             expiryDate: formData.expiryDate || undefined,
             purchaseEmail: formData.purchaseEmail || undefined,
             invoiceNumber: formData.invoiceNumber || undefined,
             supplier_id: formData.supplier_id || undefined,
-            unitCost: formData.unitCost || 0
+            unitCost: formData.unitCost || 0,
+            is_oem: formData.is_oem || false
         };
 
         if (licenseToEdit) {
@@ -118,20 +135,43 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label htmlFor="productName" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome do Produto</label>
-                    <input type="text" name="productName" id="productName" value={formData.productName} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.productName ? 'border-red-500' : 'border-gray-600'}`} />
+                    <input type="text" name="productName" id="productName" value={formData.productName} onChange={handleChange} placeholder="Ex: Windows 11 Pro OEM, Adobe CC..." className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.productName ? 'border-red-500' : 'border-gray-600'}`} />
                     {errors.productName && <p className="text-red-400 text-xs italic mt-1">{errors.productName}</p>}
                 </div>
                  <div>
-                    <label htmlFor="licenseKey" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Chave de Licença</label>
+                    <label htmlFor="licenseKey" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Chave de Licença / Identificador</label>
                     <input type="text" name="licenseKey" id="licenseKey" value={formData.licenseKey} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.licenseKey ? 'border-red-500' : 'border-gray-600'}`} />
                     {errors.licenseKey && <p className="text-red-400 text-xs italic mt-1">{errors.licenseKey}</p>}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="totalSeats" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Total de Ativações</label>
-                        <input type="number" name="totalSeats" id="totalSeats" value={formData.totalSeats} onChange={handleChange} min="1" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.totalSeats ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.totalSeats && <p className="text-red-400 text-xs italic mt-1">{errors.totalSeats}</p>}
+                
+                {/* OEM Checkbox */}
+                <div className="bg-gray-800/50 p-3 rounded border border-gray-600">
+                    <label className="flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            name="is_oem" 
+                            checked={formData.is_oem} 
+                            onChange={handleChange} 
+                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
+                        />
+                        <span className="ml-2 text-white font-medium">Licença OEM / Ilimitada (Contagem Dinâmica)</span>
+                    </label>
+                    <p className="text-xs text-gray-400 mt-1 ml-6">
+                        Se marcado, o número total de ativações será igual ao número de equipamentos onde esta licença for registada. Ideal para SOs OEM ou site licenses.
+                    </p>
+                </div>
+
+                {!formData.is_oem && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                        <div>
+                            <label htmlFor="totalSeats" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Total de Ativações Compradas</label>
+                            <input type="number" name="totalSeats" id="totalSeats" value={formData.totalSeats} onChange={handleChange} min="1" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.totalSeats ? 'border-red-500' : 'border-gray-600'}`} />
+                            {errors.totalSeats && <p className="text-red-400 text-xs italic mt-1">{errors.totalSeats}</p>}
+                        </div>
                     </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div>
                         <label htmlFor="invoiceNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura (Opcional)</label>
                         <input type="text" name="invoiceNumber" id="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600`} />

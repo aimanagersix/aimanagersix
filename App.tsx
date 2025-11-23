@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -544,6 +546,7 @@ const InnerApp: React.FC = () => {
         }, new Map<string, number>());
 
         return softwareLicenses.filter(l => {
+            if (l.is_oem) return false; // OEM/Unlimited doesn't expire in same way
             const isExpiring = l.expiryDate ? new Date(l.expiryDate) <= thirtyDaysFromNow : false;
             const used = usedSeatsMap.get(l.id) || 0;
             const isDepleted = l.totalSeats - used <= 0;
@@ -942,6 +945,9 @@ const InnerApp: React.FC = () => {
                     serviceDependencies={serviceDependencies}
                     onClose={() => setEquipmentForHistory(null)}
                     suppliers={suppliers}
+                    softwareLicenses={softwareLicenses}
+                    licenseAssignments={licenseAssignments}
+                    vulnerabilities={vulnerabilities}
                     onEdit={(eq) => {
                         setEquipmentForHistory(null);
                         setEquipmentToEdit(eq);
@@ -1017,9 +1023,31 @@ const InnerApp: React.FC = () => {
             {showAddEquipment && (
                 <AddEquipmentModal
                     onClose={() => { setShowAddEquipment(false); setEquipmentToEdit(null); setInitialEquipmentData(null); }}
-                    onSave={(eq) => {
-                        if (equipmentToEdit) return simpleSaveWrapper(dataService.updateEquipment, eq, equipmentToEdit.id);
-                        else return simpleSaveWrapper(dataService.addEquipment, eq);
+                    onSave={async (eq, assignment, licenseIds) => {
+                        try {
+                            let result;
+                            if (equipmentToEdit) {
+                                result = await dataService.updateEquipment(equipmentToEdit.id, eq);
+                            } else {
+                                result = await dataService.addEquipment(eq);
+                            }
+                            
+                            // Handle Assignment
+                            if (assignment && result?.id) {
+                                await dataService.addAssignment({ ...assignment, equipmentId: result.id });
+                            }
+                            
+                            // Handle Licenses
+                            if (licenseIds && licenseIds.length > 0 && result?.id) {
+                                await dataService.syncLicenseAssignments(result.id, licenseIds);
+                            }
+
+                            await refreshData();
+                            return result;
+                        } catch(e) {
+                            console.error(e);
+                            alert("Erro ao salvar equipamento e seus dados.");
+                        }
                     }}
                     brands={brands}
                     equipmentTypes={equipmentTypes}
@@ -1032,6 +1060,9 @@ const InnerApp: React.FC = () => {
                         setShowAddKit(true);
                     }}
                     suppliers={suppliers}
+                    softwareLicenses={softwareLicenses}
+                    entidades={entidades}
+                    collaborators={collaborators}
                 />
             )}
 

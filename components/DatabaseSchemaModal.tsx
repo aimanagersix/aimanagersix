@@ -16,6 +16,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -62,7 +64,7 @@ BEGIN
         ALTER TABLE resilience_tests ADD COLUMN IF NOT EXISTS auditor_internal_entidade_id uuid;
     END IF;
 
-    -- 1. Adicionar flag 'requiresBackupTest' a EQUIPMENT_TYPES (Para o erro "Erro ao salvar")
+    -- 1. Adicionar flag 'requiresBackupTest' a EQUIPMENT_TYPES
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
     END IF;
@@ -106,9 +108,9 @@ BEGIN
         -- FinOps
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "acquisitionCost" numeric DEFAULT 0;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "expectedLifespanYears" integer DEFAULT 4;
-        -- OEM License
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS has_embedded_license boolean DEFAULT false;
+        -- OEM License Key (Specific machine)
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS embedded_license_key text;
+        -- REMOVIDO 'has_embedded_license' da lógica anterior (migrado para is_oem em software_licenses)
     END IF;
 
     -- 6. Adicionar colunas de NIS2 e FinOps à tabela SOFTWARE_LICENSES
@@ -120,6 +122,8 @@ BEGIN
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS supplier_id uuid;
         -- FinOps
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS "unitCost" numeric DEFAULT 0;
+        -- OEM Flag
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS is_oem boolean DEFAULT false;
     END IF;
 
     -- 7. Adicionar coluna de fornecedor externo a BUSINESS_SERVICES
@@ -148,6 +152,7 @@ BEGIN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contracts jsonb DEFAULT '[]';
     END IF;
     
+    -- Adicionar campos de morada e NIF às entidades
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address text;
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS address_line text;
@@ -323,7 +328,6 @@ CREATE TABLE IF NOT EXISTS equipment (
     supplier_id uuid REFERENCES suppliers(id),
     "acquisitionCost" numeric DEFAULT 0,
     "expectedLifespanYears" integer DEFAULT 4,
-    has_embedded_license boolean DEFAULT false,
     embedded_license_key text,
     "creationDate" text DEFAULT to_char(now(), 'YYYY-MM-DD'),
     "modifiedDate" text DEFAULT to_char(now(), 'YYYY-MM-DD')
@@ -421,6 +425,7 @@ CREATE TABLE IF NOT EXISTS software_licenses (
     availability text DEFAULT 'Baixo',
     supplier_id uuid REFERENCES suppliers(id),
     "unitCost" numeric DEFAULT 0,
+    is_oem boolean DEFAULT false,
     created_at timestamptz DEFAULT now()
 );
 
@@ -592,7 +597,7 @@ END $$;
                         <span>Instruções de Correção</span>
                     </div>
                     <p className="mb-2">
-                        Este script adiciona a tabela de <strong>Contactos de Fornecedores</strong> e os campos para agendamento de testes e requerentes externos nos Tickets.
+                        Este script adiciona a flag <strong>is_oem</strong> às licenças, bem como outras tabelas necessárias para o novo fluxo.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>
