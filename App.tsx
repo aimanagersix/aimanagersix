@@ -4,7 +4,7 @@ import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
   TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest, SecurityTrainingRecord,
-  ConfigItem
+  ConfigItem, ContactRole, ContactTitle
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -33,9 +33,7 @@ import ResetPasswordModal from './components/ResetPasswordModal';
 import CredentialsModal from './components/CredentialsModal';
 import { getSupabase } from './services/supabaseClient';
 // import { Session } from '@supabase/supabase-js';
-import EquipmentTypeDashboard from './components/EquipmentTypeDashboard';
 import AddEquipmentTypeModal from './components/AddEquipmentTypeModal';
-import BrandDashboard from './components/BrandDashboard';
 import AddBrandModal from './components/AddBrandModal';
 import { ChatWidget } from './components/ChatWidget';
 import LicenseDashboard from './components/LicenseDashboard';
@@ -47,9 +45,7 @@ import ManageTeamMembersModal from './components/ManageTeamMembersModal';
 import NotificationsModal from './components/NotificationsModal';
 import ImportModal, { ImportConfig } from './components/ImportModal';
 import OverviewDashboard from './components/OverviewDashboard';
-import CategoryDashboard from './components/CategoryDashboard';
 import AddCategoryModal from './components/AddCategoryModal';
-import SecurityIncidentTypeDashboard from './components/SecurityIncidentTypeDashboard';
 import AddSecurityIncidentTypeModal from './components/AddSecurityIncidentTypeModal';
 import ServiceDashboard from './components/ServiceDashboard';
 import AddServiceModal from './components/AddServiceModal';
@@ -146,6 +142,8 @@ const InnerApp: React.FC = () => {
     const [configBackupTypes, setConfigBackupTypes] = useState<ConfigItem[]>([]);
     const [configTrainingTypes, setConfigTrainingTypes] = useState<ConfigItem[]>([]);
     const [configResilienceTestTypes, setConfigResilienceTestTypes] = useState<ConfigItem[]>([]);
+    const [contactRoles, setContactRoles] = useState<ContactRole[]>([]);
+    const [contactTitles, setContactTitles] = useState<ContactTitle[]>([]);
 
     // UI State
     const [isConfigured, setIsConfigured] = useState(!!localStorage.getItem('SUPABASE_URL'));
@@ -265,6 +263,8 @@ const InnerApp: React.FC = () => {
             setConfigBackupTypes(data.configBackupTypes);
             setConfigTrainingTypes(data.configTrainingTypes);
             setConfigResilienceTestTypes(data.configResilienceTestTypes);
+            setContactRoles(data.contactRoles);
+            setContactTitles(data.contactTitles);
 
         } catch (error) {
             console.error("Failed to load data:", error);
@@ -352,6 +352,8 @@ const InnerApp: React.FC = () => {
                  setConfigBackupTypes(data.configBackupTypes);
                  setConfigTrainingTypes(data.configTrainingTypes);
                  setConfigResilienceTestTypes(data.configResilienceTestTypes);
+                 setContactRoles(data.contactRoles);
+                 setContactTitles(data.contactTitles);
              } else {
                  console.warn("User logged in but not found in collaborators table");
              }
@@ -417,7 +419,6 @@ const InnerApp: React.FC = () => {
                 description: data.description || '',
                 collaboratorId: requester?.id || '',
                 entidadeId: requester?.entidadeId || '',
-                // Could map urgency to impactCriticality
                 impactCriticality: priority
             });
             setShowAddTicket(true);
@@ -634,8 +635,8 @@ const InnerApp: React.FC = () => {
         'overview': !isBasic ? 'Visão Geral' : undefined, // Hide Overview for Basic users
         'overview.smart': isAdmin ? 'C-Level Dashboard' : undefined, // Only Admin sees Smart Dashboard
         'equipment.inventory': 'Inventário',
-        'equipment.brands': 'Marcas',
-        'equipment.types': 'Tipos',
+        // 'equipment.brands': 'Marcas', // REMOVED: Managed in Settings
+        // 'equipment.types': 'Tipos',   // REMOVED: Managed in Settings
         'organizacao.instituicoes': 'Instituições',
         'organizacao.entidades': 'Entidades',
         'organizacao.teams': 'Equipas',
@@ -643,7 +644,7 @@ const InnerApp: React.FC = () => {
         'organizacao.agenda': 'Agenda de Contactos',
         'licensing': 'Licenciamento',
         'organizacao.suppliers': 'Fornecedores (Risco)',
-        'tickets': { title: 'Tickets', list: 'Lista de Tickets', categories: 'Categorias', incident_types: 'Tipos de Incidente' },
+        'tickets': { title: 'Tickets', list: 'Lista de Tickets' }, // Removed categories/incident_types tabs
         'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' },
         'settings': isAdmin ? 'Configurações' : undefined
     };
@@ -729,9 +730,43 @@ const InnerApp: React.FC = () => {
                             { tableName: 'config_service_statuses', label: 'Estados de Serviço', data: configServiceStatuses },
                             { tableName: 'config_backup_types', label: 'Tipos de Backup', data: configBackupTypes },
                             { tableName: 'config_training_types', label: 'Tipos de Formação', data: configTrainingTypes },
-                            { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: configResilienceTestTypes }
+                            { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: configResilienceTestTypes },
+                            { tableName: 'contact_roles', label: 'Funções de Contacto', data: contactRoles },
+                            { tableName: 'contact_titles', label: 'Tratos (Honoríficos)', data: contactTitles }
                         ]}
                         onRefresh={refreshData}
+                        // Pass complex data
+                        brands={brands}
+                        equipment={equipment}
+                        equipmentTypes={equipmentTypes}
+                        ticketCategories={ticketCategories}
+                        tickets={tickets}
+                        teams={teams}
+                        securityIncidentTypes={securityIncidentTypes}
+                        // Pass complex handlers
+                        onCreateBrand={() => { setBrandToEdit(null); setShowAddBrand(true); }}
+                        onEditBrand={(b) => { setBrandToEdit(b); setShowAddBrand(true); }}
+                        onDeleteBrand={(id) => handleDelete('Excluir Marca', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteBrand, id))}
+                        
+                        onCreateType={() => { setTypeToEdit(null); setShowAddType(true); }}
+                        onEditType={(t) => { setTypeToEdit(t); setShowAddType(true); }}
+                        onDeleteType={(id) => handleDelete('Excluir Tipo', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteEquipmentType, id))}
+                        
+                        onCreateCategory={() => { setCategoryToEdit(null); setShowAddCategory(true); }}
+                        onEditCategory={(c) => { setCategoryToEdit(c); setShowAddCategory(true); }}
+                        onDeleteCategory={(id) => handleDelete('Excluir Categoria', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteTicketCategory, id))}
+                        onToggleCategoryStatus={(id) => {
+                            const cat = ticketCategories.find(c => c.id === id);
+                            if (cat) simpleSaveWrapper(dataService.updateTicketCategory, { is_active: !cat.is_active }, id);
+                        }}
+
+                        onCreateIncidentType={() => { setIncidentTypeToEdit(null); setShowAddIncidentType(true); }}
+                        onEditIncidentType={(t) => { setIncidentTypeToEdit(t); setShowAddIncidentType(true); }}
+                        onDeleteIncidentType={(id) => handleDelete('Excluir Tipo Incidente', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteSecurityIncidentType, id))}
+                        onToggleIncidentTypeStatus={(id) => {
+                            const type = securityIncidentTypes.find(t => t.id === id);
+                            if (type) simpleSaveWrapper(dataService.updateSecurityIncidentType, { is_active: !type.is_active }, id);
+                        }}
                     />
                 )}
 
@@ -780,26 +815,6 @@ const InnerApp: React.FC = () => {
                         />
                     )}
                 
-                {activeTab === 'equipment.brands' && (
-                    <BrandDashboard
-                        brands={brands}
-                        equipment={equipment}
-                        onEdit={(b) => { setBrandToEdit(b); setShowAddBrand(true); }}
-                        onDelete={(id) => handleDelete('Excluir Marca', 'Tem a certeza que deseja excluir esta marca? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteBrand, id))}
-                        onCreate={() => { setBrandToEdit(null); setShowAddBrand(true); }}
-                    />
-                )}
-
-                {activeTab === 'equipment.types' && (
-                    <EquipmentTypeDashboard
-                        equipmentTypes={equipmentTypes}
-                        equipment={equipment}
-                        onEdit={(t) => { setTypeToEdit(t); setShowAddType(true); }}
-                        onDelete={(id) => handleDelete('Excluir Tipo de Equipamento', 'Tem a certeza que deseja excluir este tipo? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteEquipmentType, id))}
-                        onCreate={() => { setTypeToEdit(null); setShowAddType(true); }}
-                    />
-                )}
-
                 {activeTab === 'organizacao.instituicoes' && (
                     <InstituicaoDashboard
                         instituicoes={instituicoes}
@@ -913,35 +928,6 @@ const InnerApp: React.FC = () => {
 
                 {activeTab === 'organizacao.agenda' && (
                     <AgendaDashboard />
-                )}
-
-                {activeTab === 'tickets.categories' && (
-                    <CategoryDashboard
-                        categories={ticketCategories}
-                        tickets={tickets}
-                        teams={teams}
-                        onEdit={(c) => { setCategoryToEdit(c); setShowAddCategory(true); }}
-                        onDelete={(id) => handleDelete('Excluir Categoria', 'Tem a certeza que deseja excluir esta categoria?', () => simpleSaveWrapper(dataService.deleteTicketCategory, id))}
-                        onCreate={() => { setCategoryToEdit(null); setShowAddCategory(true); }}
-                        onToggleStatus={(id) => {
-                            const cat = ticketCategories.find(c => c.id === id);
-                            if (cat) simpleSaveWrapper(dataService.updateTicketCategory, { is_active: !cat.is_active }, id);
-                        }}
-                    />
-                )}
-
-                {activeTab === 'tickets.incident_types' && (
-                    <SecurityIncidentTypeDashboard
-                        incidentTypes={securityIncidentTypes}
-                        tickets={tickets}
-                        onEdit={(t) => { setIncidentTypeToEdit(t); setShowAddIncidentType(true); }}
-                        onDelete={(id) => handleDelete('Excluir Tipo de Incidente', 'Tem a certeza que deseja excluir este tipo?', () => simpleSaveWrapper(dataService.deleteSecurityIncidentType, id))}
-                        onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentType(true); }}
-                        onToggleStatus={(id) => {
-                            const type = securityIncidentTypes.find(t => t.id === id);
-                            if (type) simpleSaveWrapper(dataService.updateSecurityIncidentType, { is_active: !type.is_active }, id);
-                        }}
-                    />
                 )}
 
                 {activeTab === 'nis2.bia' && (

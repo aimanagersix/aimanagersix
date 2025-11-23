@@ -45,11 +45,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     // Logic
     const hasOverviewTabs = tabConfig['overview'] || tabConfig['overview.smart'];
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'] || tabConfig['organizacao.agenda'];
-    const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.brands'] || tabConfig['equipment.types'];
+    const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'];
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience;
     const hasTicketTabs = tabConfig['tickets'];
-    const hasTicketCategories = tabConfig.tickets?.categories;
-    const hasIncidentTypes = tabConfig.tickets?.incident_types;
+    
     const isAdmin = currentUser?.role === UserRole.Admin;
 
     const handleTabClick = (tab: string) => {
@@ -194,8 +193,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         {isInventarioOpen && isExpanded && (
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
                                 {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<ClipboardListIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['equipment.brands'] && <TabButton tab="equipment.brands" label={tabConfig['equipment.brands']} icon={<FaTags />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['equipment.types'] && <TabButton tab="equipment.types" label={tabConfig['equipment.types']} icon={<FaShapes />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                             </div>
                         )}
@@ -235,10 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 {hasTicketTabs && (
                     <div className="space-y-1">
                         <button
-                            onClick={() => {
-                                if (hasTicketCategories || hasIncidentTypes) setIsTicketsOpen(!isTicketsOpen);
-                                else setActiveTab('tickets.list');
-                            }}
+                            onClick={() => setActiveTab('tickets.list')}
                             className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isTicketsOpen || activeTab === 'tickets.list' ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                             title={!isExpanded ? (tabConfig.tickets?.title || 'Tickets') : undefined}
                         >
@@ -246,19 +240,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                 <FaTicketAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
                                 <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{tabConfig.tickets?.title || 'Tickets'}</span>
                             </div>
-                            {isExpanded && (hasTicketCategories || hasIncidentTypes) && (
-                                <span className={`transition-transform duration-200 ${isTicketsOpen ? 'rotate-90' : ''}`}>
-                                    <FaChevronRight className="w-3 h-3" />
-                                </span>
-                            )}
                         </button>
-                        {isTicketsOpen && isExpanded && (hasTicketCategories || hasIncidentTypes) && (
-                            <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
-                                <TabButton tab="tickets.list" label={tabConfig.tickets?.list || 'Tickets'} icon={<FaTicketAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />
-                                {hasTicketCategories && <TabButton tab="tickets.categories" label={tabConfig.tickets.categories} icon={<FaTags />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {hasIncidentTypes && <TabButton tab="tickets.incident_types" label={tabConfig.tickets.incident_types} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                            </div>
-                        )}
                     </div>
                 )}
             </nav>
