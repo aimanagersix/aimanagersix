@@ -27,11 +27,12 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
     <a
         href={`#${tab}`}
         onClick={(e) => { 
-            // Allow normal link behavior for modifiers (ctrl+click), hijack left click for SPA nav
-            if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
-                e.preventDefault(); 
-                setActiveTab(tab); 
+            // Allow normal link behavior for modifiers (ctrl+click, right click, etc.)
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) {
+                return;
             }
+            e.preventDefault(); 
+            setActiveTab(tab); 
         }}
         className={`flex items-center gap-2 w-full text-left transition-colors duration-200 rounded-md no-underline ${
             isDropdownItem 

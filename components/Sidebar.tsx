@@ -60,12 +60,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
         <a
             href={`#${tab}`}
             onClick={(e) => { 
-                // Only prevent default if it's a standard left click without modifiers
-                // This allows Ctrl+Click or Middle Click to open in new tab naturally
-                if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
-                    e.preventDefault(); 
-                    handleTabClick(tab); 
+                // Allow normal link behavior for modifiers (ctrl+click, right click, etc.)
+                if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) {
+                    return;
                 }
+                e.preventDefault(); 
+                handleTabClick(tab); 
             }}
             className={`flex items-center gap-3 w-full text-left transition-colors duration-200 rounded-md overflow-hidden whitespace-nowrap cursor-pointer no-underline ${
                 isDropdownItem 
