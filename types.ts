@@ -1,24 +1,36 @@
 
 
-export enum EquipmentStatus {
-  Stock = 'Stock',
-  Operational = 'Operacional',
-  Decommissioned = 'Abate',
-  Warranty = 'Garantia',
+// Dynamic Configuration Types
+export interface ConfigItem {
+    id: string;
+    name: string;
 }
 
-export enum CriticalityLevel {
-    Low = 'Baixa',
-    Medium = 'Média',
-    High = 'Alta',
-    Critical = 'Crítica',
-}
+// Converted Enums to Const Objects for backward compatibility in code logic
+// but types are now strings to allow dynamic DB values.
 
-export enum CIARating {
-    Low = 'Baixo',
-    Medium = 'Médio',
-    High = 'Alto',
-}
+export const EquipmentStatus = {
+  Stock: 'Stock',
+  Operational: 'Operacional',
+  Decommissioned: 'Abate',
+  Warranty: 'Garantia',
+} as const;
+export type EquipmentStatus = string;
+
+export const CriticalityLevel = {
+    Low: 'Baixa',
+    Medium: 'Média',
+    High: 'Alta',
+    Critical: 'Crítica',
+} as const;
+export type CriticalityLevel = string;
+
+export const CIARating = {
+    Low: 'Baixo',
+    Medium: 'Médio',
+    High: 'Alto',
+} as const;
+export type CIARating = string;
 
 export interface Brand {
   id: string;
@@ -164,10 +176,11 @@ export interface Instituicao {
   contacts?: ResourceContact[];
 }
 
-export enum EntidadeStatus {
-  Ativo = 'Ativo',
-  Inativo = 'Inativo',
-}
+export const EntidadeStatus = {
+  Ativo: 'Ativo',
+  Inativo: 'Inativo',
+} as const;
+export type EntidadeStatus = string;
 
 export interface Entidade {
   id: string;
@@ -192,17 +205,19 @@ export interface Entidade {
   contacts?: ResourceContact[];
 }
 
-export enum UserRole {
-    Admin = 'Admin',
-    Normal = 'Normal',
-    Basic = 'Básico',
-    Utilizador = 'Utilizador',
-}
+export const UserRole = {
+    Admin: 'Admin',
+    Normal: 'Normal',
+    Basic: 'Básico',
+    Utilizador: 'Utilizador',
+} as const;
+export type UserRole = string;
 
-export enum CollaboratorStatus {
-    Ativo = 'Ativo',
-    Inativo = 'Inativo',
-}
+export const CollaboratorStatus = {
+    Ativo: 'Ativo',
+    Inativo: 'Inativo',
+} as const;
+export type CollaboratorStatus = string;
 
 export type AppModule = 'inventory' | 'organization' | 'collaborators' | 'licensing' | 'tickets' | 'bia' | 'security';
 
@@ -242,33 +257,36 @@ export interface Assignment {
   returnDate?: string;
 }
 
-export enum TicketStatus {
-  Requested = 'Pedido',
-  InProgress = 'Em progresso',
-  Finished = 'Finalizado',
-}
+export const TicketStatus = {
+  Requested: 'Pedido',
+  InProgress: 'Em progresso',
+  Finished: 'Finalizado',
+} as const;
+export type TicketStatus = string;
 
 // Deprecated: Use dynamic categories from DB, keeping for fallback
-export enum TicketCategory {
-    TechnicalFault = 'Falha Técnica',
-    AccessRequest = 'Pedido de Acesso',
-    SecurityIncident = 'Incidente de Segurança',
-    GeneralSupport = 'Suporte Geral',
-    Maintenance = 'Manutenção'
-}
+export const TicketCategory = {
+    TechnicalFault: 'Falha Técnica',
+    AccessRequest: 'Pedido de Acesso',
+    SecurityIncident: 'Incidente de Segurança',
+    GeneralSupport: 'Suporte Geral',
+    Maintenance: 'Manutenção'
+} as const;
+export type TicketCategory = string;
 
 // Deprecated: Use dynamic types from DB, keeping for fallback
-export enum SecurityIncidentType {
-    Ransomware = 'Ransomware',
-    Phishing = 'Phishing / Engenharia Social',
-    DataLeak = 'Fuga de Dados (Data Leak)',
-    Malware = 'Malware / Vírus',
-    DDoS = 'Negação de Serviço (DDoS)',
-    UnauthorizedAccess = 'Acesso Não Autorizado / Compromisso de Conta',
-    InsiderThreat = 'Ameaça Interna',
-    VulnerabilityExploit = 'Exploração de Vulnerabilidade',
-    Other = 'Outro'
-}
+export const SecurityIncidentType = {
+    Ransomware: 'Ransomware',
+    Phishing: 'Phishing / Engenharia Social',
+    DataLeak: 'Fuga de Dados (Data Leak)',
+    Malware: 'Malware / Vírus',
+    DDoS: 'Negação de Serviço (DDoS)',
+    UnauthorizedAccess: 'Acesso Não Autorizado / Compromisso de Conta',
+    InsiderThreat: 'Ameaça Interna',
+    VulnerabilityExploit: 'Exploração de Vulnerabilidade',
+    Other: 'Outro'
+} as const;
+export type SecurityIncidentType = string;
 
 export interface TicketCategoryItem {
     id: string;
@@ -346,10 +364,11 @@ export interface Message {
   read: boolean;
 }
 
-export enum LicenseStatus {
-  Ativo = 'Ativo',
-  Inativo = 'Inativo',
-}
+export const LicenseStatus = {
+  Ativo: 'Ativo',
+  Inativo: 'Inativo',
+} as const;
+export type LicenseStatus = string;
 
 export interface SoftwareLicense {
   id: string;
@@ -419,11 +438,12 @@ export interface AuditLogEntry {
 
 // --- NIS2 Business Impact Analysis (BIA) Types ---
 
-export enum ServiceStatus {
-    Ativo = 'Ativo',
-    Inativo = 'Inativo',
-    EmManutencao = 'Em Manutenção'
-}
+export const ServiceStatus = {
+    Ativo: 'Ativo',
+    Inativo: 'Inativo',
+    EmManutencao: 'Em Manutenção'
+} as const;
+export type ServiceStatus = string;
 
 export interface BusinessService {
     id: string;
@@ -448,13 +468,14 @@ export interface ServiceDependency {
 
 // --- Vulnerability Management Types ---
 
-export enum VulnerabilityStatus {
-    Open = 'Aberto',
-    InProgress = 'Em Análise',
-    Mitigated = 'Mitigado',
-    Resolved = 'Resolvido',
-    FalsePositive = 'Falso Positivo'
-}
+export const VulnerabilityStatus = {
+    Open: 'Aberto',
+    InProgress: 'Em Análise',
+    Mitigated: 'Mitigado',
+    Resolved: 'Resolvido',
+    FalsePositive: 'Falso Positivo'
+} as const;
+export type VulnerabilityStatus = string;
 
 export interface Vulnerability {
     id: string;
@@ -469,12 +490,13 @@ export interface Vulnerability {
 
 // --- Backup & Restore Testing (NIS2) ---
 
-export enum BackupType {
-    Full = 'Completo',
-    Incremental = 'Incremental',
-    Differential = 'Diferencial',
-    Snapshot = 'Snapshot VM'
-}
+export const BackupType = {
+    Full: 'Completo',
+    Incremental: 'Incremental',
+    Differential: 'Diferencial',
+    Snapshot: 'Snapshot VM'
+} as const;
+export type BackupType = string;
 
 export interface BackupExecution {
     id: string;
@@ -492,13 +514,14 @@ export interface BackupExecution {
 
 // --- NIS2 Training & Awareness ---
 
-export enum TrainingType {
-    PhishingSimulation = 'Simulação Phishing',
-    SecurityPolicy = 'Leitura Política Segurança',
-    CyberHygiene = 'Higiene Cibernética (Geral)',
-    GDPR = 'RGPD / Privacidade',
-    SpecificTool = 'Ferramenta Específica'
-}
+export const TrainingType = {
+    PhishingSimulation: 'Simulação Phishing',
+    SecurityPolicy: 'Leitura Política Segurança',
+    CyberHygiene: 'Higiene Cibernética (Geral)',
+    GDPR: 'RGPD / Privacidade',
+    SpecificTool: 'Ferramenta Específica'
+} as const;
+export type TrainingType = string;
 
 export interface SecurityTrainingRecord {
     id: string;
@@ -513,13 +536,14 @@ export interface SecurityTrainingRecord {
 
 // --- DORA Resilience Testing ---
 
-export enum ResilienceTestType {
-    VulnerabilityScan = 'Scan Vulnerabilidades',
-    PenetrationTest = 'Penetration Test (Pentest)',
-    TLPT = 'TLPT (Red Teaming)',
-    TabletopExercise = 'Exercício de Mesa (DRP)',
-    DisasterRecovery = 'Recuperação de Desastres (Full)'
-}
+export const ResilienceTestType = {
+    VulnerabilityScan: 'Scan Vulnerabilidades',
+    PenetrationTest: 'Penetration Test (Pentest)',
+    TLPT: 'TLPT (Red Teaming)',
+    TabletopExercise: 'Exercício de Mesa (DRP)',
+    DisasterRecovery: 'Recuperação de Desastres (Full)'
+} as const;
+export type ResilienceTestType = string;
 
 export interface ResilienceTest {
     id: string;

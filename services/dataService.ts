@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -5,7 +6,7 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
-    ResourceContact, ContactRole, ContactTitle
+    ResourceContact, ContactRole, ContactTitle, ConfigItem
 } from '../types';
 
 // --- Helper to fetch all data concurrently ---
@@ -16,7 +17,12 @@ export const fetchAllData = async () => {
         assignments, tickets, ticketActivities, softwareLicenses, licenseAssignments, 
         teams, teamMembers, messages, collaboratorHistory, ticketCategories, 
         securityIncidentTypes, businessServices, serviceDependencies, vulnerabilities, 
-        suppliers, backupExecutions, resilienceTests, securityTrainings, resourceContacts, contactRoles, contactTitles
+        suppliers, backupExecutions, resilienceTests, securityTrainings, resourceContacts, 
+        contactRoles, contactTitles,
+        // Configuration Tables
+        configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
+        configCiaRatings, configServiceStatuses, configBackupTypes, 
+        configTrainingTypes, configResilienceTestTypes
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -44,7 +50,16 @@ export const fetchAllData = async () => {
         supabase.from('security_training_records').select('*'),
         supabase.from('resource_contacts').select('*'),
         supabase.from('contact_roles').select('*'),
-        supabase.from('contact_titles').select('*')
+        supabase.from('contact_titles').select('*'),
+        // Configs
+        supabase.from('config_equipment_statuses').select('*'),
+        supabase.from('config_user_roles').select('*'),
+        supabase.from('config_criticality_levels').select('*'),
+        supabase.from('config_cia_ratings').select('*'),
+        supabase.from('config_service_statuses').select('*'),
+        supabase.from('config_backup_types').select('*'),
+        supabase.from('config_training_types').select('*'),
+        supabase.from('config_resilience_test_types').select('*')
     ]);
 
     // Helper to attach contacts
@@ -81,7 +96,16 @@ export const fetchAllData = async () => {
         resilienceTests: resilienceTests.data || [],
         securityTrainings: securityTrainings.data || [],
         contactRoles: contactRoles.data || [],
-        contactTitles: contactTitles.data || []
+        contactTitles: contactTitles.data || [],
+        // Configs
+        configEquipmentStatuses: configEquipmentStatuses.data || [],
+        configUserRoles: configUserRoles.data || [],
+        configCriticalityLevels: configCriticalityLevels.data || [],
+        configCiaRatings: configCiaRatings.data || [],
+        configServiceStatuses: configServiceStatuses.data || [],
+        configBackupTypes: configBackupTypes.data || [],
+        configTrainingTypes: configTrainingTypes.data || [],
+        configResilienceTestTypes: configResilienceTestTypes.data || []
     };
 };
 
@@ -417,3 +441,8 @@ export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade'
         await supabase.from('resource_contacts').insert(inserts);
     }
 };
+
+// --- Generic Config CRUD ---
+export const addConfigItem = (table: string, data: any) => create(table, data);
+export const updateConfigItem = (table: string, id: string, data: any) => update(table, id, data);
+export const deleteConfigItem = (table: string, id: string) => remove(table, id);

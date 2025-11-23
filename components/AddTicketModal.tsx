@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier } from '../types';
@@ -289,7 +291,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
             // 1. Analyze Category & Priority
             const result = await analyzeTicketRequest(formData.description);
             
-            let mappedPriority = CriticalityLevel.Low;
+            let mappedPriority: CriticalityLevel = CriticalityLevel.Low;
             if (result.suggestedPriority === 'Crítica') mappedPriority = CriticalityLevel.Critical;
             else if (result.suggestedPriority === 'Alta') mappedPriority = CriticalityLevel.High;
             else if (result.suggestedPriority === 'Média') mappedPriority = CriticalityLevel.Medium;

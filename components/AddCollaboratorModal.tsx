@@ -1,604 +1,218 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Entidade, UserRole, CollaboratorStatus, AppModule } from '../types';
-import { FaMagic, FaEye, FaEyeSlash, UserIcon, CameraIcon, DeleteIcon, FaLock, FaCog } from './common/Icons';
-import * as dataService from '../services/dataService';
+import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem } from '../types';
 import { SpinnerIcon } from './common/Icons';
-import ManageContactTitlesModal from './ManageContactTitlesModal';
-
-const isPortuguesePhoneNumber = (phone: string): boolean => {
-    if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
-    const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
-    const regex = /^(2\d{8}|9[1236]\d{7})$/;
-    return regex.test(cleaned);
-};
-
-const generateStrongPassword = (): string => {
-    const length = 12;
-    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    const numbers = '0123456789';
-    const special = '@$!%*?&';
-    
-    // Ensure all character types are included
-    let password = '';
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
-    password += special[Math.floor(Math.random() * special.length)];
-    
-    const allChars = uppercase + lowercase + numbers + special;
-    for (let i = 4; i < length; i++) {
-        password += allChars[Math.floor(Math.random() * allChars.length)];
-    }
-    
-    // Shuffle the password to avoid a predictable pattern
-    return password.split('').sort(() => 0.5 - Math.random()).join('');
-};
-
-const AVAILABLE_MODULES: { key: AppModule; label: string }[] = [
-    { key: 'inventory', label: 'Inventário (Equipamentos, Marcas, Tipos)' },
-    { key: 'organization', label: 'Organização (Instituições, Entidades, Equipas)' },
-    { key: 'collaborators', label: 'Gestão de Colaboradores' },
-    { key: 'licensing', label: 'Licenciamento de Software' },
-    { key: 'tickets', label: 'Suporte e Tickets' },
-];
 
 interface AddCollaboratorModalProps {
     onClose: () => void;
-    onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator, password?: string) => void;
+    onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator, password?: string) => Promise<any>;
     collaboratorToEdit?: Collaborator | null;
     escolasDepartamentos: Entidade[];
     currentUser: Collaborator | null;
+    roleOptions?: ConfigItem[];
+    statusOptions?: ConfigItem[];
 }
 
-const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, onSave, collaboratorToEdit, escolasDepartamentos: entidades, currentUser }) => {
+const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ 
+    onClose, 
+    onSave, 
+    collaboratorToEdit, 
+    escolasDepartamentos, 
+    currentUser,
+    roleOptions,
+    statusOptions 
+}) => {
     const [formData, setFormData] = useState<Partial<Collaborator>>({
         numeroMecanografico: '',
         title: '',
         fullName: '',
+        entidadeId: escolasDepartamentos[0]?.id || '',
         email: '',
         nif: '',
-        entidadeId: entidades[0]?.id || '',
         telefoneInterno: '',
         telemovel: '',
-        dateOfBirth: '',
-        photoUrl: '',
-        canLogin: false,
-        receivesNotifications: true,
-        role: UserRole.Basic,
-        status: CollaboratorStatus.Ativo,
-        allowedModules: [],
         address_line: '',
         postal_code: '',
         city: '',
         locality: '',
+        canLogin: false,
+        receivesNotifications: false,
+        role: UserRole.Utilizador,
+        status: CollaboratorStatus.Ativo
     });
     const [password, setPassword] = useState('');
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [showPassword, setShowPassword] = useState(false);
-    const [photoFile, setPhotoFile] = useState<File | null>(null);
-    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isFetchingCP, setIsFetchingCP] = useState(false);
-    
-    const [titles, setTitles] = useState<string[]>([]);
-    const [showManageTitles, setShowManageTitles] = useState(false);
-    
-    const isAdmin = currentUser?.role === UserRole.Admin;
-    const isTargetAdmin = formData.role === UserRole.Admin;
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState('');
 
-    const loadTitles = async () => {
-        try {
-            const data = await dataService.fetchAllData();
-            if (data.contactTitles && data.contactTitles.length > 0) {
-                setTitles(data.contactTitles.map((t: any) => t.name).sort());
-            } else {
-                setTitles(['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª']);
-            }
-        } catch (e) {
-            console.error("Failed to load titles", e);
-        }
-    };
-
-    useEffect(() => {
-        loadTitles();
-    }, []);
+    // Use dynamic options if available
+    const roles = roleOptions && roleOptions.length > 0 ? roleOptions.map(r => r.name) : Object.values(UserRole);
+    const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(s => s.name) : Object.values(CollaboratorStatus);
 
     useEffect(() => {
         if (collaboratorToEdit) {
             setFormData({
-                numeroMecanografico: collaboratorToEdit.numeroMecanografico,
-                title: collaboratorToEdit.title || '',
-                fullName: collaboratorToEdit.fullName,
-                email: collaboratorToEdit.email,
-                nif: collaboratorToEdit.nif || '',
-                entidadeId: collaboratorToEdit.entidadeId,
-                telefoneInterno: collaboratorToEdit.telefoneInterno || '',
-                telemovel: collaboratorToEdit.telemovel || '',
-                dateOfBirth: collaboratorToEdit.dateOfBirth || '',
-                photoUrl: collaboratorToEdit.photoUrl || '',
-                canLogin: collaboratorToEdit.canLogin,
-                receivesNotifications: collaboratorToEdit.receivesNotifications ?? true,
-                role: collaboratorToEdit.role,
-                status: collaboratorToEdit.status || CollaboratorStatus.Ativo,
-                allowedModules: collaboratorToEdit.allowedModules || [],
+                ...collaboratorToEdit,
                 address_line: collaboratorToEdit.address_line || collaboratorToEdit.address || '',
                 postal_code: collaboratorToEdit.postal_code || '',
                 city: collaboratorToEdit.city || '',
                 locality: collaboratorToEdit.locality || '',
+                nif: collaboratorToEdit.nif || '',
+                title: collaboratorToEdit.title || ''
             });
-            if (collaboratorToEdit.photoUrl) {
-                setPhotoPreview(collaboratorToEdit.photoUrl);
-            }
         } else {
-             setFormData({
-                numeroMecanografico: '',
-                title: '',
-                fullName: '',
-                email: '',
-                nif: '',
-                entidadeId: entidades[0]?.id || '',
-                telefoneInterno: '',
-                telemovel: '',
-                dateOfBirth: '',
-                photoUrl: '',
-                canLogin: false,
-                receivesNotifications: true,
-                role: UserRole.Basic,
-                status: CollaboratorStatus.Ativo,
-                allowedModules: [],
-                address_line: '',
-                postal_code: '',
-                city: '',
-                locality: '',
-            });
+             setFormData(prev => ({
+                 ...prev,
+                 entidadeId: escolasDepartamentos[0]?.id || ''
+             }));
         }
-    }, [collaboratorToEdit, entidades]);
-
-    // Determine if we should show the password field
-    // Show if: 
-    // 1. It's a new user AND login is enabled
-    // 2. It's an existing user who previously didn't have login, and we are enabling it
-    const isEnablingLogin = !!collaboratorToEdit && !collaboratorToEdit.canLogin && formData.canLogin;
-    const isNewUserWithLogin = !collaboratorToEdit && formData.canLogin;
-    const shouldShowPasswordField = isNewUserWithLogin || isEnablingLogin;
-
-    const validate = () => {
-        const newErrors: Record<string, string> = {};
-        if (!formData.numeroMecanografico?.trim()) newErrors.numeroMecanografico = "O nº mecanográfico é obrigatório.";
-        if (!formData.fullName?.trim()) newErrors.fullName = "O nome completo é obrigatório.";
-        if (!formData.entidadeId) newErrors.entidadeId = "A entidade é obrigatória.";
-        
-        if (!formData.email?.trim()) {
-            newErrors.email = "O email é obrigatório.";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            newErrors.email = "O formato do email é inválido.";
-        }
-        
-        // Password validation
-        if (shouldShowPasswordField) {
-            if (!password.trim()) {
-                newErrors.password = "A password é obrigatória para ativar o acesso.";
-            } else {
-                const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
-                if (!passwordRegex.test(password)) {
-                    newErrors.password = "A password deve ter no mínimo 6 caracteres, incluindo uma maiúscula, um número e um caracter especial (@$!%*?&).";
-                }
-            }
-        }
-        
-        if (formData.telemovel?.trim() && !isPortuguesePhoneNumber(formData.telemovel)) {
-            newErrors.telemovel = "Número de telemóvel inválido. Use um número português de 9 dígitos.";
-        }
-        if (formData.telefoneInterno && !/^\d+$/.test(formData.telefoneInterno)) {
-            newErrors.telefoneInterno = "O telefone interno deve conter apenas números.";
-        }
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
+    }, [collaboratorToEdit, escolasDepartamentos]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        const checked = (e.target as HTMLInputElement).checked;
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
         }));
     };
 
-    const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        let val = e.target.value;
-        val = val.replace(/[^0-9-]/g, ''); 
-        if (val.length > 4 && val.indexOf('-') === -1) {
-            val = val.slice(0, 4) + '-' + val.slice(4);
-        }
-        if (val.length > 8) val = val.slice(0, 8);
-
-        setFormData(prev => ({ ...prev, postal_code: val }));
-
-        if (/^\d{4}-\d{3}$/.test(val)) {
-            setIsFetchingCP(true);
-            try {
-                const res = await fetch(`https://json.geoapi.pt/cp/${val}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.Concelho) {
-                        let loc = '';
-                        if (data.Freguesia) loc = data.Freguesia;
-                        else if (data.part && data.part.length > 0) loc = data.part[0];
-
-                        setFormData(prev => ({
-                            ...prev,
-                            city: data.Concelho,
-                            locality: loc
-                        }));
-                    }
-                }
-            } catch (err) {
-                console.warn("Erro CP:", err);
-            } finally {
-                setIsFetchingCP(false);
-            }
-        }
-    };
-    
-    const handleModuleToggle = (moduleKey: AppModule) => {
-        setFormData(prev => {
-            const currentModules = prev.allowedModules || [];
-            if (currentModules.includes(moduleKey)) {
-                return { ...prev, allowedModules: currentModules.filter(m => m !== moduleKey) };
-            } else {
-                return { ...prev, allowedModules: [...currentModules, moduleKey] };
-            }
-        });
-    };
-
-    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setPhotoFile(file);
-            setPhotoPreview(URL.createObjectURL(file));
-        }
-    };
-
-    const handleRemovePhoto = () => {
-        setPhotoFile(null);
-        setPhotoPreview(null);
-        setFormData(prev => ({ ...prev, photoUrl: '' }));
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    };
-
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
+        if (!formData.fullName?.trim() || !formData.email?.trim()) {
+            setError("Nome e Email são obrigatórios.");
+            return;
+        }
         
-        let photoUrl = formData.photoUrl;
+        setIsSaving(true);
+        setError('');
 
-        // If a new photo file is selected, upload it
-        if (photoFile) {
-            const userId = collaboratorToEdit?.id || crypto.randomUUID();
-            const uploadedUrl = await dataService.uploadCollaboratorPhoto(userId, photoFile);
-            if (uploadedUrl) {
-                photoUrl = uploadedUrl;
-            }
-        }
-        
-        // Create legacy address string
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
-    
-        const dataToSave: any = {
-            ...formData,
-            photoUrl: photoUrl || undefined,
-            dateOfBirth: formData.dateOfBirth || undefined,
-            telefoneInterno: formData.telefoneInterno?.trim() || undefined,
-            telemovel: formData.telemovel?.trim() || undefined,
-            nif: formData.nif?.trim() || undefined,
-            address
+        const dataToSave: any = { 
+            ...formData, 
+            address,
+            numeroMecanografico: formData.numeroMecanografico || 'N/A' 
         };
-        
-        if (collaboratorToEdit) {
-            // Pass password if we are enabling login
-            onSave({ ...collaboratorToEdit, ...dataToSave }, password);
-        } else {
-            onSave(dataToSave, password);
+
+        try {
+            if (collaboratorToEdit) {
+                await onSave({ ...collaboratorToEdit, ...dataToSave });
+            } else {
+                // Only send password if creating new
+                await onSave(dataToSave, password || undefined);
+            }
+            onClose();
+        } catch (e: any) {
+            console.error(e);
+            setError(e.message || "Erro ao salvar colaborador.");
+        } finally {
+            setIsSaving(false);
         }
-    
-        onClose();
     };
 
-    const modalTitle = collaboratorToEdit ? "Editar Colaborador" : "Adicionar Novo Colaborador";
+    const modalTitle = collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador";
 
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-2xl">
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex flex-col md:flex-row items-center gap-6">
-                    <div className="flex-shrink-0">
-                         <input type="file" ref={fileInputRef} onChange={handlePhotoChange} accept="image/*" className="hidden" />
-                        <div className="relative w-24 h-24">
-                            {photoPreview ? (
-                                <img src={photoPreview} alt="Avatar" className="w-24 h-24 rounded-full object-cover" />
-                            ) : (
-                                <div className="w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center">
-                                    <UserIcon className="h-12 w-12 text-gray-500" />
-                                </div>
-                            )}
-                            <div className="absolute bottom-0 right-0 flex flex-col gap-1">
-                                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 bg-brand-primary text-white rounded-full hover:bg-brand-secondary text-xs" title="Carregar foto">
-                                    <CameraIcon className="h-4 w-4" />
-                                </button>
-                                {photoPreview && (
-                                    <button type="button" onClick={handleRemovePhoto} className="p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 text-xs" title="Remover foto">
-                                        <DeleteIcon className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+            <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[80vh] p-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Trato</label>
+                        <input type="text" name="title" value={formData.title} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Dr., Eng."/>
                     </div>
-                    <div className="w-full space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="numeroMecanografico" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nº Mecanográfico</label>
-                                <input type="text" name="numeroMecanografico" id="numeroMecanografico" value={formData.numeroMecanografico} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.numeroMecanografico ? 'border-red-500' : 'border-gray-600'}`} />
-                                {errors.numeroMecanografico && <p className="text-red-400 text-xs italic mt-1">{errors.numeroMecanografico}</p>}
-                            </div>
-                            <div>
-                                <label htmlFor="title" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Trato (Opcional)</label>
-                                <div className="flex gap-2">
-                                    <select 
-                                        name="title" 
-                                        id="title" 
-                                        value={formData.title} 
-                                        onChange={handleChange} 
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                                    >
-                                        <option value="">--</option>
-                                        {titles.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setShowManageTitles(true)}
-                                        className="bg-gray-600 text-white px-2 rounded hover:bg-gray-500"
-                                        title="Gerir Tratos"
-                                    >
-                                        <FaCog />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <label htmlFor="fullName" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome Completo</label>
-                            <input type="text" name="fullName" id="fullName" value={formData.fullName} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.fullName ? 'border-red-500' : 'border-gray-600'}`} />
-                            {errors.fullName && <p className="text-red-400 text-xs italic mt-1">{errors.fullName}</p>}
-                        </div>
-                        <div>
-                            <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF (Opcional)</label>
-                            <input type="text" name="nif" id="nif" value={formData.nif} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600" />
-                        </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Nome Completo</label>
+                        <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" required />
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div>
-                        <label htmlFor="entidadeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
-                        <select name="entidadeId" id="entidadeId" value={formData.entidadeId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.entidadeId ? 'border-red-500' : 'border-gray-600'}`} >
-                            <option value="" disabled>Selecione uma entidade</option>
-                            {entidades.map(entidade => (
-                                <option key={entidade.id} value={entidade.id}>{entidade.name}</option>
-                            ))}
-                        </select>
-                        {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
-                    </div>
-                     <div>
-                        <label htmlFor="dateOfBirth" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Nascimento (Opcional)</label>
-                        <input type="date" name="dateOfBirth" id="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600`} />
-                    </div>
-                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>
-                        <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.email ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Email</label>
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" required />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Nº Mecanográfico</label>
+                        <input type="text" name="numeroMecanografico" value={formData.numeroMecanografico} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div>
-                        <label htmlFor="telefoneInterno" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone Interno (Opcional)</label>
-                        <input type="tel" name="telefoneInterno" id="telefoneInterno" value={formData.telefoneInterno} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefoneInterno ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.telefoneInterno && <p className="text-red-400 text-xs italic mt-1">{errors.telefoneInterno}</p>}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">NIF</label>
+                        <input type="text" name="nif" value={formData.nif} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                     </div>
-                     <div>
-                        <label htmlFor="telemovel" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telemóvel (Opcional)</label>
-                        <input type="tel" name="telemovel" id="telemovel" value={formData.telemovel} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telemovel ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.telemovel && <p className="text-red-400 text-xs italic mt-1">{errors.telemovel}</p>}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Móvel</label>
+                        <input type="text" name="telemovel" value={formData.telemovel} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Extensão</label>
+                        <input type="text" name="telefoneInterno" value={formData.telefoneInterno} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                     </div>
                 </div>
 
-                {/* Address Section (Optional for Collabs) */}
-                <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
-                    <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada do Colaborador (Opcional)</h4>
-                    <div className="space-y-3">
+                <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Entidade / Departamento</label>
+                    <select name="entidadeId" value={formData.entidadeId} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                        {escolasDepartamentos.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                </div>
+
+                <div className="bg-gray-900/30 p-3 rounded border border-gray-700">
+                    <h4 className="text-sm font-bold text-white mb-2">Endereço</h4>
+                    <div className="space-y-2">
+                        <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Morada" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                        <div className="grid grid-cols-3 gap-2">
+                            <input type="text" name="postal_code" value={formData.postal_code} onChange={handleChange} placeholder="Cód. Postal" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                            <input type="text" name="city" value={formData.city} onChange={handleChange} placeholder="Cidade" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                            <input type="text" name="locality" value={formData.locality} onChange={handleChange} placeholder="Localidade" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-gray-900/30 p-3 rounded border border-gray-700">
+                    <h4 className="text-sm font-bold text-white mb-2">Acesso ao Sistema</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                         <div>
-                            <label htmlFor="address_line" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Endereço</label>
-                            <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Perfil</label>
+                            <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                                {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div>
-                                <label htmlFor="postal_code" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Código Postal</label>
-                                <div className="relative">
-                                    <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                                    {isFetchingCP && <div className="absolute right-2 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
-                                </div>
-                            </div>
-                            <div>
-                                <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade / Concelho</label>
-                                <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                            </div>
-                            <div>
-                                <label htmlFor="locality" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Localidade</label>
-                                <input type="text" name="locality" value={formData.locality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                            </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Estado</label>
+                            <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
                         </div>
                     </div>
-                </div>
-                
-                 <div className="border-t border-gray-600 pt-4 mt-4">
-                    <h3 className="text-lg font-medium text-on-surface-dark mb-2">Credenciais e Permissões</h3>
-                     <div className="space-y-4">
-                        <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                name="canLogin"
-                                id="canLogin"
-                                checked={formData.canLogin}
-                                onChange={handleChange}
-                                className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                            />
-                             <label htmlFor="canLogin" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
-                                Permitir login na plataforma
-                            </label>
+                    <div className="flex items-center gap-4 mb-2">
+                        <label className="flex items-center">
+                            <input type="checkbox" name="canLogin" checked={formData.canLogin} onChange={handleChange} className="mr-2" />
+                            <span className="text-sm text-white">Permitir Login</span>
+                        </label>
+                        <label className="flex items-center">
+                            <input type="checkbox" name="receivesNotifications" checked={formData.receivesNotifications} onChange={handleChange} className="mr-2" />
+                            <span className="text-sm text-white">Recebe Notificações</span>
+                        </label>
+                    </div>
+                    {!collaboratorToEdit && formData.canLogin && (
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Password Inicial</label>
+                            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                         </div>
-
-                        {shouldShowPasswordField && (
-                            <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
-                                    {isEnablingLogin ? 'Definir Password de Acesso' : 'Password Temporária'}
-                                </label>
-                                <div className="flex gap-2">
-                                    <div className="relative flex-grow">
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            name="password"
-                                            id="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="Defina uma password segura"
-                                            className={`w-full bg-gray-700 border text-white rounded-md p-2 pr-10 ${errors.password ? 'border-red-500' : 'border-gray-600'}`}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white"
-                                            aria-label={showPassword ? "Ocultar password" : "Mostrar password"}
-                                        >
-                                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                        </button>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setPassword(generateStrongPassword())}
-                                        className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"
-                                        title="Sugerir password forte"
-                                    >
-                                        <FaMagic />
-                                    </button>
-                                </div>
-                                {errors.password && <p className="text-red-400 text-xs italic mt-1">{errors.password}</p>}
-                                {isEnablingLogin && (
-                                    <p className="text-xs text-yellow-400 mt-1">
-                                        Nota: Ao ativar o login, será criada uma conta de utilizador. As credenciais serão exibidas após guardar.
-                                    </p>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Status</label>
-                                <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                    {Object.values(CollaboratorStatus).map(status => (
-                                        <option key={status} value={status}>{status}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            {isAdmin && (
-                                <div>
-                                    <label htmlFor="role" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Perfil</label>
-                                    <select name="role" id="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {Object.values(UserRole).map(role => (
-                                            <option key={role} value={role}>{role}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-                        </div>
-
-                        {isAdmin && (
-                            <div className="bg-gray-800 p-4 rounded-md border border-gray-700 mt-4">
-                                <label className="block text-sm font-medium text-white mb-3">
-                                    Acesso a Módulos
-                                    {isTargetAdmin && <span className="ml-2 text-xs text-brand-secondary font-normal">(Acesso total incluído para Administradores)</span>}
-                                </label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {AVAILABLE_MODULES.map(module => (
-                                        <div key={module.key} className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                id={`module-${module.key}`}
-                                                checked={isTargetAdmin || (formData.allowedModules || []).includes(module.key)}
-                                                onChange={() => !isTargetAdmin && handleModuleToggle(module.key)}
-                                                disabled={isTargetAdmin}
-                                                // Change transparency: When Admin, make it fully opaque but unchangeable
-                                                className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary ${
-                                                    isTargetAdmin 
-                                                    ? 'cursor-not-allowed opacity-100 text-brand-primary checked:bg-brand-primary' 
-                                                    : ''
-                                                }`}
-                                            />
-                                            <label 
-                                                htmlFor={`module-${module.key}`} 
-                                                className={`ml-2 text-sm flex items-center gap-2 ${isTargetAdmin ? 'text-white font-medium' : 'text-on-surface-dark-secondary'}`}
-                                            >
-                                                {module.label}
-                                                {isTargetAdmin && <FaLock className="text-brand-secondary h-3 w-3" title="Acesso garantido por perfil Admin" />}
-                                            </label>
-                                        </div>
-                                    ))}
-                                </div>
-                                {!isTargetAdmin && (
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        Se nenhum módulo for selecionado, o colaborador terá acesso apenas à Visão Geral.
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                        
-                        {formData.canLogin && isAdmin && (
-                            <div className="flex items-center mt-4">
-                                <input
-                                    type="checkbox"
-                                    name="receivesNotifications"
-                                    id="receivesNotifications"
-                                    checked={formData.receivesNotifications}
-                                    onChange={handleChange}
-                                    className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                                />
-                                <label htmlFor="receivesNotifications" className="ml-3 block text-sm font-medium text-on-surface-dark-secondary">
-                                    Receber notificações da plataforma
-                                </label>
-                            </div>
-                        )}
-                     </div>
+                    )}
                 </div>
 
+                {error && <p className="text-red-400 text-sm bg-red-900/20 p-2 rounded">{error}</p>}
 
-                <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
+                <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2">
+                        {isSaving && <SpinnerIcon />} Salvar
+                    </button>
                 </div>
             </form>
-            
-            {showManageTitles && (
-                <ManageContactTitlesModal 
-                    onClose={() => setShowManageTitles(false)} 
-                    onTitlesUpdated={loadTitles} 
-                />
-            )}
         </Modal>
     );
 };

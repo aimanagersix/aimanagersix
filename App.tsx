@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
-  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest, SecurityTrainingRecord
+  TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest, SecurityTrainingRecord,
+  ConfigItem
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -71,6 +73,7 @@ import SmartDashboard from './components/SmartDashboard';
 import CalendarModal from './components/CalendarModal';
 import UserManualModal from './components/UserManualModal';
 import AgendaDashboard from './components/AgendaDashboard';
+import AuxiliaryDataDashboard from './components/AuxiliaryDataDashboard';
 
 type Session = any;
 
@@ -133,6 +136,16 @@ const InnerApp: React.FC = () => {
     const [backupExecutions, setBackupExecutions] = useState<BackupExecution[]>([]);
     const [resilienceTests, setResilienceTests] = useState<ResilienceTest[]>([]);
     const [securityTrainings, setSecurityTrainings] = useState<SecurityTrainingRecord[]>([]);
+
+    // Configuration Tables State
+    const [configEquipmentStatuses, setConfigEquipmentStatuses] = useState<ConfigItem[]>([]);
+    const [configUserRoles, setConfigUserRoles] = useState<ConfigItem[]>([]);
+    const [configCriticalityLevels, setConfigCriticalityLevels] = useState<ConfigItem[]>([]);
+    const [configCiaRatings, setConfigCiaRatings] = useState<ConfigItem[]>([]);
+    const [configServiceStatuses, setConfigServiceStatuses] = useState<ConfigItem[]>([]);
+    const [configBackupTypes, setConfigBackupTypes] = useState<ConfigItem[]>([]);
+    const [configTrainingTypes, setConfigTrainingTypes] = useState<ConfigItem[]>([]);
+    const [configResilienceTestTypes, setConfigResilienceTestTypes] = useState<ConfigItem[]>([]);
 
     // UI State
     const [isConfigured, setIsConfigured] = useState(!!localStorage.getItem('SUPABASE_URL'));
@@ -242,6 +255,17 @@ const InnerApp: React.FC = () => {
             setBackupExecutions(data.backupExecutions);
             setResilienceTests(data.resilienceTests);
             setSecurityTrainings(data.securityTrainings);
+            
+            // Configs
+            setConfigEquipmentStatuses(data.configEquipmentStatuses);
+            setConfigUserRoles(data.configUserRoles);
+            setConfigCriticalityLevels(data.configCriticalityLevels);
+            setConfigCiaRatings(data.configCiaRatings);
+            setConfigServiceStatuses(data.configServiceStatuses);
+            setConfigBackupTypes(data.configBackupTypes);
+            setConfigTrainingTypes(data.configTrainingTypes);
+            setConfigResilienceTestTypes(data.configResilienceTestTypes);
+
         } catch (error) {
             console.error("Failed to load data:", error);
         } finally {
@@ -318,6 +342,16 @@ const InnerApp: React.FC = () => {
                  setBackupExecutions(data.backupExecutions);
                  setResilienceTests(data.resilienceTests);
                  setSecurityTrainings(data.securityTrainings);
+                 
+                 // Configs
+                 setConfigEquipmentStatuses(data.configEquipmentStatuses);
+                 setConfigUserRoles(data.configUserRoles);
+                 setConfigCriticalityLevels(data.configCriticalityLevels);
+                 setConfigCiaRatings(data.configCiaRatings);
+                 setConfigServiceStatuses(data.configServiceStatuses);
+                 setConfigBackupTypes(data.configBackupTypes);
+                 setConfigTrainingTypes(data.configTrainingTypes);
+                 setConfigResilienceTestTypes(data.configResilienceTestTypes);
              } else {
                  console.warn("User logged in but not found in collaborators table");
              }
@@ -372,7 +406,7 @@ const InnerApp: React.FC = () => {
         } else if (intent === 'create_ticket') {
             const requester = collaborators.find(c => c.fullName.toLowerCase() === data.requesterName?.toLowerCase());
             
-            let priority = CriticalityLevel.Low;
+            let priority: CriticalityLevel = CriticalityLevel.Low;
             if (data.priority?.toLowerCase().includes('alta')) priority = CriticalityLevel.High;
             if (data.priority?.toLowerCase().includes('crítica')) priority = CriticalityLevel.Critical;
             if (data.priority?.toLowerCase().includes('média')) priority = CriticalityLevel.Medium;
@@ -610,7 +644,8 @@ const InnerApp: React.FC = () => {
         'licensing': 'Licenciamento',
         'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets', categories: 'Categorias', incident_types: 'Tipos de Incidente' },
-        'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' }
+        'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' },
+        'settings': isAdmin ? 'Configurações' : undefined
     };
 
     return (
@@ -681,6 +716,22 @@ const InnerApp: React.FC = () => {
                         trainings={securityTrainings}
                         collaborators={collaborators}
                         currentUser={currentUser}
+                    />
+                )}
+
+                {activeTab === 'settings' && isAdmin && (
+                    <AuxiliaryDataDashboard
+                        configTables={[
+                            { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: configEquipmentStatuses },
+                            { tableName: 'config_user_roles', label: 'Perfis de Utilizador', data: configUserRoles },
+                            { tableName: 'config_criticality_levels', label: 'Níveis de Criticidade', data: configCriticalityLevels },
+                            { tableName: 'config_cia_ratings', label: 'Classificação CIA', data: configCiaRatings },
+                            { tableName: 'config_service_statuses', label: 'Estados de Serviço', data: configServiceStatuses },
+                            { tableName: 'config_backup_types', label: 'Tipos de Backup', data: configBackupTypes },
+                            { tableName: 'config_training_types', label: 'Tipos de Formação', data: configTrainingTypes },
+                            { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: configResilienceTestTypes }
+                        ]}
+                        onRefresh={refreshData}
                     />
                 )}
 
@@ -1090,6 +1141,10 @@ const InnerApp: React.FC = () => {
                     softwareLicenses={softwareLicenses}
                     entidades={entidades}
                     collaborators={collaborators}
+                    // Pass dynamic config options
+                    statusOptions={configEquipmentStatuses}
+                    criticalityOptions={configCriticalityLevels}
+                    ciaOptions={configCiaRatings}
                 />
             )}
 
@@ -1134,6 +1189,12 @@ const InnerApp: React.FC = () => {
                     collaboratorToEdit={collaboratorToEdit}
                     escolasDepartamentos={entidades}
                     currentUser={currentUser}
+                    // Pass dynamic config options
+                    roleOptions={configUserRoles}
+                    statusOptions={[
+                        { id: 'Ativo', name: 'Ativo' },
+                        { id: 'Inativo', name: 'Inativo' }
+                    ]} // Collaborator status is simpler, but could be dynamic too
                 />
             )}
 
@@ -1327,22 +1388,14 @@ const InnerApp: React.FC = () => {
                 <ImportModal
                     onClose={() => setImportConfig(null)}
                     onImport={async (type, data) => {
-                        // Implement specific import logic here based on type
-                        // For simplicity, wrapping basic adds
                         try {
                             if (type === 'equipment') {
-                                // Resolve IDs
                                 const processedData = data.map(item => {
-                                    // Very basic mapping assuming names match exactly or creating them on fly (not implemented for simplicity)
-                                    // Real implementation needs more robust mapping logic
                                     return item;
                                 });
-                                // Example only: direct insert won't work without ID resolution
-                                // For now just close and alert
                                 alert("A importação requer lógica de mapeamento de IDs (Marcas, Tipos) que deve ser implementada no backend ou via script.");
                                 return { success: false, message: "Funcionalidade simplificada. Implemente a resolução de IDs." };
                             }
-                            // ... other types
                             return { success: true, message: "Importação simulada com sucesso." };
                         } catch (e) {
                             return { success: false, message: "Erro na importação." };
@@ -1396,7 +1449,7 @@ const InnerApp: React.FC = () => {
                     allEquipment={equipment}
                     allLicenses={softwareLicenses}
                     onAddDependency={(dep) => simpleSaveWrapper(dataService.addServiceDependency, dep)}
-                    onRemoveDependency={(id) => simpleSaveWrapper(dataService.deleteServiceDependency, null, id)} // deleteServiceDependency takes (ignored, id) signature
+                    onRemoveDependency={(id) => simpleSaveWrapper(dataService.deleteServiceDependency, null, id)} 
                 />
             )}
 

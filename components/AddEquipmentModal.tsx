@@ -1,9 +1,7 @@
 
-
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus } from '../types';
+import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
 import { FaExclamationTriangle, FaEuroSign, FaWindows, FaUserTag, FaKey } from 'react-icons/fa';
@@ -21,6 +19,9 @@ interface AddEquipmentModalProps {
     softwareLicenses?: SoftwareLicense[];
     entidades?: Entidade[];
     collaborators?: Collaborator[];
+    statusOptions?: ConfigItem[];
+    criticalityOptions?: ConfigItem[];
+    ciaOptions?: ConfigItem[];
 }
 
 interface CameraScannerProps {
@@ -170,9 +171,19 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
     );
 };
 
-const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, suppliers = [], softwareLicenses = [], entidades = [], collaborators = [] }) => {
+const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ 
+    onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, 
+    suppliers = [], softwareLicenses = [], entidades = [], collaborators = [], 
+    statusOptions, criticalityOptions, ciaOptions 
+}) => {
+    // Use dynamic options if available, else fallback to enum values
+    const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(o => o.name) : Object.values(EquipmentStatus);
+    const criticalities = criticalityOptions && criticalityOptions.length > 0 ? criticalityOptions.map(o => o.name) : Object.values(CriticalityLevel);
+    const ciaRatings = ciaOptions && ciaOptions.length > 0 ? ciaOptions.map(o => o.name) : Object.values(CIARating);
+
     const [formData, setFormData] = useState<Partial<Equipment>>({
         brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: '',
+        status: EquipmentStatus.Stock,
         criticality: CriticalityLevel.Low,
         confidentiality: CIARating.Low,
         integrity: CIARating.Low,
@@ -218,6 +229,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 invoiceNumber: equipmentToEdit.invoiceNumber || '',
                 creationDate: equipmentToEdit.creationDate,
+                status: equipmentToEdit.status || EquipmentStatus.Stock,
                 criticality: equipmentToEdit.criticality || CriticalityLevel.Low,
                 confidentiality: equipmentToEdit.confidentiality || CIARating.Low,
                 integrity: equipmentToEdit.integrity || CIARating.Low,
@@ -242,6 +254,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 purchaseDate: new Date().toISOString().split('T')[0],
                 warrantyEndDate: '',
                 invoiceNumber: '',
+                status: EquipmentStatus.Stock,
                 criticality: CriticalityLevel.Low,
                 confidentiality: CIARating.Low,
                 integrity: CIARating.Low,
@@ -565,6 +578,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                             <input type="text" name="inventoryNumber" id="inventoryNumber" value={formData.inventoryNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                         </div>
                     )}
+                    <div>
+                        <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado</label>
+                        <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
                 </div>
 
                 <div>
@@ -797,7 +816,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                                 onChange={handleChange} 
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
                             >
-                                {Object.values(CriticalityLevel).map(level => (
+                                {criticalities.map(level => (
                                     <option key={level} value={level}>{level}</option>
                                 ))}
                             </select>
@@ -811,7 +830,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                                 onChange={handleChange} 
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
                             >
-                                {Object.values(CIARating).map(rating => (
+                                {ciaRatings.map(rating => (
                                     <option key={rating} value={rating}>{rating}</option>
                                 ))}
                             </select>
@@ -825,7 +844,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                                 onChange={handleChange} 
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
                             >
-                                {Object.values(CIARating).map(rating => (
+                                {ciaRatings.map(rating => (
                                     <option key={rating} value={rating}>{rating}</option>
                                 ))}
                             </select>
@@ -839,7 +858,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                                 onChange={handleChange} 
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
                             >
-                                {Object.values(CIARating).map(rating => (
+                                {ciaRatings.map(rating => (
                                     <option key={rating} value={rating}>{rating}</option>
                                 ))}
                             </select>

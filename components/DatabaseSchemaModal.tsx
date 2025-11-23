@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -10,7 +11,51 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const [copied, setCopied] = useState(false);
 
     const sqlScript = `
--- EXECUTE ESTE SCRIPT NO EDITOR SQL DO SUPABASE PARA CORRIGIR A BASE DE DADOS
+-- EXECUTE ESTE SCRIPT NO EDITOR SQL DO SUPABASE PARA ATUALIZAR A BASE DE DADOS
+
+-- ==========================================
+-- CRIAÇÃO DE TABELAS DE CONFIGURAÇÃO (Listas Dinâmicas)
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS config_equipment_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS config_user_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS config_criticality_levels (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS config_cia_ratings (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS config_service_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS config_backup_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS config_training_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS config_resilience_test_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+
+-- Inserir valores padrão (Segurança contra duplicados via ON CONFLICT)
+INSERT INTO config_equipment_statuses (name) VALUES ('Stock'), ('Operacional'), ('Abate'), ('Garantia') ON CONFLICT DO NOTHING;
+INSERT INTO config_user_roles (name) VALUES ('Admin'), ('Normal'), ('Básico'), ('Utilizador') ON CONFLICT DO NOTHING;
+INSERT INTO config_criticality_levels (name) VALUES ('Baixa'), ('Média'), ('Alta'), ('Crítica') ON CONFLICT DO NOTHING;
+INSERT INTO config_cia_ratings (name) VALUES ('Baixo'), ('Médio'), ('Alto') ON CONFLICT DO NOTHING;
+INSERT INTO config_service_statuses (name) VALUES ('Ativo'), ('Inativo'), ('Em Manutenção') ON CONFLICT DO NOTHING;
+INSERT INTO config_backup_types (name) VALUES ('Completo'), ('Incremental'), ('Diferencial'), ('Snapshot VM') ON CONFLICT DO NOTHING;
+INSERT INTO config_training_types (name) VALUES ('Simulação Phishing'), ('Leitura Política Segurança'), ('Higiene Cibernética (Geral)'), ('RGPD / Privacidade'), ('Ferramenta Específica') ON CONFLICT DO NOTHING;
+INSERT INTO config_resilience_test_types (name) VALUES ('Scan Vulnerabilidades'), ('Penetration Test (Pentest)'), ('TLPT (Red Teaming)'), ('Exercício de Mesa (DRP)'), ('Recuperação de Desastres (Full)') ON CONFLICT DO NOTHING;
+
+-- Ativar RLS para as novas tabelas
+DO $$ 
+DECLARE 
+    t text;
+BEGIN 
+    FOR t IN 
+        SELECT table_name FROM information_schema.tables 
+        WHERE table_name LIKE 'config_%' 
+    LOOP 
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
+        BEGIN
+            EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t);
+        EXCEPTION WHEN OTHERS THEN NULL; END;
+        EXECUTE format('CREATE POLICY "Allow all" ON %I FOR ALL USING (true) WITH CHECK (true);', t); 
+    END LOOP; 
+END $$;
+
+-- ==========================================
+-- SCRIPT DE CORREÇÃO GERAL (Antigo)
+-- ==========================================
 
 -- 1. Extensões
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -24,16 +69,11 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- ==========================================
--- CORREÇÃO DE TABELAS EXISTENTES (CRÍTICO)
--- ==========================================
-
 DO $$ 
 BEGIN 
     -- Tickets: Adicionar Fornecedor Requerente
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tickets') THEN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS requester_supplier_id uuid;
-        -- Other fields just in case
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS category text;
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text; 
     END IF;
@@ -165,438 +205,6 @@ BEGIN
         ALTER TABLE resource_contacts ADD COLUMN IF NOT EXISTS title text;
     END IF;
 END $$;
-
-
--- ==========================================
--- CRIAÇÃO DE TABELAS
--- ==========================================
-
--- Generic Resource Contacts (Substitui supplier_contacts e expande para entidades/instituicoes)
-CREATE TABLE IF NOT EXISTS resource_contacts (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    resource_type text NOT NULL CHECK (resource_type IN ('supplier', 'entidade', 'instituicao')),
-    resource_id uuid NOT NULL,
-    title text,
-    name text NOT NULL,
-    role text,
-    email text,
-    phone text,
-    created_at timestamptz DEFAULT now()
-);
-
--- Roles for contacts (User configurable)
-CREATE TABLE IF NOT EXISTS contact_roles (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
-    created_at timestamptz DEFAULT now()
-);
-
--- Titles/Honorifics for contacts (User configurable)
-CREATE TABLE IF NOT EXISTS contact_titles (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
-    created_at timestamptz DEFAULT now()
-);
-
--- Insert default roles
-INSERT INTO contact_roles (name) VALUES 
-('Técnico'), ('Comercial'), ('Financeiro'), ('DPO / CISO'), ('Gestor de Conta'), ('Diretor'), ('Secretaria')
-ON CONFLICT (name) DO NOTHING;
-
--- Insert default titles
-INSERT INTO contact_titles (name) VALUES
-('Sr.'), ('Sra.'), ('Dr.'), ('Dra.'), ('Eng.'), ('Eng.ª'), ('Arq.'), ('Prof.')
-ON CONFLICT (name) DO NOTHING;
-
--- Keep supplier_contacts for legacy compatibility, but consider migrating data
--- CREATE TABLE IF NOT EXISTS supplier_contacts ... (Deprecated)
-
-CREATE TABLE IF NOT EXISTS instituicoes (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL,
-    codigo text,
-    email text,
-    telefone text,
-    nif text,
-    address text,
-    address_line text,
-    postal_code text,
-    city text,
-    locality text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS entidades (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "instituicaoId" uuid REFERENCES instituicoes(id),
-    codigo text,
-    name text NOT NULL,
-    description text,
-    email text,
-    responsavel text,
-    telefone text,
-    telemovel text,
-    "telefoneInterno" text,
-    nif text,
-    status text DEFAULT 'Ativo',
-    address text,
-    address_line text,
-    postal_code text,
-    city text,
-    locality text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS collaborators (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "numeroMecanografico" text,
-    title text,
-    "fullName" text NOT NULL,
-    "entidadeId" uuid REFERENCES entidades(id),
-    email text,
-    "telefoneInterno" text,
-    telemovel text,
-    nif text,
-    "photoUrl" text,
-    "dateOfBirth" text,
-    "canLogin" boolean DEFAULT false,
-    "receivesNotifications" boolean DEFAULT true,
-    role text DEFAULT 'Utilizador',
-    status text DEFAULT 'Ativo',
-    "allowedModules" text[],
-    address text,
-    address_line text,
-    postal_code text,
-    city text,
-    locality text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS brands (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
-    risk_level text DEFAULT 'Baixa',
-    is_iso27001_certified boolean DEFAULT false,
-    security_contact_email text
-);
-
-CREATE TABLE IF NOT EXISTS suppliers (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
-    contact_name text,
-    contact_email text,
-    contact_phone text,
-    nif text,
-    website text,
-    notes text,
-    address text,
-    address_line text,
-    postal_code text,
-    city text,
-    locality text,
-    attachments jsonb DEFAULT '[]',
-    is_iso27001_certified boolean DEFAULT false,
-    iso_certificate_expiry text,
-    security_contact_email text,
-    risk_level text DEFAULT 'Baixa',
-    other_certifications jsonb DEFAULT '[]',
-    contracts jsonb DEFAULT '[]',
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS teams (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL,
-    description text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS equipment_types (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
-    "requiresNomeNaRede" boolean DEFAULT false,
-    "requiresMacWIFI" boolean DEFAULT false,
-    "requiresMacCabo" boolean DEFAULT false,
-    "requiresInventoryNumber" boolean DEFAULT false,
-    default_team_id uuid REFERENCES teams(id),
-    "requiresBackupTest" boolean DEFAULT false
-);
-
-CREATE TABLE IF NOT EXISTS equipment (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "brandId" uuid REFERENCES brands(id),
-    "typeId" uuid REFERENCES equipment_types(id),
-    description text NOT NULL,
-    "serialNumber" text NOT NULL,
-    "inventoryNumber" text,
-    "invoiceNumber" text,
-    "nomeNaRede" text,
-    "macAddressWIFI" text,
-    "macAddressCabo" text,
-    "purchaseDate" text,
-    "warrantyEndDate" text,
-    status text DEFAULT 'Stock',
-    criticality text DEFAULT 'Baixa',
-    confidentiality text DEFAULT 'Baixo',
-    integrity text DEFAULT 'Baixo',
-    availability text DEFAULT 'Baixo',
-    os_version text,
-    last_security_update text,
-    supplier_id uuid REFERENCES suppliers(id),
-    "acquisitionCost" numeric DEFAULT 0,
-    "expectedLifespanYears" integer DEFAULT 4,
-    embedded_license_key text,
-    "creationDate" text DEFAULT to_char(now(), 'YYYY-MM-DD'),
-    "modifiedDate" text DEFAULT to_char(now(), 'YYYY-MM-DD')
-);
-
-CREATE TABLE IF NOT EXISTS assignments (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "equipmentId" uuid REFERENCES equipment(id),
-    "entidadeId" uuid REFERENCES entidades(id),
-    "collaboratorId" uuid REFERENCES collaborators(id),
-    "assignedDate" text NOT NULL,
-    "returnDate" text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS ticket_categories (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
-    is_active boolean DEFAULT true,
-    default_team_id uuid REFERENCES teams(id),
-    sla_warning_hours integer DEFAULT 0,
-    sla_critical_hours integer DEFAULT 0,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS security_incident_types (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
-    description text,
-    is_active boolean DEFAULT true,
-    created_at timestamptz DEFAULT now()
-);
-
-INSERT INTO security_incident_types (name, description, is_active) VALUES
-('Ransomware', 'Ataque que cifra dados e exige resgate.', true),
-('Phishing / Engenharia Social', 'Tentativa de obter dados sensíveis via engano.', true),
-('Fuga de Dados (Data Leak)', 'Exposição não autorizada de dados confidenciais.', true),
-('Malware / Vírus', 'Software malicioso genérico.', true),
-('Negação de Serviço (DDoS)', 'Interrupção de serviço por sobrecarga.', true),
-('Acesso Não Autorizado / Compromisso de Conta', 'Acesso ilegítimo a contas ou sistemas.', true),
-('Ameaça Interna', 'Ação maliciosa de colaborador ou parceiro.', true),
-('Exploração de Vulnerabilidade', 'Uso de falha de software para ataque.', true),
-('Outro', 'Outros tipos de incidente.', true)
-ON CONFLICT (name) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS tickets (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    title text,
-    "entidadeId" uuid REFERENCES entidades(id),
-    "collaboratorId" uuid REFERENCES collaborators(id),
-    description text NOT NULL,
-    "requestDate" timestamptz NOT NULL,
-    "finishDate" timestamptz,
-    status text DEFAULT 'Pedido',
-    "technicianId" uuid REFERENCES collaborators(id),
-    team_id uuid REFERENCES teams(id),
-    "equipmentId" uuid REFERENCES equipment(id),
-    requester_supplier_id uuid REFERENCES suppliers(id),
-    category text,
-    "securityIncidentType" text,
-    "impactCriticality" text,
-    "impactConfidentiality" text,
-    "impactIntegrity" text,
-    "impactAvailability" text,
-    attachments jsonb DEFAULT '[]',
-    resolution_summary text,
-    regulatory_status text DEFAULT 'NotRequired',
-    regulatory_24h_deadline timestamptz,
-    regulatory_72h_deadline timestamptz,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS ticket_activities (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "ticketId" uuid REFERENCES tickets(id) ON DELETE CASCADE,
-    "technicianId" uuid REFERENCES collaborators(id),
-    date timestamptz DEFAULT now(),
-    description text NOT NULL,
-    "equipmentId" uuid REFERENCES equipment(id)
-);
-
-CREATE TABLE IF NOT EXISTS software_licenses (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "productName" text NOT NULL,
-    "licenseKey" text NOT NULL,
-    "totalSeats" integer DEFAULT 1,
-    "purchaseDate" text,
-    "expiryDate" text,
-    "purchaseEmail" text,
-    "invoiceNumber" text,
-    status text DEFAULT 'Ativo',
-    criticality text DEFAULT 'Baixa',
-    confidentiality text DEFAULT 'Baixo',
-    integrity text DEFAULT 'Baixo',
-    availability text DEFAULT 'Baixo',
-    supplier_id uuid REFERENCES suppliers(id),
-    "unitCost" numeric DEFAULT 0,
-    is_oem boolean DEFAULT false,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS license_assignments (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "softwareLicenseId" uuid REFERENCES software_licenses(id) ON DELETE CASCADE,
-    "equipmentId" uuid REFERENCES equipment(id) ON DELETE CASCADE,
-    "assignedDate" timestamptz DEFAULT now(),
-    "returnDate" timestamptz
-);
-
-CREATE TABLE IF NOT EXISTS messages (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "senderId" uuid REFERENCES collaborators(id),
-    "receiverId" uuid REFERENCES collaborators(id),
-    content text NOT NULL,
-    timestamp timestamptz DEFAULT now(),
-    read boolean DEFAULT false
-);
-
-CREATE TABLE IF NOT EXISTS collaborator_history (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "collaboratorId" uuid REFERENCES collaborators(id) ON DELETE CASCADE,
-    "entidadeId" uuid REFERENCES entidades(id),
-    "startDate" text,
-    "endDate" text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    user_id uuid,
-    action text NOT NULL,
-    resource_type text NOT NULL,
-    resource_id text,
-    details text,
-    timestamp timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS user_notification_snoozes (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    user_id uuid NOT NULL,
-    reference_id text NOT NULL,
-    notification_type text NOT NULL,
-    snooze_until timestamptz NOT NULL,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS business_services (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL,
-    description text,
-    criticality text DEFAULT 'Média',
-    rto_goal text,
-    owner_id uuid REFERENCES collaborators(id),
-    status text DEFAULT 'Ativo',
-    external_provider_id uuid REFERENCES suppliers(id),
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS service_dependencies (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    service_id uuid REFERENCES business_services(id) ON DELETE CASCADE,
-    equipment_id uuid REFERENCES equipment(id),
-    software_license_id uuid REFERENCES software_licenses(id),
-    dependency_type text,
-    notes text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS vulnerabilities (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    cve_id text NOT NULL,
-    description text,
-    severity text DEFAULT 'Média',
-    status text DEFAULT 'Aberto',
-    affected_software text,
-    remediation text,
-    published_date text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS backup_executions (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    system_name text NOT NULL,
-    backup_date text NOT NULL,
-    test_date text NOT NULL,
-    status text NOT NULL,
-    type text DEFAULT 'Completo',
-    restore_time_minutes integer,
-    tester_id uuid REFERENCES collaborators(id),
-    notes text,
-    attachments jsonb DEFAULT '[]',
-    equipment_id uuid REFERENCES equipment(id),
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS security_training_records (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
-    training_type text NOT NULL,
-    completion_date text NOT NULL,
-    status text DEFAULT 'Concluído',
-    score integer,
-    notes text,
-    valid_until text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS resilience_tests (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    title text NOT NULL,
-    test_type text NOT NULL,
-    planned_date text NOT NULL,
-    executed_date text,
-    status text DEFAULT 'Planeado',
-    auditor_entity text,
-    auditor_supplier_id uuid REFERENCES suppliers(id),
-    auditor_internal_entidade_id uuid REFERENCES entidades(id),
-    summary_findings text,
-    attachments jsonb DEFAULT '[]',
-    created_at timestamptz DEFAULT now()
-);
-
--- ==========================================
--- CORREÇÃO DA TABELA TEAM_MEMBERS
--- ==========================================
-DROP TABLE IF EXISTS team_members;
-
-CREATE TABLE team_members (
-    team_id uuid REFERENCES teams(id) ON DELETE CASCADE,
-    collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
-    created_at timestamptz DEFAULT now(),
-    PRIMARY KEY (team_id, collaborator_id)
-);
-
--- ==========================================
--- CORREÇÃO DE PERMISSÕES (RLS)
--- ==========================================
-DO $$ 
-DECLARE 
-    t text;
-BEGIN 
-    FOR t IN 
-        SELECT table_name FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-    LOOP 
-        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
-        BEGIN
-            EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t);
-        EXCEPTION WHEN OTHERS THEN NULL; END;
-        EXECUTE format('CREATE POLICY "Allow all" ON %I FOR ALL USING (true) WITH CHECK (true);', t); 
-    END LOOP; 
-END $$;
 `;
 
     const handleCopy = () => {
@@ -611,10 +219,10 @@ END $$;
                 <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
                     <div className="flex items-center gap-2 font-bold mb-2 text-blue-100">
                         <FaDatabase />
-                        <span>Instruções de Correção</span>
+                        <span>Instruções de Atualização</span>
                     </div>
                     <p className="mb-2">
-                        Este script adiciona tabelas para Contactos Genéricos (Entidades, Instituições, Fornecedores) e Tipos de Contacto.
+                        Este script cria as tabelas necessárias para tornar as listas de configuração (Estados, Perfis, Tipos) dinâmicas e editáveis.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>
