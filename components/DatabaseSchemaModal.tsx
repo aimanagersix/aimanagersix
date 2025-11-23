@@ -14,6 +14,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -104,6 +106,9 @@ BEGIN
         -- FinOps
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "acquisitionCost" numeric DEFAULT 0;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "expectedLifespanYears" integer DEFAULT 4;
+        -- OEM License
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS has_embedded_license boolean DEFAULT false;
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS embedded_license_key text;
     END IF;
 
     -- 6. Adicionar colunas de NIS2 e FinOps à tabela SOFTWARE_LICENSES
@@ -318,6 +323,8 @@ CREATE TABLE IF NOT EXISTS equipment (
     supplier_id uuid REFERENCES suppliers(id),
     "acquisitionCost" numeric DEFAULT 0,
     "expectedLifespanYears" integer DEFAULT 4,
+    has_embedded_license boolean DEFAULT false,
+    embedded_license_key text,
     "creationDate" text DEFAULT to_char(now(), 'YYYY-MM-DD'),
     "modifiedDate" text DEFAULT to_char(now(), 'YYYY-MM-DD')
 );

@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull } from './common/Icons';
@@ -103,10 +105,11 @@ const RecentActivityItem: React.FC<{ activity: any, icon: React.ReactNode }> = (
     </div>
 );
 
-const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availableSeats: number }[]; onViewAll: () => void; }> = ({ licenses, onViewAll }) => {
+const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availableSeats: number; isOEM?: boolean }[]; onViewAll: () => void; }> = ({ licenses, onViewAll }) => {
     const { t } = useLanguage();
+    // Total Available seats, including OEM stock
     const totalAvailable = licenses.reduce((sum, l) => sum + l.availableSeats, 0);
-    const topLicenses = licenses.slice(0, 4);
+    const topLicenses = licenses.slice(0, 6);
 
     return (
         <div className="bg-surface-dark p-5 rounded-lg shadow-lg flex flex-col h-full border border-gray-800">
@@ -125,8 +128,13 @@ const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availab
             <div className="flex-grow space-y-2 text-sm overflow-hidden">
                 {topLicenses.length > 0 ? topLicenses.map((license, index) => (
                     <div key={index} className="flex justify-between items-center gap-2 py-1 border-b border-gray-800 last:border-0">
-                        <span className="text-on-surface-dark truncate" title={license.productName}>{license.productName}</span>
-                        <span className="font-bold text-teal-400 bg-teal-900/20 px-2 py-0.5 rounded-md text-xs flex-shrink-0">{license.availableSeats} un.</span>
+                        <span className="text-on-surface-dark truncate" title={license.productName}>
+                            {license.productName}
+                            {license.isOEM && <span className="text-[10px] text-gray-500 ml-1">(OEM)</span>}
+                        </span>
+                        <span className={`font-bold px-2 py-0.5 rounded-md text-xs flex-shrink-0 ${license.isOEM ? 'text-blue-400 bg-blue-900/20' : 'text-teal-400 bg-teal-900/20'}`}>
+                            {license.availableSeats} un.
+                        </span>
                     </div>
                 )) : (
                     <div className="flex items-center justify-center h-full">
@@ -136,7 +144,7 @@ const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availab
             </div>
             {licenses.length > 0 && (
                  <button onClick={onViewAll} className="mt-4 pt-2 text-center text-xs font-bold uppercase text-brand-secondary hover:text-brand-primary transition-colors border-t border-gray-700 w-full">
-                    {licenses.length > 4 ? t('overview.view_all') : t('overview.view_licenses')}
+                    {licenses.length > 6 ? t('overview.view_all') : t('overview.view_licenses')}
                 </button>
             )}
         </div>
@@ -226,21 +234,48 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     }, [vulnerabilities]);
 
     const availableLicensesData = useMemo(() => {
+        // 1. Calculate Traditional Licenses
         const usedSeatsMap = licenseAssignments.reduce((acc, assignment) => {
             acc.set(assignment.softwareLicenseId, (acc.get(assignment.softwareLicenseId) || 0) + 1);
             return acc;
         }, new Map<string, number>());
         
-        return softwareLicenses
+        const traditionalLicenses = softwareLicenses
             .filter(license => (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo)
             .map(license => {
                 const usedSeats = usedSeatsMap.get(license.id) || 0;
                 const availableSeats = license.totalSeats - usedSeats;
-                return { productName: license.productName, availableSeats };
+                return { productName: license.productName, availableSeats, isOEM: false };
             })
-            .filter(license => license.availableSeats > 0)
-            .sort((a, b) => b.availableSeats - a.availableSeats);
-    }, [softwareLicenses, licenseAssignments]);
+            .filter(license => license.availableSeats > 0);
+
+        // 2. Calculate OEM Licenses (from Equipment)
+        // OEM Logic:
+        // - A license exists if equipment.has_embedded_license is true.
+        // - It is considered "Used" if equipment is Operational/Assigned.
+        // - It is considered "Available" if equipment is in Stock (since the license comes with the hardware).
+        const oemCounts: Record<string, number> = {};
+        equipment.forEach(eq => {
+            if (eq.has_embedded_license && eq.os_version) {
+                // Clean up version name to grouping
+                const osName = eq.os_version;
+                
+                // If equipment is in stock, it counts as an "Available" license (ready to deploy)
+                if (eq.status === EquipmentStatus.Stock) {
+                    oemCounts[osName] = (oemCounts[osName] || 0) + 1;
+                }
+            }
+        });
+
+        const oemLicenses = Object.entries(oemCounts).map(([name, count]) => ({
+            productName: name,
+            availableSeats: count,
+            isOEM: true
+        }));
+
+        // 3. Merge & Sort
+        return [...traditionalLicenses, ...oemLicenses].sort((a, b) => b.availableSeats - a.availableSeats);
+    }, [softwareLicenses, licenseAssignments, equipment]);
 
 
     const equipmentByAge = useMemo(() => {

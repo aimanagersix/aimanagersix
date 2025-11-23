@@ -4,7 +4,7 @@ import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaCalendarCheck } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaCalendarCheck, FaWindows } from 'react-icons/fa';
 
 interface AddEquipmentModalProps {
     onClose: () => void;
@@ -22,6 +22,21 @@ interface CameraScannerProps {
     onCapture: (dataUrl: string) => void;
     onClose: () => void;
 }
+
+const WINDOWS_VERSIONS = [
+    "Windows 11 Pro",
+    "Windows 11 Home",
+    "Windows 11 Enterprise",
+    "Windows 10 Pro",
+    "Windows 10 Home",
+    "Windows 10 Enterprise",
+    "Windows Server 2022",
+    "Windows Server 2019",
+    "macOS Sequoia",
+    "macOS Sonoma",
+    "Linux (Ubuntu)",
+    "Linux (Outro)"
+];
 
 const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -161,7 +176,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         last_security_update: '',
         supplier_id: '',
         acquisitionCost: 0,
-        expectedLifespanYears: 4
+        expectedLifespanYears: 4,
+        has_embedded_license: false,
+        embedded_license_key: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -198,6 +215,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 supplier_id: equipmentToEdit.supplier_id || '',
                 acquisitionCost: equipmentToEdit.acquisitionCost || 0,
                 expectedLifespanYears: equipmentToEdit.expectedLifespanYears || 4,
+                has_embedded_license: equipmentToEdit.has_embedded_license || false,
+                embedded_license_key: equipmentToEdit.embedded_license_key || ''
             });
         } else {
             setFormData({
@@ -221,6 +240,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                 supplier_id: '',
                 acquisitionCost: 0,
                 expectedLifespanYears: 4,
+                has_embedded_license: false,
+                embedded_license_key: ''
             });
         }
     }, [equipmentToEdit, brands, equipmentTypes]);
@@ -278,6 +299,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         }
         if (formData.warrantyEndDate && formData.purchaseDate && new Date(formData.warrantyEndDate) < new Date(formData.purchaseDate)) {
             newErrors.warrantyEndDate = "A data de fim da garantia não pode ser anterior à data de compra.";
+        }
+        if (formData.has_embedded_license && !formData.os_version) {
+            newErrors.os_version = "Se o equipamento tem licença, indique a versão do Windows.";
         }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -375,7 +399,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             last_security_update: formData.last_security_update || undefined,
             supplier_id: formData.supplier_id || undefined,
             acquisitionCost: formData.acquisitionCost || 0,
-            expectedLifespanYears: formData.expectedLifespanYears || 4
+            expectedLifespanYears: formData.expectedLifespanYears || 4,
+            has_embedded_license: formData.has_embedded_license || false,
+            embedded_license_key: formData.embedded_license_key || undefined
         };
 
         if (equipmentToEdit && equipmentToEdit.id) {
@@ -558,6 +584,92 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                     </div>
                 </div>
 
+                {/* Software & OS Section */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaWindows className="text-blue-400" />
+                        Software & Sistema Operativo
+                    </h3>
+                    
+                    {/* Embedded License Checkbox */}
+                    <div className="mb-3 bg-gray-800/50 p-3 rounded border border-gray-600">
+                        <label className="flex items-center cursor-pointer mb-2">
+                            <input 
+                                type="checkbox" 
+                                name="has_embedded_license" 
+                                checked={formData.has_embedded_license} 
+                                onChange={handleChange} 
+                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
+                            />
+                            <span className="ml-2 text-white font-medium">Licença Windows OEM/Embutida</span>
+                        </label>
+                        
+                        {formData.has_embedded_license && (
+                            <div className="ml-6 space-y-2 animate-fade-in">
+                                <p className="text-xs text-gray-400">Esta licença será contabilizada automaticamente no dashboard geral.</p>
+                                <div>
+                                    <label htmlFor="os_version" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Versão do Windows (Obrigatório)</label>
+                                    <input 
+                                        list="os_versions_list"
+                                        type="text" 
+                                        name="os_version" 
+                                        id="os_version" 
+                                        value={formData.os_version} 
+                                        onChange={handleChange} 
+                                        placeholder="Ex: Windows 11 Pro"
+                                        className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.os_version ? 'border-red-500' : 'border-gray-600'}`} 
+                                    />
+                                    <datalist id="os_versions_list">
+                                        {WINDOWS_VERSIONS.map(ver => <option key={ver} value={ver} />)}
+                                    </datalist>
+                                    {errors.os_version && <p className="text-red-400 text-xs italic mt-1">{errors.os_version}</p>}
+                                </div>
+                                <div>
+                                    <label htmlFor="embedded_license_key" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Chave de Licença (Opcional)</label>
+                                    <input 
+                                        type="text" 
+                                        name="embedded_license_key" 
+                                        id="embedded_license_key" 
+                                        value={formData.embedded_license_key} 
+                                        onChange={handleChange} 
+                                        placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono text-sm" 
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Legacy / General OS Info (Only show if Embedded License is NOT checked to avoid duplication confusion) */}
+                    {!formData.has_embedded_license && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-700 pt-2">
+                            <div>
+                                <label htmlFor="os_version_legacy" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do SO / Firmware</label>
+                                <input 
+                                    type="text" 
+                                    name="os_version" 
+                                    id="os_version_legacy" 
+                                    value={formData.os_version} 
+                                    onChange={handleChange} 
+                                    placeholder="Ex: Windows 11 Pro 23H2"
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="last_security_update" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data Última Atualização Segurança</label>
+                                <input 
+                                    type="date" 
+                                    name="last_security_update" 
+                                    id="last_security_update" 
+                                    value={formData.last_security_update} 
+                                    onChange={handleChange} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {/* FinOps Section */}
                 <div className="border-t border-gray-600 pt-4 mt-4">
                     <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
@@ -656,33 +768,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                                     <option key={rating} value={rating}>{rating}</option>
                                 ))}
                             </select>
-                        </div>
-                    </div>
-                    
-                    {/* New Security Patching Fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-700 pt-4">
-                        <div>
-                            <label htmlFor="os_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do SO / Firmware</label>
-                            <input 
-                                type="text" 
-                                name="os_version" 
-                                id="os_version" 
-                                value={formData.os_version} 
-                                onChange={handleChange} 
-                                placeholder="Ex: Windows 11 Pro 23H2"
-                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="last_security_update" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data Última Atualização Segurança</label>
-                            <input 
-                                type="date" 
-                                name="last_security_update" 
-                                id="last_security_update" 
-                                value={formData.last_security_update} 
-                                onChange={handleChange} 
-                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" 
-                            />
                         </div>
                     </div>
                 </div>

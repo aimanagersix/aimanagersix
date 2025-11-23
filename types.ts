@@ -126,6 +126,10 @@ export interface Equipment {
   // FinOps Fields
   acquisitionCost?: number; // Cost in EUR
   expectedLifespanYears?: number; // e.g. 4 years
+
+  // OEM / Embedded License
+  has_embedded_license?: boolean;
+  embedded_license_key?: string;
 }
 
 export interface Instituicao {
