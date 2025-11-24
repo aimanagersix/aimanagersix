@@ -1,7 +1,7 @@
 
 import * as dataService from './dataService';
 import { scanForVulnerabilities } from './geminiService';
-import { CriticalityLevel, VulnerabilityStatus, TicketStatus } from '../types';
+import { CriticalityLevel, VulnerabilityStatus } from '../types';
 
 export const checkAndRunAutoScan = async (force: boolean = false): Promise<number> => {
     let newVulnCount = 0;
@@ -50,6 +50,7 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
         }
 
         // 3. Execute AI Scan
+        // We slice to 50 to avoid token limits, but ideally this should batch process
         const results = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50));
 
         // 4. Process Results
@@ -58,40 +59,20 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
             const exists = allData.vulnerabilities.some((v: any) => v.cve_id === vuln.cve_id);
             
             if (!exists) {
-                // Determine affected assets by simple text matching
+                // Determine affected assets by simple text matching against the inventory
                 const affectedAssets: string[] = [];
                 const vulnSoftware = (vuln.affected_software || '').toLowerCase();
                 
                 equipmentDescriptions.forEach(eq => {
-                    if (vulnSoftware.includes(eq.desc) || eq.desc.includes(vulnSoftware)) {
+                    // Simple heuristic: if the vulnerability software name is inside the equipment description
+                    // e.g. vuln="Windows 7", equip="PC Sala 1 (Windows 7)"
+                    if (eq.desc.includes(vulnSoftware) || (vulnSoftware.length > 4 && vulnSoftware.includes(eq.desc))) {
                         affectedAssets.push(eq.desc);
                     }
                 });
 
-                // Create Ticket First (if critical/high)
-                let ticketId: string | undefined = undefined;
-                if (vuln.severity === 'Crítica' || vuln.severity === 'Alta') {
-                    const ticketPayload = {
-                        title: `Auto-Detetado: ${vuln.cve_id} (${vuln.severity})`,
-                        description: `Vulnerabilidade detetada automaticamente pelo scanner.\n\nDescrição: ${vuln.description}\nSoftware Afetado: ${vuln.affected_software}\n\nRemediação Sugerida: ${vuln.remediation}`,
-                        category: 'Incidente de Segurança',
-                        securityIncidentType: 'VulnerabilityExploit', // Mapping to enum string or raw
-                        impactCriticality: vuln.severity === 'Crítica' ? CriticalityLevel.Critical : CriticalityLevel.High,
-                        requestDate: new Date().toISOString(),
-                        status: TicketStatus.Requested,
-                        entidadeId: allData.entidades[0]?.id // Default entity or system
-                    };
-                    
-                    try {
-                        // If user is logged in, dataService uses it. If running background (simulated), uses current session.
-                        const ticket = await dataService.addTicket(ticketPayload);
-                        ticketId = ticket.id;
-                    } catch (e) {
-                        console.error("Failed to create auto-ticket", e);
-                    }
-                }
-
-                // Create Vulnerability Record
+                // Create Vulnerability Record WITHOUT Ticket
+                // The user will manually create the ticket to assign it correctly
                 await dataService.addVulnerability({
                     cve_id: vuln.cve_id,
                     description: vuln.description,
@@ -100,8 +81,8 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
                     remediation: vuln.remediation,
                     status: VulnerabilityStatus.Open,
                     published_date: new Date().toISOString().split('T')[0],
-                    ticket_id: ticketId,
-                    affected_assets: affectedAssets.join(', ')
+                    ticket_id: undefined, // Explicitly no ticket yet
+                    affected_assets: affectedAssets.length > 0 ? affectedAssets.join(', ') : 'Inventário Geral'
                 });
                 
                 newVulnCount++;
@@ -113,7 +94,6 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
         await dataService.logAction('AUTO_SCAN', 'System', `Automated scan completed. ${newVulnCount} new vulnerabilities found.`);
 
         if (newVulnCount > 0) {
-            // Optional: Trigger UI notification if user is active, or just rely on dashboard update
             console.log(`Auto Scan: ${newVulnCount} vulnerabilities added.`);
         } else if (force) {
             console.log("Manual Scan complete. No new vulnerabilities found.");

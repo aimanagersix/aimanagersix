@@ -1,6 +1,4 @@
 
-
-
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
@@ -142,9 +140,8 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     }, [equipment, installedSoftware, equipmentActivities]);
 
     const handleSaveLicenses = async (eqId: string, licenseIds: string[]) => {
+        // Just save, don't close or reload. The modal stays open for more additions.
         await dataService.syncLicenseAssignments(eqId, licenseIds);
-        setShowManageLicenses(false);
-        window.location.reload(); // Force refresh to update licenses list here
     };
 
     return (
@@ -437,7 +434,10 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                     equipment={equipment}
                     allLicenses={softwareLicenses || []}
                     allAssignments={licenseAssignments || []}
-                    onClose={() => setShowManageLicenses(false)}
+                    onClose={() => { 
+                        setShowManageLicenses(false);
+                        window.location.reload(); // Refresh data when closing license manager
+                    }}
                     onSave={handleSaveLicenses}
                 />
             )}

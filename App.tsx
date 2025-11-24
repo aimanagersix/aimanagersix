@@ -178,6 +178,8 @@ const InnerApp: React.FC = () => {
     const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
     // New State for AI Pre-filling
     const [initialTicketData, setInitialTicketData] = useState<Partial<Ticket> | null>(null);
+    // New State for Linking Ticket to Vulnerability
+    const [vulnIdForTicketCreation, setVulnIdForTicketCreation] = useState<string | null>(null);
 
     const [ticketActivitiesModal, setTicketActivitiesModal] = useState<Ticket | null>(null);
     const [showAddType, setShowAddType] = useState(false);
@@ -998,6 +1000,21 @@ const InnerApp: React.FC = () => {
                         onEdit={(v) => { setVulnerabilityToEdit(v); setShowAddVulnerability(true); }}
                         onDelete={(id) => handleDelete('Excluir Vulnerabilidade', 'Tem a certeza que deseja excluir este registo?', () => simpleSaveWrapper(dataService.deleteVulnerability, id))}
                         onCreate={() => { setVulnerabilityToEdit(null); setShowAddVulnerability(true); }}
+                        onCreateTicket={(vuln) => {
+                            // Prepare Ticket Data from Vuln
+                            setTicketToEdit(null);
+                            setVulnIdForTicketCreation(vuln.id);
+                            setInitialTicketData({
+                                title: `Resolução Vulnerabilidade: ${vuln.cve_id}`,
+                                description: `Vulnerabilidade Detetada: ${vuln.description}\n\nSoftware Afetado: ${vuln.affected_software}\n\nRemediação Recomendada: ${vuln.remediation || 'Ver detalhes CVE'}`,
+                                category: 'Incidente de Segurança',
+                                securityIncidentType: 'VulnerabilityExploit',
+                                impactCriticality: vuln.severity,
+                                status: 'Pedido',
+                                requestDate: new Date().toISOString()
+                            });
+                            setShowAddTicket(true);
+                        }}
                     />
                 )}
                 
@@ -1162,10 +1179,31 @@ const InnerApp: React.FC = () => {
 
                 {showAddTicket && (
                     <AddTicketModal
-                        onClose={() => setShowAddTicket(false)}
-                        onSave={(t) => {
-                            if (ticketToEdit) return simpleSaveWrapper(dataService.updateTicket, t, ticketToEdit.id);
-                            return simpleSaveWrapper(dataService.addTicket, t);
+                        onClose={() => {
+                            setShowAddTicket(false);
+                            setVulnIdForTicketCreation(null); // Reset linking state
+                        }}
+                        onSave={async (t) => {
+                            try {
+                                let result;
+                                if (ticketToEdit) {
+                                    result = await dataService.updateTicket(ticketToEdit.id, t);
+                                } else {
+                                    result = await dataService.addTicket(t);
+                                    // Link Vulnerability if context exists
+                                    if (vulnIdForTicketCreation && result && result.id) {
+                                        await dataService.updateVulnerability(vulnIdForTicketCreation, { ticket_id: result.id });
+                                    }
+                                }
+                                await refreshData();
+                                return result;
+                            } catch (e: any) {
+                                console.error(e);
+                                alert(`Erro ao salvar ticket: ${e.message}`);
+                                return null;
+                            } finally {
+                                setVulnIdForTicketCreation(null);
+                            }
                         }}
                         ticketToEdit={ticketToEdit}
                         escolasDepartamentos={entidades}

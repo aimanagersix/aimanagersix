@@ -89,13 +89,15 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         setIsSaving(true);
         try {
             await onSave(equipment.id, Array.from(assignedLicenseIds));
-            setSuccessMessage('Licenças guardadas com sucesso!');
+            setSuccessMessage('Guardado com sucesso!');
+            // Auto-clear message after 3s, but DO NOT close modal
             setTimeout(() => {
-                onClose();
-            }, 1500);
+                setSuccessMessage('');
+            }, 3000);
         } catch (error) {
             console.error("Error saving licenses", error);
             alert("Ocorreu um erro ao guardar as licenças.");
+        } finally {
             setIsSaving(false);
         }
     };
@@ -175,7 +177,7 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                         className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"
                         disabled={isSaving}
                     >
-                        Cancelar
+                        Fechar
                     </button>
                     <button 
                         type="submit" 
