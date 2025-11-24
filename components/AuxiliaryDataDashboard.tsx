@@ -298,7 +298,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col">
+            <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col" key={selectedMenuId}>
                 {/* Generic Table Editor */}
                 {currentSelection.type === 'generic' && currentTableConfig && (
                     <div className="p-6 h-full flex flex-col">
@@ -314,6 +314,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 placeholder={`Novo item...`}
                                 className="flex-grow bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
                                 onKeyDown={(e) => e.key === 'Enter' && handleGenericAdd()}
+                                autoFocus
                             />
                             <button onClick={handleGenericAdd} className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-brand-secondary flex items-center gap-2">
                                 <PlusIcon className="h-4 w-4" /> Adicionar

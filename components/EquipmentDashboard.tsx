@@ -314,12 +314,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
 
     const handleMouseOver = (item: Equipment & { assignedTo: string }, event: React.MouseEvent) => {
         const content = (
-            <div className="space-y-1">
-                <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> {item.nomeNaRede || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> {item.assignedTo || 'Stock'}</p>
-                <hr className="border-gray-600 my-2"/>
-                <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> {item.os_version || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> {item.last_security_update || 'N/A'}</p>
+            <div className="text-xs leading-tight space-y-1">
+                <p><span className="text-gray-400 font-semibold">Nome na Rede:</span> <span className="text-white">{item.nomeNaRede || '-'}</span></p>
+                <p><span className="text-gray-400 font-semibold">Atribuído a:</span> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>
+                <p><span className="text-gray-400 font-semibold">Versão do SO:</span> <span className="text-white">{item.os_version || '-'}</span></p>
+                <p><span className="text-gray-400 font-semibold">Último Patch:</span> <span className="text-white">{item.last_security_update || '-'}</span></p>
             </div>
         );
 
