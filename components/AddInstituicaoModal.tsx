@@ -202,18 +202,21 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 result = await onSave(dataToSave);
             }
 
-            if (result && result.id) {
-                try {
-                    await dataService.syncResourceContacts('instituicao', result.id, contacts);
-                } catch (contactError) {
-                    console.error("Error saving contacts:", contactError);
-                    // alert("A instituição foi gravada, mas ocorreu um erro ao gravar os contactos adicionais. Verifique se as Funções e Tratos estão configurados.");
+            if (result) {
+                if (result.id && contacts && contacts.length > 0) {
+                    try {
+                        await dataService.syncResourceContacts('instituicao', result.id, contacts);
+                    } catch (contactError: any) {
+                        console.error("Error saving contacts:", contactError);
+                        const msg = contactError.message || contactError.code || "Erro desconhecido";
+                        alert(`A instituição foi gravada, mas ocorreu um erro ao gravar os contactos adicionais: ${msg}. Verifique se a tabela 'resource_contacts' existe.`);
+                    }
                 }
+                onClose();
             }
-            onClose();
         } catch (e) {
             console.error("Failed to save institution", e);
-            alert("Erro ao salvar a instituição.");
+            // Error handled by wrapper in App.tsx mostly
         } finally {
             setIsSaving(false);
         }

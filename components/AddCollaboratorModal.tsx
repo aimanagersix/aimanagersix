@@ -94,13 +94,17 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         };
 
         try {
+            let result;
             if (collaboratorToEdit) {
-                await onSave({ ...collaboratorToEdit, ...dataToSave });
+                result = await onSave({ ...collaboratorToEdit, ...dataToSave });
             } else {
                 // Only send password if creating new
-                await onSave(dataToSave, password || undefined);
+                result = await onSave(dataToSave, password || undefined);
             }
-            onClose();
+            
+            if (result) {
+                onClose();
+            }
         } catch (e: any) {
             console.error(e);
             setError(e.message || "Erro ao salvar colaborador.");

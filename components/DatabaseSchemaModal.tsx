@@ -19,7 +19,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ==========================================
--- 2. CRIAÇÃO DE TABELAS DE CONFIGURAÇÃO
+-- 2. CRIAÇÃO DE TABELAS DE CONFIGURAÇÃO E CONTACTOS
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS config_equipment_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
@@ -32,6 +32,19 @@ CREATE TABLE IF NOT EXISTS config_training_types (id uuid DEFAULT uuid_generate_
 CREATE TABLE IF NOT EXISTS config_resilience_test_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS contact_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS contact_titles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+
+-- Tabela para contactos adicionais (Instituições, Entidades, Fornecedores)
+CREATE TABLE IF NOT EXISTS resource_contacts (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    resource_type text NOT NULL, -- 'supplier', 'entidade', 'instituicao'
+    resource_id uuid NOT NULL,
+    title text,
+    name text NOT NULL,
+    role text,
+    email text,
+    phone text,
+    created_at timestamptz DEFAULT now()
+);
 
 -- ==========================================
 -- 3. INSERIR VALORES PADRÃO
@@ -68,8 +81,8 @@ BEGIN
         EXECUTE format('CREATE POLICY "Allow all" ON %I FOR ALL USING (true) WITH CHECK (true);', t); 
     END LOOP;
     
-    -- Loop manual para contact_*
-    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles']
+    -- Loop manual para contact_* e resource_contacts
+    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN
@@ -214,7 +227,7 @@ END $$;
                         <span>Instruções de Atualização</span>
                     </div>
                     <p className="mb-2">
-                        Este script cria todas as tabelas necessárias para as listas dinâmicas (Tratos, Funções, Estados) e insere os valores padrão.
+                        Este script cria todas as tabelas necessárias para as listas dinâmicas (Tratos, Funções, Estados, Contactos Adicionais) e insere os valores padrão.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

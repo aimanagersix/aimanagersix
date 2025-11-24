@@ -353,38 +353,41 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 result = await onSave(dataToSave);
             }
 
-            if (result && result.id) {
-                try {
-                    await dataService.syncResourceContacts('supplier', result.id, contacts);
-                } catch (contactError) {
-                    console.error("Error saving contacts:", contactError);
-                    // alert("O fornecedor foi gravado, mas ocorreu um erro ao gravar os contactos adicionais. Verifique se as Funções e Tratos estão configurados.");
-                }
-            }
-
-            // Ticket Creation Logic
-            if (createTicket && onCreateTicket && formData.is_iso27001_certified && formData.iso_certificate_expiry) {
-                let requestDate = customTicketDate;
-                if (reminderOffset !== 'custom') {
-                    const expiry = new Date(formData.iso_certificate_expiry);
-                    expiry.setMonth(expiry.getMonth() - parseInt(reminderOffset));
-                    requestDate = expiry.toISOString().split('T')[0];
+            if (result) {
+                if (result.id && contacts && contacts.length > 0) {
+                    try {
+                        await dataService.syncResourceContacts('supplier', result.id, contacts);
+                    } catch (contactError: any) {
+                        console.error("Error saving contacts:", contactError);
+                        const msg = contactError.message || contactError.code || "Erro desconhecido";
+                        alert(`O fornecedor foi gravada, mas ocorreu um erro ao gravar os contactos adicionais: ${msg}. Verifique se a tabela 'resource_contacts' existe.`);
+                    }
                 }
 
-                const ticketPayload: Partial<Ticket> = {
-                    title: `Renovação Certificado ISO 27001: ${formData.name}`,
-                    description: `O certificado ISO 27001 do fornecedor ${formData.name} expira em ${formData.iso_certificate_expiry}. Por favor iniciar processo de renovação ou solicitar novo certificado.`,
-                    requestDate: requestDate,
-                    status: TicketStatus.Requested,
-                    team_id: ticketTeamId,
-                    category: 'Manutenção'
-                };
-                await onCreateTicket(ticketPayload);
+                // Ticket Creation Logic
+                if (createTicket && onCreateTicket && formData.is_iso27001_certified && formData.iso_certificate_expiry) {
+                    let requestDate = customTicketDate;
+                    if (reminderOffset !== 'custom') {
+                        const expiry = new Date(formData.iso_certificate_expiry);
+                        expiry.setMonth(expiry.getMonth() - parseInt(reminderOffset));
+                        requestDate = expiry.toISOString().split('T')[0];
+                    }
+
+                    const ticketPayload: Partial<Ticket> = {
+                        title: `Renovação Certificado ISO 27001: ${formData.name}`,
+                        description: `O certificado ISO 27001 do fornecedor ${formData.name} expira em ${formData.iso_certificate_expiry}. Por favor iniciar processo de renovação ou solicitar novo certificado.`,
+                        requestDate: requestDate,
+                        status: TicketStatus.Requested,
+                        team_id: ticketTeamId,
+                        category: 'Manutenção'
+                    };
+                    await onCreateTicket(ticketPayload);
+                }
+                onClose();
             }
-            onClose();
         } catch (error) {
             console.error("Erro ao salvar fornecedor ou ticket:", error);
-            alert("Erro ao gravar dados.");
+            // Alert handled by parent
         } finally {
             setIsSaving(false);
         }

@@ -571,9 +571,10 @@ const InnerApp: React.FC = () => {
             else result = await saveFn(data);
             await refreshData();
             return result;
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Erro ao salvar dados. Verifique a consola.");
+            // IMPROVED ERROR MESSAGE: Show specific error from DB if available
+            alert(`Erro ao salvar dados: ${e.message || e.code || 'Erro desconhecido'}. Verifique a consola para mais detalhes.`);
             return null;
         }
     };

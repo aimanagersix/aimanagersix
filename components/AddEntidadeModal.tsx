@@ -193,18 +193,21 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                 result = await onSave(dataToSave);
             }
 
-            if (result && result.id) {
-                try {
-                    await dataService.syncResourceContacts('entidade', result.id, contacts);
-                } catch (contactError) {
-                    console.error("Error saving contacts:", contactError);
-                    // alert("A entidade foi gravada, mas ocorreu um erro ao gravar os contactos adicionais. Verifique se as Funções e Tratos estão configurados.");
+            if (result) {
+                if (result.id && contacts && contacts.length > 0) {
+                    try {
+                        await dataService.syncResourceContacts('entidade', result.id, contacts);
+                    } catch (contactError: any) {
+                        console.error("Error saving contacts:", contactError);
+                        const msg = contactError.message || contactError.code || "Erro desconhecido";
+                        alert(`A entidade foi gravada, mas ocorreu um erro ao gravar os contactos adicionais: ${msg}. Verifique se a tabela 'resource_contacts' existe.`);
+                    }
                 }
+                onClose();
             }
-            onClose();
         } catch (e) {
             console.error(e);
-            alert("Erro ao salvar entidade.");
+            // Error alert handled by parent wrapper mostly
         } finally {
             setIsSaving(false);
         }
