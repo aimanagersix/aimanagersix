@@ -339,7 +339,8 @@ export const addSupplier = async (data: any) => {
             ...c, 
             supplier_id: undefined, // Remove legacy field if present in payload
             resource_id: supplier.id, 
-            resource_type: 'supplier' 
+            resource_type: 'supplier',
+            is_active: c.is_active !== false
         }));
         await supabase.from('resource_contacts').insert(contactsWithId);
     }
@@ -365,7 +366,8 @@ export const updateSupplier = async (id: string, data: any) => {
                  name: c.name, 
                  role: c.role, 
                  email: c.email, 
-                 phone: c.phone 
+                 phone: c.phone,
+                 is_active: c.is_active !== false
             }));
             await supabase.from('resource_contacts').insert(contactsWithId);
         }
@@ -448,7 +450,8 @@ export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade'
             name: c.name,
             role: c.role,
             email: c.email,
-            phone: c.phone
+            phone: c.phone,
+            is_active: c.is_active !== false
         }));
         await supabase.from('resource_contacts').insert(inserts);
     }

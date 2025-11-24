@@ -65,6 +65,7 @@ export interface ResourceContact {
     role: string; // Managed via ContactRole
     email: string;
     phone?: string;
+    is_active?: boolean; // New field
 }
 
 // Alias for backward compatibility during migration, though we prefer ResourceContact

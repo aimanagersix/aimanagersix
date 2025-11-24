@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS resource_contacts (
     role text,
     email text,
     phone text,
+    is_active boolean DEFAULT true,
     created_at timestamptz DEFAULT now()
 );
 
@@ -100,6 +101,11 @@ DO $$
 DECLARE
     t text;
 BEGIN 
+    -- Resource Contacts (Active Status)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'resource_contacts') THEN
+        ALTER TABLE resource_contacts ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+    END IF;
+
     -- Tickets
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tickets') THEN
         ALTER TABLE tickets ADD COLUMN IF NOT EXISTS requester_supplier_id uuid;
