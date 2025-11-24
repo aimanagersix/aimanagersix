@@ -3,11 +3,11 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import { Brand, Equipment, CriticalityLevel } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaCheckCircle, FaTimesCircle } from './common/Icons';
 import Pagination from './common/Pagination';
-import AddBrandModal from './AddBrandModal'; // Ensure import
 
 interface BrandDashboardProps {
   brands: Brand[];

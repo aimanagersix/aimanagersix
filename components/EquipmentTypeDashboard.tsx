@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import { EquipmentType, Equipment } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';

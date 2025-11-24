@@ -6,6 +6,28 @@ export interface ConfigItem {
     name: string;
 }
 
+export interface TooltipConfig {
+    showNomeNaRede: boolean;
+    showAssignedTo: boolean;
+    showOsVersion: boolean;
+    showLastPatch: boolean;
+    showSerialNumber: boolean;
+    showBrand: boolean;
+    showIpAddress: boolean; // Future use
+    showWarranty: boolean;
+}
+
+export const defaultTooltipConfig: TooltipConfig = {
+    showNomeNaRede: true,
+    showAssignedTo: true,
+    showOsVersion: true,
+    showLastPatch: true,
+    showSerialNumber: false,
+    showBrand: false,
+    showIpAddress: false,
+    showWarranty: false
+};
+
 // Converted Enums to Const Objects for backward compatibility in code logic
 // but types are now strings to allow dynamic DB values.
 

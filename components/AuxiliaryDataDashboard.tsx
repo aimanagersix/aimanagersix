@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability } from '../types';
+import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -59,9 +59,12 @@ interface AuxiliaryDataDashboardProps {
     onDeleteIncidentType: (id: string) => void;
     onToggleIncidentTypeStatus: (id: string) => void;
     onCreateIncidentType: () => void;
+    
+    // Tooltip Config
+    onSaveTooltipConfig?: (config: TooltipConfig) => void;
 }
 
-type ViewType = 'generic' | 'brands' | 'equipment_types' | 'ticket_categories' | 'incident_types' | 'automation';
+type ViewType = 'generic' | 'brands' | 'equipment_types' | 'ticket_categories' | 'incident_types' | 'automation' | 'interface';
 
 interface MenuItem {
     id: string;
@@ -78,7 +81,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     ticketCategories, tickets, teams, onEditCategory, onDeleteCategory, onToggleCategoryStatus, onCreateCategory,
     securityIncidentTypes, onEditIncidentType, onDeleteIncidentType, onToggleIncidentTypeStatus, onCreateIncidentType,
     // Data for checks
-    collaborators, softwareLicenses, businessServices, backupExecutions, securityTrainings, resilienceTests, suppliers, entidades, instituicoes, vulnerabilities
+    collaborators, softwareLicenses, businessServices, backupExecutions, securityTrainings, resilienceTests, suppliers, entidades, instituicoes, vulnerabilities,
+    onSaveTooltipConfig
 }) => {
     const [selectedMenuId, setSelectedMenuId] = useState<string>('brands'); // Default view
     
@@ -92,6 +96,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [scanStartTime, setScanStartTime] = useState('02:00');
     const [lastScanDate, setLastScanDate] = useState('-');
     const [logoUrl, setLogoUrl] = useState('');
+    
+    // Tooltip Config State
+    const [tooltipConfig, setTooltipConfig] = useState<TooltipConfig>(defaultTooltipConfig);
 
     // Define Menu Structure with explicit table names
     const menuStructure: { group: string, items: MenuItem[] }[] = [
@@ -119,9 +126,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             ]
         },
         {
-            group: "NIS2 & Compliance",
+            group: "Sistema & Compliance",
             items: [
-                { id: 'automation', label: 'Automação & Configuração Geral', icon: <FaRobot />, type: 'automation' },
+                { id: 'interface', label: 'Interface & Tooltips', icon: <FaMousePointer />, type: 'interface' },
+                { id: 'automation', label: 'Automação & Integrações', icon: <FaRobot />, type: 'automation' },
                 { id: 'criticality', label: 'Níveis de Criticidade', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_criticality_levels' },
                 { id: 'cia_ratings', label: 'Classificação CIA', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_cia_ratings' },
                 { id: 'service_status', label: 'Estados de Serviço (BIA)', icon: <FaServer />, type: 'generic', targetTable: 'config_service_statuses' },
@@ -132,10 +140,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         }
     ];
 
-    // Load settings when automation view is selected
+    // Load settings
     useEffect(() => {
-        if (selectedMenuId === 'automation') {
-            const loadSettings = async () => {
+        const loadSettings = async () => {
+            if (selectedMenuId === 'automation') {
                 const freq = await dataService.getGlobalSetting('scan_frequency_days');
                 const start = await dataService.getGlobalSetting('scan_start_time');
                 const last = await dataService.getGlobalSetting('last_auto_scan');
@@ -145,9 +153,16 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 if (start) setScanStartTime(start);
                 if (last) setLastScanDate(new Date(last).toLocaleString());
                 if (logo) setLogoUrl(logo);
-            };
-            loadSettings();
-        }
+            } else if (selectedMenuId === 'interface') {
+                const tooltipSetting = await dataService.getGlobalSetting('tooltip_config');
+                if (tooltipSetting) {
+                    try {
+                        setTooltipConfig(JSON.parse(tooltipSetting));
+                    } catch (e) { console.error("Error parsing tooltip config", e); }
+                }
+            }
+        };
+        loadSettings();
     }, [selectedMenuId]);
 
     const handleSaveAutomation = async () => {
@@ -155,6 +170,18 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         await dataService.updateGlobalSetting('scan_start_time', scanStartTime);
         await dataService.updateGlobalSetting('app_logo_url', logoUrl);
         alert("Configuração guardada.");
+    };
+
+    const handleSaveInterface = async () => {
+        if (onSaveTooltipConfig) {
+            onSaveTooltipConfig(tooltipConfig);
+        }
+        await dataService.updateGlobalSetting('tooltip_config', JSON.stringify(tooltipConfig));
+        alert("Configuração de interface guardada.");
+    };
+
+    const toggleTooltipField = (field: keyof TooltipConfig) => {
+        setTooltipConfig(prev => ({ ...prev, [field]: !prev[field] }));
     };
 
     // Find current selection details
@@ -386,7 +413,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                     </div>
                 )}
 
-                {/* Complex Views */}
+                {/* Complex Views - Explicitly passing handlers to ensure functionality */}
                 {currentSelection.type === 'brands' && (
                     <div className="h-full overflow-y-auto">
                         <BrandDashboard brands={brands} equipment={equipment} onCreate={onCreateBrand} onEdit={onEditBrand} onDelete={onDeleteBrand} />
@@ -408,11 +435,66 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                     </div>
                 )}
                 
+                {/* Interface Configuration (Tooltip) */}
+                {currentSelection.type === 'interface' && (
+                    <div className="p-6 h-full overflow-y-auto">
+                        <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2 flex items-center gap-2">
+                            <FaMousePointer className="text-brand-secondary" /> Configuração de Interface
+                        </h2>
+                        
+                        <div className="space-y-6">
+                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaInfoCircle className="text-blue-400"/> Tooltip de Equipamentos</h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Selecione quais informações aparecem na caixa flutuante (tooltip) ao passar o rato sobre um equipamento na lista de inventário.
+                                </p>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showNomeNaRede} onChange={() => toggleTooltipField('showNomeNaRede')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Nome na Rede</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showAssignedTo} onChange={() => toggleTooltipField('showAssignedTo')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Atribuído a</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showOsVersion} onChange={() => toggleTooltipField('showOsVersion')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Versão do SO</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showLastPatch} onChange={() => toggleTooltipField('showLastPatch')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Último Patch</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showSerialNumber} onChange={() => toggleTooltipField('showSerialNumber')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Número de Série</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showBrand} onChange={() => toggleTooltipField('showBrand')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Marca / Tipo</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showWarranty} onChange={() => toggleTooltipField('showWarranty')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Data Fim Garantia</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="mt-4">
+                                <button onClick={handleSaveInterface} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2">
+                                    <FaSave /> Guardar Preferências
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
                 {/* Automation View */}
                 {currentSelection.type === 'automation' && (
                     <div className="p-6 h-full overflow-y-auto">
                         <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2 flex items-center gap-2">
-                            <FaCog className="text-brand-secondary" /> Configuração Geral & Automação
+                            <FaCog className="text-brand-secondary" /> Automação & Integrações
                         </h2>
                         
                         <div className="space-y-6">

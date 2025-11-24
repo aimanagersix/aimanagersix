@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
@@ -38,6 +38,7 @@ interface EquipmentDashboardProps {
   licenseAssignments?: LicenseAssignment[];
   vulnerabilities?: Vulnerability[];
   suppliers?: Supplier[];
+  tooltipConfig?: TooltipConfig;
 }
 
 interface TooltipState {
@@ -114,7 +115,7 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
-    businessServices, serviceDependencies, tickets = [], ticketActivities = []
+    businessServices, serviceDependencies, tickets = [], ticketActivities = [], softwareLicenses, licenseAssignments, vulnerabilities, suppliers, tooltipConfig = defaultTooltipConfig
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -312,12 +313,17 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     };
 
     const handleMouseOver = (item: Equipment & { assignedTo: string }, event: React.MouseEvent) => {
+        const cfg = tooltipConfig || defaultTooltipConfig;
+        
         const content = (
-            <div className="space-y-1 text-sm">
-                <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>
-                <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>
-                <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>
-                <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>
+            <div className="text-xs leading-tight space-y-1">
+                {cfg.showNomeNaRede && <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>}
+                {cfg.showAssignedTo && <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>}
+                {cfg.showOsVersion && <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
+                {cfg.showLastPatch && <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
+                {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
+                {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</span></p>}
+                {cfg.showWarranty && <p><strong className="text-on-surface-dark-secondary">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
             </div>
         );
 

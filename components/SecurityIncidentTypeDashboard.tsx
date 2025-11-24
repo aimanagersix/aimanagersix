@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { SecurityIncidentTypeItem, Ticket } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';

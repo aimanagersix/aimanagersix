@@ -4,7 +4,7 @@ import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
   TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest, SecurityTrainingRecord,
-  ConfigItem, ContactRole, ContactTitle
+  ConfigItem, ContactRole, ContactTitle, TooltipConfig, defaultTooltipConfig
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -145,6 +145,9 @@ const InnerApp: React.FC = () => {
     const [configResilienceTestTypes, setConfigResilienceTestTypes] = useState<ConfigItem[]>([]);
     const [contactRoles, setContactRoles] = useState<ContactRole[]>([]);
     const [contactTitles, setContactTitles] = useState<ContactTitle[]>([]);
+    
+    // App Config State
+    const [tooltipConfig, setTooltipConfig] = useState<TooltipConfig>(defaultTooltipConfig);
 
     // UI State
     const [isConfigured, setIsConfigured] = useState(!!localStorage.getItem('SUPABASE_URL'));
@@ -266,6 +269,14 @@ const InnerApp: React.FC = () => {
             setConfigResilienceTestTypes(data.configResilienceTestTypes);
             setContactRoles(data.contactRoles);
             setContactTitles(data.contactTitles);
+            
+            // Load Tooltip Config
+            const tooltipSetting = await dataService.getGlobalSetting('tooltip_config');
+            if (tooltipSetting) {
+                try {
+                    setTooltipConfig(JSON.parse(tooltipSetting));
+                } catch (e) { console.error("Error parsing tooltip config", e); }
+            }
 
         } catch (error) {
             console.error("Failed to load data:", error);
@@ -782,6 +793,8 @@ const InnerApp: React.FC = () => {
                             const type = securityIncidentTypes.find(t => t.id === id);
                             if (type) simpleSaveWrapper(dataService.updateSecurityIncidentType, { is_active: !type.is_active }, id);
                         }}
+                        
+                        onSaveTooltipConfig={setTooltipConfig}
                     />
                 )}
 
@@ -831,6 +844,7 @@ const InnerApp: React.FC = () => {
                             licenseAssignments={licenseAssignments}
                             vulnerabilities={vulnerabilities}
                             suppliers={suppliers}
+                            tooltipConfig={tooltipConfig}
                         />
                     )}
                 
@@ -1456,6 +1470,58 @@ const InnerApp: React.FC = () => {
                     onSelectConversation={(id) => setActiveChatCollaboratorId(id)}
                     unreadMessagesCount={messages.filter(m => !m.read && m.receiverId === currentUser?.id).length}
                 />
+
+                {/* Add Brand Modal (rendered at root level to ensure it works when triggered from settings) */}
+                {showAddBrand && (
+                    <AddBrandModal
+                        onClose={() => setShowAddBrand(false)}
+                        onSave={(b) => {
+                            if (brandToEdit) return simpleSaveWrapper(dataService.updateBrand, b, brandToEdit.id);
+                            return simpleSaveWrapper(dataService.addBrand, b);
+                        }}
+                        brandToEdit={brandToEdit}
+                        existingBrands={brands}
+                    />
+                )}
+
+                {/* Add Type Modal */}
+                {showAddType && (
+                    <AddEquipmentTypeModal
+                        onClose={() => setShowAddType(false)}
+                        onSave={(t) => {
+                            if (typeToEdit) return simpleSaveWrapper(dataService.updateEquipmentType, t, typeToEdit.id);
+                            return simpleSaveWrapper(dataService.addEquipmentType, t);
+                        }}
+                        typeToEdit={typeToEdit}
+                        teams={teams}
+                        existingTypes={equipmentTypes}
+                    />
+                )}
+
+                {/* Add Category Modal */}
+                {showAddCategory && (
+                    <AddCategoryModal 
+                        onClose={() => setShowAddCategory(false)}
+                        onSave={(c) => {
+                            if (categoryToEdit) return simpleSaveWrapper(dataService.updateTicketCategory, c, categoryToEdit.id);
+                            return simpleSaveWrapper(dataService.addTicketCategory, c);
+                        }}
+                        categoryToEdit={categoryToEdit}
+                        teams={teams}
+                    />
+                )}
+
+                {/* Add Incident Type Modal */}
+                {showAddIncidentType && (
+                    <AddSecurityIncidentTypeModal 
+                        onClose={() => setShowAddIncidentType(false)}
+                        onSave={(t) => {
+                            if (incidentTypeToEdit) return simpleSaveWrapper(dataService.updateSecurityIncidentType, t, incidentTypeToEdit.id);
+                            return simpleSaveWrapper(dataService.addSecurityIncidentType, t);
+                        }}
+                        typeToEdit={incidentTypeToEdit}
+                    />
+                )}
 
             </main>
         </div>

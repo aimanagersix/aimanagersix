@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
@@ -38,6 +38,8 @@ interface EquipmentDashboardProps {
   licenseAssignments?: LicenseAssignment[];
   vulnerabilities?: Vulnerability[];
   suppliers?: Supplier[];
+  // Tooltip Config
+  tooltipConfig?: TooltipConfig;
 }
 
 interface TooltipState {
@@ -114,7 +116,7 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
-    businessServices, serviceDependencies, tickets = [], ticketActivities = []
+    businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -148,7 +150,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 if (dep.equipment_id) {
                     const service = businessServices.find(s => s.id === dep.service_id);
                     if (service) {
-                        // If multiple services, take the highest criticality. simplified: just flag if present.
                         map.set(dep.equipment_id, service.criticality);
                     }
                 }
@@ -313,12 +314,18 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     };
 
     const handleMouseOver = (item: Equipment & { assignedTo: string }, event: React.MouseEvent) => {
+        // Use configuration to decide what to show
+        const cfg = tooltipConfig || defaultTooltipConfig;
+        
         const content = (
             <div className="text-xs leading-tight space-y-1">
-                <p><span className="text-gray-400 font-semibold">Nome na Rede:</span> <span className="text-white">{item.nomeNaRede || '-'}</span></p>
-                <p><span className="text-gray-400 font-semibold">Atribuído a:</span> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>
-                <p><span className="text-gray-400 font-semibold">Versão do SO:</span> <span className="text-white">{item.os_version || '-'}</span></p>
-                <p><span className="text-gray-400 font-semibold">Último Patch:</span> <span className="text-white">{item.last_security_update || '-'}</span></p>
+                {cfg.showNomeNaRede && <p><span className="text-gray-400 font-semibold">Nome na Rede:</span> <span className="text-white">{item.nomeNaRede || '-'}</span></p>}
+                {cfg.showAssignedTo && <p><span className="text-gray-400 font-semibold">Atribuído a:</span> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>}
+                {cfg.showOsVersion && <p><span className="text-gray-400 font-semibold">Versão do SO:</span> <span className="text-white">{item.os_version || '-'}</span></p>}
+                {cfg.showLastPatch && <p><span className="text-gray-400 font-semibold">Último Patch:</span> <span className="text-white">{item.last_security_update || '-'}</span></p>}
+                {cfg.showSerialNumber && <p><span className="text-gray-400 font-semibold">S/N:</span> <span className="text-white">{item.serialNumber || '-'}</span></p>}
+                {cfg.showBrand && <p><span className="text-gray-400 font-semibold">Marca/Tipo:</span> <span className="text-white">{brandMap.get(item.brandId)} {equipmentTypeMap.get(item.typeId)}</span></p>}
+                {cfg.showWarranty && <p><span className="text-gray-400 font-semibold">Garantia:</span> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
             </div>
         );
 
