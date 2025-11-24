@@ -424,7 +424,7 @@ export interface UserNotificationSnooze {
     snoozeUntil: string;
 }
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN';
 
 export interface AuditLogEntry {
     id: string;
@@ -487,6 +487,8 @@ export interface Vulnerability {
     affected_software?: string;
     remediation?: string;
     published_date?: string;
+    ticket_id?: string; // Link to automatic ticket
+    affected_assets?: string; // Text description of equipment/assets affected
 }
 
 // --- Backup & Restore Testing (NIS2) ---
@@ -562,4 +564,12 @@ export interface ResilienceTest {
     summary_findings?: string;
     attachments?: { name: string; dataUrl: string }[]; // Reports
     created_at?: string;
+}
+
+// --- Global Settings (Automation) ---
+export interface GlobalSetting {
+    id: string;
+    setting_key: string; // e.g. 'scan_frequency_days'
+    setting_value: string; // e.g. '7'
+    updated_at: string;
 }

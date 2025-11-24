@@ -1,4 +1,6 @@
 
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -6,7 +8,7 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
-    ResourceContact, ContactRole, ContactTitle, ConfigItem
+    ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting
 } from '../types';
 
 // --- Helper to fetch all data concurrently ---
@@ -18,7 +20,7 @@ export const fetchAllData = async () => {
         teams, teamMembers, messages, collaboratorHistory, ticketCategories, 
         securityIncidentTypes, businessServices, serviceDependencies, vulnerabilities, 
         suppliers, backupExecutions, resilienceTests, securityTrainings, resourceContacts, 
-        contactRoles, contactTitles,
+        contactRoles, contactTitles, globalSettings,
         // Configuration Tables
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
@@ -51,6 +53,7 @@ export const fetchAllData = async () => {
         supabase.from('resource_contacts').select('*'),
         supabase.from('contact_roles').select('*'),
         supabase.from('contact_titles').select('*'),
+        supabase.from('global_settings').select('*'),
         // Configs
         supabase.from('config_equipment_statuses').select('*'),
         supabase.from('config_user_roles').select('*'),
@@ -97,6 +100,7 @@ export const fetchAllData = async () => {
         securityTrainings: securityTrainings.data || [],
         contactRoles: contactRoles.data || [],
         contactTitles: contactTitles.data || [],
+        globalSettings: globalSettings.data || [],
         // Configs
         configEquipmentStatuses: configEquipmentStatuses.data || [],
         configUserRoles: configUserRoles.data || [],
@@ -454,6 +458,32 @@ export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade'
             is_active: c.is_active !== false
         }));
         await supabase.from('resource_contacts').insert(inserts);
+    }
+};
+
+// --- Global Settings ---
+export const getGlobalSetting = async (key: string): Promise<string | null> => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('global_settings')
+        .select('setting_value')
+        .eq('setting_key', key)
+        .single();
+    
+    if (error) return null;
+    return data?.setting_value;
+};
+
+export const updateGlobalSetting = async (key: string, value: string) => {
+    const supabase = getSupabase();
+    
+    // Check if exists
+    const { data } = await supabase.from('global_settings').select('id').eq('setting_key', key).single();
+    
+    if (data) {
+        await supabase.from('global_settings').update({ setting_value: value }).eq('setting_key', key);
+    } else {
+        await supabase.from('global_settings').insert({ setting_key: key, setting_value: value });
     }
 };
 

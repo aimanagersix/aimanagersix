@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
+
+
+import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -61,7 +63,7 @@ interface AuxiliaryDataDashboardProps {
     onCreateIncidentType: () => void;
 }
 
-type ViewType = 'generic' | 'brands' | 'equipment_types' | 'ticket_categories' | 'incident_types';
+type ViewType = 'generic' | 'brands' | 'equipment_types' | 'ticket_categories' | 'incident_types' | 'automation';
 
 interface MenuItem {
     id: string;
@@ -86,6 +88,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [newItemName, setNewItemName] = useState('');
     const [editingItem, setEditingItem] = useState<ConfigItem | null>(null);
     const [error, setError] = useState('');
+
+    // Automation State
+    const [scanFrequency, setScanFrequency] = useState('0');
+    const [lastScanDate, setLastScanDate] = useState('-');
 
     // Define Menu Structure
     const menuStructure: { group: string, items: MenuItem[] }[] = [
@@ -115,6 +121,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         {
             group: "NIS2 & Compliance",
             items: [
+                { id: 'automation', label: 'Automação & Scans', icon: <FaRobot />, type: 'automation' },
                 { id: 'criticality', label: 'Níveis de Criticidade', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_criticality_levels') },
                 { id: 'cia_ratings', label: 'Classificação CIA', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_cia_ratings') },
                 { id: 'service_status', label: 'Estados de Serviço (BIA)', icon: <FaServer />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_service_statuses') },
@@ -124,6 +131,24 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             ]
         }
     ];
+
+    // Load settings when automation view is selected
+    useEffect(() => {
+        if (selectedMenuId === 'automation') {
+            const loadSettings = async () => {
+                const freq = await dataService.getGlobalSetting('scan_frequency_days');
+                const last = await dataService.getGlobalSetting('last_auto_scan');
+                if (freq) setScanFrequency(freq);
+                if (last) setLastScanDate(new Date(last).toLocaleString());
+            };
+            loadSettings();
+        }
+    }, [selectedMenuId]);
+
+    const handleSaveAutomation = async () => {
+        await dataService.updateGlobalSetting('scan_frequency_days', scanFrequency);
+        alert("Configuração guardada.");
+    };
 
     // Find current selection details
     const getCurrentSelection = () => {
@@ -374,6 +399,53 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 {currentSelection.type === 'incident_types' && (
                     <div className="h-full overflow-y-auto">
                         <SecurityIncidentTypeDashboard incidentTypes={securityIncidentTypes} tickets={tickets} onCreate={onCreateIncidentType} onEdit={onEditIncidentType} onDelete={onDeleteIncidentType} onToggleStatus={onToggleIncidentTypeStatus} />
+                    </div>
+                )}
+                
+                {/* Automation View */}
+                {currentSelection.type === 'automation' && (
+                    <div className="p-6 h-full overflow-y-auto">
+                        <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2 flex items-center gap-2">
+                            <FaRobot className="text-purple-400" /> Automação de Segurança
+                        </h2>
+                        
+                        <div className="space-y-6">
+                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                <h3 className="font-bold text-white mb-2">Auto Scan de Vulnerabilidades</h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Define a frequência com que a IA analisa automaticamente o inventário de software e hardware em busca de CVEs (Vulnerabilidades Conhecidas).
+                                    Se forem detetadas vulnerabilidades críticas, <strong>tickets são criados automaticamente</strong>.
+                                </p>
+                                
+                                <div className="flex items-center gap-4">
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Frequência</label>
+                                        <select 
+                                            value={scanFrequency}
+                                            onChange={(e) => setScanFrequency(e.target.value)}
+                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-48"
+                                        >
+                                            <option value="0">Desativado</option>
+                                            <option value="1">Diário (24h)</option>
+                                            <option value="7">Semanal</option>
+                                            <option value="30">Mensal</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Última Execução</label>
+                                        <div className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 p-2 rounded border border-gray-700 min-w-[150px]">
+                                            <FaClock /> {lastScanDate}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-4">
+                                    <button onClick={handleSaveAutomation} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors">
+                                        Guardar Configuração
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

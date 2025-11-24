@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -47,6 +49,14 @@ CREATE TABLE IF NOT EXISTS resource_contacts (
     created_at timestamptz DEFAULT now()
 );
 
+-- Tabela para configurações globais (Automação)
+CREATE TABLE IF NOT EXISTS global_settings (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    setting_key text NOT NULL UNIQUE,
+    setting_value text,
+    updated_at timestamptz DEFAULT now()
+);
+
 -- ==========================================
 -- 3. INSERIR VALORES PADRÃO
 -- ==========================================
@@ -83,7 +93,7 @@ BEGIN
     END LOOP;
     
     -- Loop manual para contact_* e resource_contacts
-    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts']
+    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN
@@ -101,6 +111,12 @@ DO $$
 DECLARE
     t text;
 BEGIN 
+    -- Vulnerabilities (Auto Ticket Link)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'vulnerabilities') THEN
+        ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS ticket_id uuid;
+        ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS affected_assets text;
+    END IF;
+
     -- Resource Contacts (Active Status)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'resource_contacts') THEN
         ALTER TABLE resource_contacts ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
@@ -233,7 +249,7 @@ END $$;
                         <span>Instruções de Atualização</span>
                     </div>
                     <p className="mb-2">
-                        Este script cria todas as tabelas necessárias para as listas dinâmicas (Tratos, Funções, Estados, Contactos Adicionais) e insere os valores padrão.
+                        Este script cria todas as tabelas necessárias, incluindo a nova tabela de configurações globais (automação) e colunas de ligação de vulnerabilidades a tickets.
                     </p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>Clique em <strong>Copiar SQL</strong>.</li>

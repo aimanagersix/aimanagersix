@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -70,6 +72,7 @@ import CalendarModal from './components/CalendarModal';
 import UserManualModal from './components/UserManualModal';
 import AgendaDashboard from './components/AgendaDashboard';
 import AuxiliaryDataDashboard from './components/AuxiliaryDataDashboard';
+import { checkAndRunAutoScan } from './services/automationService';
 
 type Session = any;
 
@@ -306,6 +309,8 @@ const InnerApp: React.FC = () => {
     useEffect(() => {
         if (session) {
             refreshData();
+            // Auto Scan Check (Automation)
+            checkAndRunAutoScan();
             const interval = setInterval(refreshData, 30000); // Refresh every 30s
             return () => clearInterval(interval);
         }
@@ -437,6 +442,7 @@ const InnerApp: React.FC = () => {
     };
     
     const handleGenerateSecurityReport = (ticket: Ticket) => {
+        // ... (existing logic kept)
         const entity = entidades.find(e => e.id === ticket.entidadeId);
         const requester = collaborators.find(c => c.id === ticket.collaboratorId);
         const technician = ticket.technicianId ? collaborators.find(c => c.id === ticket.technicianId) : null;
@@ -837,6 +843,11 @@ const InnerApp: React.FC = () => {
                         onEdit={(i) => { setInstituicaoToEdit(i); setShowAddInstituicao(true); }}
                         onDelete={(id) => handleDelete('Excluir Instituição', 'Tem a certeza que deseja excluir esta instituição?', () => simpleSaveWrapper(dataService.deleteInstituicao, id))}
                         onCreate={() => { setInstituicaoToEdit(null); setShowAddInstituicao(true); }}
+                        onAddEntity={(instId) => { 
+                            setEntidadeToEdit(null); 
+                            setShowAddEntidade(true); 
+                            /* Ideally pass initial data */ 
+                        }}
                     />
                 )}
 
@@ -857,6 +868,15 @@ const InnerApp: React.FC = () => {
                                 const newStatus = ent.status === 'Ativo' ? 'Inativo' : 'Ativo';
                                 simpleSaveWrapper(dataService.updateEntidade, { status: newStatus }, id);
                             }
+                        }}
+                        onAddCollaborator={(entId) => {
+                            setCollaboratorToEdit(null);
+                            setShowAddCollaborator(true);
+                            /* Ideally set initial entity in modal */
+                        }}
+                        onAssignEquipment={(entId) => {
+                            // Trigger Assign Modal logic if needed, or navigate
+                            setActiveTab('equipment.inventory');
                         }}
                     />
                 )}
@@ -1193,7 +1213,70 @@ const InnerApp: React.FC = () => {
                     />
                 )}
 
-                {/* ... More modals ... */}
+                {showAddService && (
+                    <AddServiceModal 
+                        onClose={() => setShowAddService(false)}
+                        onSave={(s) => {
+                            if (serviceToEdit) return simpleSaveWrapper(dataService.updateBusinessService, s, serviceToEdit.id);
+                            return simpleSaveWrapper(dataService.addBusinessService, s);
+                        }}
+                        serviceToEdit={serviceToEdit}
+                        collaborators={collaborators}
+                        suppliers={suppliers}
+                    />
+                )}
+
+                {showServiceDependencies && serviceToEdit && (
+                    <ServiceDependencyModal 
+                        onClose={() => { setShowServiceDependencies(null); setServiceToEdit(null); }}
+                        service={serviceToEdit}
+                        dependencies={serviceDependencies.filter(d => d.service_id === serviceToEdit.id)}
+                        allEquipment={equipment}
+                        allLicenses={softwareLicenses}
+                        onAddDependency={(dep) => simpleSaveWrapper(dataService.addServiceDependency, dep)}
+                        onRemoveDependency={(id) => simpleSaveWrapper(dataService.deleteServiceDependency, null, id)}
+                    />
+                )}
+
+                {showAddVulnerability && (
+                    <AddVulnerabilityModal
+                        onClose={() => setShowAddVulnerability(false)}
+                        onSave={(v) => {
+                            if (vulnerabilityToEdit) return simpleSaveWrapper(dataService.updateVulnerability, v, vulnerabilityToEdit.id);
+                            return simpleSaveWrapper(dataService.addVulnerability, v);
+                        }}
+                        vulnToEdit={vulnerabilityToEdit}
+                    />
+                )}
+
+                {showAddBackup && (
+                    <AddBackupModal
+                        onClose={() => setShowAddBackup(false)}
+                        onSave={(b) => {
+                            if (backupToEdit) return simpleSaveWrapper(dataService.updateBackupExecution, b, backupToEdit.id);
+                            return simpleSaveWrapper(dataService.addBackupExecution, b);
+                        }}
+                        backupToEdit={backupToEdit}
+                        currentUser={currentUser}
+                        equipmentList={equipment}
+                        equipmentTypes={equipmentTypes}
+                        onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
+                    />
+                )}
+
+                {showAddResilienceTest && (
+                    <AddResilienceTestModal
+                        onClose={() => setShowAddResilienceTest(false)}
+                        onSave={(t) => {
+                            if (resilienceTestToEdit) return simpleSaveWrapper(dataService.updateResilienceTest, t, resilienceTestToEdit.id);
+                            return simpleSaveWrapper(dataService.addResilienceTest, t);
+                        }}
+                        testToEdit={resilienceTestToEdit}
+                        onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
+                        entidades={entidades}
+                        suppliers={suppliers}
+                    />
+                )}
                 
                 {showNotifications && (
                     <NotificationsModal
