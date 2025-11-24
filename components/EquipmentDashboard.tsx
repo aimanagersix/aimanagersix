@@ -1,11 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
-
+import EquipmentHistoryModal from './EquipmentHistoryModal';
 
 
 interface EquipmentDashboardProps {
@@ -34,10 +34,10 @@ interface EquipmentDashboardProps {
   serviceDependencies?: ServiceDependency[];
   tickets?: any[]; // passed down for history
   ticketActivities?: any[]; // passed down for history
-  softwareLicenses?: any[];
-  licenseAssignments?: any[];
-  vulnerabilities?: any[];
-  suppliers?: any[];
+  softwareLicenses?: SoftwareLicense[];
+  licenseAssignments?: LicenseAssignment[];
+  vulnerabilities?: Vulnerability[];
+  suppliers?: Supplier[];
 }
 
 interface TooltipState {
@@ -114,7 +114,7 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
-    businessServices, serviceDependencies
+    businessServices, serviceDependencies, tickets = [], ticketActivities = []
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -148,6 +148,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 if (dep.equipment_id) {
                     const service = businessServices.find(s => s.id === dep.service_id);
                     if (service) {
+                        // If multiple services, take the highest criticality. simplified: just flag if present.
                         map.set(dep.equipment_id, service.criticality);
                     }
                 }
@@ -454,13 +455,12 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 return (
               <tr 
                 key={item.id} 
-                className={`border-b border-gray-700 ${selectedIds.has(item.id) ? 'bg-brand-primary/10' : 'bg-surface-dark hover:bg-gray-800/50'} cursor-pointer`}
+                className={`border-b border-gray-700 ${selectedIds.has(item.id) ? 'bg-brand-primary/10' : 'bg-surface-dark hover:bg-gray-800/50'}`}
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(item); }}
               >
-                <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                <td className="px-4 py-4">
                      <input
                         type="checkbox"
                         className="rounded border-gray-500 bg-gray-700 text-brand-secondary focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -491,12 +491,13 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <td className="px-6 py-4">
                     <span className={warrantyInfo.className}>{warrantyInfo.text}</span>
                 </td>
-                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                <td className="px-6 py-4">
                   <select
                     value={item.status}
                     onChange={(e) => handleStatusChange(item, e.target.value as EquipmentStatus)}
                     className={`px-2 py-1 rounded-md text-xs border bg-transparent ${getStatusClass(item.status)} focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70`}
                     disabled={!onUpdateStatus}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     {Object.values(EquipmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
                   </select>

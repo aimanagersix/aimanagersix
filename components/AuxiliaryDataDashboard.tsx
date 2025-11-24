@@ -230,7 +230,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             onRefresh();
         } catch (e: any) {
             console.error(e);
-            setError(e.message || 'Erro ao adicionar item.');
+            setError(e.message || 'Erro ao adicionar item. Verifique se a tabela existe na base de dados.');
         }
     };
 
