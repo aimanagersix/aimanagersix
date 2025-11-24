@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -318,13 +320,13 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         
         const content = (
             <div className="text-xs leading-tight space-y-1">
-                {cfg.showNomeNaRede && <p><strong className="text-gray-400">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>}
-                {cfg.showAssignedTo && <p><strong className="text-gray-400">Atribuído a:</strong> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>}
-                {cfg.showOsVersion && <p><strong className="text-gray-400">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
-                {cfg.showLastPatch && <p><strong className="text-gray-400">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
-                {cfg.showSerialNumber && <p><strong className="text-gray-400">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
-                {cfg.showBrand && <p><strong className="text-gray-400">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</span></p>}
-                {cfg.showWarranty && <p><strong className="text-gray-400">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
+                {cfg.showNomeNaRede && <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>}
+                {cfg.showAssignedTo && <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>}
+                {cfg.showOsVersion && <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
+                {cfg.showLastPatch && <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
+                {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
+                {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</span></p>}
+                {cfg.showWarranty && <p><strong className="text-on-surface-dark-secondary">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
             </div>
         );
 
@@ -460,12 +462,13 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 return (
               <tr 
                 key={item.id} 
-                className={`border-b border-gray-700 ${selectedIds.has(item.id) ? 'bg-brand-primary/10' : 'bg-surface-dark hover:bg-gray-800/50'}`}
+                className={`border-b border-gray-700 ${selectedIds.has(item.id) ? 'bg-brand-primary/10' : 'bg-surface-dark hover:bg-gray-800/50'} cursor-pointer`}
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
+                onClick={() => onEdit && onEdit(item)} // Changed to trigger Edit on row click
               >
-                <td className="px-4 py-4">
+                <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input
                         type="checkbox"
                         className="rounded border-gray-500 bg-gray-700 text-brand-secondary focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -496,13 +499,12 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <td className="px-6 py-4">
                     <span className={warrantyInfo.className}>{warrantyInfo.text}</span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                   <select
                     value={item.status}
                     onChange={(e) => handleStatusChange(item, e.target.value as EquipmentStatus)}
                     className={`px-2 py-1 rounded-md text-xs border bg-transparent ${getStatusClass(item.status)} focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70`}
                     disabled={!onUpdateStatus}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     {Object.values(EquipmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
                   </select>

@@ -7,6 +7,7 @@ export interface ConfigItem {
 }
 
 export interface TooltipConfig {
+    // Equipment Tooltips
     showNomeNaRede: boolean;
     showAssignedTo: boolean;
     showOsVersion: boolean;
@@ -15,9 +16,16 @@ export interface TooltipConfig {
     showBrand: boolean;
     showIpAddress: boolean; // Future use
     showWarranty: boolean;
+    
+    // Collaborator Tooltips
+    showCollabName: boolean;
+    showCollabJob: boolean;
+    showCollabContact: boolean;
+    showCollabEntity: boolean;
 }
 
 export const defaultTooltipConfig: TooltipConfig = {
+    // Equipment Defaults
     showNomeNaRede: true,
     showAssignedTo: true,
     showOsVersion: true,
@@ -25,7 +33,13 @@ export const defaultTooltipConfig: TooltipConfig = {
     showSerialNumber: false,
     showBrand: false,
     showIpAddress: false,
-    showWarranty: false
+    showWarranty: false,
+
+    // Collaborator Defaults
+    showCollabName: true,
+    showCollabJob: true,
+    showCollabContact: true,
+    showCollabEntity: true
 };
 
 export interface VulnerabilityScanConfig {

@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -961,6 +963,7 @@ const InnerApp: React.FC = () => {
                                 simpleSaveWrapper(dataService.updateCollaborator, { status: newStatus }, id);
                             }
                         }}
+                        tooltipConfig={tooltipConfig}
                     />
                 )}
 

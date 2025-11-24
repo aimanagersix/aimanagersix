@@ -1,6 +1,8 @@
 
+
+
 import React, { useState, useMemo } from 'react';
-import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message } from '../types';
+import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -24,6 +26,7 @@ interface CollaboratorDashboardProps {
   onStartChat?: (collaborator: Collaborator) => void;
   onToggleStatus?: (id: string) => void;
   onCreate?: () => void;
+  tooltipConfig?: TooltipConfig;
 }
 
 interface TooltipState {
@@ -62,7 +65,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     onStartChat, 
     currentUser, 
     onToggleStatus,
-    onCreate
+    onCreate,
+    tooltipConfig = defaultTooltipConfig
 }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
@@ -163,7 +167,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
             const entidadeMatch = filters.entidadeId === '' || col.entidadeId === filters.entidadeId;
             const statusMatch = filters.status === '' || col.status === filters.status;
             return searchMatch && entidadeMatch && statusMatch;
-        });
+        }).sort((a,b) => a.fullName.localeCompare(b.fullName));
     }, [collaborators, filters, searchQuery]);
     
     const totalPages = Math.ceil(filteredCollaborators.length / itemsPerPage);
@@ -171,16 +175,37 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         return filteredCollaborators.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     }, [filteredCollaborators, currentPage, itemsPerPage]);
 
-    const handleMouseOver = (collaboratorId: string, event: React.MouseEvent) => {
-        const assignedEquipment = equipmentByCollaborator.get(collaboratorId);
-        if (!assignedEquipment || assignedEquipment.length === 0) return;
+    const handleMouseOver = (col: Collaborator, event: React.MouseEvent) => {
+        const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
+        const cfg = tooltipConfig || defaultTooltipConfig;
+        
+        // If all options are false, maybe just show nothing or a minimal name? 
+        // Let's assume at least name is good, but we follow config.
         
         const content = (
-            <div>
-                <p className="font-bold text-white mb-2">Equipamentos Atribuídos:</p>
-                <ul className="list-disc list-inside space-y-1">
-                    {assignedEquipment.map((eq, index) => <li key={index}>{eq}</li>)}
-                </ul>
+            <div className="text-xs leading-tight space-y-1">
+                {cfg.showCollabName && <p className="font-bold text-white">{col.fullName}</p>}
+                {cfg.showCollabJob && <p><strong className="text-gray-400">Função:</strong> <span className="text-white">{col.role}</span></p>}
+                {cfg.showCollabEntity && <p><strong className="text-gray-400">Entidade:</strong> <span className="text-white">{entidadeMap.get(col.entidadeId) || 'N/A'}</span></p>}
+                {cfg.showCollabContact && (
+                    <div>
+                        <p><strong className="text-gray-400">Email:</strong> <span className="text-white">{col.email}</span></p>
+                        {col.telemovel && <p><strong className="text-gray-400">Móvel:</strong> <span className="text-white">{col.telemovel}</span></p>}
+                    </div>
+                )}
+                
+                {/* Always show equipment if present, or make it a config? 
+                    Let's append it if there are items, as it's useful context 
+                */}
+                {assignedEquipment.length > 0 && (
+                    <div className="mt-2 border-t border-gray-600 pt-1">
+                        <p className="font-bold text-brand-secondary mb-1">Equipamentos ({assignedEquipment.length}):</p>
+                        <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-hidden">
+                            {assignedEquipment.slice(0, 3).map((eq, index) => <li key={index} className="truncate">{eq}</li>)}
+                            {assignedEquipment.length > 3 && <li>... mais {assignedEquipment.length - 3}</li>}
+                        </ul>
+                    </div>
+                )}
             </div>
         );
 
@@ -316,10 +341,10 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
               <tr 
                 key={col.id} 
                 className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
-                onMouseOver={(e) => handleMouseOver(col.id, e)}
+                onMouseOver={(e) => handleMouseOver(col, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={() => onShowDetails && onShowDetails(col)}
+                onClick={() => onEdit && onEdit(col)} // Changed to Edit as primary action on row click
               >
                 <td className="px-6 py-4">{col.numeroMecanografico}</td>
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
@@ -378,9 +403,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                                 <FaComment className="h-5 w-5"/>
                             </button>
                         )}
-                        {onShowHistory && (
-                            <button onClick={(e) => { e.stopPropagation(); onShowHistory(col); }} className="text-gray-400 hover:text-white" aria-label={`Histórico de ${col.fullName}`}>
-                                <FaHistory className="h-5 w-5"/>
+                        {onShowDetails && ( // Changed icon/function for details
+                            <button onClick={(e) => { e.stopPropagation(); onShowDetails(col); }} className="text-teal-400 hover:text-teal-300" aria-label={`Ficha de ${col.fullName}`}>
+                                <ReportIcon className="h-5 w-5"/>
                             </button>
                         )}
                         {onEdit && (

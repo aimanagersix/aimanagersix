@@ -1,10 +1,12 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -465,10 +467,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                         </h2>
                         
                         <div className="space-y-6">
+                            {/* Equipment Tooltip */}
                             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
                                 <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaInfoCircle className="text-blue-400"/> Tooltip de Equipamentos</h3>
                                 <p className="text-sm text-gray-400 mb-4">
-                                    Selecione quais informações aparecem na caixa flutuante (tooltip) ao passar o rato sobre um equipamento na lista de inventário.
+                                    Selecione quais informações aparecem na caixa flutuante (tooltip) ao passar o rato sobre um equipamento na lista.
                                 </p>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -499,6 +502,33 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                     <label className="flex items-center space-x-2 cursor-pointer">
                                         <input type="checkbox" checked={tooltipConfig.showWarranty} onChange={() => toggleTooltipField('showWarranty')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
                                         <span className="text-sm text-gray-300">Data Fim Garantia</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Collaborator Tooltip */}
+                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaUser className="text-green-400"/> Tooltip de Colaboradores</h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Selecione quais informações aparecem na caixa flutuante (tooltip) ao passar o rato sobre um colaborador na lista.
+                                </p>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showCollabName} onChange={() => toggleTooltipField('showCollabName')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Nome Completo</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showCollabJob} onChange={() => toggleTooltipField('showCollabJob')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Função / Cargo</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showCollabEntity} onChange={() => toggleTooltipField('showCollabEntity')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Entidade</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={tooltipConfig.showCollabContact} onChange={() => toggleTooltipField('showCollabContact')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Contactos (Email/Tel)</span>
                                     </label>
                                 </div>
                             </div>
