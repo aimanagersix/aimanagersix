@@ -171,7 +171,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
                         <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                            {Object.values(CollaboratorStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                            {/* Force hardcoded values for Collaborator Status to fix the issue */}
+                            <option value={CollaboratorStatus.Ativo}>Ativo</option>
+                            <option value={CollaboratorStatus.Inativo}>Inativo</option>
                         </select>
                     </div>
                 </div>

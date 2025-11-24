@@ -1024,9 +1024,9 @@ const InnerApp: React.FC = () => {
                 {showAddEquipment && (
                     <AddEquipmentModal
                         onClose={() => setShowAddEquipment(false)}
-                        onSave={(eq, assign, lic) => {
+                        onSave={async (eq, assign, lic) => {
                             // Wrapped logic to handle both create and update with licenses
-                            const savePromise = async () => {
+                            try {
                                 let eqId = equipmentToEdit?.id;
                                 if (equipmentToEdit) {
                                     await dataService.updateEquipment(equipmentToEdit.id, eq);
@@ -1043,9 +1043,11 @@ const InnerApp: React.FC = () => {
                                         await dataService.syncLicenseAssignments(eqId, lic);
                                     }
                                 }
-                                return eqId;
-                            };
-                            return simpleSaveWrapper(() => savePromise(), {});
+                                await refreshData();
+                            } catch (e) {
+                                console.error(e);
+                                alert("Erro ao salvar equipamento.");
+                            }
                         }}
                         equipmentToEdit={equipmentToEdit}
                         brands={brands}
