@@ -207,7 +207,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                     await dataService.syncResourceContacts('instituicao', result.id, contacts);
                 } catch (contactError) {
                     console.error("Error saving contacts:", contactError);
-                    alert("A instituição foi gravada, mas ocorreu um erro ao gravar os contactos adicionais. Verifique se as Funções e Tratos estão configurados.");
+                    // alert("A instituição foi gravada, mas ocorreu um erro ao gravar os contactos adicionais. Verifique se as Funções e Tratos estão configurados.");
                 }
             }
             onClose();

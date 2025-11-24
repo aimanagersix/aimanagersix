@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, SupplierContact } from '../types';
 import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope } from 'react-icons/fa';
 import { SearchIcon, SpinnerIcon, DeleteIcon, PlusIcon } from './common/Icons';
 import { ContactList } from './common/ContactList'; // Import generic contact list
+import * as dataService from '../services/dataService';
 
 interface AddSupplierModalProps {
     onClose: () => void;
@@ -56,6 +58,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const [isFetchingCP, setIsFetchingCP] = useState(false);
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Ticket Automation State
     const [createTicket, setCreateTicket] = useState(false);
@@ -332,18 +335,31 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         e.preventDefault();
         if (!validate()) return;
         
+        setIsSaving(true);
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         const dataToSave: any = {
             ...formData,
             address,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
         };
+        const contacts = dataToSave.contacts;
+        delete dataToSave.contacts;
 
         try {
+            let result;
             if (supplierToEdit) {
-                await onSave({ ...supplierToEdit, ...dataToSave });
+                result = await onSave({ ...supplierToEdit, ...dataToSave });
             } else {
-                await onSave(dataToSave);
+                result = await onSave(dataToSave);
+            }
+
+            if (result && result.id) {
+                try {
+                    await dataService.syncResourceContacts('supplier', result.id, contacts);
+                } catch (contactError) {
+                    console.error("Error saving contacts:", contactError);
+                    // alert("O fornecedor foi gravado, mas ocorreu um erro ao gravar os contactos adicionais. Verifique se as Funções e Tratos estão configurados.");
+                }
             }
 
             // Ticket Creation Logic
@@ -368,7 +384,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             onClose();
         } catch (error) {
             console.error("Erro ao salvar fornecedor ou ticket:", error);
-            // Optionally handle error feedback here
+            alert("Erro ao gravar dados.");
+        } finally {
+            setIsSaving(false);
         }
     };
     
@@ -901,7 +919,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-2">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="button" onClick={handleSubmit} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar Tudo</button>
+                    <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2">
+                        {isSaving && <SpinnerIcon className="h-4 w-4" />}
+                        Salvar Tudo
+                    </button>
                 </div>
             </div>
         </Modal>

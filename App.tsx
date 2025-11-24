@@ -1173,6 +1173,20 @@ const InnerApp: React.FC = () => {
                     />
                 )}
 
+                {showAddSupplier && (
+                    <AddSupplierModal
+                        onClose={() => setShowAddSupplier(false)}
+                        onSave={(s) => {
+                            if (supplierToEdit) return simpleSaveWrapper(dataService.updateSupplier, s, supplierToEdit.id);
+                            return simpleSaveWrapper(dataService.addSupplier, s);
+                        }}
+                        supplierToEdit={supplierToEdit}
+                        teams={teams}
+                        onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
+                        businessServices={businessServices}
+                    />
+                )}
+
                 {/* ... More modals ... */}
                 
                 {showNotifications && (
