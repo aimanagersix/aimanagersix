@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -1301,6 +1303,10 @@ const InnerApp: React.FC = () => {
                     currentUser={currentUser}
                     onAction={handleMagicAction}
                 />
+
+                {showAutomationModal && (
+                    <AutomationModal onClose={() => setShowAutomationModal(false)} />
+                )}
 
                 {confirmationModal && (
                     <ConfirmationModal
