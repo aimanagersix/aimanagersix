@@ -7,6 +7,7 @@ import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 
 
+
 interface EquipmentDashboardProps {
   equipment: Equipment[];
   brands: Brand[];

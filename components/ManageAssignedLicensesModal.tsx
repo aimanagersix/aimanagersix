@@ -4,6 +4,7 @@ import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, LicenseAssignment } from '../types';
 import { PlusIcon, DeleteIcon, FaExclamationTriangle, SpinnerIcon, CheckIcon } from './common/Icons';
 
+
 interface ManageAssignedLicensesModalProps {
     onClose: () => void;
     onSave: (equipmentId: string, assignedLicenseIds: string[]) => Promise<void>;
