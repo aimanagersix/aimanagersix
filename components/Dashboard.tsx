@@ -148,7 +148,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 if (dep.equipment_id) {
                     const service = businessServices.find(s => s.id === dep.service_id);
                     if (service) {
-                        // If multiple services, take the highest criticality. simplified: just flag if present.
                         map.set(dep.equipment_id, service.criticality);
                     }
                 }
@@ -312,24 +311,13 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         onUpdateStatus(item.id, newStatus);
     };
 
-    const handleMouseOver = (item: Equipment, event: React.MouseEvent) => {
-        const warrantyInfo = getWarrantyStatus(item.warrantyEndDate);
+    const handleMouseOver = (item: Equipment & { assignedTo: string }, event: React.MouseEvent) => {
         const content = (
-            <div className="space-y-1">
-                <p><strong className="text-on-surface-dark-secondary">Nº Inventário:</strong> {item.inventoryNumber || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Nº Fatura:</strong> {item.invoiceNumber || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> {item.nomeNaRede || 'N/A'}</p>
-                 <p><strong className="text-on-surface-dark-secondary">MAC WIFI:</strong> {item.macAddressWIFI || 'N/A'}</p>
-                 <p><strong className="text-on-surface-dark-secondary">MAC Cabo:</strong> {item.macAddressCabo || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Garantia até:</strong> <span className={warrantyInfo.className}>{warrantyInfo.text}</span></p>
-                <p><strong className="text-on-surface-dark-secondary">Última Modificação:</strong> {item.modifiedDate}</p>
-                <hr className="border-gray-600 my-2"/>
-                <p className="font-bold text-white text-xs uppercase">Classificação NIS2</p>
-                <p><strong className="text-on-surface-dark-secondary">Confidencialidade:</strong> {item.confidentiality || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Integridade:</strong> {item.integrity || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Disponibilidade:</strong> {item.availability || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">SO:</strong> {item.os_version || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> {item.last_security_update || 'N/A'}</p>
+            <div className="space-y-1 text-sm">
+                <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>
+                <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>
+                <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>
+                <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>
             </div>
         );
 
