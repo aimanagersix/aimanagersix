@@ -101,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             }}
         >
             {/* Brand Header */}
-            <div className="flex items-center justify-center h-20 flex-shrink-0 bg-gray-900 border-b border-gray-800 overflow-hidden whitespace-nowrap">
+            <div className="flex items-center justify-center h-20 flex-shrink-0 bg-gray-900 border-b border-gray-800 overflow-hidden whitespace-nowrap cursor-pointer" onClick={() => setActiveTab('overview')}>
                 <span className="font-bold text-2xl text-white transition-all duration-300">
                     {isExpanded ? (
                         <>AI<span className="text-brand-secondary">Manager</span></>
@@ -199,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         {isInventarioOpen && isExpanded && (
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
                                 {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<ClipboardListIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['licensing'] && <TabButton tab="licensing" label={tabConfig['licensing']} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                             </div>
                         )}
                     </div>

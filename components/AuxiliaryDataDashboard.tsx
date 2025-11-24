@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -87,10 +87,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [editingItem, setEditingItem] = useState<ConfigItem | null>(null);
     const [error, setError] = useState('');
 
-    // Automation State
+    // Automation & Branding State
     const [scanFrequency, setScanFrequency] = useState('0');
     const [scanStartTime, setScanStartTime] = useState('02:00');
     const [lastScanDate, setLastScanDate] = useState('-');
+    const [logoUrl, setLogoUrl] = useState('');
 
     // Define Menu Structure
     const menuStructure: { group: string, items: MenuItem[] }[] = [
@@ -120,7 +121,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         {
             group: "NIS2 & Compliance",
             items: [
-                { id: 'automation', label: 'Automação & Scans', icon: <FaRobot />, type: 'automation' },
+                { id: 'automation', label: 'Automação & Geral', icon: <FaRobot />, type: 'automation' },
                 { id: 'criticality', label: 'Níveis de Criticidade', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_criticality_levels') },
                 { id: 'cia_ratings', label: 'Classificação CIA', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_cia_ratings') },
                 { id: 'service_status', label: 'Estados de Serviço (BIA)', icon: <FaServer />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_service_statuses') },
@@ -138,9 +139,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 const freq = await dataService.getGlobalSetting('scan_frequency_days');
                 const start = await dataService.getGlobalSetting('scan_start_time');
                 const last = await dataService.getGlobalSetting('last_auto_scan');
+                const logo = await dataService.getGlobalSetting('app_logo_url');
+                
                 if (freq) setScanFrequency(freq);
                 if (start) setScanStartTime(start);
                 if (last) setLastScanDate(new Date(last).toLocaleString());
+                if (logo) setLogoUrl(logo);
             };
             loadSettings();
         }
@@ -149,6 +153,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const handleSaveAutomation = async () => {
         await dataService.updateGlobalSetting('scan_frequency_days', scanFrequency);
         await dataService.updateGlobalSetting('scan_start_time', scanStartTime);
+        await dataService.updateGlobalSetting('app_logo_url', logoUrl);
         alert("Configuração guardada.");
     };
 
@@ -408,12 +413,32 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 {currentSelection.type === 'automation' && (
                     <div className="p-6 h-full overflow-y-auto">
                         <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2 flex items-center gap-2">
-                            <FaRobot className="text-purple-400" /> Automação de Segurança
+                            <FaCog className="text-brand-secondary" /> Configuração Geral & Automação
                         </h2>
                         
                         <div className="space-y-6">
+                            {/* Branding Section */}
                             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                                <h3 className="font-bold text-white mb-2">Auto Scan de Vulnerabilidades</h3>
+                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaImage className="text-blue-400"/> Personalização (Branding)</h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Defina o logotipo da sua organização para aparecer nos cabeçalhos dos relatórios impressos.
+                                </p>
+                                <div>
+                                    <label className="block text-xs text-gray-500 uppercase mb-1">URL do Logotipo</label>
+                                    <input 
+                                        type="text" 
+                                        value={logoUrl}
+                                        onChange={(e) => setLogoUrl(e.target.value)}
+                                        placeholder="https://exemplo.com/logo.png"
+                                        className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">O URL deve ser acessível publicamente ou na rede local.</p>
+                                </div>
+                            </div>
+
+                            {/* Automation Section */}
+                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Auto Scan de Vulnerabilidades</h3>
                                 <p className="text-sm text-gray-400 mb-4">
                                     Define a frequência com que a IA analisa automaticamente o inventário de software e hardware em busca de CVEs (Vulnerabilidades Conhecidas).
                                     Se forem detetadas vulnerabilidades críticas, <strong>tickets são criados automaticamente</strong>.
@@ -449,12 +474,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                                
-                                <div className="mt-4">
-                                    <button onClick={handleSaveAutomation} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors">
-                                        Guardar Configuração
-                                    </button>
-                                </div>
+                            </div>
+
+                            <div className="mt-4">
+                                <button onClick={handleSaveAutomation} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2">
+                                    <FaSave /> Guardar Configuração
+                                </button>
                             </div>
                         </div>
                     </div>

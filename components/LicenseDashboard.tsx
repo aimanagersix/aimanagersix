@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon, PlusIcon } from './common/Icons';
@@ -242,7 +239,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                <h2 className="text-xl font-semibold text-white">Gerenciar Licenças de Software</h2>
+                <h2 className="text-xl font-semibold text-white">Gestão de Licenciamento</h2>
                  <div className="flex items-center gap-2">
                     {onGenerateReport && (
                         <button

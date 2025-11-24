@@ -1,7 +1,9 @@
-import React, { useRef, useState } from 'react';
+
+import React, { useRef, useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { XIcon, FaFilePdf, SpinnerIcon, FaPrint } from './common/Icons';
+import { getGlobalSetting } from '../services/dataService';
 
 interface PrintPreviewModalProps {
     onClose: () => void;
@@ -71,6 +73,15 @@ const printStyles = `
 const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose, reportContentHtml }) => {
     const printableAreaRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchLogo = async () => {
+            const url = await getGlobalSetting('app_logo_url');
+            if (url) setLogoUrl(url);
+        };
+        fetchLogo();
+    }, []);
 
     const handleNativePrint = () => {
         window.print();
@@ -187,10 +198,16 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose, reportCo
                      <style>{printStyles}</style>
                      <div
                         id="printable-content-wrapper"
-                        className="bg-white shadow-lg mx-auto"
+                        className="bg-white shadow-lg mx-auto flex flex-col"
                         style={{ width: '210mm', padding: '1.5cm', minHeight: '297mm' }}
-                        dangerouslySetInnerHTML={{ __html: reportContentHtml }}
-                     />
+                     >
+                        {logoUrl && (
+                            <div className="mb-6 flex justify-center">
+                                <img src={logoUrl} alt="Logótipo" style={{ maxHeight: '80px', objectFit: 'contain' }} />
+                            </div>
+                        )}
+                        <div dangerouslySetInnerHTML={{ __html: reportContentHtml }} />
+                     </div>
                  </div>
             </div>
         </div>

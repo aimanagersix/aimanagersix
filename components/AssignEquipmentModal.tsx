@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Entidade, Collaborator, Assignment, CollaboratorStatus } from '../types';
+import { Equipment, Entidade, Collaborator, Assignment, CollaboratorStatus, EquipmentStatus } from '../types';
 import { SpinnerIcon } from './common/Icons';
+import * as dataService from '../services/dataService';
 
 interface AssignEquipmentModalProps {
     equipment: Equipment;
@@ -40,6 +41,9 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
         
         setIsSaving(true);
         try {
+            // Update equipment status to Operational automatically
+            await dataService.updateEquipment(equipment.id, { status: EquipmentStatus.Operational });
+
             await onAssign({
                 equipmentId: equipment.id,
                 entidadeId: selectedEntidadeId,
@@ -62,6 +66,7 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <p className="text-on-surface-dark-secondary">Equipamento: <span className="font-semibold text-on-surface-dark">{equipment.serialNumber}</span></p>
+                    <p className="text-xs text-green-400 mt-1">Nota: O equipamento passará automaticamente para o estado "Operacional".</p>
                 </div>
                 <div>
                     <label htmlFor="entidade" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
