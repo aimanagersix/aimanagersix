@@ -1,15 +1,10 @@
 
-
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
-import EquipmentHistoryModal from './EquipmentHistoryModal';
 
 
 interface EquipmentDashboardProps {
@@ -42,13 +37,6 @@ interface EquipmentDashboardProps {
   licenseAssignments?: any[];
   vulnerabilities?: any[];
   suppliers?: any[];
-}
-
-interface TooltipState {
-    visible: boolean;
-    content: React.ReactNode;
-    x: number;
-    y: number;
 }
 
 type SortableKeys = keyof Equipment | 'brand' | 'type' | 'assignedTo';
@@ -118,16 +106,13 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
-    businessServices, serviceDependencies, tickets = [], ticketActivities = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = []
+    businessServices, serviceDependencies
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [tooltip, setTooltip] = useState<TooltipState | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
-    const [equipmentForHistory, setEquipmentForHistory] = useState<Equipment | null>(null);
-    const [manageLicenseEquipment, setManageLicenseEquipment] = useState<Equipment | null>(null);
     
     useEffect(() => {
         if (initialFilter) {
@@ -154,7 +139,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 if (dep.equipment_id) {
                     const service = businessServices.find(s => s.id === dep.service_id);
                     if (service) {
-                        // If multiple services, take the highest criticality. simplified: just flag if present.
                         map.set(dep.equipment_id, service.criticality);
                     }
                 }
@@ -318,45 +302,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         onUpdateStatus(item.id, newStatus);
     };
 
-    const handleMouseOver = (item: Equipment, event: React.MouseEvent) => {
-        const warrantyInfo = getWarrantyStatus(item.warrantyEndDate);
-        const content = (
-            <div className="space-y-1">
-                <p><strong className="text-on-surface-dark-secondary">Nº Inventário:</strong> {item.inventoryNumber || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Nº Fatura:</strong> {item.invoiceNumber || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> {item.nomeNaRede || 'N/A'}</p>
-                 <p><strong className="text-on-surface-dark-secondary">MAC WIFI:</strong> {item.macAddressWIFI || 'N/A'}</p>
-                 <p><strong className="text-on-surface-dark-secondary">MAC Cabo:</strong> {item.macAddressCabo || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Garantia até:</strong> <span className={warrantyInfo.className}>{warrantyInfo.text}</span></p>
-                <p><strong className="text-on-surface-dark-secondary">Última Modificação:</strong> {item.modifiedDate}</p>
-                <hr className="border-gray-600 my-2"/>
-                <p className="font-bold text-white text-xs uppercase">Classificação NIS2</p>
-                <p><strong className="text-on-surface-dark-secondary">Confidencialidade:</strong> {item.confidentiality || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Integridade:</strong> {item.integrity || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Disponibilidade:</strong> {item.availability || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">SO:</strong> {item.os_version || 'N/A'}</p>
-                <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> {item.last_security_update || 'N/A'}</p>
-            </div>
-        );
-
-        setTooltip({
-            visible: true,
-            content: content,
-            x: event.clientX,
-            y: event.clientY,
-        });
-    };
-
-    const handleMouseMove = (event: React.MouseEvent) => {
-        if (tooltip?.visible) {
-            setTooltip(prev => prev ? { ...prev, x: event.clientX, y: event.clientY } : null);
-        }
-    };
-
-    const handleMouseLeave = () => {
-        setTooltip(null);
-    };
-
     const initialFilterCollaboratorName = useMemo(() => {
         if (!initialFilter?.collaboratorId) return null;
         return collaborators.find(c => c.id === initialFilter.collaboratorId)?.fullName;
@@ -472,10 +417,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
               <tr 
                 key={item.id} 
                 className={`border-b border-gray-700 ${selectedIds.has(item.id) ? 'bg-brand-primary/10' : 'bg-surface-dark hover:bg-gray-800/50'} cursor-pointer`}
-                onMouseOver={(e) => handleMouseOver(item, e)}
-                onMouseMove={handleMouseMove}
-                onMouseLeave={handleMouseLeave}
-                onClick={() => setEquipmentForHistory(item)}
+                onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(item); }}
               >
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input
@@ -529,7 +471,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                 <AssignIcon />
                             </button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); setEquipmentForHistory(item); }} className="text-gray-400 hover:text-white" title="Histórico e Impacto">
+                        <button onClick={(e) => { e.stopPropagation(); onShowHistory(item); }} className="text-gray-400 hover:text-white" title="Histórico e Impacto">
                             <FaHistory />
                         </button>
                         {onManageKeys && (
@@ -553,20 +495,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             )}
           </tbody>
         </table>
-        {tooltip?.visible && (
-            <div
-                style={{
-                    position: 'fixed',
-                    top: tooltip.y + 15,
-                    left: tooltip.x + 15,
-                    pointerEvents: 'none',
-                }}
-                className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm"
-                role="tooltip"
-            >
-                {tooltip.content}
-            </div>
-        )}
       </div>
        <Pagination
             currentPage={currentPage}
@@ -576,28 +504,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             onItemsPerPageChange={handleItemsPerPageChange}
             totalItems={filteredEquipment.length}
         />
-
-        {equipmentForHistory && (
-            <EquipmentHistoryModal
-                equipment={equipmentForHistory}
-                assignments={assignments}
-                collaborators={collaborators}
-                escolasDepartamentos={entidades}
-                tickets={tickets}
-                ticketActivities={ticketActivities}
-                businessServices={businessServices}
-                serviceDependencies={serviceDependencies}
-                onClose={() => setEquipmentForHistory(null)}
-                softwareLicenses={softwareLicenses}
-                licenseAssignments={licenseAssignments}
-                vulnerabilities={vulnerabilities}
-                suppliers={suppliers}
-                onEdit={(eq) => {
-                    setEquipmentForHistory(null);
-                    if (onEdit) onEdit(eq);
-                }}
-            />
-        )}
     </div>
   );
 };

@@ -3,8 +3,8 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
-import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaWindows, FaUserTag, FaKey } from 'react-icons/fa';
+import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
+import { FaExclamationTriangle, FaEuroSign, FaWindows, FaUserTag, FaKey, FaHistory, FaUserCheck } from 'react-icons/fa';
 
 interface AddEquipmentModalProps {
     onClose: () => void;
@@ -24,27 +24,16 @@ interface AddEquipmentModalProps {
     ciaOptions?: ConfigItem[];
     initialData?: Partial<Equipment> | null;
     licenseAssignments?: LicenseAssignment[];
+    // New Props for Navigation
+    onOpenHistory?: (equipment: Equipment) => void;
+    onManageLicenses?: (equipment: Equipment) => void;
+    onOpenAssign?: (equipment: Equipment) => void;
 }
 
 interface CameraScannerProps {
     onCapture: (dataUrl: string) => void;
     onClose: () => void;
 }
-
-const WINDOWS_VERSIONS = [
-    "Windows 11 Pro",
-    "Windows 11 Home",
-    "Windows 11 Enterprise",
-    "Windows 10 Pro",
-    "Windows 10 Home",
-    "Windows 10 Enterprise",
-    "Windows Server 2022",
-    "Windows Server 2019",
-    "macOS Sequoia",
-    "macOS Sonoma",
-    "Linux (Ubuntu)",
-    "Linux (Outro)"
-];
 
 const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -176,7 +165,8 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ 
     onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, 
     suppliers = [], softwareLicenses = [], entidades = [], collaborators = [], 
-    statusOptions, criticalityOptions, ciaOptions, initialData, licenseAssignments = [] 
+    statusOptions, criticalityOptions, ciaOptions, initialData, licenseAssignments = [],
+    onOpenHistory, onManageLicenses, onOpenAssign
 }) => {
     // Use dynamic options if available, else fallback to enum values
     const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(o => o.name) : Object.values(EquipmentStatus);
@@ -509,6 +499,40 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
             {isScanning && <CameraScanner onCapture={handleScanComplete} onClose={() => setIsScanning(false)} />}
             <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[80vh] pr-2 custom-scrollbar">
+                 
+                 {/* --- ACTION BAR (Only in Edit Mode) --- */}
+                 {isEditMode && equipmentToEdit && (
+                    <div className="flex gap-3 mb-6 bg-gray-900/50 p-3 rounded border border-gray-700 overflow-x-auto">
+                        {onOpenHistory && (
+                            <button 
+                                type="button" 
+                                onClick={() => onOpenHistory(equipmentToEdit)} 
+                                className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded whitespace-nowrap transition-colors"
+                            >
+                                <FaHistory /> Histórico & Impacto
+                            </button>
+                        )}
+                        {onManageLicenses && (
+                            <button 
+                                type="button" 
+                                onClick={() => onManageLicenses(equipmentToEdit)} 
+                                className="flex items-center gap-2 px-3 py-2 bg-yellow-700 hover:bg-yellow-600 text-white text-xs rounded whitespace-nowrap transition-colors"
+                            >
+                                <FaKey /> Gerir Licenças
+                            </button>
+                        )}
+                        {onOpenAssign && (
+                            <button 
+                                type="button" 
+                                onClick={() => onOpenAssign(equipmentToEdit)} 
+                                className="flex items-center gap-2 px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-xs rounded whitespace-nowrap transition-colors"
+                            >
+                                <FaUserCheck /> Atribuir/Desassociar
+                            </button>
+                        )}
+                    </div>
+                 )}
+
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="relative">
                         <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Série</label>

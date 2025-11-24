@@ -3,24 +3,26 @@ import * as dataService from './dataService';
 import { scanForVulnerabilities } from './geminiService';
 import { CriticalityLevel, VulnerabilityStatus, TicketStatus } from '../types';
 
-export const checkAndRunAutoScan = async () => {
+export const checkAndRunAutoScan = async (force: boolean = false) => {
     try {
-        // 1. Check Configuration
-        const frequencyStr = await dataService.getGlobalSetting('scan_frequency_days');
-        if (!frequencyStr || frequencyStr === '0') return; // Disabled
+        // 1. Check Configuration (Skip if forcing)
+        if (!force) {
+            const frequencyStr = await dataService.getGlobalSetting('scan_frequency_days');
+            if (!frequencyStr || frequencyStr === '0') return; // Disabled
 
-        const frequencyDays = parseInt(frequencyStr);
-        const lastScanStr = await dataService.getGlobalSetting('last_auto_scan');
-        
-        if (lastScanStr) {
-            const lastScan = new Date(lastScanStr);
-            const nextScan = new Date(lastScan);
-            nextScan.setDate(lastScan.getDate() + frequencyDays);
+            const frequencyDays = parseInt(frequencyStr);
+            const lastScanStr = await dataService.getGlobalSetting('last_auto_scan');
             
-            if (new Date() < nextScan) return; // Not due yet
+            if (lastScanStr) {
+                const lastScan = new Date(lastScanStr);
+                const nextScan = new Date(lastScan);
+                nextScan.setDate(lastScan.getDate() + frequencyDays);
+                
+                if (new Date() < nextScan) return; // Not due yet
+            }
         }
 
-        console.log("Running Automated Security Scan...");
+        console.log(force ? "Forcing Manual Security Scan..." : "Running Automated Security Scan...");
         
         // 2. Prepare Inventory Context
         const allData = await dataService.fetchAllData();
@@ -41,7 +43,10 @@ export const checkAndRunAutoScan = async () => {
             inventoryContext.add(`Software: ${lic.productName}`);
         });
 
-        if (inventoryContext.size === 0) return;
+        if (inventoryContext.size === 0) {
+            console.log("Inventory empty, nothing to scan.");
+            return;
+        }
 
         // 3. Execute AI Scan
         const results = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50));
@@ -110,6 +115,8 @@ export const checkAndRunAutoScan = async () => {
         if (newVulnCount > 0) {
             // Optional: Trigger UI notification if user is active, or just rely on dashboard update
             console.log(`Auto Scan: ${newVulnCount} vulnerabilities added.`);
+        } else if (force) {
+            console.log("Manual Scan complete. No new vulnerabilities found.");
         }
 
     } catch (error) {

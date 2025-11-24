@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -824,7 +820,7 @@ const InnerApp: React.FC = () => {
                             initialFilter={initialFilter}
                             onClearInitialFilter={() => setInitialFilter(null)}
                             onAssign={(eq) => setShowAssignEquipment(eq)}
-                            onShowHistory={(eq) => setEquipmentForHistory(eq)}
+                            onShowHistory={(eq) => setEquipmentForHistory(eq)} // Keep passing prop for the button
                             onEdit={(eq) => { setEquipmentToEdit(eq); setShowAddEquipment(true); }}
                             businessServices={businessServices}
                             serviceDependencies={serviceDependencies}
@@ -1091,6 +1087,10 @@ const InnerApp: React.FC = () => {
                         ciaOptions={configCiaRatings}
                         initialData={initialEquipmentData}
                         licenseAssignments={licenseAssignments}
+                        // New Handlers for Navigation
+                        onOpenHistory={(eq) => { setShowAddEquipment(false); setEquipmentForHistory(eq); }}
+                        onManageLicenses={(eq) => { setShowAddEquipment(false); setShowManageLicenses(eq); }}
+                        onOpenAssign={(eq) => { setShowAddEquipment(false); setShowAssignEquipment(eq); }}
                     />
                 )}
 
@@ -1314,6 +1314,30 @@ const InnerApp: React.FC = () => {
                         message={confirmationModal.message}
                         onConfirm={confirmationModal.onConfirm}
                         onClose={() => setConfirmationModal(null)}
+                    />
+                )}
+
+                {/* Equipment History Modal - Rendered via State */}
+                {equipmentForHistory && (
+                    <EquipmentHistoryModal
+                        equipment={equipmentForHistory}
+                        assignments={assignments}
+                        collaborators={collaborators}
+                        escolasDepartamentos={entidades}
+                        tickets={tickets}
+                        ticketActivities={ticketActivities}
+                        businessServices={businessServices}
+                        serviceDependencies={serviceDependencies}
+                        onClose={() => setEquipmentForHistory(null)}
+                        softwareLicenses={softwareLicenses}
+                        licenseAssignments={licenseAssignments}
+                        vulnerabilities={vulnerabilities}
+                        suppliers={suppliers}
+                        onEdit={(eq) => {
+                            setEquipmentForHistory(null);
+                            setEquipmentToEdit(eq);
+                            setShowAddEquipment(true);
+                        }}
                     />
                 )}
 
