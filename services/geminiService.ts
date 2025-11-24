@@ -2,6 +2,8 @@
 
 
 
+
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -467,8 +469,11 @@ export const scanForVulnerabilities = async (inventory: string[]): Promise<Scann
         ${JSON.stringify(inventory)}
 
         Task:
-        Identify potential high-profile or critical CVEs (Common Vulnerabilities and Exposures) that are COMMONLY associated with versions of this software (assume latest few versions if version not specified, or flag general risk).
-        Focus on recent (last 2 years) and critical vulnerabilities.
+        Identify potential high-profile or critical CVEs (Common Vulnerabilities and Exposures) that are COMMONLY associated with versions of this software.
+        
+        IMPORTANT: 
+        - If the software is older or End-of-Life (e.g., Windows 7, Windows Server 2008), include historically critical vulnerabilities (like EternalBlue/WannaCry) even if they are old, as they represent a massive risk.
+        - For modern software, focus on recent critical CVEs (last 2 years).
         
         Return a JSON array of up to 5 most critical vulnerabilities found.
         Format:
@@ -477,7 +482,7 @@ export const scanForVulnerabilities = async (inventory: string[]): Promise<Scann
             description: "Short summary in Portuguese",
             severity: "Crítica" | "Alta" | "Média" | "Baixa",
             affected_software: "Name of the item from my list",
-            remediation: "Brief fix action in Portuguese (e.g. 'Atualizar para v2.0')"
+            remediation: "Brief fix action in Portuguese (e.g. 'Atualizar para v2.0', 'Isolar da rede')"
         }
         If no major vulnerabilities are obvious for this generic list, return an empty array.
         `;

@@ -156,10 +156,15 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
 
     useEffect(() => {
         if (initialFilter) {
-            setFilters(prev => ({ ...prev, status: initialFilter.status || '' }));
+            // Updated logic to accept all filter fields coming from OverviewDashboard
+            setFilters({
+                status: initialFilter.status || '',
+                category: initialFilter.category || '',
+                team_id: initialFilter.team_id || ''
+            });
         } else {
-            // Reset if initialFilter is cleared from parent
-            setFilters(prev => ({ ...prev, status: '' }));
+            // Reset
+            setFilters({ status: '', category: '', team_id: '' });
         }
         setCurrentPage(1); // Reset page on filter change
     }, [initialFilter]);
@@ -189,7 +194,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
         return [...tickets].sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
         .filter(ticket => {
             const teamMatch = !filters.team_id || ticket.team_id === filters.team_id;
-            const categoryMatch = !filters.category || ticket.category === filters.category;
+            // Fix category matching: check if ticket.category is equal OR if it's the generic "Incidente de Segurança" fallback
+            const categoryMatch = !filters.category || 
+                                  ticket.category === filters.category || 
+                                  (filters.category === 'Incidente de Segurança' && ticket.category === TicketCategory.SecurityIncident);
+                                  
             const statusMatch = (() => {
                 if (!filters.status || (Array.isArray(filters.status) && filters.status.length === 0)) return true;
                 if (Array.isArray(filters.status)) {
