@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useMemo } from 'react';
 import { EquipmentType, Equipment } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
@@ -45,11 +47,9 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-white">Gerenciar Tipos de Equipamento</h2>
-            {onCreate && (
-                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                    <PlusIcon /> Adicionar
-                </button>
-            )}
+            <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                <PlusIcon /> Adicionar
+            </button>
         </div>
       
       <div className="overflow-x-auto">

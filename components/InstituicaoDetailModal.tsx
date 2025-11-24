@@ -1,8 +1,10 @@
 
+
+
 import React from 'react';
 import Modal from './common/Modal';
 import { Instituicao, Entidade } from '../types';
-import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus } from './common/Icons';
+import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint } from './common/Icons';
 
 interface InstituicaoDetailModalProps {
     instituicao: Instituicao;
@@ -15,11 +17,63 @@ interface InstituicaoDetailModalProps {
 const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, onClose, onEdit, onAddEntity }) => {
     const relatedEntidades = entidades.filter(e => e.instituicaoId === instituicao.id);
 
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Ficha da Instituição - ${instituicao.name}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; color: #333; }
+                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
+                    .section { margin-bottom: 20px; }
+                    .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
+                    .value { font-size: 16px; margin-bottom: 5px; }
+                    ul { list-style-type: none; padding: 0; }
+                    li { padding: 5px 0; border-bottom: 1px solid #eee; }
+                </style>
+            </head>
+            <body>
+                <h1>${instituicao.name}</h1>
+                <div class="section">
+                    <div class="label">Código</div>
+                    <div class="value">${instituicao.codigo}</div>
+                    <div class="label">NIF</div>
+                    <div class="value">${instituicao.nif || 'N/A'}</div>
+                </div>
+                <div class="section">
+                    <h3>Contactos</h3>
+                    <div class="label">Email</div>
+                    <div class="value">${instituicao.email}</div>
+                    <div class="label">Telefone</div>
+                    <div class="value">${instituicao.telefone}</div>
+                </div>
+                <div class="section">
+                    <h3>Morada</h3>
+                    <div class="value">${instituicao.address_line || ''}</div>
+                    <div class="value">${instituicao.postal_code || ''} ${instituicao.locality || ''}</div>
+                    <div class="value">${instituicao.city || ''}</div>
+                </div>
+                <div class="section">
+                    <h3>Entidades Associadas (${relatedEntidades.length})</h3>
+                    <ul>
+                        ${relatedEntidades.map(e => `<li>${e.name} (${e.codigo})</li>`).join('')}
+                    </ul>
+                </div>
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
         <Modal title={`Detalhes: ${instituicao.name}`} onClose={onClose} maxWidth="max-w-3xl">
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                <div className="flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 relative">
                     <div className="p-3 bg-brand-primary/20 rounded-full text-brand-secondary">
                         <FaSitemap className="h-8 w-8" />
                     </div>
@@ -28,12 +82,20 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                         <p className="text-sm text-on-surface-dark-secondary">Código: <span className="font-mono text-white">{instituicao.codigo}</span></p>
                         {instituicao.nif && <p className="text-sm text-gray-400">NIF: {instituicao.nif}</p>}
                     </div>
-                    <button 
-                        onClick={() => { onClose(); onEdit(); }} 
-                        className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg"
-                    >
-                        Editar Dados
-                    </button>
+                    <div className="flex flex-col gap-2">
+                        <button 
+                            onClick={handlePrint} 
+                            className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg flex items-center gap-2"
+                        >
+                            <FaPrint /> Imprimir Ficha
+                        </button>
+                        <button 
+                            onClick={() => { onClose(); onEdit(); }} 
+                            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg"
+                        >
+                            Editar Dados
+                        </button>
+                    </div>
                 </div>
 
                 {/* Info Grid */}

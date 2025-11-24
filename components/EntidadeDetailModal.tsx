@@ -1,8 +1,10 @@
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, Collaborator, Assignment } from '../types';
-import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop } from './common/Icons';
+import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint } from './common/Icons';
 
 interface EntidadeDetailModalProps {
     entidade: Entidade;
@@ -23,6 +25,57 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
     // Count equipment assigned to entity (directly or via collab)
     const associatedEquipmentCount = assignments.filter(a => a.entidadeId === entidade.id && !a.returnDate).length;
 
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Ficha da Entidade - ${entidade.name}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; color: #333; }
+                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
+                    .section { margin-bottom: 20px; }
+                    .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
+                    .value { font-size: 16px; margin-bottom: 5px; }
+                </style>
+            </head>
+            <body>
+                <h1>${entidade.name}</h1>
+                <div class="section">
+                    <div class="label">Instituição</div>
+                    <div class="value">${instituicao?.name || 'N/A'}</div>
+                    <div class="label">Código</div>
+                    <div class="value">${entidade.codigo}</div>
+                </div>
+                <div class="section">
+                    <h3>Contactos</h3>
+                    <div class="label">Responsável</div>
+                    <div class="value">${entidade.responsavel || '-'}</div>
+                    <div class="label">Email</div>
+                    <div class="value">${entidade.email}</div>
+                    <div class="label">Telefone</div>
+                    <div class="value">${entidade.telefone || '-'}</div>
+                </div>
+                <div class="section">
+                    <h3>Morada</h3>
+                    <div class="value">${entidade.address_line || ''}</div>
+                    <div class="value">${entidade.postal_code || ''} ${entidade.locality || ''}</div>
+                    <div class="value">${entidade.city || ''}</div>
+                </div>
+                <div class="section">
+                    <h3>Resumo</h3>
+                    <div class="value">Colaboradores: ${activeCollaborators.length}</div>
+                    <div class="value">Equipamentos: ${associatedEquipmentCount}</div>
+                </div>
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
         <Modal title={`Detalhes: ${entidade.name}`} onClose={onClose} maxWidth="max-w-4xl">
             <div className="flex flex-col h-[80vh]">
@@ -37,12 +90,20 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                         <p className="text-sm text-brand-secondary mt-1">{instituicao?.name || 'Instituição não definida'}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                        <button 
-                            onClick={() => { onClose(); onEdit(); }} 
-                            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
-                        >
-                            Editar Dados
-                        </button>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={handlePrint} 
+                                className="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors flex items-center gap-2"
+                            >
+                                <FaPrint /> Imprimir
+                            </button>
+                            <button 
+                                onClick={() => { onClose(); onEdit(); }} 
+                                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
+                            >
+                                Editar Dados
+                            </button>
+                        </div>
                         <span className={`block text-xs font-bold px-2 py-1 rounded ${entidade.status === 'Ativo' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
                             {entidade.status}
                         </span>

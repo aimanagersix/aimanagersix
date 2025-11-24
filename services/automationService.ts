@@ -1,4 +1,5 @@
 
+
 import * as dataService from './dataService';
 import { scanForVulnerabilities } from './geminiService';
 import { CriticalityLevel, VulnerabilityStatus } from '../types';
@@ -6,12 +7,27 @@ import { CriticalityLevel, VulnerabilityStatus } from '../types';
 export const checkAndRunAutoScan = async (force: boolean = false): Promise<number> => {
     let newVulnCount = 0;
     try {
-        // 1. Check Configuration (Skip if forcing)
-        if (!force) {
-            const frequencyStr = await dataService.getGlobalSetting('scan_frequency_days');
-            if (!frequencyStr || frequencyStr === '0') return 0; // Disabled
+        let frequencyDays = 0;
+        let includeEol = true;
+        let lookbackYears = 2;
+        let customInstructions = "";
 
-            const frequencyDays = parseInt(frequencyStr);
+        // 1. Check Configuration (Skip logic check if forcing, but load configs)
+        const frequencyStr = await dataService.getGlobalSetting('scan_frequency_days');
+        if (frequencyStr) frequencyDays = parseInt(frequencyStr);
+
+        const eolStr = await dataService.getGlobalSetting('scan_include_eol');
+        if (eolStr) includeEol = eolStr === 'true';
+
+        const lookbackStr = await dataService.getGlobalSetting('scan_lookback_years');
+        if (lookbackStr) lookbackYears = parseInt(lookbackStr);
+
+        const customPrompt = await dataService.getGlobalSetting('scan_custom_prompt');
+        if (customPrompt) customInstructions = customPrompt;
+
+        if (!force) {
+            if (frequencyDays === 0) return 0; // Disabled
+
             const lastScanStr = await dataService.getGlobalSetting('last_auto_scan');
             
             if (lastScanStr) {
@@ -49,9 +65,10 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
             return 0;
         }
 
-        // 3. Execute AI Scan
+        // 3. Execute AI Scan with Dynamic Config
         // We slice to 50 to avoid token limits, but ideally this should batch process
-        const results = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50));
+        const scanConfig = { includeEol, lookbackYears, customInstructions };
+        const results = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50), scanConfig);
 
         // 4. Process Results
         for (const vuln of results) {

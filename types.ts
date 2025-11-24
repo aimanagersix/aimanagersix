@@ -28,6 +28,12 @@ export const defaultTooltipConfig: TooltipConfig = {
     showWarranty: false
 };
 
+export interface VulnerabilityScanConfig {
+    includeEol: boolean; // Include End-of-Life software (Win7, etc)
+    lookbackYears: number; // How far back to look for CVEs (default 2)
+    customInstructions?: string; // Extra context for the AI
+}
+
 // Converted Enums to Const Objects for backward compatibility in code logic
 // but types are now strings to allow dynamic DB values.
 

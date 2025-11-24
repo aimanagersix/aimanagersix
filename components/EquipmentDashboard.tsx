@@ -314,18 +314,17 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     };
 
     const handleMouseOver = (item: Equipment & { assignedTo: string }, event: React.MouseEvent) => {
-        // Use configuration to decide what to show
         const cfg = tooltipConfig || defaultTooltipConfig;
         
         const content = (
             <div className="text-xs leading-tight space-y-1">
-                {cfg.showNomeNaRede && <p><span className="text-gray-400 font-semibold">Nome na Rede:</span> <span className="text-white">{item.nomeNaRede || '-'}</span></p>}
-                {cfg.showAssignedTo && <p><span className="text-gray-400 font-semibold">Atribuído a:</span> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>}
-                {cfg.showOsVersion && <p><span className="text-gray-400 font-semibold">Versão do SO:</span> <span className="text-white">{item.os_version || '-'}</span></p>}
-                {cfg.showLastPatch && <p><span className="text-gray-400 font-semibold">Último Patch:</span> <span className="text-white">{item.last_security_update || '-'}</span></p>}
-                {cfg.showSerialNumber && <p><span className="text-gray-400 font-semibold">S/N:</span> <span className="text-white">{item.serialNumber || '-'}</span></p>}
-                {cfg.showBrand && <p><span className="text-gray-400 font-semibold">Marca/Tipo:</span> <span className="text-white">{brandMap.get(item.brandId)} {equipmentTypeMap.get(item.typeId)}</span></p>}
-                {cfg.showWarranty && <p><span className="text-gray-400 font-semibold">Garantia:</span> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
+                {cfg.showNomeNaRede && <p><strong className="text-gray-400">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>}
+                {cfg.showAssignedTo && <p><strong className="text-gray-400">Atribuído a:</strong> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>}
+                {cfg.showOsVersion && <p><strong className="text-gray-400">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
+                {cfg.showLastPatch && <p><strong className="text-gray-400">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
+                {cfg.showSerialNumber && <p><strong className="text-gray-400">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
+                {cfg.showBrand && <p><strong className="text-gray-400">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</span></p>}
+                {cfg.showWarranty && <p><strong className="text-gray-400">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
             </div>
         );
 

@@ -1,7 +1,9 @@
 
+
+
 import React, { useState, useMemo } from 'react';
 import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment } from '../types';
-import { EditIcon, DeleteIcon, SearchIcon, PlusIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, SearchIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import EntidadeDetailModal from './EntidadeDetailModal';
@@ -20,6 +22,7 @@ interface EntidadeDashboardProps {
   // New Quick Actions
   onAddCollaborator?: (entidadeId: string) => void;
   onAssignEquipment?: (entidadeId: string) => void;
+  onImport?: () => void;
 }
 
 const getStatusClass = (status: EntidadeStatus) => {
@@ -33,7 +36,7 @@ const getStatusClass = (status: EntidadeStatus) => {
     }
 };
 
-const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate, onAddCollaborator, onAssignEquipment }) => {
+const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate, onAddCollaborator, onAssignEquipment, onImport }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ instituicaoId: '' });
@@ -102,15 +105,75 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
         return filteredEntidades.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     }, [filteredEntidades, currentPage, itemsPerPage]);
 
+    const handlePrintList = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const rows = filteredEntidades.map(ent => `
+            <tr>
+                <td>${ent.name}</td>
+                <td>${ent.codigo}</td>
+                <td>${instituicaoMap.get(ent.instituicaoId) || 'N/A'}</td>
+                <td>${ent.responsavel || '-'}</td>
+                <td>${ent.email}</td>
+                <td>${collaboratorsByEntidade[ent.id] || 0}</td>
+            </tr>
+        `).join('');
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Listagem de Entidades</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                    h1 { color: #333; }
+                </style>
+            </head>
+            <body>
+                <h1>Listagem de Entidades</h1>
+                <p>Data: ${new Date().toLocaleDateString()}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Código</th>
+                            <th>Instituição</th>
+                            <th>Responsável</th>
+                            <th>Email</th>
+                            <th>Colaboradores</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
             <h2 className="text-xl font-semibold text-white">Gerenciar Entidades</h2>
-            {onCreate && (
-                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                    <PlusIcon /> Adicionar
+            <div className="flex gap-2">
+                <button onClick={handlePrintList} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors">
+                    <FaPrint /> Imprimir Listagem
                 </button>
-            )}
+                {onImport && (
+                    <button onClick={onImport} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors">
+                        <FaFileImport /> Importar Excel
+                    </button>
+                )}
+                {onCreate && (
+                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <PlusIcon /> Adicionar
+                    </button>
+                )}
+            </div>
         </div>
 
         <div className="space-y-4 mb-6">

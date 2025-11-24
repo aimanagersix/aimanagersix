@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -245,20 +247,26 @@ END $$;
     return (
         <Modal title="SQL de Correção da Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
-                <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
-                    <div className="flex items-center gap-2 font-bold mb-2 text-blue-100">
-                        <FaDatabase />
-                        <span>Instruções de Atualização</span>
+                <div className="flex justify-between items-center">
+                    <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 flex-grow mr-4">
+                        <div className="flex items-center gap-2 font-bold mb-2 text-blue-100">
+                            <FaDatabase />
+                            <span>Instruções de Atualização</span>
+                        </div>
+                        <p className="mb-2">
+                            Este script cria todas as tabelas necessárias, incluindo a nova tabela de configurações globais (automação) e colunas de ligação de vulnerabilidades a tickets.
+                        </p>
+                        <ol className="list-decimal list-inside space-y-1 ml-2">
+                            <li>Clique em <strong>Copiar SQL</strong>.</li>
+                            <li>Vá ao seu projeto no <strong>Supabase</strong>.</li>
+                            <li>Abra o <strong>SQL Editor</strong> no menu lateral.</li>
+                            <li>Cole o código e clique em <strong>RUN</strong>.</li>
+                        </ol>
                     </div>
-                    <p className="mb-2">
-                        Este script cria todas as tabelas necessárias, incluindo a nova tabela de configurações globais (automação) e colunas de ligação de vulnerabilidades a tickets.
-                    </p>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li>Clique em <strong>Copiar SQL</strong>.</li>
-                        <li>Vá ao seu projeto no <strong>Supabase</strong>.</li>
-                        <li>Abra o <strong>SQL Editor</strong> no menu lateral.</li>
-                        <li>Cole o código e clique em <strong>RUN</strong>.</li>
-                    </ol>
+                    <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
+                        <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.5</span>
+                    </div>
                 </div>
 
                 <div className="relative">

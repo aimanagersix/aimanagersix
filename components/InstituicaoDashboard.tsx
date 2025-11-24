@@ -1,7 +1,9 @@
 
+
+
 import React, { useMemo, useState } from 'react';
 import { Instituicao, Entidade } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
 import Pagination from './common/Pagination';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
 
@@ -13,9 +15,10 @@ interface InstituicaoDashboardProps {
   onCreate?: () => void;
   // Quick Action
   onAddEntity?: (instituicaoId: string) => void;
+  onImport?: () => void;
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, onEdit, onDelete, onCreate, onAddEntity }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, onEdit, onDelete, onCreate, onAddEntity, onImport }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -42,15 +45,73 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
         return sortedInstituicoes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     }, [sortedInstituicoes, currentPage, itemsPerPage]);
 
+    const handlePrintList = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const rows = sortedInstituicoes.map(inst => `
+            <tr>
+                <td>${inst.name}</td>
+                <td>${inst.codigo}</td>
+                <td>${inst.email}</td>
+                <td>${inst.telefone}</td>
+                <td>${entidadesCountByInstituicao[inst.id] || 0}</td>
+            </tr>
+        `).join('');
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Listagem de Instituições</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                    h1 { color: #333; }
+                </style>
+            </head>
+            <body>
+                <h1>Listagem de Instituições</h1>
+                <p>Data: ${new Date().toLocaleDateString()}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Código</th>
+                            <th>Email</th>
+                            <th>Telefone</th>
+                            <th>Entidades</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-white">Gerenciar Instituições</h2>
-            {onCreate && (
-                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                    <PlusIcon /> Adicionar
+            <div className="flex gap-2">
+                <button onClick={handlePrintList} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors">
+                    <FaPrint /> Imprimir Listagem
                 </button>
-            )}
+                {onImport && (
+                    <button onClick={onImport} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors">
+                        <FaFileImport /> Importar Excel
+                    </button>
+                )}
+                {onCreate && (
+                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <PlusIcon /> Adicionar
+                    </button>
+                )}
+            </div>
         </div>
       
       <div className="overflow-x-auto">

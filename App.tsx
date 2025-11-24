@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -441,6 +443,32 @@ const InnerApp: React.FC = () => {
         }
     };
 
+    // --- Import Handling ---
+    const handleImportData = async (dataType: ImportConfig['dataType'], data: any[]) => {
+        try {
+            let successCount = 0;
+            for (const item of data) {
+                try {
+                    if (dataType === 'instituicoes') {
+                        await dataService.addInstituicao(item);
+                        successCount++;
+                    } else if (dataType === 'entidades') {
+                        await dataService.addEntidade(item);
+                        successCount++;
+                    }
+                    // Add other types if needed
+                } catch (e) {
+                    console.error(`Error importing item in ${dataType}:`, item, e);
+                }
+            }
+            await refreshData();
+            return { success: true, message: `Importação concluída. ${successCount} registos importados com sucesso.` };
+        } catch (e) {
+            console.error("Import failed", e);
+            return { success: false, message: "Erro fatal na importação." };
+        }
+    };
+
     const handleLogin = async () => {
         return { success: true };
     };
@@ -862,6 +890,12 @@ const InnerApp: React.FC = () => {
                             setShowAddEntidade(true); 
                             /* Ideally pass initial data */ 
                         }}
+                        onImport={() => setImportConfig({
+                            dataType: 'instituicoes',
+                            title: 'Importar Instituições',
+                            templateFileName: 'template_instituicoes.xlsx',
+                            columnMap: { name: 'Nome', codigo: 'Código', email: 'Email', telefone: 'Telefone', nif: 'NIF', address: 'Morada' }
+                        })}
                     />
                 )}
 
@@ -892,6 +926,12 @@ const InnerApp: React.FC = () => {
                             // Trigger Assign Modal logic if needed, or navigate
                             setActiveTab('equipment.inventory');
                         }}
+                        onImport={() => setImportConfig({
+                            dataType: 'entidades',
+                            title: 'Importar Entidades',
+                            templateFileName: 'template_entidades.xlsx',
+                            columnMap: { name: 'Nome', codigo: 'Código', email: 'Email', telefone: 'Telefone', nif: 'NIF', address: 'Morada', responsavel: 'Responsável' }
+                        })}
                     />
                 )}
 
@@ -1329,6 +1369,14 @@ const InnerApp: React.FC = () => {
                         onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
                         entidades={entidades}
                         suppliers={suppliers}
+                    />
+                )}
+                
+                {importConfig && (
+                    <ImportModal
+                        config={importConfig}
+                        onClose={() => setImportConfig(null)}
+                        onImport={handleImportData}
                     />
                 )}
                 

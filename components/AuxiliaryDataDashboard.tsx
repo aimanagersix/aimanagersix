@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
@@ -97,6 +99,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [lastScanDate, setLastScanDate] = useState('-');
     const [logoUrl, setLogoUrl] = useState('');
     
+    // New Scan Configs
+    const [scanIncludeEol, setScanIncludeEol] = useState(true);
+    const [scanLookbackYears, setScanLookbackYears] = useState(2);
+    const [scanCustomPrompt, setScanCustomPrompt] = useState('');
+    
     // Tooltip Config State
     const [tooltipConfig, setTooltipConfig] = useState<TooltipConfig>(defaultTooltipConfig);
 
@@ -149,10 +156,20 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 const last = await dataService.getGlobalSetting('last_auto_scan');
                 const logo = await dataService.getGlobalSetting('app_logo_url');
                 
+                // Scan Configs
+                const eol = await dataService.getGlobalSetting('scan_include_eol');
+                const years = await dataService.getGlobalSetting('scan_lookback_years');
+                const custom = await dataService.getGlobalSetting('scan_custom_prompt');
+                
                 if (freq) setScanFrequency(freq);
                 if (start) setScanStartTime(start);
                 if (last) setLastScanDate(new Date(last).toLocaleString());
                 if (logo) setLogoUrl(logo);
+                
+                if (eol) setScanIncludeEol(eol === 'true');
+                if (years) setScanLookbackYears(parseInt(years));
+                if (custom) setScanCustomPrompt(custom);
+
             } else if (selectedMenuId === 'interface') {
                 const tooltipSetting = await dataService.getGlobalSetting('tooltip_config');
                 if (tooltipSetting) {
@@ -169,6 +186,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         await dataService.updateGlobalSetting('scan_frequency_days', scanFrequency);
         await dataService.updateGlobalSetting('scan_start_time', scanStartTime);
         await dataService.updateGlobalSetting('app_logo_url', logoUrl);
+        
+        await dataService.updateGlobalSetting('scan_include_eol', String(scanIncludeEol));
+        await dataService.updateGlobalSetting('scan_lookback_years', String(scanLookbackYears));
+        await dataService.updateGlobalSetting('scan_custom_prompt', scanCustomPrompt);
+
         alert("Configuração guardada.");
     };
 
@@ -519,13 +541,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
                             {/* Automation Section */}
                             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Auto Scan de Vulnerabilidades</h3>
+                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Auto Scan de Vulnerabilidades (IA)</h3>
                                 <p className="text-sm text-gray-400 mb-4">
-                                    Define a frequência com que a IA analisa automaticamente o inventário de software e hardware em busca de CVEs (Vulnerabilidades Conhecidas).
-                                    Se forem detetadas vulnerabilidades críticas, <strong>tickets são criados automaticamente</strong>.
+                                    Configuração do analisador de segurança automatizado que verifica o inventário em busca de CVEs.
                                 </p>
                                 
-                                <div className="flex items-center gap-4">
+                                <div className="flex flex-wrap gap-4 mb-4">
                                     <div>
                                         <label className="block text-xs text-gray-500 uppercase mb-1">Frequência</label>
                                         <select 
@@ -549,11 +570,47 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                         />
                                     </div>
                                     <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Janela de Tempo (Anos)</label>
+                                        <input 
+                                            type="number" 
+                                            value={scanLookbackYears}
+                                            onChange={(e) => setScanLookbackYears(parseInt(e.target.value))}
+                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
+                                            min="1"
+                                        />
+                                    </div>
+                                    <div>
                                         <label className="block text-xs text-gray-500 uppercase mb-1">Última Execução</label>
                                         <div className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 p-2 rounded border border-gray-700 min-w-[150px]">
                                             <FaClock /> {lastScanDate}
                                         </div>
                                     </div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="flex items-center cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={scanIncludeEol} 
+                                            onChange={(e) => setScanIncludeEol(e.target.checked)} 
+                                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary" 
+                                        />
+                                        <span className="ml-2 text-sm text-white font-bold">Incluir Software EOL (End-of-Life)</span>
+                                    </label>
+                                    <p className="text-xs text-gray-500 ml-6 mt-1">
+                                        Força a procura de vulnerabilidades críticas em sistemas antigos (ex: Win 7, Server 2008), ignorando a janela de tempo.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs text-gray-500 uppercase mb-1">Instruções Personalizadas (Prompt)</label>
+                                    <textarea 
+                                        value={scanCustomPrompt}
+                                        onChange={(e) => setScanCustomPrompt(e.target.value)}
+                                        rows={3}
+                                        className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
+                                        placeholder="Ex: Ignorar vulnerabilidades relacionadas com impressoras. Focar apenas em RCE."
+                                    ></textarea>
                                 </div>
                             </div>
 

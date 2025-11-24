@@ -4,6 +4,7 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import { Brand, Equipment, CriticalityLevel } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaCheckCircle, FaTimesCircle } from './common/Icons';
@@ -65,11 +66,9 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
                     Classifique o risco de segurança dos fabricantes de hardware e software.
                 </p>
             </div>
-            {onCreate && (
-                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                    <PlusIcon /> Adicionar
-                </button>
-            )}
+            <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                <PlusIcon /> Adicionar
+            </button>
         </div>
       
       <div className="overflow-x-auto">
