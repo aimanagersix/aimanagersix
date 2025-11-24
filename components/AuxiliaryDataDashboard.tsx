@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
@@ -92,6 +89,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
     // Automation State
     const [scanFrequency, setScanFrequency] = useState('0');
+    const [scanStartTime, setScanStartTime] = useState('02:00');
     const [lastScanDate, setLastScanDate] = useState('-');
 
     // Define Menu Structure
@@ -138,8 +136,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         if (selectedMenuId === 'automation') {
             const loadSettings = async () => {
                 const freq = await dataService.getGlobalSetting('scan_frequency_days');
+                const start = await dataService.getGlobalSetting('scan_start_time');
                 const last = await dataService.getGlobalSetting('last_auto_scan');
                 if (freq) setScanFrequency(freq);
+                if (start) setScanStartTime(start);
                 if (last) setLastScanDate(new Date(last).toLocaleString());
             };
             loadSettings();
@@ -148,6 +148,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
     const handleSaveAutomation = async () => {
         await dataService.updateGlobalSetting('scan_frequency_days', scanFrequency);
+        await dataService.updateGlobalSetting('scan_start_time', scanStartTime);
         alert("Configuração guardada.");
     };
 
@@ -431,6 +432,15 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                             <option value="7">Semanal</option>
                                             <option value="30">Mensal</option>
                                         </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Hora de Início</label>
+                                        <input 
+                                            type="time" 
+                                            value={scanStartTime}
+                                            onChange={(e) => setScanStartTime(e.target.value)}
+                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-gray-500 uppercase mb-1">Última Execução</label>

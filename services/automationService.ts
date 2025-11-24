@@ -3,12 +3,13 @@ import * as dataService from './dataService';
 import { scanForVulnerabilities } from './geminiService';
 import { CriticalityLevel, VulnerabilityStatus, TicketStatus } from '../types';
 
-export const checkAndRunAutoScan = async (force: boolean = false) => {
+export const checkAndRunAutoScan = async (force: boolean = false): Promise<number> => {
+    let newVulnCount = 0;
     try {
         // 1. Check Configuration (Skip if forcing)
         if (!force) {
             const frequencyStr = await dataService.getGlobalSetting('scan_frequency_days');
-            if (!frequencyStr || frequencyStr === '0') return; // Disabled
+            if (!frequencyStr || frequencyStr === '0') return 0; // Disabled
 
             const frequencyDays = parseInt(frequencyStr);
             const lastScanStr = await dataService.getGlobalSetting('last_auto_scan');
@@ -18,7 +19,7 @@ export const checkAndRunAutoScan = async (force: boolean = false) => {
                 const nextScan = new Date(lastScan);
                 nextScan.setDate(lastScan.getDate() + frequencyDays);
                 
-                if (new Date() < nextScan) return; // Not due yet
+                if (new Date() < nextScan) return 0; // Not due yet
             }
         }
 
@@ -45,14 +46,13 @@ export const checkAndRunAutoScan = async (force: boolean = false) => {
 
         if (inventoryContext.size === 0) {
             console.log("Inventory empty, nothing to scan.");
-            return;
+            return 0;
         }
 
         // 3. Execute AI Scan
         const results = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50));
 
         // 4. Process Results
-        let newVulnCount = 0;
         for (const vuln of results) {
             // Check existence (Simple dedup by CVE ID)
             const exists = allData.vulnerabilities.some((v: any) => v.cve_id === vuln.cve_id);
@@ -122,4 +122,5 @@ export const checkAndRunAutoScan = async (force: boolean = false) => {
     } catch (error) {
         console.error("Auto Scan Error:", error);
     }
+    return newVulnCount;
 };

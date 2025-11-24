@@ -1,8 +1,8 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Entidade, Collaborator, Assignment, CollaboratorStatus } from '../types';
+import { SpinnerIcon } from './common/Icons';
 
 interface AssignEquipmentModalProps {
     equipment: Equipment;
@@ -11,12 +11,13 @@ interface AssignEquipmentModalProps {
     escolasDepartamentos: Entidade[];
     collaborators: Collaborator[];
     onClose: () => void;
-    onAssign: (assignment: Omit<Assignment, 'id' | 'returnDate'>) => void;
+    onAssign: (assignment: Omit<Assignment, 'id' | 'returnDate'>) => Promise<any>;
 }
 
 const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, brandMap, equipmentTypeMap, escolasDepartamentos: entidades, collaborators, onClose, onAssign }) => {
     const [selectedEntidadeId, setSelectedEntidadeId] = useState<string>(entidades[0]?.id || '');
     const [selectedCollaboratorId, setSelectedCollaboratorId] = useState<string>('');
+    const [isSaving, setIsSaving] = useState(false);
 
     const filteredCollaborators = useMemo(() => {
         if (!selectedEntidadeId) return [];
@@ -30,18 +31,28 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
         }
     }, [filteredCollaborators, selectedCollaboratorId]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedEntidadeId) {
             alert("Por favor, selecione uma entidade.");
             return;
         }
-        onAssign({
-            equipmentId: equipment.id,
-            entidadeId: selectedEntidadeId,
-            collaboratorId: selectedCollaboratorId || undefined,
-            assignedDate: new Date().toISOString().split('T')[0],
-        });
+        
+        setIsSaving(true);
+        try {
+            await onAssign({
+                equipmentId: equipment.id,
+                entidadeId: selectedEntidadeId,
+                collaboratorId: selectedCollaboratorId || undefined,
+                assignedDate: new Date().toISOString().split('T')[0],
+            });
+            onClose();
+        } catch (error) {
+            console.error("Failed to assign", error);
+            alert("Erro ao atribuir equipamento. Tente novamente.");
+        } finally {
+            setIsSaving(false);
+        }
     };
     const brandName = brandMap.get(equipment.brandId) || 'Marca Desconhecida';
     const equipmentTypeName = equipmentTypeMap.get(equipment.typeId) || 'Equipamento';
@@ -59,6 +70,7 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
                         value={selectedEntidadeId}
                         onChange={(e) => setSelectedEntidadeId(e.target.value)}
                         className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                        disabled={isSaving}
                     >
                          {entidades.length === 0 && <option value="" disabled>Nenhuma entidade disponível</option>}
                         {entidades.map(entidade => (
@@ -73,7 +85,7 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
                         value={selectedCollaboratorId}
                         onChange={(e) => setSelectedCollaboratorId(e.target.value)}
                         className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                        disabled={!selectedEntidadeId}
+                        disabled={!selectedEntidadeId || isSaving}
                     >
                         <option value="">-- Atribuir apenas à Localização --</option>
                         {filteredCollaborators.map(collaborator => (
@@ -82,8 +94,11 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
                     </select>
                 </div>
                 <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Atribuir</button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
+                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2" disabled={isSaving}>
+                        {isSaving && <SpinnerIcon className="h-4 w-4"/>}
+                        {isSaving ? 'A atribuir...' : 'Atribuir'}
+                    </button>
                 </div>
             </form>
         </Modal>

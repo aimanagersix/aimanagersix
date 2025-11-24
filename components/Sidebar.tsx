@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, FaKey, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -26,7 +26,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
-    const { t } = useLanguage();
+    const { t, setLanguage, language } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     
     // Sidebar toggle states for accordions
@@ -317,6 +317,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                     <FaFingerprint className="text-brand-secondary w-4 h-4" />
                                     {isExpanded && "Configurar 2FA"}
                                 </button>
+                                
+                                {/* Language Switch */}
+                                <div className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer" onClick={(e) => {e.stopPropagation()}}>
+                                    <FaGlobe className="mr-3 text-blue-400" />
+                                    <select 
+                                        value={language} 
+                                        onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
+                                        className="bg-transparent border-none text-white text-sm focus:ring-0 cursor-pointer p-0 w-full"
+                                    >
+                                        <option value="pt">Português</option>
+                                        <option value="en">English</option>
+                                    </select>
+                                </div>
+
                                 {isAdmin && (
                                     <>
                                         <TabButton 
@@ -345,7 +359,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                     </>
                                 )}
                                 <div className="border-t border-gray-700 my-1"></div>
-                                <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-gray-700">
+                                <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300">
                                     <LogoutIcon className="w-4 h-4" />
                                     {isExpanded && t('common.logout')}
                                 </button>

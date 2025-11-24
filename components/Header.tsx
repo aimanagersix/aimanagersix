@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown, FaBars } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -53,7 +54,7 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
 
 
 const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
-    const { t } = useLanguage();
+    const { t, setLanguage, language } = useLanguage();
     const { setLayoutMode } = useLayout();
     const [isOrganizacaoMenuOpen, setOrganizacaoMenuOpen] = useState(false);
     const organizacaoMenuRef = useRef<HTMLDivElement>(null);
@@ -156,12 +157,24 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     <header className="bg-gray-800 shadow-lg relative z-30">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
-          <div className="flex items-center flex-shrink-0">
-            <span className="font-bold text-2xl text-white">
-              AI<span className="text-brand-secondary">Manager</span>
-            </span>
+          <div className="flex items-center gap-4">
+            {/* Mobile Menu Button */}
+            <button 
+                ref={mobileMenuButtonRef}
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
+            >
+                <FaBars className="h-6 w-6" />
+            </button>
+
+            <div className="flex items-center flex-shrink-0">
+                <span className="font-bold text-2xl text-white">
+                AI<span className="text-brand-secondary">Manager</span>
+                </span>
+            </div>
           </div>
 
+          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center space-x-2">
               {/* Visão Geral */}
               {tabConfig['overview'] && (
@@ -350,6 +363,20 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             <button onClick={() => setShowMFA(true)} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
                                 <FaFingerprint className="mr-3 text-brand-secondary" /> Configurar 2FA
                             </button>
+                            
+                            {/* Language Switch */}
+                            <div className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer" onClick={(e) => {e.stopPropagation()}}>
+                                <FaGlobe className="mr-3 text-blue-400" />
+                                <select 
+                                    value={language} 
+                                    onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
+                                    className="bg-transparent border-none text-white text-sm focus:ring-0 cursor-pointer p-0 w-full"
+                                >
+                                    <option value="pt">Português</option>
+                                    <option value="en">English</option>
+                                </select>
+                            </div>
+
                             {isAdmin && (
                                 <>
                                     <TabButton 
@@ -385,11 +412,38 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-gray-900 border-t border-gray-700 absolute w-full left-0 top-20 shadow-2xl overflow-y-auto max-h-[80vh] z-40" ref={mobileMenuRef}>
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                {/* Duplicate of Desktop Nav Logic adjusted for mobile list */}
+                <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
+                
+                {tabConfig['overview.smart'] && <TabButton tab="overview.smart" label="C-Level Dashboard" icon={<FaTachometerAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+
+                <div className="border-t border-gray-700 my-2"></div>
+                <p className="px-4 text-xs text-gray-500 uppercase mt-2">Inventário</p>
+                {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<ClipboardListIcon />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+
+                <div className="border-t border-gray-700 my-2"></div>
+                <p className="px-4 text-xs text-gray-500 uppercase mt-2">Organização</p>
+                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<UserGroupIcon />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<OfficeBuildingIcon />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                
+                <div className="border-t border-gray-700 my-2"></div>
+                <p className="px-4 text-xs text-gray-500 uppercase mt-2">Suporte & Compliance</p>
+                {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.support')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={t('nav.bia')} icon={<FaShieldAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+            </div>
+        </div>
+      )}
+
+        {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
+        {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
+        {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}
     </header>
-    
-    {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
-    {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
-    {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}
     </>
   );
 };
