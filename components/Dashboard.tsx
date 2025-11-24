@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
@@ -34,6 +34,10 @@ interface EquipmentDashboardProps {
   serviceDependencies?: ServiceDependency[];
   tickets?: any[]; // passed down for history
   ticketActivities?: any[]; // passed down for history
+  softwareLicenses?: SoftwareLicense[];
+  licenseAssignments?: LicenseAssignment[];
+  vulnerabilities?: Vulnerability[];
+  suppliers?: Supplier[];
 }
 
 interface TooltipState {

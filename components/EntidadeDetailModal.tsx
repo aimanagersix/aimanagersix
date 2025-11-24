@@ -1,25 +1,33 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { Entidade, Instituicao, Collaborator } from '../types';
-import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt } from './common/Icons';
+import { Entidade, Instituicao, Collaborator, Assignment } from '../types';
+import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop } from './common/Icons';
 
 interface EntidadeDetailModalProps {
     entidade: Entidade;
     instituicao?: Instituicao;
     collaborators: Collaborator[];
+    assignments?: Assignment[];
     onClose: () => void;
     onEdit: () => void;
+    onAddCollaborator?: (entidadeId: string) => void;
+    onAssignEquipment?: (entidadeId: string) => void;
 }
 
-const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, onClose, onEdit }) => {
+const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, assignments = [], onClose, onEdit, onAddCollaborator, onAssignEquipment }) => {
+    const [activeTab, setActiveTab] = useState<'info' | 'collaborators' | 'equipment'>('info');
+    
     const activeCollaborators = collaborators.filter(c => c.entidadeId === entidade.id);
+    
+    // Count equipment assigned to entity (directly or via collab)
+    const associatedEquipmentCount = assignments.filter(a => a.entidadeId === entidade.id && !a.returnDate).length;
 
     return (
-        <Modal title={`Detalhes: ${entidade.name}`} onClose={onClose} maxWidth="max-w-3xl">
-            <div className="space-y-6">
+        <Modal title={`Detalhes: ${entidade.name}`} onClose={onClose} maxWidth="max-w-4xl">
+            <div className="flex flex-col h-[80vh]">
                 {/* Header */}
-                <div className="flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                <div className="flex-shrink-0 flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 mb-4">
                     <div className="p-3 bg-brand-primary/20 rounded-full text-brand-secondary">
                         <OfficeBuildingIcon className="h-8 w-8" />
                     </div>
@@ -28,80 +36,155 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                         <p className="text-sm text-on-surface-dark-secondary">Código: <span className="font-mono text-white">{entidade.codigo}</span></p>
                         <p className="text-sm text-brand-secondary mt-1">{instituicao?.name || 'Instituição não definida'}</p>
                     </div>
+                    <div className="flex flex-col items-end gap-2">
+                        <button 
+                            onClick={() => { onClose(); onEdit(); }} 
+                            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
+                        >
+                            Editar Dados
+                        </button>
+                        <span className={`block text-xs font-bold px-2 py-1 rounded ${entidade.status === 'Ativo' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                            {entidade.status}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b border-gray-700 mb-4 flex-shrink-0">
                     <button 
-                        onClick={() => { onClose(); onEdit(); }} 
-                        className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
+                        onClick={() => setActiveTab('info')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'info' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        Editar Dados
+                        Informação Geral
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('collaborators')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'collaborators' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        Colaboradores <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{activeCollaborators.length}</span>
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('equipment')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'equipment' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        Equipamentos <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{associatedEquipmentCount}</span>
                     </button>
                 </div>
 
-                {/* Info Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2">Contactos</h3>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2 text-gray-300">
-                                <FaUserTag className="text-gray-500" />
-                                <span className="text-gray-500 w-24">Responsável:</span>
-                                <span>{entidade.responsavel || '—'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-300">
-                                <FaEnvelope className="text-gray-500" />
-                                <span className="text-gray-500 w-24">Email:</span>
-                                <a href={`mailto:${entidade.email}`} className="hover:text-brand-secondary transition-colors">{entidade.email}</a>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-300">
-                                <FaPhone className="text-gray-500" />
-                                <span className="text-gray-500 w-24">Telefone:</span>
-                                <span>{entidade.telefone || '—'}</span>
-                            </div>
-                             <div className="flex items-center gap-2 text-gray-300">
-                                <span className="text-gray-500 w-8"></span>
-                                <span className="text-gray-500 w-24">Telemóvel:</span>
-                                <span>{entidade.telemovel || '—'}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2">Localização</h3>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex items-start gap-2 text-gray-300">
-                                <FaMapMarkerAlt className="text-gray-500 mt-1" />
-                                <div>
-                                    <p>{entidade.address_line || 'Endereço não definido'}</p>
-                                    <p>{entidade.postal_code} {entidade.locality}</p>
-                                    <p>{entidade.city}</p>
+                {/* Content */}
+                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
+                    {activeTab === 'info' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2">Contactos</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex items-center gap-2 text-gray-300">
+                                        <FaUserTag className="text-gray-500" />
+                                        <span className="text-gray-500 w-24">Responsável:</span>
+                                        <span>{entidade.responsavel || '—'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-gray-300">
+                                        <FaEnvelope className="text-gray-500" />
+                                        <span className="text-gray-500 w-24">Email:</span>
+                                        <a href={`mailto:${entidade.email}`} className="hover:text-brand-secondary transition-colors">{entidade.email}</a>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-gray-300">
+                                        <FaPhone className="text-gray-500" />
+                                        <span className="text-gray-500 w-24">Telefone:</span>
+                                        <span>{entidade.telefone || '—'}</span>
+                                    </div>
+                                     <div className="flex items-center gap-2 text-gray-300">
+                                        <span className="text-gray-500 w-8"></span>
+                                        <span className="text-gray-500 w-24">Telemóvel:</span>
+                                        <span>{entidade.telemovel || '—'}</span>
+                                    </div>
                                 </div>
                             </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2">Localização & Notas</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex items-start gap-2 text-gray-300">
+                                        <FaMapMarkerAlt className="text-gray-500 mt-1" />
+                                        <div>
+                                            <p>{entidade.address_line || 'Endereço não definido'}</p>
+                                            <p>{entidade.postal_code} {entidade.locality}</p>
+                                            <p>{entidade.city}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {entidade.description && (
+                                    <div className="bg-gray-900/30 p-3 rounded border border-gray-700 text-sm text-gray-400 mt-4">
+                                        {entidade.description}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {activeTab === 'collaborators' && (
+                        <div>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Lista de Colaboradores</h3>
+                                {onAddCollaborator && (
+                                    <button 
+                                        onClick={() => { onClose(); onAddCollaborator(entidade.id); }}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm rounded transition-colors"
+                                    >
+                                        <FaPlus /> Novo Colaborador
+                                    </button>
+                                )}
+                            </div>
+                            {activeCollaborators.length > 0 ? (
+                                <div className="space-y-2">
+                                    {activeCollaborators.map(col => (
+                                        <div key={col.id} className="flex justify-between items-center bg-gray-800/50 p-3 rounded border border-gray-700">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-gray-700 p-2 rounded-full">
+                                                    <FaUsers className="text-gray-400"/>
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-white">{col.fullName}</p>
+                                                    <p className="text-xs text-gray-400">{col.email}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">{col.role}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-center text-gray-500 py-8 bg-gray-900/20 rounded border border-dashed border-gray-700">Nenhum colaborador associado.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'equipment' && (
+                        <div>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Equipamentos Associados</h3>
+                                {onAssignEquipment && (
+                                    <button 
+                                        onClick={() => { onClose(); onAssignEquipment(entidade.id); }}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded transition-colors"
+                                    >
+                                        <FaPlus /> Adicionar Equipamento (Novo)
+                                    </button>
+                                )}
+                            </div>
+                            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded text-xs text-blue-200 mb-4">
+                                <p>Para associar equipamentos já existentes em stock, utilize o menu "Inventário" e selecione a opção "Atribuir".</p>
+                            </div>
+                            
+                            <div className="text-center text-gray-500 py-4">
+                                <FaLaptop className="mx-auto text-2xl mb-2 opacity-50"/>
+                                <p>{associatedEquipmentCount} equipamentos ativos nesta entidade.</p>
+                                <p className="text-xs mt-1">(Consulte o relatório da entidade para detalhes completos)</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div className="bg-surface-dark p-4 rounded border border-gray-700 text-center">
-                        <span className="block text-2xl font-bold text-white">{activeCollaborators.length}</span>
-                        <span className="text-xs text-gray-500 uppercase">Colaboradores Ativos</span>
-                    </div>
-                    <div className="bg-surface-dark p-4 rounded border border-gray-700 text-center">
-                        <span className={`block text-sm font-bold mt-2 ${entidade.status === 'Ativo' ? 'text-green-400' : 'text-red-400'}`}>
-                            {entidade.status}
-                        </span>
-                        <span className="text-xs text-gray-500 uppercase">Estado</span>
-                    </div>
-                </div>
-
-                {/* Description */}
-                {entidade.description && (
-                    <div className="bg-gray-900/30 p-4 rounded border border-gray-700">
-                        <h3 className="text-xs font-bold text-gray-500 mb-1">OBSERVAÇÕES</h3>
-                        <p className="text-sm text-gray-300">{entidade.description}</p>
-                    </div>
-                )}
-
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-end pt-4 border-t border-gray-700 mt-auto">
                     <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">
                         Fechar
                     </button>

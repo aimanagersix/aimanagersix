@@ -823,6 +823,10 @@ const InnerApp: React.FC = () => {
                             onGenerateReport={() => setShowReport({ type: 'equipment', visible: true })}
                             onManageKeys={(eq) => setShowManageLicenses(eq)}
                             onCreate={() => { setEquipmentToEdit(null); setInitialEquipmentData(null); setShowAddEquipment(true); }}
+                            softwareLicenses={softwareLicenses}
+                            licenseAssignments={licenseAssignments}
+                            vulnerabilities={vulnerabilities}
+                            suppliers={suppliers}
                         />
                     )}
                 
@@ -1064,6 +1068,7 @@ const InnerApp: React.FC = () => {
                         criticalityOptions={configCriticalityLevels}
                         ciaOptions={configCiaRatings}
                         initialData={initialEquipmentData}
+                        licenseAssignments={licenseAssignments}
                     />
                 )}
 

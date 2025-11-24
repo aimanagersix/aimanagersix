@@ -11,9 +11,11 @@ interface InstituicaoDashboardProps {
   onEdit?: (instituicao: Instituicao) => void;
   onDelete?: (id: string) => void;
   onCreate?: () => void;
+  // Quick Action
+  onAddEntity?: (instituicaoId: string) => void;
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, onEdit, onDelete, onCreate }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, onEdit, onDelete, onCreate, onAddEntity }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -130,6 +132,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                     setSelectedInstituicao(null);
                     if (onEdit) onEdit(selectedInstituicao);
                 }}
+                onAddEntity={onAddEntity}
             />
         )}
     </div>

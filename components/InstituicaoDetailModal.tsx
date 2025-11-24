@@ -2,16 +2,17 @@
 import React from 'react';
 import Modal from './common/Modal';
 import { Instituicao, Entidade } from '../types';
-import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt } from './common/Icons';
+import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus } from './common/Icons';
 
 interface InstituicaoDetailModalProps {
     instituicao: Instituicao;
     entidades: Entidade[];
     onClose: () => void;
     onEdit: () => void;
+    onAddEntity?: (instituicaoId: string) => void;
 }
 
-const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, onClose, onEdit }) => {
+const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, onClose, onEdit, onAddEntity }) => {
     const relatedEntidades = entidades.filter(e => e.instituicaoId === instituicao.id);
 
     return (
@@ -66,7 +67,18 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
 
                 {/* Stats */}
                 <div className="mt-6">
-                    <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-3">Estrutura Organizacional</h3>
+                    <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-3">
+                        <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Estrutura Organizacional</h3>
+                        {onAddEntity && (
+                            <button 
+                                onClick={() => { onClose(); onAddEntity(instituicao.id); }}
+                                className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                            >
+                                <FaPlus /> Nova Entidade
+                            </button>
+                        )}
+                    </div>
+                    
                     <div className="bg-surface-dark p-4 rounded border border-gray-700">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-gray-400">Entidades Associadas:</span>

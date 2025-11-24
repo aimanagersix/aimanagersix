@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory } from '../types';
+import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment } from '../types';
 import { EditIcon, DeleteIcon, SearchIcon, PlusIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -17,6 +17,9 @@ interface EntidadeDashboardProps {
   onDelete?: (id: string) => void;
   onToggleStatus?: (id: string) => void;
   onCreate?: () => void;
+  // New Quick Actions
+  onAddCollaborator?: (entidadeId: string) => void;
+  onAssignEquipment?: (entidadeId: string) => void;
 }
 
 const getStatusClass = (status: EntidadeStatus) => {
@@ -30,7 +33,7 @@ const getStatusClass = (status: EntidadeStatus) => {
     }
 };
 
-const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate }) => {
+const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate, onAddCollaborator, onAssignEquipment }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ instituicaoId: '' });
@@ -246,11 +249,14 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                 entidade={selectedEntidade}
                 instituicao={instituicoes.find(i => i.id === selectedEntidade.instituicaoId)}
                 collaborators={collaborators}
+                assignments={assignments}
                 onClose={() => setSelectedEntidade(null)}
                 onEdit={() => {
                     setSelectedEntidade(null);
                     if (onEdit) onEdit(selectedEntidade);
                 }}
+                onAddCollaborator={onAddCollaborator}
+                onAssignEquipment={onAssignEquipment}
             />
         )}
     </div>

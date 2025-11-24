@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus } from '../types';
+import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt } from './common/Icons';
 import { FaExclamationTriangle, FaEuroSign, FaWindows, FaUserTag, FaKey } from 'react-icons/fa';
@@ -23,6 +23,7 @@ interface AddEquipmentModalProps {
     criticalityOptions?: ConfigItem[];
     ciaOptions?: ConfigItem[];
     initialData?: Partial<Equipment> | null;
+    licenseAssignments?: LicenseAssignment[];
 }
 
 interface CameraScannerProps {
@@ -175,7 +176,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ 
     onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, 
     suppliers = [], softwareLicenses = [], entidades = [], collaborators = [], 
-    statusOptions, criticalityOptions, ciaOptions, initialData 
+    statusOptions, criticalityOptions, ciaOptions, initialData, licenseAssignments = [] 
 }) => {
     // Use dynamic options if available, else fallback to enum values
     const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(o => o.name) : Object.values(EquipmentStatus);
@@ -242,6 +243,28 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 expectedLifespanYears: equipmentToEdit.expectedLifespanYears || 4,
                 embedded_license_key: equipmentToEdit.embedded_license_key || ''
             });
+
+            // Load associated licenses
+            if (softwareLicenses.length > 0 && licenseAssignments.length > 0) {
+                const relevantAssignments = licenseAssignments.filter(la => la.equipmentId === equipmentToEdit.id);
+                const licenseIds = new Set<string>();
+                let oemId = '';
+
+                relevantAssignments.forEach(la => {
+                    const lic = softwareLicenses.find(l => l.id === la.softwareLicenseId);
+                    if (lic) {
+                        if (lic.is_oem && !oemId) {
+                            oemId = lic.id; // Set as OEM (first one found)
+                        } else {
+                            licenseIds.add(lic.id); // Set as additional
+                        }
+                    }
+                });
+
+                setSelectedLicenseIds(licenseIds);
+                setSelectedOemLicenseId(oemId);
+            }
+
         } else {
             setFormData({
                 brandId: initialData?.brandId || brands[0]?.id || '',
@@ -267,8 +290,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 expectedLifespanYears: initialData?.expectedLifespanYears || 4,
                 embedded_license_key: initialData?.embedded_license_key || ''
             });
+            if ((initialData as any)?.entidadeId) setAssignToEntityId((initialData as any).entidadeId);
         }
-    }, [equipmentToEdit, brands, equipmentTypes, initialData]);
+    }, [equipmentToEdit, brands, equipmentTypes, initialData, softwareLicenses, licenseAssignments]);
 
     // Auto-fill description based on brand and type for new equipment
     useEffect(() => {
