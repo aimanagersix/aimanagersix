@@ -2,11 +2,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, LicenseAssignment } from '../types';
-import { PlusIcon, DeleteIcon, FaExclamationTriangle } from './common/Icons';
+import { PlusIcon, DeleteIcon, FaExclamationTriangle, SpinnerIcon, CheckIcon } from './common/Icons';
 
 interface ManageAssignedLicensesModalProps {
     onClose: () => void;
-    onSave: (equipmentId: string, assignedLicenseIds: string[]) => void;
+    onSave: (equipmentId: string, assignedLicenseIds: string[]) => Promise<void>;
     equipment: Equipment;
     allLicenses: SoftwareLicense[];
     allAssignments: LicenseAssignment[];
@@ -15,7 +15,8 @@ interface ManageAssignedLicensesModalProps {
 const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = ({ onClose, onSave, equipment, allLicenses, allAssignments }) => {
     const [assignedLicenseIds, setAssignedLicenseIds] = useState<Set<string>>(new Set());
     const [selectedLicenseToAdd, setSelectedLicenseToAdd] = useState('');
-    const [warningMessage, setWarningMessage] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     useEffect(() => {
         const initialIds = allAssignments
@@ -50,11 +51,10 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         const licenseToAdd = allLicenses.find(l => l.id === selectedLicenseToAdd);
         
         // Simple heuristic for OS detection: check for "Windows" or "macOS" in product name
-        // Ideally, SoftwareLicense should have a 'type' field (OS, Application, etc.)
         const isOS = licenseToAdd && (
             licenseToAdd.productName.toLowerCase().includes('windows') || 
             licenseToAdd.productName.toLowerCase().includes('macos') ||
-            licenseToAdd.is_oem // OEM implies base software often
+            licenseToAdd.is_oem
         );
 
         if (isOS) {
@@ -72,7 +72,7 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         }
 
         setAssignedLicenseIds(prev => new Set(prev).add(selectedLicenseToAdd));
-        setSelectedLicenseToAdd(''); // Reset dropdown
+        setSelectedLicenseToAdd('');
     };
 
     const handleRemoveLicense = (licenseId: string) => {
@@ -83,9 +83,20 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(equipment.id, Array.from(assignedLicenseIds));
+        setIsSaving(true);
+        try {
+            await onSave(equipment.id, Array.from(assignedLicenseIds));
+            setSuccessMessage('Licenças guardadas com sucesso!');
+            setTimeout(() => {
+                onClose();
+            }, 1500);
+        } catch (error) {
+            console.error("Error saving licenses", error);
+            alert("Ocorreu um erro ao guardar as licenças.");
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -106,6 +117,7 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                                         onClick={() => handleRemoveLicense(license.id)}
                                         className="p-2 text-red-400 hover:text-red-300 rounded-full hover:bg-red-500/10"
                                         title="Remover Licença"
+                                        disabled={isSaving}
                                     >
                                         <DeleteIcon />
                                     </button>
@@ -127,6 +139,7 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                                 value={selectedLicenseToAdd}
                                 onChange={(e) => setSelectedLicenseToAdd(e.target.value)}
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                                disabled={isSaving}
                             >
                                 <option value="">Selecione uma licença...</option>
                                 {availableLicenses.map(l => (
@@ -138,7 +151,7 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                             <button
                                 type="button"
                                 onClick={handleAddLicense}
-                                disabled={!selectedLicenseToAdd}
+                                disabled={!selectedLicenseToAdd || isSaving}
                                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 disabled:opacity-50"
                             >
                                 <PlusIcon className="h-5 w-5" />
@@ -148,9 +161,29 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                      </div>
                 </div>
                 
+                {successMessage && (
+                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">
+                        {successMessage}
+                    </div>
+                )}
+
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar Alterações</button>
+                    <button 
+                        type="button" 
+                        onClick={onClose} 
+                        className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"
+                        disabled={isSaving}
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        type="submit" 
+                        disabled={isSaving}
+                        className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50"
+                    >
+                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : successMessage ? <CheckIcon className="h-4 w-4"/> : null}
+                        {isSaving ? 'A Guardar...' : successMessage ? 'Guardado!' : 'Salvar Alterações'}
+                    </button>
                 </div>
             </form>
         </Modal>
