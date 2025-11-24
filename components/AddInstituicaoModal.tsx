@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Instituicao, ResourceContact } from '../types';
@@ -15,7 +9,7 @@ import * as dataService from '../services/dataService';
 const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
 
 const isPortuguesePhoneNumber = (phone: string): boolean => {
-    if (!phone || phone.trim() === '') return false;
+    if (!phone || phone.trim() === '') return true; // Optional valid
     const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
     const regex = /^(2\d{8}|9[1236]\d{7})$/;
     return regex.test(cleaned);
@@ -44,6 +38,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isFetchingCP, setIsFetchingCP] = useState(false);
     const [isFetchingNif, setIsFetchingNif] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (instituicaoToEdit) {
@@ -67,16 +62,12 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         if (!formData.name?.trim()) newErrors.name = "O nome da instituição é obrigatório.";
         if (!formData.codigo?.trim()) newErrors.codigo = "O código é obrigatório.";
         
-        if (!formData.email?.trim()) {
-            newErrors.email = "O email é obrigatório.";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        if (formData.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = "O formato do email é inválido.";
         }
         
-        if (!formData.telefone?.trim()) {
-            newErrors.telefone = "O telefone é obrigatório.";
-        } else if (!isPortuguesePhoneNumber(formData.telefone)) {
-            newErrors.telefone = "Número inválido. Deve ser um número português de 9 dígitos.";
+        if (formData.telefone?.trim() && !isPortuguesePhoneNumber(formData.telefone)) {
+            newErrors.telefone = "Número inválido.";
         }
 
         setErrors(newErrors);
@@ -104,7 +95,6 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
 
         const nif = formData.nif.trim().replace(/[^0-9]/g, '');
         
-        // Validar NIF português (9 dígitos)
         if (nif.length !== 9) {
              setErrors(prev => ({ ...prev, nif: "O NIF deve ter 9 dígitos." }));
              return;
@@ -118,7 +108,6 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         });
 
         try {
-            // Using corsproxy to avoid CORS issues from browser if nif.pt doesn't support it directly
             const response = await fetch(`https://corsproxy.io/?https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`);
             
             if (response.ok) {
@@ -129,12 +118,12 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                     
                     setFormData(prev => ({
                         ...prev,
-                        name: prev.name || record.title, // Fill name if empty or overwrite? Let's overwrite or fallback
+                        name: prev.name || record.title, 
                         nif: nif,
                         address_line: record.address,
                         postal_code: record.pc4 && record.pc3 ? `${record.pc4}-${record.pc3}` : prev.postal_code,
                         city: record.city,
-                        locality: record.city, // Often city corresponds to locality in this API
+                        locality: record.city, 
                         email: record.contacts?.email || prev.email,
                         telefone: record.contacts?.phone || prev.telefone,
                     }));
@@ -197,6 +186,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         e.preventDefault();
         if (!validate()) return;
         
+        setIsSaving(true);
         // Create legacy address string
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         
@@ -213,12 +203,19 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
             }
 
             if (result && result.id) {
-                await dataService.syncResourceContacts('instituicao', result.id, contacts);
+                try {
+                    await dataService.syncResourceContacts('instituicao', result.id, contacts);
+                } catch (contactError) {
+                    console.error("Error saving contacts:", contactError);
+                    alert("A instituição foi gravada, mas ocorreu um erro ao gravar os contactos adicionais. Verifique se as Funções e Tratos estão configurados.");
+                }
             }
             onClose();
         } catch (e) {
             console.error("Failed to save institution", e);
             alert("Erro ao salvar a instituição.");
+        } finally {
+            setIsSaving(false);
         }
     };
     
@@ -335,7 +332,10 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
 
                 <div className="flex justify-end gap-4 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
+                    <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
+                        {isSaving && <SpinnerIcon className="h-4 w-4" />}
+                        Salvar
+                    </button>
                 </div>
             </form>
         </Modal>

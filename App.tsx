@@ -1025,23 +1025,27 @@ const InnerApp: React.FC = () => {
                     <AddEquipmentModal
                         onClose={() => setShowAddEquipment(false)}
                         onSave={(eq, assign, lic) => {
-                            // Complex save logic usually goes here or via dataService helpers
-                            // Assuming simplified direct call to dataService for add/update:
-                            if (equipmentToEdit) {
-                                return simpleSaveWrapper(dataService.updateEquipment, eq, equipmentToEdit.id);
-                            } else {
-                                // Handle assignment & licenses in one go (transaction-like) if possible or sequential
-                                const savePromise = dataService.addEquipment(eq).then(async (newEq) => {
-                                    if (assign) {
-                                        await dataService.addAssignment({ ...assign, equipmentId: newEq.id });
+                            // Wrapped logic to handle both create and update with licenses
+                            const savePromise = async () => {
+                                let eqId = equipmentToEdit?.id;
+                                if (equipmentToEdit) {
+                                    await dataService.updateEquipment(equipmentToEdit.id, eq);
+                                } else {
+                                    const newEq = await dataService.addEquipment(eq);
+                                    eqId = newEq.id;
+                                }
+                                
+                                if (eqId) {
+                                    if (assign && !equipmentToEdit) { // Only assign on create for simplicity, or add check
+                                        await dataService.addAssignment({ ...assign, equipmentId: eqId });
                                     }
-                                    if (lic && lic.length > 0) {
-                                        await dataService.syncLicenseAssignments(newEq.id, lic);
+                                    if (lic) {
+                                        await dataService.syncLicenseAssignments(eqId, lic);
                                     }
-                                    return newEq;
-                                });
-                                return simpleSaveWrapper(() => savePromise, {});
-                            }
+                                }
+                                return eqId;
+                            };
+                            return simpleSaveWrapper(() => savePromise(), {});
                         }}
                         equipmentToEdit={equipmentToEdit}
                         brands={brands}
@@ -1077,16 +1081,14 @@ const InnerApp: React.FC = () => {
                         onClose={() => setShowAddCollaborator(false)}
                         onSave={(col, pw) => {
                             if (collaboratorToEdit) return simpleSaveWrapper(dataService.updateCollaborator, col, collaboratorToEdit.id);
-                            // Create logic often involves auth user creation too, handled in dataService ideally
                             return simpleSaveWrapper(dataService.addCollaborator, { ...col, password: pw });
                         }}
                         collaboratorToEdit={collaboratorToEdit}
                         escolasDepartamentos={entidades}
                         currentUser={currentUser}
                         roleOptions={configUserRoles}
-                        statusOptions={configEquipmentStatuses} // Using equipment status as generic status, or should use specific if exists.
-                        // Actually configEquipmentStatuses is for equipment. Collaborator status is enum.
-                        // If we want dynamic collaborator statuses, we'd need a config table for that. For now use Enum.
+                        titleOptions={contactTitles} // Pass Contact Titles
+                        // Removed statusOptions to force hardcoded values inside modal
                     />
                 )}
 
@@ -1134,6 +1136,38 @@ const InnerApp: React.FC = () => {
                         securityIncidentTypes={securityIncidentTypes}
                         pastTickets={tickets}
                         initialData={initialTicketData}
+                    />
+                )}
+
+                {/* MISSING MODALS ADDED HERE */}
+                {showAddTeam && (
+                    <AddTeamModal 
+                        onClose={() => setShowAddTeam(false)} 
+                        onSave={(t) => {
+                            if (teamToEdit) return simpleSaveWrapper(dataService.updateTeam, t, teamToEdit.id);
+                            return simpleSaveWrapper(dataService.addTeam, t);
+                        }}
+                        teamToEdit={teamToEdit}
+                    />
+                )}
+
+                {showManageTeamMembers && teamToEdit && (
+                    <ManageTeamMembersModal
+                        onClose={() => { setShowManageTeamMembers(null); setTeamToEdit(null); }}
+                        onSave={(teamId, members) => simpleSaveWrapper(dataService.syncTeamMembers, members, teamId)}
+                        team={teamToEdit}
+                        allCollaborators={collaborators}
+                        teamMembers={teamMembers}
+                    />
+                )}
+
+                {showManageLicenses && (
+                    <ManageAssignedLicensesModal
+                        equipment={showManageLicenses}
+                        allLicenses={softwareLicenses}
+                        allAssignments={licenseAssignments}
+                        onClose={() => setShowManageLicenses(null)}
+                        onSave={(eqId, licenseIds) => simpleSaveWrapper(dataService.syncLicenseAssignments, licenseIds, eqId)}
                     />
                 )}
 

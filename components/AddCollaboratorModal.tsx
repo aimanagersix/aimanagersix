@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem } from '../types';
+import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle } from '../types';
 import { SpinnerIcon } from './common/Icons';
 
 interface AddCollaboratorModalProps {
@@ -11,7 +11,7 @@ interface AddCollaboratorModalProps {
     escolasDepartamentos: Entidade[];
     currentUser: Collaborator | null;
     roleOptions?: ConfigItem[];
-    statusOptions?: ConfigItem[];
+    titleOptions?: ContactTitle[];
 }
 
 const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ 
@@ -21,7 +21,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     escolasDepartamentos, 
     currentUser,
     roleOptions,
-    statusOptions 
+    titleOptions 
 }) => {
     const [formData, setFormData] = useState<Partial<Collaborator>>({
         numeroMecanografico: '',
@@ -47,7 +47,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
     // Use dynamic options if available
     const roles = roleOptions && roleOptions.length > 0 ? roleOptions.map(r => r.name) : Object.values(UserRole);
-    const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(s => s.name) : Object.values(CollaboratorStatus);
+    const titles = titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª'];
 
     useEffect(() => {
         if (collaboratorToEdit) {
@@ -117,7 +117,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Trato</label>
-                        <input type="text" name="title" value={formData.title} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Dr., Eng."/>
+                        <select name="title" value={formData.title} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                            <option value="">--</option>
+                            {titles.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
                     </div>
                     <div className="md:col-span-2">
                         <label className="block text-xs font-medium text-gray-400 mb-1">Nome Completo</label>
@@ -168,7 +171,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
                         <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                            {Object.values(CollaboratorStatus).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
                 </div>
