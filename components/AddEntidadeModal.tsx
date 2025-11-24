@@ -188,7 +188,10 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         try {
             let result;
             if (entidadeToEdit) {
-                result = await onSave({ ...entidadeToEdit, ...dataToSave });
+                // Merge old data with new, but explicitly remove contacts to prevent SQL error
+                const payload = { ...entidadeToEdit, ...dataToSave };
+                delete payload.contacts;
+                result = await onSave(payload);
             } else {
                 result = await onSave(dataToSave);
             }
@@ -207,7 +210,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
             }
         } catch (e) {
             console.error(e);
-            // Error alert handled by parent wrapper mostly
+            // Error handled by wrapper
         } finally {
             setIsSaving(false);
         }

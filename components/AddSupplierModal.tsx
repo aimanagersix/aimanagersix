@@ -348,7 +348,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         try {
             let result;
             if (supplierToEdit) {
-                result = await onSave({ ...supplierToEdit, ...dataToSave });
+                // Merge old with new, but ensure contacts are removed
+                const payload = { ...supplierToEdit, ...dataToSave };
+                delete payload.contacts;
+                result = await onSave(payload);
             } else {
                 result = await onSave(dataToSave);
             }

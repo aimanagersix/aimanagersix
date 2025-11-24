@@ -236,12 +236,24 @@ export const updateEquipmentType = (id: string, data: any) => update('equipment_
 export const deleteEquipmentType = (id: string) => remove('equipment_types', id);
 
 // Org
-export const addInstituicao = (data: any) => create('instituicoes', data);
-export const updateInstituicao = (id: string, data: any) => update('instituicoes', id, data);
+export const addInstituicao = (data: any) => {
+    const { contacts, ...rest } = data;
+    return create('instituicoes', rest);
+};
+export const updateInstituicao = (id: string, data: any) => {
+    const { contacts, ...rest } = data;
+    return update('instituicoes', id, rest);
+};
 export const deleteInstituicao = (id: string) => remove('instituicoes', id);
 
-export const addEntidade = (data: any) => create('entidades', data);
-export const updateEntidade = (id: string, data: any) => update('entidades', id, data);
+export const addEntidade = (data: any) => {
+    const { contacts, ...rest } = data;
+    return create('entidades', rest);
+};
+export const updateEntidade = (id: string, data: any) => {
+    const { contacts, ...rest } = data;
+    return update('entidades', id, rest);
+};
 export const deleteEntidade = (id: string) => remove('entidades', id);
 
 // Collaborators

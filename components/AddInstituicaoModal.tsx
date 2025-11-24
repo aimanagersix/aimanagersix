@@ -197,7 +197,10 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         try {
             let result;
             if (instituicaoToEdit) {
-                result = await onSave({ ...instituicaoToEdit, ...dataToSave });
+                // Merge but ensure contacts is removed from payload
+                const payload = { ...instituicaoToEdit, ...dataToSave };
+                delete payload.contacts;
+                result = await onSave(payload);
             } else {
                 result = await onSave(dataToSave);
             }
