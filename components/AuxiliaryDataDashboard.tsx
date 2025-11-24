@@ -121,7 +121,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         {
             group: "NIS2 & Compliance",
             items: [
-                { id: 'automation', label: 'Automação & Geral', icon: <FaRobot />, type: 'automation' },
+                { id: 'automation', label: 'Automação & Configuração Geral', icon: <FaRobot />, type: 'automation' },
                 { id: 'criticality', label: 'Níveis de Criticidade', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_criticality_levels') },
                 { id: 'cia_ratings', label: 'Classificação CIA', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_cia_ratings') },
                 { id: 'service_status', label: 'Estados de Serviço (BIA)', icon: <FaServer />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_service_statuses') },

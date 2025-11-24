@@ -203,7 +203,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose, reportCo
                      >
                         {logoUrl && (
                             <div className="mb-6 flex justify-center">
-                                <img src={logoUrl} alt="Logótipo" style={{ maxHeight: '80px', objectFit: 'contain' }} />
+                                <img src={logoUrl} alt="Logótipo" style={{ maxHeight: '80px', objectFit: 'contain' }} crossOrigin="anonymous" />
                             </div>
                         )}
                         <div dangerouslySetInnerHTML={{ __html: reportContentHtml }} />

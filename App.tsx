@@ -1295,6 +1295,38 @@ const InnerApp: React.FC = () => {
                     />
                 )}
 
+                {showReport.visible && (
+                    <ReportModal
+                        type={showReport.type as any}
+                        onClose={() => setShowReport({ ...showReport, visible: false })}
+                        equipment={equipment}
+                        brandMap={brandMap}
+                        equipmentTypeMap={equipmentTypeMap}
+                        instituicoes={instituicoes}
+                        escolasDepartamentos={entidades}
+                        collaborators={collaborators}
+                        assignments={assignments}
+                        tickets={tickets}
+                        // Pass props for BIA & License Reports
+                        softwareLicenses={softwareLicenses}
+                        licenseAssignments={licenseAssignments}
+                        businessServices={businessServices}
+                        serviceDependencies={serviceDependencies}
+                    />
+                )}
+
+                {showAddLicense && (
+                    <AddLicenseModal
+                        onClose={() => setShowAddLicense(false)}
+                        onSave={(lic) => {
+                            if (licenseToEdit) return simpleSaveWrapper(dataService.updateLicense, lic, licenseToEdit.id);
+                            return simpleSaveWrapper(dataService.addLicense, lic);
+                        }}
+                        licenseToEdit={licenseToEdit}
+                        suppliers={suppliers}
+                    />
+                )}
+
                 {/* Magic Command Bar */}
                 <MagicCommandBar 
                     brands={brands} 
@@ -1340,6 +1372,90 @@ const InnerApp: React.FC = () => {
                         }}
                     />
                 )}
+
+                {/* Ticket Activities Modal */}
+                {ticketActivitiesModal && (
+                    <TicketActivitiesModal
+                        ticket={ticketActivitiesModal}
+                        activities={ticketActivities.filter(ta => ta.ticketId === ticketActivitiesModal.id)}
+                        collaborators={collaborators}
+                        currentUser={currentUser}
+                        equipment={equipment}
+                        equipmentTypes={equipmentTypes}
+                        entidades={entidades}
+                        onClose={() => setTicketActivitiesModal(null)}
+                        onAddActivity={(activity) => simpleSaveWrapper(dataService.addTicketActivity, { ...activity, ticketId: ticketActivitiesModal.id, technicianId: currentUser?.id, date: new Date().toISOString() })}
+                        assignments={assignments}
+                    />
+                )}
+
+                {/* Close Ticket Modal */}
+                {showCloseTicket && (
+                    <CloseTicketModal
+                        ticket={showCloseTicket}
+                        collaborators={collaborators}
+                        activities={ticketActivities.filter(ta => ta.ticketId === showCloseTicket.id)}
+                        onClose={() => setShowCloseTicket(null)}
+                        onConfirm={(techId, summary) => {
+                            simpleSaveWrapper(dataService.updateTicket, { 
+                                status: TicketStatus.Finished, 
+                                finishDate: new Date().toISOString(), 
+                                technicianId: techId,
+                                resolution_summary: summary
+                            }, showCloseTicket.id);
+                            setShowCloseTicket(null);
+                        }}
+                    />
+                )}
+
+                {/* Password Modals */}
+                {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
+                {showResetPassword && session && <ResetPasswordModal onClose={() => { setShowResetPassword(false); window.location.hash = ''; }} session={session} />}
+                
+                {/* Kit Modal */}
+                {showAddKit && (
+                    <AddEquipmentKitModal
+                        onClose={() => setShowAddKit(false)}
+                        onSaveKit={async (items) => {
+                            try {
+                                await dataService.addMultipleEquipment(items);
+                                await refreshData();
+                            } catch (e) {
+                                console.error("Error saving kit:", e);
+                                alert("Erro ao salvar kit de equipamentos.");
+                            }
+                        }}
+                        brands={brands}
+                        equipmentTypes={equipmentTypes}
+                        initialData={kitInitialData}
+                        onSaveEquipmentType={dataService.addEquipmentType}
+                        equipment={equipment}
+                    />
+                )}
+
+                {/* Chat Widget */}
+                <ChatWidget
+                    currentUser={currentUser}
+                    collaborators={collaborators}
+                    messages={messages}
+                    onSendMessage={(receiverId, content) => {
+                        simpleSaveWrapper(dataService.addMessage, {
+                            senderId: currentUser?.id,
+                            receiverId,
+                            content,
+                            timestamp: new Date().toISOString(),
+                            read: false
+                        });
+                    }}
+                    onMarkMessagesAsRead={(senderId) => {
+                        if (currentUser) dataService.markMessagesAsRead(senderId, currentUser.id);
+                    }}
+                    isOpen={isChatOpen}
+                    onToggle={() => setIsChatOpen(!isChatOpen)}
+                    activeChatCollaboratorId={activeChatCollaboratorId}
+                    onSelectConversation={(id) => setActiveChatCollaboratorId(id)}
+                    unreadMessagesCount={messages.filter(m => !m.read && m.receiverId === currentUser?.id).length}
+                />
 
             </main>
         </div>
