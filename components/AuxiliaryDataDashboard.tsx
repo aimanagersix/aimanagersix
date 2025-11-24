@@ -68,7 +68,7 @@ interface MenuItem {
     label: string;
     icon?: React.ReactNode;
     type: ViewType;
-    tableIndex?: number; // For generic tables
+    targetTable?: string; // Use Table Name directly for reliability
 }
 
 const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({ 
@@ -93,14 +93,14 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [lastScanDate, setLastScanDate] = useState('-');
     const [logoUrl, setLogoUrl] = useState('');
 
-    // Define Menu Structure
+    // Define Menu Structure with explicit table names
     const menuStructure: { group: string, items: MenuItem[] }[] = [
         {
             group: "Inventário & Ativos",
             items: [
                 { id: 'brands', label: 'Marcas (Fabricantes)', icon: <FaTags />, type: 'brands' },
                 { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes />, type: 'equipment_types' },
-                { id: 'status', label: 'Estados de Equipamento', icon: <FaList />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_equipment_statuses') },
+                { id: 'status', label: 'Estados de Equipamento', icon: <FaList />, type: 'generic', targetTable: 'config_equipment_statuses' },
             ]
         },
         {
@@ -113,21 +113,21 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         {
             group: "Pessoas & Contactos",
             items: [
-                { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'contact_roles') },
-                { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'contact_titles') },
-                { id: 'user_roles', label: 'Perfis de Acesso (App)', icon: <FaUsers />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_user_roles') },
+                { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag />, type: 'generic', targetTable: 'contact_roles' },
+                { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag />, type: 'generic', targetTable: 'contact_titles' },
+                { id: 'user_roles', label: 'Perfis de Acesso (App)', icon: <FaUsers />, type: 'generic', targetTable: 'config_user_roles' },
             ]
         },
         {
             group: "NIS2 & Compliance",
             items: [
                 { id: 'automation', label: 'Automação & Configuração Geral', icon: <FaRobot />, type: 'automation' },
-                { id: 'criticality', label: 'Níveis de Criticidade', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_criticality_levels') },
-                { id: 'cia_ratings', label: 'Classificação CIA', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_cia_ratings') },
-                { id: 'service_status', label: 'Estados de Serviço (BIA)', icon: <FaServer />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_service_statuses') },
-                { id: 'backup_types', label: 'Tipos de Backup', icon: <FaServer />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_backup_types') },
-                { id: 'training_types', label: 'Tipos de Formação', icon: <FaGraduationCap />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_training_types') },
-                { id: 'resilience_types', label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt />, type: 'generic', tableIndex: configTables.findIndex(t => t.tableName === 'config_resilience_test_types') },
+                { id: 'criticality', label: 'Níveis de Criticidade', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_criticality_levels' },
+                { id: 'cia_ratings', label: 'Classificação CIA', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_cia_ratings' },
+                { id: 'service_status', label: 'Estados de Serviço (BIA)', icon: <FaServer />, type: 'generic', targetTable: 'config_service_statuses' },
+                { id: 'backup_types', label: 'Tipos de Backup', icon: <FaServer />, type: 'generic', targetTable: 'config_backup_types' },
+                { id: 'training_types', label: 'Tipos de Formação', icon: <FaGraduationCap />, type: 'generic', targetTable: 'config_training_types' },
+                { id: 'resilience_types', label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_resilience_test_types' },
             ]
         }
     ];
@@ -167,6 +167,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     };
 
     const currentSelection = getCurrentSelection();
+    const currentTableConfig = currentSelection.targetTable ? configTables.find(t => t.tableName === currentSelection.targetTable) : null;
 
     // Helper to check if item is in use
     const checkUsage = (tableName: string, item: ConfigItem): boolean => {
@@ -216,15 +217,14 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
     // Generic Handlers
     const handleGenericAdd = async () => {
-        if (currentSelection.type !== 'generic' || currentSelection.tableIndex === undefined) return;
-        const tableInfo = configTables[currentSelection.tableIndex];
+        if (currentSelection.type !== 'generic' || !currentTableConfig) return;
         
         if (!newItemName.trim()) {
             setError('O nome é obrigatório.');
             return;
         }
         try {
-            await dataService.addConfigItem(tableInfo.tableName, { name: newItemName.trim() });
+            await dataService.addConfigItem(currentTableConfig.tableName, { name: newItemName.trim() });
             setNewItemName('');
             setError('');
             onRefresh();
@@ -235,12 +235,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     };
 
     const handleGenericUpdate = async () => {
-        if (currentSelection.type !== 'generic' || currentSelection.tableIndex === undefined) return;
-        const tableInfo = configTables[currentSelection.tableIndex];
+        if (currentSelection.type !== 'generic' || !currentTableConfig) return;
 
         if (!editingItem || !editingItem.name.trim()) return;
         try {
-            await dataService.updateConfigItem(tableInfo.tableName, editingItem.id, { name: editingItem.name.trim() });
+            await dataService.updateConfigItem(currentTableConfig.tableName, editingItem.id, { name: editingItem.name.trim() });
             setEditingItem(null);
             setError('');
             onRefresh();
@@ -251,12 +250,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     };
 
     const handleGenericDelete = async (id: string) => {
-        if (currentSelection.type !== 'generic' || currentSelection.tableIndex === undefined) return;
-        const tableInfo = configTables[currentSelection.tableIndex];
+        if (currentSelection.type !== 'generic' || !currentTableConfig) return;
 
         if (!confirm("Tem a certeza que deseja excluir este item?")) return;
         try {
-            await dataService.deleteConfigItem(tableInfo.tableName, id);
+            await dataService.deleteConfigItem(currentTableConfig.tableName, id);
             onRefresh();
         } catch (e: any) {
             console.error(e);
@@ -302,7 +300,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             {/* Content Area */}
             <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col">
                 {/* Generic Table Editor */}
-                {currentSelection.type === 'generic' && currentSelection.tableIndex !== undefined && (
+                {currentSelection.type === 'generic' && currentTableConfig && (
                     <div className="p-6 h-full flex flex-col">
                         <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">
                             Gerir: {currentSelection.label}
@@ -333,9 +331,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-700">
-                                    {configTables[currentSelection.tableIndex].data.length > 0 ? (
-                                        configTables[currentSelection.tableIndex].data.sort((a,b) => a.name.localeCompare(b.name)).map(item => {
-                                            const isUsed = checkUsage(configTables[currentSelection.tableIndex!].tableName, item);
+                                    {currentTableConfig.data.length > 0 ? (
+                                        currentTableConfig.data.sort((a,b) => a.name.localeCompare(b.name)).map(item => {
+                                            const isUsed = checkUsage(currentTableConfig.tableName, item);
                                             
                                             return (
                                                 <tr key={item.id} className="hover:bg-gray-700/50">
