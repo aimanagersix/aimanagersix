@@ -124,15 +124,27 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
 
     const assignmentsByLicense = useMemo(() => {
         const map = new Map<string, { equipment: Equipment, user?: string }[]>();
+        // Track equipment IDs already added per license to avoid visual duplicates
+        const addedEquipmentPerLicense = new Map<string, Set<string>>();
+
         licenseAssignments.forEach(la => {
+            if (la.returnDate) return; // Skip non-active
+
             const eq = equipmentMap.get(la.equipmentId);
             if (eq) {
                 if (!map.has(la.softwareLicenseId)) {
                     map.set(la.softwareLicenseId, []);
+                    addedEquipmentPerLicense.set(la.softwareLicenseId, new Set());
                 }
-                const activeAssignment = activeAssignmentsMap.get(eq.id);
-                const user = activeAssignment?.collaboratorId ? collaboratorMap.get(activeAssignment.collaboratorId) : undefined;
-                map.get(la.softwareLicenseId)!.push({ equipment: eq, user });
+                
+                const alreadyAdded = addedEquipmentPerLicense.get(la.softwareLicenseId)?.has(eq.id);
+                if (!alreadyAdded) {
+                    const activeAssignment = activeAssignmentsMap.get(eq.id);
+                    const user = activeAssignment?.collaboratorId ? collaboratorMap.get(activeAssignment.collaboratorId) : undefined;
+                    
+                    map.get(la.softwareLicenseId)!.push({ equipment: eq, user });
+                    addedEquipmentPerLicense.get(la.softwareLicenseId)!.add(eq.id);
+                }
             }
         });
         return map;
@@ -326,7 +338,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                         onClick={() => handleToggleExpand(license.id)}
                                     >
                                         <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
-                                            {usedSeats > 0 && (
+                                            {assignedDetails.length > 0 && (
                                                 <button onClick={() => handleToggleExpand(license.id)} className="text-gray-400 hover:text-white" aria-label={isExpanded ? "Esconder detalhes" : "Mostrar detalhes"}>
                                                     {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
                                                 </button>

@@ -90,6 +90,7 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         e.preventDefault();
         setIsSaving(true);
         try {
+            // Send unique array of IDs
             await onSave(equipment.id, Array.from(assignedLicenseIds));
             setSuccessMessage('Guardado com sucesso!');
             setTimeout(() => {

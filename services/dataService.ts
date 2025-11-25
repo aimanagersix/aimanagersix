@@ -302,51 +302,50 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     const supabase = getSupabase();
     
     // 1. Fetch ALL current active assignments for this equipment
+    // Use a query that gets all active rows
     const { data: currentActive } = await supabase
         .from('license_assignments')
         .select('id, softwareLicenseId')
         .eq('equipmentId', equipmentId)
         .is('returnDate', null);
 
-    // Create a map of active licenses for this equipment: licenseId -> array of assignment IDs
-    // This handles the case where duplicates might exist in DB.
-    const activeMap = new Map<string, string[]>();
-    (currentActive || []).forEach((c: any) => {
-        const list = activeMap.get(c.softwareLicenseId) || [];
-        list.push(c.id);
-        activeMap.set(c.softwareLicenseId, list);
+    const currentRows = currentActive || [];
+    
+    const targetLicenseIds = new Set(licenseIds);
+    const existingLicenseIds = new Set<string>();
+
+    // 2. Identify rows to CLOSE (Remove)
+    // If a currently active row has a License ID NOT in the target list, close it.
+    const toRemoveRowIds: string[] = [];
+    
+    currentRows.forEach((row: any) => {
+        if (!targetLicenseIds.has(row.softwareLicenseId)) {
+            toRemoveRowIds.push(row.id);
+        } else {
+            // If it IS in the target list, we note that this license already exists active
+            existingLicenseIds.add(row.softwareLicenseId);
+        }
     });
     
-    const targetIds = new Set(licenseIds);
-    
-    // 2. Determine what to Add
-    // Add only if NO active assignment exists for this license ID
-    const toAdd: string[] = [];
+    // 3. Identify licenses to ADD
+    // Add only if it's in target list BUT NOT active in DB
+    const toAddLicenseIds: string[] = [];
     for (const lid of licenseIds) {
-        if (!activeMap.has(lid)) {
-            toAdd.push(lid);
-        }
-    }
-    
-    // 3. Determine what to Remove
-    // If a license ID is in DB but not in target list, mark ALL its instances as returned
-    const toRemoveIds: string[] = [];
-    for (const [lid, assignmentIds] of activeMap.entries()) {
-        if (!targetIds.has(lid)) {
-            toRemoveIds.push(...assignmentIds);
+        if (!existingLicenseIds.has(lid)) {
+            toAddLicenseIds.push(lid);
         }
     }
     
     // Execute DB Operations
-    if (toRemoveIds.length > 0) {
+    if (toRemoveRowIds.length > 0) {
         await supabase
             .from('license_assignments')
             .update({ returnDate: new Date().toISOString().split('T')[0] })
-            .in('id', toRemoveIds);
+            .in('id', toRemoveRowIds);
     }
 
-    if (toAdd.length > 0) {
-        const inserts = toAdd.map(lid => ({ 
+    if (toAddLicenseIds.length > 0) {
+        const inserts = toAddLicenseIds.map(lid => ({ 
             equipmentId: equipmentId, 
             softwareLicenseId: lid,
             assignedDate: new Date().toISOString().split('T')[0]
@@ -354,7 +353,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         await supabase.from('license_assignments').insert(inserts);
     }
 
-    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId} (Added: ${toAdd.length}, Removed/Closed: ${toRemoveIds.length})`, equipmentId);
+    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId} (Added: ${toAddLicenseIds.length}, Closed: ${toRemoveRowIds.length})`, equipmentId);
 };
 
 // Tickets & Support
