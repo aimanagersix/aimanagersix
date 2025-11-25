@@ -96,10 +96,10 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
         const contactToEdit = contacts[index];
         setNewContact({
             title: contactToEdit.title || '',
-            name: contactToEdit.name,
-            role: contactToEdit.role,
-            email: contactToEdit.email,
-            phone: contactToEdit.phone,
+            name: contactToEdit.name || '',
+            role: contactToEdit.role || '',
+            email: contactToEdit.email || '',
+            phone: contactToEdit.phone || '',
             is_active: contactToEdit.is_active !== false // default to true if undefined
         });
     };
@@ -127,7 +127,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         {editingIndex !== null ? 'Editar Contacto' : 'Adicionar Contacto'}
                     </h4>
                     {editingIndex !== null && (
-                        <button onClick={resetForm} className="text-xs text-gray-400 hover:text-white underline">Cancelar Edição</button>
+                        <button type="button" onClick={resetForm} className="text-xs text-gray-400 hover:text-white underline">Cancelar Edição</button>
                     )}
                 </div>
                 
@@ -136,7 +136,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         <label className="block text-xs text-gray-400 mb-1">Trato</label>
                         <div className="flex gap-2">
                             <select 
-                                value={newContact.title}
+                                value={newContact.title || ''}
                                 onChange={(e) => setNewContact({...newContact, title: e.target.value})}
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
                             >
@@ -157,7 +157,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         <label className="block text-xs text-gray-400 mb-1">Nome</label>
                         <input 
                             type="text" 
-                            value={newContact.name}
+                            value={newContact.name || ''}
                             onChange={(e) => setNewContact({...newContact, name: e.target.value})}
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
                             placeholder="Ex: João Silva"
@@ -169,7 +169,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         <label className="block text-xs text-gray-400 mb-1">Papel / Função</label>
                         <div className="flex gap-2">
                             <select 
-                                value={newContact.role}
+                                value={newContact.role || ''}
                                 onChange={(e) => setNewContact({...newContact, role: e.target.value})}
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
                             >
@@ -189,7 +189,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         <label className="block text-xs text-gray-400 mb-1">Email</label>
                         <input 
                             type="email" 
-                            value={newContact.email}
+                            value={newContact.email || ''}
                             onChange={(e) => setNewContact({...newContact, email: e.target.value})}
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
                             placeholder="email@exemplo.com"
@@ -199,7 +199,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         <label className="block text-xs text-gray-400 mb-1">Telefone</label>
                         <input 
                             type="text" 
-                            value={newContact.phone}
+                            value={newContact.phone || ''}
                             onChange={(e) => setNewContact({...newContact, phone: e.target.value})}
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
                             placeholder="+351..."
