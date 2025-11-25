@@ -24,16 +24,24 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS config_equipment_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_user_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS config_criticality_levels (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS config_cia_ratings (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS config_service_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS config_backup_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS config_training_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS config_resilience_test_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_software_categories (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE); -- NEW v1.21
+CREATE TABLE IF NOT EXISTS config_software_categories (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS contact_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS contact_titles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+
+-- NOVA TABELA DE PERFIS PERSONALIZADOS (RBAC)
+CREATE TABLE IF NOT EXISTS config_custom_roles (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    permissions jsonb DEFAULT '{}'::jsonb,
+    is_system boolean DEFAULT false, -- Se true, não pode ser apagado (ex: Admin)
+    created_at timestamptz DEFAULT now()
+);
 
 -- Tabela para contactos adicionais (Instituições, Entidades, Fornecedores)
 CREATE TABLE IF NOT EXISTS resource_contacts (
@@ -62,7 +70,6 @@ CREATE TABLE IF NOT EXISTS global_settings (
 -- ==========================================
 
 INSERT INTO config_equipment_statuses (name) VALUES ('Stock'), ('Operacional'), ('Abate'), ('Garantia') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_user_roles (name) VALUES ('SuperAdmin'), ('Admin'), ('Normal'), ('Básico'), ('Utilizador') ON CONFLICT (name) DO NOTHING;
 INSERT INTO config_criticality_levels (name) VALUES ('Baixa'), ('Média'), ('Alta'), ('Crítica') ON CONFLICT (name) DO NOTHING;
 INSERT INTO config_cia_ratings (name) VALUES ('Baixo'), ('Médio'), ('Alto') ON CONFLICT (name) DO NOTHING;
 INSERT INTO config_service_statuses (name) VALUES ('Ativo'), ('Inativo'), ('Em Manutenção') ON CONFLICT (name) DO NOTHING;
@@ -72,13 +79,22 @@ INSERT INTO config_resilience_test_types (name) VALUES ('Scan Vulnerabilidades')
 INSERT INTO contact_roles (name) VALUES ('Técnico'), ('Comercial'), ('Financeiro'), ('Diretor'), ('Administrativo'), ('DPO/CISO') ON CONFLICT (name) DO NOTHING;
 INSERT INTO contact_titles (name) VALUES ('Sr.'), ('Sra.'), ('Dr.'), ('Dra.'), ('Eng.'), ('Eng.ª'), ('Arq.') ON CONFLICT (name) DO NOTHING;
 
--- NEW Software Categories (v1.21)
-INSERT INTO config_software_categories (name) VALUES 
-('Sistema Operativo'), 
-('Segurança / Endpoint'), 
-('Produtividade'), 
-('Design & Multimédia'), 
-('Desenvolvimento') 
+INSERT INTO config_software_categories (name) VALUES ('Sistema Operativo'), ('Segurança / Endpoint'), ('Produtividade'), ('Design & Multimédia'), ('Desenvolvimento') ON CONFLICT (name) DO NOTHING;
+
+-- MIGRAÇÃO DE PERFIS ANTIGOS PARA A NOVA TABELA
+-- Admin (Acesso Total)
+INSERT INTO config_custom_roles (name, is_system, permissions) 
+VALUES ('Admin', true, '{"inventory":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"compliance":{"view":true,"create":true,"edit":true,"delete":true},"settings":{"view":true,"create":true,"edit":true,"delete":true}}')
+ON CONFLICT (name) DO NOTHING;
+
+-- Técnico (Pode gerir tickets e inventário, mas não configurações ou apagar organização)
+INSERT INTO config_custom_roles (name, is_system, permissions) 
+VALUES ('Técnico', false, '{"inventory":{"view":true,"create":true,"edit":true,"delete":false},"tickets":{"view":true,"create":true,"edit":true,"delete":false},"organization":{"view":true,"create":false,"edit":false,"delete":false},"compliance":{"view":true,"create":true,"edit":true,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false}}')
+ON CONFLICT (name) DO NOTHING;
+
+-- Utilizador (Apenas ver e abrir tickets)
+INSERT INTO config_custom_roles (name, is_system, permissions) 
+VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"compliance":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false}}')
 ON CONFLICT (name) DO NOTHING;
 
 -- ==========================================
@@ -135,37 +151,9 @@ BEGIN
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS category_id uuid;
     END IF;
     
-    -- Add default naming configs if not exists
-    INSERT INTO global_settings (setting_key, setting_value) VALUES 
-    ('equipment_naming_prefix', 'PC-'),
-    ('equipment_naming_digits', '4')
-    ON CONFLICT (setting_key) DO NOTHING;
-
-    -- Vulnerabilities (Auto Ticket Link)
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'vulnerabilities') THEN
-        ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS ticket_id uuid;
-        ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS affected_assets text;
-    END IF;
-
     -- Resource Contacts (Active Status)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'resource_contacts') THEN
         ALTER TABLE resource_contacts ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
-    END IF;
-
-    -- Tickets
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tickets') THEN
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS requester_supplier_id uuid;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS category text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "securityIncidentType" text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactCriticality" text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactConfidentiality" text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactIntegrity" text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "impactAvailability" text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_summary text;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS regulatory_status text DEFAULT 'NotRequired';
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS regulatory_24h_deadline timestamptz;
-        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS regulatory_72h_deadline timestamptz;
     END IF;
 
     -- Resilience Tests
@@ -194,73 +182,9 @@ BEGIN
 
     -- Equipment (Localização Física)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS os_version text;
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS last_security_update text;
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS supplier_id uuid;
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "acquisitionCost" numeric DEFAULT 0;
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "expectedLifespanYears" integer DEFAULT 4;
-        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS embedded_license_key text;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "installationLocation" text;
     END IF;
 
-    -- Software Licenses (NEW Category column)
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'software_licenses') THEN
-        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
-        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
-        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS integrity text DEFAULT 'Baixo';
-        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS availability text DEFAULT 'Baixo';
-        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS supplier_id uuid;
-        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS "unitCost" numeric DEFAULT 0;
-        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS is_oem boolean DEFAULT false;
-        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS category_id uuid; -- NEW v1.21
-    END IF;
-
-    -- Business Services
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'business_services') THEN
-        ALTER TABLE business_services ADD COLUMN IF NOT EXISTS external_provider_id uuid;
-    END IF;
-
-    -- Brands
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'brands') THEN
-        ALTER TABLE brands ADD COLUMN IF NOT EXISTS risk_level text DEFAULT 'Baixa';
-        ALTER TABLE brands ADD COLUMN IF NOT EXISTS is_iso27001_certified boolean DEFAULT false;
-        ALTER TABLE brands ADD COLUMN IF NOT EXISTS security_contact_email text;
-    END IF;
-
-    -- Suppliers (Status)
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'suppliers') THEN
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry text;
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address text;
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address_line text;
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS postal_code text;
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS city text;
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS locality text;
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS other_certifications jsonb DEFAULT '[]';
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contracts jsonb DEFAULT '[]';
-        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
-    END IF;
-    
-    -- Teams (Status)
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'teams') THEN
-        ALTER TABLE teams ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
-    END IF;
-
-    -- Instituicoes (Status + Website)
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
-        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
-        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS website text;
-    END IF;
-    
-    -- Entidades (Website)
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'entidades') THEN
-        ALTER TABLE entidades ADD COLUMN IF NOT EXISTS website text;
-    END IF;
-    
     -- Address Columns
     FOREACH t IN ARRAY ARRAY['instituicoes', 'entidades', 'collaborators']
     LOOP
@@ -274,10 +198,7 @@ BEGIN
         END IF;
     END LOOP;
     
-    -- Resource Contacts & Collaborators (Title)
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'resource_contacts') THEN
-        ALTER TABLE resource_contacts ADD COLUMN IF NOT EXISTS title text;
-    END IF;
+    -- Collaborators Title
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'collaborators') THEN
         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS title text;
     END IF;
@@ -292,15 +213,11 @@ END $$;
 BEGIN;
 
 -- 1. Proteger o Super Admin (josefsmoreira@outlook.com)
--- Garante que ele não é apagado e fica com permissões globais (SuperAdmin)
-INSERT INTO config_user_roles (name) VALUES ('SuperAdmin') ON CONFLICT (name) DO NOTHING;
-
 UPDATE collaborators 
 SET role = 'SuperAdmin', "entidadeId" = NULL, status = 'Ativo'
 WHERE email = 'josefsmoreira@outlook.com';
 
 -- 2. Apagar Dados Operacionais e Dependências (Ordem Crítica)
--- Primeiro remove dependências para evitar erros de Foreign Key
 DELETE FROM service_dependencies;
 DELETE FROM business_services;
 DELETE FROM ticket_activities;
@@ -321,7 +238,6 @@ DELETE FROM software_licenses;
 DELETE FROM equipment;
 
 -- 4. Desvincular Configurações de Equipas (Para permitir apagar as equipas)
--- Atualiza os tipos e categorias para remover referências às equipas que vão ser apagadas
 UPDATE equipment_types SET default_team_id = NULL;
 UPDATE ticket_categories SET default_team_id = NULL;
 
@@ -333,6 +249,7 @@ DELETE FROM instituicoes;
 DELETE FROM suppliers;
 
 -- Nota: Mantém-se Marcas, Tipos, Categorias e Configurações Gerais.
+-- Não apaga config_custom_roles para não quebrar a app.
 
 COMMIT;
 `;
@@ -369,7 +286,7 @@ COMMIT;
                 {activeTab === 'update' && (
                     <div className="animate-fade-in">
                         <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                            <p>Este script cria tabelas em falta, adiciona colunas necessárias e regista o perfil 'SuperAdmin' sem apagar os dados existentes. Use isto para atualizar a aplicação.</p>
+                            <p>Este script cria tabelas em falta, adiciona colunas necessárias e cria a estrutura para <strong>Perfis Dinâmicos (Custom Roles)</strong>.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">
@@ -411,7 +328,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.26</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.28</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

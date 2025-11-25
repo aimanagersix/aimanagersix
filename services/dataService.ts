@@ -6,7 +6,7 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
-    ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting
+    ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole
 } from '../types';
 
 // --- Helper to fetch all data concurrently ---
@@ -22,7 +22,7 @@ export const fetchAllData = async () => {
         // Configuration Tables
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
-        configTrainingTypes, configResilienceTestTypes, configSoftwareCategories
+        configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -61,7 +61,8 @@ export const fetchAllData = async () => {
         supabase.from('config_backup_types').select('*'),
         supabase.from('config_training_types').select('*'),
         supabase.from('config_resilience_test_types').select('*'),
-        supabase.from('config_software_categories').select('*')
+        supabase.from('config_software_categories').select('*'),
+        supabase.from('config_custom_roles').select('*')
     ]);
 
     // Helper to attach contacts
@@ -109,7 +110,8 @@ export const fetchAllData = async () => {
         configBackupTypes: configBackupTypes.data || [],
         configTrainingTypes: configTrainingTypes.data || [],
         configResilienceTestTypes: configResilienceTestTypes.data || [],
-        configSoftwareCategories: configSoftwareCategories.data || []
+        configSoftwareCategories: configSoftwareCategories.data || [],
+        configCustomRoles: configCustomRoles.data || []
     };
 };
 
@@ -216,6 +218,17 @@ const remove = async (table: string, id: string) => {
     await logAction('DELETE', table, `Deleted record from ${table}`, id);
     return true;
 };
+
+// --- Custom Roles (RBAC) ---
+export const getCustomRoles = async (): Promise<CustomRole[]> => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('config_custom_roles').select('*');
+    if (error) throw error;
+    return data || [];
+};
+export const addCustomRole = (data: any) => create('config_custom_roles', data);
+export const updateCustomRole = (id: string, data: any) => update('config_custom_roles', id, data);
+export const deleteCustomRole = (id: string) => remove('config_custom_roles', id);
 
 // --- Specific Entities ---
 

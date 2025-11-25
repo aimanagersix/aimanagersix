@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig } from '../types';
+import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig, CustomRole } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -10,6 +10,7 @@ import BrandDashboard from './BrandDashboard';
 import EquipmentTypeDashboard from './EquipmentTypeDashboard';
 import CategoryDashboard from './CategoryDashboard';
 import SecurityIncidentTypeDashboard from './SecurityIncidentTypeDashboard';
+import RoleManager from './RoleManager'; // NEW Component
 
 interface AuxiliaryDataDashboardProps {
     // Generic Config Data
@@ -64,7 +65,7 @@ interface AuxiliaryDataDashboardProps {
     onSaveTooltipConfig?: (config: TooltipConfig) => void;
 }
 
-type ViewType = 'generic' | 'brands' | 'equipment_types' | 'ticket_categories' | 'incident_types' | 'automation' | 'interface';
+type ViewType = 'generic' | 'brands' | 'equipment_types' | 'ticket_categories' | 'incident_types' | 'automation' | 'interface' | 'rbac';
 
 interface MenuItem {
     id: string;
@@ -110,6 +111,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     
     // Tooltip Config State
     const [tooltipConfig, setTooltipConfig] = useState<TooltipConfig>(defaultTooltipConfig);
+    
+    // Custom Roles State
+    const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
 
     // Define Menu Structure with explicit table names
     const menuStructure: { group: string, items: MenuItem[] }[] = [
@@ -119,7 +123,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 { id: 'brands', label: 'Marcas (Fabricantes)', icon: <FaTags />, type: 'brands' },
                 { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes />, type: 'equipment_types' },
                 { id: 'status', label: 'Estados de Equipamento', icon: <FaList />, type: 'generic', targetTable: 'config_equipment_statuses' },
-                { id: 'software_categories', label: 'Categorias de Software', icon: <FaBoxOpen />, type: 'generic', targetTable: 'config_software_categories' }, // NEW
+                { id: 'software_categories', label: 'Categorias de Software', icon: <FaBoxOpen />, type: 'generic', targetTable: 'config_software_categories' }, 
             ]
         },
         {
@@ -134,7 +138,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             items: [
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag />, type: 'generic', targetTable: 'contact_roles' },
                 { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag />, type: 'generic', targetTable: 'contact_titles' },
-                { id: 'user_roles', label: 'Perfis de Acesso (App)', icon: <FaUsers />, type: 'generic', targetTable: 'config_user_roles' },
+                { id: 'rbac', label: 'Perfis de Acesso (RBAC)', icon: <FaIdCard />, type: 'rbac' },
             ]
         },
         {
@@ -156,18 +160,17 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     useEffect(() => {
         const loadSettings = async () => {
             if (selectedMenuId === 'automation') {
-                const freq = await dataService.getGlobalSetting('scan_frequency_days');
+                // ... (existing automation loading logic)
+                 const freq = await dataService.getGlobalSetting('scan_frequency_days');
                 const start = await dataService.getGlobalSetting('scan_start_time');
                 const last = await dataService.getGlobalSetting('last_auto_scan');
                 const logo = await dataService.getGlobalSetting('app_logo_url');
                 
-                // Scan Configs
                 const eol = await dataService.getGlobalSetting('scan_include_eol');
                 const years = await dataService.getGlobalSetting('scan_lookback_years');
                 const custom = await dataService.getGlobalSetting('scan_custom_prompt');
                 const nistKey = await dataService.getGlobalSetting('nist_api_key');
                 
-                // Naming Configs
                 const prefix = await dataService.getGlobalSetting('equipment_naming_prefix');
                 const digits = await dataService.getGlobalSetting('equipment_naming_digits');
                 
@@ -189,17 +192,20 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 if (tooltipSetting) {
                     try {
                         const parsed = JSON.parse(tooltipSetting);
-                        // Merge with defaults to prevent issues with new fields
                         setTooltipConfig({ ...defaultTooltipConfig, ...parsed });
                     } catch (e) { console.error("Error parsing tooltip config", e); }
                 }
+            } else if (selectedMenuId === 'rbac') {
+                const roles = await dataService.getCustomRoles();
+                setCustomRoles(roles);
             }
         };
         loadSettings();
     }, [selectedMenuId]);
 
     const handleSaveAutomation = async () => {
-        await dataService.updateGlobalSetting('scan_frequency_days', scanFrequency);
+        // ... (existing save logic)
+         await dataService.updateGlobalSetting('scan_frequency_days', scanFrequency);
         await dataService.updateGlobalSetting('scan_start_time', scanStartTime);
         await dataService.updateGlobalSetting('app_logo_url', logoUrl);
         
@@ -249,8 +255,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 return equipment.some(e => e.status === name);
             case 'config_software_categories':
                 return softwareLicenses.some(l => l.category_id === item.id); // Use ID for this check
-            case 'config_user_roles':
-                return collaborators.some(c => c.role === name);
+            case 'config_user_roles': // Legacy/Simple roles
+                 return false; // Deprecated in favor of RBAC but kept for compatibility
             case 'config_criticality_levels':
                 return equipment.some(e => e.criticality === name) || 
                        softwareLicenses.some(l => l.criticality === name) ||
@@ -380,10 +386,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
             {/* Content Area */}
             <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col" key={selectedMenuId}>
+                
                 {/* Generic Table Editor */}
                 {currentSelection.type === 'generic' && currentTableConfig && (
                     <div className="p-6 h-full flex flex-col">
-                        <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">
+                         <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">
                             Gerir: {currentSelection.label}
                         </h2>
                         
@@ -499,7 +506,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                     </div>
                 )}
 
-                {/* Complex Views - Explicitly passing handlers to ensure functionality */}
+                {/* Complex Views */}
                 {currentSelection.type === 'brands' && (
                     <div className="h-full overflow-y-auto">
                         <BrandDashboard brands={brands} equipment={equipment} onCreate={onCreateBrand} onEdit={onEditBrand} onDelete={onDeleteBrand} />
@@ -527,20 +534,19 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                         <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2 flex items-center gap-2">
                             <FaMousePointer className="text-brand-secondary" /> Configuração de Interface
                         </h2>
-                        
                         <div className="space-y-6">
-                            {/* Equipment Tooltip */}
+                             {/* Equipment Tooltip */}
                             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
                                 <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaInfoCircle className="text-blue-400"/> Tooltip de Equipamentos</h3>
                                 <p className="text-sm text-gray-400 mb-4">
                                     Selecione quais informações aparecem na caixa flutuante (tooltip) ao passar o rato sobre um equipamento na lista.
                                 </p>
-                                
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <label className="flex items-center space-x-2 cursor-pointer">
                                         <input type="checkbox" checked={!!tooltipConfig.showNomeNaRede} onChange={() => toggleTooltipField('showNomeNaRede')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
                                         <span className="text-sm text-gray-300">Nome na Rede</span>
                                     </label>
+                                     {/* ... (rest of fields) */}
                                     <label className="flex items-center space-x-2 cursor-pointer">
                                         <input type="checkbox" checked={!!tooltipConfig.showAssignedTo} onChange={() => toggleTooltipField('showAssignedTo')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
                                         <span className="text-sm text-gray-300">Atribuído a</span>
@@ -571,14 +577,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                     </label>
                                 </div>
                             </div>
-
-                            {/* Collaborator Tooltip */}
-                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                             {/* Collaborator Tooltip */}
+                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg mt-6">
                                 <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaUser className="text-green-400"/> Tooltip de Colaboradores</h3>
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Selecione quais informações aparecem na caixa flutuante (tooltip) ao passar o rato sobre um colaborador na lista.
-                                </p>
-                                
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <label className="flex items-center space-x-2 cursor-pointer">
                                         <input type="checkbox" checked={!!tooltipConfig.showCollabName} onChange={() => toggleTooltipField('showCollabName')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
@@ -598,7 +599,6 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                     </label>
                                 </div>
                             </div>
-
                             <div className="mt-4">
                                 <button onClick={handleSaveInterface} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2">
                                     <FaSave /> Guardar Preferências
@@ -614,8 +614,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                         <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2 flex items-center gap-2">
                             <FaCog className="text-brand-secondary" /> Automação & Integrações
                         </h2>
-                        
-                        <div className="space-y-6">
+                        {/* ... (existing content for automation) */}
+                         <div className="space-y-6">
                             {/* Branding Section */}
                             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
                                 <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaImage className="text-blue-400"/> Personalização (Branding)</h3>
@@ -767,6 +767,18 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 </button>
                             </div>
                         </div>
+                    </div>
+                )}
+                
+                {/* RBAC Role Manager */}
+                {currentSelection.type === 'rbac' && (
+                    <div className="h-full overflow-hidden">
+                        <RoleManager 
+                            roles={customRoles} 
+                            onRefresh={() => {
+                                dataService.getCustomRoles().then(setCustomRoles);
+                            }} 
+                        />
                     </div>
                 )}
             </div>

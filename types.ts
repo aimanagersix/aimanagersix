@@ -269,6 +269,27 @@ export const UserRole = {
 } as const;
 export type UserRole = string;
 
+// --- NEW RBAC TYPES ---
+export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
+export type ModuleKey = 'inventory' | 'tickets' | 'organization' | 'compliance' | 'settings';
+
+export interface PermissionMatrix {
+    [module: string]: {
+        view: boolean;
+        create: boolean;
+        edit: boolean;
+        delete: boolean;
+    };
+}
+
+export interface CustomRole {
+    id: string;
+    name: string;
+    permissions: PermissionMatrix;
+    is_system?: boolean; // Protected roles like Admin
+}
+// ---------------------
+
 export const CollaboratorStatus = {
     Ativo: 'Ativo',
     Inativo: 'Inativo',
@@ -298,7 +319,7 @@ export interface Collaborator {
   // Auth fields
   canLogin: boolean;
   receivesNotifications: boolean;
-  role: UserRole;
+  role: string; // Now string to support custom role names
   status: CollaboratorStatus;
   password?: string;
   allowedModules?: AppModule[];

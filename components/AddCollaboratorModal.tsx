@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle } from '../types';
+import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
 import { FaGlobe } from 'react-icons/fa';
+import * as dataService from '../services/dataService';
 
 const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -50,7 +51,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         locality: '',
         canLogin: false,
         receivesNotifications: false,
-        role: UserRole.Utilizador,
+        role: 'Utilizador',
         status: CollaboratorStatus.Ativo
     });
     const [password, setPassword] = useState('');
@@ -58,14 +59,25 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [successMessage, setSuccessMessage] = useState('');
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+    const [availableRoles, setAvailableRoles] = useState<CustomRole[]>([]);
 
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
-    // Use dynamic options if available
-    // Filter 'SuperAdmin' out if current user is not SuperAdmin
-    const roles = roleOptions && roleOptions.length > 0 
-        ? roleOptions.map(r => r.name).filter(role => isSuperAdmin || role !== UserRole.SuperAdmin)
-        : Object.values(UserRole).filter(role => isSuperAdmin || role !== UserRole.SuperAdmin);
+    // Load Custom Roles
+    useEffect(() => {
+        const loadRoles = async () => {
+            const roles = await dataService.getCustomRoles();
+            setAvailableRoles(roles);
+        };
+        loadRoles();
+    }, []);
+
+    // Fallback roles if DB fetch fails or is empty
+    const defaultRoles = ['Admin', 'Técnico', 'Utilizador'];
+    const displayRoles = availableRoles.length > 0 ? availableRoles.map(r => r.name) : defaultRoles;
+    
+    // Filter 'SuperAdmin' from dropdown if current user is not SuperAdmin
+    const filteredRoles = displayRoles.filter(role => isSuperAdmin || role !== UserRole.SuperAdmin);
 
     const titles = titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª'];
 
@@ -244,7 +256,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Perfil de Acesso</label>
                         <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                            {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                            {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                     </div>
                     <div>
