@@ -21,8 +21,22 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
     // Filter and Deduplicate Entities
     const relatedEntidades = useMemo(() => {
         const filtered = entidades.filter(e => e.instituicaoId === instituicao.id);
-        // Create a Map to ensure uniqueness by ID (fixes visual duplication after create)
-        const uniqueMap = new Map(filtered.map(e => [e.id, e]));
+        
+        // Robust Deduplication Logic:
+        // Sometimes optimistic UI updates or rapid creation can cause temporary duplicates.
+        // We deduplicate primarily by the visible 'Code' (codigo) to ensure the list looks clean.
+        const uniqueMap = new Map();
+        
+        filtered.forEach(e => {
+            // Use Code as the key if available (trim to avoid whitespace issues)
+            if (e.codigo) {
+                uniqueMap.set(String(e.codigo).trim(), e);
+            } else {
+                // Fallback to ID if code is missing
+                uniqueMap.set(String(e.id), e);
+            }
+        });
+        
         return Array.from(uniqueMap.values());
     }, [entidades, instituicao.id]);
     
