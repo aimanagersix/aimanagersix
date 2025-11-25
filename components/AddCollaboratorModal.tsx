@@ -75,7 +75,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 title: collaboratorToEdit.title || '',
                 entidadeId: collaboratorToEdit.entidadeId || ''
             });
-            setIsGlobalAdmin(!collaboratorToEdit.entidadeId);
+            // If no entity ID and role is Admin, it's a global admin
+            if (!collaboratorToEdit.entidadeId && collaboratorToEdit.role === 'Admin') {
+                setIsGlobalAdmin(true);
+            }
         } else {
              setFormData(prev => ({
                  ...prev,
@@ -118,6 +121,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             ...prev,
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
         }));
+        
+        // If user changes role away from Admin, force Global Admin off
+        if (name === 'role' && value !== 'Admin') {
+            setIsGlobalAdmin(false);
+        }
+        
         if (errors[name]) {
             setErrors(prev => {
                 const newErrors = {...prev};
@@ -133,6 +142,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         if (checked) {
             setFormData(prev => ({ ...prev, entidadeId: '' }));
         } else {
+            // Reset to first available entity if unchecking
             setFormData(prev => ({ ...prev, entidadeId: escolasDepartamentos[0]?.id || '' }));
         }
     };
@@ -149,6 +159,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             ...formData, 
             address,
             numeroMecanografico: formData.numeroMecanografico || 'N/A',
+            // Ensure null is sent if global admin, otherwise the ID
             entidadeId: isGlobalAdmin ? null : formData.entidadeId
         };
 
@@ -254,21 +265,24 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 </div>
 
                 {isAdminRole && (
-                    <div className="bg-purple-900/20 p-3 rounded border border-purple-500/30 flex items-center">
-                         <label className="flex items-center cursor-pointer">
+                    <div className={`p-3 rounded border flex items-center transition-colors ${isGlobalAdmin ? 'bg-purple-900/40 border-purple-500' : 'bg-gray-800 border-gray-600'}`}>
+                         <label className="flex items-center cursor-pointer w-full">
                             <input 
                                 type="checkbox" 
                                 checked={isGlobalAdmin} 
                                 onChange={handleGlobalAdminToggle} 
-                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-purple-500 focus:ring-purple-500" 
+                                className="h-5 w-5 rounded border-gray-500 bg-gray-700 text-purple-500 focus:ring-purple-500" 
                             />
-                            <span className="ml-2 text-sm font-bold text-purple-300 flex items-center gap-2">
-                                <FaGlobe /> Acesso Global (Super Admin)
-                            </span>
+                            <div className="ml-3">
+                                <span className="text-sm font-bold text-white flex items-center gap-2">
+                                    <FaGlobe className={isGlobalAdmin ? "text-purple-400" : "text-gray-400"} /> 
+                                    Acesso Global (Super Admin)
+                                </span>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    Permite ver e gerir todas as instituições sem restrição de entidade.
+                                </p>
+                            </div>
                         </label>
-                        <p className="text-xs text-gray-400 ml-auto pl-4">
-                            Permite ver todas as instituições sem restrição de entidade.
-                        </p>
                     </div>
                 )}
 

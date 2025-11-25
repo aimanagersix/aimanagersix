@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash } from 'react-icons/fa';
 
 interface DatabaseSchemaModalProps {
     onClose: () => void;
@@ -9,8 +9,9 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
+    const [activeTab, setActiveTab] = useState<'update' | 'reset'>('update');
 
-    const sqlScript = `
+    const updateScript = `
 -- EXECUTE ESTE SCRIPT NO EDITOR SQL DO SUPABASE PARA ATUALIZAR A BASE DE DADOS
 
 -- ==========================================
@@ -283,8 +284,50 @@ BEGIN
 END $$;
 `;
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(sqlScript);
+    const resetScript = `
+-- SCRIPT DE LIMPEZA PROFUNDA (RESET)
+-- ATENÇÃO: ISTO APAGA TODOS OS DADOS OPERACIONAIS!
+-- EXECUTE APENAS SE TIVER A CERTEZA ABSOLUTA.
+
+BEGIN;
+
+-- 1. Proteger o Super Admin (josefsmoreira@outlook.com)
+-- Garante que ele não é apagado e fica com permissões globais
+UPDATE collaborators 
+SET role = 'Admin', "entidadeId" = NULL, status = 'Ativo'
+WHERE email = 'josefsmoreira@outlook.com';
+
+-- 2. Apagar Dados Operacionais (Ordem correta devido a Foreign Keys)
+DELETE FROM ticket_activities;
+DELETE FROM tickets;
+DELETE FROM vulnerabilities;
+DELETE FROM license_assignments;
+DELETE FROM assignments;
+DELETE FROM backup_executions;
+DELETE FROM resilience_tests;
+DELETE FROM security_training_records;
+DELETE FROM messages;
+DELETE FROM audit_logs;
+DELETE FROM resource_contacts;
+DELETE FROM team_members;
+
+-- 3. Apagar Ativos
+DELETE FROM equipment;
+
+-- 4. Apagar Estrutura Organizacional (Exceto o Super Admin)
+DELETE FROM collaborators WHERE email != 'josefsmoreira@outlook.com';
+DELETE FROM teams;
+DELETE FROM entidades;
+DELETE FROM instituicoes;
+DELETE FROM suppliers;
+
+-- Nota: Mantém-se Marcas, Tipos, Licenças (Definições), Categorias e Configurações Gerais.
+
+COMMIT;
+`;
+
+    const handleCopy = (script: string) => {
+        navigator.clipboard.writeText(script);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -292,42 +335,73 @@ END $$;
     return (
         <Modal title="SQL de Correção da Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 flex-grow mr-4">
-                        <div className="flex items-center gap-2 font-bold mb-2 text-blue-100">
-                            <FaDatabase />
-                            <span>Instruções de Atualização</span>
-                        </div>
-                        <p className="mb-2">
-                            Este script cria todas as tabelas necessárias e adiciona colunas como <strong>Categorias de Software</strong> e <strong>Cores de Estado</strong>.
-                        </p>
-                        <ol className="list-decimal list-inside space-y-1 ml-2">
-                            <li>Clique em <strong>Copiar SQL</strong>.</li>
-                            <li>Vá ao seu projeto no <strong>Supabase</strong>.</li>
-                            <li>Abra o <strong>SQL Editor</strong> no menu lateral.</li>
-                            <li>Cole o código e clique em <strong>RUN</strong>.</li>
-                        </ol>
-                    </div>
-                    <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
-                        <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.22</span>
-                    </div>
-                </div>
-
-                <div className="relative">
-                    <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">
-                        {sqlScript}
-                    </pre>
-                    <button 
-                        onClick={handleCopy}
-                        className="absolute top-4 right-4 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md shadow-lg transition-colors flex items-center gap-2"
+                {/* Tabs */}
+                <div className="flex border-b border-gray-700 mb-4">
+                    <button
+                        onClick={() => setActiveTab('update')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'
+                        }`}
                     >
-                        {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
-                        {copied ? "Copiado!" : "Copiar SQL"}
+                        <FaDatabase className="inline mr-2"/> Atualização (Manter Dados)
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('reset')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === 'reset' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        <FaTrash className="inline mr-2"/> Limpeza & Reset
                     </button>
                 </div>
 
-                <div className="flex justify-end">
+                {activeTab === 'update' && (
+                    <div className="animate-fade-in">
+                        <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
+                            <p>Este script cria tabelas em falta e adiciona colunas necessárias sem apagar os dados existentes. Use isto para atualizar a aplicação.</p>
+                        </div>
+                        <div className="relative">
+                            <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">
+                                {updateScript}
+                            </pre>
+                            <button 
+                                onClick={() => handleCopy(updateScript)}
+                                className="absolute top-4 right-4 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md shadow-lg transition-colors flex items-center gap-2"
+                            >
+                                {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                {copied ? "Copiado!" : "Copiar SQL"}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'reset' && (
+                    <div className="animate-fade-in">
+                        <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
+                            <p className="font-bold mb-2"><FaTrash className="inline mr-2"/> ATENÇÃO: AÇÃO DESTRUTIVA</p>
+                            <p>Este script apaga TODOS os dados operacionais (equipamentos, tickets, histórico) e estrutura organizacional.</p>
+                            <p className="mt-1">Apenas o utilizador <strong>josefsmoreira@outlook.com</strong> e as configurações base (Marcas, Tipos, Definições) serão preservados.</p>
+                        </div>
+                        <div className="relative">
+                            <pre className="bg-gray-900 text-red-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-red-900/50 whitespace-pre-wrap">
+                                {resetScript}
+                            </pre>
+                            <button 
+                                onClick={() => handleCopy(resetScript)}
+                                className="absolute top-4 right-4 p-2 bg-red-800 hover:bg-red-700 text-white rounded-md shadow-lg transition-colors flex items-center gap-2"
+                            >
+                                {copied ? <FaCheck className="text-white" /> : <FaCopy />}
+                                {copied ? "Copiado!" : "Copiar Reset SQL"}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex justify-between items-center mt-4">
+                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
+                        <span className="text-xs text-gray-400 uppercase">App Version</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.23</span>
+                    </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar
                     </button>

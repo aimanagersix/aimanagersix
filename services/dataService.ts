@@ -302,7 +302,6 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     const supabase = getSupabase();
     
     // 1. Fetch ALL current active assignments for this equipment
-    // Use a query that gets all active rows
     const { data: currentActive } = await supabase
         .from('license_assignments')
         .select('id, softwareLicenseId')
@@ -310,9 +309,10 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         .is('returnDate', null);
 
     const currentRows = currentActive || [];
-    
     const targetLicenseIds = new Set(licenseIds);
-    const existingLicenseIds = new Set<string>();
+    
+    // Track already active licenses to avoid duplicates during addition
+    const licensesCurrentlyActive = new Set<string>();
 
     // 2. Identify rows to CLOSE (Remove)
     // If a currently active row has a License ID NOT in the target list, close it.
@@ -322,19 +322,18 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         if (!targetLicenseIds.has(row.softwareLicenseId)) {
             toRemoveRowIds.push(row.id);
         } else {
-            // If it IS in the target list, we note that this license already exists active
-            existingLicenseIds.add(row.softwareLicenseId);
+            licensesCurrentlyActive.add(row.softwareLicenseId);
         }
     });
     
     // 3. Identify licenses to ADD
-    // Add only if it's in target list BUT NOT active in DB
+    // Add only if it's in target list BUT NOT active in DB (prevents duplicates)
     const toAddLicenseIds: string[] = [];
-    for (const lid of licenseIds) {
-        if (!existingLicenseIds.has(lid)) {
+    targetLicenseIds.forEach(lid => {
+        if (!licensesCurrentlyActive.has(lid)) {
             toAddLicenseIds.push(lid);
         }
-    }
+    });
     
     // Execute DB Operations
     if (toRemoveRowIds.length > 0) {
@@ -353,7 +352,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         await supabase.from('license_assignments').insert(inserts);
     }
 
-    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId} (Added: ${toAddLicenseIds.length}, Closed: ${toRemoveRowIds.length})`, equipmentId);
+    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId}`, equipmentId);
 };
 
 // Tickets & Support

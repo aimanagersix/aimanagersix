@@ -4,9 +4,7 @@ import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignmen
 import { EditIcon, DeleteIcon, ReportIcon, PlusIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown, FaTags } from 'react-icons/fa';
 import Pagination from './common/Pagination';
-import AddLicenseModal from './AddLicenseModal'; // Import here to use locally if needed for passing props, though Dashboard usually doesn't render modal directly. Wait, App renders it. I just need to pass props to Dashboard? No, App renders Modal. LicenseDashboard renders table.
-// Correction: App.tsx renders AddLicenseModal. LicenseDashboard triggers it via onEdit/onCreate callbacks. 
-// But LicenseDashboard might want to display the category in the table.
+import AddLicenseModal from './AddLicenseModal';
 
 interface LicenseDashboardProps {
   licenses: SoftwareLicense[];
@@ -158,8 +156,6 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                 if (dep.software_license_id) {
                     const service = businessServices.find(s => s.id === dep.service_id);
                     if (service) {
-                         // Use the service if found. If multiple services use the same license, the last one processed wins visually
-                         // (In a more complex version, we'd check for the highest criticality)
                          map.set(dep.software_license_id, { level: service.criticality, serviceName: service.name });
                     }
                 }
@@ -211,7 +207,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                 if (filters.status === LicenseStatus.Ativo) return (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo;
                 if (filters.status === LicenseStatus.Inativo) return license.status === LicenseStatus.Inativo;
                 const usedSeats = usedSeatsMap.get(license.id) || 0;
-                const availableSeats = license.is_oem ? 100 : (license.totalSeats - usedSeats); // Treat OEM as always available for filter logic
+                const availableSeats = license.is_oem ? 100 : (license.totalSeats - usedSeats); 
                 
                 if (filters.status === 'available' && availableSeats <= 0) return false;
                 if (filters.status === 'in_use' && usedSeats === 0) return false;
