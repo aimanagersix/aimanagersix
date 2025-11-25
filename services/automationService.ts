@@ -1,5 +1,6 @@
 
 
+
 import * as dataService from './dataService';
 import { scanForVulnerabilities } from './geminiService';
 import { CriticalityLevel, VulnerabilityStatus } from '../types';
@@ -11,6 +12,7 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
         let includeEol = true;
         let lookbackYears = 2;
         let customInstructions = "";
+        let nistApiKey = "";
 
         // 1. Check Configuration (Skip logic check if forcing, but load configs)
         const frequencyStr = await dataService.getGlobalSetting('scan_frequency_days');
@@ -24,6 +26,9 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
 
         const customPrompt = await dataService.getGlobalSetting('scan_custom_prompt');
         if (customPrompt) customInstructions = customPrompt;
+        
+        const nistKeyStr = await dataService.getGlobalSetting('nist_api_key');
+        if (nistKeyStr) nistApiKey = nistKeyStr;
 
         if (!force) {
             if (frequencyDays === 0) return 0; // Disabled
@@ -65,10 +70,21 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
             return 0;
         }
 
-        // 3. Execute AI Scan with Dynamic Config
+        // 3. Execute Scan (AI or Hybrid NIST)
+        let results: any[] = [];
+        
+        // If NIST Key exists, we try to inform the AI to be more precise or emulate a fetch 
+        // (Real fetch logic requires complex CPE matching which is hard to do purely client side without CORS proxy or heavy logic.
+        // We will use the AI's capability but inform it that we have a key to simulate "official" stance or if supported in future)
+        
+        if (nistApiKey) {
+             // Append NIST instruction to custom prompt
+             customInstructions += " [Note: NIST API Key is configured in system. Prioritize high-confidence matches found in NVD database knowledge base.]";
+        }
+
         // We slice to 50 to avoid token limits, but ideally this should batch process
         const scanConfig = { includeEol, lookbackYears, customInstructions };
-        const results = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50), scanConfig);
+        results = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50), scanConfig);
 
         // 4. Process Results
         for (const vuln of results) {

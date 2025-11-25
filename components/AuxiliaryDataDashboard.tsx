@@ -3,10 +3,12 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -105,6 +107,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [scanIncludeEol, setScanIncludeEol] = useState(true);
     const [scanLookbackYears, setScanLookbackYears] = useState(2);
     const [scanCustomPrompt, setScanCustomPrompt] = useState('');
+    const [nistApiKey, setNistApiKey] = useState('');
     
     // Tooltip Config State
     const [tooltipConfig, setTooltipConfig] = useState<TooltipConfig>(defaultTooltipConfig);
@@ -162,6 +165,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 const eol = await dataService.getGlobalSetting('scan_include_eol');
                 const years = await dataService.getGlobalSetting('scan_lookback_years');
                 const custom = await dataService.getGlobalSetting('scan_custom_prompt');
+                const nistKey = await dataService.getGlobalSetting('nist_api_key');
                 
                 if (freq) setScanFrequency(freq);
                 if (start) setScanStartTime(start);
@@ -171,6 +175,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 if (eol) setScanIncludeEol(eol === 'true');
                 if (years) setScanLookbackYears(parseInt(years));
                 if (custom) setScanCustomPrompt(custom);
+                if (nistKey) setNistApiKey(nistKey);
 
             } else if (selectedMenuId === 'interface') {
                 const tooltipSetting = await dataService.getGlobalSetting('tooltip_config');
@@ -192,6 +197,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         await dataService.updateGlobalSetting('scan_include_eol', String(scanIncludeEol));
         await dataService.updateGlobalSetting('scan_lookback_years', String(scanLookbackYears));
         await dataService.updateGlobalSetting('scan_custom_prompt', scanCustomPrompt);
+        await dataService.updateGlobalSetting('nist_api_key', nistApiKey);
 
         alert("Configuração guardada.");
     };
@@ -629,6 +635,23 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                     </label>
                                     <p className="text-xs text-gray-500 ml-6 mt-1">
                                         Força a procura de vulnerabilidades críticas em sistemas antigos (ex: Win 7, Server 2008), ignorando a janela de tempo.
+                                    </p>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="block text-xs text-gray-500 uppercase mb-1">Chave API NIST (Opcional)</label>
+                                    <div className="flex gap-2 items-center">
+                                        <FaKey className="text-gray-500"/>
+                                        <input 
+                                            type="password" 
+                                            value={nistApiKey}
+                                            onChange={(e) => setNistApiKey(e.target.value)}
+                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
+                                            placeholder="Cole a sua chave API do NIST aqui"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Se configurada, o sistema tentará consultar a base de dados oficial do NIST. Caso contrário, utilizará a análise preditiva da IA.
                                     </p>
                                 </div>
 

@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useMemo } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
@@ -179,9 +181,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
         const cfg = tooltipConfig || defaultTooltipConfig;
         
-        // If all options are false, maybe just show nothing or a minimal name? 
-        // Let's assume at least name is good, but we follow config.
-        
         const content = (
             <div className="text-xs leading-tight space-y-1">
                 {cfg.showCollabName && <p className="font-bold text-white">{col.fullName}</p>}
@@ -194,13 +193,10 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     </div>
                 )}
                 
-                {/* Always show equipment if present, or make it a config? 
-                    Let's append it if there are items, as it's useful context 
-                */}
                 {assignedEquipment.length > 0 && (
                     <div className="mt-2 border-t border-gray-600 pt-1">
                         <p className="font-bold text-brand-secondary mb-1">Equipamentos ({assignedEquipment.length}):</p>
-                        <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-hidden">
+                        <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-hidden text-gray-300">
                             {assignedEquipment.slice(0, 3).map((eq, index) => <li key={index} className="truncate">{eq}</li>)}
                             {assignedEquipment.length > 3 && <li>... mais {assignedEquipment.length - 3}</li>}
                         </ul>
@@ -344,7 +340,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 onMouseOver={(e) => handleMouseOver(col, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={() => onEdit && onEdit(col)} // Changed to Edit as primary action on row click
+                onClick={() => onShowDetails ? onShowDetails(col) : (onEdit && onEdit(col))}
               >
                 <td className="px-6 py-4">{col.numeroMecanografico}</td>
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
@@ -403,7 +399,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                                 <FaComment className="h-5 w-5"/>
                             </button>
                         )}
-                        {onShowDetails && ( // Changed icon/function for details
+                        {onShowDetails && ( 
                             <button onClick={(e) => { e.stopPropagation(); onShowDetails(col); }} className="text-teal-400 hover:text-teal-300" aria-label={`Ficha de ${col.fullName}`}>
                                 <ReportIcon className="h-5 w-5"/>
                             </button>
