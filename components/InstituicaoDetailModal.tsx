@@ -11,10 +11,11 @@ interface InstituicaoDetailModalProps {
     onClose: () => void;
     onEdit: () => void;
     onAddEntity?: (instituicaoId: string) => void;
+    onCreateCollaborator?: () => void; // New prop for generic add
     onOpenEntity?: (entidade: Entidade) => void; // New prop
 }
 
-const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity, onOpenEntity }) => {
+const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity, onCreateCollaborator, onOpenEntity }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'collabs'>('info');
     const relatedEntidades = entidades.filter(e => e.instituicaoId === instituicao.id);
     
@@ -294,9 +295,19 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
 
                     {activeTab === 'collabs' && (
                         <div>
-                            <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-4">
-                                Todos os Colaboradores ({relatedCollaborators.length})
-                            </h3>
+                            <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-4">
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                                    Todos os Colaboradores ({relatedCollaborators.length})
+                                </h3>
+                                {onCreateCollaborator && (
+                                    <button 
+                                        onClick={() => { onClose(); onCreateCollaborator(); }}
+                                        className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                                    >
+                                        <FaPlus /> Novo Colaborador
+                                    </button>
+                                )}
+                            </div>
                             {relatedCollaborators.length > 0 ? (
                                 <div className="space-y-2">
                                     {relatedCollaborators.map(col => {

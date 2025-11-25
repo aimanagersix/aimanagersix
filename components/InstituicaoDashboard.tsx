@@ -16,13 +16,14 @@ interface InstituicaoDashboardProps {
   onCreate?: () => void;
   // Quick Actions passed down to child modals
   onAddEntity?: (instituicaoId: string) => void;
+  onCreateCollaborator?: () => void; // Generic creator
   onImport?: () => void;
   // Optional handlers for EntidadeDetailModal actions
-  onAddCollaborator?: (entidadeId: string) => void;
+  onAddCollaborator?: (entidadeId: string) => void; // Specific to Entity
   onAssignEquipment?: (entidadeId: string) => void;
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onImport, onAddCollaborator, onAssignEquipment }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -226,6 +227,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                     if (onEdit) onEdit(selectedInstituicao);
                 }}
                 onAddEntity={onAddEntity}
+                onCreateCollaborator={onCreateCollaborator}
                 onOpenEntity={handleOpenEntity}
             />
         )}
