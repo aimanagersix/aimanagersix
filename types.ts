@@ -261,6 +261,7 @@ export interface Entidade {
 }
 
 export const UserRole = {
+    SuperAdmin: 'SuperAdmin',
     Admin: 'Admin',
     Normal: 'Normal',
     Basic: 'Básico',

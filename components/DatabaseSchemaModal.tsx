@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS global_settings (
 -- ==========================================
 
 INSERT INTO config_equipment_statuses (name) VALUES ('Stock'), ('Operacional'), ('Abate'), ('Garantia') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_user_roles (name) VALUES ('Admin'), ('Normal'), ('Básico'), ('Utilizador') ON CONFLICT (name) DO NOTHING;
+INSERT INTO config_user_roles (name) VALUES ('SuperAdmin'), ('Admin'), ('Normal'), ('Básico'), ('Utilizador') ON CONFLICT (name) DO NOTHING;
 INSERT INTO config_criticality_levels (name) VALUES ('Baixa'), ('Média'), ('Alta'), ('Crítica') ON CONFLICT (name) DO NOTHING;
 INSERT INTO config_cia_ratings (name) VALUES ('Baixo'), ('Médio'), ('Alto') ON CONFLICT (name) DO NOTHING;
 INSERT INTO config_service_statuses (name) VALUES ('Ativo'), ('Inativo'), ('Em Manutenção') ON CONFLICT (name) DO NOTHING;
@@ -292,9 +292,11 @@ END $$;
 BEGIN;
 
 -- 1. Proteger o Super Admin (josefsmoreira@outlook.com)
--- Garante que ele não é apagado e fica com permissões globais
+-- Garante que ele não é apagado e fica com permissões globais (SuperAdmin)
+INSERT INTO config_user_roles (name) VALUES ('SuperAdmin') ON CONFLICT (name) DO NOTHING;
+
 UPDATE collaborators 
-SET role = 'Admin', "entidadeId" = NULL, status = 'Ativo'
+SET role = 'SuperAdmin', "entidadeId" = NULL, status = 'Ativo'
 WHERE email = 'josefsmoreira@outlook.com';
 
 -- 2. Apagar Dados Operacionais e Dependências (Ordem Crítica)
@@ -367,7 +369,7 @@ COMMIT;
                 {activeTab === 'update' && (
                     <div className="animate-fade-in">
                         <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                            <p>Este script cria tabelas em falta e adiciona colunas necessárias sem apagar os dados existentes. Use isto para atualizar a aplicação.</p>
+                            <p>Este script cria tabelas em falta, adiciona colunas necessárias e regista o perfil 'SuperAdmin' sem apagar os dados existentes. Use isto para atualizar a aplicação.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">
@@ -388,8 +390,8 @@ COMMIT;
                     <div className="animate-fade-in">
                         <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
                             <p className="font-bold mb-2"><FaTrash className="inline mr-2"/> ATENÇÃO: AÇÃO DESTRUTIVA</p>
-                            <p>Este script apaga TODOS os dados operacionais (equipamentos, tickets, histórico) e estrutura organizacional.</p>
-                            <p className="mt-1">Apenas o utilizador <strong>josefsmoreira@outlook.com</strong> e as configurações base (Marcas, Tipos, Definições) serão preservados.</p>
+                            <p>Este script apaga TODOS os dados operacionais e estrutura organizacional.</p>
+                            <p className="mt-1">Apenas o utilizador <strong>josefsmoreira@outlook.com</strong> será preservado e promovido a <strong>SuperAdmin</strong>.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-red-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-red-900/50 whitespace-pre-wrap">
@@ -409,7 +411,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.25</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.26</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

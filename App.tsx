@@ -391,7 +391,8 @@ const InnerApp: React.FC = () => {
     };
     
     // Role Based Access Logic
-    const isAdmin = currentUser?.role === UserRole.Admin;
+    const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
+    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
     const isBasic = currentUser?.role === UserRole.Basic || currentUser?.role === UserRole.Utilizador;
     
     // Helper to determine if current user is the one being edited/viewed

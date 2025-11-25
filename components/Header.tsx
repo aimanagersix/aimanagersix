@@ -150,7 +150,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
     
-    const isAdmin = currentUser?.role === UserRole.Admin;
+    const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
+    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
   return (
     <>
@@ -402,9 +403,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
                                         <FaClipboardList className="mr-3 text-yellow-400" /> Logs Auditoria
                                     </button>
-                                    <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                        <FaDatabase className="mr-3 text-green-400" /> Config BD
-                                    </button>
+                                    {isSuperAdmin && (
+                                        <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                            <FaDatabase className="mr-3 text-green-400" /> Config BD
+                                        </button>
+                                    )}
                                 </>
                             )}
                             <div className="border-t border-gray-700 my-1"></div>

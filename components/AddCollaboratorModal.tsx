@@ -59,8 +59,14 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [successMessage, setSuccessMessage] = useState('');
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
 
+    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
+
     // Use dynamic options if available
-    const roles = roleOptions && roleOptions.length > 0 ? roleOptions.map(r => r.name) : Object.values(UserRole);
+    // Filter 'SuperAdmin' out if current user is not SuperAdmin
+    const roles = roleOptions && roleOptions.length > 0 
+        ? roleOptions.map(r => r.name).filter(role => isSuperAdmin || role !== UserRole.SuperAdmin)
+        : Object.values(UserRole).filter(role => isSuperAdmin || role !== UserRole.SuperAdmin);
+
     const titles = titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª'];
 
     useEffect(() => {
@@ -75,8 +81,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 title: collaboratorToEdit.title || '',
                 entidadeId: collaboratorToEdit.entidadeId || ''
             });
-            // If no entity ID and role is Admin, it's a global admin
-            if (!collaboratorToEdit.entidadeId && collaboratorToEdit.role === 'Admin') {
+            // If no entity ID and role is SuperAdmin (or Admin for legacy compatibility), it's a global admin
+            if (!collaboratorToEdit.entidadeId && (collaboratorToEdit.role === UserRole.SuperAdmin || (isSuperAdmin && collaboratorToEdit.role === UserRole.Admin))) {
                 setIsGlobalAdmin(true);
             }
         } else {
@@ -85,7 +91,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                  entidadeId: escolasDepartamentos[0]?.id || ''
              }));
         }
-    }, [collaboratorToEdit, escolasDepartamentos]);
+    }, [collaboratorToEdit, escolasDepartamentos, isSuperAdmin]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -122,9 +128,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
         }));
         
-        // If user changes role away from Admin, force Global Admin off
-        if (name === 'role' && value !== 'Admin') {
-            setIsGlobalAdmin(false);
+        // Only SuperAdmin can create users without entity
+        if (name === 'role' && value !== UserRole.SuperAdmin && !isSuperAdmin) {
+             setIsGlobalAdmin(false);
         }
         
         if (errors[name]) {
@@ -184,7 +190,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     };
 
     const modalTitle = collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador";
-    const isAdminRole = formData.role === 'Admin';
+    // Only SuperAdmin can see/toggle Global Admin
+    const showGlobalToggle = isSuperAdmin && (formData.role === UserRole.Admin || formData.role === UserRole.SuperAdmin);
 
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-2xl">
@@ -264,7 +271,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
                 </div>
 
-                {isAdminRole && (
+                {showGlobalToggle && (
                     <div className={`p-3 rounded border flex items-center transition-colors ${isGlobalAdmin ? 'bg-purple-900/40 border-purple-500' : 'bg-gray-800 border-gray-600'}`}>
                          <label className="flex items-center cursor-pointer w-full">
                             <input 
@@ -279,7 +286,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                                     Acesso Global (Super Admin)
                                 </span>
                                 <p className="text-xs text-gray-400 mt-0.5">
-                                    Permite ver e gerir todas as instituições sem restrição de entidade.
+                                    Permite ver e gerir todas as instituições sem restrição de entidade. Apenas SuperAdmins podem atribuir isto.
                                 </p>
                             </div>
                         </label>

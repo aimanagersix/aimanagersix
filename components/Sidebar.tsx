@@ -51,7 +51,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
     
-    const isAdmin = currentUser?.role === UserRole.Admin;
+    const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
+    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
     const handleTabClick = (tab: string) => {
         setActiveTab(tab);
@@ -209,7 +210,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 {hasNis2Tabs && (
                     <div className="space-y-1">
                         <button
-                            onClick={() => setIsNis2Open(!isNis2Open)}
+                            onClick={() => setIsNis2Open(prev => !prev)}
                             className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isNis2Open ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                             title={!isExpanded ? (tabConfig.nis2?.title || 'Compliance') : undefined}
                         >
@@ -353,10 +354,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                             <FaClipboardList className="text-yellow-400 w-4 h-4" />
                                             {isExpanded && "Logs Auditoria"}
                                         </button>
-                                        <button onClick={() => setShowDbSchema(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                            <FaDatabase className="text-green-400 w-4 h-4" />
-                                            {isExpanded && "Config BD"}
-                                        </button>
+                                        {isSuperAdmin && (
+                                            <button onClick={() => setShowDbSchema(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                                <FaDatabase className="text-green-400 w-4 h-4" />
+                                                {isExpanded && "Config BD"}
+                                            </button>
+                                        )}
                                     </>
                                 )}
                                 <div className="border-t border-gray-700 my-1"></div>
