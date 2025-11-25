@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useMemo } from 'react';
 import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment } from '../types';
 import { EditIcon, DeleteIcon, SearchIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
@@ -39,7 +36,7 @@ const getStatusClass = (status: EntidadeStatus) => {
 const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate, onAddCollaborator, onAssignEquipment, onImport }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState({ instituicaoId: '' });
+    const [filters, setFilters] = useState({ instituicaoId: '', status: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [selectedEntidade, setSelectedEntidade] = useState<Entidade | null>(null);
@@ -78,7 +75,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
     };
 
     const clearFilters = () => {
-        setFilters({ instituicaoId: '' });
+        setFilters({ instituicaoId: '', status: '' });
         setSearchQuery('');
         setCurrentPage(1);
     };
@@ -96,7 +93,9 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                 entidade.codigo.toLowerCase().includes(query);
 
             const instituicaoMatch = filters.instituicaoId === '' || entidade.instituicaoId === filters.instituicaoId;
-            return searchMatch && instituicaoMatch;
+            const statusMatch = filters.status === '' || entidade.status === filters.status;
+            
+            return searchMatch && instituicaoMatch && statusMatch;
         }).sort((a,b) => a.name.localeCompare(b.name));
     }, [entidadesData, filters, searchQuery]);
 
@@ -116,7 +115,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                 <td>${instituicaoMap.get(ent.instituicaoId) || 'N/A'}</td>
                 <td>${ent.responsavel || '-'}</td>
                 <td>${ent.email}</td>
-                <td>${collaboratorsByEntidade[ent.id] || 0}</td>
+                <td>${ent.status}</td>
             </tr>
         `).join('');
 
@@ -143,7 +142,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                             <th>Instituição</th>
                             <th>Responsável</th>
                             <th>Email</th>
-                            <th>Colaboradores</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
@@ -177,7 +176,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
         </div>
 
         <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                  <div>
                     <label htmlFor="searchQuery" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Procurar</label>
                      <div className="relative">
@@ -205,6 +204,19 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                     >
                         <option value="">Todas as Instituições</option>
                         {instituicoes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Status</label>
+                    <select
+                        id="status"
+                        name="status"
+                        value={filters.status}
+                        onChange={handleFilterChange}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                    >
+                        <option value="">Todos os Estados</option>
+                        {Object.values(EntidadeStatus).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
             </div>

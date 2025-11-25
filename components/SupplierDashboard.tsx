@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Supplier, CriticalityLevel, BusinessService } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle } from './common/Icons';
@@ -86,18 +85,35 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+    const [filterRisk, setFilterRisk] = useState<string>('');
+    const [filterIso, setFilterIso] = useState<string>(''); // 'yes' | 'no' | ''
 
     const filteredSuppliers = useMemo(() => {
-        return suppliers.filter(s => 
-            s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            s.nif?.includes(searchQuery)
-        ).sort((a,b) => a.name.localeCompare(b.name));
-    }, [suppliers, searchQuery]);
+        return suppliers.filter(s => {
+            const searchMatch = searchQuery === '' ||
+                s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                s.nif?.includes(searchQuery);
+            
+            const riskMatch = filterRisk === '' || s.risk_level === filterRisk;
+            
+            const isoMatch = filterIso === '' || 
+                (filterIso === 'yes' ? s.is_iso27001_certified : !s.is_iso27001_certified);
+
+            return searchMatch && riskMatch && isoMatch;
+        }).sort((a,b) => a.name.localeCompare(b.name));
+    }, [suppliers, searchQuery, filterRisk, filterIso]);
 
     const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage);
     const paginatedSuppliers = useMemo(() => {
         return filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     }, [filteredSuppliers, currentPage, itemsPerPage]);
+
+    const clearFilters = () => {
+        setSearchQuery('');
+        setFilterRisk('');
+        setFilterIso('');
+        setCurrentPage(1);
+    };
 
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
@@ -118,17 +134,48 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
 
             <ConcentrationRiskWidget services={businessServices} suppliers={suppliers} />
 
-            <div className="mb-4 relative max-w-md">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaSearch className="h-4 w-4 text-gray-400" />
+            <div className="mb-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <FaSearch className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                            placeholder="Procurar por nome ou NIF..."
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                        />
+                    </div>
+                    <select
+                        value={filterRisk}
+                        onChange={(e) => { setFilterRisk(e.target.value); setCurrentPage(1); }}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                    >
+                        <option value="">Todos os Níveis de Risco</option>
+                        {Object.values(CriticalityLevel).map(level => (
+                            <option key={level} value={level}>{level}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={filterIso}
+                        onChange={(e) => { setFilterIso(e.target.value); setCurrentPage(1); }}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                    >
+                        <option value="">Certificação ISO 27001 (Todos)</option>
+                        <option value="yes">Sim</option>
+                        <option value="no">Não</option>
+                    </select>
                 </div>
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Procurar por nome ou NIF..."
-                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                />
+                <div className="flex justify-end">
+                    <button
+                        onClick={clearFilters}
+                        className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
+                    >
+                        Limpar Filtros
+                    </button>
+                </div>
             </div>
             
             <div className="overflow-x-auto">

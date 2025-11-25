@@ -1,10 +1,5 @@
-
-
-
-
-
 import React, { useState, useMemo } from 'react';
-import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig } from '../types';
+import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -72,7 +67,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
 }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState({ entidadeId: '', status: '' });
+    const [filters, setFilters] = useState({ entidadeId: '', status: '', role: '' });
     const [tooltip, setTooltip] = useState<TooltipState | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -149,7 +144,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
 
     const clearFilters = () => {
         setSearchQuery('');
-        setFilters({ entidadeId: '', status: '' });
+        setFilters({ entidadeId: '', status: '', role: '' });
         setCurrentPage(1);
     };
 
@@ -168,7 +163,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
 
             const entidadeMatch = filters.entidadeId === '' || col.entidadeId === filters.entidadeId;
             const statusMatch = filters.status === '' || col.status === filters.status;
-            return searchMatch && entidadeMatch && statusMatch;
+            const roleMatch = filters.role === '' || col.role === filters.role;
+            
+            return searchMatch && entidadeMatch && statusMatch && roleMatch;
         }).sort((a,b) => a.fullName.localeCompare(b.fullName));
     }, [collaborators, filters, searchQuery]);
     
@@ -246,8 +243,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         </div>
 
         <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
                     <label htmlFor="searchQuery" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Procurar Colaborador</label>
                     <div className="relative">
                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -274,6 +271,19 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     >
                         <option value="">Todas as Entidades</option>
                         {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="roleFilter" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Perfil</label>
+                    <select
+                        id="roleFilter"
+                        name="role"
+                        value={filters.role}
+                        onChange={handleFilterChange}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                    >
+                        <option value="">Todos os Perfis</option>
+                        {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                 </div>
                 <div>

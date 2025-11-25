@@ -1,11 +1,6 @@
-
-
-
-
-
 import React, { useMemo, useState } from 'react';
 import { Instituicao, Entidade, Collaborator } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
+import { EditIcon, DeleteIcon, PlusIcon, FaPrint, FaFileImport, SearchIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
 
@@ -26,6 +21,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [selectedInstituicao, setSelectedInstituicao] = useState<Instituicao | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
     
     const entidadesCountByInstituicao = useMemo(() => {
         return entidades.reduce((acc, curr) => {
@@ -39,20 +35,26 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
         setCurrentPage(1);
     };
     
-    const sortedInstituicoes = useMemo(() => {
-        return [...instituicoes].sort((a,b) => a.name.localeCompare(b.name));
-    }, [instituicoes]);
+    const filteredInstituicoes = useMemo(() => {
+        return instituicoes.filter(inst => 
+            searchQuery === '' ||
+            inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            inst.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            inst.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (inst.nif && inst.nif.includes(searchQuery))
+        ).sort((a,b) => a.name.localeCompare(b.name));
+    }, [instituicoes, searchQuery]);
 
-    const totalPages = Math.ceil(sortedInstituicoes.length / itemsPerPage);
+    const totalPages = Math.ceil(filteredInstituicoes.length / itemsPerPage);
     const paginatedInstituicoes = useMemo(() => {
-        return sortedInstituicoes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    }, [sortedInstituicoes, currentPage, itemsPerPage]);
+        return filteredInstituicoes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [filteredInstituicoes, currentPage, itemsPerPage]);
 
     const handlePrintList = () => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const rows = sortedInstituicoes.map(inst => `
+        const rows = filteredInstituicoes.map(inst => `
             <tr>
                 <td>${inst.name}</td>
                 <td>${inst.codigo}</td>
@@ -98,7 +100,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
 
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
             <h2 className="text-xl font-semibold text-white">Gerenciar Instituições</h2>
             <div className="flex gap-2">
                 <button onClick={handlePrintList} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors">
@@ -115,6 +117,19 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                     </button>
                 )}
             </div>
+        </div>
+
+        <div className="mb-6 relative max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <SearchIcon className="h-4 w-4 text-gray-400" />
+            </div>
+            <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                placeholder="Procurar por nome, código, email ou NIF..."
+                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+            />
         </div>
       
       <div className="overflow-x-auto">
@@ -184,7 +199,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
             onPageChange={setCurrentPage}
             itemsPerPage={itemsPerPage}
             onItemsPerPageChange={handleItemsPerPageChange}
-            totalItems={sortedInstituicoes.length}
+            totalItems={filteredInstituicoes.length}
         />
 
         {selectedInstituicao && (
