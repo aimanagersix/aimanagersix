@@ -69,6 +69,7 @@ import SmartDashboard from './components/SmartDashboard';
 import CalendarModal from './components/CalendarModal';
 import UserManualModal from './components/UserManualModal';
 import AgendaDashboard from './components/AgendaDashboard';
+import MapDashboard from './components/MapDashboard';
 import AuxiliaryDataDashboard from './components/AuxiliaryDataDashboard';
 import { checkAndRunAutoScan } from './services/automationService';
 
@@ -689,7 +690,7 @@ const InnerApp: React.FC = () => {
         'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets' },
         'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' },
-        'tools': { title: 'Tools', agenda: 'Agenda de contactos' },
+        'tools': { title: 'Tools', agenda: 'Agenda de contactos', map: 'Pesquisa no Mapa' },
         'settings': isAdmin ? 'Configurações' : undefined
     };
 
@@ -1031,6 +1032,14 @@ const InnerApp: React.FC = () => {
 
                 {activeTab === 'tools.agenda' && (
                     <AgendaDashboard />
+                )}
+
+                {activeTab === 'tools.map' && (
+                    <MapDashboard 
+                        instituicoes={instituicoes}
+                        entidades={entidades}
+                        suppliers={suppliers}
+                    />
                 )}
 
                 {activeTab === 'nis2.bia' && (
