@@ -207,6 +207,17 @@ BEGIN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]';
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS other_certifications jsonb DEFAULT '[]';
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contracts jsonb DEFAULT '[]';
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+    END IF;
+    
+    -- Teams
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'teams') THEN
+        ALTER TABLE teams ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+    END IF;
+
+    -- Instituicoes
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
+        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
     END IF;
     
     -- Address Columns
@@ -259,7 +270,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.13</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.14</span>
                     </div>
                 </div>
 

@@ -154,6 +154,8 @@ export interface Supplier {
     
     // New: Multiple Contacts
     contacts?: ResourceContact[];
+    
+    is_active?: boolean; // Status Toggle
 }
 
 export interface EquipmentType {
@@ -217,6 +219,8 @@ export interface Instituicao {
   locality?: string;
   
   contacts?: ResourceContact[];
+  
+  is_active?: boolean; // Status Toggle
 }
 
 export const EntidadeStatus = {
@@ -451,6 +455,7 @@ export interface Team {
     name: string;
     description?: string;
     created_at?: string;
+    is_active?: boolean; // Status Toggle
 }
 
 export interface TeamMember {

@@ -1,6 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { Supplier, CriticalityLevel, BusinessService } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle } from './common/Icons';
+import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import SupplierDetailModal from './SupplierDetailModal';
 
@@ -10,6 +12,7 @@ interface SupplierDashboardProps {
   onDelete: (id: string) => void;
   onCreate: () => void;
   businessServices: BusinessService[];
+  onToggleStatus?: (id: string) => void;
 }
 
 const getRiskClass = (level: CriticalityLevel) => {
@@ -79,7 +82,7 @@ const ConcentrationRiskWidget: React.FC<{ services: BusinessService[], suppliers
     );
 };
 
-const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit, onDelete, onCreate, businessServices }) => {
+const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit, onDelete, onCreate, businessServices, onToggleStatus }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -87,6 +90,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [filterRisk, setFilterRisk] = useState<string>('');
     const [filterIso, setFilterIso] = useState<string>(''); // 'yes' | 'no' | ''
+    const [filterStatus, setFilterStatus] = useState<string>('');
 
     const filteredSuppliers = useMemo(() => {
         return suppliers.filter(s => {
@@ -98,10 +102,13 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
             
             const isoMatch = filterIso === '' || 
                 (filterIso === 'yes' ? s.is_iso27001_certified : !s.is_iso27001_certified);
+                
+            const statusMatch = filterStatus === '' || 
+                (filterStatus === 'active' ? s.is_active !== false : s.is_active === false);
 
-            return searchMatch && riskMatch && isoMatch;
+            return searchMatch && riskMatch && isoMatch && statusMatch;
         }).sort((a,b) => a.name.localeCompare(b.name));
-    }, [suppliers, searchQuery, filterRisk, filterIso]);
+    }, [suppliers, searchQuery, filterRisk, filterIso, filterStatus]);
 
     const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage);
     const paginatedSuppliers = useMemo(() => {
@@ -112,6 +119,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
         setSearchQuery('');
         setFilterRisk('');
         setFilterIso('');
+        setFilterStatus('');
         setCurrentPage(1);
     };
 
@@ -167,6 +175,15 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                         <option value="yes">Sim</option>
                         <option value="no">Não</option>
                     </select>
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                    >
+                        <option value="">Todos os Estados</option>
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                    </select>
                 </div>
                 <div className="flex justify-end">
                     <button
@@ -187,14 +204,17 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                             <th scope="col" className="px-6 py-3 text-center">ISO 27001</th>
                             <th scope="col" className="px-6 py-3 text-center">Nível de Risco</th>
                             <th scope="col" className="px-6 py-3">Contratos</th>
+                            <th scope="col" className="px-6 py-3 text-center">Status</th>
                             <th scope="col" className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedSuppliers.length > 0 ? paginatedSuppliers.map((supplier) => (
+                        {paginatedSuppliers.length > 0 ? paginatedSuppliers.map((supplier) => {
+                            const isActive = supplier.is_active !== false;
+                            return (
                             <tr 
                                 key={supplier.id} 
-                                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
+                                className={`border-b border-gray-700 cursor-pointer ${isActive ? 'bg-surface-dark hover:bg-gray-800/50' : 'bg-gray-800/50 opacity-70'}`}
                                 onClick={() => setSelectedSupplier(supplier)}
                             >
                                 <td className="px-6 py-4 font-medium text-on-surface-dark">
@@ -233,7 +253,21 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                     )}
                                 </td>
                                 <td className="px-6 py-4 text-center">
+                                    <span className={`px-2 py-1 text-xs rounded-full ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                        {isActive ? 'Ativo' : 'Inativo'}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
+                                        {onToggleStatus && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); onToggleStatus(supplier.id); }}
+                                                className={`text-xl ${isActive ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
+                                                title={isActive ? 'Inativar' : 'Ativar'}
+                                            >
+                                                {isActive ? <FaToggleOn /> : <FaToggleOff />}
+                                            </button>
+                                        )}
                                         <button onClick={(e) => { e.stopPropagation(); onEdit(supplier); }} className="text-blue-400 hover:text-blue-300" title="Editar">
                                             <EditIcon />
                                         </button>
@@ -243,9 +277,9 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                     </div>
                                 </td>
                             </tr>
-                        )) : (
+                        )}) : (
                             <tr>
-                                <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">
+                                <td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">
                                     Nenhum fornecedor encontrado.
                                 </td>
                             </tr>

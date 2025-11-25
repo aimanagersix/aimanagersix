@@ -1,7 +1,10 @@
 
+
+
 import React, { useMemo, useState } from 'react';
 import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaPrint, FaFileImport, SearchIcon } from './common/Icons';
+import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
 import EntidadeDetailModal from './EntidadeDetailModal';
@@ -27,9 +30,11 @@ interface InstituicaoDashboardProps {
   equipment?: Equipment[];
   brands?: Brand[];
   equipmentTypes?: EquipmentType[];
+  // New Toggle Handler
+  onToggleStatus?: (id: string) => void;
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment, onEditEntity, equipment = [], brands = [], equipmentTypes = [] }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment, onEditEntity, equipment = [], brands = [], equipmentTypes = [], onToggleStatus }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -37,6 +42,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
     // State for drill-down entity modal
     const [selectedEntityForDrillDown, setSelectedEntityForDrillDown] = useState<Entidade | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [filterStatus, setFilterStatus] = useState<string>('');
     
     const entidadesCountByInstituicao = useMemo(() => {
         return entidades.reduce((acc, curr) => {
@@ -51,14 +57,20 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
     };
     
     const filteredInstituicoes = useMemo(() => {
-        return instituicoes.filter(inst => 
-            searchQuery === '' ||
-            inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            inst.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            inst.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (inst.nif && inst.nif.includes(searchQuery))
-        ).sort((a,b) => a.name.localeCompare(b.name));
-    }, [instituicoes, searchQuery]);
+        return instituicoes.filter(inst => {
+            const searchMatch = 
+                searchQuery === '' ||
+                inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                inst.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                inst.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (inst.nif && inst.nif.includes(searchQuery));
+                
+            const statusMatch = filterStatus === '' || 
+                (filterStatus === 'active' ? inst.is_active !== false : inst.is_active === false);
+
+            return searchMatch && statusMatch;
+        }).sort((a,b) => a.name.localeCompare(b.name));
+    }, [instituicoes, searchQuery, filterStatus]);
 
     const totalPages = Math.ceil(filteredInstituicoes.length / itemsPerPage);
     const paginatedInstituicoes = useMemo(() => {
@@ -76,6 +88,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                 <td>${inst.email}</td>
                 <td>${inst.telefone}</td>
                 <td>${entidadesCountByInstituicao[inst.id] || 0}</td>
+                <td>${inst.is_active !== false ? 'Ativo' : 'Inativo'}</td>
             </tr>
         `).join('');
 
@@ -102,6 +115,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                             <th>Email</th>
                             <th>Telefone</th>
                             <th>Entidades</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
@@ -139,17 +153,28 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
             </div>
         </div>
 
-        <div className="mb-6 relative max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <SearchIcon className="h-4 w-4 text-gray-400" />
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+            <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <SearchIcon className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                    placeholder="Procurar por nome, código, email ou NIF..."
+                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                />
             </div>
-            <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                placeholder="Procurar por nome, código, email ou NIF..."
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-            />
+            <select
+                value={filterStatus}
+                onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+                className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+            >
+                <option value="">Todos os Estados</option>
+                <option value="active">Ativo</option>
+                <option value="inactive">Inativo</option>
+            </select>
         </div>
       
       <div className="overflow-x-auto">
@@ -160,16 +185,19 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
               <th scope="col" className="px-6 py-3">Código</th>
               <th scope="col" className="px-6 py-3">Contactos</th>
               <th scope="col" className="px-6 py-3 text-center">Nº de Entidades</th>
+              <th scope="col" className="px-6 py-3 text-center">Status</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>
           </thead>
           <tbody>
             {paginatedInstituicoes.length > 0 ? paginatedInstituicoes.map((instituicao) => {
                 const isDeleteDisabled = (entidadesCountByInstituicao[instituicao.id] || 0) > 0;
+                const isActive = instituicao.is_active !== false;
+
                 return (
               <tr 
                 key={instituicao.id} 
-                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
+                className={`border-b border-gray-700 cursor-pointer ${isActive ? 'bg-surface-dark hover:bg-gray-800/50' : 'bg-gray-800/50 opacity-70'}`}
                 onClick={() => setSelectedInstituicao(instituicao)}
               >
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
@@ -182,7 +210,21 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                 </td>
                 <td className="px-6 py-4 text-center">{entidadesCountByInstituicao[instituicao.id] || 0}</td>
                 <td className="px-6 py-4 text-center">
+                    <span className={`px-2 py-1 text-xs rounded-full ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                        {isActive ? 'Ativo' : 'Inativo'}
+                    </span>
+                </td>
+                <td className="px-6 py-4 text-center">
                     <div className="flex justify-center items-center gap-4">
+                        {onToggleStatus && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onToggleStatus(instituicao.id); }}
+                                className={`text-xl ${isActive ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
+                                title={isActive ? 'Inativar' : 'Ativar'}
+                            >
+                                {isActive ? <FaToggleOn /> : <FaToggleOff />}
+                            </button>
+                        )}
                         {onEdit && (
                             <button onClick={(e) => { e.stopPropagation(); onEdit(instituicao); }} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${instituicao.name}`}>
                                 <EditIcon />
@@ -207,7 +249,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
               </tr>
             )}) : (
                 <tr>
-                    <td colSpan={5} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma instituição encontrada.</td>
+                    <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma instituição encontrada.</td>
                 </tr>
             )}
           </tbody>

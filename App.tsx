@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -907,6 +909,14 @@ const InnerApp: React.FC = () => {
                         equipment={equipment}
                         brands={brands}
                         equipmentTypes={equipmentTypes}
+                        // Toggle Status Handler
+                        onToggleStatus={(id) => {
+                            const inst = instituicoes.find(i => i.id === id);
+                            if (inst) {
+                                const newStatus = inst.is_active !== false ? false : true; // Toggle logic (default true)
+                                simpleSaveWrapper(dataService.updateInstituicao, { is_active: newStatus }, id);
+                            }
+                        }}
                     />
                 )}
 
@@ -1017,6 +1027,14 @@ const InnerApp: React.FC = () => {
                         onDelete={(id) => handleDelete('Excluir Equipa', 'Tem a certeza que deseja excluir esta equipa?', () => simpleSaveWrapper(dataService.deleteTeam, id))}
                         onManageMembers={(t) => { setTeamToEdit(t); setShowManageTeamMembers(t); }}
                         onCreate={() => { setTeamToEdit(null); setShowAddTeam(true); }}
+                        // Toggle Status Handler
+                        onToggleStatus={(id) => {
+                            const team = teams.find(t => t.id === id);
+                            if (team) {
+                                const newStatus = team.is_active !== false ? false : true;
+                                simpleSaveWrapper(dataService.updateTeam, { is_active: newStatus }, id);
+                            }
+                        }}
                     />
                 )}
 
@@ -1027,6 +1045,14 @@ const InnerApp: React.FC = () => {
                         onDelete={(id) => handleDelete('Excluir Fornecedor', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteSupplier, id))}
                         onCreate={() => { setSupplierToEdit(null); setShowAddSupplier(true); }}
                         businessServices={businessServices}
+                        // Toggle Status Handler
+                        onToggleStatus={(id) => {
+                            const sup = suppliers.find(s => s.id === id);
+                            if (sup) {
+                                const newStatus = sup.is_active !== false ? false : true;
+                                simpleSaveWrapper(dataService.updateSupplier, { is_active: newStatus }, id);
+                            }
+                        }}
                     />
                 )}
 
