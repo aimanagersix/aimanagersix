@@ -1,6 +1,3 @@
-
-
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -104,7 +101,7 @@ BEGIN
 END $$;
 
 -- ==========================================
--- 5. SCRIPT DE CORREÇÃO DE COLUNAS (Legado)
+-- 5. SCRIPT DE CORREÇÃO DE COLUNAS (Atualizações)
 -- ==========================================
 
 DO $$ 
@@ -144,7 +141,7 @@ BEGIN
         ALTER TABLE resilience_tests ADD COLUMN IF NOT EXISTS auditor_internal_entidade_id uuid;
     END IF;
 
-    -- Equipment Types
+    -- Equipment Types (Localização e Backups)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresLocation" boolean DEFAULT false;
@@ -162,7 +159,7 @@ BEGIN
         ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_critical_hours integer DEFAULT 0;
     END IF;
 
-    -- Equipment
+    -- Equipment (Localização Física)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
@@ -200,7 +197,7 @@ BEGIN
         ALTER TABLE brands ADD COLUMN IF NOT EXISTS security_contact_email text;
     END IF;
 
-    -- Suppliers
+    -- Suppliers (Status)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'suppliers') THEN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry text;
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address text;
@@ -214,12 +211,12 @@ BEGIN
         ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
     END IF;
     
-    -- Teams
+    -- Teams (Status)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'teams') THEN
         ALTER TABLE teams ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
     END IF;
 
-    -- Instituicoes
+    -- Instituicoes (Status)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
     END IF;
@@ -263,7 +260,7 @@ END $$;
                             <span>Instruções de Atualização</span>
                         </div>
                         <p className="mb-2">
-                            Este script cria todas as tabelas necessárias, incluindo a nova tabela de configurações globais (automação) e colunas de ligação de vulnerabilidades a tickets.
+                            Este script cria todas as tabelas necessárias, incluindo as colunas de estado (is_active) e localização física.
                         </p>
                         <ol className="list-decimal list-inside space-y-1 ml-2">
                             <li>Clique em <strong>Copiar SQL</strong>.</li>
@@ -274,7 +271,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.15</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.16</span>
                     </div>
                 </div>
 
