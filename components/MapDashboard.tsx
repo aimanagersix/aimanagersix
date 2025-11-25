@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Instituicao, Entidade, Supplier, Equipment, Assignment } from '../types';
 // @ts-ignore

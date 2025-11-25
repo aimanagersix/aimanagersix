@@ -390,6 +390,9 @@ const InnerApp: React.FC = () => {
     // Role Based Access Logic
     const isAdmin = currentUser?.role === UserRole.Admin;
     const isBasic = currentUser?.role === UserRole.Basic || currentUser?.role === UserRole.Utilizador;
+    
+    // Helper to determine if current user is the one being edited/viewed
+    const isCurrentUser = (collaboratorId: string) => currentUser && currentUser.id === collaboratorId;
 
     // Set default tab for Basic Users
     useEffect(() => {
@@ -698,6 +701,40 @@ const InnerApp: React.FC = () => {
         'settings': isAdmin ? 'Configurações' : undefined
     };
 
+    const handleSaveEquipment = async (eqData: any, assignment?: any, licenseIds?: string[]) => {
+        let result;
+        if (eqData.id) {
+            result = await dataService.updateEquipment(eqData.id, eqData);
+        } else {
+            result = await dataService.addEquipment(eqData);
+        }
+        
+        if (result && assignment) {
+            await dataService.addAssignment({ ...assignment, equipmentId: result.id });
+        }
+        
+        if (result && licenseIds) {
+            await dataService.syncLicenseAssignments(result.id, licenseIds);
+        }
+        
+        await refreshData();
+        return result;
+    };
+
+    const handleSaveCollaborator = async (colData: Collaborator, password?: string) => {
+        let result;
+        if (colData.id) {
+            result = await dataService.updateCollaborator(colData.id, colData);
+        } else {
+            result = await dataService.addCollaborator(colData);
+            if (password && result?.email) {
+                setNewCredentials({ email: result.email, password });
+            }
+        }
+        await refreshData();
+        return result;
+    };
+
     return (
         <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : ''}`}>
             {layoutMode === 'top' ? (
@@ -979,7 +1016,7 @@ const InnerApp: React.FC = () => {
                             onEdit={(c) => { setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
                             onDelete={(id) => handleDelete('Excluir Colaborador', 'Tem a certeza que deseja excluir este colaborador?', () => simpleSaveWrapper(dataService.deleteCollaborator, id))}
                             onShowHistory={(c) => { setHistoryCollaborator(c); }}
-                            onShowDetails={(c) => { if (isCurrentUser) { setCollaboratorToEdit(c); setShowProfileModal(true); } else { setDetailCollaborator(c); } }} // Reuse profile modal for self edit or detail modal for others
+                            onShowDetails={(c) => { if (isCurrentUser(c.id)) { setCollaboratorToEdit(c); setShowProfileModal(true); } else { setDetailCollaborator(c); } }} // Reuse profile modal for self edit or detail modal for others
                             onGenerateReport={() => setShowReport({ type: 'collaborator', visible: true })}
                             onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
                             onCreate={() => { setCollaboratorToEdit(null); setShowAddCollaborator(true); }}
@@ -1089,30 +1126,29 @@ const InnerApp: React.FC = () => {
                     )}
 
                     {activeTab === 'nis2.security' && (
-                        <VulnerabilityDashboard
+                        <VulnerabilityDashboard 
                             vulnerabilities={vulnerabilities}
-                            initialFilter={initialFilter}
-                            onClearInitialFilter={() => setInitialFilter(null)}
                             onEdit={(v) => { setVulnerabilityToEdit(v); setShowAddVulnerability(true); }}
                             onDelete={(id) => handleDelete('Excluir Vulnerabilidade', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteVulnerability, id))}
                             onCreate={() => { setVulnerabilityToEdit(null); setShowAddVulnerability(true); }}
-                            onCreateTicket={(v) => {
+                            initialFilter={initialFilter}
+                            onClearInitialFilter={() => setInitialFilter(null)}
+                            onCreateTicket={(vuln) => {
                                 setTicketToEdit(null);
                                 setInitialTicketData({
-                                    title: `Vuln: ${v.cve_id}`,
-                                    description: `Correção de vulnerabilidade ${v.cve_id}.\n\n${v.description}`,
+                                    title: `Vuln: ${vuln.cve_id}`,
+                                    description: `Vulnerabilidade detetada: ${vuln.description}\nAfeta: ${vuln.affected_software}`,
                                     category: 'Incidente de Segurança',
                                     securityIncidentType: 'Exploração de Vulnerabilidade',
-                                    impactCriticality: v.severity
+                                    impactCriticality: vuln.severity
                                 });
-                                setVulnIdForTicketCreation(v.id);
                                 setShowAddTicket(true);
                             }}
                         />
                     )}
 
                     {activeTab === 'nis2.backups' && (
-                        <BackupDashboard
+                        <BackupDashboard 
                             backups={backupExecutions}
                             collaborators={collaborators}
                             equipment={equipment}
@@ -1123,7 +1159,7 @@ const InnerApp: React.FC = () => {
                     )}
 
                     {activeTab === 'nis2.resilience' && (
-                        <ResilienceDashboard
+                        <ResilienceDashboard 
                             resilienceTests={resilienceTests}
                             onEdit={(t) => { setResilienceTestToEdit(t); setShowAddResilienceTest(true); }}
                             onDelete={(id) => handleDelete('Excluir Teste', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteResilienceTest, id))}
@@ -1138,35 +1174,18 @@ const InnerApp: React.FC = () => {
                 </div>
             </main>
 
+            {/* --- MODALS --- */}
+            
             {showAddEquipment && (
-                <AddEquipmentModal
-                    onClose={() => setShowAddEquipment(false)}
-                    onSave={(eq, assign, licenseIds) => {
-                        return simpleSaveWrapper(async (data: any) => {
-                            // 1. Save Equipment
-                            const newEq = await dataService.addEquipment(data);
-                            // 2. If assignment data provided, create assignment
-                            if (assign && newEq && newEq.id) {
-                                await dataService.addAssignment({ ...assign, equipmentId: newEq.id });
-                            }
-                            // 3. If licenses provided, sync
-                            if (licenseIds && licenseIds.length > 0 && newEq && newEq.id) {
-                                await dataService.syncLicenseAssignments(newEq.id, licenseIds);
-                            }
-                            // 4. Update local state? refreshData handles it.
-                            return newEq;
-                        }, eq, eq.id);
-                    }}
+                <AddEquipmentModal 
+                    onClose={() => setShowAddEquipment(false)} 
+                    onSave={handleSaveEquipment}
                     brands={brands}
                     equipmentTypes={equipmentTypes}
                     equipmentToEdit={equipmentToEdit}
-                    onSaveBrand={(brand) => simpleSaveWrapper(dataService.addBrand, brand)}
-                    onSaveEquipmentType={(type) => simpleSaveWrapper(dataService.addEquipmentType, type)}
-                    onOpenKitModal={(data) => {
-                        setShowAddEquipment(false);
-                        setKitInitialData(data);
-                        setShowAddKit(true);
-                    }}
+                    onSaveBrand={dataService.addBrand}
+                    onSaveEquipmentType={dataService.addEquipmentType}
+                    onOpenKitModal={(data) => { setShowAddEquipment(false); setKitInitialData(data); setShowAddKit(true); }}
                     suppliers={suppliers}
                     softwareLicenses={softwareLicenses}
                     entidades={entidades}
@@ -1176,8 +1195,7 @@ const InnerApp: React.FC = () => {
                     ciaOptions={configCiaRatings}
                     initialData={initialEquipmentData}
                     licenseAssignments={licenseAssignments}
-                    // New Navigation Handlers from Edit Mode
-                    onOpenHistory={(eq) => { setShowAddEquipment(false); setDetailEquipment(eq); }}
+                    onOpenHistory={(eq) => setDetailEquipment(eq)}
                     onManageLicenses={(eq) => { setShowAddEquipment(false); setShowManageLicenses(eq); }}
                     onOpenAssign={(eq) => { setShowAddEquipment(false); setShowAssignEquipment(eq); }}
                 />
@@ -1191,32 +1209,14 @@ const InnerApp: React.FC = () => {
                     escolasDepartamentos={entidades}
                     collaborators={collaborators}
                     onClose={() => setShowAssignEquipment(null)}
-                    onAssign={(assignment) => simpleSaveWrapper(dataService.addAssignment, assignment)}
+                    onAssign={dataService.addAssignment}
                 />
             )}
 
             {showAddCollaborator && (
                 <AddCollaboratorModal
-                    onClose={() => setShowAddCollaborator(false)}
-                    onSave={(collab, pwd) => simpleSaveWrapper(async (data: any) => {
-                        const res = await (collaboratorToEdit ? dataService.updateCollaborator(collaboratorToEdit.id, data) : dataService.addCollaborator(data));
-                        if (pwd && res && res.id) {
-                            // Handle user creation/password update separately if needed by Supabase Auth
-                            // For now, assuming simpleSaveWrapper just updates DB record. 
-                            // Real auth logic would be here or in dataService.
-                            if (!collaboratorToEdit && data.canLogin) {
-                                const supabase = getSupabase();
-                                const { error } = await supabase.auth.signUp({
-                                    email: data.email,
-                                    password: pwd,
-                                    options: { data: { fullName: data.fullName, role: data.role } }
-                                });
-                                if (error) throw error;
-                                setNewCredentials({ email: data.email, password: pwd });
-                            }
-                        }
-                        return res;
-                    }, collab)}
+                    onClose={() => { setShowAddCollaborator(false); setCollaboratorToEdit(null); }}
+                    onSave={handleSaveCollaborator}
                     collaboratorToEdit={collaboratorToEdit}
                     escolasDepartamentos={entidades}
                     currentUser={currentUser}
@@ -1225,10 +1225,26 @@ const InnerApp: React.FC = () => {
                 />
             )}
 
+            {/* Also used for Profile */}
+            {showProfileModal && collaboratorToEdit && (
+                <CollaboratorDetailModal 
+                    collaborator={collaboratorToEdit}
+                    assignments={assignments}
+                    equipment={equipment}
+                    tickets={tickets}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    onClose={() => { setShowProfileModal(false); setCollaboratorToEdit(null); }}
+                    onShowHistory={() => { /* Handled inside modal usually, or just navigation */ }}
+                    onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
+                    onEdit={(c) => { setShowProfileModal(false); setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
+                />
+            )}
+
             {showAddEntidade && (
                 <AddEntidadeModal
-                    onClose={() => setShowAddEntidade(false)}
-                    onSave={(ent) => simpleSaveWrapper(entidadeToEdit ? dataService.updateEntidade : dataService.addEntidade, ent, entidadeToEdit?.id)}
+                    onClose={() => { setShowAddEntidade(false); setEntidadeToEdit(null); }}
+                    onSave={dataService.addEntidade} // or update
                     entidadeToEdit={entidadeToEdit}
                     instituicoes={instituicoes}
                 />
@@ -1236,43 +1252,29 @@ const InnerApp: React.FC = () => {
 
             {showAddInstituicao && (
                 <AddInstituicaoModal
-                    onClose={() => setShowAddInstituicao(false)}
-                    onSave={(inst) => simpleSaveWrapper(instituicaoToEdit ? dataService.updateInstituicao : dataService.addInstituicao, inst, instituicaoToEdit?.id)}
+                    onClose={() => { setShowAddInstituicao(false); setInstituicaoToEdit(null); }}
+                    onSave={dataService.addInstituicao} // or update
                     instituicaoToEdit={instituicaoToEdit}
                 />
             )}
 
             {showAddTicket && (
                 <AddTicketModal
-                    onClose={() => setShowAddTicket(false)}
-                    onSave={(ticket) => {
-                        return simpleSaveWrapper(async (data: any) => {
-                            const res = await (ticketToEdit ? dataService.updateTicket(ticketToEdit.id, data) : dataService.addTicket(data));
-                            
-                            // If created from Vulnerability, update the vulnerability status
-                            if (vulnIdForTicketCreation && res && res.id) {
-                                await dataService.updateVulnerability(vulnIdForTicketCreation, { 
-                                    ticket_id: res.id, 
-                                    status: 'Em Análise' // Automatically update status
-                                });
-                                setVulnIdForTicketCreation(null);
-                            }
-                            return res;
-                        }, ticket);
-                    }}
+                    onClose={() => { setShowAddTicket(false); setTicketToEdit(null); }}
+                    onSave={dataService.addTicket} // or update
                     ticketToEdit={ticketToEdit}
                     escolasDepartamentos={entidades}
                     collaborators={collaborators}
                     teams={teams}
                     currentUser={currentUser}
-                    userPermissions={{ viewScope: isBasic ? 'own' : 'all' }}
+                    userPermissions={{ viewScope: isAdmin ? 'all' : 'own' }}
                     equipment={equipment}
                     equipmentTypes={equipmentTypes}
                     assignments={assignments}
                     categories={ticketCategories}
                     securityIncidentTypes={securityIncidentTypes}
+                    pastTickets={tickets}
                     initialData={initialTicketData}
-                    pastTickets={tickets} // RAG Context
                 />
             )}
 
@@ -1285,48 +1287,24 @@ const InnerApp: React.FC = () => {
                     equipment={equipment}
                     equipmentTypes={equipmentTypes}
                     entidades={entidades}
-                    assignments={assignments}
                     onClose={() => setTicketActivitiesModal(null)}
-                    onAddActivity={(act) => simpleSaveWrapper(dataService.addTicketActivity, { ...act, ticketId: ticketActivitiesModal.id, technicianId: currentUser?.id, date: new Date().toISOString() })}
+                    onAddActivity={async (act) => {
+                        await dataService.addTicketActivity({
+                            ...act,
+                            ticketId: ticketActivitiesModal.id,
+                            technicianId: currentUser?.id || '',
+                            date: new Date().toISOString()
+                        });
+                        await refreshData();
+                    }}
+                    assignments={assignments}
                 />
             )}
-
-            {showAddType && (
-                <AddEquipmentTypeModal
-                    onClose={() => setShowAddType(false)}
-                    onSave={(t) => simpleSaveWrapper(typeToEdit ? dataService.updateEquipmentType : dataService.addEquipmentType, t, typeToEdit?.id)}
-                    typeToEdit={typeToEdit}
-                    teams={teams}
-                    existingTypes={equipmentTypes}
-                />
-            )}
-
-            {showAddBrand && (
-                <AddBrandModal
-                    onClose={() => setShowAddBrand(false)}
-                    onSave={(b) => simpleSaveWrapper(brandToEdit ? dataService.updateBrand : dataService.addBrand, b, brandToEdit?.id)}
-                    brandToEdit={brandToEdit}
-                    existingBrands={brands}
-                />
-            )}
-
-            <ChatWidget 
-                currentUser={currentUser}
-                collaborators={collaborators}
-                messages={messages}
-                onSendMessage={(receiverId, content) => simpleSaveWrapper(dataService.addMessage, { senderId: currentUser?.id, receiverId, content, timestamp: new Date().toISOString(), read: false })}
-                onMarkMessagesAsRead={(senderId) => { if (currentUser) dataService.markMessagesAsRead(senderId, currentUser.id); }}
-                isOpen={isChatOpen}
-                onToggle={() => setIsChatOpen(!isChatOpen)}
-                activeChatCollaboratorId={activeChatCollaboratorId}
-                onSelectConversation={setActiveChatCollaboratorId}
-                unreadMessagesCount={messages.filter(m => m.receiverId === currentUser?.id && !m.read).length}
-            />
 
             {showAddLicense && (
                 <AddLicenseModal
-                    onClose={() => setShowAddLicense(false)}
-                    onSave={(l) => simpleSaveWrapper(licenseToEdit ? dataService.updateLicense : dataService.addLicense, l, licenseToEdit?.id)}
+                    onClose={() => { setShowAddLicense(false); setLicenseToEdit(null); }}
+                    onSave={dataService.addLicense} // or update
                     licenseToEdit={licenseToEdit}
                     suppliers={suppliers}
                 />
@@ -1334,182 +1312,115 @@ const InnerApp: React.FC = () => {
 
             {showManageLicenses && (
                 <ManageAssignedLicensesModal
-                    onClose={() => setShowManageLicenses(null)}
-                    onSave={(eqId, licenseIds) => simpleSaveWrapper(dataService.syncLicenseAssignments, licenseIds, eqId)} // Adapter for the specific signature
                     equipment={showManageLicenses}
                     allLicenses={softwareLicenses}
                     allAssignments={licenseAssignments}
+                    onClose={() => setShowManageLicenses(null)}
+                    onSave={handleSaveLicenses}
                 />
             )}
 
             {showAddTeam && (
                 <AddTeamModal
-                    onClose={() => setShowAddTeam(false)}
-                    onSave={(t) => simpleSaveWrapper(teamToEdit ? dataService.updateTeam : dataService.addTeam, t, teamToEdit?.id)}
+                    onClose={() => { setShowAddTeam(false); setTeamToEdit(null); }}
+                    onSave={(t) => simpleSaveWrapper(t.id ? dataService.updateTeam : dataService.addTeam, t, t.id)}
                     teamToEdit={teamToEdit}
                 />
             )}
 
-            {showManageTeamMembers && (
+            {showManageTeamMembers && teamToEdit && (
                 <ManageTeamMembersModal
-                    onClose={() => setShowManageTeamMembers(null)}
-                    onSave={(teamId, memberIds) => simpleSaveWrapper(dataService.syncTeamMembers, memberIds, teamId)}
-                    team={showManageTeamMembers}
+                    onClose={() => { setShowManageTeamMembers(null); setTeamToEdit(null); }}
+                    onSave={dataService.syncTeamMembers}
+                    team={teamToEdit}
                     allCollaborators={collaborators}
                     teamMembers={teamMembers}
                 />
             )}
 
-            {showNotifications && (
-                <NotificationsModal
-                    onClose={() => setShowNotifications(false)}
-                    expiringWarranties={expiringWarranties}
-                    expiringLicenses={expiringLicenses}
-                    teamTickets={tickets.filter(t => t.status === TicketStatus.Requested && (!t.technicianId || (currentUser && t.technicianId === currentUser.id)))}
-                    collaborators={collaborators}
-                    teams={teams}
-                    onViewItem={(tab, filter) => { setShowNotifications(false); setActiveTab(tab); setInitialFilter(filter); }}
-                    onSnooze={(id) => dataService.snoozeNotification(currentUser?.id || '', id, 'generic')} // generic placeholder
-                    currentUser={currentUser}
-                    licenseAssignments={licenseAssignments}
-                />
-            )}
-
-            {importConfig && (
-                <ImportModal
-                    onClose={() => setImportConfig(null)}
-                    onImport={handleImportData}
-                    config={importConfig}
-                />
-            )}
-
-            {showAddCategory && (
-                <AddCategoryModal 
-                    onClose={() => setShowAddCategory(false)}
-                    onSave={(c) => simpleSaveWrapper(categoryToEdit ? dataService.updateTicketCategory : dataService.addTicketCategory, c, categoryToEdit?.id)}
-                    categoryToEdit={categoryToEdit}
-                    teams={teams}
-                />
-            )}
-
-            {showAddIncidentType && (
-                <AddSecurityIncidentTypeModal
-                    onClose={() => setShowAddIncidentType(false)}
-                    onSave={(t) => simpleSaveWrapper(incidentTypeToEdit ? dataService.updateSecurityIncidentType : dataService.addSecurityIncidentType, t, incidentTypeToEdit?.id)}
-                    typeToEdit={incidentTypeToEdit}
-                />
-            )}
-
             {showAddService && (
                 <AddServiceModal
-                    onClose={() => setShowAddService(false)}
-                    onSave={(s) => simpleSaveWrapper(serviceToEdit ? dataService.updateBusinessService : dataService.addBusinessService, s, serviceToEdit?.id)}
+                    onClose={() => { setShowAddService(false); setServiceToEdit(null); }}
+                    onSave={dataService.addBusinessService} // or update
                     serviceToEdit={serviceToEdit}
                     collaborators={collaborators}
                     suppliers={suppliers}
                 />
             )}
 
-            {showServiceDependencies && (
+            {showServiceDependencies && serviceToEdit && (
                 <ServiceDependencyModal
-                    onClose={() => setShowServiceDependencies(null)}
-                    service={showServiceDependencies}
-                    dependencies={serviceDependencies.filter(d => d.service_id === showServiceDependencies.id)}
+                    onClose={() => { setShowServiceDependencies(null); setServiceToEdit(null); }}
+                    service={serviceToEdit}
+                    dependencies={serviceDependencies.filter(d => d.service_id === serviceToEdit.id)}
                     allEquipment={equipment}
                     allLicenses={softwareLicenses}
-                    onAddDependency={(d) => simpleSaveWrapper(dataService.addServiceDependency, d)}
-                    onRemoveDependency={(id) => simpleSaveWrapper(dataService.deleteServiceDependency, null, id)}
+                    onAddDependency={async (dep) => { await dataService.addServiceDependency(dep); refreshData(); }}
+                    onRemoveDependency={async (id) => { await dataService.deleteServiceDependency(null, id); refreshData(); }}
                 />
             )}
 
             {showAddVulnerability && (
                 <AddVulnerabilityModal
-                    onClose={() => setShowAddVulnerability(false)}
-                    onSave={(v) => simpleSaveWrapper(vulnerabilityToEdit ? dataService.updateVulnerability : dataService.addVulnerability, v, vulnerabilityToEdit?.id)}
+                    onClose={() => { setShowAddVulnerability(false); setVulnerabilityToEdit(null); }}
+                    onSave={dataService.addVulnerability} // or update
                     vulnToEdit={vulnerabilityToEdit}
-                />
-            )}
-
-            {showAddKit && (
-                <AddEquipmentKitModal
-                    onClose={() => setShowAddKit(false)}
-                    onSaveKit={(items) => simpleSaveWrapper(dataService.addMultipleEquipment, items)}
-                    brands={brands}
-                    equipmentTypes={equipmentTypes}
-                    initialData={kitInitialData}
-                    onSaveEquipmentType={(t) => simpleSaveWrapper(dataService.addEquipmentType, t)}
-                    equipment={equipment}
-                />
-            )}
-
-            {showCloseTicket && (
-                <CloseTicketModal 
-                    ticket={showCloseTicket}
-                    collaborators={collaborators}
-                    activities={ticketActivities.filter(ta => ta.ticketId === showCloseTicket.id)}
-                    onClose={() => setShowCloseTicket(null)}
-                    onConfirm={(techId, summary) => {
-                        simpleSaveWrapper(dataService.updateTicket, { status: TicketStatus.Finished, technicianId: techId, finishDate: new Date().toISOString(), resolution_summary: summary }, showCloseTicket.id);
-                        setShowCloseTicket(null);
-                    }}
-                />
-            )}
-
-            {/* New: Equipment Detail Modal (Replaces History Modal) */}
-            {detailEquipment && (
-                <EquipmentDetailModal
-                    equipment={detailEquipment}
-                    assignments={assignments}
-                    collaborators={collaborators}
-                    escolasDepartamentos={entidades}
-                    tickets={tickets}
-                    ticketActivities={ticketActivities}
-                    onClose={() => setDetailEquipment(null)}
-                    onEdit={(eq) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipment(true); }}
-                    businessServices={businessServices}
-                    serviceDependencies={serviceDependencies}
-                    softwareLicenses={softwareLicenses}
-                    licenseAssignments={licenseAssignments}
-                    vulnerabilities={vulnerabilities}
-                    suppliers={suppliers}
                 />
             )}
 
             {showAddSupplier && (
                 <AddSupplierModal
-                    onClose={() => setShowAddSupplier(false)}
-                    onSave={(s) => simpleSaveWrapper(supplierToEdit ? dataService.updateSupplier : dataService.addSupplier, s, supplierToEdit?.id)}
+                    onClose={() => { setShowAddSupplier(false); setSupplierToEdit(null); }}
+                    onSave={dataService.addSupplier} // or update
                     supplierToEdit={supplierToEdit}
                     teams={teams}
-                    onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, t)}
+                    onCreateTicket={dataService.addTicket}
                     businessServices={businessServices}
                 />
             )}
 
             {showAddBackup && (
                 <AddBackupModal
-                    onClose={() => setShowAddBackup(false)}
-                    onSave={(b) => simpleSaveWrapper(backupToEdit ? dataService.updateBackupExecution : dataService.addBackupExecution, b, backupToEdit?.id)}
+                    onClose={() => { setShowAddBackup(false); setBackupToEdit(null); }}
+                    onSave={(b) => simpleSaveWrapper(b.id ? dataService.updateBackupExecution : dataService.addBackupExecution, b, b.id)}
                     backupToEdit={backupToEdit}
                     currentUser={currentUser}
                     equipmentList={equipment}
                     equipmentTypes={equipmentTypes}
-                    onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, t)}
+                    onCreateTicket={dataService.addTicket}
                 />
             )}
 
             {showAddResilienceTest && (
                 <AddResilienceTestModal
-                    onClose={() => setShowAddResilienceTest(false)}
-                    onSave={(t) => simpleSaveWrapper(resilienceTestToEdit ? dataService.updateResilienceTest : dataService.addResilienceTest, t, resilienceTestToEdit?.id)}
+                    onClose={() => { setShowAddResilienceTest(false); setResilienceTestToEdit(null); }}
+                    onSave={(t) => simpleSaveWrapper(t.id ? dataService.updateResilienceTest : dataService.addResilienceTest, t, t.id)}
                     testToEdit={resilienceTestToEdit}
-                    onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, t)}
+                    onCreateTicket={dataService.addTicket}
                     entidades={entidades}
                     suppliers={suppliers}
                 />
             )}
 
-            {/* Global Modals */}
+            {/* Other simple modals */}
+            {showAddType && <AddEquipmentTypeModal onClose={() => setShowAddType(false)} onSave={dataService.addEquipmentType} typeToEdit={typeToEdit} teams={teams} existingTypes={equipmentTypes} />}
+            {showAddBrand && <AddBrandModal onClose={() => setShowAddBrand(false)} onSave={dataService.addBrand} brandToEdit={brandToEdit} existingBrands={brands} />}
+            {showAddCategory && <AddCategoryModal onClose={() => setShowAddCategory(false)} onSave={dataService.addTicketCategory} categoryToEdit={categoryToEdit} teams={teams} />}
+            {showAddIncidentType && <AddSecurityIncidentTypeModal onClose={() => setShowAddIncidentType(false)} onSave={dataService.addSecurityIncidentType} typeToEdit={incidentTypeToEdit} />}
+            {showAutomationModal && <AutomationModal onClose={() => setShowAutomationModal(false)} />}
+            
+            {showAddKit && (
+                <AddEquipmentKitModal
+                    onClose={() => setShowAddKit(false)}
+                    onSaveKit={async (items) => { await dataService.addMultipleEquipment(items); refreshData(); }}
+                    brands={brands}
+                    equipmentTypes={equipmentTypes}
+                    initialData={kitInitialData}
+                    onSaveEquipmentType={dataService.addEquipmentType}
+                    equipment={equipment}
+                />
+            )}
+
             {showReport.visible && (
                 <ReportModal
                     type={showReport.type}
@@ -1529,15 +1440,72 @@ const InnerApp: React.FC = () => {
                 />
             )}
 
-            {securityReportHtml && (
-                <PrintPreviewModal 
-                    onClose={() => setSecurityReportHtml(null)}
-                    reportContentHtml={securityReportHtml}
+            {historyCollaborator && (
+                <CollaboratorHistoryModal
+                    collaborator={historyCollaborator}
+                    history={collaboratorHistory}
+                    escolasDepartamentos={entidades}
+                    onClose={() => setHistoryCollaborator(null)}
+                />
+            )}
+
+            {detailCollaborator && (
+                <CollaboratorDetailModal
+                    collaborator={detailCollaborator}
+                    assignments={assignments}
+                    equipment={equipment}
+                    tickets={tickets}
+                    brandMap={brandMap}
+                    equipmentTypeMap={equipmentTypeMap}
+                    onClose={() => setDetailCollaborator(null)}
+                    onShowHistory={(c) => { setDetailCollaborator(null); setHistoryCollaborator(c); }}
+                    onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
+                    onEdit={(c) => { setDetailCollaborator(null); setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
+                />
+            )}
+
+            {detailEquipment && (
+                <EquipmentDetailModal
+                    equipment={detailEquipment}
+                    assignments={assignments}
+                    collaborators={collaborators}
+                    escolasDepartamentos={entidades}
+                    tickets={tickets}
+                    ticketActivities={ticketActivities}
+                    onClose={() => setDetailEquipment(null)}
+                    onEdit={(eq) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipment(true); }}
+                    // Pass everything else
+                    businessServices={businessServices}
+                    serviceDependencies={serviceDependencies}
+                    softwareLicenses={softwareLicenses}
+                    licenseAssignments={licenseAssignments}
+                    vulnerabilities={vulnerabilities}
+                    suppliers={suppliers}
+                />
+            )}
+
+            {showCloseTicket && (
+                <CloseTicketModal
+                    ticket={showCloseTicket}
+                    collaborators={collaborators}
+                    onClose={() => setShowCloseTicket(null)}
+                    onConfirm={async (technicianId, summary) => {
+                        await dataService.updateTicket(showCloseTicket.id, { 
+                            status: TicketStatus.Finished, 
+                            finishDate: new Date().toISOString(),
+                            technicianId,
+                            resolution_summary: summary
+                        });
+                        setShowCloseTicket(null);
+                        refreshData();
+                    }}
+                    activities={ticketActivities.filter(a => a.ticketId === showCloseTicket.id)}
                 />
             )}
 
             {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
-            {showResetPassword && <ResetPasswordModal onClose={() => setShowResetPassword(false)} session={session} />}
+            {showResetPassword && session && <ResetPasswordModal onClose={() => setShowResetPassword(false)} session={session} />}
+            
             {newCredentials && (
                 <CredentialsModal 
                     onClose={() => setNewCredentials(null)} 
@@ -1545,20 +1513,39 @@ const InnerApp: React.FC = () => {
                     password={newCredentials.password} 
                 />
             )}
-            {confirmationModal && (
-                <ConfirmationModal 
-                    show={confirmationModal.show} 
-                    title={confirmationModal.title} 
-                    message={confirmationModal.message} 
-                    onClose={() => setConfirmationModal(null)}
-                    onConfirm={confirmationModal.onConfirm}
+
+            {importConfig && (
+                <ImportModal
+                    onClose={() => setImportConfig(null)}
+                    onImport={handleImportData}
+                    config={importConfig}
                 />
             )}
-            
-            {showAutomationModal && (
-                <AutomationModal onClose={() => setShowAutomationModal(false)} />
+
+            {confirmationModal && (
+                <ConfirmationModal
+                    onClose={() => setConfirmationModal(null)}
+                    onConfirm={confirmationModal.onConfirm}
+                    title={confirmationModal.title}
+                    message={confirmationModal.message}
+                />
             )}
-            
+
+            {showNotifications && (
+                <NotificationsModal
+                    onClose={() => setShowNotifications(false)}
+                    expiringWarranties={[]} // Pass calculated ones or empty if handled in modal
+                    expiringLicenses={[]}
+                    teamTickets={[]}
+                    collaborators={collaborators}
+                    teams={teams}
+                    onViewItem={(tab, filter) => { setShowNotifications(false); setActiveTab(tab); setInitialFilter(filter); }}
+                    onSnooze={(id) => dataService.snoozeNotification(currentUser?.id || '', id, 'generic')}
+                    currentUser={currentUser}
+                    licenseAssignments={licenseAssignments}
+                />
+            )}
+
             {showCalendarModal && currentUser && (
                 <CalendarModal
                     onClose={() => setShowCalendarModal(false)}
@@ -1567,63 +1554,50 @@ const InnerApp: React.FC = () => {
                     teams={teams}
                     teamMembers={teamMembers}
                     collaborators={collaborators}
-                    onViewTicket={(t) => {
-                        setShowCalendarModal(false);
-                        setTicketActivitiesModal(t);
-                    }}
-                />
-            )}
-            
-            {showProfileModal && collaboratorToEdit && (
-                <CollaboratorDetailModal 
-                    collaborator={collaboratorToEdit}
-                    assignments={assignments}
-                    equipment={equipment}
-                    tickets={tickets}
-                    brandMap={brandMap}
-                    equipmentTypeMap={equipmentTypeMap}
-                    onClose={() => setShowProfileModal(false)}
-                    onEdit={(c) => { setShowProfileModal(false); setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
-                    onShowHistory={(c) => { setShowProfileModal(false); setHistoryCollaborator(c); }} // Redundant if detail shows history
-                    onStartChat={(c) => { setShowProfileModal(false); setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
-                />
-            )}
-            
-            {detailCollaborator && (
-                <CollaboratorDetailModal 
-                    collaborator={detailCollaborator}
-                    assignments={assignments}
-                    equipment={equipment}
-                    tickets={tickets}
-                    brandMap={brandMap}
-                    equipmentTypeMap={equipmentTypeMap}
-                    onClose={() => setDetailCollaborator(null)}
-                    onEdit={(c) => { setDetailCollaborator(null); setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
-                    onShowHistory={(c) => { setDetailCollaborator(null); setHistoryCollaborator(c); }} // Redundant
-                    onStartChat={(c) => { setDetailCollaborator(null); setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
+                    onViewTicket={(t) => { setShowCalendarModal(false); setTicketActivitiesModal(t); }}
                 />
             )}
 
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
 
-            {/* Magic Bar */}
             <MagicCommandBar 
-                brands={brands} 
-                types={equipmentTypes} 
-                collaborators={collaborators} 
+                brands={brands}
+                types={equipmentTypes}
+                collaborators={collaborators}
                 currentUser={currentUser}
                 onAction={handleMagicAction}
             />
+
+            <ChatWidget 
+                currentUser={currentUser}
+                collaborators={collaborators}
+                messages={messages}
+                onSendMessage={async (receiverId, content) => {
+                    await dataService.addMessage({
+                        senderId: currentUser?.id,
+                        receiverId,
+                        content,
+                        timestamp: new Date().toISOString(),
+                        read: false
+                    });
+                    refreshData(); // In real app, subscription handles this
+                }}
+                onMarkMessagesAsRead={(senderId) => dataService.markMessagesAsRead(senderId, currentUser?.id || '')}
+                isOpen={isChatOpen}
+                onToggle={() => setIsChatOpen(!isChatOpen)}
+                activeChatCollaboratorId={activeChatCollaboratorId}
+                onSelectConversation={setActiveChatCollaboratorId}
+                unreadMessagesCount={messages.filter(m => m.receiverId === currentUser?.id && !m.read).length}
+            />
+            
         </div>
     );
 };
 
-export const App: React.FC = () => {
-  return (
+export const App = () => (
     <LanguageProvider>
-      <LayoutProvider>
-        <InnerApp />
-      </LayoutProvider>
+        <LayoutProvider>
+            <InnerApp />
+        </LayoutProvider>
     </LanguageProvider>
-  );
-};
+);

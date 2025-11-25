@@ -288,7 +288,7 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                 </div>
                                 {isPatchOutdated && (
                                     <div className="mt-3 p-2 bg-red-900/20 border border-red-500/30 rounded text-xs text-red-200 flex items-center gap-2">
-                                        <FaExclamationTriangle/> Sistema desatualizado (último patch > 90 dias).
+                                        <FaExclamationTriangle/> Sistema desatualizado (último patch &gt; 90 dias).
                                     </div>
                                 )}
                             </div>
@@ -324,8 +324,6 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                     allAssignments={licenseAssignments || []}
                     onClose={() => { 
                         setShowManageLicenses(false);
-                        // Trigger refresh is handled by parent usually, or we just close
-                        // Ideally onSave updates local state or triggers refresh
                     }}
                     onSave={handleSaveLicenses}
                 />

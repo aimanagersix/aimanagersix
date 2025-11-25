@@ -109,10 +109,16 @@ DO $$
 DECLARE
     t text;
 BEGIN 
-    -- Config Status (Color)
+    -- Config Status (Color) - NEW v1.19
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'config_equipment_statuses') THEN
         ALTER TABLE config_equipment_statuses ADD COLUMN IF NOT EXISTS color text;
     END IF;
+    
+    -- Add default naming configs if not exists
+    INSERT INTO global_settings (setting_key, setting_value) VALUES 
+    ('equipment_naming_prefix', 'PC-'),
+    ('equipment_naming_digits', '4')
+    ON CONFLICT (setting_key) DO NOTHING;
 
     -- Vulnerabilities (Auto Ticket Link)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'vulnerabilities') THEN
@@ -272,7 +278,7 @@ END $$;
                             <span>Instruções de Atualização</span>
                         </div>
                         <p className="mb-2">
-                            Este script cria todas as tabelas necessárias e adiciona colunas como <strong>Cor dos Estados</strong>.
+                            Este script cria todas as tabelas necessárias e adiciona colunas como <strong>Cor dos Estados</strong> e <strong>Configuração de Nome de Rede</strong>.
                         </p>
                         <ol className="list-decimal list-inside space-y-1 ml-2">
                             <li>Clique em <strong>Copiar SQL</strong>.</li>
@@ -283,7 +289,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.19</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.20</span>
                     </div>
                 </div>
 
