@@ -1,10 +1,12 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, SupplierContact } from '../types';
-import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope } from 'react-icons/fa';
+import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic } from 'react-icons/fa';
 import { SearchIcon, SpinnerIcon, DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
 import { ContactList } from './common/ContactList'; // Import generic contact list
 import * as dataService from '../services/dataService';
@@ -28,6 +30,17 @@ const formatFileSize = (bytes: number): string => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// Extract domain from website URL
+const extractDomain = (url: string): string => {
+    try {
+        let domain = url.trim();
+        if (!domain) return '';
+        if (!domain.startsWith('http')) domain = 'https://' + domain;
+        const hostname = new URL(domain).hostname;
+        return hostname.replace(/^www\./, '');
+    } catch { return ''; }
 };
 
 const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, supplierToEdit, teams = [], onCreateTicket, businessServices = [] }) => {
@@ -62,6 +75,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    
+    // Smart Email Suggestion
+    const [emailSuggestion, setEmailSuggestion] = useState('');
 
     // Ticket Automation State
     const [createTicket, setCreateTicket] = useState(false);
@@ -108,9 +124,24 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         const newErrors: Record<string, string> = {};
         if (!formData.name?.trim()) newErrors.name = "O nome do fornecedor é obrigatório.";
         if (!formData.nif?.trim()) newErrors.nif = "O NIF é obrigatório.";
+        
         if (formData.contact_email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) {
             newErrors.contact_email = "Email inválido.";
         }
+        
+        if (formData.contact_phone?.trim()) {
+             const phone = formData.contact_phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
+             if (!/^(2\d{8}|9[1236]\d{7})$/.test(phone)) {
+                 newErrors.contact_phone = "Telefone inválido (9 dígitos).";
+             }
+        }
+
+        if (formData.website?.trim()) {
+            if (!/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(formData.website)) {
+                newErrors.website = "Formato de website inválido.";
+            }
+        }
+
         if (formData.is_iso27001_certified && !formData.iso_certificate_expiry) {
             newErrors.iso_certificate_expiry = "Se tem certificação, a data de validade é obrigatória.";
         }
@@ -132,12 +163,30 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value 
         }));
         
+        // Email Domain Suggestion Logic
+        if (name === 'contact_email') {
+            setEmailSuggestion('');
+            if (value.endsWith('@') && formData.website) {
+                const domain = extractDomain(formData.website);
+                if (domain) {
+                    setEmailSuggestion(domain);
+                }
+            }
+        }
+        
         if (errors[name]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
                 delete newErrors[name];
                 return newErrors;
             });
+        }
+    };
+    
+    const applyEmailSuggestion = () => {
+        if (emailSuggestion) {
+            setFormData(prev => ({ ...prev, contact_email: (prev.contact_email || '') + emailSuggestion }));
+            setEmailSuggestion('');
         }
     };
 
@@ -213,6 +262,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         locality: record.city,
                         contact_email: record.contacts?.email || prev.contact_email,
                         contact_phone: record.contacts?.phone || prev.contact_phone,
+                        website: record.website || prev.website
                     }));
                 } else {
                      setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
@@ -393,11 +443,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 }
                 setSuccessMessage('Fornecedor gravado com sucesso!');
                 setTimeout(() => setSuccessMessage(''), 3000);
-                // onClose(); // Removed auto-close
             }
         } catch (error) {
             console.error("Erro ao salvar fornecedor ou ticket:", error);
-            // Alert handled by parent
         } finally {
             setIsSaving(false);
         }
@@ -493,14 +541,23 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 <label htmlFor="contact_name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome de Contacto (Geral)</label>
                                 <input type="text" name="contact_name" id="contact_name" value={formData.contact_name} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                             </div>
-                            <div>
+                            <div className="relative">
                                 <label htmlFor="contact_email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email Geral</label>
                                 <input type="email" name="contact_email" id="contact_email" value={formData.contact_email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.contact_email ? 'border-red-500' : 'border-gray-600'}`} />
+                                {emailSuggestion && (
+                                    <div 
+                                        className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 text-brand-secondary text-xs px-2 py-1 rounded cursor-pointer hover:bg-gray-700 z-10 flex items-center gap-1 shadow-lg"
+                                        onClick={applyEmailSuggestion}
+                                    >
+                                        <FaMagic /> Sugestão: {emailSuggestion}
+                                    </div>
+                                )}
                                 {errors.contact_email && <p className="text-red-400 text-xs italic mt-1">{errors.contact_email}</p>}
                             </div>
                             <div>
                                 <label htmlFor="contact_phone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone Geral</label>
-                                <input type="text" name="contact_phone" id="contact_phone" value={formData.contact_phone} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                <input type="text" name="contact_phone" id="contact_phone" value={formData.contact_phone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.contact_phone ? 'border-red-500' : 'border-gray-600'}`} placeholder="210000000" />
+                                {errors.contact_phone && <p className="text-red-400 text-xs italic mt-1">{errors.contact_phone}</p>}
                             </div>
                         </div>
 
@@ -508,8 +565,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             <label htmlFor="website" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Website</label>
                             <div className="flex items-center">
                                 <FaGlobe className="text-gray-400 mr-2" />
-                                <input type="text" name="website" id="website" value={formData.website} onChange={handleChange} placeholder="ex: www.fornecedor.com" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                <input type="text" name="website" id="website" value={formData.website} onChange={handleChange} placeholder="www.fornecedor.com" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.website ? 'border-red-500' : 'border-gray-600'}`} />
                             </div>
+                            {errors.website && <p className="text-red-400 text-xs italic mt-1">{errors.website}</p>}
                         </div>
 
                         {/* Address Section */}

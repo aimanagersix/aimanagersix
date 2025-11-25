@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -216,9 +217,15 @@ BEGIN
         ALTER TABLE teams ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
     END IF;
 
-    -- Instituicoes (Status)
+    -- Instituicoes (Status + Website)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'instituicoes') THEN
         ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+        ALTER TABLE instituicoes ADD COLUMN IF NOT EXISTS website text;
+    END IF;
+    
+    -- Entidades (Website)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'entidades') THEN
+        ALTER TABLE entidades ADD COLUMN IF NOT EXISTS website text;
     END IF;
     
     -- Address Columns
@@ -260,7 +267,7 @@ END $$;
                             <span>Instruções de Atualização</span>
                         </div>
                         <p className="mb-2">
-                            Este script cria todas as tabelas necessárias, incluindo as colunas de estado (is_active) e localização física.
+                            Este script cria todas as tabelas necessárias, incluindo as colunas de estado (is_active), localização e websites.
                         </p>
                         <ol className="list-decimal list-inside space-y-1 ml-2">
                             <li>Clique em <strong>Copiar SQL</strong>.</li>
@@ -271,7 +278,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.16</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.17</span>
                     </div>
                 </div>
 

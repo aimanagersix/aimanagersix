@@ -215,6 +215,7 @@ export interface Instituicao {
   email: string;
   telefone: string;
   nif?: string;
+  website?: string; // New field
   // Address
   address?: string;
   address_line?: string;
@@ -241,6 +242,7 @@ export interface Entidade {
   description: string;
   email: string;
   nif?: string;
+  website?: string; // New field
   responsavel?: string;
   telefone?: string;
   telemovel?: string;

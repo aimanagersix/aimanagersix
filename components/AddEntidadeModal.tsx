@@ -1,8 +1,11 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, EntidadeStatus } from '../types';
 import { SpinnerIcon, SearchIcon, CheckIcon } from './common/Icons';
+import { FaGlobe, FaMagic } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
@@ -16,6 +19,17 @@ const isValidPhoneNumber = (phone: string): boolean => {
     const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
     const regex = /^(2\d{8}|9[1236]\d{7})$/;
     return regex.test(cleaned);
+};
+
+// Extract domain from website URL
+const extractDomain = (url: string): string => {
+    try {
+        let domain = url.trim();
+        if (!domain) return '';
+        if (!domain.startsWith('http')) domain = 'https://' + domain;
+        const hostname = new URL(domain).hostname;
+        return hostname.replace(/^www\./, '');
+    } catch { return ''; }
 };
 
 interface AddEntidadeModalProps {
@@ -33,6 +47,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         description: '',
         email: '',
         nif: '',
+        website: '',
         responsavel: '',
         telefone: '',
         telemovel: '',
@@ -48,6 +63,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
     const [isFetchingNif, setIsFetchingNif] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [emailSuggestion, setEmailSuggestion] = useState('');
 
     useEffect(() => {
         if (entidadeToEdit) {
@@ -59,6 +75,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                 description: entidadeToEdit.description,
                 email: entidadeToEdit.email,
                 nif: entidadeToEdit.nif || '',
+                website: entidadeToEdit.website || '',
                 responsavel: entidadeToEdit.responsavel || '',
                 telefone: entidadeToEdit.telefone || '',
                 telemovel: entidadeToEdit.telemovel || '',
@@ -95,6 +112,12 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                  newErrors.nif = "O NIF deve ter exatamente 9 dígitos numéricos.";
              }
         }
+        
+        if (formData.website?.trim()) {
+            if (!/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(formData.website)) {
+                newErrors.website = "Formato de website inválido.";
+            }
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -103,12 +126,31 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        
+        // Smart Email Suggestion
+        if (name === 'email') {
+            setEmailSuggestion('');
+            if (value.endsWith('@') && formData.website) {
+                const domain = extractDomain(formData.website);
+                if (domain) {
+                    setEmailSuggestion(domain);
+                }
+            }
+        }
+
         if (errors[name]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
                 delete newErrors[name];
                 return newErrors;
             });
+        }
+    };
+    
+    const applyEmailSuggestion = () => {
+        if (emailSuggestion) {
+            setFormData(prev => ({ ...prev, email: (prev.email || '') + emailSuggestion }));
+            setEmailSuggestion('');
         }
     };
 
@@ -146,6 +188,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         locality: record.city,
                         email: record.contacts?.email || prev.email,
                         telefone: record.contacts?.phone || prev.telefone,
+                        website: record.website || prev.website
                     }));
                 } else {
                      setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
@@ -295,9 +338,17 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         <label htmlFor="responsavel" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Responsável</label>
                         <input type="text" name="responsavel" id="responsavel" value={formData.responsavel} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                     </div>
-                    <div>
+                    <div className="relative">
                         <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>
                         <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.email ? 'border-red-500' : 'border-gray-600'}`} />
+                        {emailSuggestion && (
+                            <div 
+                                className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 text-brand-secondary text-xs px-2 py-1 rounded cursor-pointer hover:bg-gray-700 z-10 flex items-center gap-1 shadow-lg"
+                                onClick={applyEmailSuggestion}
+                            >
+                                <FaMagic /> Sugestão: {emailSuggestion}
+                            </div>
+                        )}
                         {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
                     </div>
                 </div>
@@ -318,6 +369,15 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         <input type="text" name="telefoneInterno" id="telefoneInterno" value={formData.telefoneInterno} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                     </div>
                 </div>
+                
+                <div>
+                    <label htmlFor="website" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Website</label>
+                    <div className="flex items-center">
+                        <FaGlobe className="text-gray-400 mr-2" />
+                        <input type="text" name="website" id="website" value={formData.website} onChange={handleChange} placeholder="www.entidade.pt" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.website ? 'border-red-500' : 'border-gray-600'}`} />
+                    </div>
+                    {errors.website && <p className="text-red-400 text-xs italic mt-1">{errors.website}</p>}
+                </div>
 
                 <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700">
                     <h4 className="text-sm font-semibold text-white mb-2">Morada</h4>
@@ -335,7 +395,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                                 </div>
                             </div>
                             <div>
-                                <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade</label>
+                                <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade / Concelho</label>
                                 <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
                             </div>
                             <div>

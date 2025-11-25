@@ -1,8 +1,11 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Instituicao } from '../types';
 import { SpinnerIcon, SearchIcon, CheckIcon } from './common/Icons';
+import { FaGlobe, FaMagic } from 'react-icons/fa';
 
 const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
 
@@ -11,12 +14,21 @@ const isValidEmail = (email: string) => {
 };
 
 const isValidPhoneNumber = (phone: string): boolean => {
-    if (!phone || phone.trim() === '') return true; // Optional
-    // Remove spaces, dashes, parentheses
+    if (!phone || phone.trim() === '') return true; 
     const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
-    // Portugal: Landline starts with 2, Mobile starts with 9. Length 9.
-    const regex = /^(2\d{8}|9[1236]\d{7})$/;
-    return regex.test(cleaned);
+    // 2 digits landline, 9 digits mobile
+    return /^(2\d{8}|9[1236]\d{7})$/.test(cleaned);
+};
+
+// Extract domain from website URL
+const extractDomain = (url: string): string => {
+    try {
+        let domain = url.trim();
+        if (!domain) return '';
+        if (!domain.startsWith('http')) domain = 'https://' + domain;
+        const hostname = new URL(domain).hostname;
+        return hostname.replace(/^www\./, '');
+    } catch { return ''; }
 };
 
 interface AddInstituicaoModalProps {
@@ -32,6 +44,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         email: '',
         telefone: '',
         nif: '',
+        website: '',
         address_line: '',
         postal_code: '',
         city: '',
@@ -42,6 +55,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     const [isFetchingNif, setIsFetchingNif] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [emailSuggestion, setEmailSuggestion] = useState('');
 
     useEffect(() => {
         if (instituicaoToEdit) {
@@ -52,6 +66,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 email: instituicaoToEdit.email,
                 telefone: instituicaoToEdit.telefone,
                 nif: instituicaoToEdit.nif || '',
+                website: instituicaoToEdit.website || '',
                 address_line: instituicaoToEdit.address_line || instituicaoToEdit.address || '',
                 postal_code: instituicaoToEdit.postal_code || '',
                 city: instituicaoToEdit.city || '',
@@ -66,11 +81,14 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         if (!formData.codigo?.trim()) newErrors.codigo = "O código é obrigatório.";
         
         if (formData.email?.trim() && !isValidEmail(formData.email)) {
-            newErrors.email = "Formato de email inválido (ex: geral@empresa.com).";
+            newErrors.email = "Formato de email inválido.";
         }
         
-        if (formData.telefone?.trim() && !isValidPhoneNumber(formData.telefone)) {
-            newErrors.telefone = "Número inválido. Deve ter 9 dígitos (começado por 2 ou 9).";
+        if (formData.telefone?.trim()) {
+             const phone = formData.telefone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
+             if (!/^(2\d{8}|9[1236]\d{7})$/.test(phone)) {
+                 newErrors.telefone = "Número inválido (9 dígitos).";
+             }
         }
 
         if (formData.nif?.trim()) {
@@ -78,6 +96,12 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
              if (!/^\d{9}$/.test(cleanNif)) {
                  newErrors.nif = "O NIF deve ter exatamente 9 dígitos numéricos.";
              }
+        }
+        
+        if (formData.website?.trim()) {
+            if (!/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(formData.website)) {
+                newErrors.website = "Formato de website inválido.";
+            }
         }
 
         setErrors(newErrors);
@@ -88,12 +112,31 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        
+        // Smart Email Suggestion
+        if (name === 'email') {
+            setEmailSuggestion('');
+            if (value.endsWith('@') && formData.website) {
+                const domain = extractDomain(formData.website);
+                if (domain) {
+                    setEmailSuggestion(domain);
+                }
+            }
+        }
+
         if (errors[name]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
                 delete newErrors[name];
                 return newErrors;
             });
+        }
+    };
+    
+    const applyEmailSuggestion = () => {
+        if (emailSuggestion) {
+            setFormData(prev => ({ ...prev, email: (prev.email || '') + emailSuggestion }));
+            setEmailSuggestion('');
         }
     };
 
@@ -136,6 +179,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                         locality: record.city, 
                         email: record.contacts?.email || prev.email,
                         telefone: record.contacts?.phone || prev.telefone,
+                        website: record.website || prev.website
                     }));
                 } else {
                      setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
@@ -197,7 +241,6 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
 
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         
-        // Clean up contacts if they exist in type but we don't use them anymore here
         const dataToSave: any = { ...formData, address };
         delete dataToSave.contacts;
 
@@ -265,17 +308,34 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                         {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
                 </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative">
                         <label htmlFor="email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email</label>
                         <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.email ? 'border-red-500' : 'border-gray-600'}`} />
+                        {emailSuggestion && (
+                            <div 
+                                className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 text-brand-secondary text-xs px-2 py-1 rounded cursor-pointer hover:bg-gray-700 z-10 flex items-center gap-1 shadow-lg"
+                                onClick={applyEmailSuggestion}
+                            >
+                                <FaMagic /> Sugestão: {emailSuggestion}
+                            </div>
+                        )}
                         {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
                     </div>
-                        <div>
+                    <div>
                         <label htmlFor="telefone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone</label>
                         <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} placeholder="Ex: 210000000" />
                         {errors.telefone && <p className="text-red-400 text-xs italic mt-1">{errors.telefone}</p>}
                     </div>
+                </div>
+                
+                <div>
+                    <label htmlFor="website" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Website</label>
+                    <div className="flex items-center">
+                        <FaGlobe className="text-gray-400 mr-2" />
+                        <input type="text" name="website" id="website" value={formData.website} onChange={handleChange} placeholder="www.instituicao.pt" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.website ? 'border-red-500' : 'border-gray-600'}`} />
+                    </div>
+                    {errors.website && <p className="text-red-400 text-xs italic mt-1">{errors.website}</p>}
                 </div>
 
                 <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
@@ -313,7 +373,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar / Cancelar</button>
-                    <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
+                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2">
                         {isSaving ? <SpinnerIcon className="h-4 w-4" /> : successMessage ? <CheckIcon className="h-4 w-4" /> : null}
                         {isSaving ? 'A Gravar...' : 'Salvar Alterações'}
                     </button>

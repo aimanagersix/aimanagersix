@@ -3,6 +3,7 @@
 
 
 
+
 import React from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';

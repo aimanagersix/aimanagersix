@@ -1,8 +1,10 @@
 
+
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
-import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUsers, FaExternalLinkAlt, FaLaptop } from './common/Icons';
+import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUsers, FaExternalLinkAlt, FaLaptop, FaGlobe } from './common/Icons';
 
 interface InstituicaoDetailModalProps {
     instituicao: Instituicao;
@@ -119,6 +121,8 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                     <div class="value">${instituicao.codigo}</div>
                     <div class="label">NIF</div>
                     <div class="value">${instituicao.nif || 'N/A'}</div>
+                    <div class="label">Website</div>
+                    <div class="value">${instituicao.website || '-'}</div>
                 </div>
                 <div class="section">
                     <h3>Contactos Gerais</h3>
@@ -186,6 +190,11 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                         <h2 className="text-xl font-bold text-white">{instituicao.name}</h2>
                         <p className="text-sm text-on-surface-dark-secondary">Código: <span className="font-mono text-white">{instituicao.codigo}</span></p>
                         {instituicao.nif && <p className="text-sm text-gray-400">NIF: {instituicao.nif}</p>}
+                        {instituicao.website && (
+                            <a href={instituicao.website.startsWith('http') ? instituicao.website : `https://${instituicao.website}`} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-secondary hover:underline flex items-center gap-1 mt-1">
+                                <FaGlobe className="h-3 w-3"/> {instituicao.website}
+                            </a>
+                        )}
                     </div>
                     <div className="flex flex-col gap-2">
                         <button 

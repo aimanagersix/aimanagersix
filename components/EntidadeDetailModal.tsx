@@ -1,8 +1,10 @@
 
+
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
-import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint } from './common/Icons';
+import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint, FaGlobe } from './common/Icons';
 
 interface EntidadeDetailModalProps {
     entidade: Entidade;
@@ -94,6 +96,8 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     <div class="value">${instituicao?.name || 'N/A'}</div>
                     <div class="label">Código</div>
                     <div class="value">${entidade.codigo}</div>
+                    <div class="label">Website</div>
+                    <div class="value">${entidade.website || '-'}</div>
                 </div>
                 <div class="section">
                     <h3>Contactos Principais</h3>
@@ -170,6 +174,11 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                             </p>
                         )}
                         {!instituicao && <p className="text-sm text-gray-500 mt-1">Instituição não definida</p>}
+                        {entidade.website && (
+                            <a href={entidade.website.startsWith('http') ? entidade.website : `https://${entidade.website}`} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-secondary hover:underline flex items-center gap-1 mt-1">
+                                <FaGlobe className="h-3 w-3"/> {entidade.website}
+                            </a>
+                        )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                         <div className="flex gap-2">
