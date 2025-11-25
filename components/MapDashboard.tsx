@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Instituicao, Entidade, Supplier } from '../types';
+// @ts-ignore
 import L from 'leaflet';
 import { FaMapMarkedAlt, FaFilter, FaSpinner, FaSync } from 'react-icons/fa';
 
@@ -41,8 +42,8 @@ const geoCache: Record<string, { lat: number; lng: number } | null> = {};
 
 const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, suppliers }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<L.Map | null>(null);
-    const markersLayerRef = useRef<L.LayerGroup | null>(null);
+    const mapInstanceRef = useRef<any>(null);
+    const markersLayerRef = useRef<any>(null);
     
     const [filters, setFilters] = useState({
         showInstitutions: true,
