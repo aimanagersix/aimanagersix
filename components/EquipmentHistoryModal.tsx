@@ -1,6 +1,3 @@
-
-
-
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
@@ -165,7 +162,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                             onClick={() => { onClose(); onEdit(equipment); }} 
                             className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg font-semibold"
                         >
-                            <FaEdit /> Corrigir Dados
+                            <FaEdit /> Editar Dados
                         </button>
                     )}
                 </div>

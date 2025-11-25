@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType } from '../types';
@@ -288,7 +287,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                             onClick={() => { onClose(); onEdit(collaborator); }} 
                             className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg font-semibold"
                         >
-                            <FaEdit /> Corrigir Dados
+                            <FaEdit /> Editar Dados
                         </button>
                         <button onClick={handleChatClick} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
                             <FaComment /> Enviar Mensagem
