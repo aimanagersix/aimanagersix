@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig, CustomRole } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard, FaLink, FaDatabase, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -94,6 +94,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [error, setError] = useState('');
 
     // Automation & Branding State
+    const [activeAutoTab, setActiveAutoTab] = useState<'general' | 'connections'>('general');
     const [scanFrequency, setScanFrequency] = useState('0');
     const [scanStartTime, setScanStartTime] = useState('02:00');
     const [lastScanDate, setLastScanDate] = useState('-');
@@ -108,6 +109,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [scanLookbackYears, setScanLookbackYears] = useState(2);
     const [scanCustomPrompt, setScanCustomPrompt] = useState('');
     const [nistApiKey, setNistApiKey] = useState('');
+    
+    // Connections State (Supabase)
+    const [sbUrl, setSbUrl] = useState('');
+    const [sbKey, setSbKey] = useState('');
     
     // Tooltip Config State
     const [tooltipConfig, setTooltipConfig] = useState<TooltipConfig>(defaultTooltipConfig);
@@ -160,8 +165,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     useEffect(() => {
         const loadSettings = async () => {
             if (selectedMenuId === 'automation') {
-                // ... (existing automation loading logic)
-                 const freq = await dataService.getGlobalSetting('scan_frequency_days');
+                // General Automation
+                const freq = await dataService.getGlobalSetting('scan_frequency_days');
                 const start = await dataService.getGlobalSetting('scan_start_time');
                 const last = await dataService.getGlobalSetting('last_auto_scan');
                 const logo = await dataService.getGlobalSetting('app_logo_url');
@@ -169,7 +174,6 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 const eol = await dataService.getGlobalSetting('scan_include_eol');
                 const years = await dataService.getGlobalSetting('scan_lookback_years');
                 const custom = await dataService.getGlobalSetting('scan_custom_prompt');
-                const nistKey = await dataService.getGlobalSetting('nist_api_key');
                 
                 const prefix = await dataService.getGlobalSetting('equipment_naming_prefix');
                 const digits = await dataService.getGlobalSetting('equipment_naming_digits');
@@ -182,10 +186,17 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 if (eol) setScanIncludeEol(eol === 'true');
                 if (years) setScanLookbackYears(parseInt(years));
                 if (custom) setScanCustomPrompt(custom);
-                if (nistKey) setNistApiKey(nistKey);
                 
                 if (prefix) setEquipPrefix(prefix);
                 if (digits) setEquipDigits(digits);
+                
+                // Connections (Loaded here to have them ready)
+                const nistKey = await dataService.getGlobalSetting('nist_api_key');
+                if (nistKey) setNistApiKey(nistKey);
+
+                // Load LocalStorage keys for Supabase
+                setSbUrl(localStorage.getItem('SUPABASE_URL') || '');
+                setSbKey(localStorage.getItem('SUPABASE_ANON_KEY') || '');
 
             } else if (selectedMenuId === 'interface') {
                 const tooltipSetting = await dataService.getGlobalSetting('tooltip_config');
@@ -204,7 +215,6 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     }, [selectedMenuId]);
 
     const handleSaveAutomation = async () => {
-        // ... (existing save logic)
          await dataService.updateGlobalSetting('scan_frequency_days', scanFrequency);
         await dataService.updateGlobalSetting('scan_start_time', scanStartTime);
         await dataService.updateGlobalSetting('app_logo_url', logoUrl);
@@ -212,12 +222,26 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         await dataService.updateGlobalSetting('scan_include_eol', String(scanIncludeEol));
         await dataService.updateGlobalSetting('scan_lookback_years', String(scanLookbackYears));
         await dataService.updateGlobalSetting('scan_custom_prompt', scanCustomPrompt);
-        await dataService.updateGlobalSetting('nist_api_key', nistApiKey);
         
         await dataService.updateGlobalSetting('equipment_naming_prefix', equipPrefix);
         await dataService.updateGlobalSetting('equipment_naming_digits', equipDigits);
 
-        alert("Configuração guardada.");
+        alert("Configuração geral guardada.");
+    };
+    
+    const handleSaveConnections = async () => {
+        // Save NIST to DB
+        await dataService.updateGlobalSetting('nist_api_key', nistApiKey);
+        
+        // Save Supabase to LocalStorage
+        if (sbUrl && sbKey) {
+            localStorage.setItem('SUPABASE_URL', sbUrl);
+            localStorage.setItem('SUPABASE_ANON_KEY', sbKey);
+        }
+
+        if (confirm("Credenciais guardadas com sucesso. A página será recarregada para aplicar a nova ligação à base de dados.")) {
+            window.location.reload();
+        }
     };
 
     const handleSaveInterface = async () => {
@@ -614,159 +638,249 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                         <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2 flex items-center gap-2">
                             <FaCog className="text-brand-secondary" /> Automação & Integrações
                         </h2>
-                        {/* ... (existing content for automation) */}
-                         <div className="space-y-6">
-                            {/* Branding Section */}
-                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaImage className="text-blue-400"/> Personalização (Branding)</h3>
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Defina o logotipo da sua organização para aparecer nos cabeçalhos dos relatórios impressos.
-                                </p>
-                                <div>
-                                    <label className="block text-xs text-gray-500 uppercase mb-1">URL do Logotipo</label>
-                                    <input 
-                                        type="text" 
-                                        value={logoUrl}
-                                        onChange={(e) => setLogoUrl(e.target.value)}
-                                        placeholder="https://exemplo.com/logo.png"
-                                        className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">O URL deve ser acessível publicamente ou na rede local.</p>
-                                </div>
-                            </div>
-                            
-                            {/* Network Naming Convention */}
-                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaKeyboard className="text-green-400"/> Nomenclatura de Rede</h3>
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Defina o formato automático para o campo "Nome na Rede". O sistema sugerirá o próximo número disponível.
-                                </p>
-                                <div className="flex gap-4 items-end">
+
+                        {/* Tab Navigation */}
+                        <div className="flex border-b border-gray-700 mb-6">
+                            <button 
+                                onClick={() => setActiveAutoTab('general')} 
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeAutoTab === 'general' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                            >
+                                Geral & Scans
+                            </button>
+                            <button 
+                                onClick={() => setActiveAutoTab('connections')} 
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeAutoTab === 'connections' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                            >
+                                Conexões & Credenciais
+                            </button>
+                        </div>
+
+                        {activeAutoTab === 'general' && (
+                            <div className="space-y-6 animate-fade-in">
+                                {/* Branding Section */}
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaImage className="text-blue-400"/> Personalização (Branding)</h3>
+                                    <p className="text-sm text-gray-400 mb-4">
+                                        Defina o logotipo da sua organização para aparecer nos cabeçalhos dos relatórios impressos.
+                                    </p>
                                     <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Prefixo</label>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">URL do Logotipo</label>
                                         <input 
                                             type="text" 
-                                            value={equipPrefix}
-                                            onChange={(e) => setEquipPrefix(e.target.value)}
-                                            placeholder="Ex: ADM"
-                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
+                                            value={logoUrl}
+                                            onChange={(e) => setLogoUrl(e.target.value)}
+                                            placeholder="https://exemplo.com/logo.png"
+                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
                                         />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Dígitos</label>
-                                        <input 
-                                            type="number" 
-                                            value={equipDigits}
-                                            onChange={(e) => setEquipDigits(e.target.value)}
-                                            min="1"
-                                            max="10"
-                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-20"
-                                        />
-                                    </div>
-                                    <div className="mb-2 text-sm text-gray-300">
-                                        Exemplo Gerado: <strong>{equipPrefix}{'0'.repeat(Math.max(0, parseInt(equipDigits) - 1))}1</strong>
+                                        <p className="text-xs text-gray-500 mt-1">O URL deve ser acessível publicamente ou na rede local.</p>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Automation Section */}
-                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Auto Scan de Vulnerabilidades (IA)</h3>
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Configuração do analisador de segurança automatizado que verifica o inventário em busca de CVEs.
-                                </p>
                                 
-                                <div className="flex flex-wrap gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Frequência</label>
-                                        <select 
-                                            value={scanFrequency}
-                                            onChange={(e) => setScanFrequency(e.target.value)}
-                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-48"
-                                        >
-                                            <option value="0">Desativado</option>
-                                            <option value="1">Diário (24h)</option>
-                                            <option value="7">Semanal</option>
-                                            <option value="30">Mensal</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Hora de Início</label>
-                                        <input 
-                                            type="time" 
-                                            value={scanStartTime}
-                                            onChange={(e) => setScanStartTime(e.target.value)}
-                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Janela de Tempo (Anos)</label>
-                                        <input 
-                                            type="number" 
-                                            value={scanLookbackYears}
-                                            onChange={(e) => setScanLookbackYears(parseInt(e.target.value))}
-                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
-                                            min="1"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Última Execução</label>
-                                        <div className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 p-2 rounded border border-gray-700 min-w-[150px]">
-                                            <FaClock /> {lastScanDate}
+                                {/* Network Naming Convention */}
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaKeyboard className="text-green-400"/> Nomenclatura de Rede</h3>
+                                    <p className="text-sm text-gray-400 mb-4">
+                                        Defina o formato automático para o campo "Nome na Rede". O sistema sugerirá o próximo número disponível.
+                                    </p>
+                                    <div className="flex gap-4 items-end">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 uppercase mb-1">Prefixo</label>
+                                            <input 
+                                                type="text" 
+                                                value={equipPrefix}
+                                                onChange={(e) => setEquipPrefix(e.target.value)}
+                                                placeholder="Ex: ADM"
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 uppercase mb-1">Dígitos</label>
+                                            <input 
+                                                type="number" 
+                                                value={equipDigits}
+                                                onChange={(e) => setEquipDigits(e.target.value)}
+                                                min="1"
+                                                max="10"
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-20"
+                                            />
+                                        </div>
+                                        <div className="mb-2 text-sm text-gray-300">
+                                            Exemplo Gerado: <strong>{equipPrefix}{'0'.repeat(Math.max(0, parseInt(equipDigits) - 1))}1</strong>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mb-4">
-                                    <label className="flex items-center cursor-pointer">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={scanIncludeEol} 
-                                            onChange={(e) => setScanIncludeEol(e.target.checked)} 
-                                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary" 
-                                        />
-                                        <span className="ml-2 text-sm text-white font-bold">Incluir Software EOL (End-of-Life)</span>
-                                    </label>
-                                    <p className="text-xs text-gray-500 ml-6 mt-1">
-                                        Força a procura de vulnerabilidades críticas em sistemas antigos (ex: Win 7, Server 2008), ignorando a janela de tempo.
+                                {/* Automation Section */}
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Auto Scan de Vulnerabilidades (IA)</h3>
+                                    <p className="text-sm text-gray-400 mb-4">
+                                        Configuração do analisador de segurança automatizado que verifica o inventário em busca de CVEs.
                                     </p>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label className="block text-xs text-gray-500 uppercase mb-1">Chave API NIST (Opcional)</label>
-                                    <div className="flex gap-2 items-center">
-                                        <FaKey className="text-gray-500"/>
-                                        <input 
-                                            type="password" 
-                                            value={nistApiKey}
-                                            onChange={(e) => setNistApiKey(e.target.value)}
-                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
-                                            placeholder="Cole a sua chave API do NIST aqui"
-                                        />
+                                    
+                                    <div className="flex flex-wrap gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 uppercase mb-1">Frequência</label>
+                                            <select 
+                                                value={scanFrequency}
+                                                onChange={(e) => setScanFrequency(e.target.value)}
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-48"
+                                            >
+                                                <option value="0">Desativado</option>
+                                                <option value="1">Diário (24h)</option>
+                                                <option value="7">Semanal</option>
+                                                <option value="30">Mensal</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 uppercase mb-1">Hora de Início</label>
+                                            <input 
+                                                type="time" 
+                                                value={scanStartTime}
+                                                onChange={(e) => setScanStartTime(e.target.value)}
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 uppercase mb-1">Janela de Tempo (Anos)</label>
+                                            <input 
+                                                type="number" 
+                                                value={scanLookbackYears}
+                                                onChange={(e) => setScanLookbackYears(parseInt(e.target.value))}
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
+                                                min="1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 uppercase mb-1">Última Execução</label>
+                                            <div className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 p-2 rounded border border-gray-700 min-w-[150px]">
+                                                <FaClock /> {lastScanDate}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Se configurada, o sistema tentará consultar a base de dados oficial do NIST. Caso contrário, utilizará a análise preditiva da IA.
-                                    </p>
+
+                                    <div className="mb-4">
+                                        <label className="flex items-center cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={scanIncludeEol} 
+                                                onChange={(e) => setScanIncludeEol(e.target.checked)} 
+                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary" 
+                                            />
+                                            <span className="ml-2 text-sm text-white font-bold">Incluir Software EOL (End-of-Life)</span>
+                                        </label>
+                                        <p className="text-xs text-gray-500 ml-6 mt-1">
+                                            Força a procura de vulnerabilidades críticas em sistemas antigos (ex: Win 7, Server 2008), ignorando a janela de tempo.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Instruções Personalizadas (Prompt)</label>
+                                        <textarea 
+                                            value={scanCustomPrompt}
+                                            onChange={(e) => setScanCustomPrompt(e.target.value)}
+                                            rows={3}
+                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
+                                            placeholder="Ex: Ignorar vulnerabilidades relacionadas com impressoras. Focar apenas em RCE."
+                                        ></textarea>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-xs text-gray-500 uppercase mb-1">Instruções Personalizadas (Prompt)</label>
-                                    <textarea 
-                                        value={scanCustomPrompt}
-                                        onChange={(e) => setScanCustomPrompt(e.target.value)}
-                                        rows={3}
-                                        className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
-                                        placeholder="Ex: Ignorar vulnerabilidades relacionadas com impressoras. Focar apenas em RCE."
-                                    ></textarea>
+                                <div className="mt-4">
+                                    <button onClick={handleSaveAutomation} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2">
+                                        <FaSave /> Guardar Configuração
+                                    </button>
                                 </div>
                             </div>
+                        )}
 
-                            <div className="mt-4">
-                                <button onClick={handleSaveAutomation} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2">
-                                    <FaSave /> Guardar Configuração
-                                </button>
+                        {activeAutoTab === 'connections' && (
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
+                                    <p className="flex items-center gap-2 font-bold mb-2"><FaInfoCircle/> Dados Necessários para o Funcionamento</p>
+                                    <p>Aqui pode consultar e atualizar as chaves de API e ligações do sistema. <strong>Atenção:</strong> Alterar as credenciais do Supabase irá recarregar a aplicação.</p>
+                                </div>
+
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaDatabase className="text-green-400"/> Base de Dados (Supabase)</h3>
+                                    
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">URL do Projeto</label>
+                                        <div className="relative">
+                                            <FaLink className="absolute top-3 left-3 text-gray-500" />
+                                            <input 
+                                                type="text" 
+                                                value={sbUrl}
+                                                onChange={(e) => setSbUrl(e.target.value)}
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Chave Pública (Anon Key)</label>
+                                        <div className="relative">
+                                            <FaKey className="absolute top-3 left-3 text-gray-500" />
+                                            <input 
+                                                type="password" 
+                                                value={sbKey}
+                                                onChange={(e) => setSbKey(e.target.value)}
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaShieldAlt className="text-red-400"/> Segurança Externa (NIST)</h3>
+                                    
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">NIST API Key (Opcional)</label>
+                                        <div className="relative">
+                                            <FaKey className="absolute top-3 left-3 text-gray-500" />
+                                            <input 
+                                                type="password" 
+                                                value={nistApiKey}
+                                                onChange={(e) => setNistApiKey(e.target.value)}
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
+                                                placeholder="Chave para consulta oficial de CVEs"
+                                            />
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Se configurada, o sistema consulta a base de dados oficial do governo americano (NVD). Se vazia, usa apenas a IA.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Inteligência Artificial (Google Gemini)</h3>
+                                    
+                                    <div className="flex items-center gap-2 p-3 bg-gray-800 rounded border border-gray-600">
+                                        {process.env.API_KEY ? (
+                                            <>
+                                                <FaCheckCircle className="text-green-400 text-xl" />
+                                                <div>
+                                                    <p className="text-sm font-bold text-white">Chave API Configurada</p>
+                                                    <p className="text-xs text-gray-400">Detetada via Variável de Ambiente (Seguro).</p>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FaExclamationCircle className="text-red-400 text-xl" />
+                                                <div>
+                                                    <p className="text-sm font-bold text-white">Chave API Não Detetada</p>
+                                                    <p className="text-xs text-gray-400">A IA não funcionará. Configure a variável <code>API_KEY</code> no build.</p>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <button onClick={handleSaveConnections} className="bg-brand-primary text-white px-6 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2 w-full sm:w-auto justify-center">
+                                        <FaSave /> Atualizar Conexões
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 )}
                 
