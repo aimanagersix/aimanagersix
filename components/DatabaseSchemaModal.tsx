@@ -298,8 +298,9 @@ SET role = 'Admin', "entidadeId" = NULL, status = 'Ativo'
 WHERE email = 'josefsmoreira@outlook.com';
 
 -- 2. Apagar Dados Operacionais e Dependências (Ordem Crítica)
-DELETE FROM service_dependencies; -- Remove ligações BIA
-DELETE FROM business_services; -- Remove serviços BIA
+-- Primeiro remove dependências para evitar erros de Foreign Key
+DELETE FROM service_dependencies;
+DELETE FROM business_services;
 DELETE FROM ticket_activities;
 DELETE FROM tickets;
 DELETE FROM vulnerabilities;
@@ -317,7 +318,12 @@ DELETE FROM software_licenses;
 -- 3. Apagar Ativos
 DELETE FROM equipment;
 
--- 4. Apagar Estrutura Organizacional (Exceto o Super Admin)
+-- 4. Desvincular Configurações de Equipas (Para permitir apagar as equipas)
+-- Atualiza os tipos e categorias para remover referências às equipas que vão ser apagadas
+UPDATE equipment_types SET default_team_id = NULL;
+UPDATE ticket_categories SET default_team_id = NULL;
+
+-- 5. Apagar Estrutura Organizacional (Exceto o Super Admin)
 DELETE FROM collaborators WHERE email != 'josefsmoreira@outlook.com';
 DELETE FROM teams;
 DELETE FROM entidades;
@@ -403,7 +409,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.24</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.25</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar
