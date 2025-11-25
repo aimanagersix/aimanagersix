@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -468,7 +470,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={() => onEdit && onEdit(item)} // Changed to trigger Edit on row click
+                onClick={() => onShowHistory(item)} 
               >
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input

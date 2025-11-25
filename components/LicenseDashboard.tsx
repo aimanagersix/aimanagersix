@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon, PlusIcon } from './common/Icons';
@@ -307,8 +309,11 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
 
                             return (
                                 <React.Fragment key={license.id}>
-                                    <tr className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
-                                        <td className="px-2 py-4">
+                                    <tr 
+                                        className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
+                                        onClick={() => handleToggleExpand(license.id)}
+                                    >
+                                        <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
                                             {usedSeats > 0 && (
                                                 <button onClick={() => handleToggleExpand(license.id)} className="text-gray-400 hover:text-white" aria-label={isExpanded ? "Esconder detalhes" : "Mostrar detalhes"}>
                                                     {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
@@ -353,7 +358,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                             {license.purchaseDate && <div>Compra: {license.purchaseDate}</div>}
                                             {license.expiryDate && <div className="text-yellow-400">Expira: {license.expiryDate}</div>}
                                         </td>
-                                        <td className="px-6 py-4 text-center">
+                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex justify-center items-center gap-4">
                                                 {onToggleStatus && (
                                                     <button 
@@ -387,7 +392,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                         </td>
                                     </tr>
                                     {isExpanded && (
-                                        <tr className="bg-gray-900/50">
+                                        <tr className="bg-gray-900/50" onClick={(e) => e.stopPropagation()}>
                                             <td colSpan={8} className="p-4">
                                                 <h4 className="text-sm font-semibold text-white mb-3">Atribuído a:</h4>
                                                 <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
