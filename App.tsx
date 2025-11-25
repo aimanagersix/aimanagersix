@@ -734,6 +734,11 @@ const InnerApp: React.FC = () => {
         await refreshData();
         return result;
     };
+    
+    const handleSaveLicenses = async (eqId: string, licenseIds: string[]) => {
+        await dataService.syncLicenseAssignments(eqId, licenseIds);
+        await refreshData();
+    };
 
     return (
         <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : ''}`}>
@@ -1323,7 +1328,13 @@ const InnerApp: React.FC = () => {
             {showAddTeam && (
                 <AddTeamModal
                     onClose={() => { setShowAddTeam(false); setTeamToEdit(null); }}
-                    onSave={(t) => simpleSaveWrapper(t.id ? dataService.updateTeam : dataService.addTeam, t, t.id)}
+                    onSave={(t) => {
+                         if ('id' in t) {
+                             simpleSaveWrapper(dataService.updateTeam, t, t.id);
+                         } else {
+                             simpleSaveWrapper(dataService.addTeam, t);
+                         }
+                    }}
                     teamToEdit={teamToEdit}
                 />
             )}
@@ -1382,7 +1393,13 @@ const InnerApp: React.FC = () => {
             {showAddBackup && (
                 <AddBackupModal
                     onClose={() => { setShowAddBackup(false); setBackupToEdit(null); }}
-                    onSave={(b) => simpleSaveWrapper(b.id ? dataService.updateBackupExecution : dataService.addBackupExecution, b, b.id)}
+                    onSave={(b) => {
+                         if ('id' in b) {
+                             simpleSaveWrapper(dataService.updateBackupExecution, b, b.id);
+                         } else {
+                             simpleSaveWrapper(dataService.addBackupExecution, b);
+                         }
+                    }}
                     backupToEdit={backupToEdit}
                     currentUser={currentUser}
                     equipmentList={equipment}
@@ -1394,7 +1411,13 @@ const InnerApp: React.FC = () => {
             {showAddResilienceTest && (
                 <AddResilienceTestModal
                     onClose={() => { setShowAddResilienceTest(false); setResilienceTestToEdit(null); }}
-                    onSave={(t) => simpleSaveWrapper(t.id ? dataService.updateResilienceTest : dataService.addResilienceTest, t, t.id)}
+                    onSave={async (t) => {
+                         if ('id' in t) {
+                             await simpleSaveWrapper(dataService.updateResilienceTest, t, t.id);
+                         } else {
+                             await simpleSaveWrapper(dataService.addResilienceTest, t);
+                         }
+                    }}
                     testToEdit={resilienceTestToEdit}
                     onCreateTicket={dataService.addTicket}
                     entidades={entidades}
