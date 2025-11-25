@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, LicenseAssignment } from '../types';
@@ -21,10 +20,13 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
 
     useEffect(() => {
         // Filter assignments that are ACTIVE (returnDate is null)
-        const initialIds = allAssignments
-            .filter(a => a.equipmentId === equipment.id && !a.returnDate)
-            .map(a => a.softwareLicenseId);
-        setAssignedLicenseIds(new Set(initialIds));
+        // Use a Set immediately to deduplicate if multiple active records exist in DB for same license
+        const initialIds = new Set(
+            allAssignments
+                .filter(a => a.equipmentId === equipment.id && !a.returnDate)
+                .map(a => a.softwareLicenseId)
+        );
+        setAssignedLicenseIds(initialIds);
     }, [allAssignments, equipment.id]);
 
     const usedSeatsMap = useMemo(() => {
@@ -47,12 +49,12 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
     }, [allLicenses, usedSeatsMap, assignedLicenseIds]);
 
     const assignedLicensesDetails = useMemo(() => {
+        // Ensure we only map unique IDs from the Set to avoid UI duplicates
         return Array.from(assignedLicenseIds).map(id => allLicenses.find(l => l.id === id)).filter(Boolean) as SoftwareLicense[];
     }, [assignedLicenseIds, allLicenses]);
 
     const isOS = (license: SoftwareLicense) => {
         // Check category first (if available), then fallback to name heuristic
-        // Note: Category ID checking would require fetching categories, for now we rely on name heuristic or if "Sistema Operativo" string is present
         const name = license.productName.toLowerCase();
         return name.includes('windows') || name.includes('macos') || name.includes('linux') || name.includes('ubuntu') || license.is_oem;
     };
@@ -90,7 +92,6 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         try {
             await onSave(equipment.id, Array.from(assignedLicenseIds));
             setSuccessMessage('Guardado com sucesso!');
-            // Auto-clear message after 3s, but DO NOT close modal
             setTimeout(() => {
                 setSuccessMessage('');
             }, 3000);

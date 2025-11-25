@@ -301,25 +301,50 @@ export const deleteLicense = (id: string) => remove('software_licenses', id);
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
     
-    // 1. Fetch current active assignments for this equipment
+    // 1. Fetch ALL current active assignments for this equipment
     const { data: currentActive } = await supabase
         .from('license_assignments')
         .select('id, softwareLicenseId')
         .eq('equipmentId', equipmentId)
         .is('returnDate', null);
-        
-    const currentIds = (currentActive || []).map((c: any) => c.softwareLicenseId);
-    const currentMap = new Map((currentActive || []).map((c: any) => [c.softwareLicenseId, c.id]));
+
+    // Create a map of active licenses for this equipment: licenseId -> array of assignment IDs
+    // This handles the case where duplicates might exist in DB.
+    const activeMap = new Map<string, string[]>();
+    (currentActive || []).forEach((c: any) => {
+        const list = activeMap.get(c.softwareLicenseId) || [];
+        list.push(c.id);
+        activeMap.set(c.softwareLicenseId, list);
+    });
     
-    const newIds = new Set(licenseIds);
+    const targetIds = new Set(licenseIds);
     
     // 2. Determine what to Add
-    const toAdd = licenseIds.filter(id => !currentIds.includes(id));
+    // Add only if NO active assignment exists for this license ID
+    const toAdd: string[] = [];
+    for (const lid of licenseIds) {
+        if (!activeMap.has(lid)) {
+            toAdd.push(lid);
+        }
+    }
     
-    // 3. Determine what to Remove (Close/Soft Delete)
-    const toRemove = currentIds.filter((id: string) => !newIds.has(id));
+    // 3. Determine what to Remove
+    // If a license ID is in DB but not in target list, mark ALL its instances as returned
+    const toRemoveIds: string[] = [];
+    for (const [lid, assignmentIds] of activeMap.entries()) {
+        if (!targetIds.has(lid)) {
+            toRemoveIds.push(...assignmentIds);
+        }
+    }
     
-    // Execute
+    // Execute DB Operations
+    if (toRemoveIds.length > 0) {
+        await supabase
+            .from('license_assignments')
+            .update({ returnDate: new Date().toISOString().split('T')[0] })
+            .in('id', toRemoveIds);
+    }
+
     if (toAdd.length > 0) {
         const inserts = toAdd.map(lid => ({ 
             equipmentId: equipmentId, 
@@ -328,19 +353,8 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         }));
         await supabase.from('license_assignments').insert(inserts);
     }
-    
-    if (toRemove.length > 0) {
-        // Get IDs of assignment records to update
-        const idsToUpdate = toRemove.map((licId: string) => currentMap.get(licId)).filter(Boolean);
-        if (idsToUpdate.length > 0) {
-            await supabase
-                .from('license_assignments')
-                .update({ returnDate: new Date().toISOString().split('T')[0] })
-                .in('id', idsToUpdate);
-        }
-    }
 
-    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId} (Added: ${toAdd.length}, Removed: ${toRemove.length})`, equipmentId);
+    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId} (Added: ${toAdd.length}, Removed/Closed: ${toRemoveIds.length})`, equipmentId);
 };
 
 // Tickets & Support

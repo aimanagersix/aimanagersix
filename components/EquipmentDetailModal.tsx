@@ -1,6 +1,3 @@
-
-
-
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
@@ -65,14 +62,19 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
     // Split licenses into Active and History
     const { activeLicenses, historyLicenses } = useMemo(() => {
         const allAssignments = licenseAssignments.filter(la => la.equipmentId === equipment.id);
-        const active: { license: SoftwareLicense, assignedDate: string }[] = [];
+        
+        // Use a Map to prevent visual duplicates of ACTIVE licenses
+        const activeMap = new Map<string, { license: SoftwareLicense, assignedDate: string }>();
         const history: { license: SoftwareLicense, assignedDate: string, returnDate: string }[] = [];
 
         allAssignments.forEach(la => {
             const lic = softwareLicenses.find(l => l.id === la.softwareLicenseId);
             if (lic) {
                 if (!la.returnDate) {
-                    active.push({ license: lic, assignedDate: la.assignedDate });
+                    // If key exists, we ignore subsequent assignments to show unique license per equipment
+                    if (!activeMap.has(lic.id)) {
+                         activeMap.set(lic.id, { license: lic, assignedDate: la.assignedDate });
+                    }
                 } else {
                     history.push({ license: lic, assignedDate: la.assignedDate, returnDate: la.returnDate });
                 }
@@ -82,7 +84,7 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
         // Sort history by return date descending
         history.sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime());
 
-        return { activeLicenses: active, historyLicenses: history };
+        return { activeLicenses: Array.from(activeMap.values()), historyLicenses: history };
     }, [licenseAssignments, softwareLicenses, equipment.id]);
 
     const equipmentSupplier = useMemo(() => {
