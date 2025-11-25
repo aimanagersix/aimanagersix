@@ -7,6 +7,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -888,6 +890,7 @@ const InnerApp: React.FC = () => {
                     <InstituicaoDashboard
                         instituicoes={instituicoes}
                         escolasDepartamentos={entidades}
+                        collaborators={collaborators}
                         onEdit={(i) => { setInstituicaoToEdit(i); setShowAddInstituicao(true); }}
                         onDelete={(id) => handleDelete('Excluir Instituição', 'Tem a certeza que deseja excluir esta instituição?', () => simpleSaveWrapper(dataService.deleteInstituicao, id))}
                         onCreate={() => { setInstituicaoToEdit(null); setShowAddInstituicao(true); }}

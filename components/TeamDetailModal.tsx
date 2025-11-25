@@ -1,8 +1,10 @@
 
+
+
 import React from 'react';
 import Modal from './common/Modal';
 import { Team, Collaborator, TeamMember } from '../types';
-import { FaUsers, FaUserTag } from './common/Icons';
+import { FaUsers, FaUserTag, FaPrint } from './common/Icons';
 
 interface TeamDetailModalProps {
     team: Team;
@@ -19,6 +21,58 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
         .map(tm => collaborators.find(c => c.id === tm.collaborator_id))
         .filter(Boolean) as Collaborator[];
 
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const membersRows = members.map(m => `
+            <tr>
+                <td>${m.fullName}</td>
+                <td>${m.email}</td>
+                <td>${m.role}</td>
+            </tr>
+        `).join('');
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Ficha da Equipa - ${team.name}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; color: #333; }
+                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
+                    .section { margin-bottom: 20px; }
+                    .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
+                    .value { font-size: 16px; margin-bottom: 5px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                </style>
+            </head>
+            <body>
+                <h1>${team.name}</h1>
+                <div class="section">
+                    <div class="label">Descrição</div>
+                    <div class="value">${team.description || '-'}</div>
+                </div>
+                
+                <div class="section">
+                    <h3>Membros da Equipa (${members.length})</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Nome</th><th>Email</th><th>Função</th></tr>
+                        </thead>
+                        <tbody>
+                            ${membersRows}
+                        </tbody>
+                    </table>
+                </div>
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
         <Modal title={`Detalhes da Equipa: ${team.name}`} onClose={onClose} maxWidth="max-w-3xl">
             <div className="space-y-6">
@@ -32,12 +86,20 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
                         <p className="text-sm text-gray-400 mt-1">{team.description || 'Sem descrição disponível.'}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                        <button 
-                            onClick={() => { onClose(); onEdit(); }} 
-                            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg"
-                        >
-                            Editar Dados
-                        </button>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={handlePrint}
+                                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg flex items-center gap-2"
+                            >
+                                <FaPrint /> Imprimir
+                            </button>
+                            <button 
+                                onClick={() => { onClose(); onEdit(); }} 
+                                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg"
+                            >
+                                Editar Dados
+                            </button>
+                        </div>
                         <span className="px-3 py-1 text-xs rounded bg-gray-700 text-white border border-gray-600">
                             {members.length} Membros
                         </span>

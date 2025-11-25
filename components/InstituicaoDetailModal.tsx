@@ -1,20 +1,29 @@
 
-import React, { useState } from 'react';
+
+
+import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Instituicao, Entidade } from '../types';
-import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUserTie } from './common/Icons';
+import { Instituicao, Entidade, Collaborator } from '../types';
+import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUserTie, FaUsers } from './common/Icons';
 
 interface InstituicaoDetailModalProps {
     instituicao: Instituicao;
     entidades: Entidade[];
+    collaborators?: Collaborator[]; // New prop
     onClose: () => void;
     onEdit: () => void;
     onAddEntity?: (instituicaoId: string) => void;
 }
 
-const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, onClose, onEdit, onAddEntity }) => {
-    const [activeTab, setActiveTab] = useState<'info' | 'contacts'>('info');
+const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity }) => {
+    const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'collabs'>('info');
     const relatedEntidades = entidades.filter(e => e.instituicaoId === instituicao.id);
+    
+    // Filter collaborators belonging to entities of this institution
+    const relatedCollaborators = useMemo(() => {
+        const entityIds = new Set(relatedEntidades.map(e => e.id));
+        return collaborators.filter(c => entityIds.has(c.entidadeId));
+    }, [collaborators, relatedEntidades]);
 
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
@@ -87,6 +96,10 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                         ${relatedEntidades.map(e => `<li>${e.name} (${e.codigo})</li>`).join('')}
                     </ul>
                 </div>
+                
+                <div class="section">
+                    <h3>Total de Colaboradores: ${relatedCollaborators.length}</h3>
+                </div>
                 <script>window.onload = function() { window.print(); }</script>
             </body>
             </html>
@@ -136,6 +149,12 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         Contactos Adicionais <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{(instituicao.contacts?.length || 0)}</span>
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('collabs')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'collabs' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        Colaboradores <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{relatedCollaborators.length}</span>
                     </button>
                 </div>
 
@@ -237,6 +256,42 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                             ) : (
                                 <p className="text-center text-gray-500 py-8 bg-gray-900/20 rounded border border-dashed border-gray-700">
                                     Nenhum contacto adicional registado. Clique em "Editar Dados" para adicionar.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'collabs' && (
+                        <div>
+                            <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-4">
+                                Todos os Colaboradores ({relatedCollaborators.length})
+                            </h3>
+                            {relatedCollaborators.length > 0 ? (
+                                <div className="space-y-2">
+                                    {relatedCollaborators.map(col => {
+                                        const entName = relatedEntidades.find(e => e.id === col.entidadeId)?.name || 'N/A';
+                                        return (
+                                            <div key={col.id} className="flex justify-between items-center bg-gray-800/50 p-3 rounded border border-gray-700">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-gray-700 p-2 rounded-full">
+                                                        <FaUsers className="text-gray-400"/>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-white">{col.fullName}</p>
+                                                        <p className="text-xs text-gray-400">{col.email}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="block text-xs bg-gray-700 px-2 py-1 rounded text-gray-300 mb-1">{col.role}</span>
+                                                    <span className="text-xs text-gray-500">{entName}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-center text-gray-500 py-8 bg-gray-900/20 rounded border border-dashed border-gray-700">
+                                    Nenhum colaborador encontrado nas entidades desta instituição.
                                 </p>
                             )}
                         </div>

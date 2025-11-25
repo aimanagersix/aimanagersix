@@ -1,9 +1,11 @@
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, SupplierContact } from '../types';
 import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope } from 'react-icons/fa';
-import { SearchIcon, SpinnerIcon, DeleteIcon, PlusIcon } from './common/Icons';
+import { SearchIcon, SpinnerIcon, DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
 import { ContactList } from './common/ContactList'; // Import generic contact list
 import * as dataService from '../services/dataService';
 
@@ -59,6 +61,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     // Ticket Automation State
     const [createTicket, setCreateTicket] = useState(false);
@@ -336,6 +339,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         if (!validate()) return;
         
         setIsSaving(true);
+        setSuccessMessage('');
+
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         const dataToSave: any = {
             ...formData,
@@ -386,7 +391,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     };
                     await onCreateTicket(ticketPayload);
                 }
-                onClose();
+                setSuccessMessage('Fornecedor gravado com sucesso!');
+                setTimeout(() => setSuccessMessage(''), 3000);
+                // onClose(); // Removed auto-close
             }
         } catch (error) {
             console.error("Erro ao salvar fornecedor ou ticket:", error);
@@ -923,11 +930,17 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     )}
                 </form>
 
+                {successMessage && (
+                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">
+                        {successMessage}
+                    </div>
+                )}
+
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-2">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar / Fechar</button>
                     <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2">
                         {isSaving && <SpinnerIcon className="h-4 w-4" />}
-                        Salvar Tudo
+                        {isSaving ? 'A Gravar...' : successMessage ? <CheckIcon className="h-4 w-4"/> : 'Salvar Tudo'}
                     </button>
                 </div>
             </div>

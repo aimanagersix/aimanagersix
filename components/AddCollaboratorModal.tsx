@@ -1,8 +1,10 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle } from '../types';
-import { SpinnerIcon } from './common/Icons';
+import { SpinnerIcon, CheckIcon } from './common/Icons';
 
 interface AddCollaboratorModalProps {
     onClose: () => void;
@@ -44,6 +46,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [password, setPassword] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
     // Use dynamic options if available
     const roles = roleOptions && roleOptions.length > 0 ? roleOptions.map(r => r.name) : Object.values(UserRole);
@@ -85,6 +88,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         
         setIsSaving(true);
         setError('');
+        setSuccessMessage('');
 
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         const dataToSave: any = { 
@@ -103,7 +107,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             }
             
             if (result) {
-                onClose();
+                setSuccessMessage("Colaborador gravado com sucesso!");
+                setTimeout(() => setSuccessMessage(''), 3000);
+                // onClose(); // Removed auto-close
             }
         } catch (e: any) {
             console.error(e);
@@ -225,12 +231,17 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 )}
 
                 {error && <p className="text-red-400 text-xs">{error}</p>}
+                {successMessage && (
+                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">
+                        {successMessage}
+                    </div>
+                )}
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar / Fechar</button>
                     <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
-                        {isSaving && <SpinnerIcon className="h-4 w-4" />}
-                        Salvar
+                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : successMessage ? <CheckIcon className="h-4 w-4"/> : null}
+                        {isSaving ? 'A Gravar...' : 'Salvar'}
                     </button>
                 </div>
             </form>

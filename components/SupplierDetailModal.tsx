@@ -1,8 +1,10 @@
 
+
+
 import React from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
-import { FaShieldAlt, FaPhone, FaEnvelope, FaGlobe, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaCertificate, FaDownload, FaFileContract, FaDoorOpen } from './common/Icons';
+import { FaShieldAlt, FaPhone, FaEnvelope, FaGlobe, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaCertificate, FaDownload, FaFileContract, FaDoorOpen, FaPrint } from './common/Icons';
 
 interface SupplierDetailModalProps {
     supplier: Supplier;
@@ -21,6 +23,78 @@ const getRiskClass = (level: CriticalityLevel) => {
 };
 
 const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onClose, onEdit }) => {
+    
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const contractsRows = (supplier.contracts || []).map(c => `
+            <tr>
+                <td>${c.ref_number}</td>
+                <td>${c.description}</td>
+                <td>${c.end_date}</td>
+                <td>${c.is_active ? 'Ativo' : 'Inativo'}</td>
+            </tr>
+        `).join('');
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Ficha do Fornecedor - ${supplier.name}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; color: #333; }
+                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
+                    .section { margin-bottom: 20px; }
+                    .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
+                    .value { font-size: 16px; margin-bottom: 5px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                </style>
+            </head>
+            <body>
+                <h1>${supplier.name}</h1>
+                <div class="section">
+                    <div class="label">NIF</div>
+                    <div class="value">${supplier.nif || 'N/A'}</div>
+                    <div class="label">Website</div>
+                    <div class="value">${supplier.website || '-'}</div>
+                </div>
+                <div class="section">
+                    <h3>Contactos</h3>
+                    <div class="label">Nome</div>
+                    <div class="value">${supplier.contact_name || '-'}</div>
+                    <div class="label">Email</div>
+                    <div class="value">${supplier.contact_email || '-'}</div>
+                    <div class="label">Telefone</div>
+                    <div class="value">${supplier.contact_phone || '-'}</div>
+                </div>
+                <div class="section">
+                    <h3>Compliance & Risco</h3>
+                    <div class="value">Nível de Risco: ${supplier.risk_level}</div>
+                    <div class="value">ISO 27001: ${supplier.is_iso27001_certified ? 'Sim' : 'Não'}</div>
+                </div>
+                
+                ${(supplier.contracts && supplier.contracts.length > 0) ? `
+                <div class="section">
+                    <h3>Contratos</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Ref</th><th>Descrição</th><th>Fim</th><th>Estado</th></tr>
+                        </thead>
+                        <tbody>
+                            ${contractsRows}
+                        </tbody>
+                    </table>
+                </div>` : ''}
+
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
         <Modal title={`Detalhes do Fornecedor: ${supplier.name}`} onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-6">
@@ -39,12 +113,20 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                         )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                        <button 
-                            onClick={() => { onClose(); onEdit(); }} 
-                            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg"
-                        >
-                            Editar Dados
-                        </button>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={handlePrint}
+                                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg flex items-center gap-2"
+                            >
+                                <FaPrint /> Imprimir
+                            </button>
+                            <button 
+                                onClick={() => { onClose(); onEdit(); }} 
+                                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg"
+                            >
+                                Editar Dados
+                            </button>
+                        </div>
                         <span className={`px-3 py-1 text-xs rounded border font-bold ${getRiskClass(supplier.risk_level)}`}>
                             Risco: {supplier.risk_level}
                         </span>

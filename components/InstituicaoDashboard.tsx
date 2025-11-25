@@ -1,8 +1,10 @@
 
 
 
+
+
 import React, { useMemo, useState } from 'react';
-import { Instituicao, Entidade } from '../types';
+import { Instituicao, Entidade, Collaborator } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
 import Pagination from './common/Pagination';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
@@ -10,6 +12,7 @@ import InstituicaoDetailModal from './InstituicaoDetailModal';
 interface InstituicaoDashboardProps {
   instituicoes: Instituicao[];
   escolasDepartamentos: Entidade[];
+  collaborators: Collaborator[]; // Added prop
   onEdit?: (instituicao: Instituicao) => void;
   onDelete?: (id: string) => void;
   onCreate?: () => void;
@@ -18,7 +21,7 @@ interface InstituicaoDashboardProps {
   onImport?: () => void;
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, onEdit, onDelete, onCreate, onAddEntity, onImport }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, onEdit, onDelete, onCreate, onAddEntity, onImport }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -188,6 +191,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
             <InstituicaoDetailModal
                 instituicao={selectedInstituicao}
                 entidades={entidades}
+                collaborators={collaborators}
                 onClose={() => setSelectedInstituicao(null)}
                 onEdit={() => {
                     setSelectedInstituicao(null);
