@@ -1,6 +1,4 @@
 
-
-
 import React from 'react';
 import Modal from './common/Modal';
 import { Team, Collaborator, TeamMember } from '../types';
@@ -53,6 +51,8 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
                 <div class="section">
                     <div class="label">Descrição</div>
                     <div class="value">${team.description || '-'}</div>
+                    <div class="label">Estado</div>
+                    <div class="value">${team.is_active !== false ? 'Ativo' : 'Inativo'}</div>
                 </div>
                 
                 <div class="section">
@@ -72,6 +72,8 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
         `);
         printWindow.document.close();
     };
+
+    const isActive = team.is_active !== false;
 
     return (
         <Modal title={`Detalhes da Equipa: ${team.name}`} onClose={onClose} maxWidth="max-w-3xl">
@@ -100,9 +102,14 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
                                 Editar Dados
                             </button>
                         </div>
-                        <span className="px-3 py-1 text-xs rounded bg-gray-700 text-white border border-gray-600">
-                            {members.length} Membros
-                        </span>
+                        <div className="flex gap-2">
+                            <span className={`px-3 py-1 text-xs rounded font-bold ${isActive ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                                {isActive ? 'Ativo' : 'Inativo'}
+                            </span>
+                            <span className="px-3 py-1 text-xs rounded bg-gray-700 text-white border border-gray-600">
+                                {members.length} Membros
+                            </span>
+                        </div>
                     </div>
                 </div>
 
