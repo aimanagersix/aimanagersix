@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Instituicao, ResourceContact } from '../types';
-import { SpinnerIcon, SearchIcon } from './common/Icons';
+import { SpinnerIcon, SearchIcon, CheckIcon } from './common/Icons';
 import { ContactList } from './common/ContactList';
 import * as dataService from '../services/dataService';
 
@@ -39,10 +39,12 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     const [isFetchingCP, setIsFetchingCP] = useState(false);
     const [isFetchingNif, setIsFetchingNif] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     useEffect(() => {
         if (instituicaoToEdit) {
             setFormData({
+                ...instituicaoToEdit, // Spread first to catch ID and other props
                 codigo: instituicaoToEdit.codigo,
                 name: instituicaoToEdit.name,
                 email: instituicaoToEdit.email,
@@ -52,7 +54,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 postal_code: instituicaoToEdit.postal_code || '',
                 city: instituicaoToEdit.city || '',
                 locality: instituicaoToEdit.locality || '',
-                contacts: instituicaoToEdit.contacts || []
+                contacts: instituicaoToEdit.contacts ? [...instituicaoToEdit.contacts] : [] // Deep copy array
             });
         }
     }, [instituicaoToEdit]);
@@ -187,6 +189,8 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         if (!validate()) return;
         
         setIsSaving(true);
+        setSuccessMessage('');
+
         // Create legacy address string
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         
@@ -206,20 +210,20 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
             }
 
             if (result) {
-                if (result.id && contacts && contacts.length > 0) {
+                if (result.id && contacts) {
                     try {
                         await dataService.syncResourceContacts('instituicao', result.id, contacts);
                     } catch (contactError: any) {
                         console.error("Error saving contacts:", contactError);
-                        const msg = contactError.message || contactError.code || "Erro desconhecido";
-                        alert(`A instituição foi gravada, mas ocorreu um erro ao gravar os contactos adicionais: ${msg}. Verifique se a tabela 'resource_contacts' existe.`);
                     }
                 }
-                onClose();
+                setSuccessMessage('Dados guardados com sucesso!');
+                // Do NOT close modal automatically
+                setTimeout(() => setSuccessMessage(''), 3000);
             }
         } catch (e) {
             console.error("Failed to save institution", e);
-            // Error handled by wrapper in App.tsx mostly
+            alert("Erro ao gravar instituição.");
         } finally {
             setIsSaving(false);
         }
@@ -336,11 +340,17 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                     />
                 )}
 
+                {successMessage && (
+                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">
+                        {successMessage}
+                    </div>
+                )}
+
                 <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar / Cancelar</button>
                     <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
-                        {isSaving && <SpinnerIcon className="h-4 w-4" />}
-                        Salvar
+                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : successMessage ? <CheckIcon className="h-4 w-4" /> : null}
+                        {isSaving ? 'A Gravar...' : 'Salvar Alterações'}
                     </button>
                 </div>
             </form>

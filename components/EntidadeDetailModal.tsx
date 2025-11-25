@@ -1,10 +1,8 @@
 
-
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, Collaborator, Assignment } from '../types';
-import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint } from './common/Icons';
+import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint, FaUserTie } from './common/Icons';
 
 interface EntidadeDetailModalProps {
     entidade: Entidade;
@@ -18,16 +16,23 @@ interface EntidadeDetailModalProps {
 }
 
 const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, assignments = [], onClose, onEdit, onAddCollaborator, onAssignEquipment }) => {
-    const [activeTab, setActiveTab] = useState<'info' | 'collaborators' | 'equipment'>('info');
+    const [activeTab, setActiveTab] = useState<'info' | 'contacts_extra' | 'collaborators' | 'equipment'>('info');
     
     const activeCollaborators = collaborators.filter(c => c.entidadeId === entidade.id);
-    
-    // Count equipment assigned to entity (directly or via collab)
     const associatedEquipmentCount = assignments.filter(a => a.entidadeId === entidade.id && !a.returnDate).length;
 
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
+
+        const contactsRows = (entidade.contacts || []).map(c => `
+            <tr>
+                <td>${c.name}</td>
+                <td>${c.role || '-'}</td>
+                <td>${c.email || '-'}</td>
+                <td>${c.phone || '-'}</td>
+            </tr>
+        `).join('');
 
         printWindow.document.write(`
             <html>
@@ -39,6 +44,9 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     .section { margin-bottom: 20px; }
                     .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
                     .value { font-size: 16px; margin-bottom: 5px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
                 </style>
             </head>
             <body>
@@ -50,7 +58,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     <div class="value">${entidade.codigo}</div>
                 </div>
                 <div class="section">
-                    <h3>Contactos</h3>
+                    <h3>Contactos Principais</h3>
                     <div class="label">Responsável</div>
                     <div class="value">${entidade.responsavel || '-'}</div>
                     <div class="label">Email</div>
@@ -64,9 +72,23 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     <div class="value">${entidade.postal_code || ''} ${entidade.locality || ''}</div>
                     <div class="value">${entidade.city || ''}</div>
                 </div>
+                
+                ${(entidade.contacts && entidade.contacts.length > 0) ? `
+                <div class="section">
+                    <h3>Contactos Adicionais (Externos)</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Nome</th><th>Função</th><th>Email</th><th>Telefone</th></tr>
+                        </thead>
+                        <tbody>
+                            ${contactsRows}
+                        </tbody>
+                    </table>
+                </div>` : ''}
+
                 <div class="section">
                     <h3>Resumo</h3>
-                    <div class="value">Colaboradores: ${activeCollaborators.length}</div>
+                    <div class="value">Colaboradores Internos: ${activeCollaborators.length}</div>
                     <div class="value">Equipamentos: ${associatedEquipmentCount}</div>
                 </div>
                 <script>window.onload = function() { window.print(); }</script>
@@ -116,7 +138,13 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                         onClick={() => setActiveTab('info')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'info' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        Informação Geral
+                        Geral
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('contacts_extra')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts_extra' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        Contactos Extra <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{(entidade.contacts?.length || 0)}</span>
                     </button>
                     <button 
                         onClick={() => setActiveTab('collaborators')} 
@@ -137,7 +165,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     {activeTab === 'info' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2">Contactos</h3>
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2">Contactos Principais</h3>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex items-center gap-2 text-gray-300">
                                         <FaUserTag className="text-gray-500" />
@@ -183,10 +211,46 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                         </div>
                     )}
 
+                    {activeTab === 'contacts_extra' && (
+                        <div>
+                            <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-4">Contactos Adicionais (Secretaria, Receção, etc.)</h3>
+                            {entidade.contacts && entidade.contacts.length > 0 ? (
+                                <div className="space-y-2">
+                                    {entidade.contacts.map((contact, idx) => {
+                                        const isActive = contact.is_active !== false;
+                                        return (
+                                            <div key={idx} className={`p-3 rounded border flex justify-between items-center ${isActive ? 'bg-gray-800 border-gray-700' : 'bg-gray-800/50 border-gray-700 opacity-70'}`}>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className={`font-bold text-sm flex items-center gap-2 ${isActive ? 'text-white' : 'text-gray-400'}`}>
+                                                            <FaUserTie className={isActive ? "text-gray-400" : "text-gray-600"}/> 
+                                                            {contact.title && <span className="font-normal">{contact.title}</span>}
+                                                            {contact.name} 
+                                                        </p>
+                                                        <span className="text-xs font-normal bg-gray-700 px-2 rounded text-gray-300">{contact.role}</span>
+                                                        {!isActive && <span className="text-[10px] uppercase bg-red-900/50 text-red-300 px-1 rounded">Inativo</span>}
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 flex gap-3 mt-1">
+                                                        {contact.email && <span className="flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {contact.email}</span>}
+                                                        {contact.phone && <span className="flex items-center gap-1"><FaPhone className="h-3 w-3"/> {contact.phone}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-center text-gray-500 py-8 bg-gray-900/20 rounded border border-dashed border-gray-700">
+                                    Nenhum contacto adicional registado.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {activeTab === 'collaborators' && (
                         <div>
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Lista de Colaboradores</h3>
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Colaboradores Internos</h3>
                                 {onAddCollaborator && (
                                     <button 
                                         onClick={() => { onClose(); onAddCollaborator(entidade.id); }}
