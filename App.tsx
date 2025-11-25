@@ -898,6 +898,10 @@ const InnerApp: React.FC = () => {
                             columnMap: { name: 'Nome', codigo: 'Código', email: 'Email', telefone: 'Telefone', nif: 'NIF', address: 'Morada' }
                         })}
                         assignments={assignments} // Pass assignments to allow drilling down
+                        onEditEntity={(e) => {
+                            setEntidadeToEdit(e);
+                            setShowAddEntidade(true);
+                        }}
                     />
                 )}
 

@@ -1,8 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
+
+
+import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Instituicao, Entidade, Collaborator } from '../types';
-import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUserTie, FaUsers, FaExternalLinkAlt } from './common/Icons';
+import { Instituicao, Entidade, Collaborator, ResourceContact } from '../types';
+import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUserTie, FaUsers, FaExternalLinkAlt, FaTrash, FaSave, FaTimes } from './common/Icons';
+import * as dataService from '../services/dataService';
 
 interface InstituicaoDetailModalProps {
     instituicao: Instituicao;
@@ -11,32 +14,35 @@ interface InstituicaoDetailModalProps {
     onClose: () => void;
     onEdit: () => void;
     onAddEntity?: (instituicaoId: string) => void;
-    onCreateCollaborator?: () => void; // New prop for generic add
-    onOpenEntity?: (entidade: Entidade) => void; // New prop
+    onCreateCollaborator?: () => void; 
+    onOpenEntity?: (entidade: Entidade) => void; 
 }
 
 const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity, onCreateCollaborator, onOpenEntity }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'collabs'>('info');
     
+    // Local state for contacts to allow immediate updates
+    const [localContacts, setLocalContacts] = useState<ResourceContact[]>([]);
+    const [isAddingContact, setIsAddingContact] = useState(false);
+    const [newContact, setNewContact] = useState<Partial<ResourceContact>>({ name: '', role: '', email: '', phone: '' });
+
+    useEffect(() => {
+        if (instituicao.contacts) {
+            setLocalContacts(instituicao.contacts);
+        }
+    }, [instituicao]);
+
     // Filter and Deduplicate Entities
     const relatedEntidades = useMemo(() => {
         const filtered = entidades.filter(e => e.instituicaoId === instituicao.id);
-        
-        // Robust Deduplication Logic:
-        // Sometimes optimistic UI updates or rapid creation can cause temporary duplicates.
-        // We deduplicate primarily by the visible 'Code' (codigo) to ensure the list looks clean.
         const uniqueMap = new Map();
-        
         filtered.forEach(e => {
-            // Use Code as the key if available (trim to avoid whitespace issues)
             if (e.codigo) {
                 uniqueMap.set(String(e.codigo).trim(), e);
             } else {
-                // Fallback to ID if code is missing
                 uniqueMap.set(String(e.id), e);
             }
         });
-        
         return Array.from(uniqueMap.values());
     }, [entidades, instituicao.id]);
     
@@ -46,11 +52,41 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
         return collaborators.filter(c => entityIds.has(c.entidadeId));
     }, [collaborators, relatedEntidades]);
 
+    const handleSaveNewContact = async () => {
+        if (!newContact.name?.trim()) return alert("O nome é obrigatório.");
+        try {
+            const contactToSave = {
+                ...newContact,
+                resource_type: 'instituicao',
+                resource_id: instituicao.id,
+                is_active: true
+            };
+            const saved = await dataService.addResourceContact(contactToSave);
+            setLocalContacts(prev => [...prev, saved]);
+            setIsAddingContact(false);
+            setNewContact({ name: '', role: '', email: '', phone: '' });
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao adicionar contacto.");
+        }
+    };
+
+    const handleDeleteContact = async (id: string) => {
+        if (!confirm("Tem a certeza que deseja remover este contacto?")) return;
+        try {
+            await dataService.deleteResourceContact(id);
+            setLocalContacts(prev => prev.filter(c => c.id !== id));
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao remover contacto.");
+        }
+    };
+
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const contactsRows = (instituicao.contacts || []).map(c => `
+        const contactsRows = localContacts.map(c => `
             <tr>
                 <td>${c.name}</td>
                 <td>${c.role || '-'}</td>
@@ -114,7 +150,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                     <div class="value">${instituicao.city || ''}</div>
                 </div>
                 
-                ${(instituicao.contacts && instituicao.contacts.length > 0) ? `
+                ${localContacts.length > 0 ? `
                 <div class="section">
                     <h3>Contactos Adicionais</h3>
                     <table>
@@ -195,7 +231,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                         onClick={() => setActiveTab('contacts')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        Contactos Adicionais <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{(instituicao.contacts?.length || 0)}</span>
+                        Contactos Adicionais <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{localContacts.length}</span>
                     </button>
                     <button 
                         onClick={() => setActiveTab('collabs')} 
@@ -280,10 +316,34 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
 
                     {activeTab === 'contacts' && (
                         <div>
-                            <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-4">Contactos Adicionais</h3>
-                            {instituicao.contacts && instituicao.contacts.length > 0 ? (
+                            <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-4">
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Contactos Adicionais</h3>
+                                <button 
+                                    onClick={() => setIsAddingContact(!isAddingContact)}
+                                    className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                                >
+                                    <FaPlus /> Adicionar Contacto
+                                </button>
+                            </div>
+
+                            {isAddingContact && (
+                                <div className="bg-gray-800 p-3 rounded border border-gray-600 mb-4 animate-fade-in">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                                        <input type="text" placeholder="Nome" className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white" value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} />
+                                        <input type="text" placeholder="Função (ex: Secretária)" className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white" value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} />
+                                        <input type="text" placeholder="Email" className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} />
+                                        <input type="text" placeholder="Telefone" className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white" value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})} />
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => setIsAddingContact(false)} className="px-3 py-1 bg-gray-600 text-white text-xs rounded">Cancelar</button>
+                                        <button onClick={handleSaveNewContact} className="px-3 py-1 bg-brand-primary text-white text-xs rounded">Guardar</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {localContacts.length > 0 ? (
                                 <div className="space-y-2">
-                                    {instituicao.contacts.map((contact, idx) => {
+                                    {localContacts.map((contact, idx) => {
                                         const isActive = contact.is_active !== false;
                                         return (
                                             <div key={idx} className={`p-3 rounded border flex justify-between items-center ${isActive ? 'bg-gray-800 border-gray-700' : 'bg-gray-800/50 border-gray-700 opacity-70'}`}>
@@ -295,20 +355,20 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                                                             {contact.name} 
                                                         </p>
                                                         <span className="text-xs font-normal bg-gray-700 px-2 rounded text-gray-300">{contact.role}</span>
-                                                        {!isActive && <span className="text-[10px] uppercase bg-red-900/50 text-red-300 px-1 rounded">Inativo</span>}
                                                     </div>
                                                     <div className="text-xs text-gray-400 flex gap-3 mt-1">
                                                         {contact.email && <span className="flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {contact.email}</span>}
                                                         {contact.phone && <span className="flex items-center gap-1"><FaPhone className="h-3 w-3"/> {contact.phone}</span>}
                                                     </div>
                                                 </div>
+                                                <button onClick={() => handleDeleteContact(contact.id)} className="text-red-400 hover:text-red-300 p-1" title="Remover"><FaTrash/></button>
                                             </div>
                                         );
                                     })}
                                 </div>
                             ) : (
                                 <p className="text-center text-gray-500 py-8 bg-gray-900/20 rounded border border-dashed border-gray-700">
-                                    Nenhum contacto adicional registado. Clique em "Editar Dados" para adicionar.
+                                    Nenhum contacto adicional registado.
                                 </p>
                             )}
                         </div>

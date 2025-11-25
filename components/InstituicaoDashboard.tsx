@@ -21,9 +21,11 @@ interface InstituicaoDashboardProps {
   // Optional handlers for EntidadeDetailModal actions
   onAddCollaborator?: (entidadeId: string) => void; // Specific to Entity
   onAssignEquipment?: (entidadeId: string) => void;
+  // New Handler for Editing Entities
+  onEditEntity?: (entidade: Entidade) => void;
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment, onEditEntity }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -240,8 +242,12 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                 assignments={assignments}
                 onClose={() => setSelectedEntityForDrillDown(null)}
                 onEdit={() => {
-                    // Basic alert since we can't pass the full edit handler from here easily without circular dependencies or massive refactor
-                    alert("Para editar esta entidade, navegue para o menu 'Entidades'.");
+                    if (onEditEntity) {
+                        setSelectedEntityForDrillDown(null);
+                        onEditEntity(selectedEntityForDrillDown);
+                    } else {
+                        alert("Para editar esta entidade, navegue para o menu 'Entidades'.");
+                    }
                 }}
                 onAddCollaborator={onAddCollaborator}
                 onAssignEquipment={onAssignEquipment}

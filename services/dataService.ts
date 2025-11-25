@@ -2,6 +2,7 @@
 
 
 
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -461,6 +462,9 @@ export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade'
         await supabase.from('resource_contacts').insert(inserts);
     }
 };
+
+export const addResourceContact = (data: any) => create('resource_contacts', data);
+export const deleteResourceContact = (id: string) => remove('resource_contacts', id);
 
 // --- Global Settings ---
 export const getGlobalSetting = async (key: string): Promise<string | null> => {

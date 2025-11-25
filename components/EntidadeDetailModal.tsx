@@ -1,8 +1,11 @@
 
-import React, { useState } from 'react';
+
+
+import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Entidade, Instituicao, Collaborator, Assignment } from '../types';
-import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint, FaUserTie } from './common/Icons';
+import { Entidade, Instituicao, Collaborator, Assignment, ResourceContact } from '../types';
+import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint, FaUserTie, FaTrash } from './common/Icons';
+import * as dataService from '../services/dataService';
 
 interface EntidadeDetailModalProps {
     entidade: Entidade;
@@ -13,20 +16,61 @@ interface EntidadeDetailModalProps {
     onEdit: () => void;
     onAddCollaborator?: (entidadeId: string) => void;
     onAssignEquipment?: (entidadeId: string) => void;
-    onOpenInstitution?: (instituicao: Instituicao) => void; // New prop
+    onOpenInstitution?: (instituicao: Instituicao) => void;
 }
 
 const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, assignments = [], onClose, onEdit, onAddCollaborator, onAssignEquipment, onOpenInstitution }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'contacts_extra' | 'collaborators' | 'equipment'>('info');
     
+    // Local state for contacts
+    const [localContacts, setLocalContacts] = useState<ResourceContact[]>([]);
+    const [isAddingContact, setIsAddingContact] = useState(false);
+    const [newContact, setNewContact] = useState<Partial<ResourceContact>>({ name: '', role: '', email: '', phone: '' });
+
+    useEffect(() => {
+        if (entidade.contacts) {
+            setLocalContacts(entidade.contacts);
+        }
+    }, [entidade]);
+
     const activeCollaborators = collaborators.filter(c => c.entidadeId === entidade.id);
     const associatedEquipmentCount = assignments.filter(a => a.entidadeId === entidade.id && !a.returnDate).length;
+
+    const handleSaveNewContact = async () => {
+        if (!newContact.name?.trim()) return alert("O nome é obrigatório.");
+        try {
+            const contactToSave = {
+                ...newContact,
+                resource_type: 'entidade',
+                resource_id: entidade.id,
+                is_active: true
+            };
+            const saved = await dataService.addResourceContact(contactToSave);
+            setLocalContacts(prev => [...prev, saved]);
+            setIsAddingContact(false);
+            setNewContact({ name: '', role: '', email: '', phone: '' });
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao adicionar contacto.");
+        }
+    };
+
+    const handleDeleteContact = async (id: string) => {
+        if (!confirm("Tem a certeza que deseja remover este contacto?")) return;
+        try {
+            await dataService.deleteResourceContact(id);
+            setLocalContacts(prev => prev.filter(c => c.id !== id));
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao remover contacto.");
+        }
+    };
 
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const contactsRows = (entidade.contacts || []).map(c => `
+        const contactsRows = localContacts.map(c => `
             <tr>
                 <td>${c.name}</td>
                 <td>${c.role || '-'}</td>
@@ -88,7 +132,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     <div class="value">${entidade.city || ''}</div>
                 </div>
                 
-                ${(entidade.contacts && entidade.contacts.length > 0) ? `
+                ${localContacts.length > 0 ? `
                 <div class="section">
                     <h3>Contactos Adicionais (Externos)</h3>
                     <table>
@@ -181,7 +225,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                         onClick={() => setActiveTab('contacts_extra')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts_extra' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        Contactos Extra <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{(entidade.contacts?.length || 0)}</span>
+                        Contactos Extra <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{localContacts.length}</span>
                     </button>
                     <button 
                         onClick={() => setActiveTab('collaborators')} 
@@ -250,10 +294,34 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
 
                     {activeTab === 'contacts_extra' && (
                         <div>
-                            <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-4">Contactos Adicionais (Secretaria, Receção, etc.)</h3>
-                            {entidade.contacts && entidade.contacts.length > 0 ? (
+                            <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-4">
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Contactos Adicionais</h3>
+                                <button 
+                                    onClick={() => setIsAddingContact(!isAddingContact)}
+                                    className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                                >
+                                    <FaPlus /> Adicionar Contacto
+                                </button>
+                            </div>
+
+                            {isAddingContact && (
+                                <div className="bg-gray-800 p-3 rounded border border-gray-600 mb-4 animate-fade-in">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                                        <input type="text" placeholder="Nome" className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white" value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} />
+                                        <input type="text" placeholder="Função (ex: Secretária)" className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white" value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} />
+                                        <input type="text" placeholder="Email" className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} />
+                                        <input type="text" placeholder="Telefone" className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white" value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})} />
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => setIsAddingContact(false)} className="px-3 py-1 bg-gray-600 text-white text-xs rounded">Cancelar</button>
+                                        <button onClick={handleSaveNewContact} className="px-3 py-1 bg-brand-primary text-white text-xs rounded">Guardar</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {localContacts.length > 0 ? (
                                 <div className="space-y-2">
-                                    {entidade.contacts.map((contact, idx) => {
+                                    {localContacts.map((contact, idx) => {
                                         const isActive = contact.is_active !== false;
                                         return (
                                             <div key={idx} className={`p-3 rounded border flex justify-between items-center ${isActive ? 'bg-gray-800 border-gray-700' : 'bg-gray-800/50 border-gray-700 opacity-70'}`}>
@@ -265,13 +333,13 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                                                             {contact.name} 
                                                         </p>
                                                         <span className="text-xs font-normal bg-gray-700 px-2 rounded text-gray-300">{contact.role}</span>
-                                                        {!isActive && <span className="text-[10px] uppercase bg-red-900/50 text-red-300 px-1 rounded">Inativo</span>}
                                                     </div>
                                                     <div className="text-xs text-gray-400 flex gap-3 mt-1">
                                                         {contact.email && <span className="flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {contact.email}</span>}
                                                         {contact.phone && <span className="flex items-center gap-1"><FaPhone className="h-3 w-3"/> {contact.phone}</span>}
                                                     </div>
                                                 </div>
+                                                <button onClick={() => handleDeleteContact(contact.id)} className="text-red-400 hover:text-red-300 p-1" title="Remover"><FaTrash/></button>
                                             </div>
                                         );
                                     })}
