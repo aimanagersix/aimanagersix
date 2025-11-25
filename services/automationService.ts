@@ -1,6 +1,4 @@
 
-
-
 import * as dataService from './dataService';
 import { scanForVulnerabilities } from './geminiService';
 import { CriticalityLevel, VulnerabilityStatus } from '../types';
@@ -70,23 +68,77 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
             return 0;
         }
 
-        // 3. Execute Scan (AI or Hybrid NIST)
+        // 3. Execute Scan (Hybrid NIST + AI)
         let results: any[] = [];
         
-        // If NIST Key exists, we try to inform the AI to be more precise or emulate a fetch 
-        // (Real fetch logic requires complex CPE matching which is hard to do purely client side without CORS proxy or heavy logic.
-        // We will use the AI's capability but inform it that we have a key to simulate "official" stance or if supported in future)
-        
+        // --- REAL NIST API FETCH LOGIC ---
+        // Only runs if API Key is configured, otherwise falls back to pure AI hallucination/knowledge
         if (nistApiKey) {
-             // Append NIST instruction to custom prompt
-             customInstructions += " [Note: NIST API Key is configured in system. Prioritize high-confidence matches found in NVD database knowledge base.]";
+             console.log("NIST API Key detected. Fetching real CVEs...");
+             
+             // We specifically look for OS strings like "Windows 7", "Windows Server 2012"
+             // Extract potential OS names from the inventory set
+             const osList = Array.from(inventoryContext).filter(s => s.startsWith('OS:')).map(s => s.replace('OS:', '').trim());
+             
+             for (const os of osList) {
+                 if (!os) continue;
+                 try {
+                     // Use CORS Proxy to bypass browser restrictions
+                     // Request last 5 critical CVEs for this keyword
+                     const keyword = encodeURIComponent(os);
+                     const url = `https://corsproxy.io/?https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=${keyword}&resultsPerPage=5`;
+                     
+                     const headers: any = {};
+                     if (nistApiKey) headers['apiKey'] = nistApiKey;
+
+                     const response = await fetch(url, { headers });
+                     
+                     if (response.ok) {
+                         const data = await response.json();
+                         if (data.vulnerabilities) {
+                             const mapped = data.vulnerabilities.map((v:any) => {
+                                 const metrics = v.cve.metrics?.cvssMetricV31?.[0]?.cvssData || v.cve.metrics?.cvssMetricV2?.[0]?.cvssData;
+                                 const severity = metrics?.baseSeverity === 'CRITICAL' ? 'Crítica' : 
+                                                  metrics?.baseSeverity === 'HIGH' ? 'Alta' : 
+                                                  metrics?.baseSeverity === 'MEDIUM' ? 'Média' : 'Baixa';
+                                 
+                                 // Only return High/Critical to reduce noise
+                                 if (severity === 'Baixa' || severity === 'Média') return null;
+
+                                 return {
+                                     cve_id: v.cve.id,
+                                     description: v.cve.descriptions.find((d:any) => d.lang === 'en')?.value || 'Sem descrição',
+                                     severity: severity,
+                                     affected_software: os,
+                                     remediation: 'Verificar site do fabricante (NIST/Microsoft)',
+                                     published_date: v.cve.published
+                                 };
+                             }).filter(Boolean); // remove nulls
+                             
+                             results = [...results, ...mapped];
+                         }
+                     } else {
+                         console.warn(`NIST API Error for ${os}:`, response.status);
+                     }
+                 } catch(e) { 
+                     console.error("NIST Fetch Error:", e); 
+                 }
+             }
         }
 
-        // We slice to 50 to avoid token limits, but ideally this should batch process
-        const scanConfig = { includeEol, lookbackYears, customInstructions };
-        results = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50), scanConfig);
+        // Fallback or Complementary AI Scan
+        // If NIST didn't return anything (e.g. no key or no matches), use AI. 
+        // Or use AI for non-OS software.
+        
+        if (results.length === 0) {
+             console.log("Using Gemini AI for vulnerability scanning...");
+             // We slice to 50 to avoid token limits
+             const scanConfig = { includeEol, lookbackYears, customInstructions };
+             const aiResults = await scanForVulnerabilities(Array.from(inventoryContext).slice(0, 50), scanConfig);
+             results = [...results, ...aiResults];
+        }
 
-        // 4. Process Results
+        // 4. Process Results (Deduplicate & Save)
         for (const vuln of results) {
             // Check existence (Simple dedup by CVE ID)
             const exists = allData.vulnerabilities.some((v: any) => v.cve_id === vuln.cve_id);
@@ -98,14 +150,11 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
                 
                 equipmentDescriptions.forEach(eq => {
                     // Simple heuristic: if the vulnerability software name is inside the equipment description
-                    // e.g. vuln="Windows 7", equip="PC Sala 1 (Windows 7)"
                     if (eq.desc.includes(vulnSoftware) || (vulnSoftware.length > 4 && vulnSoftware.includes(eq.desc))) {
                         affectedAssets.push(eq.desc);
                     }
                 });
 
-                // Create Vulnerability Record WITHOUT Ticket
-                // The user will manually create the ticket to assign it correctly
                 await dataService.addVulnerability({
                     cve_id: vuln.cve_id,
                     description: vuln.description,
@@ -113,8 +162,8 @@ export const checkAndRunAutoScan = async (force: boolean = false): Promise<numbe
                     affected_software: vuln.affected_software,
                     remediation: vuln.remediation,
                     status: VulnerabilityStatus.Open,
-                    published_date: new Date().toISOString().split('T')[0],
-                    ticket_id: undefined, // Explicitly no ticket yet
+                    published_date: vuln.published_date ? new Date(vuln.published_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                    ticket_id: undefined, 
                     affected_assets: affectedAssets.length > 0 ? affectedAssets.join(', ') : 'Inventário Geral'
                 });
                 

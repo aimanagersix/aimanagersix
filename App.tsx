@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
@@ -1097,6 +1099,22 @@ const InnerApp: React.FC = () => {
                         onShowHistory={(c) => setHistoryCollaborator(c)}
                         onStartChat={(c) => { setShowProfileModal(false); /* Chat with self? Or remove for self */ }}
                         onEdit={(c) => { setShowProfileModal(false); setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
+                    />
+                )}
+
+                {/* Detail Collaborator Modal (From Dashboard) */}
+                {detailCollaborator && (
+                    <CollaboratorDetailModal
+                        collaborator={detailCollaborator}
+                        assignments={assignments}
+                        equipment={equipment}
+                        tickets={tickets}
+                        brandMap={brandMap}
+                        equipmentTypeMap={equipmentTypeMap}
+                        onClose={() => setDetailCollaborator(null)}
+                        onShowHistory={(c) => setHistoryCollaborator(c)}
+                        onStartChat={(c) => { setDetailCollaborator(null); setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
+                        onEdit={(c) => { setDetailCollaborator(null); setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
                     />
                 )}
 

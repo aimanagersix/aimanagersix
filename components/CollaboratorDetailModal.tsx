@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey } from './common/Icons';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint } from './common/Icons';
 import { analyzeCollaboratorRisk, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -180,6 +181,77 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         }
     };
 
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const equipmentList = assignedEquipment.map(e => `<li>${e.description} (S/N: ${e.serialNumber})</li>`).join('');
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Ficha de Colaborador - ${collaborator.fullName}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
+                    h2 { font-size: 18px; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                    .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                    .info-group { margin-bottom: 10px; }
+                    .label { font-weight: bold; font-size: 12px; text-transform: uppercase; color: #666; }
+                    .value { font-size: 16px; }
+                    ul { margin-top: 10px; padding-left: 20px; }
+                    .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 20px; font-size: 12px; text-align: center; }
+                </style>
+            </head>
+            <body>
+                <h1>Ficha de Colaborador</h1>
+                <div class="header">
+                    <div>
+                        <div class="info-group">
+                            <div class="label">Nome Completo</div>
+                            <div class="value">${collaborator.fullName}</div>
+                        </div>
+                        <div class="info-group">
+                            <div class="label">Número Mecanográfico</div>
+                            <div class="value">${collaborator.numeroMecanografico}</div>
+                        </div>
+                        <div class="info-group">
+                            <div class="label">Função</div>
+                            <div class="value">${collaborator.role}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="info-group">
+                            <div class="label">Email</div>
+                            <div class="value">${collaborator.email}</div>
+                        </div>
+                        <div class="info-group">
+                            <div class="label">Telefone</div>
+                            <div class="value">${collaborator.telemovel || collaborator.telefoneInterno || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Equipamentos Atribuídos</h2>
+                ${assignedEquipment.length > 0 ? `<ul>${equipmentList}</ul>` : '<p>Nenhum equipamento atribuído.</p>'}
+
+                <div style="margin-top: 60px; display: flex; justify-content: space-between;">
+                    <div style="text-align: center; width: 40%; border-top: 1px solid #000; padding-top: 10px;">
+                        Assinatura do Colaborador
+                    </div>
+                    <div style="text-align: center; width: 40%; border-top: 1px solid #000; padding-top: 10px;">
+                        Data
+                    </div>
+                </div>
+
+                <div class="footer">Gerado por AIManager em ${new Date().toLocaleDateString()}</div>
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
         <Modal title={`Detalhes do Colaborador`} onClose={onClose} maxWidth="max-w-4xl">
             <div className="flex flex-col h-[80vh]">
@@ -206,6 +278,12 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                         </div>
                     </div>
                      <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                        <button 
+                            onClick={handlePrint}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg"
+                        >
+                            <FaPrint /> Imprimir Ficha
+                        </button>
                         <button 
                             onClick={() => { onClose(); onEdit(collaborator); }} 
                             className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg font-semibold"
