@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Entidade, Instituicao, Collaborator, Assignment } from '../types';
+import { Entidade, Instituicao, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
 import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint } from './common/Icons';
 
 interface EntidadeDetailModalProps {
@@ -14,13 +14,35 @@ interface EntidadeDetailModalProps {
     onAddCollaborator?: (entidadeId: string) => void;
     onAssignEquipment?: (entidadeId: string) => void;
     onOpenInstitution?: (instituicao: Instituicao) => void;
+    equipment?: Equipment[];
+    brands?: Brand[];
+    equipmentTypes?: EquipmentType[];
 }
 
-const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, assignments = [], onClose, onEdit, onAddCollaborator, onAssignEquipment, onOpenInstitution }) => {
+const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, assignments = [], onClose, onEdit, onAddCollaborator, onAssignEquipment, onOpenInstitution, equipment = [], brands = [], equipmentTypes = [] }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'collaborators' | 'equipment'>('info');
     
     const activeCollaborators = collaborators.filter(c => c.entidadeId === entidade.id);
-    const associatedEquipmentCount = assignments.filter(a => a.entidadeId === entidade.id && !a.returnDate).length;
+    
+    // Maps for quick lookup
+    const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
+    const typeMap = useMemo(() => new Map(equipmentTypes.map(t => [t.id, t.name])), [equipmentTypes]);
+    const collabMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+
+    const associatedEquipment = useMemo(() => {
+        return assignments
+            .filter(a => a.entidadeId === entidade.id && !a.returnDate)
+            .map(a => {
+                const eq = equipment.find(e => e.id === a.equipmentId);
+                return {
+                    ...eq,
+                    assignmentDate: a.assignedDate,
+                    assignedToName: a.collaboratorId ? collabMap.get(a.collaboratorId) : 'Atribuído à Localização'
+                };
+            })
+            .filter(item => item.id) // Filter out undefined if equipment deleted
+            .sort((a,b) => (a.description || '').localeCompare(b.description || ''));
+    }, [assignments, entidade.id, equipment, collabMap]);
 
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
@@ -38,6 +60,16 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                 </tr>
             `;
         }).join('');
+
+        const equipmentRows = associatedEquipment.map(eq => `
+            <tr>
+                <td>${eq.description}</td>
+                <td>${brandMap.get(eq.brandId || '')} ${typeMap.get(eq.typeId || '')}</td>
+                <td>${eq.serialNumber}</td>
+                <td>${eq.assignedToName}</td>
+                <td>${eq.assignmentDate}</td>
+            </tr>
+        `).join('');
 
         printWindow.document.write(`
             <html>
@@ -92,10 +124,23 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     </table>
                 </div>` : ''}
 
+                ${associatedEquipment.length > 0 ? `
+                <div class="section">
+                    <h3>Inventário de Equipamentos</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Descrição</th><th>Marca/Tipo</th><th>S/N</th><th>Atribuído a</th><th>Data</th></tr>
+                        </thead>
+                        <tbody>
+                            ${equipmentRows}
+                        </tbody>
+                    </table>
+                </div>` : ''}
+
                 <div class="section">
                     <h3>Resumo</h3>
                     <div class="value">Total Colaboradores: ${activeCollaborators.length}</div>
-                    <div class="value">Total Equipamentos: ${associatedEquipmentCount}</div>
+                    <div class="value">Total Equipamentos: ${associatedEquipment.length}</div>
                 </div>
                 <script>window.onload = function() { window.print(); }</script>
             </body>
@@ -165,7 +210,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                         onClick={() => setActiveTab('equipment')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'equipment' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        Equipamentos <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{associatedEquipmentCount}</span>
+                        Equipamentos <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{associatedEquipment.length}</span>
                     </button>
                 </div>
 
@@ -203,7 +248,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                                 <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2">Localização & Notas</h3>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex items-start gap-2 text-gray-300">
-                                        <FaMapMarkerAlt className="text-gray-500 mt-1" />
+                                        <div className="bg-gray-800 p-2 rounded-full mt-1"><FaMapMarkerAlt className="text-gray-400" /></div>
                                         <div>
                                             <p>{entidade.address_line || 'Endereço não definido'}</p>
                                             <p>{entidade.postal_code} {entidade.locality}</p>
@@ -259,7 +304,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     {activeTab === 'equipment' && (
                         <div>
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Equipamentos Associados</h3>
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Inventário de Equipamentos</h3>
                                 {onAssignEquipment && (
                                     <button 
                                         onClick={() => { onClose(); onAssignEquipment(entidade.id); }}
@@ -270,14 +315,42 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                                 )}
                             </div>
                             <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded text-xs text-blue-200 mb-4">
-                                <p>Para associar equipamentos já existentes em stock, utilize o menu "Inventário" e selecione a opção "Atribuir".</p>
+                                <p>Esta lista inclui equipamentos atribuídos à entidade (localização) e aos seus colaboradores.</p>
                             </div>
                             
-                            <div className="text-center text-gray-500 py-4">
-                                <FaLaptop className="mx-auto text-2xl mb-2 opacity-50"/>
-                                <p>{associatedEquipmentCount} equipamentos ativos nesta entidade.</p>
-                                <p className="text-xs mt-1">(Consulte o relatório da entidade para detalhes completos)</p>
-                            </div>
+                            {associatedEquipment.length > 0 ? (
+                                <div className="overflow-x-auto border border-gray-700 rounded">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-gray-800 text-xs uppercase text-gray-400">
+                                            <tr>
+                                                <th className="px-4 py-3">Descrição</th>
+                                                <th className="px-4 py-3">Marca / Tipo</th>
+                                                <th className="px-4 py-3">Nº Série</th>
+                                                <th className="px-4 py-3">Atribuído a</th>
+                                                <th className="px-4 py-3">Data</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-700">
+                                            {associatedEquipment.map(eq => (
+                                                <tr key={eq.id || Math.random()} className="bg-surface-dark hover:bg-gray-700/50">
+                                                    <td className="px-4 py-2 text-white font-medium">{eq.description}</td>
+                                                    <td className="px-4 py-2 text-gray-300 text-xs">
+                                                        {brandMap.get(eq.brandId || '')} {typeMap.get(eq.typeId || '')}
+                                                    </td>
+                                                    <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serialNumber}</td>
+                                                    <td className="px-4 py-2 text-gray-300">{eq.assignedToName}</td>
+                                                    <td className="px-4 py-2 text-gray-400 text-xs">{eq.assignmentDate}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center text-gray-500 py-12 bg-gray-900/20 rounded border border-dashed border-gray-700">
+                                    <FaLaptop className="mx-auto text-2xl mb-2 opacity-50"/>
+                                    <p>Nenhum equipamento ativo nesta entidade.</p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

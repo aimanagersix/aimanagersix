@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment } from '../types';
+import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment, Brand, EquipmentType } from '../types';
 import { EditIcon, DeleteIcon, SearchIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -22,6 +22,10 @@ interface EntidadeDashboardProps {
   onAddCollaborator?: (entidadeId: string) => void;
   onAssignEquipment?: (entidadeId: string) => void;
   onImport?: () => void;
+  // Equipment Data for Detail Modal
+  equipment?: Equipment[];
+  brands?: Brand[];
+  equipmentTypes?: EquipmentType[];
 }
 
 const getStatusClass = (status: EntidadeStatus) => {
@@ -35,7 +39,7 @@ const getStatusClass = (status: EntidadeStatus) => {
     }
 };
 
-const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate, onAddCollaborator, onAssignEquipment, onImport }) => {
+const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate, onAddCollaborator, onAssignEquipment, onImport, equipment = [], brands = [], equipmentTypes = [] }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ instituicaoId: '', status: '' });
@@ -341,6 +345,10 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                 onAddCollaborator={onAddCollaborator}
                 onAssignEquipment={onAssignEquipment}
                 onOpenInstitution={handleOpenInstitution}
+                // Pass equipment data
+                equipment={equipment}
+                brands={brands}
+                equipmentTypes={equipmentTypes}
             />
         )}
 
@@ -357,6 +365,11 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                     setSelectedInstitutionForDrillDown(null);
                     if (ent) setSelectedEntidade(ent);
                 }}
+                // Pass assignments and equipment for drilldown (though Institution Detail Modal needs to accept them too)
+                assignments={assignments}
+                equipment={equipment}
+                brands={brands}
+                equipmentTypes={equipmentTypes}
             />
         )}
     </div>

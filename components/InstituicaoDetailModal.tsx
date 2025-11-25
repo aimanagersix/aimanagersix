@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Instituicao, Entidade, Collaborator } from '../types';
-import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUsers, FaExternalLinkAlt } from './common/Icons';
+import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
+import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUsers, FaExternalLinkAlt, FaLaptop } from './common/Icons';
 
 interface InstituicaoDetailModalProps {
     instituicao: Instituicao;
@@ -12,11 +12,15 @@ interface InstituicaoDetailModalProps {
     onEdit: () => void;
     onAddEntity?: (instituicaoId: string) => void;
     onCreateCollaborator?: () => void; 
-    onOpenEntity?: (entidade: Entidade) => void; 
+    onOpenEntity?: (entidade: Entidade) => void;
+    assignments?: Assignment[];
+    equipment?: Equipment[];
+    brands?: Brand[];
+    equipmentTypes?: EquipmentType[];
 }
 
-const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity, onCreateCollaborator, onOpenEntity }) => {
-    const [activeTab, setActiveTab] = useState<'info' | 'collabs'>('info');
+const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity, onCreateCollaborator, onOpenEntity, assignments = [], equipment = [], brands = [], equipmentTypes = [] }) => {
+    const [activeTab, setActiveTab] = useState<'info' | 'collabs' | 'equipment'>('info');
     
     // Filter and Deduplicate Entities
     const relatedEntidades = useMemo(() => {
@@ -32,11 +36,34 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
         return Array.from(uniqueMap.values());
     }, [entidades, instituicao.id]);
     
+    const relatedEntityIds = useMemo(() => new Set(relatedEntidades.map(e => e.id)), [relatedEntidades]);
+
     // Filter collaborators belonging to entities of this institution
     const relatedCollaborators = useMemo(() => {
-        const entityIds = new Set(relatedEntidades.map(e => e.id));
-        return collaborators.filter(c => entityIds.has(c.entidadeId));
-    }, [collaborators, relatedEntidades]);
+        return collaborators.filter(c => relatedEntityIds.has(c.entidadeId));
+    }, [collaborators, relatedEntityIds]);
+
+    // Filter equipment belonging to any entity in this institution
+    const relatedEquipment = useMemo(() => {
+        const brandMap = new Map(brands.map(b => [b.id, b.name]));
+        const typeMap = new Map(equipmentTypes.map(t => [t.id, t.name]));
+        const entMap = new Map(entidades.map(e => [e.id, e.name]));
+        const collabMap = new Map(collaborators.map(c => [c.id, c.fullName]));
+
+        return assignments
+            .filter(a => relatedEntityIds.has(a.entidadeId) && !a.returnDate)
+            .map(a => {
+                const eq = equipment.find(e => e.id === a.equipmentId);
+                return {
+                    ...eq,
+                    assignmentDate: a.assignedDate,
+                    assignedToName: a.collaboratorId ? collabMap.get(a.collaboratorId) : 'Atribuído à Localização',
+                    entityName: entMap.get(a.entidadeId)
+                };
+            })
+            .filter(item => item.id)
+            .sort((a,b) => (a.description || '').localeCompare(b.description || ''));
+    }, [assignments, relatedEntityIds, equipment, brands, equipmentTypes, entidades, collaborators]);
 
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
@@ -56,6 +83,16 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                 </tr>
             `;
         }).join('');
+
+        const equipmentRows = relatedEquipment.map(eq => `
+            <tr>
+                <td>${eq.description}</td>
+                <td>${eq.entityName}</td>
+                <td>${eq.serialNumber}</td>
+                <td>${eq.assignedToName}</td>
+                <td>${eq.assignmentDate}</td>
+            </tr>
+        `).join('');
 
         printWindow.document.write(`
             <html>
@@ -117,6 +154,19 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                     </table>
                 </div>` : '<div class="section"><h3>Colaboradores</h3><p>Não existem colaboradores associados.</p></div>'}
 
+                ${relatedEquipment.length > 0 ? `
+                <div class="section">
+                    <h3>Equipamentos na Instituição (${relatedEquipment.length})</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Descrição</th><th>Entidade</th><th>S/N</th><th>Atribuído a</th><th>Data</th></tr>
+                        </thead>
+                        <tbody>
+                            ${equipmentRows}
+                        </tbody>
+                    </table>
+                </div>` : ''}
+
                 <script>window.onload = function() { window.print(); }</script>
             </body>
             </html>
@@ -166,6 +216,12 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'collabs' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         Colaboradores <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{relatedCollaborators.length}</span>
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('equipment')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'equipment' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        Equipamentos <span className="bg-gray-700 px-1.5 py-0.5 rounded text-xs">{relatedEquipment.length}</span>
                     </button>
                 </div>
 
@@ -284,6 +340,49 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                                 <p className="text-center text-gray-500 py-8 bg-gray-900/20 rounded border border-dashed border-gray-700">
                                     Nenhum colaborador encontrado nas entidades desta instituição.
                                 </p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'equipment' && (
+                        <div>
+                            <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Inventário Consolidado</h3>
+                            </div>
+                            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded text-xs text-blue-200 mb-4">
+                                <p>Lista de todos os equipamentos associados a qualquer entidade desta instituição.</p>
+                            </div>
+                            
+                            {relatedEquipment.length > 0 ? (
+                                <div className="overflow-x-auto border border-gray-700 rounded">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-gray-800 text-xs uppercase text-gray-400">
+                                            <tr>
+                                                <th className="px-4 py-3">Descrição</th>
+                                                <th className="px-4 py-3">Entidade</th>
+                                                <th className="px-4 py-3">S/N</th>
+                                                <th className="px-4 py-3">Atribuído a</th>
+                                                <th className="px-4 py-3">Data</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-700">
+                                            {relatedEquipment.map(eq => (
+                                                <tr key={eq.id || Math.random()} className="bg-surface-dark hover:bg-gray-700/50">
+                                                    <td className="px-4 py-2 text-white font-medium">{eq.description}</td>
+                                                    <td className="px-4 py-2 text-gray-300 text-xs">{eq.entityName}</td>
+                                                    <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serialNumber}</td>
+                                                    <td className="px-4 py-2 text-gray-300">{eq.assignedToName}</td>
+                                                    <td className="px-4 py-2 text-gray-400 text-xs">{eq.assignmentDate}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center text-gray-500 py-12 bg-gray-900/20 rounded border border-dashed border-gray-700">
+                                    <FaLaptop className="mx-auto text-2xl mb-2 opacity-50"/>
+                                    <p>Nenhum equipamento ativo nesta instituição.</p>
+                                </div>
                             )}
                         </div>
                     )}

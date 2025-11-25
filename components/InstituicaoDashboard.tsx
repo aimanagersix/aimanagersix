@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { Instituicao, Entidade, Collaborator, Assignment } from '../types';
+import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaPrint, FaFileImport, SearchIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
@@ -23,9 +23,13 @@ interface InstituicaoDashboardProps {
   onAssignEquipment?: (entidadeId: string) => void;
   // New Handler for Editing Entities
   onEditEntity?: (entidade: Entidade) => void;
+  // Equipment Data for Detail Modal
+  equipment?: Equipment[];
+  brands?: Brand[];
+  equipmentTypes?: EquipmentType[];
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment, onEditEntity }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment, onEditEntity, equipment = [], brands = [], equipmentTypes = [] }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -231,6 +235,11 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                 onAddEntity={onAddEntity}
                 onCreateCollaborator={onCreateCollaborator}
                 onOpenEntity={handleOpenEntity}
+                // Pass Assignments and Equipment
+                assignments={assignments}
+                equipment={equipment}
+                brands={brands}
+                equipmentTypes={equipmentTypes}
             />
         )}
 
@@ -256,6 +265,9 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                     // Logic to go back to institution detail?
                     if (inst) setSelectedInstituicao(inst);
                 }}
+                equipment={equipment}
+                brands={brands}
+                equipmentTypes={equipmentTypes}
             />
         )}
     </div>

@@ -902,6 +902,10 @@ const InnerApp: React.FC = () => {
                             setEntidadeToEdit(e);
                             setShowAddEntidade(true);
                         }}
+                        // Pass Data for Detailed Modal
+                        equipment={equipment}
+                        brands={brands}
+                        equipmentTypes={equipmentTypes}
                     />
                 )}
 
@@ -937,6 +941,10 @@ const InnerApp: React.FC = () => {
                             templateFileName: 'template_entidades.xlsx',
                             columnMap: { name: 'Nome', codigo: 'Código', email: 'Email', telefone: 'Telefone', nif: 'NIF', address: 'Morada', responsavel: 'Responsável' }
                         })}
+                        // Pass Data for Detailed Modal
+                        equipment={equipment}
+                        brands={brands}
+                        equipmentTypes={equipmentTypes}
                     />
                 )}
 
