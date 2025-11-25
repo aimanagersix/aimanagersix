@@ -8,8 +8,12 @@ import * as dataService from '../services/dataService';
 
 const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
 
-const isPortuguesePhoneNumber = (phone: string): boolean => {
-    if (!phone || phone.trim() === '') return true; // Optional fields are valid if empty
+const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const isValidPhoneNumber = (phone: string): boolean => {
+    if (!phone || phone.trim() === '') return true; 
     const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
     const regex = /^(2\d{8}|9[1236]\d{7})$/;
     return regex.test(cleaned);
@@ -67,7 +71,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                 postal_code: entidadeToEdit.postal_code || '',
                 city: entidadeToEdit.city || '',
                 locality: entidadeToEdit.locality || '',
-                contacts: entidadeToEdit.contacts ? [...entidadeToEdit.contacts] : [] // Deep copy
+                contacts: entidadeToEdit.contacts ? [...entidadeToEdit.contacts] : []
             });
         }
     }, [entidadeToEdit]);
@@ -78,15 +82,22 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         if (!formData.codigo?.trim()) newErrors.codigo = "O código é obrigatório.";
         if (!formData.instituicaoId) newErrors.instituicaoId = "A instituição é obrigatória.";
         
-        if (formData.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            newErrors.email = "Email inválido.";
+        if (formData.email?.trim() && !isValidEmail(formData.email)) {
+            newErrors.email = "Formato de email inválido.";
         }
         
-        if (formData.telefone?.trim() && !isPortuguesePhoneNumber(formData.telefone)) {
-            newErrors.telefone = "Telefone inválido.";
+        if (formData.telefone?.trim() && !isValidPhoneNumber(formData.telefone)) {
+            newErrors.telefone = "Telefone inválido (9 dígitos, iniciar com 2 ou 9).";
         }
-        if (formData.telemovel?.trim() && !isPortuguesePhoneNumber(formData.telemovel)) {
-            newErrors.telemovel = "Telemóvel inválido.";
+        if (formData.telemovel?.trim() && !isValidPhoneNumber(formData.telemovel)) {
+            newErrors.telemovel = "Telemóvel inválido (9 dígitos, iniciar com 9).";
+        }
+
+        if (formData.nif?.trim()) {
+             const cleanNif = formData.nif.replace(/\s/g, '');
+             if (!/^\d{9}$/.test(cleanNif)) {
+                 newErrors.nif = "O NIF deve ter exatamente 9 dígitos numéricos.";
+             }
         }
 
         setErrors(newErrors);
@@ -106,11 +117,23 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
     };
 
     const handleFetchNifData = async () => {
-        if (!formData.nif?.trim()) return;
+        if (!formData.nif?.trim()) {
+            setErrors(prev => ({ ...prev, nif: "Insira um NIF para pesquisar." }));
+            return;
+        }
         const nif = formData.nif.trim().replace(/[^0-9]/g, '');
-        if (nif.length !== 9) return;
+        if (nif.length !== 9) {
+             setErrors(prev => ({ ...prev, nif: "O NIF deve ter 9 dígitos." }));
+             return;
+        }
 
         setIsFetchingNif(true);
+        setErrors(prev => {
+            const newErr = { ...prev };
+            delete newErr.nif;
+            return newErr;
+        });
+
         try {
             const response = await fetch(`https://corsproxy.io/?https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`);
             if (response.ok) {
@@ -128,10 +151,13 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         email: record.contacts?.email || prev.email,
                         telefone: record.contacts?.phone || prev.telefone,
                     }));
+                } else {
+                     setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
                 }
             }
         } catch (e) {
             console.error("Erro NIF:", e);
+            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF." }));
         } finally {
             setIsFetchingNif(false);
         }
@@ -192,7 +218,6 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         try {
             let result;
             if (entidadeToEdit) {
-                // Merge old data with new, but explicitly remove contacts to prevent SQL error
                 const payload = { ...entidadeToEdit, ...dataToSave };
                 delete payload.contacts;
                 result = await onSave(payload);
@@ -264,17 +289,19 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                                         id="nif" 
                                         value={formData.nif} 
                                         onChange={handleChange} 
-                                        className="flex-grow bg-gray-700 border border-gray-600 text-white rounded-l-md p-2"
+                                        maxLength={9}
+                                        className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
                                     />
                                     <button 
                                         type="button" 
                                         onClick={handleFetchNifData}
-                                        disabled={isFetchingNif}
-                                        className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white border-t border-b border-r border-gray-600"
+                                        disabled={isFetchingNif || !formData.nif}
+                                        className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white transition-colors border-t border-b border-r border-gray-600 flex items-center justify-center min-w-[3rem]"
                                     >
                                         {isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}
                                     </button>
                                 </div>
+                                {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
                             </div>
                         </div>
 
@@ -311,12 +338,12 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label htmlFor="telefone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone</label>
-                                <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} />
+                                <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} placeholder="Ex: 210000000" />
                                 {errors.telefone && <p className="text-red-400 text-xs italic mt-1">{errors.telefone}</p>}
                             </div>
                             <div>
                                 <label htmlFor="telemovel" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telemóvel</label>
-                                <input type="tel" name="telemovel" id="telemovel" value={formData.telemovel} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telemovel ? 'border-red-500' : 'border-gray-600'}`} />
+                                <input type="tel" name="telemovel" id="telemovel" value={formData.telemovel} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telemovel ? 'border-red-500' : 'border-gray-600'}`} placeholder="Ex: 910000000" />
                                 {errors.telemovel && <p className="text-red-400 text-xs italic mt-1">{errors.telemovel}</p>}
                             </div>
                             <div>

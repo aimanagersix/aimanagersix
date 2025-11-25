@@ -8,9 +8,15 @@ import * as dataService from '../services/dataService';
 
 const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
 
-const isPortuguesePhoneNumber = (phone: string): boolean => {
-    if (!phone || phone.trim() === '') return true; // Optional valid
+const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const isValidPhoneNumber = (phone: string): boolean => {
+    if (!phone || phone.trim() === '') return true; // Optional
+    // Remove spaces, dashes, parentheses
     const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
+    // Portugal: Landline starts with 2, Mobile starts with 9. Length 9.
     const regex = /^(2\d{8}|9[1236]\d{7})$/;
     return regex.test(cleaned);
 };
@@ -44,7 +50,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     useEffect(() => {
         if (instituicaoToEdit) {
             setFormData({
-                ...instituicaoToEdit, // Spread first to catch ID and other props
+                ...instituicaoToEdit, 
                 codigo: instituicaoToEdit.codigo,
                 name: instituicaoToEdit.name,
                 email: instituicaoToEdit.email,
@@ -54,7 +60,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 postal_code: instituicaoToEdit.postal_code || '',
                 city: instituicaoToEdit.city || '',
                 locality: instituicaoToEdit.locality || '',
-                contacts: instituicaoToEdit.contacts ? [...instituicaoToEdit.contacts] : [] // Deep copy array
+                contacts: instituicaoToEdit.contacts ? [...instituicaoToEdit.contacts] : []
             });
         }
     }, [instituicaoToEdit]);
@@ -64,12 +70,19 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         if (!formData.name?.trim()) newErrors.name = "O nome da instituição é obrigatório.";
         if (!formData.codigo?.trim()) newErrors.codigo = "O código é obrigatório.";
         
-        if (formData.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            newErrors.email = "O formato do email é inválido.";
+        if (formData.email?.trim() && !isValidEmail(formData.email)) {
+            newErrors.email = "Formato de email inválido (ex: geral@empresa.com).";
         }
         
-        if (formData.telefone?.trim() && !isPortuguesePhoneNumber(formData.telefone)) {
-            newErrors.telefone = "Número inválido.";
+        if (formData.telefone?.trim() && !isValidPhoneNumber(formData.telefone)) {
+            newErrors.telefone = "Número inválido. Deve ter 9 dígitos (começado por 2 ou 9).";
+        }
+
+        if (formData.nif?.trim()) {
+             const cleanNif = formData.nif.replace(/\s/g, '');
+             if (!/^\d{9}$/.test(cleanNif)) {
+                 newErrors.nif = "O NIF deve ter exatamente 9 dígitos numéricos.";
+             }
         }
 
         setErrors(newErrors);
@@ -191,7 +204,6 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         setIsSaving(true);
         setSuccessMessage('');
 
-        // Create legacy address string
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         
         const dataToSave: any = { ...formData, address };
@@ -201,7 +213,6 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         try {
             let result;
             if (instituicaoToEdit) {
-                // Merge but ensure contacts is removed from payload
                 const payload = { ...instituicaoToEdit, ...dataToSave };
                 delete payload.contacts;
                 result = await onSave(payload);
@@ -218,7 +229,6 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                     }
                 }
                 setSuccessMessage('Dados guardados com sucesso!');
-                // Do NOT close modal automatically
                 setTimeout(() => setSuccessMessage(''), 3000);
             }
         } catch (e) {
@@ -262,6 +272,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                                         value={formData.nif} 
                                         onChange={handleChange} 
                                         placeholder="NIF"
+                                        maxLength={9}
                                         className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
                                     />
                                     <button 
@@ -297,12 +308,11 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                             </div>
                              <div>
                                 <label htmlFor="telefone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone</label>
-                                <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} />
+                                <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.telefone ? 'border-red-500' : 'border-gray-600'}`} placeholder="Ex: 210000000" />
                                 {errors.telefone && <p className="text-red-400 text-xs italic mt-1">{errors.telefone}</p>}
                             </div>
                         </div>
 
-                        {/* Address Section */}
                         <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
                             <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada da Instituição</h4>
                             <div className="space-y-3">

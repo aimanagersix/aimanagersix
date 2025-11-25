@@ -2,18 +2,19 @@
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Instituicao, Entidade, Collaborator } from '../types';
-import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUserTie, FaUsers } from './common/Icons';
+import { FaSitemap, FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaPrint, FaUserTie, FaUsers, FaExternalLinkAlt } from './common/Icons';
 
 interface InstituicaoDetailModalProps {
     instituicao: Instituicao;
     entidades: Entidade[];
-    collaborators?: Collaborator[]; // New prop
+    collaborators?: Collaborator[]; 
     onClose: () => void;
     onEdit: () => void;
     onAddEntity?: (instituicaoId: string) => void;
+    onOpenEntity?: (entidade: Entidade) => void; // New prop
 }
 
-const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity }) => {
+const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity, onOpenEntity }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'collabs'>('info');
     const relatedEntidades = entidades.filter(e => e.instituicaoId === instituicao.id);
     
@@ -237,8 +238,14 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                                     {relatedEntidades.length > 0 && (
                                         <ul className="mt-2 space-y-1 text-sm text-gray-300 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                                             {relatedEntidades.map(e => (
-                                                <li key={e.id} className="flex justify-between border-b border-gray-800 py-1 last:border-0">
-                                                    <span>{e.name}</span>
+                                                <li 
+                                                    key={e.id} 
+                                                    className="flex justify-between items-center border-b border-gray-800 py-2 last:border-0 hover:bg-gray-800 px-2 rounded cursor-pointer transition-colors"
+                                                    onClick={() => onOpenEntity && onOpenEntity(e)}
+                                                >
+                                                    <span className="font-medium text-brand-secondary flex items-center gap-2">
+                                                        {e.name} <FaExternalLinkAlt className="h-3 w-3 opacity-50"/>
+                                                    </span>
                                                     <span className="text-xs text-gray-500 bg-gray-900 px-1 rounded">{e.codigo}</span>
                                                 </li>
                                             ))}

@@ -1,26 +1,34 @@
+
 import React, { useMemo, useState } from 'react';
-import { Instituicao, Entidade, Collaborator } from '../types';
+import { Instituicao, Entidade, Collaborator, Assignment } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaPrint, FaFileImport, SearchIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
+import EntidadeDetailModal from './EntidadeDetailModal';
 
 interface InstituicaoDashboardProps {
   instituicoes: Instituicao[];
   escolasDepartamentos: Entidade[];
   collaborators: Collaborator[]; // Added prop
+  assignments: Assignment[]; // Added prop for EntidadeDetailModal
   onEdit?: (instituicao: Instituicao) => void;
   onDelete?: (id: string) => void;
   onCreate?: () => void;
-  // Quick Action
+  // Quick Actions passed down to child modals
   onAddEntity?: (instituicaoId: string) => void;
   onImport?: () => void;
+  // Optional handlers for EntidadeDetailModal actions
+  onAddCollaborator?: (entidadeId: string) => void;
+  onAssignEquipment?: (entidadeId: string) => void;
 }
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, onEdit, onDelete, onCreate, onAddEntity, onImport }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onImport, onAddCollaborator, onAssignEquipment }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [selectedInstituicao, setSelectedInstituicao] = useState<Instituicao | null>(null);
+    // State for drill-down entity modal
+    const [selectedEntityForDrillDown, setSelectedEntityForDrillDown] = useState<Entidade | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     
     const entidadesCountByInstituicao = useMemo(() => {
@@ -96,6 +104,11 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
             </html>
         `);
         printWindow.document.close();
+    };
+
+    const handleOpenEntity = (ent: Entidade) => {
+        setSelectedInstituicao(null); // Close parent
+        setSelectedEntityForDrillDown(ent); // Open child
     };
 
   return (
@@ -213,6 +226,28 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                     if (onEdit) onEdit(selectedInstituicao);
                 }}
                 onAddEntity={onAddEntity}
+                onOpenEntity={handleOpenEntity}
+            />
+        )}
+
+        {selectedEntityForDrillDown && (
+            <EntidadeDetailModal 
+                entidade={selectedEntityForDrillDown}
+                instituicao={instituicoes.find(i => i.id === selectedEntityForDrillDown.instituicaoId)}
+                collaborators={collaborators}
+                assignments={assignments}
+                onClose={() => setSelectedEntityForDrillDown(null)}
+                onEdit={() => {
+                    // Basic alert since we can't pass the full edit handler from here easily without circular dependencies or massive refactor
+                    alert("Para editar esta entidade, navegue para o menu 'Entidades'.");
+                }}
+                onAddCollaborator={onAddCollaborator}
+                onAssignEquipment={onAssignEquipment}
+                onOpenInstitution={(inst) => {
+                    setSelectedEntityForDrillDown(null);
+                    // Logic to go back to institution detail?
+                    if (inst) setSelectedInstituicao(inst);
+                }}
             />
         )}
     </div>

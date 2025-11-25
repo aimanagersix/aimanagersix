@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ResourceContact, ContactRole, ContactTitle } from '../../types';
-import { FaPlus, FaUserTie, FaEnvelope, FaPhone, FaTrash, FaCog, FaEdit, FaSave, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaPlus, FaUserTie, FaEnvelope, FaPhone, FaTrash, FaCog, FaEdit, FaSave, FaToggleOn, FaToggleOff, FaExclamationCircle } from 'react-icons/fa';
 import * as dataService from '../../services/dataService';
 import ManageContactRolesModal from '../ManageContactRolesModal';
 import ManageContactTitlesModal from '../ManageContactTitlesModal';
@@ -11,6 +11,13 @@ interface ContactListProps {
     onChange: (contacts: ResourceContact[]) => void;
     resourceType: 'supplier' | 'entidade' | 'instituicao';
 }
+
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidPhone = (phone: string) => {
+    if (!phone || phone.trim() === '') return true;
+    const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
+    return /^(9[1236]\d{7}|2\d{8})$/.test(cleaned);
+};
 
 export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, resourceType }) => {
     const [newContact, setNewContact] = useState<Partial<ResourceContact>>({
@@ -26,6 +33,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
     const [titles, setTitles] = useState<string[]>([]);
     const [showManageRoles, setShowManageRoles] = useState(false);
     const [showManageTitles, setShowManageTitles] = useState(false);
+    const [error, setError] = useState<string>('');
 
     const loadData = async () => {
         try {
@@ -52,13 +60,24 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
     const resetForm = () => {
         setNewContact({ title: '', name: '', role: roles[0] || 'Técnico', email: '', phone: '', is_active: true });
         setEditingIndex(null);
+        setError('');
     };
 
     const handleAddOrUpdateContact = () => {
         if (!newContact.name?.trim()) {
-            alert("O nome é obrigatório.");
+            setError("O nome é obrigatório.");
             return;
         }
+        if (newContact.email && !isValidEmail(newContact.email)) {
+            setError("Email inválido.");
+            return;
+        }
+        if (newContact.phone && !isValidPhone(newContact.phone)) {
+            setError("Telefone inválido (9 dígitos, iniciar com 2 ou 9).");
+            return;
+        }
+        
+        setError('');
 
         if (editingIndex !== null) {
             // Update existing
@@ -100,8 +119,9 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
             role: contactToEdit.role || '',
             email: contactToEdit.email || '',
             phone: contactToEdit.phone || '',
-            is_active: contactToEdit.is_active !== false // default to true if undefined
+            is_active: contactToEdit.is_active !== false 
         });
+        setError('');
     };
 
     const handleToggleStatus = (index: number) => {
@@ -202,10 +222,13 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                             value={newContact.phone || ''}
                             onChange={(e) => setNewContact({...newContact, phone: e.target.value})}
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                            placeholder="+351..."
+                            placeholder="Ex: 912345678"
                         />
                     </div>
                 </div>
+                
+                {error && <div className="text-red-400 text-xs mb-3 flex items-center gap-2"><FaExclamationCircle/> {error}</div>}
+
                 <button 
                     type="button" 
                     onClick={handleAddOrUpdateContact}

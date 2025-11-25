@@ -1,10 +1,19 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
+
+const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const isValidPhoneNumber = (phone: string): boolean => {
+    if (!phone || phone.trim() === '') return true;
+    const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
+    const regex = /^(2\d{8}|9[1236]\d{7})$/;
+    return regex.test(cleaned);
+};
 
 interface AddCollaboratorModalProps {
     onClose: () => void;
@@ -45,7 +54,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     });
     const [password, setPassword] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState('');
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [successMessage, setSuccessMessage] = useState('');
 
     // Use dynamic options if available
@@ -71,23 +80,50 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         }
     }, [collaboratorToEdit, escolasDepartamentos]);
 
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.fullName?.trim()) newErrors.fullName = "O nome é obrigatório.";
+        if (!formData.email?.trim()) {
+            newErrors.email = "O email é obrigatório.";
+        } else if (!isValidEmail(formData.email)) {
+            newErrors.email = "Formato de email inválido.";
+        }
+
+        if (formData.telemovel?.trim() && !isValidPhoneNumber(formData.telemovel)) {
+            newErrors.telemovel = "Móvel inválido (9 dígitos, iniciar com 9).";
+        }
+
+        if (formData.nif?.trim()) {
+             const cleanNif = formData.nif.replace(/\s/g, '');
+             if (!/^\d{9}$/.test(cleanNif)) {
+                 newErrors.nif = "O NIF deve ter 9 dígitos.";
+             }
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
         }));
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = {...prev};
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.fullName?.trim() || !formData.email?.trim()) {
-            setError("Nome e Email são obrigatórios.");
-            return;
-        }
+        if (!validate()) return;
         
         setIsSaving(true);
-        setError('');
         setSuccessMessage('');
 
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
@@ -102,18 +138,16 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             if (collaboratorToEdit) {
                 result = await onSave({ ...collaboratorToEdit, ...dataToSave });
             } else {
-                // Only send password if creating new
                 result = await onSave(dataToSave, password || undefined);
             }
             
             if (result) {
                 setSuccessMessage("Colaborador gravado com sucesso!");
                 setTimeout(() => setSuccessMessage(''), 3000);
-                // onClose(); // Removed auto-close
             }
         } catch (e: any) {
             console.error(e);
-            setError(e.message || "Erro ao salvar colaborador.");
+            setErrors(prev => ({...prev, general: e.message || "Erro ao salvar colaborador."}));
         } finally {
             setIsSaving(false);
         }
@@ -134,14 +168,16 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     </div>
                     <div className="md:col-span-2">
                         <label className="block text-xs font-medium text-gray-400 mb-1">Nome Completo</label>
-                        <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" required />
+                        <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.fullName ? 'border-red-500' : 'border-gray-600'}`} required />
+                        {errors.fullName && <p className="text-red-400 text-xs italic mt-1">{errors.fullName}</p>}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Email</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" required />
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.email ? 'border-red-500' : 'border-gray-600'}`} required />
+                        {errors.email && <p className="text-red-400 text-xs italic mt-1">{errors.email}</p>}
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Nº Mecanográfico</label>
@@ -152,11 +188,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">NIF</label>
-                        <input type="text" name="nif" value={formData.nif} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                        <input type="text" name="nif" value={formData.nif} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.nif ? 'border-red-500' : 'border-gray-600'}`} />
+                        {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Móvel</label>
-                        <input type="text" name="telemovel" value={formData.telemovel} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                        <input type="text" name="telemovel" value={formData.telemovel} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.telemovel ? 'border-red-500' : 'border-gray-600'}`} />
+                        {errors.telemovel && <p className="text-red-400 text-xs italic mt-1">{errors.telemovel}</p>}
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Extensão</label>
@@ -230,7 +268,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     </div>
                 )}
 
-                {error && <p className="text-red-400 text-xs">{error}</p>}
+                {errors.general && <p className="text-red-400 text-xs">{errors.general}</p>}
+                
                 {successMessage && (
                     <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">
                         {successMessage}

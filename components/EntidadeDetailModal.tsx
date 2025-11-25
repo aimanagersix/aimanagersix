@@ -13,9 +13,10 @@ interface EntidadeDetailModalProps {
     onEdit: () => void;
     onAddCollaborator?: (entidadeId: string) => void;
     onAssignEquipment?: (entidadeId: string) => void;
+    onOpenInstitution?: (instituicao: Instituicao) => void; // New prop
 }
 
-const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, assignments = [], onClose, onEdit, onAddCollaborator, onAssignEquipment }) => {
+const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, assignments = [], onClose, onEdit, onAddCollaborator, onAssignEquipment, onOpenInstitution }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'contacts_extra' | 'collaborators' | 'equipment'>('info');
     
     const activeCollaborators = collaborators.filter(c => c.entidadeId === entidade.id);
@@ -136,7 +137,16 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     <div className="flex-grow">
                         <h2 className="text-xl font-bold text-white">{entidade.name}</h2>
                         <p className="text-sm text-on-surface-dark-secondary">Código: <span className="font-mono text-white">{entidade.codigo}</span></p>
-                        <p className="text-sm text-brand-secondary mt-1">{instituicao?.name || 'Instituição não definida'}</p>
+                        {instituicao && (
+                            <p 
+                                className={`text-sm mt-1 ${onOpenInstitution ? 'text-brand-secondary hover:text-white hover:underline cursor-pointer' : 'text-gray-400'}`}
+                                onClick={() => onOpenInstitution && onOpenInstitution(instituicao)}
+                                title={onOpenInstitution ? "Ver detalhes da instituição" : undefined}
+                            >
+                                {instituicao.name}
+                            </p>
+                        )}
+                        {!instituicao && <p className="text-sm text-gray-500 mt-1">Instituição não definida</p>}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                         <div className="flex gap-2">

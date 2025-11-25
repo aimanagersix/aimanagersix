@@ -1,9 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment } from '../types';
 import { EditIcon, DeleteIcon, SearchIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import EntidadeDetailModal from './EntidadeDetailModal';
+import InstituicaoDetailModal from './InstituicaoDetailModal';
 
 interface EntidadeDashboardProps {
   escolasDepartamentos: Entidade[];
@@ -40,6 +42,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [selectedEntidade, setSelectedEntidade] = useState<Entidade | null>(null);
+    const [selectedInstitutionForDrillDown, setSelectedInstitutionForDrillDown] = useState<Instituicao | null>(null);
     
     const instituicaoMap = useMemo(() => new Map(instituicoes.map(e => [e.id, e.name])), [instituicoes]);
 
@@ -152,6 +155,11 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
             </html>
         `);
         printWindow.document.close();
+    };
+
+    const handleOpenInstitution = (inst: Instituicao) => {
+        setSelectedEntidade(null);
+        setSelectedInstitutionForDrillDown(inst);
     };
 
   return (
@@ -332,6 +340,23 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                 }}
                 onAddCollaborator={onAddCollaborator}
                 onAssignEquipment={onAssignEquipment}
+                onOpenInstitution={handleOpenInstitution}
+            />
+        )}
+
+        {selectedInstitutionForDrillDown && (
+            <InstituicaoDetailModal 
+                instituicao={selectedInstitutionForDrillDown}
+                entidades={entidadesData}
+                collaborators={collaborators}
+                onClose={() => setSelectedInstitutionForDrillDown(null)}
+                onEdit={() => {
+                    alert("Para editar esta instituição, navegue para o menu 'Instituições'.");
+                }}
+                onOpenEntity={(ent) => {
+                    setSelectedInstitutionForDrillDown(null);
+                    if (ent) setSelectedEntidade(ent);
+                }}
             />
         )}
     </div>
