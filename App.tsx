@@ -729,126 +729,128 @@ const InnerApp: React.FC = () => {
 
             <main className={`transition-all duration-300 ease-in-out ${
                 layoutMode === 'side' 
-                    ? `${sidebarExpanded ? 'ml-64' : 'ml-20'} bg-background-dark p-4` // Side mode: Block layout, explicit margin, no flex-grow to avoid width calculation issues
-                    : 'flex-grow max-w-screen-xl mx-auto w-full p-4 sm:p-6' // Top mode: Flex flow, centered
+                    ? (sidebarExpanded ? 'ml-64' : 'ml-20') 
+                    : 'w-full'
             }`}>
-                {activeTab === 'overview' && !isBasic && (
-                    <OverviewDashboard
-                        equipment={equipment}
-                        instituicoes={instituicoes}
-                        entidades={entidades}
-                        assignments={assignments}
-                        equipmentTypes={equipmentTypes}
-                        tickets={tickets}
-                        collaborators={collaborators}
-                        teams={teams}
-                        expiringWarranties={expiringWarranties}
-                        expiringLicenses={expiringLicenses}
-                        softwareLicenses={softwareLicenses}
-                        licenseAssignments={licenseAssignments}
-                        businessServices={businessServices}
-                        vulnerabilities={vulnerabilities}
-                        onViewItem={(tab, filter) => { setActiveTab(tab); setInitialFilter(filter); }}
-                        onGenerateComplianceReport={() => { setShowReport({ type: 'compliance', visible: true }); }}
-                    />
-                )}
+                {/* Wrap content in a consistent container for both modes */}
+                <div className="max-w-screen-xl mx-auto p-4 sm:p-6 w-full">
+                    {activeTab === 'overview' && !isBasic && (
+                        <OverviewDashboard
+                            equipment={equipment}
+                            instituicoes={instituicoes}
+                            entidades={entidades}
+                            assignments={assignments}
+                            equipmentTypes={equipmentTypes}
+                            tickets={tickets}
+                            collaborators={collaborators}
+                            teams={teams}
+                            expiringWarranties={expiringWarranties}
+                            expiringLicenses={expiringLicenses}
+                            softwareLicenses={softwareLicenses}
+                            licenseAssignments={licenseAssignments}
+                            businessServices={businessServices}
+                            vulnerabilities={vulnerabilities}
+                            onViewItem={(tab, filter) => { setActiveTab(tab); setInitialFilter(filter); }}
+                            onGenerateComplianceReport={() => { setShowReport({ type: 'compliance', visible: true }); }}
+                        />
+                    )}
 
-                {activeTab === 'overview.smart' && isAdmin && (
-                    <SmartDashboard 
-                        tickets={tickets}
-                        vulnerabilities={vulnerabilities}
-                        backups={backupExecutions}
-                        trainings={securityTrainings}
-                        collaborators={collaborators}
-                        currentUser={currentUser}
-                    />
-                )}
+                    {activeTab === 'overview.smart' && isAdmin && (
+                        <SmartDashboard 
+                            tickets={tickets}
+                            vulnerabilities={vulnerabilities}
+                            backups={backupExecutions}
+                            trainings={securityTrainings}
+                            collaborators={collaborators}
+                            currentUser={currentUser}
+                        />
+                    )}
 
-                {activeTab === 'settings' && isAdmin && (
-                    <AuxiliaryDataDashboard
-                        configTables={[
-                            { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: configEquipmentStatuses },
-                            { tableName: 'config_user_roles', label: 'Perfis de Utilizador', data: configUserRoles },
-                            { tableName: 'config_criticality_levels', label: 'Níveis de Criticidade', data: configCriticalityLevels },
-                            { tableName: 'config_cia_ratings', label: 'Classificação CIA', data: configCiaRatings },
-                            { tableName: 'config_service_statuses', label: 'Estados de Serviço', data: configServiceStatuses },
-                            { tableName: 'config_backup_types', label: 'Tipos de Backup', data: configBackupTypes },
-                            { tableName: 'config_training_types', label: 'Tipos de Formação', data: configTrainingTypes },
-                            { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: configResilienceTestTypes },
-                            { tableName: 'contact_roles', label: 'Funções de Contacto', data: contactRoles },
-                            { tableName: 'contact_titles', label: 'Tratos (Honoríficos)', data: contactTitles }
-                        ]}
-                        onRefresh={refreshData}
-                        // Pass complex data
-                        brands={brands}
-                        equipment={equipment}
-                        equipmentTypes={equipmentTypes}
-                        ticketCategories={ticketCategories}
-                        tickets={tickets}
-                        teams={teams}
-                        securityIncidentTypes={securityIncidentTypes}
-                        // NEW PROPS for integrity checks
-                        collaborators={collaborators}
-                        softwareLicenses={softwareLicenses}
-                        businessServices={businessServices}
-                        backupExecutions={backupExecutions}
-                        securityTrainings={securityTrainings}
-                        resilienceTests={resilienceTests}
-                        suppliers={suppliers}
-                        entidades={entidades}
-                        instituicoes={instituicoes}
-                        vulnerabilities={vulnerabilities}
+                    {activeTab === 'settings' && isAdmin && (
+                        <AuxiliaryDataDashboard
+                            configTables={[
+                                { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: configEquipmentStatuses },
+                                { tableName: 'config_user_roles', label: 'Perfis de Utilizador', data: configUserRoles },
+                                { tableName: 'config_criticality_levels', label: 'Níveis de Criticidade', data: configCriticalityLevels },
+                                { tableName: 'config_cia_ratings', label: 'Classificação CIA', data: configCiaRatings },
+                                { tableName: 'config_service_statuses', label: 'Estados de Serviço', data: configServiceStatuses },
+                                { tableName: 'config_backup_types', label: 'Tipos de Backup', data: configBackupTypes },
+                                { tableName: 'config_training_types', label: 'Tipos de Formação', data: configTrainingTypes },
+                                { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: configResilienceTestTypes },
+                                { tableName: 'contact_roles', label: 'Funções de Contacto', data: contactRoles },
+                                { tableName: 'contact_titles', label: 'Tratos (Honoríficos)', data: contactTitles }
+                            ]}
+                            onRefresh={refreshData}
+                            // Pass complex data
+                            brands={brands}
+                            equipment={equipment}
+                            equipmentTypes={equipmentTypes}
+                            ticketCategories={ticketCategories}
+                            tickets={tickets}
+                            teams={teams}
+                            securityIncidentTypes={securityIncidentTypes}
+                            // NEW PROPS for integrity checks
+                            collaborators={collaborators}
+                            softwareLicenses={softwareLicenses}
+                            businessServices={businessServices}
+                            backupExecutions={backupExecutions}
+                            securityTrainings={securityTrainings}
+                            resilienceTests={resilienceTests}
+                            suppliers={suppliers}
+                            entidades={entidades}
+                            instituicoes={instituicoes}
+                            vulnerabilities={vulnerabilities}
 
-                        // Pass complex handlers
-                        onCreateBrand={() => { setBrandToEdit(null); setShowAddBrand(true); }}
-                        onEditBrand={(b) => { setBrandToEdit(b); setShowAddBrand(true); }}
-                        onDeleteBrand={(id) => handleDelete('Excluir Marca', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteBrand, id))}
-                        
-                        onCreateType={() => { setTypeToEdit(null); setShowAddType(true); }}
-                        onEditType={(t) => { setTypeToEdit(t); setShowAddType(true); }}
-                        onDeleteType={(id) => handleDelete('Excluir Tipo', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteEquipmentType, id))}
-                        
-                        onCreateCategory={() => { setCategoryToEdit(null); setShowAddCategory(true); }}
-                        onEditCategory={(c) => { setCategoryToEdit(c); setShowAddCategory(true); }}
-                        onDeleteCategory={(id) => handleDelete('Excluir Categoria', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteTicketCategory, id))}
-                        onToggleCategoryStatus={(id) => {
-                            const cat = ticketCategories.find(c => c.id === id);
-                            if (cat) simpleSaveWrapper(dataService.updateTicketCategory, { is_active: !cat.is_active }, id);
-                        }}
+                            // Pass complex handlers
+                            onCreateBrand={() => { setBrandToEdit(null); setShowAddBrand(true); }}
+                            onEditBrand={(b) => { setBrandToEdit(b); setShowAddBrand(true); }}
+                            onDeleteBrand={(id) => handleDelete('Excluir Marca', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteBrand, id))}
+                            
+                            onCreateType={() => { setTypeToEdit(null); setShowAddType(true); }}
+                            onEditType={(t) => { setTypeToEdit(t); setShowAddType(true); }}
+                            onDeleteType={(id) => handleDelete('Excluir Tipo', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteEquipmentType, id))}
+                            
+                            onCreateCategory={() => { setCategoryToEdit(null); setShowAddCategory(true); }}
+                            onEditCategory={(c) => { setCategoryToEdit(c); setShowAddCategory(true); }}
+                            onDeleteCategory={(id) => handleDelete('Excluir Categoria', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteTicketCategory, id))}
+                            onToggleCategoryStatus={(id) => {
+                                const cat = ticketCategories.find(c => c.id === id);
+                                if (cat) simpleSaveWrapper(dataService.updateTicketCategory, { is_active: !cat.is_active }, id);
+                            }}
 
-                        onCreateIncidentType={() => { setIncidentTypeToEdit(null); setShowAddIncidentType(true); }}
-                        onEditIncidentType={(t) => { setIncidentTypeToEdit(t); setShowAddIncidentType(true); }}
-                        onDeleteIncidentType={(id) => handleDelete('Excluir Tipo Incidente', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteSecurityIncidentType, id))}
-                        onToggleIncidentTypeStatus={(id) => {
-                            const type = securityIncidentTypes.find(t => t.id === id);
-                            if (type) simpleSaveWrapper(dataService.updateSecurityIncidentType, { is_active: !type.is_active }, id);
-                        }}
-                        
-                        onSaveTooltipConfig={setTooltipConfig}
-                    />
-                )}
+                            onCreateIncidentType={() => { setIncidentTypeToEdit(null); setShowAddIncidentType(true); }}
+                            onEditIncidentType={(t) => { setIncidentTypeToEdit(t); setShowAddIncidentType(true); }}
+                            onDeleteIncidentType={(id) => handleDelete('Excluir Tipo Incidente', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteSecurityIncidentType, id))}
+                            onToggleIncidentTypeStatus={(id) => {
+                                const type = securityIncidentTypes.find(t => t.id === id);
+                                if (type) simpleSaveWrapper(dataService.updateSecurityIncidentType, { is_active: !type.is_active }, id);
+                            }}
+                            
+                            onSaveTooltipConfig={setTooltipConfig}
+                        />
+                    )}
 
-                {activeTab === 'tickets.list' && (
-                    <TicketDashboard
-                        tickets={tickets}
-                        escolasDepartamentos={entidades}
-                        collaborators={collaborators}
-                        teams={teams}
-                        equipment={equipment}
-                        equipmentTypes={equipmentTypes}
-                        categories={ticketCategories}
-                        initialFilter={initialFilter}
-                        onClearInitialFilter={() => setInitialFilter(null)}
-                        onUpdateTicket={(t) => simpleSaveWrapper(dataService.updateTicket, t, t.id)}
-                        onEdit={(t) => { setTicketToEdit(t); setShowAddTicket(true); }}
-                        onOpenCloseTicketModal={(t) => setShowCloseTicket(t)}
-                        onOpenActivities={(t) => setTicketActivitiesModal(t)}
-                        onGenerateReport={() => setShowReport({ type: 'ticket', visible: true })}
-                        onGenerateSecurityReport={handleGenerateSecurityReport}
-                        onCreate={() => { setTicketToEdit(null); setInitialTicketData(null); setShowAddTicket(true); }}
-                    />
-                )}
-                
+                    {activeTab === 'tickets.list' && (
+                        <TicketDashboard
+                            tickets={tickets}
+                            escolasDepartamentos={entidades}
+                            collaborators={collaborators}
+                            teams={teams}
+                            equipment={equipment}
+                            equipmentTypes={equipmentTypes}
+                            categories={ticketCategories}
+                            initialFilter={initialFilter}
+                            onClearInitialFilter={() => setInitialFilter(null)}
+                            onUpdateTicket={(t) => simpleSaveWrapper(dataService.updateTicket, t, t.id)}
+                            onEdit={(t) => { setTicketToEdit(t); setShowAddTicket(true); }}
+                            onOpenCloseTicketModal={(t) => setShowCloseTicket(t)}
+                            onOpenActivities={(t) => setTicketActivitiesModal(t)}
+                            onGenerateReport={() => setShowReport({ type: 'ticket', visible: true })}
+                            onGenerateSecurityReport={handleGenerateSecurityReport}
+                            onCreate={() => { setTicketToEdit(null); setInitialTicketData(null); setShowAddTicket(true); }}
+                        />
+                    )}
+                    
                     {activeTab === 'equipment.inventory' && (
                         <EquipmentDashboard 
                             equipment={equipment}
@@ -877,253 +879,256 @@ const InnerApp: React.FC = () => {
                             tooltipConfig={tooltipConfig}
                         />
                     )}
-                
-                {activeTab === 'organizacao.instituicoes' && (
-                    <InstituicaoDashboard
-                        instituicoes={instituicoes}
-                        escolasDepartamentos={entidades}
-                        collaborators={collaborators}
-                        onEdit={(i) => { setInstituicaoToEdit(i); setShowAddInstituicao(true); }}
-                        onDelete={(id) => handleDelete('Excluir Instituição', 'Tem a certeza que deseja excluir esta instituição?', () => simpleSaveWrapper(dataService.deleteInstituicao, id))}
-                        onCreate={() => { setInstituicaoToEdit(null); setShowAddInstituicao(true); }}
-                        onAddEntity={(instId) => { 
-                            setEntidadeToEdit({ instituicaoId: instId } as Entidade); 
-                            setShowAddEntidade(true); 
-                        }}
-                        onCreateCollaborator={() => { setCollaboratorToEdit(null); setShowAddCollaborator(true); }}
-                        onImport={() => setImportConfig({
-                            dataType: 'instituicoes',
-                            title: 'Importar Instituições',
-                            templateFileName: 'template_instituicoes.xlsx',
-                            columnMap: { name: 'Nome', codigo: 'Código', email: 'Email', telefone: 'Telefone', nif: 'NIF', address: 'Morada' }
-                        })}
-                        assignments={assignments} // Pass assignments to allow drilling down
-                        onEditEntity={(e) => {
-                            setEntidadeToEdit(e);
-                            setShowAddEntidade(true);
-                        }}
-                        // Pass Data for Detailed Modal
-                        equipment={equipment}
-                        brands={brands}
-                        equipmentTypes={equipmentTypes}
-                        // Toggle Status Handler
-                        onToggleStatus={(id) => {
-                            const inst = instituicoes.find(i => i.id === id);
-                            if (inst) {
-                                const newStatus = inst.is_active !== false ? false : true; // Toggle logic (default true)
-                                simpleSaveWrapper(dataService.updateInstituicao, { is_active: newStatus }, id);
-                            }
-                        }}
-                    />
-                )}
+                    
+                    {activeTab === 'organizacao.instituicoes' && (
+                        <InstituicaoDashboard
+                            instituicoes={instituicoes}
+                            escolasDepartamentos={entidades}
+                            collaborators={collaborators}
+                            onEdit={(i) => { setInstituicaoToEdit(i); setShowAddInstituicao(true); }}
+                            onDelete={(id) => handleDelete('Excluir Instituição', 'Tem a certeza que deseja excluir esta instituição?', () => simpleSaveWrapper(dataService.deleteInstituicao, id))}
+                            onCreate={() => { setInstituicaoToEdit(null); setShowAddInstituicao(true); }}
+                            onAddEntity={(instId) => { 
+                                setEntidadeToEdit({ instituicaoId: instId } as Entidade); 
+                                setShowAddEntidade(true); 
+                            }}
+                            onCreateCollaborator={() => { setCollaboratorToEdit(null); setShowAddCollaborator(true); }}
+                            onImport={() => setImportConfig({
+                                dataType: 'instituicoes',
+                                title: 'Importar Instituições',
+                                templateFileName: 'template_instituicoes.xlsx',
+                                columnMap: { name: 'Nome', codigo: 'Código', email: 'Email', telefone: 'Telefone', nif: 'NIF', address: 'Morada' }
+                            })}
+                            assignments={assignments} // Pass assignments to allow drilling down
+                            onEditEntity={(e) => {
+                                setEntidadeToEdit(e);
+                                setShowAddEntidade(true);
+                            }}
+                            // Pass Data for Detailed Modal
+                            equipment={equipment}
+                            brands={brands}
+                            equipmentTypes={equipmentTypes}
+                            // Toggle Status Handler
+                            onToggleStatus={(id) => {
+                                const inst = instituicoes.find(i => i.id === id);
+                                if (inst) {
+                                    const newStatus = inst.is_active !== false ? false : true; // Toggle logic (default true)
+                                    simpleSaveWrapper(dataService.updateInstituicao, { is_active: newStatus }, id);
+                                }
+                            }}
+                        />
+                    )}
 
-                {activeTab === 'organizacao.entidades' && (
-                    <EntidadeDashboard
-                        escolasDepartamentos={entidades}
-                        instituicoes={instituicoes}
-                        collaborators={collaborators}
-                        assignments={assignments}
-                        tickets={tickets}
-                        collaboratorHistory={collaboratorHistory}
-                        onEdit={(e) => { setEntidadeToEdit(e); setShowAddEntidade(true); }}
-                        onDelete={(id) => handleDelete('Excluir Entidade', 'Tem a certeza que deseja excluir esta entidade?', () => simpleSaveWrapper(dataService.deleteEntidade, id))}
-                        onCreate={() => { setEntidadeToEdit(null); setShowAddEntidade(true); }}
-                        onToggleStatus={(id) => {
-                            const ent = entidades.find(e => e.id === id);
-                            if (ent) {
-                                const newStatus = ent.status === 'Ativo' ? 'Inativo' : 'Ativo';
-                                simpleSaveWrapper(dataService.updateEntidade, { status: newStatus }, id);
-                            }
-                        }}
-                        onAddCollaborator={(entId) => {
-                            setCollaboratorToEdit({ entidadeId: entId } as Collaborator);
-                            setShowAddCollaborator(true);
-                        }}
-                        onAssignEquipment={(entId) => {
-                            // Trigger Assign Modal logic if needed, or navigate
-                            setActiveTab('equipment.inventory');
-                        }}
-                        onImport={() => setImportConfig({
-                            dataType: 'entidades',
-                            title: 'Importar Entidades',
-                            templateFileName: 'template_entidades.xlsx',
-                            columnMap: { name: 'Nome', codigo: 'Código', email: 'Email', telefone: 'Telefone', nif: 'NIF', address: 'Morada', responsavel: 'Responsável' }
-                        })}
-                        // Pass Data for Detailed Modal
-                        equipment={equipment}
-                        brands={brands}
-                        equipmentTypes={equipmentTypes}
-                    />
-                )}
+                    {activeTab === 'organizacao.entidades' && (
+                        <EntidadeDashboard
+                            escolasDepartamentos={entidades}
+                            instituicoes={instituicoes}
+                            collaborators={collaborators}
+                            assignments={assignments}
+                            tickets={tickets}
+                            collaboratorHistory={collaboratorHistory}
+                            onEdit={(e) => { setEntidadeToEdit(e); setShowAddEntidade(true); }}
+                            onDelete={(id) => handleDelete('Excluir Entidade', 'Tem a certeza que deseja excluir esta entidade?', () => simpleSaveWrapper(dataService.deleteEntidade, id))}
+                            onCreate={() => { setEntidadeToEdit(null); setShowAddEntidade(true); }}
+                            onToggleStatus={(id) => {
+                                const ent = entidades.find(e => e.id === id);
+                                if (ent) {
+                                    const newStatus = ent.status === 'Ativo' ? 'Inativo' : 'Ativo';
+                                    simpleSaveWrapper(dataService.updateEntidade, { status: newStatus }, id);
+                                }
+                            }}
+                            onAddCollaborator={(entId) => {
+                                setCollaboratorToEdit({ entidadeId: entId } as Collaborator);
+                                setShowAddCollaborator(true);
+                            }}
+                            onAssignEquipment={(entId) => {
+                                // Trigger Assign Modal logic if needed, or navigate
+                                setActiveTab('equipment.inventory');
+                            }}
+                            onImport={() => setImportConfig({
+                                dataType: 'entidades',
+                                title: 'Importar Entidades',
+                                templateFileName: 'template_entidades.xlsx',
+                                columnMap: { name: 'Nome', codigo: 'Código', email: 'Email', telefone: 'Telefone', nif: 'NIF', address: 'Morada', responsavel: 'Responsável' }
+                            })}
+                            // Pass Data for Detailed Modal
+                            equipment={equipment}
+                            brands={brands}
+                            equipmentTypes={equipmentTypes}
+                        />
+                    )}
 
-                {activeTab === 'collaborators' && (
-                    <CollaboratorDashboard
-                        collaborators={collaborators}
-                        escolasDepartamentos={entidades}
-                        equipment={equipment}
-                        assignments={assignments}
-                        tickets={tickets}
-                        ticketActivities={ticketActivities}
-                        teamMembers={teamMembers}
-                        collaboratorHistory={collaboratorHistory}
-                        messages={messages}
-                        currentUser={currentUser}
-                        onEdit={(c) => { setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
-                        onDelete={(id) => handleDelete('Excluir Colaborador', 'Tem a certeza que deseja excluir este colaborador?', () => simpleSaveWrapper(dataService.deleteCollaborator, id))}
-                        onShowHistory={(c) => { setHistoryCollaborator(c); }}
-                        onShowDetails={(c) => { setDetailCollaborator(c); }}
-                        onGenerateReport={() => setShowReport({ type: 'collaborator', visible: true })}
-                        onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
-                        onCreate={() => { setCollaboratorToEdit(null); setShowAddCollaborator(true); }}
-                        onToggleStatus={(id) => {
-                            const col = collaborators.find(c => c.id === id);
-                            if (col) {
-                                const newStatus = col.status === 'Ativo' ? 'Inativo' : 'Ativo';
-                                simpleSaveWrapper(dataService.updateCollaborator, { status: newStatus }, id);
-                            }
-                        }}
-                        tooltipConfig={tooltipConfig}
-                    />
-                )}
+                    {activeTab === 'collaborators' && (
+                        <CollaboratorDashboard
+                            collaborators={collaborators}
+                            escolasDepartamentos={entidades}
+                            equipment={equipment}
+                            assignments={assignments}
+                            tickets={tickets}
+                            ticketActivities={ticketActivities}
+                            teamMembers={teamMembers}
+                            collaboratorHistory={collaboratorHistory}
+                            messages={messages}
+                            currentUser={currentUser}
+                            onEdit={(c) => { setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
+                            onDelete={(id) => handleDelete('Excluir Colaborador', 'Tem a certeza que deseja excluir este colaborador?', () => simpleSaveWrapper(dataService.deleteCollaborator, id))}
+                            onShowHistory={(c) => { setHistoryCollaborator(c); }}
+                            onShowDetails={(c) => { setDetailCollaborator(c); }}
+                            onGenerateReport={() => setShowReport({ type: 'collaborator', visible: true })}
+                            onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
+                            onCreate={() => { setCollaboratorToEdit(null); setShowAddCollaborator(true); }}
+                            onToggleStatus={(id) => {
+                                const col = collaborators.find(c => c.id === id);
+                                if (col) {
+                                    const newStatus = col.status === 'Ativo' ? 'Inativo' : 'Ativo';
+                                    simpleSaveWrapper(dataService.updateCollaborator, { status: newStatus }, id);
+                                }
+                            }}
+                            tooltipConfig={tooltipConfig}
+                        />
+                    )}
 
-                {activeTab === 'licensing' && (
-                    <LicenseDashboard
-                        licenses={softwareLicenses}
-                        licenseAssignments={licenseAssignments}
-                        equipmentData={equipment}
-                        assignments={assignments}
-                        collaborators={collaborators}
-                        brandMap={brandMap}
-                        equipmentTypeMap={equipmentTypeMap}
-                        initialFilter={initialFilter}
-                        onClearInitialFilter={() => setInitialFilter(null)}
-                        onEdit={(l) => { setLicenseToEdit(l); setShowAddLicense(true); }}
-                        onDelete={(id) => handleDelete('Excluir Licença', 'Tem a certeza que deseja excluir esta licença?', () => simpleSaveWrapper(dataService.deleteLicense, id))}
-                        onToggleStatus={(id) => {
-                            const lic = softwareLicenses.find(l => l.id === id);
-                            if (lic) {
-                                const newStatus = lic.status === 'Ativo' ? 'Inativo' : 'Ativo';
-                                simpleSaveWrapper(dataService.updateLicense, { status: newStatus }, id);
-                            }
-                        }}
-                        onGenerateReport={() => setShowReport({ type: 'licensing', visible: true })}
-                        businessServices={businessServices}
-                        serviceDependencies={serviceDependencies}
-                        onCreate={() => { setLicenseToEdit(null); setShowAddLicense(true); }}
-                    />
-                )}
+                    {activeTab === 'licensing' && (
+                        <LicenseDashboard
+                            licenses={softwareLicenses}
+                            licenseAssignments={licenseAssignments}
+                            equipmentData={equipment}
+                            assignments={assignments}
+                            collaborators={collaborators}
+                            brandMap={brandMap}
+                            equipmentTypeMap={equipmentTypeMap}
+                            initialFilter={initialFilter}
+                            onClearInitialFilter={() => setInitialFilter(null)}
+                            onEdit={(l) => { setLicenseToEdit(l); setShowAddLicense(true); }}
+                            onDelete={(id) => handleDelete('Excluir Licença', 'Tem a certeza que deseja excluir esta licença?', () => simpleSaveWrapper(dataService.deleteLicense, id))}
+                            onToggleStatus={(id) => {
+                                const lic = softwareLicenses.find(l => l.id === id);
+                                if (lic) {
+                                    const newStatus = lic.status === 'Ativo' ? 'Inativo' : 'Ativo';
+                                    simpleSaveWrapper(dataService.updateLicense, { status: newStatus }, id);
+                                }
+                            }}
+                            onGenerateReport={() => setShowReport({ type: 'licensing', visible: true })}
+                            businessServices={businessServices}
+                            serviceDependencies={serviceDependencies}
+                            onCreate={() => { setLicenseToEdit(null); setShowAddLicense(true); }}
+                        />
+                    )}
 
-                {activeTab === 'organizacao.teams' && (
-                    <TeamDashboard
-                        teams={teams}
-                        teamMembers={teamMembers}
-                        collaborators={collaborators}
-                        tickets={tickets}
-                        equipmentTypes={equipmentTypes}
-                        onEdit={(t) => { setTeamToEdit(t); setShowAddTeam(true); }}
-                        onDelete={(id) => handleDelete('Excluir Equipa', 'Tem a certeza que deseja excluir esta equipa?', () => simpleSaveWrapper(dataService.deleteTeam, id))}
-                        onManageMembers={(t) => { setTeamToEdit(t); setShowManageTeamMembers(t); }}
-                        onCreate={() => { setTeamToEdit(null); setShowAddTeam(true); }}
-                        // Toggle Status Handler
-                        onToggleStatus={(id) => {
-                            const team = teams.find(t => t.id === id);
-                            if (team) {
-                                const newStatus = team.is_active !== false ? false : true;
-                                simpleSaveWrapper(dataService.updateTeam, { is_active: newStatus }, id);
-                            }
-                        }}
-                    />
-                )}
+                    {activeTab === 'organizacao.teams' && (
+                        <TeamDashboard
+                            teams={teams}
+                            teamMembers={teamMembers}
+                            collaborators={collaborators}
+                            tickets={tickets}
+                            equipmentTypes={equipmentTypes}
+                            onEdit={(t) => { setTeamToEdit(t); setShowAddTeam(true); }}
+                            onDelete={(id) => handleDelete('Excluir Equipa', 'Tem a certeza que deseja excluir esta equipa?', () => simpleSaveWrapper(dataService.deleteTeam, id))}
+                            onManageMembers={(t) => { setTeamToEdit(t); setShowManageTeamMembers(t); }}
+                            onCreate={() => { setTeamToEdit(null); setShowAddTeam(true); }}
+                            // Toggle Status Handler
+                            onToggleStatus={(id) => {
+                                const team = teams.find(t => t.id === id);
+                                if (team) {
+                                    const newStatus = team.is_active !== false ? false : true;
+                                    simpleSaveWrapper(dataService.updateTeam, { is_active: newStatus }, id);
+                                }
+                            }}
+                        />
+                    )}
 
-                {activeTab === 'organizacao.suppliers' && (
-                    <SupplierDashboard
-                        suppliers={suppliers}
-                        onEdit={(s) => { setSupplierToEdit(s); setShowAddSupplier(true); }}
-                        onDelete={(id) => handleDelete('Excluir Fornecedor', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteSupplier, id))}
-                        onCreate={() => { setSupplierToEdit(null); setShowAddSupplier(true); }}
-                        businessServices={businessServices}
-                        // Toggle Status Handler
-                        onToggleStatus={(id) => {
-                            const sup = suppliers.find(s => s.id === id);
-                            if (sup) {
-                                const newStatus = sup.is_active !== false ? false : true;
-                                simpleSaveWrapper(dataService.updateSupplier, { is_active: newStatus }, id);
-                            }
-                        }}
-                    />
-                )}
+                    {activeTab === 'organizacao.suppliers' && (
+                        <SupplierDashboard
+                            suppliers={suppliers}
+                            onEdit={(s) => { setSupplierToEdit(s); setShowAddSupplier(true); }}
+                            onDelete={(id) => handleDelete('Excluir Fornecedor', 'Tem a certeza? Esta ação não pode ser desfeita.', () => simpleSaveWrapper(dataService.deleteSupplier, id))}
+                            onCreate={() => { setSupplierToEdit(null); setShowAddSupplier(true); }}
+                            businessServices={businessServices}
+                            // Toggle Status Handler
+                            onToggleStatus={(id) => {
+                                const sup = suppliers.find(s => s.id === id);
+                                if (sup) {
+                                    const newStatus = sup.is_active !== false ? false : true;
+                                    simpleSaveWrapper(dataService.updateSupplier, { is_active: newStatus }, id);
+                                }
+                            }}
+                        />
+                    )}
 
-                {activeTab === 'tools.agenda' && (
-                    <AgendaDashboard />
-                )}
+                    {activeTab === 'tools.agenda' && (
+                        <AgendaDashboard />
+                    )}
 
-                {activeTab === 'tools.map' && (
-                    <MapDashboard 
-                        instituicoes={instituicoes}
-                        entidades={entidades}
-                        suppliers={suppliers}
-                    />
-                )}
+                    {activeTab === 'tools.map' && (
+                        <MapDashboard 
+                            instituicoes={instituicoes}
+                            entidades={entidades}
+                            suppliers={suppliers}
+                        />
+                    )}
 
-                {activeTab === 'nis2.bia' && (
-                    <ServiceDashboard
-                        services={businessServices}
-                        dependencies={serviceDependencies}
-                        collaborators={collaborators}
-                        onEdit={(s) => { setServiceToEdit(s); setShowAddService(true); }}
-                        onDelete={(id) => handleDelete('Excluir Serviço BIA', 'Tem a certeza? Isto removerá todas as dependências mapeadas.', () => simpleSaveWrapper(dataService.deleteBusinessService, id))}
-                        onManageDependencies={(s) => { setServiceToEdit(s); setShowServiceDependencies(s); }}
-                        onCreate={() => { setServiceToEdit(null); setShowAddService(true); }}
-                        onGenerateReport={() => setShowReport({ type: 'bia', visible: true })}
-                    />
-                )}
+                    {activeTab === 'nis2.bia' && (
+                        <ServiceDashboard
+                            services={businessServices}
+                            dependencies={serviceDependencies}
+                            collaborators={collaborators}
+                            onEdit={(s) => { setServiceToEdit(s); setShowAddService(true); }}
+                            onDelete={(id) => handleDelete('Excluir Serviço BIA', 'Tem a certeza? Isto removerá todas as dependências mapeadas.', () => simpleSaveWrapper(dataService.deleteBusinessService, id))}
+                            onManageDependencies={(s) => { setServiceToEdit(s); setShowServiceDependencies(s); }}
+                            onCreate={() => { setServiceToEdit(null); setShowAddService(true); }}
+                            onGenerateReport={() => setShowReport({ type: 'bia', visible: true })}
+                        />
+                    )}
 
-                {activeTab === 'nis2.security' && (
-                    <VulnerabilityDashboard
-                        vulnerabilities={vulnerabilities}
-                        initialFilter={initialFilter}
-                        onClearInitialFilter={() => setInitialFilter(null)}
-                        onEdit={(v) => { setVulnerabilityToEdit(v); setShowAddVulnerability(true); }}
-                        onDelete={(id) => handleDelete('Excluir Vulnerabilidade', 'Tem a certeza que deseja excluir este registo?', () => simpleSaveWrapper(dataService.deleteVulnerability, id))}
-                        onCreate={() => { setVulnerabilityToEdit(null); setShowAddVulnerability(true); }}
-                        onCreateTicket={(vuln) => {
-                            // Prepare Ticket Data from Vuln
-                            setTicketToEdit(null);
-                            setVulnIdForTicketCreation(vuln.id);
-                            setInitialTicketData({
-                                title: `Resolução Vulnerabilidade: ${vuln.cve_id}`,
-                                description: `Vulnerabilidade Detetada: ${vuln.description}\n\nSoftware Afetado: ${vuln.affected_software}\n\nRemediação Recomendada: ${vuln.remediation || 'Ver detalhes CVE'}`,
-                                category: 'Incidente de Segurança',
-                                securityIncidentType: 'VulnerabilityExploit',
-                                impactCriticality: vuln.severity,
-                                status: 'Pedido',
-                                requestDate: new Date().toISOString()
-                            });
-                            setShowAddTicket(true);
-                        }}
-                    />
-                )}
-                
-                {activeTab === 'nis2.backups' && (
-                    <BackupDashboard
-                        backups={backupExecutions}
-                        collaborators={collaborators}
-                        equipment={equipment}
-                        onEdit={(b) => { setBackupToEdit(b); setShowAddBackup(true); }}
-                        onDelete={(id) => handleDelete('Excluir Teste de Backup', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBackupExecution, id))}
-                        onCreate={() => { setBackupToEdit(null); setShowAddBackup(true); }}
-                    />
-                )}
+                    {activeTab === 'nis2.security' && (
+                        <VulnerabilityDashboard
+                            vulnerabilities={vulnerabilities}
+                            initialFilter={initialFilter}
+                            onClearInitialFilter={() => setInitialFilter(null)}
+                            onEdit={(v) => { setVulnerabilityToEdit(v); setShowAddVulnerability(true); }}
+                            onDelete={(id) => handleDelete('Excluir Vulnerabilidade', 'Tem a certeza que deseja excluir este registo?', () => simpleSaveWrapper(dataService.deleteVulnerability, id))}
+                            onCreate={() => { setVulnerabilityToEdit(null); setShowAddVulnerability(true); }}
+                            onCreateTicket={(vuln) => {
+                                // Prepare Ticket Data from Vuln
+                                setTicketToEdit(null);
+                                setVulnIdForTicketCreation(vuln.id);
+                                setInitialTicketData({
+                                    title: `Resolução Vulnerabilidade: ${vuln.cve_id}`,
+                                    description: `Vulnerabilidade Detetada: ${vuln.description}\n\nSoftware Afetado: ${vuln.affected_software}\n\nRemediação Recomendada: ${vuln.remediation || 'Ver detalhes CVE'}`,
+                                    category: 'Incidente de Segurança',
+                                    securityIncidentType: 'VulnerabilityExploit',
+                                    impactCriticality: vuln.severity,
+                                    status: 'Pedido',
+                                    requestDate: new Date().toISOString()
+                                });
+                                setShowAddTicket(true);
+                            }}
+                        />
+                    )}
+                    
+                    {activeTab === 'nis2.backups' && (
+                        <BackupDashboard
+                            backups={backupExecutions}
+                            collaborators={collaborators}
+                            equipment={equipment}
+                            onEdit={(b) => { setBackupToEdit(b); setShowAddBackup(true); }}
+                            onDelete={(id) => handleDelete('Excluir Teste de Backup', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBackupExecution, id))}
+                            onCreate={() => { setBackupToEdit(null); setShowAddBackup(true); }}
+                        />
+                    )}
 
-                {activeTab === 'nis2.resilience' && (
-                    <ResilienceDashboard
-                        resilienceTests={resilienceTests}
-                        onCreate={() => { setResilienceTestToEdit(null); setShowAddResilienceTest(true); }}
-                        onEdit={(t) => { setResilienceTestToEdit(t); setShowAddResilienceTest(true); }}
-                        onDelete={(id) => handleDelete('Excluir Teste', 'Tem a certeza? Os relatórios associados serão perdidos.', () => simpleSaveWrapper(dataService.deleteResilienceTest, id))}
-                        onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
-                    />
-                )}
+                    {activeTab === 'nis2.resilience' && (
+                        <ResilienceDashboard
+                            resilienceTests={resilienceTests}
+                            onCreate={() => { setResilienceTestToEdit(null); setShowAddResilienceTest(true); }}
+                            onEdit={(t) => { setResilienceTestToEdit(t); setShowAddResilienceTest(true); }}
+                            onDelete={(id) => handleDelete('Excluir Teste', 'Tem a certeza? Os relatórios associados serão perdidos.', () => simpleSaveWrapper(dataService.deleteResilienceTest, id))}
+                            onCreateTicket={(t) => simpleSaveWrapper(dataService.addTicket, { ...t, entidadeId: entidades[0]?.id, collaboratorId: currentUser?.id } as Ticket)}
+                        />
+                    )}
+                </div>
+            </main>
+
                 
                 {importConfig && (
                     <ImportModal
@@ -1698,7 +1703,6 @@ const InnerApp: React.FC = () => {
                     <UserManualModal onClose={() => setShowUserManual(false)} />
                 )}
 
-            </main>
         </div>
     );
 };
