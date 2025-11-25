@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase } from 'react-icons/fa';
@@ -145,6 +147,7 @@ BEGIN
     -- Equipment Types
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresLocation" boolean DEFAULT false;
     END IF;
 
     -- Backup Executions
@@ -171,6 +174,7 @@ BEGIN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "acquisitionCost" numeric DEFAULT 0;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "expectedLifespanYears" integer DEFAULT 4;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS embedded_license_key text;
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "installationLocation" text;
     END IF;
 
     -- Software Licenses
@@ -270,7 +274,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.14</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.15</span>
                     </div>
                 </div>
 

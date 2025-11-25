@@ -1,8 +1,10 @@
 
+
+
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
 
@@ -149,9 +151,14 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
             <div className="space-y-6">
                  {/* Top Bar with Details and Edit Button */}
                  <div className="bg-gray-900/50 p-3 rounded-lg text-sm flex justify-between items-center border border-gray-700">
-                    <div className="grid grid-cols-2 gap-x-4">
+                    <div className="grid grid-cols-3 gap-x-4 text-gray-300">
                         <p><span className="font-semibold text-on-surface-dark-secondary">Nº Inventário:</span> {equipment.inventoryNumber || 'N/A'}</p>
                         <p><span className="font-semibold text-on-surface-dark-secondary">Nº Fatura:</span> {equipment.invoiceNumber || 'N/A'}</p>
+                        {equipment.installationLocation && (
+                            <p className="flex items-center gap-1 text-brand-secondary font-semibold">
+                                <FaMapMarkerAlt /> {equipment.installationLocation}
+                            </p>
+                        )}
                     </div>
                     {onEdit && (
                         <button 

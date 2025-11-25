@@ -167,6 +167,7 @@ export interface EquipmentType {
   requiresInventoryNumber?: boolean;
   default_team_id?: string;
   requiresBackupTest?: boolean; // New field for Backup linkage
+  requiresLocation?: boolean; // New field for Physical Location
 }
 
 export interface Equipment {
@@ -180,6 +181,7 @@ export interface Equipment {
   nomeNaRede?: string;
   macAddressWIFI?: string;
   macAddressCabo?: string;
+  installationLocation?: string; // New field: Local de Instalação (Physical)
   purchaseDate: string;
   warrantyEndDate?: string;
   creationDate: string;

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -185,7 +187,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         supplier_id: '',
         acquisitionCost: 0,
         expectedLifespanYears: 4,
-        embedded_license_key: ''
+        embedded_license_key: '',
+        installationLocation: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -231,7 +234,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 supplier_id: equipmentToEdit.supplier_id || '',
                 acquisitionCost: equipmentToEdit.acquisitionCost || 0,
                 expectedLifespanYears: equipmentToEdit.expectedLifespanYears || 4,
-                embedded_license_key: equipmentToEdit.embedded_license_key || ''
+                embedded_license_key: equipmentToEdit.embedded_license_key || '',
+                installationLocation: equipmentToEdit.installationLocation || ''
             });
 
             // Load associated licenses
@@ -278,7 +282,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 supplier_id: initialData?.supplier_id || '',
                 acquisitionCost: initialData?.acquisitionCost || 0,
                 expectedLifespanYears: initialData?.expectedLifespanYears || 4,
-                embedded_license_key: initialData?.embedded_license_key || ''
+                embedded_license_key: initialData?.embedded_license_key || '',
+                installationLocation: initialData?.installationLocation || ''
             });
             if ((initialData as any)?.entidadeId) setAssignToEntityId((initialData as any).entidadeId);
         }
@@ -348,6 +353,13 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         if (!formData.typeId) newErrors.typeId = "O tipo é obrigatório.";
         if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
         if (!formData.purchaseDate) newErrors.purchaseDate = "A data de compra é obrigatória.";
+        
+        // Dynamic validation based on type
+        const type = equipmentTypes.find(t => t.id === formData.typeId);
+        if (type?.requiresLocation && !formData.installationLocation?.trim()) {
+            newErrors.installationLocation = "O local de instalação é obrigatório para este tipo de equipamento.";
+        }
+
         const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
         if (formData.macAddressWIFI && !macRegex.test(formData.macAddressWIFI)) {
             newErrors.macAddressWIFI = "Formato de endereço MAC inválido.";
@@ -361,7 +373,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    }, [formData]);
+    }, [formData, equipmentTypes]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -465,7 +477,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             supplier_id: formData.supplier_id || undefined,
             acquisitionCost: formData.acquisitionCost || 0,
             expectedLifespanYears: formData.expectedLifespanYears || 4,
-            embedded_license_key: formData.embedded_license_key || undefined
+            embedded_license_key: formData.embedded_license_key || undefined,
+            installationLocation: formData.installationLocation || undefined
         };
 
         // Prepare auxiliary data
@@ -619,6 +632,22 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         </div>
                     )}
                 </div>
+
+                {selectedType?.requiresLocation && (
+                    <div>
+                        <label htmlFor="installationLocation" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Local de Instalação (Físico)</label>
+                        <input 
+                            type="text" 
+                            name="installationLocation" 
+                            id="installationLocation" 
+                            value={formData.installationLocation} 
+                            onChange={handleChange} 
+                            placeholder="Ex: Sala 204, Rack 3"
+                            className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.installationLocation ? 'border-red-500' : 'border-gray-600'}`} 
+                        />
+                        {errors.installationLocation && <p className="text-red-400 text-xs italic mt-1">{errors.installationLocation}</p>}
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {selectedType?.requiresInventoryNumber && (
