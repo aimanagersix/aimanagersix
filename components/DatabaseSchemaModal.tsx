@@ -297,7 +297,9 @@ UPDATE collaborators
 SET role = 'Admin', "entidadeId" = NULL, status = 'Ativo'
 WHERE email = 'josefsmoreira@outlook.com';
 
--- 2. Apagar Dados Operacionais (Ordem correta devido a Foreign Keys)
+-- 2. Apagar Dados Operacionais e Dependências (Ordem Crítica)
+DELETE FROM service_dependencies; -- Remove ligações BIA
+DELETE FROM business_services; -- Remove serviços BIA
 DELETE FROM ticket_activities;
 DELETE FROM tickets;
 DELETE FROM vulnerabilities;
@@ -310,6 +312,7 @@ DELETE FROM messages;
 DELETE FROM audit_logs;
 DELETE FROM resource_contacts;
 DELETE FROM team_members;
+DELETE FROM software_licenses;
 
 -- 3. Apagar Ativos
 DELETE FROM equipment;
@@ -321,7 +324,7 @@ DELETE FROM entidades;
 DELETE FROM instituicoes;
 DELETE FROM suppliers;
 
--- Nota: Mantém-se Marcas, Tipos, Licenças (Definições), Categorias e Configurações Gerais.
+-- Nota: Mantém-se Marcas, Tipos, Categorias e Configurações Gerais.
 
 COMMIT;
 `;
@@ -400,7 +403,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.23</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.24</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

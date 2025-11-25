@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -228,6 +229,18 @@ export const addMultipleEquipment = async (items: any[]) => {
     await logAction('CREATE', 'equipment', `Created ${items.length} equipment items`);
     return data;
 };
+export const deleteEquipment = async (id: string) => {
+    const supabase = getSupabase();
+    // Manually clean up dependencies to prevent FK errors (if no cascade)
+    await supabase.from('service_dependencies').delete().eq('equipment_id', id);
+    await supabase.from('license_assignments').delete().eq('equipmentId', id);
+    await supabase.from('assignments').delete().eq('equipmentId', id);
+    await supabase.from('backup_executions').delete().eq('equipment_id', id);
+    // Note: Tickets usually stay to preserve history, or update FK to null.
+    // If hard constraint, you may need to delete tickets or update them here.
+    
+    return remove('equipment', id);
+};
 
 // Brands & Types
 export const addBrand = (data: any) => create('brands', data);
@@ -296,7 +309,12 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
 // Licenses
 export const addLicense = (data: any) => create('software_licenses', data);
 export const updateLicense = (id: string, data: any) => update('software_licenses', id, data);
-export const deleteLicense = (id: string) => remove('software_licenses', id);
+export const deleteLicense = async (id: string) => {
+    const supabase = getSupabase();
+    await supabase.from('service_dependencies').delete().eq('software_license_id', id);
+    await supabase.from('license_assignments').delete().eq('softwareLicenseId', id);
+    return remove('software_licenses', id);
+};
 
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
@@ -431,7 +449,11 @@ export const deleteSupplier = (id: string) => remove('suppliers', id);
 // Business Services (BIA)
 export const addBusinessService = (data: any) => create('business_services', data);
 export const updateBusinessService = (id: string, data: any) => update('business_services', id, data);
-export const deleteBusinessService = (id: string) => remove('business_services', id);
+export const deleteBusinessService = async (id: string) => {
+    const supabase = getSupabase();
+    await supabase.from('service_dependencies').delete().eq('service_id', id);
+    return remove('business_services', id);
+};
 export const addServiceDependency = (data: any) => create('service_dependencies', data);
 export const deleteServiceDependency = (_ignored: null, id: string) => remove('service_dependencies', id);
 
