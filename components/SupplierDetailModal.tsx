@@ -1,10 +1,12 @@
 
 
 
+
+
 import React from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
-import { FaShieldAlt, FaPhone, FaEnvelope, FaGlobe, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaCertificate, FaDownload, FaFileContract, FaDoorOpen, FaPrint } from './common/Icons';
+import { FaShieldAlt, FaPhone, FaEnvelope, FaGlobe, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaCertificate, FaDownload, FaFileContract, FaDoorOpen, FaPrint, FaUserTie } from './common/Icons';
 
 interface SupplierDetailModalProps {
     supplier: Supplier;
@@ -37,6 +39,15 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
             </tr>
         `).join('');
 
+        const extraContactsRows = (supplier.contacts || []).map(c => `
+            <tr>
+                <td>${c.name} (${c.title || '-'})</td>
+                <td>${c.role || '-'}</td>
+                <td>${c.email || '-'}</td>
+                <td>${c.phone || '-'}</td>
+            </tr>
+        `).join('');
+
         printWindow.document.write(`
             <html>
             <head>
@@ -47,8 +58,8 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                     .section { margin-bottom: 20px; }
                     .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
                     .value { font-size: 16px; margin-bottom: 5px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
                     th { background-color: #f2f2f2; }
                 </style>
             </head>
@@ -61,7 +72,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                     <div class="value">${supplier.website || '-'}</div>
                 </div>
                 <div class="section">
-                    <h3>Contactos</h3>
+                    <h3>Contactos Gerais</h3>
                     <div class="label">Nome</div>
                     <div class="value">${supplier.contact_name || '-'}</div>
                     <div class="label">Email</div>
@@ -69,6 +80,20 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                     <div class="label">Telefone</div>
                     <div class="value">${supplier.contact_phone || '-'}</div>
                 </div>
+                
+                ${(supplier.contacts && supplier.contacts.length > 0) ? `
+                <div class="section">
+                    <h3>Pessoas de Contacto</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Nome</th><th>Função</th><th>Email</th><th>Telefone</th></tr>
+                        </thead>
+                        <tbody>
+                            ${extraContactsRows}
+                        </tbody>
+                    </table>
+                </div>` : ''}
+
                 <div class="section">
                     <h3>Compliance & Risco</h3>
                     <div class="value">Nível de Risco: ${supplier.risk_level}</div>
@@ -162,7 +187,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                     </div>
 
                     <div className="bg-surface-dark border border-gray-700 p-4 rounded-lg">
-                        <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-3">Contactos Comerciais</h3>
+                        <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-3">Contactos Gerais</h3>
                         <div className="space-y-2 text-sm">
                             <p className="text-white font-semibold">{supplier.contact_name || 'Geral'}</p>
                             <div className="flex items-center gap-2 text-gray-300">
@@ -184,6 +209,31 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                         </div>
                     </div>
                 </div>
+                
+                {/* Additional Contacts List */}
+                {supplier.contacts && supplier.contacts.length > 0 && (
+                    <div className="bg-surface-dark border border-gray-700 p-4 rounded-lg">
+                        <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-3 flex items-center gap-2">
+                            <FaUserTie /> Pessoas de Contacto ({supplier.contacts.length})
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                            {supplier.contacts.map(contact => (
+                                <div key={contact.id} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold text-white text-sm">
+                                            {contact.title ? `${contact.title} ` : ''}{contact.name}
+                                        </p>
+                                        <p className="text-xs text-brand-secondary mb-1">{contact.role}</p>
+                                        <div className="text-xs text-gray-400 space-y-0.5">
+                                            {contact.email && <div className="flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {contact.email}</div>}
+                                            {contact.phone && <div className="flex items-center gap-1"><FaPhone className="h-3 w-3"/> {contact.phone}</div>}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Contracts Section (DORA) */}
                 {supplier.contracts && supplier.contracts.length > 0 && (
@@ -193,10 +243,10 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                         </h3>
                         <div className="grid grid-cols-1 gap-3">
                             {supplier.contracts.map((contract, idx) => (
-                                <div key={idx} className="bg-surface-dark p-3 rounded border border-gray-700">
+                                <div key={idx} className="bg-surface-dark p-3 rounded border border-gray-700 relative group">
                                     <div className="flex justify-between items-start mb-2">
                                         <div>
-                                            <span className="text-white font-bold text-sm">{contract.ref_number}</span>
+                                            <span className="text-brand-secondary font-bold text-sm">{contract.ref_number}</span>
                                             <span className="text-gray-400 text-xs ml-2">- {contract.description}</span>
                                         </div>
                                         <span className={`text-[10px] px-2 py-0.5 rounded ${contract.is_active ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'}`}>
@@ -210,7 +260,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                                         <div><span className="block text-[10px] uppercase">Serviços</span> {contract.supported_service_ids?.length || 0}</div>
                                     </div>
                                     {contract.exit_strategy && (
-                                        <div className="text-xs bg-gray-800 p-2 rounded text-gray-300 mt-2 border-l-2 border-red-500">
+                                        <div className="text-xs bg-gray-900 p-2 rounded text-gray-300 italic border-l-2 border-red-500">
                                             <div className="flex items-center gap-1 font-bold text-red-400 mb-1">
                                                 <FaDoorOpen /> Estratégia de Saída:
                                             </div>

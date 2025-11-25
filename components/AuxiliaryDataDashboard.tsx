@@ -7,6 +7,8 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
@@ -512,6 +514,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                     <label className="flex items-center space-x-2 cursor-pointer">
                                         <input type="checkbox" checked={!!tooltipConfig.showWarranty} onChange={() => toggleTooltipField('showWarranty')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
                                         <span className="text-sm text-gray-300">Data Fim Garantia</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={!!tooltipConfig.showLocation} onChange={() => toggleTooltipField('showLocation')} className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" />
+                                        <span className="text-sm text-gray-300">Localização Física</span>
                                     </label>
                                 </div>
                             </div>

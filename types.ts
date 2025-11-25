@@ -16,6 +16,7 @@ export interface TooltipConfig {
     showBrand: boolean;
     showIpAddress: boolean; // Future use
     showWarranty: boolean;
+    showLocation: boolean; // New: Physical Location
     
     // Collaborator Tooltips
     showCollabName: boolean;
@@ -34,6 +35,7 @@ export const defaultTooltipConfig: TooltipConfig = {
     showBrand: false,
     showIpAddress: false,
     showWarranty: false,
+    showLocation: false,
 
     // Collaborator Defaults
     showCollabName: true,
