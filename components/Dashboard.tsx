@@ -1,15 +1,12 @@
 
-
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
-import EquipmentHistoryModal from './EquipmentHistoryModal';
+import EquipmentDetailModal from './EquipmentDetailModal';
+import * as dataService from '../services/dataService';
 
 
 interface EquipmentDashboardProps {
@@ -28,7 +25,7 @@ interface EquipmentDashboardProps {
   onAssignMultiple?: (equipment: Equipment[]) => void;
   onUnassign?: (equipmentId: string) => void;
   onUpdateStatus?: (id: string, status: EquipmentStatus) => void;
-  onShowHistory: (equipment: Equipment) => void;
+  onShowHistory: (equipment: Equipment) => void; // Kept for compatibility but redirects to detail
   onEdit?: (equipment: Equipment) => void;
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
@@ -55,16 +52,6 @@ interface TooltipState {
 
 type SortableKeys = keyof Equipment | 'brand' | 'type' | 'assignedTo';
 
-const getStatusClass = (status: EquipmentStatus) => {
-    switch (status) {
-        case EquipmentStatus.Operational: return 'bg-green-500/20 text-green-400 border-green-500/30';
-        case EquipmentStatus.Stock: return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-        case EquipmentStatus.Warranty: return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-        case EquipmentStatus.Decommissioned: return 'bg-red-500/20 text-red-400 border-red-500/30';
-        default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    }
-};
-
 const getCriticalityClass = (level?: CriticalityLevel) => {
     switch (level) {
         case CriticalityLevel.Critical: return 'bg-red-600 text-white border-red-700';
@@ -72,6 +59,16 @@ const getCriticalityClass = (level?: CriticalityLevel) => {
         case CriticalityLevel.Medium: return 'bg-yellow-600 text-white border-yellow-700';
         case CriticalityLevel.Low: return 'bg-gray-600 text-white border-gray-700';
         default: return 'bg-gray-700 text-gray-300 border-gray-600';
+    }
+};
+
+const getStatusClass = (status: string) => {
+    switch (status) {
+        case 'Operacional': return 'bg-green-500/20 text-green-400 border-green-500/30';
+        case 'Stock': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+        case 'Garantia': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+        case 'Abate': return 'bg-red-500/20 text-red-400 border-red-500/30';
+        default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
 };
 
@@ -120,7 +117,7 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
-    businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig
+    businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -128,6 +125,22 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
+    
+    // Dynamic Status Colors
+    const [statusColors, setStatusColors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        const loadColors = async () => {
+            const data = await dataService.fetchAllData();
+            const colors: Record<string, string> = {};
+            data.configEquipmentStatuses.forEach((s: ConfigItem) => {
+                if (s.color) colors[s.name] = s.color;
+            });
+            setStatusColors(colors);
+        };
+        loadColors();
+    }, []);
     
     useEffect(() => {
         if (initialFilter) {
@@ -462,6 +475,12 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 const isAssigned = assignedEquipmentIds.has(item.id);
                 const isSelectable = item.status === EquipmentStatus.Stock;
                 const linkedServiceCriticality = equipmentCriticalityMap.get(item.id);
+                
+                // Apply custom color for status if available
+                const customColor = statusColors[item.status];
+                const statusStyle = customColor 
+                    ? { backgroundColor: `${customColor}33`, color: customColor, borderColor: `${customColor}66` } 
+                    : undefined;
 
                 return (
               <tr 
@@ -470,7 +489,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={() => onShowHistory(item)} 
+                onClick={() => setDetailEquipment(item)} 
               >
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input
@@ -507,7 +526,8 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                   <select
                     value={item.status}
                     onChange={(e) => handleStatusChange(item, e.target.value as EquipmentStatus)}
-                    className={`px-2 py-1 rounded-md text-xs border bg-transparent ${getStatusClass(item.status)} focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70`}
+                    className={`px-2 py-1 rounded-md text-xs border bg-transparent focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70 ${!customColor ? getStatusClass(item.status) : ''}`}
+                    style={statusStyle}
                     disabled={!onUpdateStatus}
                   >
                     {Object.values(EquipmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
@@ -524,7 +544,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                 <AssignIcon />
                             </button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); onShowHistory(item); }} className="text-gray-400 hover:text-white" title="Histórico e Impacto">
+                        <button onClick={(e) => { e.stopPropagation(); setDetailEquipment(item); }} className="text-gray-400 hover:text-white" title="Detalhes e Histórico">
                             <FaHistory />
                         </button>
                         {onManageKeys && (
@@ -571,6 +591,26 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             onItemsPerPageChange={handleItemsPerPageChange}
             totalItems={filteredEquipment.length}
         />
+
+        {detailEquipment && (
+            <EquipmentDetailModal
+                equipment={detailEquipment}
+                assignments={assignments}
+                collaborators={collaborators}
+                escolasDepartamentos={entidades}
+                tickets={tickets}
+                ticketActivities={ticketActivities}
+                onClose={() => setDetailEquipment(null)}
+                onEdit={(eq) => { setDetailEquipment(null); onEdit && onEdit(eq); }}
+                // Pass everything else
+                businessServices={businessServices}
+                serviceDependencies={serviceDependencies}
+                softwareLicenses={softwareLicenses}
+                licenseAssignments={licenseAssignments}
+                vulnerabilities={vulnerabilities}
+                suppliers={suppliers}
+            />
+        )}
     </div>
   );
 };

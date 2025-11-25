@@ -1,12 +1,15 @@
 
 
 
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaWindows, FaUserTag, FaKey, FaHistory, FaUserCheck } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaWindows, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic } from 'react-icons/fa';
+import * as dataService from '../services/dataService';
 
 interface AddEquipmentModalProps {
     onClose: () => void;
@@ -392,6 +395,33 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         setFormData(prev => ({ ...prev, warrantyEndDate: warrantyEnd }));
     };
     
+    const handleGenerateName = async () => {
+        const prefix = await dataService.getGlobalSetting('equipment_naming_prefix') || 'PC-';
+        const digitsStr = await dataService.getGlobalSetting('equipment_naming_digits') || '4';
+        const digits = parseInt(digitsStr);
+        
+        // Fetch all equipment to find max
+        const allEq = await dataService.fetchAllData();
+        const equipmentList = allEq.equipment;
+        
+        let maxNum = 0;
+        const regex = new RegExp(`^${prefix}(\\d{${digits}})$`);
+        
+        equipmentList.forEach((eq: Equipment) => {
+            if (eq.nomeNaRede) {
+                const match = eq.nomeNaRede.match(regex);
+                if (match && match[1]) {
+                    const num = parseInt(match[1], 10);
+                    if (num > maxNum) maxNum = num;
+                }
+            }
+        });
+        
+        const nextNum = maxNum + 1;
+        const nextName = `${prefix}${String(nextNum).padStart(digits, '0')}`;
+        setFormData(prev => ({ ...prev, nomeNaRede: nextName }));
+    };
+    
     const handleFetchInfo = useCallback(async (serial: string) => {
         if (!serial) {
             alert("Por favor, forneça um número de série.");
@@ -628,7 +658,17 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     {selectedType?.requiresNomeNaRede && (
                         <div>
                             <label htmlFor="nomeNaRede" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome na Rede (Opcional)</label>
-                            <input type="text" name="nomeNaRede" id="nomeNaRede" value={formData.nomeNaRede} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                            <div className="flex">
+                                <input type="text" name="nomeNaRede" id="nomeNaRede" value={formData.nomeNaRede} onChange={handleChange} className="flex-grow bg-gray-700 border border-gray-600 text-white rounded-l-md p-2" />
+                                <button 
+                                    type="button" 
+                                    onClick={handleGenerateName} 
+                                    className="bg-gray-600 hover:bg-gray-500 px-3 rounded-r-md border border-gray-600 text-white flex items-center justify-center"
+                                    title="Gerar Nome Automaticamente (Configurável em Automação)"
+                                >
+                                    <FaMagic />
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

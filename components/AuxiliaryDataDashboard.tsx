@@ -9,10 +9,12 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Import existing dashboards for complex views
@@ -98,6 +100,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     
     // Generic Editor State
     const [newItemName, setNewItemName] = useState('');
+    const [newItemColor, setNewItemColor] = useState('#3b82f6'); // Default Blue
     const [editingItem, setEditingItem] = useState<ConfigItem | null>(null);
     const [error, setError] = useState('');
 
@@ -106,6 +109,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [scanStartTime, setScanStartTime] = useState('02:00');
     const [lastScanDate, setLastScanDate] = useState('-');
     const [logoUrl, setLogoUrl] = useState('');
+    
+    // Naming Convention State
+    const [equipPrefix, setEquipPrefix] = useState('PC-');
+    const [equipDigits, setEquipDigits] = useState('4');
     
     // New Scan Configs
     const [scanIncludeEol, setScanIncludeEol] = useState(true);
@@ -171,6 +178,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 const custom = await dataService.getGlobalSetting('scan_custom_prompt');
                 const nistKey = await dataService.getGlobalSetting('nist_api_key');
                 
+                // Naming Configs
+                const prefix = await dataService.getGlobalSetting('equipment_naming_prefix');
+                const digits = await dataService.getGlobalSetting('equipment_naming_digits');
+                
                 if (freq) setScanFrequency(freq);
                 if (start) setScanStartTime(start);
                 if (last) setLastScanDate(new Date(last).toLocaleString());
@@ -180,6 +191,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 if (years) setScanLookbackYears(parseInt(years));
                 if (custom) setScanCustomPrompt(custom);
                 if (nistKey) setNistApiKey(nistKey);
+                
+                if (prefix) setEquipPrefix(prefix);
+                if (digits) setEquipDigits(digits);
 
             } else if (selectedMenuId === 'interface') {
                 const tooltipSetting = await dataService.getGlobalSetting('tooltip_config');
@@ -204,6 +218,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         await dataService.updateGlobalSetting('scan_lookback_years', String(scanLookbackYears));
         await dataService.updateGlobalSetting('scan_custom_prompt', scanCustomPrompt);
         await dataService.updateGlobalSetting('nist_api_key', nistApiKey);
+        
+        await dataService.updateGlobalSetting('equipment_naming_prefix', equipPrefix);
+        await dataService.updateGlobalSetting('equipment_naming_digits', equipDigits);
 
         alert("Configuração guardada.");
     };
@@ -231,6 +248,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
     const currentSelection = getCurrentSelection();
     const currentTableConfig = currentSelection.targetTable ? configTables.find(t => t.tableName === currentSelection.targetTable) : null;
+    
+    // Should show color picker? Only for statuses
+    const showColorPicker = currentSelection.targetTable === 'config_equipment_statuses';
 
     // Helper to check if item is in use
     const checkUsage = (tableName: string, item: ConfigItem): boolean => {
@@ -287,8 +307,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             return;
         }
         try {
-            await dataService.addConfigItem(currentTableConfig.tableName, { name: newItemName.trim() });
+            const payload: any = { name: newItemName.trim() };
+            if (showColorPicker) payload.color = newItemColor;
+
+            await dataService.addConfigItem(currentTableConfig.tableName, payload);
             setNewItemName('');
+            setNewItemColor('#3b82f6'); // Reset to default blue
             setError('');
             onRefresh();
         } catch (e: any) {
@@ -302,7 +326,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
         if (!editingItem || !editingItem.name.trim()) return;
         try {
-            await dataService.updateConfigItem(currentTableConfig.tableName, editingItem.id, { name: editingItem.name.trim() });
+            const payload: any = { name: editingItem.name.trim() };
+            if (showColorPicker && editingItem.color) payload.color = editingItem.color;
+
+            await dataService.updateConfigItem(currentTableConfig.tableName, editingItem.id, payload);
             setEditingItem(null);
             setError('');
             onRefresh();
@@ -369,7 +396,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                             Gerir: {currentSelection.label}
                         </h2>
                         
-                        <div className="mb-4 flex gap-2">
+                        <div className="mb-4 flex gap-2 items-center">
                             <input
                                 type="text"
                                 value={newItemName}
@@ -379,6 +406,19 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 onKeyDown={(e) => e.key === 'Enter' && handleGenericAdd()}
                                 autoFocus
                             />
+                            {showColorPicker && (
+                                <div className="flex items-center gap-2 bg-gray-800 p-1.5 rounded border border-gray-600">
+                                    <label htmlFor="newColor" className="text-xs text-gray-400"><FaPalette /></label>
+                                    <input 
+                                        type="color" 
+                                        id="newColor"
+                                        value={newItemColor} 
+                                        onChange={(e) => setNewItemColor(e.target.value)}
+                                        className="bg-transparent border-none w-6 h-6 p-0 cursor-pointer"
+                                        title="Cor do Estado"
+                                    />
+                                </div>
+                            )}
                             <button onClick={handleGenericAdd} className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-brand-secondary flex items-center gap-2">
                                 <PlusIcon className="h-4 w-4" /> Adicionar
                             </button>
@@ -391,6 +431,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 <thead className="bg-gray-900 text-gray-400 uppercase text-xs sticky top-0">
                                     <tr>
                                         <th className="px-4 py-3">Nome</th>
+                                        {showColorPicker && <th className="px-4 py-3 text-center">Cor</th>}
                                         <th className="px-4 py-3 text-right">Ações</th>
                                     </tr>
                                 </thead>
@@ -412,9 +453,27 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                                                 onKeyDown={(e) => e.key === 'Enter' && handleGenericUpdate()}
                                                             />
                                                         ) : (
-                                                            <span className="text-white">{item.name}</span>
+                                                            <span className="text-white font-medium">{item.name}</span>
                                                         )}
                                                     </td>
+                                                    {showColorPicker && (
+                                                        <td className="px-4 py-3 text-center">
+                                                            {editingItem?.id === item.id ? (
+                                                                <input 
+                                                                    type="color" 
+                                                                    value={editingItem.color || '#3b82f6'} 
+                                                                    onChange={(e) => setEditingItem({...editingItem, color: e.target.value})}
+                                                                    className="bg-transparent border-none w-6 h-6 p-0 cursor-pointer"
+                                                                />
+                                                            ) : (
+                                                                <span 
+                                                                    className="inline-block w-4 h-4 rounded-full border border-gray-500" 
+                                                                    style={{ backgroundColor: item.color || 'transparent' }}
+                                                                    title={item.color}
+                                                                ></span>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                     <td className="px-4 py-3 text-right">
                                                         {editingItem?.id === item.id ? (
                                                             <div className="flex justify-end gap-2">
@@ -440,7 +499,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan={2} className="p-4 text-center text-gray-500 italic">Nenhum item registado.</td>
+                                            <td colSpan={showColorPicker ? 3 : 2} className="p-4 text-center text-gray-500 italic">Nenhum item registado.</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -582,6 +641,40 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                         className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">O URL deve ser acessível publicamente ou na rede local.</p>
+                                </div>
+                            </div>
+                            
+                            {/* Network Naming Convention */}
+                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaKeyboard className="text-green-400"/> Nomenclatura de Rede</h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Defina o formato automático para o campo "Nome na Rede". O sistema sugerirá o próximo número disponível.
+                                </p>
+                                <div className="flex gap-4 items-end">
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Prefixo</label>
+                                        <input 
+                                            type="text" 
+                                            value={equipPrefix}
+                                            onChange={(e) => setEquipPrefix(e.target.value)}
+                                            placeholder="Ex: ADM"
+                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Dígitos</label>
+                                        <input 
+                                            type="number" 
+                                            value={equipDigits}
+                                            onChange={(e) => setEquipDigits(e.target.value)}
+                                            min="1"
+                                            max="10"
+                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-20"
+                                        />
+                                    </div>
+                                    <div className="mb-2 text-sm text-gray-300">
+                                        Exemplo Gerado: <strong>{equipPrefix}{'0'.repeat(Math.max(0, parseInt(equipDigits) - 1))}1</strong>
+                                    </div>
                                 </div>
                             </div>
 

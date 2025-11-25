@@ -109,6 +109,11 @@ DO $$
 DECLARE
     t text;
 BEGIN 
+    -- Config Status (Color)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'config_equipment_statuses') THEN
+        ALTER TABLE config_equipment_statuses ADD COLUMN IF NOT EXISTS color text;
+    END IF;
+
     -- Vulnerabilities (Auto Ticket Link)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'vulnerabilities') THEN
         ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS ticket_id uuid;
@@ -267,7 +272,7 @@ END $$;
                             <span>Instruções de Atualização</span>
                         </div>
                         <p className="mb-2">
-                            Este script cria todas as tabelas necessárias, incluindo as colunas de estado (is_active), localização e websites.
+                            Este script cria todas as tabelas necessárias e adiciona colunas como <strong>Cor dos Estados</strong>.
                         </p>
                         <ol className="list-decimal list-inside space-y-1 ml-2">
                             <li>Clique em <strong>Copiar SQL</strong>.</li>
@@ -278,7 +283,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.18</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.19</span>
                     </div>
                 </div>
 

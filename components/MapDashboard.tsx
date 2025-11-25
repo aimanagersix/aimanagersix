@@ -1,6 +1,8 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Instituicao, Entidade, Supplier } from '../types';
+import { Instituicao, Entidade, Supplier, Equipment, Assignment } from '../types';
 // @ts-ignore
 import L from 'leaflet';
 import { FaMapMarkedAlt, FaFilter, FaSpinner, FaSync } from 'react-icons/fa';
@@ -9,6 +11,8 @@ interface MapDashboardProps {
     instituicoes: Instituicao[];
     entidades: Entidade[];
     suppliers: Supplier[];
+    equipment?: Equipment[];
+    assignments?: Assignment[];
 }
 
 interface MapItem {
@@ -19,6 +23,7 @@ interface MapItem {
     city: string;
     postal_code: string;
     coordinates?: { lat: number; lng: number };
+    equipmentCount?: number; // New field
 }
 
 // Custom Icons
@@ -40,7 +45,7 @@ const icons = {
 // Cache for geocoding to avoid API abuse
 const geoCache: Record<string, { lat: number; lng: number } | null> = {};
 
-const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, suppliers }) => {
+const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, suppliers, equipment = [], assignments = [] }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<any>(null);
     const markersLayerRef = useRef<any>(null);
@@ -58,16 +63,49 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
     const allItems = useMemo(() => {
         const items: MapItem[] = [];
         
+        // Pre-calculate counts
+        const activeAssignments = assignments.filter(a => !a.returnDate);
+        const entityEquipmentCount: Record<string, number> = {};
+        
+        activeAssignments.forEach(a => {
+            if (a.entidadeId) {
+                entityEquipmentCount[a.entidadeId] = (entityEquipmentCount[a.entidadeId] || 0) + 1;
+            }
+        });
+
+        // For Institutions, sum up all child entities
+        const institutionEquipmentCount: Record<string, number> = {};
+        entidades.forEach(e => {
+            const count = entityEquipmentCount[e.id] || 0;
+            institutionEquipmentCount[e.instituicaoId] = (institutionEquipmentCount[e.instituicaoId] || 0) + count;
+        });
+        
         if (filters.showInstitutions) {
             instituicoes.forEach(i => {
                 const addr = [i.address_line || i.address, i.postal_code, i.city].filter(Boolean).join(', ');
-                if (addr) items.push({ id: i.id, type: 'Instituição', name: i.name, address: i.address_line || i.address || '', city: i.city || '', postal_code: i.postal_code || '' });
+                if (addr) items.push({ 
+                    id: i.id, 
+                    type: 'Instituição', 
+                    name: i.name, 
+                    address: i.address_line || i.address || '', 
+                    city: i.city || '', 
+                    postal_code: i.postal_code || '',
+                    equipmentCount: institutionEquipmentCount[i.id] || 0
+                });
             });
         }
         if (filters.showEntities) {
             entidades.forEach(e => {
                 const addr = [e.address_line || e.address, e.postal_code, e.city].filter(Boolean).join(', ');
-                if (addr) items.push({ id: e.id, type: 'Entidade', name: e.name, address: e.address_line || e.address || '', city: e.city || '', postal_code: e.postal_code || '' });
+                if (addr) items.push({ 
+                    id: e.id, 
+                    type: 'Entidade', 
+                    name: e.name, 
+                    address: e.address_line || e.address || '', 
+                    city: e.city || '', 
+                    postal_code: e.postal_code || '',
+                    equipmentCount: entityEquipmentCount[e.id] || 0
+                });
             });
         }
         if (filters.showSuppliers) {
@@ -77,7 +115,7 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
             });
         }
         return items;
-    }, [instituicoes, entidades, suppliers, filters]);
+    }, [instituicoes, entidades, suppliers, filters, assignments]);
 
     // 2. Geocoding Logic (Batch processing with delay)
     useEffect(() => {
@@ -150,6 +188,10 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
 
         processedItems.forEach(item => {
             if (item.coordinates) {
+                const equipmentInfo = item.type !== 'Fornecedor' 
+                    ? `<br/><span class="text-xs font-bold mt-1 block">Equipamentos: ${item.equipmentCount || 0}</span>` 
+                    : '';
+
                 const marker = L.marker([item.coordinates.lat, item.coordinates.lng], { icon: icons[item.type] })
                     .bindPopup(`
                         <div class="text-sm text-gray-800">
@@ -157,6 +199,7 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
                             <span class="text-xs uppercase font-bold text-gray-500">${item.type}</span><br/>
                             ${item.address}<br/>
                             ${item.postal_code} ${item.city}
+                            ${equipmentInfo}
                         </div>
                     `);
                 markersLayerRef.current?.addLayer(marker);

@@ -4,6 +4,7 @@
 export interface ConfigItem {
     id: string;
     name: string;
+    color?: string; // New: Hex Color code for Statuses
 }
 
 export interface TooltipConfig {
