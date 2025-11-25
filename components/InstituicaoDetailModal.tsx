@@ -17,7 +17,14 @@ interface InstituicaoDetailModalProps {
 
 const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity, onCreateCollaborator, onOpenEntity }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'collabs'>('info');
-    const relatedEntidades = entidades.filter(e => e.instituicaoId === instituicao.id);
+    
+    // Filter and Deduplicate Entities
+    const relatedEntidades = useMemo(() => {
+        const filtered = entidades.filter(e => e.instituicaoId === instituicao.id);
+        // Create a Map to ensure uniqueness by ID (fixes visual duplication after create)
+        const uniqueMap = new Map(filtered.map(e => [e.id, e]));
+        return Array.from(uniqueMap.values());
+    }, [entidades, instituicao.id]);
     
     // Filter collaborators belonging to entities of this institution
     const relatedCollaborators = useMemo(() => {
