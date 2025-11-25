@@ -1,11 +1,12 @@
 
-
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
     name: string;
     color?: string; // New: Hex Color code for Statuses
 }
+
+export type SoftwareCategory = ConfigItem; // Reuse ConfigItem as it fits (id, name)
 
 export interface TooltipConfig {
     // Equipment Tooltips
@@ -447,6 +448,8 @@ export interface SoftwareLicense {
   
   // OEM Logic
   is_oem?: boolean; // If true, totalSeats is dynamic/ignored
+  
+  category_id?: string; // Link to ConfigItem for Software Category
 }
 
 export interface LicenseAssignment {

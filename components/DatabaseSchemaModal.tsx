@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS config_service_statuses (id uuid DEFAULT uuid_generat
 CREATE TABLE IF NOT EXISTS config_backup_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS config_training_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS config_resilience_test_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS config_software_categories (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE); -- NEW v1.21
 CREATE TABLE IF NOT EXISTS contact_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS contact_titles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 
@@ -69,6 +70,15 @@ INSERT INTO config_training_types (name) VALUES ('Simulação Phishing'), ('Leit
 INSERT INTO config_resilience_test_types (name) VALUES ('Scan Vulnerabilidades'), ('Penetration Test (Pentest)'), ('TLPT (Red Teaming)'), ('Exercício de Mesa (DRP)'), ('Recuperação de Desastres (Full)') ON CONFLICT (name) DO NOTHING;
 INSERT INTO contact_roles (name) VALUES ('Técnico'), ('Comercial'), ('Financeiro'), ('Diretor'), ('Administrativo'), ('DPO/CISO') ON CONFLICT (name) DO NOTHING;
 INSERT INTO contact_titles (name) VALUES ('Sr.'), ('Sra.'), ('Dr.'), ('Dra.'), ('Eng.'), ('Eng.ª'), ('Arq.') ON CONFLICT (name) DO NOTHING;
+
+-- NEW Software Categories (v1.21)
+INSERT INTO config_software_categories (name) VALUES 
+('Sistema Operativo'), 
+('Segurança / Endpoint'), 
+('Produtividade'), 
+('Design & Multimédia'), 
+('Desenvolvimento') 
+ON CONFLICT (name) DO NOTHING;
 
 -- ==========================================
 -- 4. PERMISSÕES (RLS)
@@ -186,7 +196,7 @@ BEGIN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "installationLocation" text;
     END IF;
 
-    -- Software Licenses
+    -- Software Licenses (NEW Category column)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'software_licenses') THEN
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'Baixa';
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS confidentiality text DEFAULT 'Baixo';
@@ -195,6 +205,7 @@ BEGIN
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS supplier_id uuid;
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS "unitCost" numeric DEFAULT 0;
         ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS is_oem boolean DEFAULT false;
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS category_id uuid; -- NEW v1.21
     END IF;
 
     -- Business Services
@@ -278,7 +289,7 @@ END $$;
                             <span>Instruções de Atualização</span>
                         </div>
                         <p className="mb-2">
-                            Este script cria todas as tabelas necessárias e adiciona colunas como <strong>Cor dos Estados</strong> e <strong>Configuração de Nome de Rede</strong>.
+                            Este script cria todas as tabelas necessárias e adiciona colunas como <strong>Categorias de Software</strong> e <strong>Cores de Estado</strong>.
                         </p>
                         <ol className="list-decimal list-inside space-y-1 ml-2">
                             <li>Clique em <strong>Copiar SQL</strong>.</li>
@@ -289,7 +300,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.20</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.21</span>
                     </div>
                 </div>
 

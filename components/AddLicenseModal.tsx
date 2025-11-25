@@ -1,24 +1,18 @@
 
-
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating, Supplier } from '../types';
-import { FaShieldAlt, FaEuroSign } from 'react-icons/fa';
+import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating, Supplier, SoftwareCategory } from '../types';
+import { FaShieldAlt, FaEuroSign, FaTags } from 'react-icons/fa';
 
 interface AddLicenseModalProps {
     onClose: () => void;
     onSave: (license: Omit<SoftwareLicense, 'id'> | SoftwareLicense) => Promise<any>;
     licenseToEdit?: SoftwareLicense | null;
     suppliers?: Supplier[];
+    categories?: SoftwareCategory[]; // NEW
 }
 
-const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, licenseToEdit, suppliers = [] }) => {
+const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, licenseToEdit, suppliers = [], categories = [] }) => {
     const [formData, setFormData] = useState<Partial<SoftwareLicense>>({
         productName: '',
         licenseKey: '',
@@ -34,7 +28,8 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         availability: CIARating.Low,
         supplier_id: '',
         unitCost: 0,
-        is_oem: false
+        is_oem: false,
+        category_id: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -55,7 +50,8 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                 availability: licenseToEdit.availability || CIARating.Low,
                 supplier_id: licenseToEdit.supplier_id || '',
                 unitCost: licenseToEdit.unitCost || 0,
-                is_oem: licenseToEdit.is_oem || false
+                is_oem: licenseToEdit.is_oem || false,
+                category_id: licenseToEdit.category_id || ''
             });
         }
     }, [licenseToEdit]);
@@ -117,7 +113,8 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
             invoiceNumber: formData.invoiceNumber || undefined,
             supplier_id: formData.supplier_id || undefined,
             unitCost: formData.unitCost || 0,
-            is_oem: formData.is_oem || false
+            is_oem: formData.is_oem || false,
+            category_id: formData.category_id || undefined
         };
 
         if (licenseToEdit) {
@@ -142,6 +139,25 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                     <label htmlFor="licenseKey" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Chave de Licença / Identificador</label>
                     <input type="text" name="licenseKey" id="licenseKey" value={formData.licenseKey} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.licenseKey ? 'border-red-500' : 'border-gray-600'}`} />
                     {errors.licenseKey && <p className="text-red-400 text-xs italic mt-1">{errors.licenseKey}</p>}
+                </div>
+                
+                {/* Category Dropdown */}
+                <div>
+                    <label htmlFor="category_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-2">
+                        <FaTags className="text-gray-400"/> Categoria de Software
+                    </label>
+                    <select 
+                        name="category_id" 
+                        id="category_id" 
+                        value={formData.category_id} 
+                        onChange={handleChange} 
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                    >
+                        <option value="">-- Selecione --</option>
+                        {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
                 </div>
                 
                 {/* OEM Checkbox */}

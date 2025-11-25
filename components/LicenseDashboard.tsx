@@ -1,11 +1,12 @@
 
-
-
 import React, { useMemo, useState, useEffect } from 'react';
-import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
+import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency, SoftwareCategory } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon, PlusIcon } from './common/Icons';
-import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown, FaTags } from 'react-icons/fa';
 import Pagination from './common/Pagination';
+import AddLicenseModal from './AddLicenseModal'; // Import here to use locally if needed for passing props, though Dashboard usually doesn't render modal directly. Wait, App renders it. I just need to pass props to Dashboard? No, App renders Modal. LicenseDashboard renders table.
+// Correction: App.tsx renders AddLicenseModal. LicenseDashboard triggers it via onEdit/onCreate callbacks. 
+// But LicenseDashboard might want to display the category in the table.
 
 interface LicenseDashboardProps {
   licenses: SoftwareLicense[];
@@ -25,6 +26,7 @@ interface LicenseDashboardProps {
   // BIA Props
   businessServices?: BusinessService[];
   serviceDependencies?: ServiceDependency[];
+  softwareCategories?: SoftwareCategory[]; // NEW
 }
 
 const getStatusClass = (status?: LicenseStatus) => {
@@ -84,10 +86,11 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
     onToggleStatus,
     onCreate,
     businessServices,
-    serviceDependencies
+    serviceDependencies,
+    softwareCategories = []
 }) => {
     
-    const [filters, setFilters] = useState({ productName: '', licenseKey: '', status: '', invoiceNumber: '' });
+    const [filters, setFilters] = useState({ productName: '', licenseKey: '', status: '', invoiceNumber: '', categoryId: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [expandedLicenseId, setExpandedLicenseId] = useState<string | null>(null);
@@ -96,7 +99,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
 
     useEffect(() => {
         if (initialFilter) {
-            const blankFilters = { productName: '', licenseKey: '', status: '', invoiceNumber: '' };
+            const blankFilters = { productName: '', licenseKey: '', status: '', invoiceNumber: '', categoryId: '' };
             setFilters({ ...blankFilters, ...initialFilter });
         }
         setCurrentPage(1);
@@ -111,6 +114,8 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
     
     const equipmentMap = useMemo(() => new Map(equipmentData.map(e => [e.id, e])), [equipmentData]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const categoryMap = useMemo(() => new Map(softwareCategories.map(c => [c.id, c.name])), [softwareCategories]);
+
     const activeAssignmentsMap = useMemo(() => {
         const map = new Map<string, Assignment>();
         assignments.filter(a => !a.returnDate).forEach(a => map.set(a.equipmentId, a));
@@ -163,7 +168,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
     };
 
     const clearFilters = () => {
-        setFilters({ productName: '', licenseKey: '', status: '', invoiceNumber: '' });
+        setFilters({ productName: '', licenseKey: '', status: '', invoiceNumber: '', categoryId: '' });
         onClearInitialFilter?.();
         setCurrentPage(1);
     };
@@ -187,6 +192,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
             const nameMatch = filters.productName === '' || license.productName.toLowerCase().includes(filters.productName.toLowerCase());
             const keyMatch = filters.licenseKey === '' || license.licenseKey.toLowerCase().includes(filters.licenseKey.toLowerCase());
             const invoiceMatch = filters.invoiceNumber === '' || (license.invoiceNumber && license.invoiceNumber.toLowerCase().includes(filters.invoiceNumber.toLowerCase()));
+            const categoryMatch = filters.categoryId === '' || license.category_id === filters.categoryId;
 
             const statusMatch = (() => {
                 if (!filters.status) return true;
@@ -201,7 +207,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                 return true;
             })();
             
-            return nameMatch && keyMatch && invoiceMatch && statusMatch;
+            return nameMatch && keyMatch && invoiceMatch && statusMatch && categoryMatch;
         });
 
         if (sortConfig !== null) {
@@ -263,7 +269,12 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
             <div className="space-y-4 mb-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <input type="text" id="productNameFilter" name="productName" value={filters.productName} onChange={handleFilterChange} placeholder="Filtrar por Produto..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
-                    <input type="text" id="licenseKeyFilter" name="licenseKey" value={filters.licenseKey} onChange={handleFilterChange} placeholder="Filtrar por Chave..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
+                    <select name="categoryId" value={filters.categoryId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
+                        <option value="">Todas as Categorias</option>
+                        {softwareCategories.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
                     <input type="text" id="invoiceNumberFilter" name="invoiceNumber" value={filters.invoiceNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Fatura..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
                     <select id="statusFilter" name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
                         <option value="">Todos os Estados</option>
@@ -303,6 +314,7 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                             const assignedDetails = assignmentsByLicense.get(license.id) || [];
                             const isExpanded = expandedLicenseId === license.id;
                             const biaInfo = licenseCriticalityMap.get(license.id);
+                            const categoryName = categoryMap.get(license.category_id || '');
                             
                             // Logic to disable delete button
                             const isDeleteDisabled = usedSeats > 0;
@@ -321,15 +333,18 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                             )}
                                         </td>
                                         <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                {license.productName}
-                                                {license.is_oem && <span className="ml-2 text-[10px] bg-blue-900/30 text-blue-300 px-1 rounded border border-blue-500/30">OEM</span>}
-                                                {biaInfo && (
-                                                    <span className="flex h-2 w-2 relative ml-2" title={`Suporta serviço crítico: ${biaInfo.serviceName} (${biaInfo.level})`}>
-                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                                                    </span>
-                                                )}
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center">
+                                                    {license.productName}
+                                                    {license.is_oem && <span className="ml-2 text-[10px] bg-blue-900/30 text-blue-300 px-1 rounded border border-blue-500/30">OEM</span>}
+                                                    {biaInfo && (
+                                                        <span className="flex h-2 w-2 relative ml-2" title={`Suporta serviço crítico: ${biaInfo.serviceName} (${biaInfo.level})`}>
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {categoryName && <span className="text-xs text-brand-secondary flex items-center gap-1"><FaTags className="h-2 w-2"/> {categoryName}</span>}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 font-mono">{license.licenseKey}</td>

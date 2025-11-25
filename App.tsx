@@ -4,7 +4,7 @@ import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
   TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest, SecurityTrainingRecord,
-  ConfigItem, ContactRole, ContactTitle, TooltipConfig, defaultTooltipConfig
+  ConfigItem, ContactRole, ContactTitle, TooltipConfig, defaultTooltipConfig, SoftwareCategory
 } from './types';
 import * as dataService from './services/dataService';
 import Header from './components/Header';
@@ -145,6 +145,7 @@ const InnerApp: React.FC = () => {
     const [configBackupTypes, setConfigBackupTypes] = useState<ConfigItem[]>([]);
     const [configTrainingTypes, setConfigTrainingTypes] = useState<ConfigItem[]>([]);
     const [configResilienceTestTypes, setConfigResilienceTestTypes] = useState<ConfigItem[]>([]);
+    const [softwareCategories, setSoftwareCategories] = useState<SoftwareCategory[]>([]); // NEW
     const [contactRoles, setContactRoles] = useState<ContactRole[]>([]);
     const [contactTitles, setContactTitles] = useState<ContactTitle[]>([]);
     
@@ -274,6 +275,7 @@ const InnerApp: React.FC = () => {
             setConfigBackupTypes(data.configBackupTypes);
             setConfigTrainingTypes(data.configTrainingTypes);
             setConfigResilienceTestTypes(data.configResilienceTestTypes);
+            setSoftwareCategories(data.configSoftwareCategories); // NEW
             setContactRoles(data.contactRoles);
             setContactTitles(data.contactTitles);
             
@@ -375,6 +377,7 @@ const InnerApp: React.FC = () => {
                  setConfigBackupTypes(data.configBackupTypes);
                  setConfigTrainingTypes(data.configTrainingTypes);
                  setConfigResilienceTestTypes(data.configResilienceTestTypes);
+                 setSoftwareCategories(data.configSoftwareCategories); // NEW
                  setContactRoles(data.contactRoles);
                  setContactTitles(data.contactTitles);
              } else {
@@ -824,6 +827,7 @@ const InnerApp: React.FC = () => {
                                 { tableName: 'config_backup_types', label: 'Tipos de Backup', data: configBackupTypes },
                                 { tableName: 'config_training_types', label: 'Tipos de Formação', data: configTrainingTypes },
                                 { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: configResilienceTestTypes },
+                                { tableName: 'config_software_categories', label: 'Categorias de Software', data: softwareCategories }, // NEW
                                 { tableName: 'contact_roles', label: 'Funções de Contacto', data: contactRoles },
                                 { tableName: 'contact_titles', label: 'Tratos (Honoríficos)', data: contactTitles }
                             ]}
@@ -1060,6 +1064,7 @@ const InnerApp: React.FC = () => {
                             businessServices={businessServices}
                             serviceDependencies={serviceDependencies}
                             onCreate={() => { setLicenseToEdit(null); setShowAddLicense(true); }}
+                            softwareCategories={softwareCategories} // NEW
                         />
                     )}
 
@@ -1312,6 +1317,7 @@ const InnerApp: React.FC = () => {
                     onSave={dataService.addLicense} // or update
                     licenseToEdit={licenseToEdit}
                     suppliers={suppliers}
+                    categories={softwareCategories} // NEW
                 />
             )}
 

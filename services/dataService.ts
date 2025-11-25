@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -28,7 +22,7 @@ export const fetchAllData = async () => {
         // Configuration Tables
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
-        configTrainingTypes, configResilienceTestTypes
+        configTrainingTypes, configResilienceTestTypes, configSoftwareCategories
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -66,7 +60,8 @@ export const fetchAllData = async () => {
         supabase.from('config_service_statuses').select('*'),
         supabase.from('config_backup_types').select('*'),
         supabase.from('config_training_types').select('*'),
-        supabase.from('config_resilience_test_types').select('*')
+        supabase.from('config_resilience_test_types').select('*'),
+        supabase.from('config_software_categories').select('*')
     ]);
 
     // Helper to attach contacts
@@ -113,7 +108,8 @@ export const fetchAllData = async () => {
         configServiceStatuses: configServiceStatuses.data || [],
         configBackupTypes: configBackupTypes.data || [],
         configTrainingTypes: configTrainingTypes.data || [],
-        configResilienceTestTypes: configResilienceTestTypes.data || []
+        configResilienceTestTypes: configResilienceTestTypes.data || [],
+        configSoftwareCategories: configSoftwareCategories.data || []
     };
 };
 
