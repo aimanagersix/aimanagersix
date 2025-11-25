@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
+import { FaGlobe } from 'react-icons/fa';
 
 const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -56,6 +57,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [successMessage, setSuccessMessage] = useState('');
+    const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
 
     // Use dynamic options if available
     const roles = roleOptions && roleOptions.length > 0 ? roleOptions.map(r => r.name) : Object.values(UserRole);
@@ -70,8 +72,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 city: collaboratorToEdit.city || '',
                 locality: collaboratorToEdit.locality || '',
                 nif: collaboratorToEdit.nif || '',
-                title: collaboratorToEdit.title || ''
+                title: collaboratorToEdit.title || '',
+                entidadeId: collaboratorToEdit.entidadeId || ''
             });
+            setIsGlobalAdmin(!collaboratorToEdit.entidadeId);
         } else {
              setFormData(prev => ({
                  ...prev,
@@ -99,6 +103,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                  newErrors.nif = "O NIF deve ter 9 dígitos.";
              }
         }
+        
+        if (!isGlobalAdmin && !formData.entidadeId) {
+            newErrors.entidadeId = "A entidade é obrigatória.";
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -118,6 +126,16 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             });
         }
     };
+    
+    const handleGlobalAdminToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        setIsGlobalAdmin(checked);
+        if (checked) {
+            setFormData(prev => ({ ...prev, entidadeId: '' }));
+        } else {
+            setFormData(prev => ({ ...prev, entidadeId: escolasDepartamentos[0]?.id || '' }));
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -130,7 +148,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         const dataToSave: any = { 
             ...formData, 
             address,
-            numeroMecanografico: formData.numeroMecanografico || 'N/A' 
+            numeroMecanografico: formData.numeroMecanografico || 'N/A',
+            entidadeId: isGlobalAdmin ? null : formData.entidadeId
         };
 
         try {
@@ -154,6 +173,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     };
 
     const modalTitle = collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador";
+    const isAdminRole = formData.role === 'Admin';
 
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-2xl">
@@ -202,13 +222,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     </div>
                 </div>
 
-                <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Entidade / Departamento</label>
-                    <select name="entidadeId" value={formData.entidadeId} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                        {escolasDepartamentos.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Perfil de Acesso</label>
@@ -224,6 +237,40 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         </select>
                     </div>
                 </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Entidade / Departamento</label>
+                    <select 
+                        name="entidadeId" 
+                        value={formData.entidadeId} 
+                        onChange={handleChange} 
+                        className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.entidadeId ? 'border-red-500' : 'border-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                        disabled={isGlobalAdmin}
+                    >
+                        <option value="" disabled>Selecione...</option>
+                        {escolasDepartamentos.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                    {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
+                </div>
+
+                {isAdminRole && (
+                    <div className="bg-purple-900/20 p-3 rounded border border-purple-500/30 flex items-center">
+                         <label className="flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={isGlobalAdmin} 
+                                onChange={handleGlobalAdminToggle} 
+                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-purple-500 focus:ring-purple-500" 
+                            />
+                            <span className="ml-2 text-sm font-bold text-purple-300 flex items-center gap-2">
+                                <FaGlobe /> Acesso Global (Super Admin)
+                            </span>
+                        </label>
+                        <p className="text-xs text-gray-400 ml-auto pl-4">
+                            Permite ver todas as instituições sem restrição de entidade.
+                        </p>
+                    </div>
+                )}
 
                 <div className="flex items-center gap-4 pt-2">
                     <label className="flex items-center cursor-pointer">

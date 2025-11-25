@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -483,9 +482,9 @@ export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade'
     await supabase.from('resource_contacts').delete().eq('resource_id', resourceId).eq('resource_type', resourceType);
     
     if (contacts.length > 0) {
-        const inserts = contacts.map(c => ({
-            resource_type: resourceType,
+        const contactsWithId = contacts.map((c: any) => ({
             resource_id: resourceId,
+            resource_type: resourceType,
             title: c.title,
             name: c.name,
             role: c.role,
@@ -493,40 +492,47 @@ export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade'
             phone: c.phone,
             is_active: c.is_active !== false
         }));
-        await supabase.from('resource_contacts').insert(inserts);
+        await supabase.from('resource_contacts').insert(contactsWithId);
     }
 };
 
-export const addResourceContact = (data: any) => create('resource_contacts', data);
-export const deleteResourceContact = (id: string) => remove('resource_contacts', id);
-
 // --- Global Settings ---
+
 export const getGlobalSetting = async (key: string): Promise<string | null> => {
     const supabase = getSupabase();
-    const { data, error } = await supabase
-        .from('global_settings')
-        .select('setting_value')
-        .eq('setting_key', key)
-        .single();
-    
-    if (error) return null;
-    return data?.setting_value;
+    try {
+        const { data, error } = await supabase
+            .from('global_settings')
+            .select('setting_value')
+            .eq('setting_key', key)
+            .single();
+        
+        if (error) {
+            if (error.code !== 'PGRST116') console.warn(`Error fetching setting ${key}:`, error);
+            return null;
+        }
+        return data?.setting_value || null;
+    } catch (e) {
+        return null;
+    }
 };
 
 export const updateGlobalSetting = async (key: string, value: string) => {
     const supabase = getSupabase();
+    const { error } = await supabase.from('global_settings').upsert({ 
+        setting_key: key, 
+        setting_value: value,
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'setting_key' });
     
-    // Check if exists
-    const { data } = await supabase.from('global_settings').select('id').eq('setting_key', key).single();
-    
-    if (data) {
-        await supabase.from('global_settings').update({ setting_value: value }).eq('setting_key', key);
-    } else {
-        await supabase.from('global_settings').insert({ setting_key: key, setting_value: value });
+    if (error) {
+        console.error(`Error updating setting ${key}:`, error);
+        throw error;
     }
 };
 
-// --- Generic Config CRUD ---
-export const addConfigItem = (table: string, data: any) => create(table, data);
-export const updateConfigItem = (table: string, id: string, data: any) => update(table, id, data);
-export const deleteConfigItem = (table: string, id: string) => remove(table, id);
+// --- Generic Config Items ---
+
+export const addConfigItem = (tableName: string, data: any) => create(tableName, data);
+export const updateConfigItem = (tableName: string, id: string, data: any) => update(tableName, id, data);
+export const deleteConfigItem = (tableName: string, id: string) => remove(tableName, id);

@@ -281,7 +281,7 @@ export interface Collaborator {
   numeroMecanografico: string;
   title?: string; // Trato
   fullName: string;
-  entidadeId: string;
+  entidadeId: string; // Can be null for Super Admin (Global)
   email: string;
   nif?: string;
   telefoneInterno?: string;

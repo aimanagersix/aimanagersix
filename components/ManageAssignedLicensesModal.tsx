@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, LicenseAssignment } from '../types';
@@ -53,6 +51,8 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
     }, [assignedLicenseIds, allLicenses]);
 
     const isOS = (license: SoftwareLicense) => {
+        // Check category first (if available), then fallback to name heuristic
+        // Note: Category ID checking would require fetching categories, for now we rely on name heuristic or if "Sistema Operativo" string is present
         const name = license.productName.toLowerCase();
         return name.includes('windows') || name.includes('macos') || name.includes('linux') || name.includes('ubuntu') || license.is_oem;
     };

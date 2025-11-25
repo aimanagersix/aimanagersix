@@ -119,9 +119,19 @@ DO $$
 DECLARE
     t text;
 BEGIN 
-    -- Config Status (Color) - NEW v1.19
+    -- Config Status (Color)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'config_equipment_statuses') THEN
         ALTER TABLE config_equipment_statuses ADD COLUMN IF NOT EXISTS color text;
+    END IF;
+    
+    -- Collaborators (Allow NULL EntidadeId for Super Admin)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'collaborators') THEN
+         ALTER TABLE collaborators ALTER COLUMN "entidadeId" DROP NOT NULL;
+    END IF;
+
+    -- Software Licenses (Category)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'software_licenses') THEN
+        ALTER TABLE software_licenses ADD COLUMN IF NOT EXISTS category_id uuid;
     END IF;
     
     -- Add default naming configs if not exists
@@ -300,7 +310,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.21</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.22</span>
                     </div>
                 </div>
 

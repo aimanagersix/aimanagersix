@@ -1,18 +1,10 @@
 
-
-
-
-
-
-
-
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaWindows, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 interface AddEquipmentModalProps {
@@ -189,8 +181,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         confidentiality: CIARating.Low,
         integrity: CIARating.Low,
         availability: CIARating.Low,
-        os_version: '',
-        last_security_update: '',
+        // Removed OS fields from initial state to avoid confusion, they are handled by detail/scanning
         supplier_id: '',
         acquisitionCost: 0,
         expectedLifespanYears: 4,
@@ -232,6 +223,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 confidentiality: equipmentToEdit.confidentiality || CIARating.Low,
                 integrity: equipmentToEdit.integrity || CIARating.Low,
                 availability: equipmentToEdit.availability || CIARating.Low,
+                // Preserve these but hidden from UI
                 os_version: equipmentToEdit.os_version || '',
                 last_security_update: equipmentToEdit.last_security_update || '',
                 supplier_id: equipmentToEdit.supplier_id || '',
@@ -258,8 +250,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 confidentiality: (initialData?.confidentiality as CIARating) || CIARating.Low,
                 integrity: (initialData?.integrity as CIARating) || CIARating.Low,
                 availability: (initialData?.availability as CIARating) || CIARating.Low,
-                os_version: initialData?.os_version || '',
-                last_security_update: initialData?.last_security_update || '',
                 supplier_id: initialData?.supplier_id || '',
                 acquisitionCost: initialData?.acquisitionCost || 0,
                 expectedLifespanYears: initialData?.expectedLifespanYears || 4,
@@ -462,13 +452,14 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             macAddressWIFI: formData.macAddressWIFI || undefined,
             macAddressCabo: formData.macAddressCabo || undefined,
             warrantyEndDate: formData.warrantyEndDate || undefined,
-            os_version: formData.os_version || undefined,
-            last_security_update: formData.last_security_update || undefined,
             supplier_id: formData.supplier_id || undefined,
             acquisitionCost: formData.acquisitionCost || 0,
             expectedLifespanYears: formData.expectedLifespanYears || 4,
             embedded_license_key: formData.embedded_license_key || undefined,
-            installationLocation: formData.installationLocation || undefined
+            installationLocation: formData.installationLocation || undefined,
+            // Maintain existing hidden fields if editing
+            os_version: equipmentToEdit ? equipmentToEdit.os_version : undefined,
+            last_security_update: equipmentToEdit ? equipmentToEdit.last_security_update : undefined,
         };
 
         // Prepare auxiliary data
@@ -480,9 +471,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 assignedDate: new Date().toISOString().split('T')[0]
             };
         }
-
-        // NOTE: License assignment is removed from this modal logic and moved to ManageLicensesModal only.
-        // We pass undefined for licenses to onSave to avoid overwriting.
 
         if (equipmentToEdit && equipmentToEdit.id) {
             onSave({ ...equipmentToEdit, ...dataToSubmit }, assignment, undefined);
