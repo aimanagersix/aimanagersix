@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -171,8 +173,8 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ 
     onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, 
-    suppliers = [], softwareLicenses = [], entidades = [], collaborators = [], 
-    statusOptions, criticalityOptions, ciaOptions, initialData, licenseAssignments = [],
+    suppliers = [], entidades = [], collaborators = [], 
+    statusOptions, criticalityOptions, ciaOptions, initialData,
     onOpenHistory, onManageLicenses, onOpenAssign
 }) => {
     // Use dynamic options if available, else fallback to enum values
@@ -208,10 +210,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const [assignToEntityId, setAssignToEntityId] = useState('');
     const [assignToCollaboratorId, setAssignToCollaboratorId] = useState('');
     
-    // --- New License Logic ---
-    const [selectedLicenseIds, setSelectedLicenseIds] = useState<Set<string>>(new Set());
-    const [selectedOemLicenseId, setSelectedOemLicenseId] = useState('');
-
     const aiConfigured = isAiConfigured();
 
     useEffect(() => {
@@ -242,28 +240,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 embedded_license_key: equipmentToEdit.embedded_license_key || '',
                 installationLocation: equipmentToEdit.installationLocation || ''
             });
-
-            // Load associated licenses
-            if (softwareLicenses.length > 0 && licenseAssignments.length > 0) {
-                const relevantAssignments = licenseAssignments.filter(la => la.equipmentId === equipmentToEdit.id);
-                const licenseIds = new Set<string>();
-                let oemId = '';
-
-                relevantAssignments.forEach(la => {
-                    const lic = softwareLicenses.find(l => l.id === la.softwareLicenseId);
-                    if (lic) {
-                        if (lic.is_oem && !oemId) {
-                            oemId = lic.id; // Set as OEM (first one found)
-                        } else {
-                            licenseIds.add(lic.id); // Set as additional
-                        }
-                    }
-                });
-
-                setSelectedLicenseIds(licenseIds);
-                setSelectedOemLicenseId(oemId);
-            }
-
         } else {
             setFormData({
                 brandId: initialData?.brandId || brands[0]?.id || '',
@@ -292,7 +268,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             });
             if ((initialData as any)?.entidadeId) setAssignToEntityId((initialData as any).entidadeId);
         }
-    }, [equipmentToEdit, brands, equipmentTypes, initialData, softwareLicenses, licenseAssignments]);
+    }, [equipmentToEdit, brands, equipmentTypes, initialData]);
 
     // Auto-fill description based on brand and type for new equipment
     useEffect(() => {
@@ -341,15 +317,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         return collaborators.filter(c => c.entidadeId === assignToEntityId && c.status === CollaboratorStatus.Ativo);
     }, [assignToEntityId, collaborators]);
 
-    // Filter OEM Licenses
-    const oemLicenses = useMemo(() => {
-        return softwareLicenses.filter(l => l.is_oem);
-    }, [softwareLicenses]);
-
-    // Filter Other Licenses
-    const availableVolumeLicenses = useMemo(() => {
-        return softwareLicenses.filter(l => !l.is_oem && !selectedLicenseIds.has(l.id));
-    }, [softwareLicenses, selectedLicenseIds]);
 
     const validate = useCallback(() => {
         const newErrors: Record<string, string> = {};
@@ -483,15 +450,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         setIsAddingType(false);
     };
 
-    const handleToggleLicense = (licenseId: string) => {
-        setSelectedLicenseIds(prev => {
-            const next = new Set(prev);
-            if (next.has(licenseId)) next.delete(licenseId);
-            else next.add(licenseId);
-            return next;
-        });
-    };
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
@@ -523,15 +481,13 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             };
         }
 
-        const licenses = Array.from(selectedLicenseIds);
-        if (selectedOemLicenseId) licenses.push(selectedOemLicenseId);
+        // NOTE: License assignment is removed from this modal logic and moved to ManageLicensesModal only.
+        // We pass undefined for licenses to onSave to avoid overwriting.
 
         if (equipmentToEdit && equipmentToEdit.id) {
-            // Edit mode might need different handling for assignments/licenses if simplified here
-            // For now, just update main equipment data
-            onSave({ ...equipmentToEdit, ...dataToSubmit }, assignment, licenses);
+            onSave({ ...equipmentToEdit, ...dataToSubmit }, assignment, undefined);
         } else {
-            onSave(dataToSubmit as Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>, assignment, licenses);
+            onSave(dataToSubmit as Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>, assignment, undefined);
         }
         onClose();
     };
@@ -804,80 +760,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm disabled:bg-gray-800 disabled:cursor-not-allowed"
                                     disabled={!assignToEntityId}
                                 >
-                                    <option value="">-- Atribuir à Localização --</option>
+                                    <option value="">-- Atribuir apenas à Localização --</option>
                                     {filteredCollaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- NEW: SOFTWARE & OS SECTION --- */}
-                {isComputingDevice && (
-                    <div className="border-t border-gray-600 pt-4 mt-4">
-                        <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
-                            <FaWindows className="text-blue-400" />
-                            Software & Sistema Operativo
-                        </h3>
-                        
-                        <div className="bg-gray-800/50 p-3 rounded border border-gray-600 space-y-4">
-                            {/* OEM License Selection */}
-                            <div>
-                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Sistema Operativo (Licença OEM/Volume)</label>
-                                <div className="flex gap-2 items-center">
-                                    <select 
-                                        value={selectedOemLicenseId} 
-                                        onChange={(e) => setSelectedOemLicenseId(e.target.value)} 
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
-                                    >
-                                        <option value="">-- Selecione Sistema Operativo --</option>
-                                        {oemLicenses.map(l => (
-                                            <option key={l.id} value={l.id}>{l.productName} ({l.licenseKey})</option>
-                                        ))}
-                                    </select>
-                                    {selectedOemLicenseId && (
-                                        <button type="button" onClick={() => setSelectedOemLicenseId('')} className="text-red-400 hover:text-red-300 p-2" title="Limpar seleção">
-                                            <XIcon className="h-4 w-4"/>
-                                        </button>
-                                    )}
-                                </div>
-                                {selectedOemLicenseId && (
-                                    <div className="mt-2">
-                                        <label htmlFor="embedded_license_key" className="block text-[10px] font-medium text-gray-400 mb-1">Chave Específica deste PC (BIOS/Autocolante) - Opcional</label>
-                                        <input 
-                                            type="text" 
-                                            name="embedded_license_key" 
-                                            value={formData.embedded_license_key} 
-                                            onChange={handleChange} 
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-1.5 text-xs font-mono" 
-                                            placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Additional Licenses */}
-                            <div>
-                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Software Adicional (Office, Adobe, etc.)</label>
-                                <div className="flex flex-wrap gap-2 mb-2">
-                                    {Array.from(selectedLicenseIds).map(id => {
-                                        const lic = softwareLicenses.find(l => l.id === id);
-                                        return lic ? (
-                                            <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-900/30 text-blue-200 border border-blue-500/30">
-                                                <FaKey className="h-3 w-3"/> {lic.productName}
-                                                <button type="button" onClick={() => handleToggleLicense(id)} className="ml-1 hover:text-white"><XIcon className="h-3 w-3"/></button>
-                                            </span>
-                                        ) : null;
-                                    })}
-                                </div>
-                                <select 
-                                    onChange={(e) => { if (e.target.value) handleToggleLicense(e.target.value); e.target.value = ''; }} 
-                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
-                                >
-                                    <option value="">+ Adicionar Licença...</option>
-                                    {availableVolumeLicenses.map(l => (
-                                        <option key={l.id} value={l.id}>{l.productName} ({l.totalSeats} vagas)</option>
-                                    ))}
                                 </select>
                             </div>
                         </div>

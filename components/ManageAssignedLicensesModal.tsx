@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, LicenseAssignment } from '../types';
@@ -20,15 +22,19 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
     const [successMessage, setSuccessMessage] = useState('');
 
     useEffect(() => {
+        // Filter assignments that are ACTIVE (returnDate is null)
         const initialIds = allAssignments
-            .filter(a => a.equipmentId === equipment.id)
+            .filter(a => a.equipmentId === equipment.id && !a.returnDate)
             .map(a => a.softwareLicenseId);
         setAssignedLicenseIds(new Set(initialIds));
     }, [allAssignments, equipment.id]);
 
     const usedSeatsMap = useMemo(() => {
         return allAssignments.reduce((acc, assignment) => {
-            acc.set(assignment.softwareLicenseId, (acc.get(assignment.softwareLicenseId) || 0) + 1);
+            // Only count active assignments for seat usage
+            if (!assignment.returnDate) {
+                acc.set(assignment.softwareLicenseId, (acc.get(assignment.softwareLicenseId) || 0) + 1);
+            }
             return acc;
         }, new Map<string, number>());
     }, [allAssignments]);
@@ -46,29 +52,23 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         return Array.from(assignedLicenseIds).map(id => allLicenses.find(l => l.id === id)).filter(Boolean) as SoftwareLicense[];
     }, [assignedLicenseIds, allLicenses]);
 
+    const isOS = (license: SoftwareLicense) => {
+        const name = license.productName.toLowerCase();
+        return name.includes('windows') || name.includes('macos') || name.includes('linux') || name.includes('ubuntu') || license.is_oem;
+    };
+
     const handleAddLicense = () => {
         if (!selectedLicenseToAdd) return;
         
         const licenseToAdd = allLicenses.find(l => l.id === selectedLicenseToAdd);
-        
-        // Simple heuristic for OS detection: check for "Windows" or "macOS" in product name
-        const isOS = licenseToAdd && (
-            licenseToAdd.productName.toLowerCase().includes('windows') || 
-            licenseToAdd.productName.toLowerCase().includes('macos') ||
-            licenseToAdd.is_oem
-        );
+        if (!licenseToAdd) return;
 
-        if (isOS) {
-            const existingOS = assignedLicensesDetails.find(l => 
-                l.productName.toLowerCase().includes('windows') || 
-                l.productName.toLowerCase().includes('macos') ||
-                l.is_oem
-            );
-
+        // Check if trying to add an OS when one already exists
+        if (isOS(licenseToAdd)) {
+            const existingOS = assignedLicensesDetails.find(l => isOS(l));
             if (existingOS) {
-                if (!confirm(`Este equipamento já tem uma licença de sistema associada: "${existingOS.productName}".\n\nDeseja adicionar outra? Normalmente deve desassociar a antiga primeiro.`)) {
-                    return;
-                }
+                alert(`Não é possível adicionar "${licenseToAdd.productName}".\n\nEste equipamento já possui uma licença de Sistema Operativo ativa: "${existingOS.productName}".\n\nPara alterar o SO, remova a licença atual primeiro.`);
+                return;
             }
         }
 
@@ -106,20 +106,23 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         <Modal title={`Gerir Licenças para ${equipment.description}`} onClose={onClose} maxWidth="max-w-4xl">
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                    <h3 className="text-lg font-semibold text-white mb-2">Licenças Atribuídas</h3>
+                    <h3 className="text-lg font-semibold text-white mb-2">Licenças Atribuídas (Ativas)</h3>
                     <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                         {assignedLicensesDetails.length > 0 ? (
                             assignedLicensesDetails.map(license => (
                                 <div key={license.id} className="flex items-center gap-2 p-2 bg-gray-900/50 rounded-md">
                                     <div className="flex-1">
-                                        <p className="font-semibold text-on-surface-dark">{license.productName}</p>
+                                        <p className="font-semibold text-on-surface-dark">
+                                            {license.productName}
+                                            {isOS(license) && <span className="ml-2 text-[10px] bg-blue-900 text-blue-200 px-1 rounded border border-blue-500">SO</span>}
+                                        </p>
                                         <p className="text-sm text-on-surface-dark-secondary font-mono tracking-wider">{license.licenseKey}</p>
                                     </div>
                                     <button
                                         type="button"
                                         onClick={() => handleRemoveLicense(license.id)}
                                         className="p-2 text-red-400 hover:text-red-300 rounded-full hover:bg-red-500/10"
-                                        title="Remover Licença"
+                                        title="Remover Licença (Move para Histórico)"
                                         disabled={isSaving}
                                     >
                                         <DeleteIcon />
@@ -127,7 +130,7 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                                 </div>
                             ))
                         ) : (
-                            <p className="text-center py-4 text-on-surface-dark-secondary">Nenhuma licença atribuída a este equipamento.</p>
+                            <p className="text-center py-4 text-on-surface-dark-secondary">Nenhuma licença ativa atribuída a este equipamento.</p>
                         )}
                     </div>
                 </div>
@@ -146,7 +149,9 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                             >
                                 <option value="">Selecione uma licença...</option>
                                 {availableLicenses.map(l => (
-                                    <option key={l.id} value={l.id}>{l.productName} ({l.licenseKey})</option>
+                                    <option key={l.id} value={l.id}>
+                                        {l.productName} {l.is_oem ? '(OEM)' : `(${l.licenseKey})`}
+                                    </option>
                                 ))}
                             </select>
                          </div>

@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
@@ -60,9 +62,27 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
             .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     }, [tickets, equipment.id]);
 
-    const installedSoftware = useMemo(() => {
-        const assigned = licenseAssignments.filter(la => la.equipmentId === equipment.id);
-        return assigned.map(la => softwareLicenses.find(l => l.id === la.softwareLicenseId)).filter(Boolean) as SoftwareLicense[];
+    // Split licenses into Active and History
+    const { activeLicenses, historyLicenses } = useMemo(() => {
+        const allAssignments = licenseAssignments.filter(la => la.equipmentId === equipment.id);
+        const active: { license: SoftwareLicense, assignedDate: string }[] = [];
+        const history: { license: SoftwareLicense, assignedDate: string, returnDate: string }[] = [];
+
+        allAssignments.forEach(la => {
+            const lic = softwareLicenses.find(l => l.id === la.softwareLicenseId);
+            if (lic) {
+                if (!la.returnDate) {
+                    active.push({ license: lic, assignedDate: la.assignedDate });
+                } else {
+                    history.push({ license: lic, assignedDate: la.assignedDate, returnDate: la.returnDate });
+                }
+            }
+        });
+        
+        // Sort history by return date descending
+        history.sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime());
+
+        return { activeLicenses: active, historyLicenses: history };
     }, [licenseAssignments, softwareLicenses, equipment.id]);
 
     const equipmentSupplier = useMemo(() => {
@@ -232,41 +252,74 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                     )}
 
                     {activeTab === 'licenses' && (
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2"><FaKey className="text-yellow-500"/> Software Instalado</h3>
-                                <button 
-                                    onClick={() => setShowManageLicenses(true)}
-                                    className="text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded flex items-center gap-2"
-                                >
-                                    <FaPlus/> Adicionar / Remover Licença
-                                </button>
-                            </div>
-                            
-                            {installedSoftware.length > 0 ? (
-                                <div className="space-y-2">
-                                    {installedSoftware.map(sw => (
-                                        <div key={sw.id} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-bold text-white text-sm">{sw.productName}</p>
-                                                <p className="text-xs text-gray-400 font-mono">{sw.licenseKey}</p>
+                        <div className="space-y-6">
+                            {/* Active Licenses Section */}
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-sm font-bold text-white flex items-center gap-2"><FaKey className="text-yellow-500"/> Software Instalado (Ativo)</h3>
+                                    <button 
+                                        onClick={() => setShowManageLicenses(true)}
+                                        className="text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded flex items-center gap-2"
+                                    >
+                                        <FaPlus/> Adicionar / Remover Licença
+                                    </button>
+                                </div>
+                                
+                                {activeLicenses.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {activeLicenses.map(({ license: sw, assignedDate }) => (
+                                            <div key={sw.id} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center">
+                                                <div>
+                                                    <p className="font-bold text-white text-sm">{sw.productName}</p>
+                                                    <p className="text-xs text-gray-400 font-mono">{sw.licenseKey}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className={`text-xs px-2 py-1 rounded block mb-1 ${sw.status === 'Ativo' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                                                        {sw.status}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">Desde: {assignedDate}</span>
+                                                </div>
                                             </div>
-                                            <span className={`text-xs px-2 py-1 rounded ${sw.status === 'Ativo' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-                                                {sw.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-center py-8 bg-gray-900/20 rounded border border-dashed border-gray-700 text-gray-500 text-sm">Nenhuma licença associada.</p>
-                            )}
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-center py-4 bg-gray-900/20 rounded border border-dashed border-gray-700 text-gray-500 text-sm">Nenhuma licença associada.</p>
+                                )}
 
-                            {equipment.embedded_license_key && (
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <p className="text-xs text-gray-400 uppercase mb-1">Chave OEM (BIOS/Autocolante)</p>
-                                    <p className="font-mono text-blue-300 bg-gray-900 p-2 rounded inline-block text-sm">{equipment.embedded_license_key}</p>
-                                </div>
-                            )}
+                                {equipment.embedded_license_key && (
+                                    <div className="mt-4 pt-4 border-t border-gray-700">
+                                        <p className="text-xs text-gray-400 uppercase mb-1">Chave OEM (BIOS/Autocolante)</p>
+                                        <p className="font-mono text-blue-300 bg-gray-900 p-2 rounded inline-block text-sm">{equipment.embedded_license_key}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* License History Section */}
+                            <div>
+                                <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><FaHistory/> Histórico de Software (Removido)</h3>
+                                {historyLicenses.length > 0 ? (
+                                    <table className="w-full text-xs text-left bg-gray-900/30 rounded border border-gray-700">
+                                        <thead className="bg-gray-800 text-gray-400 uppercase">
+                                            <tr>
+                                                <th className="p-2">Produto</th>
+                                                <th className="p-2">Data Instalação</th>
+                                                <th className="p-2">Data Remoção</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-700">
+                                            {historyLicenses.map(({ license, assignedDate, returnDate }, idx) => (
+                                                <tr key={idx}>
+                                                    <td className="p-2 text-gray-300">{license.productName}</td>
+                                                    <td className="p-2 text-gray-400">{assignedDate}</td>
+                                                    <td className="p-2 text-gray-400">{returnDate}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <p className="text-sm text-gray-500 italic">Sem histórico de licenças.</p>
+                                )}
+                            </div>
                         </div>
                     )}
 

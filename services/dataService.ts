@@ -3,6 +3,8 @@
 
 
 
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -300,14 +302,50 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
 export const addLicense = (data: any) => create('software_licenses', data);
 export const updateLicense = (id: string, data: any) => update('software_licenses', id, data);
 export const deleteLicense = (id: string) => remove('software_licenses', id);
+
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
-    await supabase.from('license_assignments').delete().eq('equipmentId', equipmentId);
-    if (licenseIds.length > 0) {
-        const inserts = licenseIds.map(lid => ({ equipmentId: equipmentId, softwareLicenseId: lid }));
+    
+    // 1. Fetch current active assignments for this equipment
+    const { data: currentActive } = await supabase
+        .from('license_assignments')
+        .select('id, softwareLicenseId')
+        .eq('equipmentId', equipmentId)
+        .is('returnDate', null);
+        
+    const currentIds = (currentActive || []).map((c: any) => c.softwareLicenseId);
+    const currentMap = new Map((currentActive || []).map((c: any) => [c.softwareLicenseId, c.id]));
+    
+    const newIds = new Set(licenseIds);
+    
+    // 2. Determine what to Add
+    const toAdd = licenseIds.filter(id => !currentIds.includes(id));
+    
+    // 3. Determine what to Remove (Close/Soft Delete)
+    const toRemove = currentIds.filter((id: string) => !newIds.has(id));
+    
+    // Execute
+    if (toAdd.length > 0) {
+        const inserts = toAdd.map(lid => ({ 
+            equipmentId: equipmentId, 
+            softwareLicenseId: lid,
+            assignedDate: new Date().toISOString().split('T')[0]
+        }));
         await supabase.from('license_assignments').insert(inserts);
     }
-    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId}`, equipmentId);
+    
+    if (toRemove.length > 0) {
+        // Get IDs of assignment records to update
+        const idsToUpdate = toRemove.map((licId: string) => currentMap.get(licId)).filter(Boolean);
+        if (idsToUpdate.length > 0) {
+            await supabase
+                .from('license_assignments')
+                .update({ returnDate: new Date().toISOString().split('T')[0] })
+                .in('id', idsToUpdate);
+        }
+    }
+
+    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId} (Added: ${toAdd.length}, Removed: ${toRemove.length})`, equipmentId);
 };
 
 // Tickets & Support
