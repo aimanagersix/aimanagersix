@@ -278,7 +278,7 @@ END $$;
                     </div>
                     <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-4 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase mb-1">App Version</span>
-                        <span className="text-2xl font-bold text-brand-secondary">v1.17</span>
+                        <span className="text-2xl font-bold text-brand-secondary">v1.18</span>
                     </div>
                 </div>
 
