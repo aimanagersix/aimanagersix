@@ -694,7 +694,7 @@ const InnerApp: React.FC = () => {
     };
 
     return (
-        <div className={`min-h-screen bg-background-dark flex flex-col`}>
+        <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : ''}`}>
             {layoutMode === 'top' ? (
                 <Header 
                     currentUser={currentUser} 
@@ -727,10 +727,10 @@ const InnerApp: React.FC = () => {
                 />
             )}
 
-            <main className={`flex-grow transition-all duration-300 ease-in-out ${
+            <main className={`transition-all duration-300 ease-in-out ${
                 layoutMode === 'side' 
-                    ? `${sidebarExpanded ? 'ml-64' : 'ml-20'} bg-background-dark p-4` // Side mode: Reduced padding (p-4), rely on block flow
-                    : 'max-w-screen-xl mx-auto w-full p-4 sm:p-6' // Top mode: Centered, reduced padding
+                    ? `${sidebarExpanded ? 'ml-64' : 'ml-20'} bg-background-dark p-4` // Side mode: Block layout, explicit margin, no flex-grow to avoid width calculation issues
+                    : 'flex-grow max-w-screen-xl mx-auto w-full p-4 sm:p-6' // Top mode: Flex flow, centered
             }`}>
                 {activeTab === 'overview' && !isBasic && (
                     <OverviewDashboard
