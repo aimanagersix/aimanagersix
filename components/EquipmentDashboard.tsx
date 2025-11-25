@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -318,7 +320,8 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     };
 
     const handleMouseOver = (item: Equipment & { assignedTo: string }, event: React.MouseEvent) => {
-        const cfg = tooltipConfig || defaultTooltipConfig;
+        // Ensure config is merged with defaults
+        const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
         
         const content = (
             <div className="text-xs leading-tight space-y-1">

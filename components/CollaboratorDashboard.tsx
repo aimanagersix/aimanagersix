@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useMemo } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
@@ -176,7 +179,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
 
     const handleMouseOver = (col: Collaborator, event: React.MouseEvent) => {
         const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
-        const cfg = tooltipConfig || defaultTooltipConfig;
+        // Ensure defaults are used if config is partial
+        const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
         
         const content = (
             <div className="text-xs leading-tight space-y-1">
@@ -191,7 +195,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 )}
                 
                 {assignedEquipment.length > 0 && (
-                    <div className="mt-2 border-t border-gray-600 pt-1">
+                    <div className="mt-2 border-t border-gray-700 pt-1">
                         <p className="font-bold text-brand-secondary mb-1">Equipamentos ({assignedEquipment.length}):</p>
                         <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-hidden text-gray-300">
                             {assignedEquipment.slice(0, 3).map((eq, index) => <li key={index} className="truncate">{eq}</li>)}
@@ -223,7 +227,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-            <h2 className="text-xl font-semibold text-white">Gerenciar Colaboradores</h2>
+            <h2 className="text-xl font-semibold text-white">Gestão de Colaboradores</h2>
              <div className="flex items-center gap-2">
                 {onGenerateReport && (
                     <button

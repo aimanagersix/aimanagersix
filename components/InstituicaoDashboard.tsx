@@ -115,7 +115,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-            <h2 className="text-xl font-semibold text-white">Gerenciar Instituições</h2>
+            <h2 className="text-xl font-semibold text-white">Gestão Instituições</h2>
             <div className="flex gap-2">
                 <button onClick={handlePrintList} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors">
                     <FaPrint /> Imprimir Listagem

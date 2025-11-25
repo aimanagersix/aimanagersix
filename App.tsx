@@ -272,11 +272,13 @@ const InnerApp: React.FC = () => {
             setContactRoles(data.contactRoles);
             setContactTitles(data.contactTitles);
             
-            // Load Tooltip Config
+            // Load Tooltip Config with fallback merge
             const tooltipSetting = await dataService.getGlobalSetting('tooltip_config');
             if (tooltipSetting) {
                 try {
-                    setTooltipConfig(JSON.parse(tooltipSetting));
+                    const parsedConfig = JSON.parse(tooltipSetting);
+                    // Merge with default to ensure new fields are present
+                    setTooltipConfig({ ...defaultTooltipConfig, ...parsedConfig });
                 } catch (e) { console.error("Error parsing tooltip config", e); }
             }
 
