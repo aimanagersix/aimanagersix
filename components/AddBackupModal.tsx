@@ -318,6 +318,11 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            {file.size === 0 && file.dataUrl && (
+                                                <a href={file.dataUrl} download={file.name} className="text-blue-400 hover:text-blue-300 p-1" title="Download">
+                                                    <FaDownload />
+                                                </a>
+                                            )}
                                             <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 ml-2 p-1" title="Remover">
                                                 <DeleteIcon className="h-4 w-4" />
                                             </button>

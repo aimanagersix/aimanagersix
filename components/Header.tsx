@@ -360,6 +360,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             <button onClick={() => setLayoutMode('side')} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
                                 <FaColumns className="mr-3 text-gray-400" /> Menu Lateral
                             </button>
+                            {deferredPrompt && (
+                                <button onClick={() => { handleInstallApp(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                    <FaDownload className="mr-3 text-green-400" /> Instalar Aplicação
+                                </button>
+                            )}
                             <button onClick={() => setShowMFA(true)} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
                                 <FaFingerprint className="mr-3 text-brand-secondary" /> Configurar 2FA
                             </button>

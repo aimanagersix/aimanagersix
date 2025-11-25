@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Instituicao, Entidade, Collaborator } from '../types';
@@ -38,6 +36,21 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
             </tr>
         `).join('');
 
+        const collaboratorRows = relatedCollaborators.map(col => {
+            const entName = entidades.find(e => e.id === col.entidadeId)?.name || 'N/A';
+            const phone = col.telemovel || col.telefoneInterno || '-';
+            const name = (col.title ? col.title + ' ' : '') + col.fullName;
+            return `
+                <tr>
+                    <td>${name}</td>
+                    <td>${col.email}</td>
+                    <td>${phone}</td>
+                    <td>${col.role}</td>
+                    <td>${entName}</td>
+                </tr>
+            `;
+        }).join('');
+
         printWindow.document.write(`
             <html>
             <head>
@@ -50,9 +63,10 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                     .value { font-size: 16px; margin-bottom: 5px; }
                     ul { list-style-type: none; padding: 0; }
                     li { padding: 5px 0; border-bottom: 1px solid #eee; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #f2f2f2; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+                    th { background-color: #f2f2f2; font-weight: bold; }
+                    h3 { margin-top: 0; color: #444; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
                 </style>
             </head>
             <body>
@@ -97,9 +111,19 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                     </ul>
                 </div>
                 
+                ${relatedCollaborators.length > 0 ? `
                 <div class="section">
-                    <h3>Total de Colaboradores: ${relatedCollaborators.length}</h3>
-                </div>
+                    <h3>Colaboradores Associados (${relatedCollaborators.length})</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Função</th><th>Entidade</th></tr>
+                        </thead>
+                        <tbody>
+                            ${collaboratorRows}
+                        </tbody>
+                    </table>
+                </div>` : '<div class="section"><h3>Colaboradores</h3><p>Não existem colaboradores associados.</p></div>'}
+
                 <script>window.onload = function() { window.print(); }</script>
             </body>
             </html>

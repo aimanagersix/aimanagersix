@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier } from '../types';
-import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark } from './common/Icons';
+import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark, FaDownload } from './common/Icons';
 import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
 import { FaLightbulb, FaLock, FaUserTie, FaTruck } from 'react-icons/fa';
 import RegulatoryNotificationModal from './RegulatoryNotificationModal';
@@ -351,11 +351,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
         };
         
         if (requesterType === 'external') {
-            // If external supplier, clear collaborator/entity fields (or set to a default System entity if needed by FK)
-            // For simplicity in this data model, we allow nulls or use the requester_supplier_id as primary logic in dashboard
             dataToSubmit.collaboratorId = undefined;
-            // We might need a dummy Entity if FK is strict, but usually 'entidadeId' is nullable or we use a system entity.
-            // Assuming 'entidadeId' can be kept if it's relevant to where the work is done, but 'collaboratorId' is cleared.
         } else {
             dataToSubmit.requester_supplier_id = undefined;
         }
@@ -684,9 +680,16 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                                             {file.name}
                                             {file.size > 0 && <span className="text-xs ml-2 text-gray-400">({formatFileSize(file.size)})</span>}
                                         </span>
-                                        <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 ml-2">
-                                            <DeleteIcon className="h-4 w-4" />
-                                        </button>
+                                        <div className="flex gap-2">
+                                            {file.size === 0 && file.dataUrl && (
+                                                <a href={file.dataUrl} download={file.name} className="text-blue-400 hover:text-blue-300 p-1" title="Download">
+                                                    <FaDownload />
+                                                </a>
+                                            )}
+                                            <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 ml-2">
+                                                <DeleteIcon className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>

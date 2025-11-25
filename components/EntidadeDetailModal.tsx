@@ -34,6 +34,19 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
             </tr>
         `).join('');
 
+        const collaboratorRows = activeCollaborators.map(col => {
+            const phone = col.telemovel || col.telefoneInterno || '-';
+            const name = (col.title ? col.title + ' ' : '') + col.fullName;
+            return `
+                <tr>
+                    <td>${name}</td>
+                    <td>${col.email}</td>
+                    <td>${phone}</td>
+                    <td>${col.role}</td>
+                </tr>
+            `;
+        }).join('');
+
         printWindow.document.write(`
             <html>
             <head>
@@ -44,9 +57,10 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     .section { margin-bottom: 20px; }
                     .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
                     .value { font-size: 16px; margin-bottom: 5px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #f2f2f2; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+                    th { background-color: #f2f2f2; font-weight: bold; }
+                    h3 { margin-top: 0; color: #444; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
                 </style>
             </head>
             <body>
@@ -86,10 +100,23 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     </table>
                 </div>` : ''}
 
+                ${activeCollaborators.length > 0 ? `
+                <div class="section">
+                    <h3>Colaboradores Internos</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Função</th></tr>
+                        </thead>
+                        <tbody>
+                            ${collaboratorRows}
+                        </tbody>
+                    </table>
+                </div>` : ''}
+
                 <div class="section">
                     <h3>Resumo</h3>
-                    <div class="value">Colaboradores Internos: ${activeCollaborators.length}</div>
-                    <div class="value">Equipamentos: ${associatedEquipmentCount}</div>
+                    <div class="value">Total Colaboradores: ${activeCollaborators.length}</div>
+                    <div class="value">Total Equipamentos: ${associatedEquipmentCount}</div>
                 </div>
                 <script>window.onload = function() { window.print(); }</script>
             </body>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { ResilienceTest, ResilienceTestType, Ticket, TicketStatus, CriticalityLevel, Entidade, Supplier } from '../types';
-import { FaShieldAlt, FaFilePdf, FaMagic, FaSpinner, FaCheck, FaTicketAlt, FaCalendarPlus } from './common/Icons';
+import { FaShieldAlt, FaFilePdf, FaMagic, FaSpinner, FaCheck, FaTicketAlt, FaCalendarPlus, FaDownload } from './common/Icons';
 import { extractFindingsFromReport, isAiConfigured } from '../services/geminiService';
 
 interface AddResilienceTestModalProps {
@@ -318,7 +318,16 @@ const AddResilienceTestModal: React.FC<AddResilienceTestModalProps> = ({ onClose
                             >
                                 {attachment ? 'Substituir Ficheiro' : 'Carregar Relatório'}
                             </button>
-                            {attachment && <span className="text-xs text-gray-300 truncate">{attachment.name}</span>}
+                            {attachment && (
+                                <div className="flex items-center gap-2 text-xs text-gray-300 truncate">
+                                    <span>{attachment.name}</span>
+                                    {attachment.dataUrl && (
+                                        <a href={attachment.dataUrl} download={attachment.name} className="text-blue-400 hover:text-blue-300" title="Download">
+                                            <FaDownload />
+                                        </a>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         {attachment && (
                             <button 
