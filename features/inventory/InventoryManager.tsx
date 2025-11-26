@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
-    SoftwareLicense, Assignment, ConfigItem, 
+    SoftwareLicense, Assignment, 
     defaultTooltipConfig, ModuleKey, PermissionAction
 } from '../../types';
 import * as dataService from '../../services/dataService';
@@ -20,7 +20,7 @@ import AddLicenseModal from '../../components/AddLicenseModal';
 
 interface InventoryManagerProps {
     activeTab: string;
-    appData: any; // Passing the full data object for ease of access
+    appData: any;
     checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
     refreshData: () => void;
     dashboardFilter: any;
@@ -34,41 +34,23 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     dashboardFilter, setDashboardFilter, setReportType, currentUser 
 }) => {
     
-    // --- Local State for Inventory Modals ---
-    // This state was previously in App.tsx, now it's isolated here.
     const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
-    
     const [showKitModal, setShowKitModal] = useState(false);
     const [kitInitialData, setKitInitialData] = useState<Partial<Equipment> | null>(null);
-    
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [equipmentToAssign, setEquipmentToAssign] = useState<Equipment | null>(null);
-    
     const [showAssignMultipleModal, setShowAssignMultipleModal] = useState(false);
     const [equipmentListToAssign, setEquipmentListToAssign] = useState<Equipment[]>([]);
-    
-    const [showEquipmentDetailModal, setShowEquipmentDetailModal] = useState(false);
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
-
     const [showAddLicenseModal, setShowAddLicenseModal] = useState(false);
     const [licenseToEdit, setLicenseToEdit] = useState<SoftwareLicense | null>(null);
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
-    // --- Handlers ---
-
     const handleAssign = async (assignment: any) => {
         await dataService.addAssignment(assignment);
         refreshData();
-    };
-
-    const handleAssignMultiple = async (assignment: any) => {
-        for (const eq of equipmentListToAssign) {
-            await dataService.addAssignment({ ...assignment, equipmentId: eq.id });
-        }
-        refreshData();
-        setShowAssignMultipleModal(false);
     };
 
     const handleSaveEquipment = async (data: any, assignment: any, licenseIds: any) => {
@@ -88,8 +70,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     return (
         <>
-            {/* --- DASHBOARDS --- */}
-            
             {activeTab === 'equipment.inventory' && (
                 <EquipmentDashboard 
                     equipment={appData.equipment} 
@@ -114,11 +94,11 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                         await dataService.updateEquipment(id, { status });
                         refreshData();
                     } : undefined}
-                    onShowHistory={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} 
+                    onShowHistory={(eq) => { setDetailEquipment(eq); }} 
                     onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setShowAddEquipmentModal(true); } : undefined}
                     onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setShowAddEquipmentModal(true); } : undefined}
                     onGenerateReport={checkPermission('reports', 'view') ? () => setReportType('equipment') : undefined}
-                    onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); } : undefined}
+                    onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); } : undefined}
                     businessServices={appData.businessServices}
                     serviceDependencies={appData.serviceDependencies}
                     tickets={appData.tickets}
@@ -153,7 +133,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             )}
 
             {/* --- MODALS --- */}
-
             {showAddEquipmentModal && (
                 <AddEquipmentModal
                     onClose={() => setShowAddEquipmentModal(false)}
@@ -170,8 +149,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     collaborators={appData.collaborators}
                     statusOptions={appData.configEquipmentStatuses}
                     licenseAssignments={appData.licenseAssignments}
-                    onOpenHistory={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }}
-                    onManageLicenses={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} 
+                    onOpenHistory={(eq) => { setDetailEquipment(eq); }}
+                    onManageLicenses={(eq) => { setDetailEquipment(eq); }} 
                     onOpenAssign={(eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
                 />
             )}
@@ -189,16 +168,16 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                 />
             )}
 
-            {(showEquipmentDetailModal || detailEquipment) && (
+            {detailEquipment && (
                  <EquipmentDetailModal 
-                    equipment={detailEquipment!}
+                    equipment={detailEquipment}
                     assignments={appData.assignments}
                     collaborators={appData.collaborators}
                     escolasDepartamentos={appData.entidades}
                     tickets={appData.tickets}
                     ticketActivities={appData.ticketActivities}
-                    onClose={() => { setDetailEquipment(null); setShowEquipmentDetailModal(false); }}
-                    onEdit={(eq) => { setDetailEquipment(null); setShowEquipmentDetailModal(false); setEquipmentToEdit(eq); setShowAddEquipmentModal(true); }}
+                    onClose={() => setDetailEquipment(null)}
+                    onEdit={(eq) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipmentModal(true); }}
                     businessServices={appData.businessServices}
                     serviceDependencies={appData.serviceDependencies}
                     softwareLicenses={appData.softwareLicenses}
