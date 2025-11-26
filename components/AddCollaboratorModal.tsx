@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole } from '../types';
+import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
 import { FaGlobe } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
@@ -22,6 +22,7 @@ interface AddCollaboratorModalProps {
     onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator, password?: string) => Promise<any>;
     collaboratorToEdit?: Collaborator | null;
     escolasDepartamentos: Entidade[];
+    instituicoes: Instituicao[]; // New Prop
     currentUser: Collaborator | null;
     roleOptions?: ConfigItem[];
     titleOptions?: ContactTitle[];
@@ -31,7 +32,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     onClose, 
     onSave, 
     collaboratorToEdit, 
-    escolasDepartamentos, 
+    escolasDepartamentos: entidades, 
+    instituicoes,
     currentUser,
     roleOptions,
     titleOptions 
@@ -40,7 +42,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         numeroMecanografico: '',
         title: '',
         fullName: '',
-        entidadeId: escolasDepartamentos[0]?.id || '',
+        entidadeId: '',
+        instituicaoId: '',
         email: '',
         nif: '',
         telefoneInterno: '',
@@ -54,6 +57,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         role: 'Utilizador',
         status: CollaboratorStatus.Ativo
     });
+    
     const [password, setPassword] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -61,6 +65,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const [availableRoles, setAvailableRoles] = useState<CustomRole[]>([]);
 
+    // Selection State
+    const [selectedInstituicao, setSelectedInstituicao] = useState<string>('');
+    
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
     // Load Custom Roles
@@ -78,8 +85,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     
     // Filter 'SuperAdmin' from dropdown if current user is not SuperAdmin
     const filteredRoles = displayRoles.filter(role => isSuperAdmin || role !== UserRole.SuperAdmin);
-
     const titles = titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª'];
+
+    // Filter entities based on selected institution
+    const filteredEntidades = entidades.filter(e => e.instituicaoId === selectedInstituicao);
 
     useEffect(() => {
         if (collaboratorToEdit) {
@@ -91,19 +100,37 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 locality: collaboratorToEdit.locality || '',
                 nif: collaboratorToEdit.nif || '',
                 title: collaboratorToEdit.title || '',
-                entidadeId: collaboratorToEdit.entidadeId || ''
+                entidadeId: collaboratorToEdit.entidadeId || '',
+                instituicaoId: collaboratorToEdit.instituicaoId || ''
             });
-            // If no entity ID and role is SuperAdmin (or Admin for legacy compatibility), it's a global admin
-            if (!collaboratorToEdit.entidadeId && (collaboratorToEdit.role === UserRole.SuperAdmin || (isSuperAdmin && collaboratorToEdit.role === UserRole.Admin))) {
+            
+            // Infer Institution from Entity if present, otherwise use direct Institution ID
+            if (collaboratorToEdit.entidadeId) {
+                const ent = entidades.find(e => e.id === collaboratorToEdit.entidadeId);
+                if (ent) setSelectedInstituicao(ent.instituicaoId);
+            } else if (collaboratorToEdit.instituicaoId) {
+                setSelectedInstituicao(collaboratorToEdit.instituicaoId);
+            }
+
+            // Global Admin Check (No entity, No institution)
+            if (!collaboratorToEdit.entidadeId && !collaboratorToEdit.instituicaoId && (collaboratorToEdit.role === UserRole.SuperAdmin || (isSuperAdmin && collaboratorToEdit.role === UserRole.Admin))) {
                 setIsGlobalAdmin(true);
             }
         } else {
-             setFormData(prev => ({
-                 ...prev,
-                 entidadeId: escolasDepartamentos[0]?.id || ''
-             }));
+             // Default setup for new user
+             if (instituicoes.length > 0) {
+                 const defaultInst = instituicoes[0].id;
+                 setSelectedInstituicao(defaultInst);
+                 // Try to pick first entity of that institution
+                 const firstEnt = entidades.find(e => e.instituicaoId === defaultInst);
+                 setFormData(prev => ({ 
+                     ...prev, 
+                     instituicaoId: defaultInst,
+                     entidadeId: firstEnt?.id || ''
+                 }));
+             }
         }
-    }, [collaboratorToEdit, escolasDepartamentos, isSuperAdmin]);
+    }, [collaboratorToEdit, entidades, instituicoes, isSuperAdmin]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -125,8 +152,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
              }
         }
         
-        if (!isGlobalAdmin && !formData.entidadeId) {
-            newErrors.entidadeId = "A entidade é obrigatória.";
+        if (!isGlobalAdmin) {
+            if (!selectedInstituicao) newErrors.instituicaoId = "A Instituição é obrigatória.";
+            // Entidade is optional now (can belong to Institution directly)
         }
 
         setErrors(newErrors);
@@ -140,7 +168,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
         }));
         
-        // Only SuperAdmin can create users without entity
+        // Only SuperAdmin can create users without entity/institution
         if (name === 'role' && value !== UserRole.SuperAdmin && !isSuperAdmin) {
              setIsGlobalAdmin(false);
         }
@@ -153,15 +181,24 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             });
         }
     };
+
+    const handleInstituicaoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const instId = e.target.value;
+        setSelectedInstituicao(instId);
+        setFormData(prev => ({ ...prev, instituicaoId: instId, entidadeId: '' })); // Reset entity
+    };
     
     const handleGlobalAdminToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         setIsGlobalAdmin(checked);
         if (checked) {
-            setFormData(prev => ({ ...prev, entidadeId: '' }));
+            setFormData(prev => ({ ...prev, entidadeId: '', instituicaoId: '' }));
+            setSelectedInstituicao('');
         } else {
-            // Reset to first available entity if unchecking
-            setFormData(prev => ({ ...prev, entidadeId: escolasDepartamentos[0]?.id || '' }));
+            // Reset to first available institution
+             if (instituicoes.length > 0) {
+                 setSelectedInstituicao(instituicoes[0].id);
+             }
         }
     };
 
@@ -173,12 +210,31 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         setSuccessMessage('');
 
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
+        
+        // Logic for IDs
+        // 1. If Global Admin: both null
+        // 2. If Entity Selected: entidadeId = value, instituicaoId = null (inferred) OR both set?
+        //    Let's set both if Entity selected, just to be safe and queryable.
+        //    Or better: If Entity is selected, set EntidadeId. If NOT, set InstituicaoId.
+        
+        let finalEntidadeId = formData.entidadeId || null;
+        let finalInstituicaoId = selectedInstituicao || null;
+
+        if (isGlobalAdmin) {
+            finalEntidadeId = null;
+            finalInstituicaoId = null;
+        } else if (finalEntidadeId) {
+             // If entity is set, we usually infer institution, but storing both helps filtering.
+             // But DB foreign key might be strict. Let's send what the DB expects.
+             // If entity is set, backend logic might not care about institutionId col if constraint allows.
+        }
+
         const dataToSave: any = { 
             ...formData, 
             address,
             numeroMecanografico: formData.numeroMecanografico || 'N/A',
-            // Ensure null is sent if global admin, otherwise the ID
-            entidadeId: isGlobalAdmin ? null : formData.entidadeId
+            entidadeId: finalEntidadeId,
+            instituicaoId: finalInstituicaoId
         };
 
         try {
@@ -202,7 +258,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     };
 
     const modalTitle = collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador";
-    // Only SuperAdmin can see/toggle Global Admin
     const showGlobalToggle = isSuperAdmin && (formData.role === UserRole.Admin || formData.role === UserRole.SuperAdmin);
 
     return (
@@ -267,20 +322,38 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         </select>
                     </div>
                 </div>
+                
+                {/* Hierarchical Selection */}
+                <div className="bg-gray-800 p-4 rounded border border-gray-700 space-y-3">
+                    <h4 className="text-sm font-bold text-white">Associação Organizacional</h4>
+                    
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">1. Instituição</label>
+                        <select 
+                            value={selectedInstituicao} 
+                            onChange={handleInstituicaoChange} 
+                            className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.instituicaoId ? 'border-red-500' : 'border-gray-600'} disabled:opacity-50`}
+                            disabled={isGlobalAdmin}
+                        >
+                            <option value="" disabled>Selecione a Instituição</option>
+                            {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                        </select>
+                         {errors.instituicaoId && <p className="text-red-400 text-xs italic mt-1">{errors.instituicaoId}</p>}
+                    </div>
 
-                <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Entidade / Departamento</label>
-                    <select 
-                        name="entidadeId" 
-                        value={formData.entidadeId} 
-                        onChange={handleChange} 
-                        className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.entidadeId ? 'border-red-500' : 'border-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed`}
-                        disabled={isGlobalAdmin}
-                    >
-                        <option value="" disabled>Selecione...</option>
-                        {escolasDepartamentos.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
-                    {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">2. Entidade / Departamento (Opcional)</label>
+                        <select 
+                            name="entidadeId" 
+                            value={formData.entidadeId} 
+                            onChange={handleChange} 
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm disabled:opacity-50"
+                            disabled={isGlobalAdmin || !selectedInstituicao}
+                        >
+                            <option value="">-- Diretamente à Instituição --</option>
+                            {filteredEntidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        </select>
+                    </div>
                 </div>
 
                 {showGlobalToggle && (
@@ -298,7 +371,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                                     Acesso Global (Super Admin)
                                 </span>
                                 <p className="text-xs text-gray-400 mt-0.5">
-                                    Permite ver e gerir todas as instituições sem restrição de entidade. Apenas SuperAdmins podem atribuir isto.
+                                    Permite ver e gerir todas as instituições sem restrição.
                                 </p>
                             </div>
                         </label>

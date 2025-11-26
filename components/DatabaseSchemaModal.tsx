@@ -94,7 +94,7 @@ ON CONFLICT (name) DO NOTHING;
 
 -- Utilizador (Apenas ver e abrir tickets)
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"compliance":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false}}')
+VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false}}')
 ON CONFLICT (name) DO NOTHING;
 
 -- ==========================================
@@ -141,9 +141,10 @@ BEGIN
         ALTER TABLE config_equipment_statuses ADD COLUMN IF NOT EXISTS color text;
     END IF;
     
-    -- Collaborators (Allow NULL EntidadeId for Super Admin)
+    -- Collaborators (Allow NULL EntidadeId for Super Admin & New Instituicao Link)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'collaborators') THEN
          ALTER TABLE collaborators ALTER COLUMN "entidadeId" DROP NOT NULL;
+         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS "instituicaoId" uuid REFERENCES instituicoes(id);
     END IF;
 
     -- Software Licenses (Category)

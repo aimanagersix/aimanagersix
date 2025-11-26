@@ -1015,6 +1015,7 @@ const InnerApp: React.FC = () => {
                         <CollaboratorDashboard
                             collaborators={collaborators}
                             escolasDepartamentos={entidades}
+                            instituicoes={instituicoes} // NEW PROP
                             equipment={equipment}
                             assignments={assignments}
                             tickets={tickets}
@@ -1230,6 +1231,7 @@ const InnerApp: React.FC = () => {
                     onSave={handleSaveCollaborator}
                     collaboratorToEdit={collaboratorToEdit}
                     escolasDepartamentos={entidades}
+                    instituicoes={instituicoes} // NEW PROP
                     currentUser={currentUser}
                     roleOptions={configUserRoles}
                     titleOptions={contactTitles}

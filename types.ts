@@ -303,7 +303,8 @@ export interface Collaborator {
   numeroMecanografico: string;
   title?: string; // Trato
   fullName: string;
-  entidadeId: string; // Can be null for Super Admin (Global)
+  entidadeId?: string; // Can be null (direct to Institution or Global)
+  instituicaoId?: string; // NEW: Direct link to Institution
   email: string;
   nif?: string;
   telefoneInterno?: string;

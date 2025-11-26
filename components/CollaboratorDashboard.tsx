@@ -1,8 +1,6 @@
 
-
-
 import React, { useState, useMemo } from 'react';
-import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole } from '../types';
+import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -10,6 +8,7 @@ import Pagination from './common/Pagination';
 interface CollaboratorDashboardProps {
   collaborators: Collaborator[];
   escolasDepartamentos: Entidade[];
+  instituicoes: Instituicao[]; // New Prop
   equipment: Equipment[];
   assignments: Assignment[];
   tickets: Ticket[];
@@ -50,6 +49,7 @@ const getStatusClass = (status: CollaboratorStatus) => {
 const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ 
     collaborators, 
     escolasDepartamentos: entidades, 
+    instituicoes,
     onEdit, 
     onDelete, 
     onShowHistory, 
@@ -74,7 +74,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     const [tooltip, setTooltip] = useState<TooltipState | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    
     const entidadeMap = React.useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+    const instituicaoMap = React.useMemo(() => new Map(instituicoes.map(i => [i.id, i.name])), [instituicoes]);
 
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, `${e.description} (SN: ${e.serialNumber})`])), [equipment]);
 
@@ -182,11 +184,17 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         // Ensure defaults are used if config is partial
         const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
         
+        const entityName = col.entidadeId 
+            ? entidadeMap.get(col.entidadeId) 
+            : col.instituicaoId 
+                ? instituicaoMap.get(col.instituicaoId) 
+                : 'Global / N/A';
+
         const content = (
             <div className="text-xs leading-tight space-y-1">
                 {cfg.showCollabName && <p className="font-bold text-white">{col.fullName}</p>}
                 {cfg.showCollabJob && <p><strong className="text-gray-400">Função:</strong> <span className="text-white">{col.role}</span></p>}
-                {cfg.showCollabEntity && <p><strong className="text-gray-400">Entidade:</strong> <span className="text-white">{entidadeMap.get(col.entidadeId) || 'N/A'}</span></p>}
+                {cfg.showCollabEntity && <p><strong className="text-gray-400">Associação:</strong> <span className="text-white">{entityName}</span></p>}
                 {cfg.showCollabContact && (
                     <div>
                         <p><strong className="text-gray-400">Email:</strong> <span className="text-white">{col.email}</span></p>
@@ -222,6 +230,13 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
 
     const handleMouseLeave = () => {
         setTooltip(null);
+    };
+    
+    const getAssociationText = (col: Collaborator) => {
+        if (col.entidadeId) return entidadeMap.get(col.entidadeId) || 'Entidade N/A';
+        if (col.instituicaoId) return `${instituicaoMap.get(col.instituicaoId)} (Instituição)`;
+        if (col.role === UserRole.SuperAdmin) return 'Acesso Global';
+        return 'Sem Associação';
     };
 
   return (
@@ -321,7 +336,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
               <th scope="col" className="px-6 py-3">Nº Mec.</th>
               <th scope="col" className="px-6 py-3">Nome Completo / Equipamentos</th>
               <th scope="col" className="px-6 py-3">Contactos</th>
-              <th scope="col" className="px-6 py-3">Entidade</th>
+              <th scope="col" className="px-6 py-3">Associação (Entidade/Inst.)</th>
               <th scope="col" className="px-6 py-3">Status</th>
               <th scope="col" className="px-6 py-3">Perfil</th>
               <th scope="col" className="px-6 py-3 text-center">Acesso</th>
@@ -379,7 +394,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     {col.telefoneInterno && <div className="text-xs text-on-surface-dark-secondary">Interno: {col.telefoneInterno}</div>}
                     {col.telemovel && <div className="text-xs text-on-surface-dark-secondary">Móvel: {col.telemovel}</div>}
                 </td>
-                <td className="px-6 py-4">{entidadeMap.get(col.entidadeId) || 'N/A'}</td>
+                <td className="px-6 py-4">
+                    {getAssociationText(col)}
+                </td>
                 <td className="px-6 py-4">
                     <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(col.status)}`}>
                         {col.status}
