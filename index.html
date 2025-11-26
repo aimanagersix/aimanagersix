@@ -31,11 +31,13 @@
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
+      // PWA functionality disabled/removed to prevent loading issues.
+      // Force unregister existing service workers if any.
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('SW registered'))
-            .catch(err => console.log('SW registration failed', err));
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+          }
         });
       }
     </script>

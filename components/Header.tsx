@@ -80,29 +80,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
     
-    // PWA Install Prompt State
-    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-    useEffect(() => {
-        const handler = (e: any) => {
-            e.preventDefault(); 
-            setDeferredPrompt(e); 
-        };
-        window.addEventListener('beforeinstallprompt', handler);
-        return () => window.removeEventListener('beforeinstallprompt', handler);
-    }, []);
-
-    const handleInstallApp = () => {
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult: any) => {
-            if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted the install prompt');
-            }
-            setDeferredPrompt(null);
-        });
-    };
-
      useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (organizacaoMenuRef.current && !organizacaoMenuRef.current.contains(event.target as Node)) {
@@ -244,7 +221,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                       >
                           <FaBoxOpen />
                           {t('nav.inventory')}
-                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isInventarioMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isInventarioMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                       </button>
@@ -368,11 +345,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             <button onClick={() => setLayoutMode('side')} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
                                 <FaColumns className="mr-3 text-gray-400" /> Menu Lateral
                             </button>
-                            {deferredPrompt && (
-                                <button onClick={() => { handleInstallApp(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                    <FaDownload className="mr-3 text-green-400" /> {t('common.install_app')}
-                                </button>
-                            )}
                             <button onClick={() => setShowMFA(true)} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
                                 <FaFingerprint className="mr-3 text-brand-secondary" /> Configurar 2FA
                             </button>
