@@ -69,6 +69,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     // Quick Assign State
     const [stockEquipment, setStockEquipment] = useState<Equipment[]>([]);
     const [selectedStockId, setSelectedStockId] = useState('');
+    const [assignSearchQuery, setAssignSearchQuery] = useState(''); // New search state
     const [isAssigning, setIsAssigning] = useState(false);
     
     // Password Change State
@@ -118,6 +119,21 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
             setStockEquipment(available);
         }
     }, [activeTab, equipment]);
+
+    // Filter stock based on search query
+    const filteredStock = useMemo(() => {
+        if (!assignSearchQuery) return stockEquipment;
+        const query = assignSearchQuery.toLowerCase();
+        
+        return stockEquipment.filter(e => {
+            const brand = brandMap.get(e.brandId)?.toLowerCase() || '';
+            const type = equipmentTypeMap.get(e.typeId)?.toLowerCase() || '';
+            const serial = e.serialNumber.toLowerCase();
+            const desc = e.description.toLowerCase();
+            
+            return brand.includes(query) || type.includes(query) || serial.includes(query) || desc.includes(query);
+        });
+    }, [stockEquipment, assignSearchQuery, brandMap, equipmentTypeMap]);
 
     const assignedEquipment = useMemo(() => {
         const collaboratorEquipmentIds = new Set(
@@ -332,9 +348,9 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                         <h2 className="text-2xl font-bold text-white">{collaborator.fullName}</h2>
                         <p className="text-on-surface-dark-secondary">{collaborator.numeroMecanografico}</p>
                         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                            <div className="flex items-center gap-2"><FaEnvelope className="text-gray-400" /> <a href={`mailto:${collaborator.email}`} className="hover:underline">{collaborator.email}</a></div>
-                            {collaborator.telemovel && <div className="flex items-center gap-2"><FaMobileAlt className="text-gray-400" /> {collaborator.telemovel}</div>}
-                            {collaborator.telefoneInterno && <div className="flex items-center gap-2"><FaPhone className="text-gray-400" /> Interno: {collaborator.telefoneInterno}</div>}
+                            <div className="flex items-center gap-2"><FaEnvelope className="text-gray-400" /> <a href={`mailto:${collaborator.email}`} className="hover:underline hover:text-white">{collaborator.email}</a></div>
+                            {collaborator.telemovel && <div className="flex items-center gap-2"><FaMobileAlt className="text-gray-400" /> <a href={`tel:${collaborator.telemovel}`} className="hover:underline hover:text-white">{collaborator.telemovel}</a></div>}
+                            {collaborator.telefoneInterno && <div className="flex items-center gap-2"><FaPhone className="text-gray-400" /> Interno: <a href={`tel:${collaborator.telefoneInterno}`} className="hover:underline hover:text-white">{collaborator.telefoneInterno}</a></div>}
                             <div className="flex items-center gap-2"><FaUserTag className="text-gray-400" /> {collaborator.role}</div>
                             <div className="flex items-center gap-2">
                                 <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${getStatusClass(collaborator.status)}`}>{collaborator.status}</span>
@@ -536,29 +552,37 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
 
                             {/* Quick Assign Section */}
                             <div className="bg-gray-800/30 p-4 rounded-lg border border-gray-700">
-                                <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><FaLink className="text-green-400"/> Atribuição Imediata</h3>
+                                <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><FaLink className="text-green-400"/> Atribuição Imediata (Stock)</h3>
                                 <p className="text-xs text-gray-400 mb-3">Selecione um equipamento disponível em stock para atribuir a este colaborador.</p>
                                 
-                                <div className="flex gap-2 items-center">
-                                    <div className="flex-grow relative">
+                                <div className="flex flex-col sm:flex-row gap-2 items-center">
+                                    <div className="flex-grow relative w-full">
+                                        <input
+                                            type="text"
+                                            placeholder="Filtrar stock por série, marca ou tipo..."
+                                            value={assignSearchQuery}
+                                            onChange={(e) => setAssignSearchQuery(e.target.value)}
+                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-t-md p-2 pl-8 text-sm focus:ring-green-500 focus:border-green-500 border-b-0"
+                                        />
+                                        <FaSearch className="absolute left-2.5 top-2.5 text-gray-400 h-3 w-3 pointer-events-none"/>
+                                        
                                         <select 
                                             value={selectedStockId} 
                                             onChange={(e) => setSelectedStockId(e.target.value)} 
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm pl-8"
+                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-b-md p-2 text-sm"
                                         >
-                                            <option value="">-- Selecione do Stock --</option>
-                                            {stockEquipment.map(e => (
+                                            <option value="">-- Selecione do Stock ({filteredStock.length}) --</option>
+                                            {filteredStock.map(e => (
                                                 <option key={e.id} value={e.id}>
                                                     {e.description} (S/N: {e.serialNumber})
                                                 </option>
                                             ))}
                                         </select>
-                                        <FaSearch className="absolute left-2.5 top-3 text-gray-400 h-3 w-3 pointer-events-none"/>
                                     </div>
                                     <button 
                                         onClick={handleQuickAssign}
                                         disabled={!selectedStockId || isAssigning}
-                                        className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-500 disabled:opacity-50 flex items-center gap-2"
+                                        className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-500 disabled:opacity-50 flex items-center justify-center gap-2 h-[72px] sm:h-auto"
                                     >
                                         {isAssigning ? <FaSpinner className="animate-spin"/> : <FaCheckCircle />} 
                                         Associar
