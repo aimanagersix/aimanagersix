@@ -78,7 +78,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     useEffect(() => {
         const checkUser = async () => {
             const supabase = getSupabase();
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await (supabase.auth as any).getUser();
             if (user && user.id === collaborator.id) {
                 setIsCurrentUser(true);
             }
@@ -151,7 +151,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         setIsUpdatingPassword(true);
         try {
             const supabase = getSupabase();
-            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            const { error } = await (supabase.auth as any).updateUser({ password: newPassword });
             if (error) throw error;
             
             alert("Password atualizada com sucesso!");

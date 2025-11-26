@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaBook, FaChartBar, FaSitemap, FaBoxOpen, FaTicketAlt, FaShieldAlt, FaUsers, FaCalendarAlt, FaRobot, FaSearch, FaCheckCircle, FaExclamationTriangle, FaCamera } from 'react-icons/fa';
+import { FaBook, FaChartBar, FaSitemap, FaBoxOpen, FaTicketAlt, FaShieldAlt, FaUsers, FaCalendarAlt, FaRobot, FaSearch, FaCheckCircle, FaExclamationTriangle, FaCamera, FaDownload, FaPrint } from 'react-icons/fa';
 
 interface UserManualModalProps {
     onClose: () => void;
@@ -18,6 +18,40 @@ const ScreenshotPlaceholder: React.FC<{ text: string }> = ({ text }) => (
 
 const UserManualModal: React.FC<UserManualModalProps> = ({ onClose }) => {
     const [activeSection, setActiveSection] = useState('intro');
+
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const content = document.getElementById('manual-content')?.innerHTML;
+        
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Manual de Utilizador - AIManager</title>
+                <style>
+                    body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+                    h3 { color: #0D47A1; border-bottom: 2px solid #0D47A1; padding-bottom: 10px; margin-top: 30px; }
+                    h4 { color: #333; margin-top: 20px; font-size: 16px; font-weight: bold; }
+                    p { line-height: 1.6; font-size: 14px; margin-bottom: 10px; }
+                    ul { margin-bottom: 20px; }
+                    li { margin-bottom: 5px; }
+                    .screenshot-placeholder { 
+                        background-color: #f0f0f0; border: 2px dashed #ccc; 
+                        padding: 40px; text-align: center; margin: 20px 0; color: #777; font-style: italic; 
+                    }
+                    .note { background-color: #e3f2fd; padding: 10px; border-left: 4px solid #2196F3; font-size: 12px; margin-top: 10px; }
+                </style>
+            </head>
+            <body>
+                <h1 style="text-align: center; margin-bottom: 40px;">AIManager - Manual de Utilizador</h1>
+                ${content}
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
 
     const renderContent = () => {
         switch (activeSection) {
@@ -195,9 +229,18 @@ const UserManualModal: React.FC<UserManualModalProps> = ({ onClose }) => {
 
     return (
         <Modal title="Manual de Utilizador" onClose={onClose} maxWidth="max-w-6xl">
+            <div className="absolute top-5 right-16 no-print">
+                <button 
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-600 transition-colors"
+                    title="Imprimir ou Guardar como PDF"
+                >
+                    <FaPrint /> Imprimir / Guardar PDF
+                </button>
+            </div>
             <div className="flex flex-col md:flex-row h-[70vh]">
                 {/* Sidebar Navigation */}
-                <div className="w-full md:w-64 bg-gray-900/50 border-r border-gray-700 flex flex-col p-2 overflow-y-auto">
+                <div className="w-full md:w-64 bg-gray-900/50 border-r border-gray-700 flex flex-col p-2 overflow-y-auto no-print">
                     {menuItems.map(item => (
                         <button
                             key={item.id}
@@ -215,7 +258,7 @@ const UserManualModal: React.FC<UserManualModalProps> = ({ onClose }) => {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-surface-dark">
+                <div id="manual-content" className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-surface-dark">
                     {renderContent()}
                 </div>
             </div>

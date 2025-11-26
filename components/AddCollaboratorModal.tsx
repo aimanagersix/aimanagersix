@@ -22,7 +22,7 @@ interface AddCollaboratorModalProps {
     onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator, password?: string) => Promise<any>;
     collaboratorToEdit?: Collaborator | null;
     escolasDepartamentos: Entidade[];
-    instituicoes: Instituicao[]; // New Prop
+    instituicoes: Instituicao[];
     currentUser: Collaborator | null;
     roleOptions?: ConfigItem[];
     titleOptions?: ContactTitle[];
@@ -261,7 +261,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             }
         } catch (e: any) {
             console.error(e);
-            setErrors(prev => ({...prev, general: e.message || "Erro ao salvar colaborador."}));
+            const msg = e.message || "Erro ao salvar colaborador.";
+            setErrors(prev => ({
+                ...prev, 
+                general: msg,
+                // Map specific known error messages to fields if possible
+                email: msg.toLowerCase().includes("email") ? msg : prev.email
+            }));
         } finally {
             setIsSaving(false);
         }
@@ -450,7 +456,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     </div>
                 )}
 
-                {errors.general && <p className="text-red-400 text-xs">{errors.general}</p>}
+                {errors.general && <p className="text-red-400 text-xs border border-red-500/50 bg-red-500/10 p-2 rounded">{errors.general}</p>}
                 
                 {successMessage && (
                     <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">

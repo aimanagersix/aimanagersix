@@ -119,7 +119,7 @@ export const fetchAllData = async () => {
 // --- Audit Logs ---
 export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
     const supabase = getSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await (supabase.auth as any).getUser();
     if (!user) return;
     
     await supabase.from('audit_logs').insert({
@@ -284,6 +284,20 @@ export const deleteEntidade = (id: string) => remove('entidades', id);
 
 // Collaborators
 export const addCollaborator = async (data: any, password?: string) => {
+    const supabase = getSupabase();
+
+    // 1. PRE-CHECK: Ensure email doesn't exist in collaborators table
+    // This prevents creating a duplicate collaborator even if Auth is handled
+    const { data: existingCollaborator } = await supabase
+        .from('collaborators')
+        .select('id')
+        .eq('email', data.email)
+        .maybeSingle();
+
+    if (existingCollaborator) {
+        throw new Error("Este email já se encontra registado na ficha de outro colaborador.");
+    }
+
     // Check if login is enabled
     if (data.canLogin) {
         const serviceRoleKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
@@ -303,7 +317,7 @@ export const addCollaborator = async (data: any, password?: string) => {
 
         try {
             // Attempt to Create Auth User
-            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            const { data: authData, error: authError } = await (supabaseAdmin.auth as any).admin.createUser({
                 email: data.email,
                 password: password, // Optional: if undefined, sends invite link
                 email_confirm: true, // Auto-confirm email
@@ -316,7 +330,7 @@ export const addCollaborator = async (data: any, password?: string) => {
                     console.log("User already exists in Auth. Attempting to link...");
                     
                     // Fetch user to get ID - Admin client needed to list users
-                    const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+                    const { data: usersData, error: listError } = await (supabaseAdmin.auth as any).admin.listUsers({ perPage: 1000 });
                     
                     if (listError) throw listError;
 
@@ -328,7 +342,7 @@ export const addCollaborator = async (data: any, password?: string) => {
                         
                         // If password provided, update it
                         if (password) {
-                            await supabaseAdmin.auth.admin.updateUserById(existingUser.id, { password: password });
+                            await (supabaseAdmin.auth as any).admin.updateUserById(existingUser.id, { password: password });
                         }
                     } else {
                         throw new Error("Email já registado na autenticação, mas não foi possível localizar o ID.");
