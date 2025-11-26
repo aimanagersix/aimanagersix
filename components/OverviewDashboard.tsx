@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull } from './common/Icons';
@@ -286,7 +279,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         equipment.forEach(eq => {
             if (!eq.purchaseDate) return;
-            const ageInYears = (now.getTime() - new Date(eq.purchaseDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+            const ageInYears = (now.valueOf() - new Date(eq.purchaseDate).valueOf()) / (1000 * 60 * 60 * 24 * 365.25);
             if (ageInYears < 1) ageGroups['< 1 ano']++;
             else if (ageInYears < 2) ageGroups['1-2 anos']++;
             else if (ageInYears < 4) ageGroups['2-4 anos']++;
