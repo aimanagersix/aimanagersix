@@ -99,7 +99,7 @@ export const App: React.FC = () => {
         if (!currentUser) return false;
         if (currentUser.role === UserRole.SuperAdmin) return true;
         
-        const role = appData.customRoles.find(r => r.name === currentUser.role);
+        const role = appData.customRoles.find((r:any) => r.name === currentUser.role);
         if (role) {
             return role.permissions[module]?.[action] ?? false;
         }
@@ -216,7 +216,7 @@ export const App: React.FC = () => {
                     isExpanded={isSidebarExpanded}
                     onHover={setIsSidebarExpanded}
                     onOpenAutomation={() => { setActiveTab('settings'); }}
-                    onOpenProfile={() => { alert("Perfil - Clique no seu nome"); }} // Simplified, usually opens Detail Modal
+                    onOpenProfile={() => { alert("Perfil - Clique no seu nome"); }} // Simplified
                     onOpenCalendar={() => setShowCalendarModal(true)}
                     onOpenManual={() => setShowUserManualModal(true)}
                 />
@@ -398,7 +398,7 @@ export const App: React.FC = () => {
             {showNotificationsModal && (
                 <NotificationsModal 
                     onClose={() => setShowNotificationsModal(false)}
-                    expiringWarranties={[]} // Logic should be inside useAppData or passed properly
+                    expiringWarranties={[]} 
                     expiringLicenses={[]}
                     teamTickets={appData.tickets.filter((t: Ticket) => t.status === 'Pedido')}
                     collaborators={appData.collaborators}
@@ -410,7 +410,7 @@ export const App: React.FC = () => {
                 />
             )}
 
-            {/* Global Ticket Creation Modal (Called from MagicBar or other places) */}
+            {/* Global Ticket Creation Modal */}
             {showAddTicketModal && (
                 <AddTicketModal
                     onClose={() => setShowAddTicketModal(false)}

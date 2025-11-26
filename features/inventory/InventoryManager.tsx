@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
     SoftwareLicense, Assignment, 
-    defaultTooltipConfig, ModuleKey, PermissionAction
+    defaultTooltipConfig, ModuleKey, PermissionAction, LicenseAssignment, ConfigItem
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -34,6 +34,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     dashboardFilter, setDashboardFilter, setReportType, currentUser 
 }) => {
     
+    // Local State for Inventory Modals
     const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
     const [showKitModal, setShowKitModal] = useState(false);
@@ -48,6 +49,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
+    // Handlers
     const handleAssign = async (assignment: any) => {
         await dataService.addAssignment(assignment);
         refreshData();
@@ -70,6 +72,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     return (
         <>
+            {/* --- DASHBOARDS --- */}
             {activeTab === 'equipment.inventory' && (
                 <EquipmentDashboard 
                     equipment={appData.equipment} 
