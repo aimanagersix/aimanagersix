@@ -1,20 +1,27 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
-import { FaGlobe, FaMagic, FaSync } from 'react-icons/fa';
+import { FaGlobe, FaMagic, FaCamera, FaTrash } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
-const isValidPhoneNumber = (phone: string): boolean => {
+const isValidMobile = (phone: string): boolean => {
     if (!phone || phone.trim() === '') return true;
     const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
-    const regex = /^(2\d{8}|9[1236]\d{7})$/;
+    // Validar telemóvel português (começa com 9, tem 9 digitos)
+    const regex = /^9[1236]\d{7}$/;
     return regex.test(cleaned);
+};
+
+const isValidNif = (nif: string): boolean => {
+    if (!nif || nif.trim() === '') return true;
+    const cleaned = nif.replace(/\s/g, '');
+    return /^\d{9}$/.test(cleaned);
 };
 
 interface AddCollaboratorModalProps {
@@ -55,7 +62,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         canLogin: false,
         receivesNotifications: false,
         role: 'Utilizador',
-        status: CollaboratorStatus.Ativo
+        status: CollaboratorStatus.Ativo,
+        photoUrl: ''
     });
     
     const [password, setPassword] = useState('');
@@ -64,6 +72,11 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [successMessage, setSuccessMessage] = useState('');
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const [availableRoles, setAvailableRoles] = useState<CustomRole[]>([]);
+
+    // Photo Upload State
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Selection State
     const [selectedInstituicao, setSelectedInstituicao] = useState<string>('');
@@ -103,6 +116,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 entidadeId: collaboratorToEdit.entidadeId || '',
                 instituicaoId: collaboratorToEdit.instituicaoId || ''
             });
+            setPhotoPreview(collaboratorToEdit.photoUrl || null);
             
             // Infer Institution from Entity if present, otherwise use direct Institution ID
             if (collaboratorToEdit.entidadeId) {
@@ -135,26 +149,23 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.fullName?.trim()) newErrors.fullName = "O nome é obrigatório.";
+        
         if (!formData.email?.trim()) {
             newErrors.email = "O email é obrigatório.";
         } else if (!isValidEmail(formData.email)) {
             newErrors.email = "Formato de email inválido.";
         }
 
-        if (formData.telemovel?.trim() && !isValidPhoneNumber(formData.telemovel)) {
-            newErrors.telemovel = "Móvel inválido (9 dígitos, iniciar com 9).";
+        if (formData.telemovel?.trim() && !isValidMobile(formData.telemovel)) {
+            newErrors.telemovel = "Móvel inválido (Deve ter 9 dígitos e começar por 9).";
         }
 
-        if (formData.nif?.trim()) {
-             const cleanNif = formData.nif.replace(/\s/g, '');
-             if (!/^\d{9}$/.test(cleanNif)) {
-                 newErrors.nif = "O NIF deve ter 9 dígitos.";
-             }
+        if (formData.nif?.trim() && !isValidNif(formData.nif)) {
+             newErrors.nif = "O NIF deve ter 9 dígitos numéricos.";
         }
         
         if (!isGlobalAdmin) {
             if (!selectedInstituicao) newErrors.instituicaoId = "A Instituição é obrigatória.";
-            // Entidade is optional now (can belong to Institution directly)
         }
 
         setErrors(newErrors);
@@ -171,7 +182,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         // Se mudar o perfil e não for SuperAdmin, desativa o modo Global
         if (name === 'role' && value !== UserRole.SuperAdmin) {
              setIsGlobalAdmin(false);
-             // Re-selecionar uma instituição padrão se estiver vazio
              if (!selectedInstituicao && instituicoes.length > 0) {
                  setSelectedInstituicao(instituicoes[0].id);
              }
@@ -184,6 +194,25 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 return newErrors;
             });
         }
+    };
+    
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                alert("A imagem é muito grande. O máximo é 2MB.");
+                return;
+            }
+            setPhotoFile(file);
+            setPhotoPreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleRemovePhoto = () => {
+        setPhotoFile(null);
+        setPhotoPreview(null);
+        setFormData(prev => ({ ...prev, photoUrl: '' }));
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
     
     const handleGeneratePassword = () => {
@@ -204,7 +233,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const handleGlobalAdminToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         
-        // Double check safety: Only SuperAdmin role allows Global
         if (formData.role !== UserRole.SuperAdmin) {
             alert("Apenas o perfil 'SuperAdmin' pode ter Acesso Global.");
             return;
@@ -215,7 +243,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             setFormData(prev => ({ ...prev, entidadeId: '', instituicaoId: '' }));
             setSelectedInstituicao('');
         } else {
-            // Reset to first available institution
              if (instituicoes.length > 0) {
                  setSelectedInstituicao(instituicoes[0].id);
              }
@@ -248,24 +275,40 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         };
 
         try {
-            let result;
+            let savedCollaborator;
+            
+            // 1. Save Collab Data First
             if (collaboratorToEdit) {
-                result = await onSave({ ...collaboratorToEdit, ...dataToSave });
+                savedCollaborator = await onSave({ ...collaboratorToEdit, ...dataToSave });
             } else {
-                result = await onSave(dataToSave, password || undefined);
+                savedCollaborator = await onSave(dataToSave, password || undefined);
+            }
+
+            // 2. Upload Photo if selected
+            if (photoFile && savedCollaborator && savedCollaborator.id) {
+                try {
+                    const publicUrl = await dataService.uploadCollaboratorPhoto(savedCollaborator.id, photoFile);
+                    // The onSave might not update local state immediately for photo, but dataService does.
+                    // The UI should reflect this on next fetch/refresh.
+                } catch (uploadErr) {
+                    console.error("Photo upload failed", uploadErr);
+                    alert("Colaborador salvo, mas a foto falhou ao carregar.");
+                }
+            } else if (!photoPreview && collaboratorToEdit?.photoUrl) {
+                 // Logic to handle photo removal if needed in backend (currently just updates URL to empty if sent)
+                 await dataService.updateCollaborator(savedCollaborator.id, { photoUrl: '' });
             }
             
-            if (result) {
-                setSuccessMessage("Colaborador gravado com sucesso!");
-                setTimeout(() => setSuccessMessage(''), 3000);
-            }
+            setSuccessMessage("Colaborador gravado com sucesso!");
+            setTimeout(() => setSuccessMessage(''), 3000);
+            onClose();
+            
         } catch (e: any) {
             console.error(e);
             const msg = e.message || "Erro ao salvar colaborador.";
             setErrors(prev => ({
                 ...prev, 
                 general: msg,
-                // Map specific known error messages to fields if possible
                 email: msg.toLowerCase().includes("email") ? msg : prev.email
             }));
         } finally {
@@ -278,7 +321,47 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-2xl">
-            <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[80vh] p-1">
+            <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[80vh] p-1 pr-2 custom-scrollbar">
+                
+                {/* Photo Upload Section */}
+                <div className="flex flex-col items-center mb-6">
+                    <div className="relative group">
+                        <div className="w-24 h-24 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center overflow-hidden">
+                            {photoPreview ? (
+                                <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-2xl font-bold text-gray-500">{formData.fullName ? formData.fullName.charAt(0).toUpperCase() : '?'}</span>
+                            )}
+                        </div>
+                        <label 
+                            htmlFor="photo-upload" 
+                            className="absolute bottom-0 right-0 bg-brand-primary p-2 rounded-full text-white cursor-pointer hover:bg-brand-secondary transition-colors shadow-lg"
+                            title="Carregar Foto"
+                        >
+                            <FaCamera className="w-4 h-4" />
+                        </label>
+                        {photoPreview && (
+                            <button
+                                type="button"
+                                onClick={handleRemovePhoto}
+                                className="absolute top-0 right-0 bg-red-600 p-1.5 rounded-full text-white hover:bg-red-500 transition-colors shadow-lg"
+                                title="Remover Foto"
+                            >
+                                <FaTrash className="w-3 h-3" />
+                            </button>
+                        )}
+                        <input 
+                            type="file" 
+                            id="photo-upload" 
+                            ref={fileInputRef}
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handlePhotoChange}
+                        />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">Carregar Foto (Máx 2MB)</p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Trato</label>
@@ -309,12 +392,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">NIF</label>
-                        <input type="text" name="nif" value={formData.nif} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.nif ? 'border-red-500' : 'border-gray-600'}`} />
+                        <input type="text" name="nif" value={formData.nif} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.nif ? 'border-red-500' : 'border-gray-600'}`} maxLength={9} />
                         {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Móvel</label>
-                        <input type="text" name="telemovel" value={formData.telemovel} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.telemovel ? 'border-red-500' : 'border-gray-600'}`} />
+                        <input type="text" name="telemovel" value={formData.telemovel} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.telemovel ? 'border-red-500' : 'border-gray-600'}`} placeholder="9xxxxxxxx" maxLength={9} />
                         {errors.telemovel && <p className="text-red-400 text-xs italic mt-1">{errors.telemovel}</p>}
                     </div>
                     <div>

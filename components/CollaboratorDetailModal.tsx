@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave } from './common/Icons';
+import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig, EquipmentStatus } from '../types';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave, FaBoxOpen, FaSearch, FaUnlink, FaLink } from './common/Icons';
 import { analyzeCollaboratorRisk, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -18,6 +18,8 @@ interface CollaboratorDetailModalProps {
     onShowHistory: (collaborator: Collaborator) => void;
     onStartChat: (collaborator: Collaborator) => void;
     onEdit: (collaborator: Collaborator) => void;
+    onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
+    onUnassignEquipment?: (equipmentId: string) => Promise<void>;
 }
 
 const getStatusClass = (status: CollaboratorStatus) => {
@@ -47,9 +49,11 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     onClose,
     onShowHistory,
     onStartChat,
-    onEdit
+    onEdit,
+    onAssignEquipment,
+    onUnassignEquipment
 }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'training' | 'preferences'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'training' | 'preferences'>('overview');
     
     // Training State
     const [trainings, setTrainings] = useState<SecurityTrainingRecord[]>([]);
@@ -61,6 +65,11 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         status: 'Concluído',
         score: 100
     });
+    
+    // Quick Assign State
+    const [stockEquipment, setStockEquipment] = useState<Equipment[]>([]);
+    const [selectedStockId, setSelectedStockId] = useState('');
+    const [isAssigning, setIsAssigning] = useState(false);
     
     // Password Change State
     const [isCurrentUser, setIsCurrentUser] = useState(false);
@@ -82,7 +91,6 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     useEffect(() => {
         const checkUser = async () => {
             const supabase = getSupabase();
-            // Cast auth to any to avoid TS errors
             const { data: { user } } = await (supabase.auth as any).getUser();
             if (user && user.id === collaborator.id) {
                 setIsCurrentUser(true);
@@ -102,6 +110,14 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         };
         fetchTraining();
     }, [collaborator.id]);
+    
+    // Fetch stock for Quick Assign
+    useEffect(() => {
+        if (activeTab === 'inventory') {
+            const available = equipment.filter(e => e.status === EquipmentStatus.Stock);
+            setStockEquipment(available);
+        }
+    }, [activeTab, equipment]);
 
     const assignedEquipment = useMemo(() => {
         const collaboratorEquipmentIds = new Set(
@@ -122,6 +138,32 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         onStartChat(collaborator);
         onClose(); 
     };
+    
+    const handleQuickAssign = async () => {
+        if (!onAssignEquipment || !selectedStockId) return;
+        setIsAssigning(true);
+        try {
+            await onAssignEquipment(collaborator.id, selectedStockId);
+            setSelectedStockId('');
+            alert("Equipamento atribuído com sucesso!");
+            // Typically parent updates data, forcing re-render
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao atribuir equipamento.");
+        } finally {
+            setIsAssigning(false);
+        }
+    };
+    
+    const handleUnassign = async (id: string) => {
+        if (!onUnassignEquipment || !confirm("Tem a certeza que deseja desassociar este equipamento?")) return;
+        try {
+            await onUnassignEquipment(id);
+            // Parent updates
+        } catch(e) {
+            alert("Erro ao desassociar.");
+        }
+    };
 
     const handleAddTraining = async () => {
         if (!newTraining.training_type || !newTraining.completion_date) return;
@@ -132,7 +174,6 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                 collaborator_id: collaborator.id
             } as any);
             setShowAddTraining(false);
-            // Refresh list
             const allData = await dataService.fetchAllData();
             const userTraining = (allData.securityTrainings || []).filter((t: any) => t.collaborator_id === collaborator.id);
             setTrainings(userTraining);
@@ -156,7 +197,6 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         setIsUpdatingPassword(true);
         try {
             const supabase = getSupabase();
-            // Cast auth to any to avoid TS errors
             const { error } = await (supabase.auth as any).updateUser({ password: newPassword });
             if (error) throw error;
             
@@ -329,6 +369,12 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                         Visão Geral
                     </button>
                     <button 
+                        onClick={() => setActiveTab('inventory')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'inventory' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        Inventário & Ativos
+                    </button>
+                    <button 
                         onClick={() => setActiveTab('training')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'training' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
@@ -401,7 +447,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                 </section>
                             )}
 
-                            {/* Assigned Equipment Section */}
+                            {/* Assigned Equipment Summary */}
                             <section>
                                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2"><FaLaptop /> Equipamentos Atribuídos ({assignedEquipment.length})</h3>
                                 {assignedEquipment.length > 0 ? (
@@ -459,6 +505,67 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                 )}
                             </section>
                         </>
+                    )}
+
+                    {activeTab === 'inventory' && (
+                        <div className="space-y-6">
+                            {/* Current Inventory with Actions */}
+                            <div>
+                                <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2"><FaBoxOpen className="text-blue-400"/> Equipamento em Posse</h3>
+                                {assignedEquipment.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {assignedEquipment.map(item => (
+                                            <div key={item.id} className="flex items-center justify-between bg-gray-800/50 p-3 rounded border border-gray-700">
+                                                <div>
+                                                    <p className="font-bold text-white">{item.description}</p>
+                                                    <p className="text-xs text-gray-400">S/N: {item.serialNumber}</p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleUnassign(item.id)}
+                                                    className="text-xs bg-red-900/30 text-red-400 border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-900/50 flex items-center gap-1 transition-colors"
+                                                >
+                                                    <FaUnlink /> Desassociar
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-gray-500 text-sm italic bg-gray-900/20 p-4 rounded text-center">Nenhum equipamento atribuído atualmente.</p>
+                                )}
+                            </div>
+
+                            {/* Quick Assign Section */}
+                            <div className="bg-gray-800/30 p-4 rounded-lg border border-gray-700">
+                                <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><FaLink className="text-green-400"/> Atribuição Imediata</h3>
+                                <p className="text-xs text-gray-400 mb-3">Selecione um equipamento disponível em stock para atribuir a este colaborador.</p>
+                                
+                                <div className="flex gap-2 items-center">
+                                    <div className="flex-grow relative">
+                                        <select 
+                                            value={selectedStockId} 
+                                            onChange={(e) => setSelectedStockId(e.target.value)} 
+                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm pl-8"
+                                        >
+                                            <option value="">-- Selecione do Stock --</option>
+                                            {stockEquipment.map(e => (
+                                                <option key={e.id} value={e.id}>
+                                                    {e.description} (S/N: {e.serialNumber})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <FaSearch className="absolute left-2.5 top-3 text-gray-400 h-3 w-3 pointer-events-none"/>
+                                    </div>
+                                    <button 
+                                        onClick={handleQuickAssign}
+                                        disabled={!selectedStockId || isAssigning}
+                                        className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-500 disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {isAssigning ? <FaSpinner className="animate-spin"/> : <FaCheckCircle />} 
+                                        Associar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     )}
 
                     {activeTab === 'training' && (

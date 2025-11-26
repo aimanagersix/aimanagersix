@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
     Collaborator, Instituicao, Entidade, Team, Supplier, 
@@ -69,6 +70,28 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
     const [newCredentials, setNewCredentials] = useState<{email: string, password?: string} | null>(null);
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
+
+    // Handlers for Detail Modal Actions
+    const handleAssignEquipment = async (collaboratorId: string, equipmentId: string) => {
+        // 1. Set Equipment as Operational
+        await dataService.updateEquipment(equipmentId, { status: 'Operacional' });
+        // 2. Create Assignment
+        await dataService.addAssignment({
+            equipmentId,
+            collaboratorId,
+            assignedDate: new Date().toISOString().split('T')[0]
+        });
+        refreshData();
+    };
+
+    const handleUnassignEquipment = async (equipmentId: string) => {
+        // Creating assignment with returnDate effectively unassigns it and sets status to Stock (handled in dataService)
+        await dataService.addAssignment({
+            equipmentId,
+            returnDate: new Date().toISOString().split('T')[0]
+        });
+        refreshData();
+    };
 
     return (
         <>
@@ -142,6 +165,9 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                         if (col) { await dataService.updateCollaborator(id, { status: col.status === 'Ativo' ? 'Inativo' : 'Ativo' }); refreshData(); }
                     } : undefined}
                     tooltipConfig={userTooltipConfig}
+                    // Passing handlers for quick assignment
+                    onAssignEquipment={checkPermission('equipment', 'edit') ? handleAssignEquipment : undefined}
+                    onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
                 />
             )}
 
@@ -302,6 +328,9 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onShowHistory={(c) => { setShowCollaboratorDetailModal(false); setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }}
                     onStartChat={(c) => { onStartChat(c); setShowCollaboratorDetailModal(false); }}
                     onEdit={(c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); setShowCollaboratorDetailModal(false); }}
+                    // Passing handlers for quick assignment inside detail modal
+                    onAssignEquipment={checkPermission('equipment', 'edit') ? handleAssignEquipment : undefined}
+                    onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
                 />
             )}
             {showCredentialsModal && newCredentials && (

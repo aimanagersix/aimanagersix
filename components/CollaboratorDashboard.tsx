@@ -26,6 +26,9 @@ interface CollaboratorDashboardProps {
   onToggleStatus?: (id: string) => void;
   onCreate?: () => void;
   tooltipConfig?: TooltipConfig;
+  // New Handlers passed to Detail Modal
+  onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
+  onUnassignEquipment?: (equipmentId: string) => Promise<void>;
 }
 
 interface TooltipState {
@@ -66,7 +69,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     currentUser, 
     onToggleStatus,
     onCreate,
-    tooltipConfig = defaultTooltipConfig
+    tooltipConfig = defaultTooltipConfig,
+    onAssignEquipment,
+    onUnassignEquipment
 }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
@@ -353,7 +358,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  let deleteTooltip = `Excluir ${col.fullName}`;
                  if (isDeleteDisabled) {
                      const uniqueDependencies = Array.from(new Set(dependencies));
-                     // Limit displayed reasons to avoid huge tooltips
                      const displayedReasons = uniqueDependencies.slice(0, 3);
                      if (uniqueDependencies.length > 3) {
                          displayedReasons.push('...');
