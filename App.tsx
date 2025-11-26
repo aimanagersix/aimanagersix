@@ -79,7 +79,12 @@ const initialConfigState: ConfigItem[] = [];
 
 export const App: React.FC = () => {
     // --- Authentication & Setup State ---
-    const [isConfigured, setIsConfigured] = useState(false);
+    const [isConfigured, setIsConfigured] = useState<boolean>(() => {
+        const url = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
+        const key = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
+        return !!(url && key);
+    });
+    
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [activeTab, setActiveTab] = useState('overview');
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -113,7 +118,6 @@ export const App: React.FC = () => {
     const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
     const [softwareCategories, setSoftwareCategories] = useState<ConfigItem[]>([]);
     
-    // Generic Config State (Statuses, etc)
     const [configEquipmentStatuses, setConfigEquipmentStatuses] = useState<ConfigItem[]>([]);
     const [contactRoles, setContactRoles] = useState<ConfigItem[]>([]);
     const [contactTitles, setContactTitles] = useState<ConfigItem[]>([]);
@@ -206,7 +210,6 @@ export const App: React.FC = () => {
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
     const [newCredentials, setNewCredentials] = useState<{email: string, password?: string} | null>(null);
 
-    // Detail Modals
     const [showEquipmentDetailModal, setShowEquipmentDetailModal] = useState(false);
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
 
@@ -307,10 +310,7 @@ export const App: React.FC = () => {
     useEffect(() => {
         const checkConfig = () => {
              try {
-                const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
-                const supabaseKey = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
-                if (supabaseUrl && supabaseKey) {
-                    setIsConfigured(true);
+                if (isConfigured) {
                     const supabase = getSupabase();
                     supabase.auth.getSession().then(({ data: { session } }) => {
                          if (session) {
@@ -329,15 +329,13 @@ export const App: React.FC = () => {
                             setShowResetPasswordModal(true);
                         }
                     });
-                } else {
-                    setIsConfigured(false);
                 }
             } catch (e) {
                 setIsConfigured(false);
             }
         };
         checkConfig();
-    }, []);
+    }, [isConfigured]);
 
     useEffect(() => {
         if (isConfigured && currentUser) {
@@ -347,7 +345,6 @@ export const App: React.FC = () => {
         }
     }, [isConfigured, currentUser]);
 
-    // --- Handlers ---
     const handleLogin = async (email: string, password: string) => {
         try {
             const supabase = getSupabase();
@@ -397,7 +394,6 @@ export const App: React.FC = () => {
         loadData();
     };
 
-    // --- Render ---
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (!currentUser) return (
         <>
@@ -418,7 +414,7 @@ export const App: React.FC = () => {
                     setActiveTab={setActiveTab} 
                     onLogout={handleLogout}
                     tabConfig={tabConfig}
-                    notificationCount={0} // Calculated in component but needed here
+                    notificationCount={0} 
                     onNotificationClick={() => setShowNotificationsModal(true)}
                     isExpanded={isSidebarExpanded}
                     onHover={setIsSidebarExpanded}
@@ -446,6 +442,8 @@ export const App: React.FC = () => {
             <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar ${layoutMode === 'side' ? (isSidebarExpanded ? 'ml-64' : 'ml-20') : ''}`}>
                 <div className="max-w-screen-xl mx-auto p-4 md:p-6">
                     
+                    {/* ---------------- DASHBOARDS (Conditional Rendering Restored) ---------------- */}
+
                     {activeTab === 'overview' && <OverviewDashboard 
                         equipment={equipment} 
                         instituicoes={instituicoes}
@@ -465,6 +463,17 @@ export const App: React.FC = () => {
                         onGenerateComplianceReport={() => { setReportType('compliance'); setShowReportModal(true); }}
                     />}
 
+                    {activeTab === 'overview.smart' && (
+                        <SmartDashboard 
+                            tickets={tickets} 
+                            vulnerabilities={vulnerabilities} 
+                            backups={backupExecutions} 
+                            trainings={securityTrainings} 
+                            collaborators={collaborators}
+                            currentUser={currentUser}
+                        />
+                    )}
+
                     {activeTab === 'equipment.inventory' && (
                         <EquipmentDashboard 
                             equipment={equipment} 
@@ -482,18 +491,18 @@ export const App: React.FC = () => {
                             onAssign={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); } : undefined}
                             onAssignMultiple={checkPermission('equipment', 'edit') ? (eqs) => { setEquipmentListToAssign(eqs); setShowAssignMultipleModal(true); } : undefined}
                             onUnassign={checkPermission('equipment', 'edit') ? async (id) => {
-                                await dataService.addAssignment({ equipmentId: id, returnDate: new Date().toISOString().split('T')[0] }); // Pass returnDate to trigger unassign logic
+                                await dataService.addAssignment({ equipmentId: id, returnDate: new Date().toISOString().split('T')[0] });
                                 loadData();
                             } : undefined}
                             onUpdateStatus={checkPermission('equipment', 'edit') ? async (id, status) => {
                                 await dataService.updateEquipment(id, { status });
                                 loadData();
                             } : undefined}
-                            onShowHistory={(eq) => { setDetailEquipment(eq); }} 
+                            onShowHistory={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} 
                             onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setShowAddEquipmentModal(true); } : undefined}
                             onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setShowAddEquipmentModal(true); } : undefined}
                             onGenerateReport={checkPermission('reports', 'view') ? () => { setReportType('equipment'); setShowReportModal(true); } : undefined}
-                            onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); } : undefined}
+                            onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); } : undefined}
                             businessServices={businessServices}
                             serviceDependencies={serviceDependencies}
                             tickets={tickets}
@@ -506,7 +515,216 @@ export const App: React.FC = () => {
                         />
                     )}
 
-                    {/* ... Other Dashboards ... */}
+                    {activeTab === 'licensing' && (
+                        <LicenseDashboard 
+                            licenses={softwareLicenses}
+                            licenseAssignments={licenseAssignments}
+                            equipmentData={equipment}
+                            assignments={assignments}
+                            collaborators={collaborators}
+                            brandMap={new Map(brands.map(b => [b.id, b.name]))}
+                            equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
+                            onEdit={checkPermission('licensing', 'edit') ? (l) => { setLicenseToEdit(l); setShowAddLicenseModal(true); } : undefined}
+                            onDelete={checkPermission('licensing', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteLicense(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('licensing', 'create') ? () => { setLicenseToEdit(null); setShowAddLicenseModal(true); } : undefined}
+                            onGenerateReport={() => { setReportType('licensing'); setShowReportModal(true); }}
+                            initialFilter={dashboardFilter}
+                            onClearInitialFilter={() => setDashboardFilter(null)}
+                            businessServices={businessServices}
+                            serviceDependencies={serviceDependencies}
+                            softwareCategories={softwareCategories as any}
+                        />
+                    )}
+
+                    {activeTab === 'organizacao.instituicoes' && (
+                        <InstituicaoDashboard 
+                            instituicoes={instituicoes}
+                            escolasDepartamentos={entidades}
+                            collaborators={collaborators}
+                            assignments={assignments}
+                            equipment={equipment}
+                            brands={brands}
+                            equipmentTypes={equipmentTypes}
+                            onEdit={checkPermission('organization', 'edit') ? (i) => { setInstituicaoToEdit(i); setShowAddInstituicaoModal(true); } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteInstituicao(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('organization', 'create') ? () => { setInstituicaoToEdit(null); setShowAddInstituicaoModal(true); } : undefined}
+                            onAddEntity={checkPermission('organization', 'create') ? (instId) => { setEntidadeToEdit({ instituicaoId: instId } as any); setShowAddEntidadeModal(true); } : undefined}
+                            onCreateCollaborator={checkPermission('organization', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaboratorModal(true); } : undefined}
+                            onImport={checkPermission('organization', 'create') ? () => { setImportConfig({ dataType: 'instituicoes', title: 'Importar Instituições', columnMap: { 'Nome': 'name', 'Código': 'codigo', 'Email': 'email', 'Telefone': 'telefone' }, templateFileName: 'instituicoes_template.xlsx' }); setShowImportModal(true); } : undefined}
+                            onToggleStatus={checkPermission('organization', 'edit') ? async (id) => { 
+                                const inst = instituicoes.find(i => i.id === id);
+                                if (inst) { await dataService.updateInstituicao(id, { is_active: inst.is_active === false }); loadData(); }
+                            } : undefined}
+                        />
+                    )}
+
+                    {activeTab === 'organizacao.entidades' && (
+                        <EntidadeDashboard 
+                            escolasDepartamentos={entidades}
+                            instituicoes={instituicoes}
+                            collaborators={collaborators}
+                            assignments={assignments}
+                            tickets={tickets}
+                            collaboratorHistory={collaboratorHistory}
+                            equipment={equipment}
+                            brands={brands}
+                            equipmentTypes={equipmentTypes}
+                            onEdit={checkPermission('organization', 'edit') ? (e) => { setEntidadeToEdit(e); setShowAddEntidadeModal(true); } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEntidade(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('organization', 'create') ? () => { setEntidadeToEdit(null); setShowAddEntidadeModal(true); } : undefined}
+                            onAddCollaborator={checkPermission('organization', 'create') ? (entId) => { setCollaboratorToEdit({ entidadeId: entId } as any); setShowAddCollaboratorModal(true); } : undefined}
+                            onAssignEquipment={checkPermission('equipment', 'edit') ? (entId) => { setEquipmentToAssign(null); setShowAssignModal(true); /* Pre-select entity logic inside modal if passed */ } : undefined}
+                            onImport={checkPermission('organization', 'create') ? () => { setImportConfig({ dataType: 'entidades', title: 'Importar Entidades', columnMap: { 'Nome': 'name', 'Código': 'codigo', 'Email': 'email', 'Responsável': 'responsavel' }, templateFileName: 'entidades_template.xlsx' }); setShowImportModal(true); } : undefined}
+                            onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
+                                const ent = entidades.find(e => e.id === id);
+                                if (ent) { await dataService.updateEntidade(id, { status: ent.status === 'Ativo' ? 'Inativo' : 'Ativo' }); loadData(); }
+                            } : undefined}
+                        />
+                    )}
+
+                    {activeTab === 'collaborators' && (
+                        <CollaboratorDashboard 
+                            collaborators={collaborators}
+                            escolasDepartamentos={entidades}
+                            instituicoes={instituicoes}
+                            equipment={equipment}
+                            assignments={assignments}
+                            tickets={tickets}
+                            ticketActivities={ticketActivities}
+                            teamMembers={teamMembers}
+                            collaboratorHistory={collaboratorHistory}
+                            messages={messages}
+                            currentUser={currentUser}
+                            onEdit={checkPermission('organization', 'edit') ? (c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteCollaborator(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('organization', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaboratorModal(true); } : undefined}
+                            onShowHistory={(c) => { setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }}
+                            onShowDetails={(c) => { setDetailCollaborator(c); setShowCollaboratorDetailModal(true); }}
+                            onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }}
+                            onGenerateReport={checkPermission('reports', 'view') ? () => { setReportType('collaborator'); setShowReportModal(true); } : undefined}
+                            onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
+                                const col = collaborators.find(c => c.id === id);
+                                if (col) { await dataService.updateCollaborator(id, { status: col.status === 'Ativo' ? 'Inativo' : 'Ativo' }); loadData(); }
+                            } : undefined}
+                            tooltipConfig={userTooltipConfig}
+                        />
+                    )}
+
+                    {activeTab === 'organizacao.teams' && (
+                        <TeamDashboard 
+                            teams={teams}
+                            teamMembers={teamMembers}
+                            collaborators={collaborators}
+                            tickets={tickets}
+                            equipmentTypes={equipmentTypes}
+                            onEdit={checkPermission('organization', 'edit') ? (t) => { setTeamToEdit(t); setShowAddTeamModal(true); } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteTeam(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('organization', 'create') ? () => { setTeamToEdit(null); setShowAddTeamModal(true); } : undefined}
+                            onManageMembers={checkPermission('organization', 'edit') ? (t) => { setTeamToManage(t); setShowManageTeamMembersModal(true); } : undefined}
+                            onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
+                                const t = teams.find(team => team.id === id);
+                                if (t) { await dataService.updateTeam(id, { is_active: t.is_active === false }); loadData(); }
+                            } : undefined}
+                        />
+                    )}
+
+                    {activeTab === 'organizacao.suppliers' && (
+                        <SupplierDashboard 
+                            suppliers={suppliers}
+                            businessServices={businessServices}
+                            onEdit={checkPermission('suppliers', 'edit') ? (s) => { setSupplierToEdit(s); setShowAddSupplierModal(true); } : undefined}
+                            onDelete={checkPermission('suppliers', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteSupplier(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('suppliers', 'create') ? () => { setSupplierToEdit(null); setShowAddSupplierModal(true); } : undefined}
+                            onToggleStatus={checkPermission('suppliers', 'edit') ? async (id) => {
+                                const s = suppliers.find(sup => sup.id === id);
+                                if (s) { await dataService.updateSupplier(id, { is_active: s.is_active === false }); loadData(); }
+                            } : undefined}
+                        />
+                    )}
+
+                    {activeTab === 'tickets.list' && (
+                        <TicketDashboard 
+                            tickets={tickets}
+                            escolasDepartamentos={entidades}
+                            collaborators={collaborators}
+                            teams={teams}
+                            equipment={equipment}
+                            equipmentTypes={equipmentTypes}
+                            categories={ticketCategories}
+                            initialFilter={dashboardFilter}
+                            onClearInitialFilter={() => setDashboardFilter(null)}
+                            onEdit={checkPermission('tickets', 'edit') ? (t) => { setTicketToEdit(t); setShowAddTicketModal(true); } : undefined}
+                            onCreate={checkPermission('tickets', 'create') ? () => { setTicketToEdit(null); setShowAddTicketModal(true); } : undefined}
+                            onOpenCloseTicketModal={checkPermission('tickets', 'edit') ? (t) => { setTicketToClose(t); setShowCloseTicketModal(true); } : undefined}
+                            onUpdateTicket={checkPermission('tickets', 'edit') ? async (t) => { await dataService.updateTicket(t.id, t); loadData(); } : undefined}
+                            onGenerateReport={checkPermission('reports', 'view') ? () => { setReportType('ticket'); setShowReportModal(true); } : undefined}
+                            onOpenActivities={(t) => { setTicketForActivities(t); setShowTicketActivitiesModal(true); }}
+                            onGenerateSecurityReport={(t) => { 
+                                // Logic handled inside modal or service call, here we trigger specialized view if needed
+                                setTicketToEdit(t); // Re-use edit modal which has the regulatory button
+                                setShowAddTicketModal(true);
+                            }}
+                        />
+                    )}
+
+                    {activeTab === 'nis2.bia' && (
+                        <ServiceDashboard 
+                            services={businessServices}
+                            dependencies={serviceDependencies}
+                            collaborators={collaborators}
+                            onEdit={checkPermission('compliance', 'edit') ? (s) => { setServiceToEdit(s); setShowAddServiceModal(true); } : undefined}
+                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBusinessService(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('compliance', 'create') ? () => { setServiceToEdit(null); setShowAddServiceModal(true); } : undefined}
+                            onManageDependencies={checkPermission('compliance', 'edit') ? (s) => { setServiceForDependencies(s); setShowServiceDependencyModal(true); } : undefined}
+                            onGenerateReport={() => { setReportType('bia'); setShowReportModal(true); }}
+                        />
+                    )}
+
+                    {activeTab === 'nis2.security' && (
+                        <VulnerabilityDashboard 
+                            vulnerabilities={vulnerabilities}
+                            onEdit={checkPermission('compliance', 'edit') ? (v) => { setVulnerabilityToEdit(v); setShowAddVulnerabilityModal(true); } : undefined}
+                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteVulnerability(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('compliance', 'create') ? () => { setVulnerabilityToEdit(null); setShowAddVulnerabilityModal(true); } : undefined}
+                            initialFilter={dashboardFilter}
+                            onClearInitialFilter={() => setDashboardFilter(null)}
+                            onCreateTicket={(vuln) => {
+                                setTicketToEdit({
+                                    title: `Vulnerabilidade: ${vuln.cve_id}`,
+                                    description: `Correção necessária para vulnerabilidade ${vuln.cve_id}.\nAfeta: ${vuln.affected_software}\n\nDetalhes: ${vuln.description}`,
+                                    category: 'Incidente de Segurança',
+                                    securityIncidentType: 'Exploração de Vulnerabilidade',
+                                    impactCriticality: vuln.severity,
+                                } as any);
+                                setShowAddTicketModal(true);
+                            }}
+                        />
+                    )}
+
+                    {activeTab === 'nis2.backups' && (
+                        <BackupDashboard 
+                            backups={backupExecutions}
+                            collaborators={collaborators}
+                            equipment={equipment}
+                            onEdit={checkPermission('compliance', 'edit') ? (b) => { setBackupToEdit(b); setShowAddBackupModal(true); } : undefined}
+                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBackupExecution(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('compliance', 'create') ? () => { setBackupToEdit(null); setShowAddBackupModal(true); } : undefined}
+                        />
+                    )}
+
+                    {activeTab === 'nis2.resilience' && (
+                        <ResilienceDashboard 
+                            resilienceTests={resilienceTests}
+                            onEdit={checkPermission('compliance', 'edit') ? (t) => { setTestToEdit(t); setShowAddResilienceTestModal(true); } : undefined}
+                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteResilienceTest(id); loadData(); } } : undefined}
+                            onCreate={checkPermission('compliance', 'create') ? () => { setTestToEdit(null); setShowAddResilienceTestModal(true); } : undefined}
+                            onCreateTicket={(ticketData) => {
+                                setTicketToEdit(ticketData as any);
+                                setShowAddTicketModal(true);
+                            }}
+                        />
+                    )}
+
                     {activeTab === 'reports' && (
                         <ReportsDashboard 
                             equipment={equipment}
@@ -515,6 +733,20 @@ export const App: React.FC = () => {
                             entidades={entidades}
                             brands={brands}
                             equipmentTypes={equipmentTypes}
+                        />
+                    )}
+
+                    {activeTab === 'tools.agenda' && (
+                        <AgendaDashboard />
+                    )}
+
+                    {activeTab === 'tools.map' && (
+                        <MapDashboard 
+                            instituicoes={instituicoes}
+                            entidades={entidades}
+                            suppliers={suppliers}
+                            equipment={equipment}
+                            assignments={assignments}
                         />
                     )}
 
@@ -566,7 +798,7 @@ export const App: React.FC = () => {
                     statusOptions={configEquipmentStatuses}
                     licenseAssignments={licenseAssignments}
                     onOpenHistory={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }}
-                    onManageLicenses={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} // Open detail modal directly
+                    onManageLicenses={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} 
                     onOpenAssign={(eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
                 />
             )}
@@ -605,8 +837,464 @@ export const App: React.FC = () => {
                     suppliers={suppliers}
                  />
             )}
+
+            {/* Kit Modal */}
+            {showKitModal && (
+                <AddEquipmentKitModal
+                    onClose={() => setShowKitModal(false)}
+                    onSaveKit={async (items) => {
+                        await dataService.addMultipleEquipment(items);
+                        loadData();
+                    }}
+                    brands={brands}
+                    equipmentTypes={equipmentTypes}
+                    initialData={kitInitialData}
+                    onSaveEquipmentType={dataService.addEquipmentType}
+                    equipment={equipment}
+                />
+            )}
+
+            {/* Assign Multiple */}
+            {showAssignMultipleModal && (
+                <AssignMultipleEquipmentModal
+                    equipmentList={equipmentListToAssign}
+                    brandMap={new Map(brands.map(b => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    onClose={() => setShowAssignMultipleModal(false)}
+                    onAssign={async (assignment) => {
+                        for (const eq of equipmentListToAssign) {
+                            await dataService.addAssignment({ ...assignment, equipmentId: eq.id });
+                        }
+                        loadData();
+                    }}
+                />
+            )}
+
+            {/* Brand & Type Modals */}
+            {showAddBrandModal && (
+                <AddBrandModal
+                    onClose={() => setShowAddBrandModal(false)}
+                    onSave={async (brand) => {
+                        if (brandToEdit) await dataService.updateBrand(brandToEdit.id, brand);
+                        else await dataService.addBrand(brand);
+                        loadData();
+                    }}
+                    brandToEdit={brandToEdit}
+                    existingBrands={brands}
+                />
+            )}
+            {showAddTypeModal && (
+                <AddEquipmentTypeModal
+                    onClose={() => setShowAddTypeModal(false)}
+                    onSave={async (type) => {
+                        if (typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, type);
+                        else await dataService.addEquipmentType(type);
+                        loadData();
+                    }}
+                    typeToEdit={typeToEdit}
+                    teams={teams}
+                    existingTypes={equipmentTypes}
+                />
+            )}
+
+            {/* Org Modals */}
+            {showAddInstituicaoModal && (
+                <AddInstituicaoModal
+                    onClose={() => setShowAddInstituicaoModal(false)}
+                    onSave={async (inst) => {
+                        if (instituicaoToEdit) await dataService.updateInstituicao(instituicaoToEdit.id, inst);
+                        else await dataService.addInstituicao(inst);
+                        loadData();
+                        return { id: 'temp', ...inst }; // Mock return to satisfy async
+                    }}
+                    instituicaoToEdit={instituicaoToEdit}
+                />
+            )}
+            {showAddEntidadeModal && (
+                <AddEntidadeModal
+                    onClose={() => setShowAddEntidadeModal(false)}
+                    onSave={async (ent) => {
+                        if (entidadeToEdit && entidadeToEdit.id) await dataService.updateEntidade(entidadeToEdit.id, ent);
+                        else await dataService.addEntidade(ent);
+                        loadData();
+                        return { id: 'temp', ...ent };
+                    }}
+                    entidadeToEdit={entidadeToEdit}
+                    instituicoes={instituicoes}
+                />
+            )}
+            {showAddCollaboratorModal && (
+                <AddCollaboratorModal
+                    onClose={() => setShowAddCollaboratorModal(false)}
+                    onSave={async (col, pass) => {
+                        if (collaboratorToEdit) await dataService.updateCollaborator(collaboratorToEdit.id, col);
+                        else {
+                            const newCol = await dataService.addCollaborator(col, pass);
+                            if (pass && newCol) setNewCredentials({ email: newCol.email, password: pass });
+                            if (newCol) setShowCredentialsModal(true);
+                        }
+                        loadData();
+                        return true;
+                    }}
+                    collaboratorToEdit={collaboratorToEdit}
+                    escolasDepartamentos={entidades}
+                    instituicoes={instituicoes}
+                    currentUser={currentUser}
+                    roleOptions={customRoles.map(r => ({ id: r.id, name: r.name }))}
+                    titleOptions={contactTitles.map(t => ({ id: t.id, name: t.name }))}
+                />
+            )}
+            {showAddTeamModal && (
+                <AddTeamModal
+                    onClose={() => setShowAddTeamModal(false)}
+                    onSave={async (team) => {
+                        if (teamToEdit) await dataService.updateTeam(teamToEdit.id, team);
+                        else await dataService.addTeam(team);
+                        loadData();
+                    }}
+                    teamToEdit={teamToEdit}
+                />
+            )}
+            {showManageTeamMembersModal && teamToManage && (
+                <ManageTeamMembersModal 
+                    onClose={() => setShowManageTeamMembersModal(false)}
+                    onSave={async (teamId, memberIds) => {
+                        await dataService.syncTeamMembers(teamId, memberIds);
+                        loadData();
+                        setShowManageTeamMembersModal(false);
+                    }}
+                    team={teamToManage}
+                    allCollaborators={collaborators}
+                    teamMembers={teamMembers}
+                />
+            )}
+
+            {/* License Modal */}
+            {showAddLicenseModal && (
+                <AddLicenseModal 
+                    onClose={() => setShowAddLicenseModal(false)}
+                    onSave={async (lic) => {
+                        if (licenseToEdit) await dataService.updateLicense(licenseToEdit.id, lic);
+                        else await dataService.addLicense(lic);
+                        loadData();
+                    }}
+                    licenseToEdit={licenseToEdit}
+                    suppliers={suppliers}
+                    categories={softwareCategories as any}
+                />
+            )}
+
+            {/* Ticket Modals */}
+            {showAddTicketModal && (
+                <AddTicketModal
+                    onClose={() => setShowAddTicketModal(false)}
+                    onSave={async (ticket) => {
+                        if (ticketToEdit) await dataService.updateTicket(ticketToEdit.id, ticket);
+                        else await dataService.addTicket(ticket);
+                        loadData();
+                    }}
+                    ticketToEdit={ticketToEdit}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    teams={teams}
+                    currentUser={currentUser}
+                    userPermissions={{ viewScope: 'all' }} // Simplified for now
+                    equipment={equipment}
+                    equipmentTypes={equipmentTypes}
+                    assignments={assignments}
+                    categories={ticketCategories}
+                    securityIncidentTypes={securityIncidentTypes}
+                    pastTickets={tickets}
+                />
+            )}
+            {showCloseTicketModal && ticketToClose && (
+                <CloseTicketModal
+                    ticket={ticketToClose}
+                    collaborators={collaborators}
+                    onClose={() => setShowCloseTicketModal(false)}
+                    onConfirm={async (techId, resolution) => {
+                        await dataService.updateTicket(ticketToClose.id, { 
+                            status: 'Finalizado', 
+                            finishDate: new Date().toISOString().split('T')[0], 
+                            technicianId: techId,
+                            resolution_summary: resolution 
+                        });
+                        loadData();
+                        setShowCloseTicketModal(false);
+                    }}
+                    activities={ticketActivities.filter(a => a.ticketId === ticketToClose.id)}
+                />
+            )}
+            {showTicketActivitiesModal && ticketForActivities && (
+                <TicketActivitiesModal
+                    ticket={ticketForActivities}
+                    activities={ticketActivities.filter(a => a.ticketId === ticketForActivities.id)}
+                    collaborators={collaborators}
+                    currentUser={currentUser}
+                    equipment={equipment}
+                    equipmentTypes={equipmentTypes}
+                    entidades={entidades}
+                    assignments={assignments}
+                    onClose={() => setShowTicketActivitiesModal(false)}
+                    onAddActivity={async (activity) => {
+                        await dataService.addTicketActivity({
+                            ...activity,
+                            ticketId: ticketForActivities.id,
+                            technicianId: currentUser?.id || '',
+                            date: new Date().toISOString()
+                        });
+                        loadData();
+                    }}
+                />
+            )}
+            {showAddCategoryModal && (
+                <AddCategoryModal
+                    onClose={() => setShowAddCategoryModal(false)}
+                    onSave={async (cat) => {
+                        if (categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, cat);
+                        else await dataService.addTicketCategory(cat);
+                        loadData();
+                    }}
+                    categoryToEdit={categoryToEdit}
+                    teams={teams}
+                />
+            )}
+            {showAddIncidentTypeModal && (
+                <AddSecurityIncidentTypeModal
+                    onClose={() => setShowAddIncidentTypeModal(false)}
+                    onSave={async (type) => {
+                        if (incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, type);
+                        else await dataService.addSecurityIncidentType(type);
+                        loadData();
+                    }}
+                    typeToEdit={incidentTypeToEdit}
+                />
+            )}
+
+            {/* NIS2 Modals */}
+            {showAddServiceModal && (
+                <AddServiceModal 
+                    onClose={() => setShowAddServiceModal(false)}
+                    onSave={async (svc) => {
+                        if (serviceToEdit) await dataService.updateBusinessService(serviceToEdit.id, svc);
+                        else await dataService.addBusinessService(svc);
+                        loadData();
+                    }}
+                    serviceToEdit={serviceToEdit}
+                    collaborators={collaborators}
+                    suppliers={suppliers}
+                />
+            )}
+            {showServiceDependencyModal && serviceForDependencies && (
+                <ServiceDependencyModal 
+                    onClose={() => setShowServiceDependencyModal(false)}
+                    service={serviceForDependencies}
+                    dependencies={serviceDependencies.filter(d => d.service_id === serviceForDependencies.id)}
+                    allEquipment={equipment}
+                    allLicenses={softwareLicenses}
+                    onAddDependency={async (dep) => { await dataService.addServiceDependency(dep); loadData(); }}
+                    onRemoveDependency={async (id) => { await dataService.deleteServiceDependency(id); loadData(); }}
+                />
+            )}
+            {showAddVulnerabilityModal && (
+                <AddVulnerabilityModal 
+                    onClose={() => setShowAddVulnerabilityModal(false)}
+                    onSave={async (vuln) => {
+                        if (vulnerabilityToEdit) await dataService.updateVulnerability(vulnerabilityToEdit.id, vuln);
+                        else await dataService.addVulnerability(vuln);
+                        loadData();
+                    }}
+                    vulnToEdit={vulnerabilityToEdit}
+                />
+            )}
+            {showAddBackupModal && (
+                <AddBackupModal 
+                    onClose={() => setShowAddBackupModal(false)}
+                    onSave={async (backup) => {
+                        if (backupToEdit) await dataService.updateBackupExecution(backupToEdit.id, backup);
+                        else await dataService.addBackupExecution(backup);
+                        loadData();
+                    }}
+                    backupToEdit={backupToEdit}
+                    currentUser={currentUser}
+                    equipmentList={equipment}
+                    equipmentTypes={equipmentTypes}
+                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); loadData(); }}
+                />
+            )}
+            {showAddResilienceTestModal && (
+                <AddResilienceTestModal 
+                    onClose={() => setShowAddResilienceTestModal(false)}
+                    onSave={async (test) => {
+                        if (testToEdit) await dataService.updateResilienceTest(testToEdit.id, test);
+                        else await dataService.addResilienceTest(test);
+                        loadData();
+                    }}
+                    testToEdit={testToEdit}
+                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); loadData(); }}
+                    entidades={entidades}
+                    suppliers={suppliers}
+                />
+            )}
+            {showAddSupplierModal && (
+                <AddSupplierModal 
+                    onClose={() => setShowAddSupplierModal(false)}
+                    onSave={async (sup) => {
+                        if (supplierToEdit) await dataService.updateSupplier(supplierToEdit.id, sup);
+                        else await dataService.addSupplier(sup);
+                        loadData();
+                    }}
+                    supplierToEdit={supplierToEdit}
+                    teams={teams}
+                    businessServices={businessServices}
+                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); loadData(); }}
+                />
+            )}
+
+            {/* Helper Modals */}
+            {showImportModal && importConfig && (
+                <ImportModal 
+                    config={importConfig} 
+                    onClose={() => setShowImportModal(false)} 
+                    onImport={async (type, data) => {
+                        // Very basic implementation for now
+                        try {
+                            if (type === 'equipment') await dataService.addMultipleEquipment(data);
+                            // Add other types...
+                            loadData();
+                            return { success: true, message: `${data.length} registos importados.` };
+                        } catch (e: any) {
+                            return { success: false, message: e.message };
+                        }
+                    }} 
+                />
+            )}
+            {showReportModal && (
+                <ReportModal 
+                    type={reportType} 
+                    onClose={() => setShowReportModal(false)}
+                    equipment={equipment}
+                    brandMap={new Map(brands.map(b => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
+                    instituicoes={instituicoes}
+                    escolasDepartamentos={entidades}
+                    collaborators={collaborators}
+                    assignments={assignments}
+                    tickets={tickets}
+                    softwareLicenses={softwareLicenses}
+                    licenseAssignments={licenseAssignments}
+                    businessServices={businessServices}
+                    serviceDependencies={serviceDependencies}
+                />
+            )}
+            {showCollaboratorHistoryModal && historyCollaborator && (
+                <CollaboratorHistoryModal 
+                    collaborator={historyCollaborator} 
+                    history={collaboratorHistory} 
+                    escolasDepartamentos={entidades} 
+                    onClose={() => setShowCollaboratorHistoryModal(false)} 
+                />
+            )}
+            {showCollaboratorDetailModal && detailCollaborator && (
+                <CollaboratorDetailModal
+                    collaborator={detailCollaborator}
+                    assignments={assignments}
+                    equipment={equipment}
+                    tickets={tickets}
+                    brandMap={new Map(brands.map(b => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
+                    onClose={() => setShowCollaboratorDetailModal(false)}
+                    onShowHistory={(c) => { setShowCollaboratorDetailModal(false); setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }}
+                    onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }}
+                    onEdit={(c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); }}
+                />
+            )}
+            {showUserManualModal && <UserManualModal onClose={() => setShowUserManualModal(false)} />}
+            {showCalendarModal && (
+                <CalendarModal 
+                    onClose={() => setShowCalendarModal(false)}
+                    tickets={tickets}
+                    currentUser={currentUser}
+                    teams={teams}
+                    teamMembers={teamMembers}
+                    collaborators={collaborators}
+                    onViewTicket={(t) => {
+                        setTicketToEdit(t);
+                        setShowAddTicketModal(true);
+                    }}
+                />
+            )}
+            {showCredentialsModal && newCredentials && (
+                <CredentialsModal 
+                    onClose={() => setShowCredentialsModal(false)} 
+                    email={newCredentials.email} 
+                    password={newCredentials.password} 
+                />
+            )}
+            {showNotificationsModal && (
+                <NotificationsModal 
+                    onClose={() => setShowNotificationsModal(false)}
+                    expiringWarranties={[]} // Filter logic needed
+                    expiringLicenses={[]} // Filter logic needed
+                    teamTickets={tickets.filter(t => t.status === 'Pedido')} // Basic filter
+                    collaborators={collaborators}
+                    teams={teams}
+                    onViewItem={handleViewItem}
+                    onSnooze={dataService.snoozeNotification}
+                    currentUser={currentUser}
+                    licenseAssignments={licenseAssignments}
+                />
+            )}
+
+            <ChatWidget 
+                currentUser={currentUser}
+                collaborators={collaborators}
+                messages={messages}
+                onSendMessage={async (rxId, content) => {
+                    await dataService.addMessage({
+                        senderId: currentUser.id,
+                        receiverId: rxId,
+                        content,
+                        timestamp: new Date().toISOString(),
+                        read: false
+                    });
+                    loadData();
+                }}
+                onMarkMessagesAsRead={(senderId) => dataService.markMessagesAsRead(senderId)}
+                isOpen={showChatWidget}
+                onToggle={() => setShowChatWidget(!showChatWidget)}
+                activeChatCollaboratorId={activeChatCollaboratorId}
+                onSelectConversation={setActiveChatCollaboratorId}
+                unreadMessagesCount={messages.filter(m => m.receiverId === currentUser.id && !m.read).length}
+            />
             
-            {/* ... Other modals (AddBrand, AddType, etc) follow standard pattern ... */}
+            {isConfigured && (
+                <MagicCommandBar 
+                    brands={brands}
+                    types={equipmentTypes}
+                    collaborators={collaborators}
+                    currentUser={currentUser}
+                    onAction={async (intent, data) => {
+                        // Basic Handler
+                        if (intent === 'create_equipment') {
+                            setKitInitialData(data);
+                            setShowAddEquipmentModal(true);
+                        } else if (intent === 'create_ticket') {
+                            setTicketToEdit({
+                                ...data,
+                                status: 'Pedido',
+                                requestDate: new Date().toISOString()
+                            } as any);
+                            setShowAddTicketModal(true);
+                        } else if (intent === 'search') {
+                            setDashboardFilter({ serialNumber: data.query });
+                            setActiveTab('equipment.inventory');
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 };

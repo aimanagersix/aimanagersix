@@ -7,15 +7,15 @@ export default defineConfig(({ mode }) => {
   // Carrega as variáveis de ambiente do ficheiro .env na pasta raiz do projeto.
   const env = loadEnv(mode, (process as any).cwd(), '');
 
-  // --- DADOS DE ACESSO (COLE AS SUAS CHAVES DENTRO DAS ASPAS ABAIXO) ---
+  // --- DADOS DE ACESSO ---
+  // PARA EVITAR O ECRÃ DE CONFIGURAÇÃO: Cole as suas chaves do Supabase abaixo.
   
   // 1. Configuração do Supabase (Base de Dados)
-  const HARDCODED_SUPABASE_URL = "https://afwtfuajkmrzdencuxor.supabase.co";      // Ex: "https://vossa-url.supabase.co"
-  const HARDCODED_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmd3RmdWFqa21yemRlbmN1eG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNjc1NDcsImV4cCI6MjA3ODY0MzU0N30._OUkGstLN0eN6g-CPbw5anMZ_uefNcBLO-0NqiHYV_k"; // Ex: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  const HARDCODED_SUPABASE_URL = "";      // <--- COLE AQUI A URL (Ex: "https://xxyyzz.supabase.co")
+  const HARDCODED_SUPABASE_ANON_KEY = ""; // <--- COLE AQUI A ANON KEY (Ex: "eyJhbGci...")
   
   // 2. Configuração do Google Gemini (Inteligência Artificial)
-  // Obtenha a chave gratuita em: https://aistudio.google.com/app/apikey
-  const HARDCODED_API_KEY = "AIzaSyDZeldUKNcsKsH-drgHHQFDFPl_t1HUCPs";           // <--- COLE AQUI A SUA CHAVE GEMINI (Ex: "AIzaSyD...")
+  const HARDCODED_API_KEY = "AIzaSyDZeldUKNcsKsH-drgHHQFDFPl_t1HUCPs"; 
   
   // --------------------------------------------------
 

@@ -15,6 +15,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [language, setLanguage] = useState<Language>(() => {
         const saved = localStorage.getItem('app_language');
+        // Force PT if not set or invalid, to ensure correct menu names
         return (saved === 'pt' || saved === 'en') ? saved : 'pt';
     });
 
@@ -32,7 +33,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
         // If not found, try basic traversal (though flat structure is used in translations.ts)
         for (const k of keys) {
             if (current[k] === undefined) {
-                console.warn(`Translation missing for key: ${key} in language: ${language}`);
+                // Fallback to Portuguese if key missing in current lang
+                if (language !== 'pt' && translations['pt'][key]) {
+                    return translations['pt'][key];
+                }
                 return key;
             }
             current = current[k];
