@@ -9,14 +9,17 @@ import {
     Supplier, ConfigItem, TooltipConfig, defaultTooltipConfig, CustomRole, ModuleKey, PermissionAction
 } from './types';
 import * as dataService from './services/dataService';
+import { useAppData } from './hooks/useAppData';
+import { useLayout } from './contexts/LayoutContext';
+import { getSupabase } from './services/supabaseClient';
+
+// Components
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import LoginPage from './components/LoginPage';
 import ConfigurationSetup from './components/ConfigurationSetup';
 import ForgotPasswordModal from './components/ForgotPasswordModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
-import { useLayout } from './contexts/LayoutContext';
-import { getSupabase } from './services/supabaseClient';
 
 // Dashboards
 import OverviewDashboard from './components/OverviewDashboard';
@@ -74,33 +77,28 @@ import { ChatWidget } from './components/ChatWidget';
 import CredentialsModal from './components/CredentialsModal';
 import NotificationsModal from './components/NotificationsModal';
 
-// --- Initial State ---
-const initialConfigState: ConfigItem[] = [];
 
 export const App: React.FC = () => {
-    // --- Authentication & Setup State ---
-    const [isConfigured, setIsConfigured] = useState<boolean>(() => {
-        const url = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
-        const key = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
-        return !!(url && key);
-    });
+    // Use Custom Hook for Data Management
+    const { 
+        isConfigured, setIsConfigured, 
+        currentUser, setCurrentUser, 
+        appData, refreshData 
+    } = useAppData();
     
-    const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
+    const { layoutMode } = useLayout();
     
-    // --- ROUTING LOGIC (Hash Based) ---
-    // Initialize activeTab from URL hash or default to 'overview'
+    // --- Routing Logic (Hash Based) ---
     const [activeTab, setActiveTabState] = useState(() => {
         const hash = window.location.hash.replace('#', '');
         return hash || 'overview';
     });
 
-    // Helper to update both state and URL hash
     const setActiveTab = (tab: string) => {
         setActiveTabState(tab);
         window.location.hash = tab;
     };
 
-    // Listen for hash changes (Back/Forward buttons)
     useEffect(() => {
         const handleHashChange = () => {
             const hash = window.location.hash.replace('#', '');
@@ -110,53 +108,13 @@ export const App: React.FC = () => {
                 setActiveTabState('overview');
             }
         };
-
         window.addEventListener('hashchange', handleHashChange);
         return () => window.removeEventListener('hashchange', handleHashChange);
     }, [activeTab]);
 
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
-    const { layoutMode } = useLayout();
     
-    // --- Data State ---
-    const [equipment, setEquipment] = useState<Equipment[]>([]);
-    const [brands, setBrands] = useState<Brand[]>([]);
-    const [equipmentTypes, setEquipmentTypes] = useState<EquipmentType[]>([]);
-    const [instituicoes, setInstituicoes] = useState<Instituicao[]>([]);
-    const [entidades, setEntidades] = useState<Entidade[]>([]);
-    const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-    const [assignments, setAssignments] = useState<Assignment[]>([]);
-    const [tickets, setTickets] = useState<Ticket[]>([]);
-    const [ticketActivities, setTicketActivities] = useState<TicketActivity[]>([]);
-    const [softwareLicenses, setSoftwareLicenses] = useState<SoftwareLicense[]>([]);
-    const [licenseAssignments, setLicenseAssignments] = useState<LicenseAssignment[]>([]);
-    const [teams, setTeams] = useState<Team[]>([]);
-    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [collaboratorHistory, setCollaboratorHistory] = useState<CollaboratorHistory[]>([]);
-    const [ticketCategories, setTicketCategories] = useState<TicketCategoryItem[]>([]);
-    const [securityIncidentTypes, setSecurityIncidentTypes] = useState<SecurityIncidentTypeItem[]>([]);
-    const [businessServices, setBusinessServices] = useState<BusinessService[]>([]);
-    const [serviceDependencies, setServiceDependencies] = useState<ServiceDependency[]>([]);
-    const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
-    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-    const [backupExecutions, setBackupExecutions] = useState<BackupExecution[]>([]);
-    const [resilienceTests, setResilienceTests] = useState<ResilienceTest[]>([]);
-    const [securityTrainings, setSecurityTrainings] = useState<SecurityTrainingRecord[]>([]);
-    const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
-    const [softwareCategories, setSoftwareCategories] = useState<ConfigItem[]>([]);
-    
-    const [configEquipmentStatuses, setConfigEquipmentStatuses] = useState<ConfigItem[]>([]);
-    const [contactRoles, setContactRoles] = useState<ConfigItem[]>([]);
-    const [contactTitles, setContactTitles] = useState<ConfigItem[]>([]);
-    const [configCriticalityLevels, setConfigCriticalityLevels] = useState<ConfigItem[]>([]);
-    const [configCiaRatings, setConfigCiaRatings] = useState<ConfigItem[]>([]);
-    const [configServiceStatuses, setConfigServiceStatuses] = useState<ConfigItem[]>([]);
-    const [configBackupTypes, setConfigBackupTypes] = useState<ConfigItem[]>([]);
-    const [configTrainingTypes, setConfigTrainingTypes] = useState<ConfigItem[]>([]);
-    const [configResilienceTestTypes, setConfigResilienceTestTypes] = useState<ConfigItem[]>([]);
-
-    // --- Modal State ---
+    // --- Modal State Management ---
     const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
     const [showKitModal, setShowKitModal] = useState(false);
@@ -254,7 +212,7 @@ export const App: React.FC = () => {
         if (!currentUser) return false;
         if (currentUser.role === UserRole.SuperAdmin) return true;
         
-        const role = customRoles.find(r => r.name === currentUser.role);
+        const role = appData.customRoles.find(r => r.name === currentUser.role);
         if (role) {
             return role.permissions[module]?.[action] ?? false;
         }
@@ -301,97 +259,14 @@ export const App: React.FC = () => {
         'settings': checkPermission('settings', 'view') || isAdmin ? 'Configurações' : undefined
     };
 
-    // --- Data Loading ---
-    const loadData = async () => {
-        try {
-            const data = await dataService.fetchAllData();
-            setEquipment(data.equipment);
-            setBrands(data.brands);
-            setEquipmentTypes(data.equipmentTypes);
-            setInstituicoes(data.instituicoes);
-            setEntidades(data.entidades);
-            setCollaborators(data.collaborators);
-            setAssignments(data.assignments);
-            setTickets(data.tickets);
-            setTicketActivities(data.ticketActivities);
-            setSoftwareLicenses(data.softwareLicenses);
-            setLicenseAssignments(data.licenseAssignments);
-            setTeams(data.teams);
-            setTeamMembers(data.teamMembers);
-            setMessages(data.messages);
-            setCollaboratorHistory(data.collaboratorHistory);
-            setTicketCategories(data.ticketCategories);
-            setSecurityIncidentTypes(data.securityIncidentTypes);
-            setBusinessServices(data.businessServices);
-            setServiceDependencies(data.serviceDependencies);
-            setVulnerabilities(data.vulnerabilities);
-            setSuppliers(data.suppliers);
-            setBackupExecutions(data.backupExecutions);
-            setResilienceTests(data.resilienceTests);
-            setSecurityTrainings(data.securityTrainings);
-            setCustomRoles(data.configCustomRoles);
-            setSoftwareCategories(data.configSoftwareCategories);
-            
-            setConfigEquipmentStatuses(data.configEquipmentStatuses);
-            setContactRoles(data.contactRoles);
-            setContactTitles(data.contactTitles);
-            setConfigCriticalityLevels(data.configCriticalityLevels);
-            setConfigCiaRatings(data.configCiaRatings);
-            setConfigServiceStatuses(data.configServiceStatuses);
-            setConfigBackupTypes(data.configBackupTypes);
-            setConfigTrainingTypes(data.configTrainingTypes);
-            setConfigResilienceTestTypes(data.configResilienceTestTypes);
-
-        } catch (error) {
-            console.error("Failed to fetch data", error);
-        }
-    };
-
-    useEffect(() => {
-        const checkConfig = () => {
-             try {
-                if (isConfigured) {
-                    const supabase = getSupabase();
-                    supabase.auth.getSession().then(({ data: { session } }) => {
-                         if (session) {
-                             loadData().then(() => {
-                                dataService.fetchAllData().then(d => {
-                                    const user = d.collaborators.find((c: Collaborator) => c.email === session.user.email);
-                                    if (user) setCurrentUser(user);
-                                });
-                             });
-                         }
-                    });
-                    
-                    supabase.auth.onAuthStateChange((event, session) => {
-                        if (event === 'PASSWORD_RECOVERY') {
-                            setResetSession(session);
-                            setShowResetPasswordModal(true);
-                        }
-                    });
-                }
-            } catch (e) {
-                setIsConfigured(false);
-            }
-        };
-        checkConfig();
-    }, [isConfigured]);
-
-    useEffect(() => {
-        if (isConfigured && currentUser) {
-            loadData();
-            const interval = setInterval(loadData, 30000);
-            return () => clearInterval(interval);
-        }
-    }, [isConfigured, currentUser]);
-
+    // --- Authentication Handlers ---
     const handleLogin = async (email: string, password: string) => {
         try {
             const supabase = getSupabase();
             const { data, error } = await (supabase.auth as any).signInWithPassword({ email, password });
             if (error) throw error;
             if (data.user) {
-                await loadData();
+                await refreshData();
                 const freshData = await dataService.fetchAllData();
                 const user = freshData.collaborators.find((c: Collaborator) => c.email.toLowerCase() === email.toLowerCase());
                 if (user) {
@@ -429,10 +304,7 @@ export const App: React.FC = () => {
         setDashboardFilter(filter);
     };
 
-    const handleSaveLicenses = async (eqId: string, licenseIds: string[]) => {
-        await dataService.syncLicenseAssignments(eqId, licenseIds);
-        loadData();
-    };
+    // --- Render ---
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (!currentUser) return (
@@ -485,166 +357,166 @@ export const App: React.FC = () => {
                     {/* ---------------- DASHBOARDS ---------------- */}
 
                     {activeTab === 'overview' && <OverviewDashboard 
-                        equipment={equipment} 
-                        instituicoes={instituicoes}
-                        entidades={entidades} 
-                        assignments={assignments}
-                        equipmentTypes={equipmentTypes}
-                        tickets={tickets}
-                        collaborators={collaborators}
-                        teams={teams}
+                        equipment={appData.equipment} 
+                        instituicoes={appData.instituicoes}
+                        entidades={appData.entidades} 
+                        assignments={appData.assignments}
+                        equipmentTypes={appData.equipmentTypes}
+                        tickets={appData.tickets}
+                        collaborators={appData.collaborators}
+                        teams={appData.teams}
                         expiringWarranties={[]}
                         expiringLicenses={[]}
-                        softwareLicenses={softwareLicenses}
-                        licenseAssignments={licenseAssignments}
-                        businessServices={businessServices}
-                        vulnerabilities={vulnerabilities}
+                        softwareLicenses={appData.softwareLicenses}
+                        licenseAssignments={appData.licenseAssignments}
+                        businessServices={appData.businessServices}
+                        vulnerabilities={appData.vulnerabilities}
                         onViewItem={handleViewItem}
                         onGenerateComplianceReport={() => { setReportType('compliance'); setShowReportModal(true); }}
                     />}
 
                     {activeTab === 'overview.smart' && (
                         <SmartDashboard 
-                            tickets={tickets} 
-                            vulnerabilities={vulnerabilities} 
-                            backups={backupExecutions} 
-                            trainings={securityTrainings} 
-                            collaborators={collaborators}
+                            tickets={appData.tickets} 
+                            vulnerabilities={appData.vulnerabilities} 
+                            backups={appData.backupExecutions} 
+                            trainings={appData.securityTrainings} 
+                            collaborators={appData.collaborators}
                             currentUser={currentUser}
                         />
                     )}
 
                     {activeTab === 'equipment.inventory' && (
                         <EquipmentDashboard 
-                            equipment={equipment} 
-                            brands={brands} 
-                            equipmentTypes={equipmentTypes}
-                            brandMap={new Map(brands.map(b => [b.id, b.name]))}
-                            equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
-                            assignedEquipmentIds={new Set(assignments.filter(a => !a.returnDate).map(a => a.equipmentId))}
-                            assignments={assignments}
-                            collaborators={collaborators}
-                            entidades={entidades}
-                            instituicoes={instituicoes}
+                            equipment={appData.equipment} 
+                            brands={appData.brands} 
+                            equipmentTypes={appData.equipmentTypes}
+                            brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
+                            equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
+                            assignedEquipmentIds={new Set(appData.assignments.filter(a => !a.returnDate).map(a => a.equipmentId))}
+                            assignments={appData.assignments}
+                            collaborators={appData.collaborators}
+                            entidades={appData.entidades}
+                            instituicoes={appData.instituicoes}
                             initialFilter={dashboardFilter}
                             onClearInitialFilter={() => setDashboardFilter(null)}
                             onAssign={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); } : undefined}
                             onAssignMultiple={checkPermission('equipment', 'edit') ? (eqs) => { setEquipmentListToAssign(eqs); setShowAssignMultipleModal(true); } : undefined}
                             onUnassign={checkPermission('equipment', 'edit') ? async (id) => {
                                 await dataService.addAssignment({ equipmentId: id, returnDate: new Date().toISOString().split('T')[0] });
-                                loadData();
+                                refreshData();
                             } : undefined}
                             onUpdateStatus={checkPermission('equipment', 'edit') ? async (id, status) => {
                                 await dataService.updateEquipment(id, { status });
-                                loadData();
+                                refreshData();
                             } : undefined}
                             onShowHistory={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} 
                             onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setShowAddEquipmentModal(true); } : undefined}
                             onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setShowAddEquipmentModal(true); } : undefined}
                             onGenerateReport={checkPermission('reports', 'view') ? () => { setReportType('equipment'); setShowReportModal(true); } : undefined}
                             onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); } : undefined}
-                            businessServices={businessServices}
-                            serviceDependencies={serviceDependencies}
-                            tickets={tickets}
-                            ticketActivities={ticketActivities}
-                            softwareLicenses={softwareLicenses}
-                            licenseAssignments={licenseAssignments}
-                            vulnerabilities={vulnerabilities}
-                            suppliers={suppliers}
+                            businessServices={appData.businessServices}
+                            serviceDependencies={appData.serviceDependencies}
+                            tickets={appData.tickets}
+                            ticketActivities={appData.ticketActivities}
+                            softwareLicenses={appData.softwareLicenses}
+                            licenseAssignments={appData.licenseAssignments}
+                            vulnerabilities={appData.vulnerabilities}
+                            suppliers={appData.suppliers}
                             tooltipConfig={userTooltipConfig}
                         />
                     )}
 
                     {activeTab === 'licensing' && (
                         <LicenseDashboard 
-                            licenses={softwareLicenses}
-                            licenseAssignments={licenseAssignments}
-                            equipmentData={equipment}
-                            assignments={assignments}
-                            collaborators={collaborators}
-                            brandMap={new Map(brands.map(b => [b.id, b.name]))}
-                            equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
+                            licenses={appData.softwareLicenses}
+                            licenseAssignments={appData.licenseAssignments}
+                            equipmentData={appData.equipment}
+                            assignments={appData.assignments}
+                            collaborators={appData.collaborators}
+                            brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
+                            equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
                             onEdit={checkPermission('licensing', 'edit') ? (l) => { setLicenseToEdit(l); setShowAddLicenseModal(true); } : undefined}
-                            onDelete={checkPermission('licensing', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteLicense(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('licensing', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteLicense(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('licensing', 'create') ? () => { setLicenseToEdit(null); setShowAddLicenseModal(true); } : undefined}
                             onGenerateReport={() => { setReportType('licensing'); setShowReportModal(true); }}
                             initialFilter={dashboardFilter}
                             onClearInitialFilter={() => setDashboardFilter(null)}
-                            businessServices={businessServices}
-                            serviceDependencies={serviceDependencies}
-                            softwareCategories={softwareCategories as any}
+                            businessServices={appData.businessServices}
+                            serviceDependencies={appData.serviceDependencies}
+                            softwareCategories={appData.softwareCategories as any}
                         />
                     )}
 
                     {activeTab === 'organizacao.instituicoes' && (
                         <InstituicaoDashboard 
-                            instituicoes={instituicoes}
-                            escolasDepartamentos={entidades}
-                            collaborators={collaborators}
-                            assignments={assignments}
-                            equipment={equipment}
-                            brands={brands}
-                            equipmentTypes={equipmentTypes}
+                            instituicoes={appData.instituicoes}
+                            escolasDepartamentos={appData.entidades}
+                            collaborators={appData.collaborators}
+                            assignments={appData.assignments}
+                            equipment={appData.equipment}
+                            brands={appData.brands}
+                            equipmentTypes={appData.equipmentTypes}
                             onEdit={checkPermission('organization', 'edit') ? (i) => { setInstituicaoToEdit(i); setShowAddInstituicaoModal(true); } : undefined}
-                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteInstituicao(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteInstituicao(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('organization', 'create') ? () => { setInstituicaoToEdit(null); setShowAddInstituicaoModal(true); } : undefined}
                             onAddEntity={checkPermission('organization', 'create') ? (instId) => { setEntidadeToEdit({ instituicaoId: instId } as any); setShowAddEntidadeModal(true); } : undefined}
                             onCreateCollaborator={checkPermission('organization', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaboratorModal(true); } : undefined}
                             onImport={checkPermission('organization', 'create') ? () => { setImportConfig({ dataType: 'instituicoes', title: 'Importar Instituições', columnMap: { 'Nome': 'name', 'Código': 'codigo', 'Email': 'email', 'Telefone': 'telefone' }, templateFileName: 'instituicoes_template.xlsx' }); setShowImportModal(true); } : undefined}
                             onToggleStatus={checkPermission('organization', 'edit') ? async (id) => { 
-                                const inst = instituicoes.find(i => i.id === id);
-                                if (inst) { await dataService.updateInstituicao(id, { is_active: inst.is_active === false }); loadData(); }
+                                const inst = appData.instituicoes.find(i => i.id === id);
+                                if (inst) { await dataService.updateInstituicao(id, { is_active: inst.is_active === false }); refreshData(); }
                             } : undefined}
                         />
                     )}
 
                     {activeTab === 'organizacao.entidades' && (
                         <EntidadeDashboard 
-                            escolasDepartamentos={entidades}
-                            instituicoes={instituicoes}
-                            collaborators={collaborators}
-                            assignments={assignments}
-                            tickets={tickets}
-                            collaboratorHistory={collaboratorHistory}
-                            equipment={equipment}
-                            brands={brands}
-                            equipmentTypes={equipmentTypes}
+                            escolasDepartamentos={appData.entidades}
+                            instituicoes={appData.instituicoes}
+                            collaborators={appData.collaborators}
+                            assignments={appData.assignments}
+                            tickets={appData.tickets}
+                            collaboratorHistory={appData.collaboratorHistory}
+                            equipment={appData.equipment}
+                            brands={appData.brands}
+                            equipmentTypes={appData.equipmentTypes}
                             onEdit={checkPermission('organization', 'edit') ? (e) => { setEntidadeToEdit(e); setShowAddEntidadeModal(true); } : undefined}
-                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEntidade(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEntidade(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('organization', 'create') ? () => { setEntidadeToEdit(null); setShowAddEntidadeModal(true); } : undefined}
                             onAddCollaborator={checkPermission('organization', 'create') ? (entId) => { setCollaboratorToEdit({ entidadeId: entId } as any); setShowAddCollaboratorModal(true); } : undefined}
                             onAssignEquipment={checkPermission('equipment', 'edit') ? (entId) => { setEquipmentToAssign(null); setShowAssignModal(true); } : undefined}
                             onImport={checkPermission('organization', 'create') ? () => { setImportConfig({ dataType: 'entidades', title: 'Importar Entidades', columnMap: { 'Nome': 'name', 'Código': 'codigo', 'Email': 'email', 'Responsável': 'responsavel' }, templateFileName: 'entidades_template.xlsx' }); setShowImportModal(true); } : undefined}
                             onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
-                                const ent = entidades.find(e => e.id === id);
-                                if (ent) { await dataService.updateEntidade(id, { status: ent.status === 'Ativo' ? 'Inativo' : 'Ativo' }); loadData(); }
+                                const ent = appData.entidades.find(e => e.id === id);
+                                if (ent) { await dataService.updateEntidade(id, { status: ent.status === 'Ativo' ? 'Inativo' : 'Ativo' }); refreshData(); }
                             } : undefined}
                         />
                     )}
 
                     {activeTab === 'collaborators' && (
                         <CollaboratorDashboard 
-                            collaborators={collaborators}
-                            escolasDepartamentos={entidades}
-                            instituicoes={instituicoes}
-                            equipment={equipment}
-                            assignments={assignments}
-                            tickets={tickets}
-                            ticketActivities={ticketActivities}
-                            teamMembers={teamMembers}
-                            collaboratorHistory={collaboratorHistory}
-                            messages={messages}
+                            collaborators={appData.collaborators}
+                            escolasDepartamentos={appData.entidades}
+                            instituicoes={appData.instituicoes}
+                            equipment={appData.equipment}
+                            assignments={appData.assignments}
+                            tickets={appData.tickets}
+                            ticketActivities={appData.ticketActivities}
+                            teamMembers={appData.teamMembers}
+                            collaboratorHistory={appData.collaboratorHistory}
+                            messages={appData.messages}
                             currentUser={currentUser}
                             onEdit={checkPermission('organization', 'edit') ? (c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); } : undefined}
-                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteCollaborator(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteCollaborator(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('organization', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaboratorModal(true); } : undefined}
                             onShowHistory={(c) => { setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }}
                             onShowDetails={(c) => { setDetailCollaborator(c); setShowCollaboratorDetailModal(true); }}
                             onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }}
                             onGenerateReport={checkPermission('reports', 'view') ? () => { setReportType('collaborator'); setShowReportModal(true); } : undefined}
                             onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
-                                const col = collaborators.find(c => c.id === id);
-                                if (col) { await dataService.updateCollaborator(id, { status: col.status === 'Ativo' ? 'Inativo' : 'Ativo' }); loadData(); }
+                                const col = appData.collaborators.find(c => c.id === id);
+                                if (col) { await dataService.updateCollaborator(id, { status: col.status === 'Ativo' ? 'Inativo' : 'Ativo' }); refreshData(); }
                             } : undefined}
                             tooltipConfig={userTooltipConfig}
                         />
@@ -652,51 +524,51 @@ export const App: React.FC = () => {
 
                     {activeTab === 'organizacao.teams' && (
                         <TeamDashboard 
-                            teams={teams}
-                            teamMembers={teamMembers}
-                            collaborators={collaborators}
-                            tickets={tickets}
-                            equipmentTypes={equipmentTypes}
+                            teams={appData.teams}
+                            teamMembers={appData.teamMembers}
+                            collaborators={appData.collaborators}
+                            tickets={appData.tickets}
+                            equipmentTypes={appData.equipmentTypes}
                             onEdit={checkPermission('organization', 'edit') ? (t) => { setTeamToEdit(t); setShowAddTeamModal(true); } : undefined}
-                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteTeam(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteTeam(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('organization', 'create') ? () => { setTeamToEdit(null); setShowAddTeamModal(true); } : undefined}
                             onManageMembers={checkPermission('organization', 'edit') ? (t) => { setTeamToManage(t); setShowManageTeamMembersModal(true); } : undefined}
                             onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
-                                const t = teams.find(team => team.id === id);
-                                if (t) { await dataService.updateTeam(id, { is_active: t.is_active === false }); loadData(); }
+                                const t = appData.teams.find(team => team.id === id);
+                                if (t) { await dataService.updateTeam(id, { is_active: t.is_active === false }); refreshData(); }
                             } : undefined}
                         />
                     )}
 
                     {activeTab === 'organizacao.suppliers' && (
                         <SupplierDashboard 
-                            suppliers={suppliers}
-                            businessServices={businessServices}
+                            suppliers={appData.suppliers}
+                            businessServices={appData.businessServices}
                             onEdit={checkPermission('suppliers', 'edit') ? (s) => { setSupplierToEdit(s); setShowAddSupplierModal(true); } : undefined}
-                            onDelete={checkPermission('suppliers', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteSupplier(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('suppliers', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteSupplier(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('suppliers', 'create') ? () => { setSupplierToEdit(null); setShowAddSupplierModal(true); } : undefined}
                             onToggleStatus={checkPermission('suppliers', 'edit') ? async (id) => {
-                                const s = suppliers.find(sup => sup.id === id);
-                                if (s) { await dataService.updateSupplier(id, { is_active: s.is_active === false }); loadData(); }
+                                const s = appData.suppliers.find(sup => sup.id === id);
+                                if (s) { await dataService.updateSupplier(id, { is_active: s.is_active === false }); refreshData(); }
                             } : undefined}
                         />
                     )}
 
                     {activeTab === 'tickets.list' && (
                         <TicketDashboard 
-                            tickets={tickets}
-                            escolasDepartamentos={entidades}
-                            collaborators={collaborators}
-                            teams={teams}
-                            equipment={equipment}
-                            equipmentTypes={equipmentTypes}
-                            categories={ticketCategories}
+                            tickets={appData.tickets}
+                            escolasDepartamentos={appData.entidades}
+                            collaborators={appData.collaborators}
+                            teams={appData.teams}
+                            equipment={appData.equipment}
+                            equipmentTypes={appData.equipmentTypes}
+                            categories={appData.ticketCategories}
                             initialFilter={dashboardFilter}
                             onClearInitialFilter={() => setDashboardFilter(null)}
                             onEdit={checkPermission('tickets', 'edit') ? (t) => { setTicketToEdit(t); setShowAddTicketModal(true); } : undefined}
                             onCreate={checkPermission('tickets', 'create') ? () => { setTicketToEdit(null); setShowAddTicketModal(true); } : undefined}
                             onOpenCloseTicketModal={checkPermission('tickets', 'edit') ? (t) => { setTicketToClose(t); setShowCloseTicketModal(true); } : undefined}
-                            onUpdateTicket={checkPermission('tickets', 'edit') ? async (t) => { await dataService.updateTicket(t.id, t); loadData(); } : undefined}
+                            onUpdateTicket={checkPermission('tickets', 'edit') ? async (t) => { await dataService.updateTicket(t.id, t); refreshData(); } : undefined}
                             onGenerateReport={checkPermission('reports', 'view') ? () => { setReportType('ticket'); setShowReportModal(true); } : undefined}
                             onOpenActivities={(t) => { setTicketForActivities(t); setShowTicketActivitiesModal(true); }}
                             onGenerateSecurityReport={(t) => { 
@@ -708,11 +580,11 @@ export const App: React.FC = () => {
 
                     {activeTab === 'nis2.bia' && (
                         <ServiceDashboard 
-                            services={businessServices}
-                            dependencies={serviceDependencies}
-                            collaborators={collaborators}
+                            services={appData.businessServices}
+                            dependencies={appData.serviceDependencies}
+                            collaborators={appData.collaborators}
                             onEdit={checkPermission('compliance', 'edit') ? (s) => { setServiceToEdit(s); setShowAddServiceModal(true); } : undefined}
-                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBusinessService(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBusinessService(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('compliance', 'create') ? () => { setServiceToEdit(null); setShowAddServiceModal(true); } : undefined}
                             onManageDependencies={checkPermission('compliance', 'edit') ? (s) => { setServiceForDependencies(s); setShowServiceDependencyModal(true); } : undefined}
                             onGenerateReport={() => { setReportType('bia'); setShowReportModal(true); }}
@@ -721,9 +593,9 @@ export const App: React.FC = () => {
 
                     {activeTab === 'nis2.security' && (
                         <VulnerabilityDashboard 
-                            vulnerabilities={vulnerabilities}
+                            vulnerabilities={appData.vulnerabilities}
                             onEdit={checkPermission('compliance', 'edit') ? (v) => { setVulnerabilityToEdit(v); setShowAddVulnerabilityModal(true); } : undefined}
-                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteVulnerability(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteVulnerability(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('compliance', 'create') ? () => { setVulnerabilityToEdit(null); setShowAddVulnerabilityModal(true); } : undefined}
                             initialFilter={dashboardFilter}
                             onClearInitialFilter={() => setDashboardFilter(null)}
@@ -742,20 +614,20 @@ export const App: React.FC = () => {
 
                     {activeTab === 'nis2.backups' && (
                         <BackupDashboard 
-                            backups={backupExecutions}
-                            collaborators={collaborators}
-                            equipment={equipment}
+                            backups={appData.backupExecutions}
+                            collaborators={appData.collaborators}
+                            equipment={appData.equipment}
                             onEdit={checkPermission('compliance', 'edit') ? (b) => { setBackupToEdit(b); setShowAddBackupModal(true); } : undefined}
-                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBackupExecution(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBackupExecution(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('compliance', 'create') ? () => { setBackupToEdit(null); setShowAddBackupModal(true); } : undefined}
                         />
                     )}
 
                     {activeTab === 'nis2.resilience' && (
                         <ResilienceDashboard 
-                            resilienceTests={resilienceTests}
+                            resilienceTests={appData.resilienceTests}
                             onEdit={checkPermission('compliance', 'edit') ? (t) => { setTestToEdit(t); setShowAddResilienceTestModal(true); } : undefined}
-                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteResilienceTest(id); loadData(); } } : undefined}
+                            onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteResilienceTest(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('compliance', 'create') ? () => { setTestToEdit(null); setShowAddResilienceTestModal(true); } : undefined}
                             onCreateTicket={(ticketData) => {
                                 setTicketToEdit(ticketData as any);
@@ -766,12 +638,12 @@ export const App: React.FC = () => {
 
                     {activeTab === 'reports' && (
                         <ReportsDashboard 
-                            equipment={equipment}
-                            assignments={assignments}
-                            collaborators={collaborators}
-                            entidades={entidades}
-                            brands={brands}
-                            equipmentTypes={equipmentTypes}
+                            equipment={appData.equipment}
+                            assignments={appData.assignments}
+                            collaborators={appData.collaborators}
+                            entidades={appData.entidades}
+                            brands={appData.brands}
+                            equipmentTypes={appData.equipmentTypes}
                         />
                     )}
 
@@ -781,34 +653,34 @@ export const App: React.FC = () => {
 
                     {activeTab === 'tools.map' && (
                         <MapDashboard 
-                            instituicoes={instituicoes}
-                            entidades={entidades}
-                            suppliers={suppliers}
-                            equipment={equipment}
-                            assignments={assignments}
+                            instituicoes={appData.instituicoes}
+                            entidades={appData.entidades}
+                            suppliers={appData.suppliers}
+                            equipment={appData.equipment}
+                            assignments={appData.assignments}
                         />
                     )}
 
                     {activeTab === 'settings' && (
                          <AuxiliaryDataDashboard 
                             configTables={[
-                                { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: configEquipmentStatuses },
-                                { tableName: 'contact_roles', label: 'Funções de Contacto', data: contactRoles },
-                                { tableName: 'contact_titles', label: 'Tratos (Honoríficos)', data: contactTitles },
-                                { tableName: 'config_criticality_levels', label: 'Níveis de Criticidade', data: configCriticalityLevels },
-                                { tableName: 'config_cia_ratings', label: 'Classificação CIA', data: configCiaRatings },
-                                { tableName: 'config_service_statuses', label: 'Estados de Serviço (BIA)', data: configServiceStatuses },
-                                { tableName: 'config_backup_types', label: 'Tipos de Backup', data: configBackupTypes },
-                                { tableName: 'config_training_types', label: 'Tipos de Formação', data: configTrainingTypes },
-                                { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: configResilienceTestTypes },
-                                { tableName: 'config_software_categories', label: 'Categorias de Software', data: softwareCategories }
+                                { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: appData.configEquipmentStatuses },
+                                { tableName: 'contact_roles', label: 'Funções de Contacto', data: appData.contactRoles },
+                                { tableName: 'contact_titles', label: 'Tratos (Honoríficos)', data: appData.contactTitles },
+                                { tableName: 'config_criticality_levels', label: 'Níveis de Criticidade', data: appData.configCriticalityLevels },
+                                { tableName: 'config_cia_ratings', label: 'Classificação CIA', data: appData.configCiaRatings },
+                                { tableName: 'config_service_statuses', label: 'Estados de Serviço (BIA)', data: appData.configServiceStatuses },
+                                { tableName: 'config_backup_types', label: 'Tipos de Backup', data: appData.configBackupTypes },
+                                { tableName: 'config_training_types', label: 'Tipos de Formação', data: appData.configTrainingTypes },
+                                { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: appData.configResilienceTestTypes },
+                                { tableName: 'config_software_categories', label: 'Categorias de Software', data: appData.softwareCategories }
                             ]}
-                            onRefresh={loadData}
-                            brands={brands} equipment={equipment} onEditBrand={async (b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDeleteBrand={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); loadData(); } }} onCreateBrand={() => { setBrandToEdit(null); setShowAddBrandModal(true); }}
-                            equipmentTypes={equipmentTypes} onEditType={async (t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDeleteType={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); loadData(); } }} onCreateType={() => { setTypeToEdit(null); setShowAddTypeModal(true); }}
-                            ticketCategories={ticketCategories} tickets={tickets} teams={teams} onEditCategory={async (c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDeleteCategory={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteTicketCategory(id); loadData(); } }} onToggleCategoryStatus={async (id) => { const cat = ticketCategories.find(c => c.id === id); if (cat) { await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); loadData(); } }} onCreateCategory={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }}
-                            securityIncidentTypes={securityIncidentTypes} onEditIncidentType={async (t) => { setIncidentTypeToEdit(t); setShowAddIncidentTypeModal(true); }} onDeleteIncidentType={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteSecurityIncidentType(id); loadData(); } }} onToggleIncidentTypeStatus={async (id) => { const t = securityIncidentTypes.find(i => i.id === id); if (t) { await dataService.updateSecurityIncidentType(id, { is_active: !t.is_active }); loadData(); } }} onCreateIncidentType={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }}
-                            collaborators={collaborators} softwareLicenses={softwareLicenses} businessServices={businessServices} backupExecutions={backupExecutions} securityTrainings={securityTrainings} resilienceTests={resilienceTests} suppliers={suppliers} entidades={entidades} instituicoes={instituicoes} vulnerabilities={vulnerabilities}
+                            onRefresh={refreshData}
+                            brands={appData.brands} equipment={appData.equipment} onEditBrand={async (b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDeleteBrand={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} onCreateBrand={() => { setBrandToEdit(null); setShowAddBrandModal(true); }}
+                            equipmentTypes={appData.equipmentTypes} onEditType={async (t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDeleteType={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} onCreateType={() => { setTypeToEdit(null); setShowAddTypeModal(true); }}
+                            ticketCategories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onEditCategory={async (c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDeleteCategory={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteTicketCategory(id); refreshData(); } }} onToggleCategoryStatus={async (id) => { const cat = appData.ticketCategories.find(c => c.id === id); if (cat) { await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData(); } }} onCreateCategory={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }}
+                            securityIncidentTypes={appData.securityIncidentTypes} onEditIncidentType={async (t) => { setIncidentTypeToEdit(t); setShowAddIncidentTypeModal(true); }} onDeleteIncidentType={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteSecurityIncidentType(id); refreshData(); } }} onToggleIncidentTypeStatus={async (id) => { const t = appData.securityIncidentTypes.find(i => i.id === id); if (t) { await dataService.updateSecurityIncidentType(id, { is_active: !t.is_active }); refreshData(); } }} onCreateIncidentType={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }}
+                            collaborators={appData.collaborators} softwareLicenses={appData.softwareLicenses} businessServices={appData.businessServices} backupExecutions={appData.backupExecutions} securityTrainings={appData.securityTrainings} resilienceTests={appData.resilienceTests} suppliers={appData.suppliers} entidades={appData.entidades} instituicoes={appData.instituicoes} vulnerabilities={appData.vulnerabilities}
                         />
                     )}
                 </div>
@@ -829,20 +701,20 @@ export const App: React.FC = () => {
                         }
                         if (assignment) await dataService.addAssignment({ ...assignment, equipmentId: eqId });
                         if (licenseIds && licenseIds.length > 0) await dataService.syncLicenseAssignments(eqId, licenseIds);
-                        loadData();
+                        refreshData();
                     }}
-                    brands={brands}
-                    equipmentTypes={equipmentTypes}
+                    brands={appData.brands}
+                    equipmentTypes={appData.equipmentTypes}
                     equipmentToEdit={equipmentToEdit}
                     onSaveBrand={dataService.addBrand}
                     onSaveEquipmentType={dataService.addEquipmentType}
                     onOpenKitModal={(data) => { setKitInitialData(data); setShowAddEquipmentModal(false); setShowKitModal(true); }}
-                    suppliers={suppliers}
-                    softwareLicenses={softwareLicenses}
-                    entidades={entidades}
-                    collaborators={collaborators}
-                    statusOptions={configEquipmentStatuses}
-                    licenseAssignments={licenseAssignments}
+                    suppliers={appData.suppliers}
+                    softwareLicenses={appData.softwareLicenses}
+                    entidades={appData.entidades}
+                    collaborators={appData.collaborators}
+                    statusOptions={appData.configEquipmentStatuses}
+                    licenseAssignments={appData.licenseAssignments}
                     onOpenHistory={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }}
                     onManageLicenses={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} 
                     onOpenAssign={(eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
@@ -852,15 +724,15 @@ export const App: React.FC = () => {
             {showAssignModal && equipmentToAssign && (
                 <AssignEquipmentModal
                     equipment={equipmentToAssign}
-                    brandMap={new Map(brands.map(b => [b.id, b.name]))}
-                    equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
-                    escolasDepartamentos={entidades}
-                    instituicoes={instituicoes}
-                    collaborators={collaborators}
+                    brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
+                    escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
+                    collaborators={appData.collaborators}
                     onClose={() => setShowAssignModal(false)}
                     onAssign={async (assignment) => {
                         await dataService.addAssignment(assignment);
-                        loadData();
+                        refreshData();
                     }}
                 />
             )}
@@ -868,19 +740,19 @@ export const App: React.FC = () => {
             {detailEquipment && (
                  <EquipmentDetailModal 
                     equipment={detailEquipment}
-                    assignments={assignments}
-                    collaborators={collaborators}
-                    escolasDepartamentos={entidades}
-                    tickets={tickets}
-                    ticketActivities={ticketActivities}
+                    assignments={appData.assignments}
+                    collaborators={appData.collaborators}
+                    escolasDepartamentos={appData.entidades}
+                    tickets={appData.tickets}
+                    ticketActivities={appData.ticketActivities}
                     onClose={() => setDetailEquipment(null)}
                     onEdit={(eq) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipmentModal(true); }}
-                    businessServices={businessServices}
-                    serviceDependencies={serviceDependencies}
-                    softwareLicenses={softwareLicenses}
-                    licenseAssignments={licenseAssignments}
-                    vulnerabilities={vulnerabilities}
-                    suppliers={suppliers}
+                    businessServices={appData.businessServices}
+                    serviceDependencies={appData.serviceDependencies}
+                    softwareLicenses={appData.softwareLicenses}
+                    licenseAssignments={appData.licenseAssignments}
+                    vulnerabilities={appData.vulnerabilities}
+                    suppliers={appData.suppliers}
                  />
             )}
 
@@ -890,13 +762,13 @@ export const App: React.FC = () => {
                     onClose={() => setShowKitModal(false)}
                     onSaveKit={async (items) => {
                         await dataService.addMultipleEquipment(items);
-                        loadData();
+                        refreshData();
                     }}
-                    brands={brands}
-                    equipmentTypes={equipmentTypes}
+                    brands={appData.brands}
+                    equipmentTypes={appData.equipmentTypes}
                     initialData={kitInitialData}
                     onSaveEquipmentType={dataService.addEquipmentType}
-                    equipment={equipment}
+                    equipment={appData.equipment}
                 />
             )}
 
@@ -904,16 +776,16 @@ export const App: React.FC = () => {
             {showAssignMultipleModal && (
                 <AssignMultipleEquipmentModal
                     equipmentList={equipmentListToAssign}
-                    brandMap={new Map(brands.map(b => [b.id, b.name]))}
-                    equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
-                    escolasDepartamentos={entidades}
-                    collaborators={collaborators}
+                    brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
+                    escolasDepartamentos={appData.entidades}
+                    collaborators={appData.collaborators}
                     onClose={() => setShowAssignMultipleModal(false)}
                     onAssign={async (assignment) => {
                         for (const eq of equipmentListToAssign) {
                             await dataService.addAssignment({ ...assignment, equipmentId: eq.id });
                         }
-                        loadData();
+                        refreshData();
                     }}
                 />
             )}
@@ -925,10 +797,10 @@ export const App: React.FC = () => {
                     onSave={async (brand) => {
                         if (brandToEdit) await dataService.updateBrand(brandToEdit.id, brand);
                         else await dataService.addBrand(brand);
-                        loadData();
+                        refreshData();
                     }}
                     brandToEdit={brandToEdit}
-                    existingBrands={brands}
+                    existingBrands={appData.brands}
                 />
             )}
             {showAddTypeModal && (
@@ -937,11 +809,11 @@ export const App: React.FC = () => {
                     onSave={async (type) => {
                         if (typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, type);
                         else await dataService.addEquipmentType(type);
-                        loadData();
+                        refreshData();
                     }}
                     typeToEdit={typeToEdit}
-                    teams={teams}
-                    existingTypes={equipmentTypes}
+                    teams={appData.teams}
+                    existingTypes={appData.equipmentTypes}
                 />
             )}
 
@@ -952,7 +824,7 @@ export const App: React.FC = () => {
                     onSave={async (inst) => {
                         if (instituicaoToEdit) await dataService.updateInstituicao(instituicaoToEdit.id, inst);
                         else await dataService.addInstituicao(inst);
-                        loadData();
+                        refreshData();
                         return { id: 'temp', ...inst }; // Mock return to satisfy async
                     }}
                     instituicaoToEdit={instituicaoToEdit}
@@ -964,11 +836,11 @@ export const App: React.FC = () => {
                     onSave={async (ent) => {
                         if (entidadeToEdit && entidadeToEdit.id) await dataService.updateEntidade(entidadeToEdit.id, ent);
                         else await dataService.addEntidade(ent);
-                        loadData();
+                        refreshData();
                         return { id: 'temp', ...ent };
                     }}
                     entidadeToEdit={entidadeToEdit}
-                    instituicoes={instituicoes}
+                    instituicoes={appData.instituicoes}
                 />
             )}
             {showAddCollaboratorModal && (
@@ -981,15 +853,15 @@ export const App: React.FC = () => {
                             if (pass && newCol) setNewCredentials({ email: newCol.email, password: pass });
                             if (newCol) setShowCredentialsModal(true);
                         }
-                        loadData();
+                        refreshData();
                         return true;
                     }}
                     collaboratorToEdit={collaboratorToEdit}
-                    escolasDepartamentos={entidades}
-                    instituicoes={instituicoes}
+                    escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
                     currentUser={currentUser}
-                    roleOptions={customRoles.map(r => ({ id: r.id, name: r.name }))}
-                    titleOptions={contactTitles.map(t => ({ id: t.id, name: t.name }))}
+                    roleOptions={appData.customRoles.map(r => ({ id: r.id, name: r.name }))}
+                    titleOptions={appData.contactTitles.map(t => ({ id: t.id, name: t.name }))}
                 />
             )}
             {showAddTeamModal && (
@@ -998,7 +870,7 @@ export const App: React.FC = () => {
                     onSave={async (team) => {
                         if (teamToEdit) await dataService.updateTeam(teamToEdit.id, team);
                         else await dataService.addTeam(team);
-                        loadData();
+                        refreshData();
                     }}
                     teamToEdit={teamToEdit}
                 />
@@ -1008,12 +880,12 @@ export const App: React.FC = () => {
                     onClose={() => setShowManageTeamMembersModal(false)}
                     onSave={async (teamId, memberIds) => {
                         await dataService.syncTeamMembers(teamId, memberIds);
-                        loadData();
+                        refreshData();
                         setShowManageTeamMembersModal(false);
                     }}
                     team={teamToManage}
-                    allCollaborators={collaborators}
-                    teamMembers={teamMembers}
+                    allCollaborators={appData.collaborators}
+                    teamMembers={appData.teamMembers}
                 />
             )}
 
@@ -1024,11 +896,11 @@ export const App: React.FC = () => {
                     onSave={async (lic) => {
                         if (licenseToEdit) await dataService.updateLicense(licenseToEdit.id, lic);
                         else await dataService.addLicense(lic);
-                        loadData();
+                        refreshData();
                     }}
                     licenseToEdit={licenseToEdit}
-                    suppliers={suppliers}
-                    categories={softwareCategories as any}
+                    suppliers={appData.suppliers}
+                    categories={appData.softwareCategories as any}
                 />
             )}
 
@@ -1039,26 +911,26 @@ export const App: React.FC = () => {
                     onSave={async (ticket) => {
                         if (ticketToEdit) await dataService.updateTicket(ticketToEdit.id, ticket);
                         else await dataService.addTicket(ticket);
-                        loadData();
+                        refreshData();
                     }}
                     ticketToEdit={ticketToEdit}
-                    escolasDepartamentos={entidades}
-                    collaborators={collaborators}
-                    teams={teams}
+                    escolasDepartamentos={appData.entidades}
+                    collaborators={appData.collaborators}
+                    teams={appData.teams}
                     currentUser={currentUser}
                     userPermissions={{ viewScope: 'all' }} // Simplified for now
-                    equipment={equipment}
-                    equipmentTypes={equipmentTypes}
-                    assignments={assignments}
-                    categories={ticketCategories}
-                    securityIncidentTypes={securityIncidentTypes}
-                    pastTickets={tickets}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    assignments={appData.assignments}
+                    categories={appData.ticketCategories}
+                    securityIncidentTypes={appData.securityIncidentTypes}
+                    pastTickets={appData.tickets}
                 />
             )}
             {showCloseTicketModal && ticketToClose && (
                 <CloseTicketModal
                     ticket={ticketToClose}
-                    collaborators={collaborators}
+                    collaborators={appData.collaborators}
                     onClose={() => setShowCloseTicketModal(false)}
                     onConfirm={async (techId, resolution) => {
                         await dataService.updateTicket(ticketToClose.id, { 
@@ -1067,22 +939,22 @@ export const App: React.FC = () => {
                             technicianId: techId,
                             resolution_summary: resolution 
                         });
-                        loadData();
+                        refreshData();
                         setShowCloseTicketModal(false);
                     }}
-                    activities={ticketActivities.filter(a => a.ticketId === ticketToClose.id)}
+                    activities={appData.ticketActivities.filter(a => a.ticketId === ticketToClose.id)}
                 />
             )}
             {showTicketActivitiesModal && ticketForActivities && (
                 <TicketActivitiesModal
                     ticket={ticketForActivities}
-                    activities={ticketActivities.filter(a => a.ticketId === ticketForActivities.id)}
-                    collaborators={collaborators}
+                    activities={appData.ticketActivities.filter(a => a.ticketId === ticketForActivities.id)}
+                    collaborators={appData.collaborators}
                     currentUser={currentUser}
-                    equipment={equipment}
-                    equipmentTypes={equipmentTypes}
-                    entidades={entidades}
-                    assignments={assignments}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    entidades={appData.entidades}
+                    assignments={appData.assignments}
                     onClose={() => setShowTicketActivitiesModal(false)}
                     onAddActivity={async (activity) => {
                         await dataService.addTicketActivity({
@@ -1091,7 +963,7 @@ export const App: React.FC = () => {
                             technicianId: currentUser?.id || '',
                             date: new Date().toISOString()
                         });
-                        loadData();
+                        refreshData();
                     }}
                 />
             )}
@@ -1101,10 +973,10 @@ export const App: React.FC = () => {
                     onSave={async (cat) => {
                         if (categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, cat);
                         else await dataService.addTicketCategory(cat);
-                        loadData();
+                        refreshData();
                     }}
                     categoryToEdit={categoryToEdit}
-                    teams={teams}
+                    teams={appData.teams}
                 />
             )}
             {showAddIncidentTypeModal && (
@@ -1113,7 +985,7 @@ export const App: React.FC = () => {
                     onSave={async (type) => {
                         if (incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, type);
                         else await dataService.addSecurityIncidentType(type);
-                        loadData();
+                        refreshData();
                     }}
                     typeToEdit={incidentTypeToEdit}
                 />
@@ -1126,22 +998,22 @@ export const App: React.FC = () => {
                     onSave={async (svc) => {
                         if (serviceToEdit) await dataService.updateBusinessService(serviceToEdit.id, svc);
                         else await dataService.addBusinessService(svc);
-                        loadData();
+                        refreshData();
                     }}
                     serviceToEdit={serviceToEdit}
-                    collaborators={collaborators}
-                    suppliers={suppliers}
+                    collaborators={appData.collaborators}
+                    suppliers={appData.suppliers}
                 />
             )}
             {showServiceDependencyModal && serviceForDependencies && (
                 <ServiceDependencyModal 
                     onClose={() => setShowServiceDependencyModal(false)}
                     service={serviceForDependencies}
-                    dependencies={serviceDependencies.filter(d => d.service_id === serviceForDependencies.id)}
-                    allEquipment={equipment}
-                    allLicenses={softwareLicenses}
-                    onAddDependency={async (dep) => { await dataService.addServiceDependency(dep); loadData(); }}
-                    onRemoveDependency={async (id) => { await dataService.deleteServiceDependency(id); loadData(); }}
+                    dependencies={appData.serviceDependencies.filter(d => d.service_id === serviceForDependencies.id)}
+                    allEquipment={appData.equipment}
+                    allLicenses={appData.softwareLicenses}
+                    onAddDependency={async (dep) => { await dataService.addServiceDependency(dep); refreshData(); }}
+                    onRemoveDependency={async (id) => { await dataService.deleteServiceDependency(id); refreshData(); }}
                 />
             )}
             {showAddVulnerabilityModal && (
@@ -1150,7 +1022,7 @@ export const App: React.FC = () => {
                     onSave={async (vuln) => {
                         if (vulnerabilityToEdit) await dataService.updateVulnerability(vulnerabilityToEdit.id, vuln);
                         else await dataService.addVulnerability(vuln);
-                        loadData();
+                        refreshData();
                     }}
                     vulnToEdit={vulnerabilityToEdit}
                 />
@@ -1161,13 +1033,13 @@ export const App: React.FC = () => {
                     onSave={async (backup) => {
                         if (backupToEdit) await dataService.updateBackupExecution(backupToEdit.id, backup);
                         else await dataService.addBackupExecution(backup);
-                        loadData();
+                        refreshData();
                     }}
                     backupToEdit={backupToEdit}
                     currentUser={currentUser}
-                    equipmentList={equipment}
-                    equipmentTypes={equipmentTypes}
-                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); loadData(); }}
+                    equipmentList={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }}
                 />
             )}
             {showAddResilienceTestModal && (
@@ -1176,12 +1048,12 @@ export const App: React.FC = () => {
                     onSave={async (test) => {
                         if (testToEdit) await dataService.updateResilienceTest(testToEdit.id, test);
                         else await dataService.addResilienceTest(test);
-                        loadData();
+                        refreshData();
                     }}
                     testToEdit={testToEdit}
-                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); loadData(); }}
-                    entidades={entidades}
-                    suppliers={suppliers}
+                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }}
+                    entidades={appData.entidades}
+                    suppliers={appData.suppliers}
                 />
             )}
             {showAddSupplierModal && (
@@ -1190,12 +1062,12 @@ export const App: React.FC = () => {
                     onSave={async (sup) => {
                         if (supplierToEdit) await dataService.updateSupplier(supplierToEdit.id, sup);
                         else await dataService.addSupplier(sup);
-                        loadData();
+                        refreshData();
                     }}
                     supplierToEdit={supplierToEdit}
-                    teams={teams}
-                    businessServices={businessServices}
-                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); loadData(); }}
+                    teams={appData.teams}
+                    businessServices={appData.businessServices}
+                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }}
                 />
             )}
 
@@ -1208,7 +1080,7 @@ export const App: React.FC = () => {
                         try {
                             if (type === 'equipment') await dataService.addMultipleEquipment(data);
                             // Add other types logic here if needed...
-                            loadData();
+                            refreshData();
                             return { success: true, message: `${data.length} registos importados.` };
                         } catch (e: any) {
                             return { success: false, message: e.message };
@@ -1220,36 +1092,36 @@ export const App: React.FC = () => {
                 <ReportModal 
                     type={reportType} 
                     onClose={() => setShowReportModal(false)}
-                    equipment={equipment}
-                    brandMap={new Map(brands.map(b => [b.id, b.name]))}
-                    equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
-                    instituicoes={instituicoes}
-                    escolasDepartamentos={entidades}
-                    collaborators={collaborators}
-                    assignments={assignments}
-                    tickets={tickets}
-                    softwareLicenses={softwareLicenses}
-                    licenseAssignments={licenseAssignments}
-                    businessServices={businessServices}
-                    serviceDependencies={serviceDependencies}
+                    equipment={appData.equipment}
+                    brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
+                    instituicoes={appData.instituicoes}
+                    escolasDepartamentos={appData.entidades}
+                    collaborators={appData.collaborators}
+                    assignments={appData.assignments}
+                    tickets={appData.tickets}
+                    softwareLicenses={appData.softwareLicenses}
+                    licenseAssignments={appData.licenseAssignments}
+                    businessServices={appData.businessServices}
+                    serviceDependencies={appData.serviceDependencies}
                 />
             )}
             {showCollaboratorHistoryModal && historyCollaborator && (
                 <CollaboratorHistoryModal 
                     collaborator={historyCollaborator} 
-                    history={collaboratorHistory} 
-                    escolasDepartamentos={entidades} 
+                    history={appData.collaboratorHistory} 
+                    escolasDepartamentos={appData.entidades} 
                     onClose={() => setShowCollaboratorHistoryModal(false)} 
                 />
             )}
             {showCollaboratorDetailModal && detailCollaborator && (
                 <CollaboratorDetailModal
                     collaborator={detailCollaborator}
-                    assignments={assignments}
-                    equipment={equipment}
-                    tickets={tickets}
-                    brandMap={new Map(brands.map(b => [b.id, b.name]))}
-                    equipmentTypeMap={new Map(equipmentTypes.map(t => [t.id, t.name]))}
+                    assignments={appData.assignments}
+                    equipment={appData.equipment}
+                    tickets={appData.tickets}
+                    brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
                     onClose={() => setShowCollaboratorDetailModal(false)}
                     onShowHistory={(c) => { setShowCollaboratorDetailModal(false); setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }}
                     onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }}
@@ -1260,11 +1132,11 @@ export const App: React.FC = () => {
             {showCalendarModal && (
                 <CalendarModal 
                     onClose={() => setShowCalendarModal(false)}
-                    tickets={tickets}
+                    tickets={appData.tickets}
                     currentUser={currentUser}
-                    teams={teams}
-                    teamMembers={teamMembers}
-                    collaborators={collaborators}
+                    teams={appData.teams}
+                    teamMembers={appData.teamMembers}
+                    collaborators={appData.collaborators}
                     onViewTicket={(t) => {
                         setTicketToEdit(t);
                         setShowAddTicketModal(true);
@@ -1283,20 +1155,20 @@ export const App: React.FC = () => {
                     onClose={() => setShowNotificationsModal(false)}
                     expiringWarranties={[]} // TODO: Add filter logic
                     expiringLicenses={[]} // TODO: Add filter logic
-                    teamTickets={tickets.filter(t => t.status === 'Pedido')} // Basic filter
-                    collaborators={collaborators}
-                    teams={teams}
+                    teamTickets={appData.tickets.filter(t => t.status === 'Pedido')} // Basic filter
+                    collaborators={appData.collaborators}
+                    teams={appData.teams}
                     onViewItem={handleViewItem}
                     onSnooze={dataService.snoozeNotification}
                     currentUser={currentUser}
-                    licenseAssignments={licenseAssignments}
+                    licenseAssignments={appData.licenseAssignments}
                 />
             )}
 
             <ChatWidget 
                 currentUser={currentUser}
-                collaborators={collaborators}
-                messages={messages}
+                collaborators={appData.collaborators}
+                messages={appData.messages}
                 onSendMessage={async (rxId, content) => {
                     await dataService.addMessage({
                         senderId: currentUser.id,
@@ -1305,21 +1177,21 @@ export const App: React.FC = () => {
                         timestamp: new Date().toISOString(),
                         read: false
                     });
-                    loadData();
+                    refreshData();
                 }}
                 onMarkMessagesAsRead={(senderId) => dataService.markMessagesAsRead(senderId)}
                 isOpen={showChatWidget}
                 onToggle={() => setShowChatWidget(!showChatWidget)}
                 activeChatCollaboratorId={activeChatCollaboratorId}
                 onSelectConversation={setActiveChatCollaboratorId}
-                unreadMessagesCount={messages.filter(m => m.receiverId === currentUser.id && !m.read).length}
+                unreadMessagesCount={appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length}
             />
             
             {isConfigured && (
                 <MagicCommandBar 
-                    brands={brands}
-                    types={equipmentTypes}
-                    collaborators={collaborators}
+                    brands={appData.brands}
+                    types={appData.equipmentTypes}
+                    collaborators={appData.collaborators}
                     currentUser={currentUser}
                     onAction={async (intent, data) => {
                         if (intent === 'create_equipment') {
