@@ -11,8 +11,8 @@ export default defineConfig(({ mode }) => {
   // PARA EVITAR O ECRÃ DE CONFIGURAÇÃO: Cole as suas chaves do Supabase abaixo.
   
   // 1. Configuração do Supabase (Base de Dados)
-  const HARDCODED_SUPABASE_URL = "";      // <--- COLE AQUI A URL (Ex: "https://xxyyzz.supabase.co")
-  const HARDCODED_SUPABASE_ANON_KEY = ""; // <--- COLE AQUI A ANON KEY (Ex: "eyJhbGci...")
+  const HARDCODED_SUPABASE_URL = "https://afwtfuajkmrzdencuxor.supabase.co";      // <--- COLE AQUI A URL (Ex: "https://xxyyzz.supabase.co")
+  const HARDCODED_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmd3RmdWFqa21yemRlbmN1eG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNjc1NDcsImV4cCI6MjA3ODY0MzU0N30._OUkGstLN0eN6g-CPbw5anMZ_uefNcBLO-0NqiHYV_k"; // <--- COLE AQUI A ANON KEY (Ex: "eyJhbGci...")
   
   // 2. Configuração do Google Gemini (Inteligência Artificial)
   const HARDCODED_API_KEY = "AIzaSyDZeldUKNcsKsH-drgHHQFDFPl_t1HUCPs"; 
