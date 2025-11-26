@@ -86,7 +86,35 @@ export const App: React.FC = () => {
     });
     
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
-    const [activeTab, setActiveTab] = useState('overview');
+    
+    // --- ROUTING LOGIC (Hash Based) ---
+    // Initialize activeTab from URL hash or default to 'overview'
+    const [activeTab, setActiveTabState] = useState(() => {
+        const hash = window.location.hash.replace('#', '');
+        return hash || 'overview';
+    });
+
+    // Helper to update both state and URL hash
+    const setActiveTab = (tab: string) => {
+        setActiveTabState(tab);
+        window.location.hash = tab;
+    };
+
+    // Listen for hash changes (Back/Forward buttons)
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash && hash !== activeTab) {
+                setActiveTabState(hash);
+            } else if (!hash) {
+                setActiveTabState('overview');
+            }
+        };
+
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, [activeTab]);
+
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
     const { layoutMode } = useLayout();
     
@@ -454,7 +482,7 @@ export const App: React.FC = () => {
             <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar ${layoutMode === 'side' ? (isSidebarExpanded ? 'ml-64' : 'ml-20') : ''}`}>
                 <div className="max-w-screen-xl mx-auto p-4 md:p-6">
                     
-                    {/* ---------------- DASHBOARDS (Conditional Rendering Restored) ---------------- */}
+                    {/* ---------------- DASHBOARDS ---------------- */}
 
                     {activeTab === 'overview' && <OverviewDashboard 
                         equipment={equipment} 
@@ -585,7 +613,7 @@ export const App: React.FC = () => {
                             onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEntidade(id); loadData(); } } : undefined}
                             onCreate={checkPermission('organization', 'create') ? () => { setEntidadeToEdit(null); setShowAddEntidadeModal(true); } : undefined}
                             onAddCollaborator={checkPermission('organization', 'create') ? (entId) => { setCollaboratorToEdit({ entidadeId: entId } as any); setShowAddCollaboratorModal(true); } : undefined}
-                            onAssignEquipment={checkPermission('equipment', 'edit') ? (entId) => { setEquipmentToAssign(null); setShowAssignModal(true); /* Pre-select entity logic inside modal if passed */ } : undefined}
+                            onAssignEquipment={checkPermission('equipment', 'edit') ? (entId) => { setEquipmentToAssign(null); setShowAssignModal(true); } : undefined}
                             onImport={checkPermission('organization', 'create') ? () => { setImportConfig({ dataType: 'entidades', title: 'Importar Entidades', columnMap: { 'Nome': 'name', 'Código': 'codigo', 'Email': 'email', 'Responsável': 'responsavel' }, templateFileName: 'entidades_template.xlsx' }); setShowImportModal(true); } : undefined}
                             onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
                                 const ent = entidades.find(e => e.id === id);
@@ -672,8 +700,7 @@ export const App: React.FC = () => {
                             onGenerateReport={checkPermission('reports', 'view') ? () => { setReportType('ticket'); setShowReportModal(true); } : undefined}
                             onOpenActivities={(t) => { setTicketForActivities(t); setShowTicketActivitiesModal(true); }}
                             onGenerateSecurityReport={(t) => { 
-                                // Logic handled inside modal or service call, here we trigger specialized view if needed
-                                setTicketToEdit(t); // Re-use edit modal which has the regulatory button
+                                setTicketToEdit(t);
                                 setShowAddTicketModal(true);
                             }}
                         />
@@ -1178,10 +1205,9 @@ export const App: React.FC = () => {
                     config={importConfig} 
                     onClose={() => setShowImportModal(false)} 
                     onImport={async (type, data) => {
-                        // Very basic implementation for now
                         try {
                             if (type === 'equipment') await dataService.addMultipleEquipment(data);
-                            // Add other types...
+                            // Add other types logic here if needed...
                             loadData();
                             return { success: true, message: `${data.length} registos importados.` };
                         } catch (e: any) {
@@ -1255,8 +1281,8 @@ export const App: React.FC = () => {
             {showNotificationsModal && (
                 <NotificationsModal 
                     onClose={() => setShowNotificationsModal(false)}
-                    expiringWarranties={[]} // Filter logic needed
-                    expiringLicenses={[]} // Filter logic needed
+                    expiringWarranties={[]} // TODO: Add filter logic
+                    expiringLicenses={[]} // TODO: Add filter logic
                     teamTickets={tickets.filter(t => t.status === 'Pedido')} // Basic filter
                     collaborators={collaborators}
                     teams={teams}
@@ -1296,7 +1322,6 @@ export const App: React.FC = () => {
                     collaborators={collaborators}
                     currentUser={currentUser}
                     onAction={async (intent, data) => {
-                        // Basic Handler
                         if (intent === 'create_equipment') {
                             setKitInitialData(data);
                             setShowAddEquipmentModal(true);
