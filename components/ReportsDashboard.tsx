@@ -201,6 +201,7 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
                     <tr><th>Modelo / Descrição</th><td>${eq.description}</td></tr>
                     <tr><th>Nº Série</th><td>${eq.serialNumber}</td></tr>
                     <tr><th>Nº Inventário</th><td>${eq.inventoryNumber || 'N/A'}</td></tr>
+                    <tr><th>Nº Requisição</th><td>${eq.requisitionNumber || 'N/A'}</td></tr>
                     <tr><th>Nome na Rede</th><td>${eq.nomeNaRede || 'N/A'}</td></tr>
                 </table>
 
@@ -309,6 +310,7 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
                                             <tr><th className="border p-2 text-left">Marca/Modelo</th><td className="border p-2">{brandMap.get(selectedAssignment.equipment?.brandId || '')} {typeMap.get(selectedAssignment.equipment?.typeId || '')}</td></tr>
                                             <tr className="bg-gray-100"><th className="border p-2 text-left">Nº Série</th><td className="border p-2 font-mono">{selectedAssignment.equipment?.serialNumber}</td></tr>
                                             <tr><th className="border p-2 text-left">Nº Inventário</th><td className="border p-2">{selectedAssignment.equipment?.inventoryNumber || '-'}</td></tr>
+                                            <tr className="bg-gray-100"><th className="border p-2 text-left">Nº Requisição</th><td className="border p-2">{selectedAssignment.equipment?.requisitionNumber || '-'}</td></tr>
                                         </tbody>
                                     </table>
 

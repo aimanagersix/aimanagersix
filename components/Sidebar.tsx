@@ -55,10 +55,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
-    const handleTabClick = (tab: string) => {
-        setActiveTab(tab);
-    };
-
     // Using anchor tags allows middle-click / right-click -> open new tab natively
     const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
         const handleClick = (e: React.MouseEvent) => {
@@ -335,11 +331,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                 </button>
                                 
                                 <div className="flex items-center px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700 cursor-pointer" onClick={(e) => {e.stopPropagation()}}>
-                                    <FaGlobe className="text-blue-400 mr-3" />
+                                    <FaGlobe className="mr-3 text-blue-400" />
                                     <select 
                                         value={language} 
                                         onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
-                                        className="bg-transparent border-none text-on-surface-dark text-sm focus:ring-0 cursor-pointer p-0 w-full"
+                                        className="bg-transparent border-none text-white text-sm focus:ring-0 cursor-pointer p-0 w-full"
                                     >
                                         <option value="pt">Português</option>
                                         <option value="en">English</option>
@@ -351,40 +347,39 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                         <TabButton 
                                             tab="settings" 
                                             label="Configurações" 
-                                            icon={<FaCog className="text-brand-secondary"/>} 
+                                            icon={<FaCog className="mr-3 text-brand-secondary"/>} 
                                             isDropdownItem 
                                             activeTab={activeTab} 
                                             setActiveTab={(tab) => { setActiveTab(tab); setIsUserMenuOpen(false); }}
-                                            className="text-on-surface-dark hover:bg-gray-700 flex w-full items-center gap-3 px-4 py-2 text-sm"
+                                            className="text-gray-300 hover:bg-gray-700 hover:text-white flex w-full items-center px-4 py-2 text-sm"
                                         />
                                         {onOpenAutomation && (
-                                            <button onClick={() => { onOpenAutomation(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                                <FaRobot className="text-purple-400" /> Automação
+                                            <button onClick={() => { onOpenAutomation(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                                <FaRobot className="mr-3 text-purple-400" /> Automação
                                             </button>
                                         )}
-                                        <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                            <FaClipboardList className="text-yellow-400" /> Logs Auditoria
+                                        <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                            <FaClipboardList className="mr-3 text-yellow-400" /> Logs Auditoria
                                         </button>
                                         {isSuperAdmin && (
-                                            <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                                <FaDatabase className="text-green-400" /> Config BD
+                                            <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                                <FaDatabase className="mr-3 text-green-400" /> Config BD
                                             </button>
                                         )}
                                     </>
                                 )}
                                 <div className="border-t border-gray-700 my-1"></div>
-                                <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-gray-700">
-                                    <LogoutIcon /> {t('common.logout')}
+                                <button onClick={onLogout} className="flex w-full items-center px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300">
+                                    <LogoutIcon className="mr-3" /> {t('common.logout')}
                                 </button>
                             </div>
                         )}
                     </div>
                 ) : (
-                    <div className="flex justify-center">
-                        <button onClick={onLogout} className="p-2 text-gray-400 hover:text-white transition-colors" title={t('common.logout')}>
-                            <LogoutIcon className="w-6 h-6" />
-                        </button>
-                    </div>
+                    <button onClick={onLogout} className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-gray-800 transition-colors">
+                        <LogoutIcon className="w-6 h-6 text-gray-400" />
+                        {isExpanded && <span className="text-sm font-medium text-gray-400">{t('common.logout')}</span>}
+                    </button>
                 )}
             </div>
         </aside>

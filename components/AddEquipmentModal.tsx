@@ -708,7 +708,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         </div>
                         {errors.warrantyEndDate && <p className="text-red-400 text-xs italic mt-1">{errors.warrantyEndDate}</p>}
                     </div>
-                    <div>
+                    <div className="md:col-span-2">
                         <label htmlFor="supplier_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fornecedor</label>
                         <select 
                             name="supplier_id" 
