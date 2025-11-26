@@ -8,6 +8,7 @@ import {
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
     ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole
 } from '../types';
+import { createClient } from '@supabase/supabase-js';
 
 // --- Helper to fetch all data concurrently ---
 export const fetchAllData = async () => {
@@ -286,7 +287,48 @@ export const updateEntidade = (id: string, data: any) => {
 export const deleteEntidade = (id: string) => remove('entidades', id);
 
 // Collaborators
-export const addCollaborator = (data: any) => create('collaborators', data);
+export const addCollaborator = async (data: any, password?: string) => {
+    // Check if login is enabled
+    if (data.canLogin) {
+        const serviceRoleKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
+        const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
+
+        if (!serviceRoleKey || !supabaseUrl) {
+            throw new Error("Para criar utilizadores com login, configure a Service Role Key em Automação -> Conexões.");
+        }
+
+        // Create Admin Client
+        const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        });
+
+        // Create Auth User
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: data.email,
+            password: password, // Optional: if undefined, sends invite link
+            email_confirm: true, // Auto-confirm email (or false to require click)
+            user_metadata: { full_name: data.fullName }
+        });
+
+        if (authError) {
+            console.error("Error creating Auth user:", authError);
+            throw new Error(`Erro ao criar login: ${authError.message}`);
+        }
+
+        if (authData.user) {
+            // Use the Auth ID for the collaborator record to link them
+            data.id = authData.user.id;
+        }
+    }
+
+    // Create Data Record (Even if auth failed, we might want the record, but usually we throw above)
+    // If data.id is set, 'create' will attempt to use it.
+    return create('collaborators', data);
+};
+
 export const updateCollaborator = (id: string, data: any) => update('collaborators', id, data);
 export const deleteCollaborator = (id: string) => remove('collaborators', id);
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {

@@ -113,6 +113,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     // Connections State (Supabase)
     const [sbUrl, setSbUrl] = useState('');
     const [sbKey, setSbKey] = useState('');
+    const [sbServiceKey, setSbServiceKey] = useState(''); // NEW: Service Role Key
     
     // Tooltip Config State
     const [tooltipConfig, setTooltipConfig] = useState<TooltipConfig>(defaultTooltipConfig);
@@ -197,6 +198,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 // Load LocalStorage keys for Supabase
                 setSbUrl(localStorage.getItem('SUPABASE_URL') || '');
                 setSbKey(localStorage.getItem('SUPABASE_ANON_KEY') || '');
+                setSbServiceKey(localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '');
 
             } else if (selectedMenuId === 'interface') {
                 const tooltipSetting = await dataService.getGlobalSetting('tooltip_config');
@@ -237,6 +239,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         if (sbUrl && sbKey) {
             localStorage.setItem('SUPABASE_URL', sbUrl);
             localStorage.setItem('SUPABASE_ANON_KEY', sbKey);
+        }
+        if (sbServiceKey) {
+            localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', sbServiceKey);
         }
 
         if (confirm("Credenciais guardadas com sucesso. A página será recarregada para aplicar a nova ligação à base de dados.")) {
@@ -826,6 +831,22 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                                 className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
                                             />
                                         </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-red-400 font-bold uppercase mb-1 flex items-center gap-1"><FaLock/> Service Role Key (Admin)</label>
+                                        <div className="relative">
+                                            <FaKey className="absolute top-3 left-3 text-red-500" />
+                                            <input 
+                                                type="password" 
+                                                value={sbServiceKey}
+                                                onChange={(e) => setSbServiceKey(e.target.value)}
+                                                className="bg-gray-800 border border-red-500/50 text-white rounded-md pl-9 p-2 text-sm w-full font-mono placeholder-gray-500"
+                                                placeholder="Necessária para criar utilizadores com login"
+                                            />
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            <strong>Obrigatória</strong> para criar novos utilizadores com acesso à plataforma (envio de email). Guardada apenas localmente.
+                                        </p>
                                     </div>
                                 </div>
 
