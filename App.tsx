@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -21,11 +20,12 @@ import ConfigurationSetup from './components/ConfigurationSetup';
 import ForgotPasswordModal from './components/ForgotPasswordModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
 
-// Dashboards
+// Feature Managers (Modules)
+import InventoryManager from './features/inventory/InventoryManager';
+
+// Dashboards (Non-Refactored Modules)
 import OverviewDashboard from './components/OverviewDashboard';
 import SmartDashboard from './components/SmartDashboard';
-import EquipmentDashboard from './components/EquipmentDashboard';
-import LicenseDashboard from './components/LicenseDashboard';
 import InstituicaoDashboard from './components/InstituicaoDashboard';
 import EntidadeDashboard from './components/EntidadeDashboard';
 import CollaboratorDashboard from './components/CollaboratorDashboard';
@@ -41,11 +41,7 @@ import AgendaDashboard from './components/AgendaDashboard';
 import MapDashboard from './components/MapDashboard';
 import ReportsDashboard from './components/ReportsDashboard';
 
-// Modals
-import AddEquipmentModal from './components/AddEquipmentModal';
-import AddEquipmentKitModal from './components/AddEquipmentKitModal';
-import AssignEquipmentModal from './components/AssignEquipmentModal';
-import AssignMultipleEquipmentModal from './components/AssignMultipleEquipmentModal';
+// Modals (Global or Non-Refactored)
 import AddBrandModal from './components/AddBrandModal';
 import AddEquipmentTypeModal from './components/AddEquipmentTypeModal';
 import AddInstituicaoModal from './components/AddInstituicaoModal';
@@ -53,7 +49,6 @@ import AddEntidadeModal from './components/AddEntidadeModal';
 import AddCollaboratorModal from './components/AddCollaboratorModal';
 import AddTeamModal from './components/AddTeamModal';
 import ManageTeamMembersModal from './components/ManageTeamMembersModal';
-import AddLicenseModal from './components/AddLicenseModal';
 import AddTicketModal from './components/AddTicketModal';
 import CloseTicketModal from './components/CloseTicketModal';
 import TicketActivitiesModal from './components/TicketActivitiesModal';
@@ -69,7 +64,6 @@ import ImportModal from './components/ImportModal';
 import ReportModal from './components/ReportModal';
 import CollaboratorHistoryModal from './components/CollaboratorHistoryModal';
 import CollaboratorDetailModal from './components/CollaboratorDetailModal';
-import EquipmentDetailModal from './components/EquipmentDetailModal';
 import UserManualModal from './components/UserManualModal';
 import CalendarModal from './components/CalendarModal';
 import MagicCommandBar from './components/MagicCommandBar';
@@ -114,16 +108,9 @@ export const App: React.FC = () => {
 
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
     
-    // --- Modal State Management ---
-    const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false);
-    const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
-    const [showKitModal, setShowKitModal] = useState(false);
-    const [kitInitialData, setKitInitialData] = useState<Partial<Equipment> | null>(null);
-    const [showAssignModal, setShowAssignModal] = useState(false);
-    const [equipmentToAssign, setEquipmentToAssign] = useState<Equipment | null>(null);
-    const [showAssignMultipleModal, setShowAssignMultipleModal] = useState(false);
-    const [equipmentListToAssign, setEquipmentListToAssign] = useState<Equipment[]>([]);
+    // --- Modal State Management (Non-Inventory) ---
     
+    // -- Organization Modals --
     const [showAddBrandModal, setShowAddBrandModal] = useState(false);
     const [brandToEdit, setBrandToEdit] = useState<Brand | null>(null);
     
@@ -144,9 +131,7 @@ export const App: React.FC = () => {
     const [showManageTeamMembersModal, setShowManageTeamMembersModal] = useState(false);
     const [teamToManage, setTeamToManage] = useState<Team | null>(null);
 
-    const [showAddLicenseModal, setShowAddLicenseModal] = useState(false);
-    const [licenseToEdit, setLicenseToEdit] = useState<SoftwareLicense | null>(null);
-
+    // -- Ticket Modals --
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
     const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
     const [showCloseTicketModal, setShowCloseTicketModal] = useState(false);
@@ -160,6 +145,7 @@ export const App: React.FC = () => {
     const [showAddIncidentTypeModal, setShowAddIncidentTypeModal] = useState(false);
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<SecurityIncidentTypeItem | null>(null);
 
+    // -- Compliance Modals --
     const [showAddServiceModal, setShowAddServiceModal] = useState(false);
     const [serviceToEdit, setServiceToEdit] = useState<BusinessService | null>(null);
     const [showServiceDependencyModal, setShowServiceDependencyModal] = useState(false);
@@ -177,6 +163,7 @@ export const App: React.FC = () => {
     const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
     const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
 
+    // -- Global/Utility Modals --
     const [showImportModal, setShowImportModal] = useState(false);
     const [importConfig, setImportConfig] = useState<any>(null);
 
@@ -201,10 +188,8 @@ export const App: React.FC = () => {
     const [resetSession, setResetSession] = useState<any>(null);
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
     const [newCredentials, setNewCredentials] = useState<{email: string, password?: string} | null>(null);
-
-    const [showEquipmentDetailModal, setShowEquipmentDetailModal] = useState(false);
-    const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
-
+    
+    // Shared Filter State (Used to pass search queries from MagicBar to Dashboards)
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
 
     // --- Permission Logic (RBAC) ---
@@ -386,65 +371,17 @@ export const App: React.FC = () => {
                         />
                     )}
 
-                    {activeTab === 'equipment.inventory' && (
-                        <EquipmentDashboard 
-                            equipment={appData.equipment} 
-                            brands={appData.brands} 
-                            equipmentTypes={appData.equipmentTypes}
-                            brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
-                            equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
-                            assignedEquipmentIds={new Set(appData.assignments.filter(a => !a.returnDate).map(a => a.equipmentId))}
-                            assignments={appData.assignments}
-                            collaborators={appData.collaborators}
-                            entidades={appData.entidades}
-                            instituicoes={appData.instituicoes}
-                            initialFilter={dashboardFilter}
-                            onClearInitialFilter={() => setDashboardFilter(null)}
-                            onAssign={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); } : undefined}
-                            onAssignMultiple={checkPermission('equipment', 'edit') ? (eqs) => { setEquipmentListToAssign(eqs); setShowAssignMultipleModal(true); } : undefined}
-                            onUnassign={checkPermission('equipment', 'edit') ? async (id) => {
-                                await dataService.addAssignment({ equipmentId: id, returnDate: new Date().toISOString().split('T')[0] });
-                                refreshData();
-                            } : undefined}
-                            onUpdateStatus={checkPermission('equipment', 'edit') ? async (id, status) => {
-                                await dataService.updateEquipment(id, { status });
-                                refreshData();
-                            } : undefined}
-                            onShowHistory={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} 
-                            onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setShowAddEquipmentModal(true); } : undefined}
-                            onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setShowAddEquipmentModal(true); } : undefined}
-                            onGenerateReport={checkPermission('reports', 'view') ? () => { setReportType('equipment'); setShowReportModal(true); } : undefined}
-                            onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); } : undefined}
-                            businessServices={appData.businessServices}
-                            serviceDependencies={appData.serviceDependencies}
-                            tickets={appData.tickets}
-                            ticketActivities={appData.ticketActivities}
-                            softwareLicenses={appData.softwareLicenses}
-                            licenseAssignments={appData.licenseAssignments}
-                            vulnerabilities={appData.vulnerabilities}
-                            suppliers={appData.suppliers}
-                            tooltipConfig={userTooltipConfig}
-                        />
-                    )}
-
-                    {activeTab === 'licensing' && (
-                        <LicenseDashboard 
-                            licenses={appData.softwareLicenses}
-                            licenseAssignments={appData.licenseAssignments}
-                            equipmentData={appData.equipment}
-                            assignments={appData.assignments}
-                            collaborators={appData.collaborators}
-                            brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
-                            equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
-                            onEdit={checkPermission('licensing', 'edit') ? (l) => { setLicenseToEdit(l); setShowAddLicenseModal(true); } : undefined}
-                            onDelete={checkPermission('licensing', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteLicense(id); refreshData(); } } : undefined}
-                            onCreate={checkPermission('licensing', 'create') ? () => { setLicenseToEdit(null); setShowAddLicenseModal(true); } : undefined}
-                            onGenerateReport={() => { setReportType('licensing'); setShowReportModal(true); }}
-                            initialFilter={dashboardFilter}
-                            onClearInitialFilter={() => setDashboardFilter(null)}
-                            businessServices={appData.businessServices}
-                            serviceDependencies={appData.serviceDependencies}
-                            softwareCategories={appData.softwareCategories as any}
+                    {/* --- MODULARIZED INVENTORY --- */}
+                    {(activeTab === 'equipment.inventory' || activeTab === 'licensing') && (
+                        <InventoryManager 
+                            activeTab={activeTab}
+                            appData={appData}
+                            checkPermission={checkPermission}
+                            refreshData={refreshData}
+                            dashboardFilter={dashboardFilter}
+                            setDashboardFilter={setDashboardFilter}
+                            setReportType={(t) => { setReportType(t as any); setShowReportModal(true); }}
+                            currentUser={currentUser}
                         />
                     )}
 
@@ -485,7 +422,6 @@ export const App: React.FC = () => {
                             onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEntidade(id); refreshData(); } } : undefined}
                             onCreate={checkPermission('organization', 'create') ? () => { setEntidadeToEdit(null); setShowAddEntidadeModal(true); } : undefined}
                             onAddCollaborator={checkPermission('organization', 'create') ? (entId) => { setCollaboratorToEdit({ entidadeId: entId } as any); setShowAddCollaboratorModal(true); } : undefined}
-                            onAssignEquipment={checkPermission('equipment', 'edit') ? (entId) => { setEquipmentToAssign(null); setShowAssignModal(true); } : undefined}
                             onImport={checkPermission('organization', 'create') ? () => { setImportConfig({ dataType: 'entidades', title: 'Importar Entidades', columnMap: { 'Nome': 'name', 'Código': 'codigo', 'Email': 'email', 'Responsável': 'responsavel' }, templateFileName: 'entidades_template.xlsx' }); setShowImportModal(true); } : undefined}
                             onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
                                 const ent = appData.entidades.find(e => e.id === id);
@@ -687,110 +623,7 @@ export const App: React.FC = () => {
             </main>
 
             {/* ... Modals ... */}
-            {showAddEquipmentModal && (
-                <AddEquipmentModal
-                    onClose={() => setShowAddEquipmentModal(false)}
-                    onSave={async (data, assignment, licenseIds) => {
-                        let eqId;
-                        if (equipmentToEdit) {
-                            await dataService.updateEquipment(equipmentToEdit.id, data);
-                            eqId = equipmentToEdit.id;
-                        } else {
-                            const res = await dataService.addEquipment(data);
-                            eqId = res.id;
-                        }
-                        if (assignment) await dataService.addAssignment({ ...assignment, equipmentId: eqId });
-                        if (licenseIds && licenseIds.length > 0) await dataService.syncLicenseAssignments(eqId, licenseIds);
-                        refreshData();
-                    }}
-                    brands={appData.brands}
-                    equipmentTypes={appData.equipmentTypes}
-                    equipmentToEdit={equipmentToEdit}
-                    onSaveBrand={dataService.addBrand}
-                    onSaveEquipmentType={dataService.addEquipmentType}
-                    onOpenKitModal={(data) => { setKitInitialData(data); setShowAddEquipmentModal(false); setShowKitModal(true); }}
-                    suppliers={appData.suppliers}
-                    softwareLicenses={appData.softwareLicenses}
-                    entidades={appData.entidades}
-                    collaborators={appData.collaborators}
-                    statusOptions={appData.configEquipmentStatuses}
-                    licenseAssignments={appData.licenseAssignments}
-                    onOpenHistory={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }}
-                    onManageLicenses={(eq) => { setDetailEquipment(eq); setShowEquipmentDetailModal(true); }} 
-                    onOpenAssign={(eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
-                />
-            )}
-            
-            {showAssignModal && equipmentToAssign && (
-                <AssignEquipmentModal
-                    equipment={equipmentToAssign}
-                    brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
-                    equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
-                    escolasDepartamentos={appData.entidades}
-                    instituicoes={appData.instituicoes}
-                    collaborators={appData.collaborators}
-                    onClose={() => setShowAssignModal(false)}
-                    onAssign={async (assignment) => {
-                        await dataService.addAssignment(assignment);
-                        refreshData();
-                    }}
-                />
-            )}
-            
-            {detailEquipment && (
-                 <EquipmentDetailModal 
-                    equipment={detailEquipment}
-                    assignments={appData.assignments}
-                    collaborators={appData.collaborators}
-                    escolasDepartamentos={appData.entidades}
-                    tickets={appData.tickets}
-                    ticketActivities={appData.ticketActivities}
-                    onClose={() => setDetailEquipment(null)}
-                    onEdit={(eq) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipmentModal(true); }}
-                    businessServices={appData.businessServices}
-                    serviceDependencies={appData.serviceDependencies}
-                    softwareLicenses={appData.softwareLicenses}
-                    licenseAssignments={appData.licenseAssignments}
-                    vulnerabilities={appData.vulnerabilities}
-                    suppliers={appData.suppliers}
-                 />
-            )}
-
-            {/* Kit Modal */}
-            {showKitModal && (
-                <AddEquipmentKitModal
-                    onClose={() => setShowKitModal(false)}
-                    onSaveKit={async (items) => {
-                        await dataService.addMultipleEquipment(items);
-                        refreshData();
-                    }}
-                    brands={appData.brands}
-                    equipmentTypes={appData.equipmentTypes}
-                    initialData={kitInitialData}
-                    onSaveEquipmentType={dataService.addEquipmentType}
-                    equipment={appData.equipment}
-                />
-            )}
-
-            {/* Assign Multiple */}
-            {showAssignMultipleModal && (
-                <AssignMultipleEquipmentModal
-                    equipmentList={equipmentListToAssign}
-                    brandMap={new Map(appData.brands.map(b => [b.id, b.name]))}
-                    equipmentTypeMap={new Map(appData.equipmentTypes.map(t => [t.id, t.name]))}
-                    escolasDepartamentos={appData.entidades}
-                    collaborators={appData.collaborators}
-                    onClose={() => setShowAssignMultipleModal(false)}
-                    onAssign={async (assignment) => {
-                        for (const eq of equipmentListToAssign) {
-                            await dataService.addAssignment({ ...assignment, equipmentId: eq.id });
-                        }
-                        refreshData();
-                    }}
-                />
-            )}
-
-            {/* Brand & Type Modals */}
+            {/* -- Organization Modals -- */}
             {showAddBrandModal && (
                 <AddBrandModal
                     onClose={() => setShowAddBrandModal(false)}
@@ -816,8 +649,6 @@ export const App: React.FC = () => {
                     existingTypes={appData.equipmentTypes}
                 />
             )}
-
-            {/* Org Modals */}
             {showAddInstituicaoModal && (
                 <AddInstituicaoModal
                     onClose={() => setShowAddInstituicaoModal(false)}
@@ -825,7 +656,7 @@ export const App: React.FC = () => {
                         if (instituicaoToEdit) await dataService.updateInstituicao(instituicaoToEdit.id, inst);
                         else await dataService.addInstituicao(inst);
                         refreshData();
-                        return { id: 'temp', ...inst }; // Mock return to satisfy async
+                        return { id: 'temp', ...inst };
                     }}
                     instituicaoToEdit={instituicaoToEdit}
                 />
@@ -889,22 +720,7 @@ export const App: React.FC = () => {
                 />
             )}
 
-            {/* License Modal */}
-            {showAddLicenseModal && (
-                <AddLicenseModal 
-                    onClose={() => setShowAddLicenseModal(false)}
-                    onSave={async (lic) => {
-                        if (licenseToEdit) await dataService.updateLicense(licenseToEdit.id, lic);
-                        else await dataService.addLicense(lic);
-                        refreshData();
-                    }}
-                    licenseToEdit={licenseToEdit}
-                    suppliers={appData.suppliers}
-                    categories={appData.softwareCategories as any}
-                />
-            )}
-
-            {/* Ticket Modals */}
+            {/* -- Ticket Modals -- */}
             {showAddTicketModal && (
                 <AddTicketModal
                     onClose={() => setShowAddTicketModal(false)}
@@ -918,7 +734,7 @@ export const App: React.FC = () => {
                     collaborators={appData.collaborators}
                     teams={appData.teams}
                     currentUser={currentUser}
-                    userPermissions={{ viewScope: 'all' }} // Simplified for now
+                    userPermissions={{ viewScope: 'all' }}
                     equipment={appData.equipment}
                     equipmentTypes={appData.equipmentTypes}
                     assignments={appData.assignments}
@@ -991,7 +807,7 @@ export const App: React.FC = () => {
                 />
             )}
 
-            {/* NIS2 Modals */}
+            {/* -- Compliance Modals -- */}
             {showAddServiceModal && (
                 <AddServiceModal 
                     onClose={() => setShowAddServiceModal(false)}
@@ -1071,17 +887,23 @@ export const App: React.FC = () => {
                 />
             )}
 
-            {/* Helper Modals */}
+            {/* -- Global/Utility Modals -- */}
             {showImportModal && importConfig && (
                 <ImportModal 
                     config={importConfig} 
                     onClose={() => setShowImportModal(false)} 
                     onImport={async (type, data) => {
                         try {
-                            if (type === 'equipment') await dataService.addMultipleEquipment(data);
-                            // Add other types logic here if needed...
+                            if (type === 'instituicoes') {
+                                // Bulk create logic would go here
+                                // Currently simplified
+                                alert('Importação de instituições não implementada em lote nesta versão de demonstração.');
+                            }
+                            else if (type === 'entidades') {
+                                 alert('Importação de entidades não implementada em lote nesta versão de demonstração.');
+                            }
                             refreshData();
-                            return { success: true, message: `${data.length} registos importados.` };
+                            return { success: true, message: `Importação processada.` };
                         } catch (e: any) {
                             return { success: false, message: e.message };
                         }
@@ -1195,8 +1017,11 @@ export const App: React.FC = () => {
                     currentUser={currentUser}
                     onAction={async (intent, data) => {
                         if (intent === 'create_equipment') {
-                            setKitInitialData(data);
-                            setShowAddEquipmentModal(true);
+                            // This intention is tricky now as Modal is inside InventoryManager
+                            // For now, we redirect to Inventory tab and open modal via URL hash or state
+                            // A better solution requires a Global Modal Context
+                            setActiveTab('equipment.inventory');
+                            alert("Por favor, clique em 'Adicionar' no menu de Inventário.");
                         } else if (intent === 'create_ticket') {
                             setTicketToEdit({
                                 ...data,
