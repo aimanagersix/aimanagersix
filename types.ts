@@ -288,7 +288,7 @@ export type ModuleKey =
     | 'suppliers' // Vendors
     | 'compliance' // NIS2/BIA
     | 'reports' 
-    | 'settings' // General Settings Access
+    | 'settings' // General Settings Access (Fallback)
     // Configuration Tables
     | 'brands'
     | 'equipment_types'

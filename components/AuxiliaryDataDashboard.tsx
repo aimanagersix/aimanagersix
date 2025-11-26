@@ -157,7 +157,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             ]
         }
     ];
-
+    // ... rest of the file remains the same (handlers, render, etc)
     // Load settings
     useEffect(() => {
         const loadSettings = async () => {
