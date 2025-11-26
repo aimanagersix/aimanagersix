@@ -1,11 +1,4 @@
 
-
-
-
-
-
-
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { VulnerabilityScanConfig } from "../types";
 
@@ -310,6 +303,75 @@ export const analyzeTicketRequest = async (description: string): Promise<TicketT
     } catch (error) {
         console.error("Error analyzing ticket:", error);
         throw new Error("Failed to analyze ticket.");
+    }
+};
+
+// --- SIEM / RMM Ingestion Parser (AI Bridge) ---
+
+export interface SecurityAlertResult {
+    title: string;
+    description: string;
+    severity: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+    affectedAsset: string; // Hostname or IP or Serial
+    incidentType: string; // e.g., Ransomware, Malware
+    sourceSystem: string; // e.g., SentinelOne, CrowdStrike
+}
+
+export const parseSecurityAlert = async (rawJson: string): Promise<SecurityAlertResult> => {
+    try {
+        const ai = getAiClient();
+        
+        const prompt = `
+        Act as a SOC Analyst.
+        I will provide a raw JSON alert from a security tool (SIEM, EDR, RMM, or Firewall).
+        
+        Raw JSON:
+        ${rawJson.substring(0, 10000)}
+
+        Task:
+        Extract the critical information to create a Security Incident Ticket.
+        Normalize the severity to: Baixa, Média, Alta, Crítica.
+        Identify the affected asset (Hostname, IP, or Serial).
+        Identify the specific type of attack/incident.
+        Identify the source system (e.g. SentinelOne, CrowdStrike, Datto).
+
+        Return JSON.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        description: { type: Type.STRING },
+                        severity: { type: Type.STRING, enum: ['Baixa', 'Média', 'Alta', 'Crítica'] },
+                        affectedAsset: { type: Type.STRING },
+                        incidentType: { type: Type.STRING },
+                        sourceSystem: { type: Type.STRING }
+                    },
+                    required: ["title", "description", "severity", "affectedAsset", "incidentType", "sourceSystem"]
+                }
+            }
+        });
+
+        const jsonText = response.text ? response.text.trim() : "{}";
+        return JSON.parse(jsonText);
+
+    } catch (error) {
+        console.error("Error parsing security alert:", error);
+        // Return a safe fallback
+        return {
+            title: "Alerta de Segurança (Parse Failed)",
+            description: `Raw Data: ${rawJson.substring(0, 200)}...`,
+            severity: "Alta",
+            affectedAsset: "Unknown",
+            incidentType: "Outro",
+            sourceSystem: "Unknown"
+        };
     }
 };
 

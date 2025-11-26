@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig, CustomRole, ModuleKey } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard, FaLink, FaDatabase, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard, FaLink, FaDatabase, FaCheckCircle, FaExclamationCircle, FaNetworkWired, FaPlay, FaSpinner, FaCopy } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
+import { parseSecurityAlert } from '../services/geminiService';
 
 // Import existing dashboards for complex views
 import BrandDashboard from './BrandDashboard';
@@ -94,7 +95,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [error, setError] = useState('');
 
     // Automation & Branding State
-    const [activeAutoTab, setActiveAutoTab] = useState<'general' | 'connections'>('general');
+    const [activeAutoTab, setActiveAutoTab] = useState<'general' | 'connections' | 'webhooks'>('general');
     const [scanFrequency, setScanFrequency] = useState('0');
     const [scanStartTime, setScanStartTime] = useState('02:00');
     const [lastScanDate, setLastScanDate] = useState('-');
@@ -117,6 +118,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     
     // Custom Roles State
     const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
+
+    // Webhook Simulator State
+    const [webhookJson, setWebhookJson] = useState('{\n  "alert_name": "Malware Detected",\n  "severity": "Critical",\n  "hostname": "PC-FINANCE-01",\n  "description": "Ransomware detected in C:\\Users\\Admin"\n}');
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [simulatedTicket, setSimulatedTicket] = useState<any>(null);
+    const [webhookUrl, setWebhookUrl] = useState('');
 
     // Define Menu Structure mapped to Permission Keys
     const menuStructure: { group: string, items: MenuItem[] }[] = [
@@ -157,7 +164,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             ]
         }
     ];
-    // ... rest of the file remains the same (handlers, render, etc)
+
     // Load settings
     useEffect(() => {
         const loadSettings = async () => {
@@ -194,6 +201,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 setSbUrl(localStorage.getItem('SUPABASE_URL') || '');
                 setSbKey(localStorage.getItem('SUPABASE_ANON_KEY') || '');
                 setSbServiceKey(localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '');
+                
+                // Webhook
+                const projectUrl = localStorage.getItem('SUPABASE_URL');
+                if (projectUrl) {
+                    setWebhookUrl(`${projectUrl}/functions/v1/siem-ingest`);
+                }
 
             } else if (selectedMenuId === 'rbac') {
                 const roles = await dataService.getCustomRoles();
@@ -231,6 +244,52 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
         if (confirm("Credenciais guardadas com sucesso. A página será recarregada para aplicar a nova ligação à base de dados.")) {
             window.location.reload();
+        }
+    };
+    
+    const handleSimulateWebhook = async () => {
+        setIsSimulating(true);
+        setSimulatedTicket(null);
+        try {
+            const result = await parseSecurityAlert(webhookJson);
+            
+            // Simulate ticket creation visualization
+            setSimulatedTicket({
+                title: result.title,
+                description: `${result.description}\n\n[Origem: ${result.sourceSystem}] [Ativo: ${result.affectedAsset}]`,
+                severity: result.severity,
+                category: 'Incidente de Segurança',
+                type: result.incidentType,
+                status: 'Pedido'
+            });
+        } catch (error) {
+            console.error(error);
+            alert("Erro na simulação da IA.");
+        } finally {
+            setIsSimulating(false);
+        }
+    };
+    
+    const handleCreateSimulatedTicket = async () => {
+        if (!simulatedTicket) return;
+        if (confirm("Deseja criar este ticket real na base de dados?")) {
+            try {
+                await dataService.addTicket({
+                    title: simulatedTicket.title,
+                    description: simulatedTicket.description,
+                    category: simulatedTicket.category,
+                    securityIncidentType: simulatedTicket.type,
+                    impactCriticality: simulatedTicket.severity,
+                    status: 'Pedido',
+                    requestDate: new Date().toISOString(),
+                    entidadeId: entidades[0]?.id || '', // Default to first entity for test
+                    collaboratorId: collaborators[0]?.id || '' // Default to first user for test
+                });
+                alert("Ticket criado com sucesso!");
+                setSimulatedTicket(null);
+            } catch (e) {
+                alert("Erro ao criar ticket.");
+            }
         }
     };
 
@@ -548,6 +607,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                             >
                                 Conexões & Credenciais
                             </button>
+                             <button 
+                                onClick={() => setActiveAutoTab('webhooks')} 
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeAutoTab === 'webhooks' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                            >
+                                <FaNetworkWired className="text-green-400" /> Integração RMM/SIEM
+                            </button>
                         </div>
 
                         {activeAutoTab === 'general' && (
@@ -789,6 +854,103 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                     <button onClick={handleSaveConnections} className="bg-brand-primary text-white px-6 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2 w-full sm:w-auto justify-center">
                                         <FaSave /> Atualizar Conexões
                                     </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {activeAutoTab === 'webhooks' && (
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="bg-purple-900/20 border border-purple-900/50 p-4 rounded-lg text-sm text-purple-200 mb-4">
+                                    <p className="flex items-center gap-2 font-bold mb-2"><FaNetworkWired/> Integração com Managed Services (RMM/EDR)</p>
+                                    <p>Configure a sua ferramenta de monitorização (SentinelOne, Datto, CrowdStrike, Wazuh) para enviar alertas via Webhook. A IA analisará o JSON e criará o ticket automaticamente.</p>
+                                </div>
+
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaLink className="text-blue-400"/> Endpoint para Configuração</h3>
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Webhook URL (Endpoint)</label>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={webhookUrl} 
+                                                readOnly 
+                                                className="bg-black border border-gray-700 text-green-400 rounded-md p-2 text-xs font-mono w-full select-all"
+                                                placeholder="URL da Edge Function (necessário deploy)"
+                                            />
+                                            <button 
+                                                onClick={() => { navigator.clipboard.writeText(webhookUrl); }}
+                                                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded"
+                                                title="Copiar"
+                                            >
+                                                <FaCopy />
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">Copie este URL e configure como "Alert Action" no seu sistema RMM/EDR. Método: POST.</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Simulador de Ingestão IA</h3>
+                                    <p className="text-sm text-gray-400">Teste como a IA interpreta os logs brutos do seu sistema antes de configurar a integração real.</p>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 uppercase mb-1">Input: Raw JSON (Log)</label>
+                                            <textarea 
+                                                value={webhookJson} 
+                                                onChange={(e) => setWebhookJson(e.target.value)}
+                                                rows={10}
+                                                className="w-full bg-black border border-gray-700 text-gray-300 rounded-md p-3 font-mono text-xs"
+                                                placeholder='Cole aqui o JSON de exemplo do seu EDR...'
+                                            ></textarea>
+                                            <div className="mt-2 flex justify-end">
+                                                <button 
+                                                    onClick={handleSimulateWebhook} 
+                                                    disabled={isSimulating}
+                                                    className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
+                                                >
+                                                    {isSimulating ? <FaSpinner className="animate-spin"/> : <FaPlay />} Testar IA
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                            <label className="block text-xs text-gray-500 uppercase mb-2">Output: Ticket Gerado</label>
+                                            {simulatedTicket ? (
+                                                <div className="space-y-3 text-sm animate-fade-in">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-400">Título:</span>
+                                                        <span className="font-bold text-white">{simulatedTicket.title}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-400 block mb-1">Descrição:</span>
+                                                        <p className="bg-gray-900 p-2 rounded text-gray-300 text-xs whitespace-pre-wrap border border-gray-700">{simulatedTicket.description}</p>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <span className="text-gray-400 text-xs">Severidade:</span>
+                                                            <span className={`block font-bold ${simulatedTicket.severity === 'Crítica' ? 'text-red-500' : 'text-yellow-500'}`}>{simulatedTicket.severity}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-400 text-xs">Tipo:</span>
+                                                            <span className="block text-white">{simulatedTicket.type}</span>
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={handleCreateSimulatedTicket}
+                                                        className="w-full mt-4 bg-green-600 hover:bg-green-500 text-white py-2 rounded flex items-center justify-center gap-2"
+                                                    >
+                                                        <FaCheckCircle /> Criar Ticket Real
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs italic">
+                                                    <FaRobot className="text-4xl mb-2 opacity-20" />
+                                                    <p>A aguardar input para análise...</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
