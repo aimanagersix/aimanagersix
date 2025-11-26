@@ -5,7 +5,7 @@ export const translations = {
     "nav.overview": "Visão Geral",
     "nav.c_level": "Dashboard C-Level",
     
-    "nav.inventory": "Inventário",
+    "nav.inventory": "Ativos",
     "nav.assets_inventory": "Equipamentos",
     "nav.licensing": "Licenças",
     
@@ -33,7 +33,7 @@ export const translations = {
     "nav.calendar": "Calendário",
     "nav.manual": "Manual",
     
-    "overview.inventory_status": "Estado do Inventário",
+    "overview.inventory_status": "Estado dos Ativos",
     "overview.health_support": "Saúde e Suporte",
     "overview.operational": "Operacional",
     "overview.stock": "Em Stock",
@@ -92,7 +92,7 @@ export const translations = {
     "nav.overview": "Overview",
     "nav.c_level": "C-Level Dashboard",
     
-    "nav.inventory": "Inventory",
+    "nav.inventory": "Assets",
     "nav.assets_inventory": "Equipment",
     "nav.licensing": "Licenses",
     
@@ -120,7 +120,7 @@ export const translations = {
     "nav.calendar": "Calendar",
     "nav.manual": "Manual",
     
-    "overview.inventory_status": "Inventory Status",
+    "overview.inventory_status": "Asset Status",
     "overview.health_support": "Health & Support",
     "overview.operational": "Operational",
     "overview.stock": "In Stock",

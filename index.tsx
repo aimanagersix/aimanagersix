@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
@@ -13,7 +12,9 @@ if (!rootElement) {
 
 // Simple Error Boundary to catch rendering errors
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
-  constructor(props: any) {
+  public override state: { hasError: boolean; error: any };
+
+  constructor(props: {children: React.ReactNode}) {
     super(props);
     this.state = { hasError: false, error: null };
   }
