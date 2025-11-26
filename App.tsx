@@ -121,6 +121,12 @@ export const App: React.FC = () => {
     const [configEquipmentStatuses, setConfigEquipmentStatuses] = useState<ConfigItem[]>([]);
     const [contactRoles, setContactRoles] = useState<ConfigItem[]>([]);
     const [contactTitles, setContactTitles] = useState<ConfigItem[]>([]);
+    const [configCriticalityLevels, setConfigCriticalityLevels] = useState<ConfigItem[]>([]);
+    const [configCiaRatings, setConfigCiaRatings] = useState<ConfigItem[]>([]);
+    const [configServiceStatuses, setConfigServiceStatuses] = useState<ConfigItem[]>([]);
+    const [configBackupTypes, setConfigBackupTypes] = useState<ConfigItem[]>([]);
+    const [configTrainingTypes, setConfigTrainingTypes] = useState<ConfigItem[]>([]);
+    const [configResilienceTestTypes, setConfigResilienceTestTypes] = useState<ConfigItem[]>([]);
 
     // --- Modal State ---
     const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false);
@@ -301,6 +307,12 @@ export const App: React.FC = () => {
             setConfigEquipmentStatuses(data.configEquipmentStatuses);
             setContactRoles(data.contactRoles);
             setContactTitles(data.contactTitles);
+            setConfigCriticalityLevels(data.configCriticalityLevels);
+            setConfigCiaRatings(data.configCiaRatings);
+            setConfigServiceStatuses(data.configServiceStatuses);
+            setConfigBackupTypes(data.configBackupTypes);
+            setConfigTrainingTypes(data.configTrainingTypes);
+            setConfigResilienceTestTypes(data.configResilienceTestTypes);
 
         } catch (error) {
             console.error("Failed to fetch data", error);
@@ -756,6 +768,13 @@ export const App: React.FC = () => {
                                 { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: configEquipmentStatuses },
                                 { tableName: 'contact_roles', label: 'Funções de Contacto', data: contactRoles },
                                 { tableName: 'contact_titles', label: 'Tratos (Honoríficos)', data: contactTitles },
+                                { tableName: 'config_criticality_levels', label: 'Níveis de Criticidade', data: configCriticalityLevels },
+                                { tableName: 'config_cia_ratings', label: 'Classificação CIA', data: configCiaRatings },
+                                { tableName: 'config_service_statuses', label: 'Estados de Serviço (BIA)', data: configServiceStatuses },
+                                { tableName: 'config_backup_types', label: 'Tipos de Backup', data: configBackupTypes },
+                                { tableName: 'config_training_types', label: 'Tipos de Formação', data: configTrainingTypes },
+                                { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: configResilienceTestTypes },
+                                { tableName: 'config_software_categories', label: 'Categorias de Software', data: softwareCategories }
                             ]}
                             onRefresh={loadData}
                             brands={brands} equipment={equipment} onEditBrand={async (b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDeleteBrand={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); loadData(); } }} onCreateBrand={() => { setBrandToEdit(null); setShowAddBrandModal(true); }}
