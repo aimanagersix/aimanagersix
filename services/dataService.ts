@@ -119,6 +119,7 @@ export const fetchAllData = async () => {
 // --- Audit Logs ---
 export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
     const supabase = getSupabase();
+    // Cast auth to any to avoid TS errors with client-side types
     const { data: { user } } = await (supabase.auth as any).getUser();
     if (!user) return;
     
@@ -287,7 +288,6 @@ export const addCollaborator = async (data: any, password?: string) => {
     const supabase = getSupabase();
 
     // 1. PRE-CHECK: Ensure email doesn't exist in collaborators table
-    // This prevents creating a duplicate collaborator even if Auth is handled
     const { data: existingCollaborator } = await supabase
         .from('collaborators')
         .select('id')
@@ -316,20 +316,33 @@ export const addCollaborator = async (data: any, password?: string) => {
         });
 
         try {
-            // Attempt to Create Auth User
-            const { data: authData, error: authError } = await (supabaseAdmin.auth as any).admin.createUser({
-                email: data.email,
-                password: password, // Optional: if undefined, sends invite link
-                email_confirm: true, // Auto-confirm email
-                user_metadata: { full_name: data.fullName }
-            });
+            let authData, authError;
+
+            if (password && password.trim() !== '') {
+                // Case A: Password provided -> Create confirmed user (No Email)
+                const res = await (supabaseAdmin.auth as any).admin.createUser({
+                    email: data.email,
+                    password: password,
+                    email_confirm: true,
+                    user_metadata: { full_name: data.fullName }
+                });
+                authData = res.data;
+                authError = res.error;
+            } else {
+                // Case B: No Password -> Send Invite Email
+                const res = await (supabaseAdmin.auth as any).admin.inviteUserByEmail(data.email, {
+                    data: { full_name: data.fullName }
+                });
+                authData = res.data;
+                authError = res.error;
+            }
 
             if (authError) {
                 // Handle "User already registered" error gracefully
                 if (authError.message?.includes('already been registered') || authError.status === 422) {
                     console.log("User already exists in Auth. Attempting to link...");
                     
-                    // Fetch user to get ID - Admin client needed to list users
+                    // Fetch user to get ID
                     const { data: usersData, error: listError } = await (supabaseAdmin.auth as any).admin.listUsers({ perPage: 1000 });
                     
                     if (listError) throw listError;
@@ -337,10 +350,8 @@ export const addCollaborator = async (data: any, password?: string) => {
                     const existingUser = usersData.users.find((u: any) => u.email?.toLowerCase() === data.email?.toLowerCase());
 
                     if (existingUser) {
-                        // Link the new collaborator record to the existing Auth ID
                         data.id = existingUser.id;
-                        
-                        // If password provided, update it
+                        // If password was provided, update it
                         if (password) {
                             await (supabaseAdmin.auth as any).admin.updateUserById(existingUser.id, { password: password });
                         }
@@ -351,7 +362,6 @@ export const addCollaborator = async (data: any, password?: string) => {
                     throw authError;
                 }
             } else if (authData.user) {
-                // New user created successfully
                 data.id = authData.user.id;
             }
         } catch (error: any) {
@@ -361,7 +371,6 @@ export const addCollaborator = async (data: any, password?: string) => {
     }
 
     // Create Data Record
-    // create() uses supabase.from().insert(). If data.id is set (from auth), Supabase will use it.
     return create('collaborators', data);
 };
 
@@ -420,13 +429,10 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     const currentRows = currentActive || [];
     const targetLicenseIds = new Set(licenseIds);
     
-    // Track already active licenses to avoid duplicates during addition
     const licensesCurrentlyActive = new Set<string>();
 
-    // 2. Identify rows to CLOSE (Remove)
-    // If a currently active row has a License ID NOT in the target list, close it.
+    // 2. Identify rows to CLOSE
     const toRemoveRowIds: string[] = [];
-    
     currentRows.forEach((row: any) => {
         if (!targetLicenseIds.has(row.softwareLicenseId)) {
             toRemoveRowIds.push(row.id);
@@ -436,7 +442,6 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     });
     
     // 3. Identify licenses to ADD
-    // Add only if it's in target list BUT NOT active in DB (prevents duplicates)
     const toAddLicenseIds: string[] = [];
     targetLicenseIds.forEach(lid => {
         if (!licensesCurrentlyActive.has(lid)) {
@@ -444,7 +449,6 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         }
     });
     
-    // Execute DB Operations
     if (toRemoveRowIds.length > 0) {
         await supabase
             .from('license_assignments')
@@ -516,7 +520,6 @@ export const updateSupplier = async (id: string, data: any) => {
     
     if (supplier) {
         const supabase = getSupabase();
-        // Sync contacts logic
         await supabase.from('resource_contacts').delete().eq('resource_id', id).eq('resource_type', 'supplier');
         if (contacts.length > 0) {
              const contactsWithId = contacts.map((c: any) => ({ 

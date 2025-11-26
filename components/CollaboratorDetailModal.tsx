@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType } from '../types';
@@ -78,6 +79,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     useEffect(() => {
         const checkUser = async () => {
             const supabase = getSupabase();
+            // Cast auth to any to avoid TS errors
             const { data: { user } } = await (supabase.auth as any).getUser();
             if (user && user.id === collaborator.id) {
                 setIsCurrentUser(true);
@@ -151,6 +153,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         setIsUpdatingPassword(true);
         try {
             const supabase = getSupabase();
+            // Cast auth to any to avoid TS errors
             const { error } = await (supabase.auth as any).updateUser({ password: newPassword });
             if (error) throw error;
             
