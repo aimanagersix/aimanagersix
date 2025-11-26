@@ -245,14 +245,10 @@ export const addMultipleEquipment = async (items: any[]) => {
 };
 export const deleteEquipment = async (id: string) => {
     const supabase = getSupabase();
-    // Manually clean up dependencies to prevent FK errors (if no cascade)
     await supabase.from('service_dependencies').delete().eq('equipment_id', id);
     await supabase.from('license_assignments').delete().eq('equipmentId', id);
     await supabase.from('assignments').delete().eq('equipmentId', id);
     await supabase.from('backup_executions').delete().eq('equipment_id', id);
-    // Note: Tickets usually stay to preserve history, or update FK to null.
-    // If hard constraint, you may need to delete tickets or update them here.
-    
     return remove('equipment', id);
 };
 
@@ -297,7 +293,7 @@ export const addCollaborator = async (data: any, password?: string) => {
             throw new Error("Para criar utilizadores com login, configure a Service Role Key em Automação -> Conexões.");
         }
 
-        // Create Admin Client
+        // Create Admin Client to bypass normal auth restrictions
         const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
             auth: {
                 autoRefreshToken: false,
@@ -305,27 +301,53 @@ export const addCollaborator = async (data: any, password?: string) => {
             }
         });
 
-        // Create Auth User
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email: data.email,
-            password: password, // Optional: if undefined, sends invite link
-            email_confirm: true, // Auto-confirm email (or false to require click)
-            user_metadata: { full_name: data.fullName }
-        });
+        try {
+            // Attempt to Create Auth User
+            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                email: data.email,
+                password: password, // Optional: if undefined, sends invite link
+                email_confirm: true, // Auto-confirm email
+                user_metadata: { full_name: data.fullName }
+            });
 
-        if (authError) {
-            console.error("Error creating Auth user:", authError);
-            throw new Error(`Erro ao criar login: ${authError.message}`);
-        }
+            if (authError) {
+                // Handle "User already registered" error gracefully
+                if (authError.message?.includes('already been registered') || authError.status === 422) {
+                    console.log("User already exists in Auth. Attempting to link...");
+                    
+                    // Fetch user to get ID - Admin client needed to list users
+                    const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+                    
+                    if (listError) throw listError;
 
-        if (authData.user) {
-            // Use the Auth ID for the collaborator record to link them
-            data.id = authData.user.id;
+                    const existingUser = usersData.users.find((u: any) => u.email?.toLowerCase() === data.email?.toLowerCase());
+
+                    if (existingUser) {
+                        // Link the new collaborator record to the existing Auth ID
+                        data.id = existingUser.id;
+                        
+                        // If password provided, update it
+                        if (password) {
+                            await supabaseAdmin.auth.admin.updateUserById(existingUser.id, { password: password });
+                        }
+                    } else {
+                        throw new Error("Email já registado na autenticação, mas não foi possível localizar o ID.");
+                    }
+                } else {
+                    throw authError;
+                }
+            } else if (authData.user) {
+                // New user created successfully
+                data.id = authData.user.id;
+            }
+        } catch (error: any) {
+            console.error("Error managing Auth user:", error);
+            throw new Error(`Erro na gestão de utilizador: ${error.message}`);
         }
     }
 
-    // Create Data Record (Even if auth failed, we might want the record, but usually we throw above)
-    // If data.id is set, 'create' will attempt to use it.
+    // Create Data Record
+    // create() uses supabase.from().insert(). If data.id is set (from auth), Supabase will use it.
     return create('collaborators', data);
 };
 
@@ -461,7 +483,7 @@ export const addSupplier = async (data: any) => {
         const supabase = getSupabase();
         const contactsWithId = contacts.map((c: any) => ({ 
             ...c, 
-            supplier_id: undefined, // Remove legacy field if present in payload
+            supplier_id: undefined, 
             resource_id: supplier.id, 
             resource_type: 'supplier',
             is_active: c.is_active !== false
