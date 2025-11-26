@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { 
     Collaborator, BusinessService, ServiceDependency, Vulnerability, 
-    BackupExecution, ResilienceTest, ModuleKey, PermissionAction
+    BackupExecution, ResilienceTest, ModuleKey, PermissionAction, SecurityTrainingRecord, TrainingType
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -10,6 +11,7 @@ import ServiceDashboard from '../../components/ServiceDashboard';
 import VulnerabilityDashboard from '../../components/VulnerabilityDashboard';
 import BackupDashboard from '../../components/BackupDashboard';
 import ResilienceDashboard from '../../components/ResilienceDashboard';
+import TrainingDashboard from '../../components/TrainingDashboard'; // New
 
 // Modals
 import AddServiceModal from '../../components/AddServiceModal';
@@ -18,6 +20,7 @@ import AddVulnerabilityModal from '../../components/AddVulnerabilityModal';
 import AddBackupModal from '../../components/AddBackupModal';
 import AddResilienceTestModal from '../../components/AddResilienceTestModal';
 import AddTicketModal from '../../components/AddTicketModal';
+import AddTrainingSessionModal from '../../components/AddTrainingSessionModal'; // New
 
 interface ComplianceManagerProps {
     activeTab: string;
@@ -49,9 +52,42 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
     const [showAddResilienceTestModal, setShowAddResilienceTestModal] = useState(false);
     const [testToEdit, setTestToEdit] = useState<ResilienceTest | null>(null);
     
+    // Training
+    const [showAddTrainingSessionModal, setShowAddTrainingSessionModal] = useState(false);
+    
     // Ticket Modal (for auto-ticket creation from findings)
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
     const [ticketToEdit, setTicketToEdit] = useState<any>(null);
+
+    const handleBatchAddTraining = async (data: {
+        collaboratorIds: string[];
+        training_type: string;
+        completion_date: string;
+        notes?: string;
+        score: number;
+    }) => {
+        // Create records for each collaborator
+        const promises = data.collaboratorIds.map(collabId => {
+            const record: any = {
+                collaborator_id: collabId,
+                training_type: data.training_type,
+                completion_date: data.completion_date,
+                status: 'Concluído',
+                score: data.score,
+                notes: data.notes
+            };
+            return dataService.addSecurityTraining(record);
+        });
+
+        try {
+            await Promise.all(promises);
+            refreshData();
+            alert(`Sessão registada com sucesso para ${data.collaboratorIds.length} colaboradores.`);
+        } catch (e) {
+            console.error("Batch training failed", e);
+            alert("Erro ao registar sessões em lote.");
+        }
+    };
 
     return (
         <>
@@ -110,6 +146,15 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                         setTicketToEdit(ticketData as any);
                         setShowAddTicketModal(true);
                     }}
+                />
+            )}
+
+            {activeTab === 'nis2.training' && (
+                <TrainingDashboard 
+                    trainings={appData.securityTrainings}
+                    collaborators={appData.collaborators}
+                    trainingTypes={appData.configTrainingTypes}
+                    onCreate={checkPermission('compliance', 'create') ? () => setShowAddTrainingSessionModal(true) : undefined}
                 />
             )}
 
@@ -197,6 +242,14 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     categories={appData.ticketCategories}
                     securityIncidentTypes={appData.securityIncidentTypes}
                     pastTickets={appData.tickets}
+                />
+            )}
+            {showAddTrainingSessionModal && (
+                <AddTrainingSessionModal
+                    onClose={() => setShowAddTrainingSessionModal(false)}
+                    onSave={handleBatchAddTraining}
+                    collaborators={appData.collaborators}
+                    trainingTypes={appData.configTrainingTypes}
                 />
             )}
         </>

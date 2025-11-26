@@ -24,6 +24,7 @@ export const translations = {
     "nav.security": "Segurança",
     "nav.backups": "Backups",
     "nav.resilience": "Resiliência",
+    "nav.training": "Formações",
     
     "nav.reports": "Relatórios",
     
@@ -110,7 +111,8 @@ export const translations = {
     "nav.bia": "BIA",
     "nav.security": "Security",
     "nav.backups": "Backups",
-    "nav.resilience": "Resilience",
+    "nav.resilience": "Resiliência",
+    "nav.training": "Training",
     
     "nav.reports": "Reports",
     
