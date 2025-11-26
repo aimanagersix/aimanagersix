@@ -46,6 +46,11 @@ export const defaultTooltipConfig: TooltipConfig = {
     showCollabEntity: true
 };
 
+export interface UserPreferences {
+    tooltipConfig?: TooltipConfig;
+    theme?: 'dark' | 'light'; // Future use
+}
+
 export interface VulnerabilityScanConfig {
     includeEol: boolean; // Include End-of-Life software (Win7, etc)
     lookbackYears: number; // How far back to look for CVEs (default 2)
@@ -324,6 +329,7 @@ export interface Collaborator {
   status: CollaboratorStatus;
   password?: string;
   allowedModules?: AppModule[];
+  preferences?: UserPreferences; // New: Stores Tooltip Config etc
 }
 
 export interface Assignment {

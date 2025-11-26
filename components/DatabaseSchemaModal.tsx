@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom } from 'react-icons/fa';
 
 interface DatabaseSchemaModalProps {
     onClose: () => void;
@@ -9,7 +9,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'reset'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'reset' | 'cleanup'>('update');
 
     const updateScript = `
 -- EXECUTE ESTE SCRIPT NO EDITOR SQL DO SUPABASE PARA ATUALIZAR A BASE DE DADOS
@@ -145,6 +145,7 @@ BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'collaborators') THEN
          ALTER TABLE collaborators ALTER COLUMN "entidadeId" DROP NOT NULL;
          ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS "instituicaoId" uuid REFERENCES instituicoes(id);
+         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS "preferences" jsonb DEFAULT '{}'::jsonb;
     END IF;
 
     -- Software Licenses (Category)
@@ -206,6 +207,30 @@ BEGIN
 END $$;
 `;
 
+    const cleanupScript = `
+-- SCRIPT DE LIMPEZA DE TABELAS OBSOLETAS (LEGACY)
+-- Remove tabelas antigas (singular) e mantém as atuais (plural)
+-- O 'CASCADE' remove automaticamente as chaves estrangeiras associadas.
+
+BEGIN;
+
+-- Tabelas Principais (Versões Singular Antigas)
+DROP TABLE IF EXISTS collaborator CASCADE;
+DROP TABLE IF EXISTS entidade CASCADE;
+DROP TABLE IF EXISTS instituicao CASCADE;
+DROP TABLE IF EXISTS supplier CASCADE;
+DROP TABLE IF EXISTS team CASCADE;
+
+-- Tabelas de Associação Antigas
+DROP TABLE IF EXISTS supplier_contacts CASCADE; -- Substituído por resource_contacts
+DROP TABLE IF EXISTS license_assignment CASCADE; -- Substituído por license_assignments (plural)
+
+-- Tabelas de Sistema (Opcional, se usadas por ORMs antigos)
+-- DROP TABLE IF EXISTS _prisma_migrations CASCADE;
+
+COMMIT;
+`;
+
     const resetScript = `
 -- SCRIPT DE LIMPEZA PROFUNDA (RESET)
 -- ATENÇÃO: ISTO APAGA TODOS OS DADOS OPERACIONAIS!
@@ -262,7 +287,7 @@ COMMIT;
     };
 
     return (
-        <Modal title="SQL de Correção da Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title="SQL de Configuração e Manutenção" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 {/* Tabs */}
                 <div className="flex border-b border-gray-700 mb-4">
@@ -272,7 +297,15 @@ COMMIT;
                             activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaDatabase className="inline mr-2"/> Atualização (Manter Dados)
+                        <FaDatabase className="inline mr-2"/> Atualização (Schema)
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('cleanup')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === 'cleanup' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        <FaBroom className="inline mr-2"/> Limpar Lixo (Legacy)
                     </button>
                     <button
                         onClick={() => setActiveTab('reset')}
@@ -280,14 +313,14 @@ COMMIT;
                             activeTab === 'reset' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaTrash className="inline mr-2"/> Limpeza & Reset
+                        <FaTrash className="inline mr-2"/> Reset Total
                     </button>
                 </div>
 
                 {activeTab === 'update' && (
                     <div className="animate-fade-in">
                         <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                            <p>Este script cria tabelas em falta, adiciona colunas necessárias e cria a estrutura para <strong>Perfis Dinâmicos (Custom Roles)</strong>.</p>
+                            <p>Este script cria tabelas em falta, adiciona colunas necessárias e cria a estrutura para <strong>Perfis Dinâmicos</strong> e <strong>Preferências de Utilizador</strong>.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">
@@ -299,6 +332,27 @@ COMMIT;
                             >
                                 {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
                                 {copied ? "Copiado!" : "Copiar SQL"}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'cleanup' && (
+                    <div className="animate-fade-in">
+                        <div className="bg-orange-900/20 border border-orange-500/50 p-4 rounded-lg text-sm text-orange-200 mb-4">
+                            <p className="font-bold mb-2"><FaBroom className="inline mr-2"/> LIMPEZA DE TABELAS OBSOLETAS</p>
+                            <p>Este script remove tabelas antigas (no singular, ex: <code>collaborator</code>) e FKs órfãs que já não são usadas pela aplicação atual (que usa <code>collaborators</code> no plural).</p>
+                        </div>
+                        <div className="relative">
+                            <pre className="bg-gray-900 text-orange-300 p-4 rounded-lg text-xs font-mono h-64 overflow-y-auto border border-orange-900/50 whitespace-pre-wrap">
+                                {cleanupScript}
+                            </pre>
+                            <button 
+                                onClick={() => handleCopy(cleanupScript)}
+                                className="absolute top-4 right-4 p-2 bg-orange-800 hover:bg-orange-700 text-white rounded-md shadow-lg transition-colors flex items-center gap-2"
+                            >
+                                {copied ? <FaCheck className="text-white" /> : <FaCopy />}
+                                {copied ? "Copiado!" : "Copiar Cleanup SQL"}
                             </button>
                         </div>
                     </div>
@@ -329,7 +383,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.28</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.30</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

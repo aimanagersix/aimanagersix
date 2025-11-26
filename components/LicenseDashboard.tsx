@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency, SoftwareCategory } from '../types';
-import { EditIcon, DeleteIcon, ReportIcon, PlusIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, ReportIcon, PlusIcon, MailIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown, FaTags } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import AddLicenseModal from './AddLicenseModal';
@@ -193,6 +193,12 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         }
         setSortConfig({ key, direction });
     };
+    
+    const handleSendEmail = (l: SoftwareLicense) => {
+        const subject = `Licença de Software: ${l.productName}`;
+        const body = `Detalhes da Licença:\n\nProduto: ${l.productName}\nChave: ${l.licenseKey}\nValidade: ${l.expiryDate || 'Vitalícia'}\n${l.purchaseDate ? `Data de Compra: ${l.purchaseDate}` : ''}\n\nCumprimentos,`;
+        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    };
 
 
     const processedLicenses = useMemo(() => {
@@ -383,6 +389,13 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                         </td>
                                         <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex justify-center items-center gap-4">
+                                                <button 
+                                                    onClick={() => handleSendEmail(license)} 
+                                                    className="text-gray-400 hover:text-white"
+                                                    title="Enviar Detalhes por Email"
+                                                >
+                                                    <MailIcon className="h-5 w-5"/>
+                                                </button>
                                                 {onToggleStatus && (
                                                     <button 
                                                         onClick={() => onToggleStatus(license.id)} 

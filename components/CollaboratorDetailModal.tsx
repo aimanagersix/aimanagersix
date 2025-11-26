@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint } from './common/Icons';
+import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig } from '../types';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave } from './common/Icons';
 import { analyzeCollaboratorRisk, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -49,7 +49,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     onStartChat,
     onEdit
 }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'training'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'training' | 'preferences'>('overview');
     
     // Training State
     const [trainings, setTrainings] = useState<SecurityTrainingRecord[]>([]);
@@ -74,6 +74,9 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     const [isAnalyzingRisk, setIsAnalyzingRisk] = useState(false);
     const [aiRiskAnalysis, setAiRiskAnalysis] = useState<{ needsTraining: boolean, reason: string, recommendedModule: string } | null>(null);
     const aiConfigured = isAiConfigured();
+
+    // User Preferences State
+    const [userTooltipConfig, setUserTooltipConfig] = useState<TooltipConfig>(collaborator.preferences?.tooltipConfig || defaultTooltipConfig);
 
     // Check if current user
     useEffect(() => {
@@ -180,6 +183,25 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
             alert("Erro na análise de risco.");
         } finally {
             setIsAnalyzingRisk(false);
+        }
+    };
+
+    const toggleTooltipField = (field: keyof TooltipConfig) => {
+        setUserTooltipConfig(prev => ({ ...prev, [field]: !prev[field] }));
+    };
+
+    const handleSavePreferences = async () => {
+        try {
+            const updatedPreferences = {
+                ...collaborator.preferences,
+                tooltipConfig: userTooltipConfig
+            };
+            await dataService.updateCollaborator(collaborator.id, { preferences: updatedPreferences });
+            alert("Preferências guardadas com sucesso! A página será recarregada.");
+            window.location.reload();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao guardar preferências.");
         }
     };
 
@@ -312,6 +334,14 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                     >
                         Formação & Segurança (NIS2)
                     </button>
+                    {isCurrentUser && (
+                        <button 
+                            onClick={() => setActiveTab('preferences')} 
+                            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'preferences' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        >
+                            Preferências & UI
+                        </button>
+                    )}
                 </div>
 
                 {/* Tab Content */}
@@ -544,6 +574,88 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                 ) : (
                                     <p className="text-center py-4 text-gray-500 text-sm bg-gray-900/20 rounded border border-dashed border-gray-700">Nenhuma formação registada.</p>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'preferences' && (
+                         <div className="p-1">
+                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaMousePointer className="text-blue-400"/> Personalização de Tooltips</h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Escolha quais informações aparecem quando passa o rato sobre os equipamentos nas listagens.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {Object.keys(defaultTooltipConfig).map(key => {
+                                        const field = key as keyof TooltipConfig;
+                                        const labels: Record<string, string> = {
+                                            showNomeNaRede: "Nome na Rede",
+                                            showAssignedTo: "Atribuído a",
+                                            showOsVersion: "Versão do SO",
+                                            showLastPatch: "Último Patch",
+                                            showSerialNumber: "Número de Série",
+                                            showBrand: "Marca / Tipo",
+                                            showWarranty: "Garantia",
+                                            showLocation: "Localização Física",
+                                            showIpAddress: "Endereço IP",
+                                            showCollabName: "Nome do Colaborador",
+                                            showCollabJob: "Função / Cargo",
+                                            showCollabEntity: "Entidade Associada",
+                                            showCollabContact: "Email / Telefone"
+                                        };
+                                        
+                                        if (!key.startsWith('showCollab')) {
+                                            return (
+                                                <label key={key} className="flex items-center space-x-2 cursor-pointer">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={userTooltipConfig[field]} 
+                                                        onChange={() => toggleTooltipField(field)} 
+                                                        className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" 
+                                                    />
+                                                    <span className="text-sm text-gray-300">{labels[key] || key}</span>
+                                                </label>
+                                            );
+                                        }
+                                        return null;
+                                    })}
+                                </div>
+                                
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <h4 className="text-sm font-bold text-white mb-2">Tooltips de Colaboradores</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {Object.keys(defaultTooltipConfig).map(key => {
+                                            const field = key as keyof TooltipConfig;
+                                            const labels: Record<string, string> = {
+                                                showCollabName: "Nome Completo",
+                                                showCollabJob: "Função / Cargo",
+                                                showCollabEntity: "Entidade Associada",
+                                                showCollabContact: "Email / Telefone"
+                                            };
+
+                                            if (key.startsWith('showCollab')) {
+                                                return (
+                                                    <label key={key} className="flex items-center space-x-2 cursor-pointer">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={userTooltipConfig[field]} 
+                                                            onChange={() => toggleTooltipField(field)} 
+                                                            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" 
+                                                        />
+                                                        <span className="text-sm text-gray-300">{labels[key] || key}</span>
+                                                    </label>
+                                                );
+                                            }
+                                            return null;
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="mt-6">
+                                    <button onClick={handleSavePreferences} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2">
+                                        <FaSave /> Guardar Preferências Pessoais
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
