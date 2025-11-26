@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, FaKey, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -50,6 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience;
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
+    const hasReportsTabs = tabConfig['reports'];
     
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
@@ -240,12 +241,28 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setActiveTab('tickets.list')}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isTicketsOpen || activeTab === 'tickets.list' ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${activeTab === 'tickets.list' ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                             title={!isExpanded ? (tabConfig.tickets?.title || 'Tickets') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
                                 <FaTicketAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
                                 <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{tabConfig.tickets?.title || 'Tickets'}</span>
+                            </div>
+                        </button>
+                    </div>
+                )}
+                
+                {/* Reports - NEW */}
+                {hasReportsTabs && (
+                    <div className="space-y-1">
+                        <button
+                            onClick={() => setActiveTab('reports')}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${activeTab === 'reports' ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            title={!isExpanded ? 'Relatórios' : undefined}
+                        >
+                            <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
+                                <FaFileSignature className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Relatórios</span>
                             </div>
                         </button>
                     </div>
@@ -302,31 +319,27 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             {isExpanded && <FaChevronDown className="w-3 h-3 ml-auto text-gray-500" />}
                         </button>
 
-                        {/* User Menu Popup (Positioned to the right or top) */}
+                        {/* User Menu Popup */}
                         {isUserMenuOpen && (
                             <div className="absolute bottom-full left-0 w-full mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50 min-w-[200px]">
                                 {onOpenProfile && (
                                     <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                        <FaUserCircle className="text-brand-secondary w-4 h-4" />
-                                        {isExpanded && "Meu Perfil"}
+                                        <FaUserCircle className="text-brand-secondary" /> Meu Perfil
                                     </button>
                                 )}
                                 <button onClick={() => setLayoutMode('top')} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                    <FaColumns className="text-gray-400 w-4 h-4" />
-                                    {isExpanded && "Menu Topo"}
+                                    <FaColumns className="text-gray-400" /> Menu Superior
                                 </button>
                                 <button onClick={() => setShowMFA(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                    <FaFingerprint className="text-brand-secondary w-4 h-4" />
-                                    {isExpanded && "Configurar 2FA"}
+                                    <FaFingerprint className="text-brand-secondary" /> Configurar 2FA
                                 </button>
                                 
-                                {/* Language Switch */}
-                                <div className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer" onClick={(e) => {e.stopPropagation()}}>
-                                    <FaGlobe className="mr-3 text-blue-400" />
+                                <div className="flex items-center px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700 cursor-pointer" onClick={(e) => {e.stopPropagation()}}>
+                                    <FaGlobe className="text-blue-400 mr-3" />
                                     <select 
                                         value={language} 
                                         onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
-                                        className="bg-transparent border-none text-white text-sm focus:ring-0 cursor-pointer p-0 w-full"
+                                        className="bg-transparent border-none text-on-surface-dark text-sm focus:ring-0 cursor-pointer p-0 w-full"
                                     >
                                         <option value="pt">Português</option>
                                         <option value="en">English</option>
@@ -338,46 +351,44 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                         <TabButton 
                                             tab="settings" 
                                             label="Configurações" 
-                                            icon={<FaCog className="text-brand-secondary w-4 h-4"/>} 
+                                            icon={<FaCog className="text-brand-secondary"/>} 
                                             isDropdownItem 
                                             activeTab={activeTab} 
-                                            setActiveTab={handleTabClick}
-                                            className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700"
+                                            setActiveTab={(tab) => { setActiveTab(tab); setIsUserMenuOpen(false); }}
+                                            className="text-on-surface-dark hover:bg-gray-700 flex w-full items-center gap-3 px-4 py-2 text-sm"
                                         />
                                         {onOpenAutomation && (
-                                            <button onClick={onOpenAutomation} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                                <FaRobot className="text-purple-400 w-4 h-4" />
-                                                {isExpanded && "Automação"}
+                                            <button onClick={() => { onOpenAutomation(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                                <FaRobot className="text-purple-400" /> Automação
                                             </button>
                                         )}
-                                        <button onClick={() => setShowAudit(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                            <FaClipboardList className="text-yellow-400 w-4 h-4" />
-                                            {isExpanded && "Logs Auditoria"}
+                                        <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                            <FaClipboardList className="text-yellow-400" /> Logs Auditoria
                                         </button>
                                         {isSuperAdmin && (
-                                            <button onClick={() => setShowDbSchema(true)} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                                <FaDatabase className="text-green-400 w-4 h-4" />
-                                                {isExpanded && "Config BD"}
+                                            <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
+                                                <FaDatabase className="text-green-400" /> Config BD
                                             </button>
                                         )}
                                     </>
                                 )}
                                 <div className="border-t border-gray-700 my-1"></div>
-                                <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300">
-                                    <LogoutIcon className="w-4 h-4" />
-                                    {isExpanded && t('common.logout')}
+                                <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-gray-700">
+                                    <LogoutIcon /> {t('common.logout')}
                                 </button>
                             </div>
                         )}
                     </div>
                 ) : (
-                    <button onClick={onLogout} className="flex items-center justify-center w-full p-2 text-gray-400 hover:text-white">
-                        <LogoutIcon className="w-6 h-6" />
-                    </button>
+                    <div className="flex justify-center">
+                        <button onClick={onLogout} className="p-2 text-gray-400 hover:text-white transition-colors" title={t('common.logout')}>
+                            <LogoutIcon className="w-6 h-6" />
+                        </button>
+                    </div>
                 )}
             </div>
         </aside>
-        
+
         {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
         {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
         {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}

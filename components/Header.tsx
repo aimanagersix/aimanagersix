@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown, FaBars, FaMapMarkedAlt } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown, FaBars, FaMapMarkedAlt, FaFileSignature } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -149,6 +149,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience;
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
+    const hasReportsTabs = tabConfig['reports']; // New
     
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
@@ -287,6 +288,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
               {/* Tickets */}
               {hasTicketTabs && (
                   <TabButton tab="tickets.list" label={tabConfig.tickets?.title || 'Tickets'} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>
+              )}
+              
+              {/* Reports - NEW */}
+              {hasReportsTabs && (
+                  <TabButton tab="reports" label={tabConfig.reports} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>
               )}
 
               {/* Tools */}
@@ -445,6 +451,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 <p className="px-4 text-xs text-gray-500 uppercase mt-2">Suporte & Compliance</p>
                 {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.support')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={t('nav.bia')} icon={<FaShieldAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                {tabConfig['reports'] && <TabButton tab="reports" label="Relatórios" icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
             </div>
         </div>
       )}

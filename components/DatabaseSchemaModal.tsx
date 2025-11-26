@@ -182,9 +182,10 @@ BEGIN
         ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_critical_hours integer DEFAULT 0;
     END IF;
 
-    -- Equipment (Localização Física)
+    -- Equipment (Localização Física e Requisição)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "installationLocation" text;
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "requisitionNumber" text;
     END IF;
 
     -- Address Columns
@@ -383,7 +384,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.30</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.31</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

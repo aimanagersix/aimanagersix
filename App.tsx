@@ -71,6 +71,7 @@ import BackupDashboard from './components/BackupDashboard';
 import VulnerabilityDashboard from './components/VulnerabilityDashboard';
 import ServiceDashboard from './components/ServiceDashboard';
 import SmartDashboard from './components/SmartDashboard';
+import ReportsDashboard from './components/ReportsDashboard'; // NEW
 
 import { checkAndRunAutoScan } from './services/automationService';
 
@@ -523,6 +524,7 @@ const InnerApp: React.FC = () => {
         'organizacao.suppliers': 'Fornecedores (Risco)',
         'tickets': { title: 'Tickets', list: 'Lista de Tickets' },
         'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' },
+        'reports': 'Relatórios', // NEW
         'tools': { title: 'Tools', agenda: 'Agenda de contactos', map: 'Pesquisa no Mapa' },
         'settings': isAdmin ? 'Configurações' : undefined
     };
@@ -634,6 +636,17 @@ const InnerApp: React.FC = () => {
                             trainings={securityTrainings}
                             collaborators={collaborators}
                             currentUser={currentUser}
+                        />
+                    )}
+                    
+                    {activeTab === 'reports' && (
+                        <ReportsDashboard
+                            equipment={equipment}
+                            assignments={assignments}
+                            collaborators={collaborators}
+                            entidades={entidades}
+                            brands={brands}
+                            equipmentTypes={equipmentTypes}
                         />
                     )}
 

@@ -187,6 +187,7 @@ export interface Equipment {
   serialNumber: string;
   inventoryNumber?: string;
   invoiceNumber?: string;
+  requisitionNumber?: string; // New Field
   nomeNaRede?: string;
   macAddressWIFI?: string;
   macAddressCabo?: string;

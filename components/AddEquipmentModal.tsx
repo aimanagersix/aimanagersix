@@ -175,7 +175,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const ciaRatings = ciaOptions && ciaOptions.length > 0 ? ciaOptions.map(o => o.name) : Object.values(CIARating);
 
     const [formData, setFormData] = useState<Partial<Equipment>>({
-        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: '',
+        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: '', requisitionNumber: '',
         status: EquipmentStatus.Stock,
         criticality: CriticalityLevel.Low,
         confidentiality: CIARating.Low,
@@ -217,6 +217,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 purchaseDate: equipmentToEdit.purchaseDate || new Date().toISOString().split('T')[0],
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 invoiceNumber: equipmentToEdit.invoiceNumber || '',
+                requisitionNumber: equipmentToEdit.requisitionNumber || '',
                 creationDate: equipmentToEdit.creationDate,
                 status: equipmentToEdit.status || EquipmentStatus.Stock,
                 criticality: equipmentToEdit.criticality || CriticalityLevel.Low,
@@ -245,6 +246,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 purchaseDate: initialData?.purchaseDate || new Date().toISOString().split('T')[0],
                 warrantyEndDate: initialData?.warrantyEndDate || '',
                 invoiceNumber: initialData?.invoiceNumber || '',
+                requisitionNumber: initialData?.requisitionNumber || '',
                 status: (initialData?.status as EquipmentStatus) || EquipmentStatus.Stock,
                 criticality: (initialData?.criticality as CriticalityLevel) || CriticalityLevel.Low,
                 confidentiality: (initialData?.confidentiality as CIARating) || CIARating.Low,
@@ -448,6 +450,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             ...formData,
             inventoryNumber: formData.inventoryNumber || undefined,
             invoiceNumber: formData.invoiceNumber || undefined,
+            requisitionNumber: formData.requisitionNumber || undefined,
             nomeNaRede: formData.nomeNaRede || undefined,
             macAddressWIFI: formData.macAddressWIFI || undefined,
             macAddressCabo: formData.macAddressCabo || undefined,
@@ -685,6 +688,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="requisitionNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Requisição (Opcional)</label>
+                        <input type="text" name="requisitionNumber" id="requisitionNumber" value={formData.requisitionNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" placeholder="Nº Requisição Interna" />
+                    </div>
                     <div>
                         <label htmlFor="warrantyEndDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fim da Garantia (Opcional)</label>
                         <div className="flex items-center gap-2">

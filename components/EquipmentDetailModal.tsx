@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
@@ -185,6 +186,7 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                         <div className="flex justify-between"><span className="text-gray-500">Data Compra:</span> <span className="text-white">{equipment.purchaseDate}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Fim Garantia:</span> <span className="text-white">{equipment.warrantyEndDate || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Nº Fatura:</span> <span className="text-white">{equipment.invoiceNumber || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Nº Requisição:</span> <span className="text-white">{equipment.requisitionNumber || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Custo Aquisição:</span> <span className="text-white font-bold">€ {equipment.acquisitionCost || 0}</span></div>
                                     </div>
                                 </div>
