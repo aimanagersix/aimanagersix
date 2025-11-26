@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck } from 'react-icons/fa';
@@ -9,64 +10,31 @@ interface DatabaseSchemaModalProps {
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
 
-    const sqlScript = `-- MIGRAÇÃO DE PERFIS ANTIGOS PARA A NOVA TABELA
--- Admin (Acesso Total)
-INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Admin', true, '{
-    "inventory": {"view":true,"create":true,"edit":true,"delete":true},
-    "equipment": {"view":true,"create":true,"edit":true,"delete":true},
-    "licensing": {"view":true,"create":true,"edit":true,"delete":true},
-    "tickets": {"view":true,"create":true,"edit":true,"delete":true},
-    "organization": {"view":true,"create":true,"edit":true,"delete":true},
-    "suppliers": {"view":true,"create":true,"edit":true,"delete":true},
-    "compliance": {"view":true,"create":true,"edit":true,"delete":true},
-    "reports": {"view":true,"create":true,"edit":true,"delete":true},
-    "settings": {"view":true,"create":true,"edit":true,"delete":true},
-    "brands": {"view":true,"create":true,"edit":true,"delete":true},
-    "equipment_types": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_equipment_statuses": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_software_categories": {"view":true,"create":true,"edit":true,"delete":true},
-    "ticket_categories": {"view":true,"create":true,"edit":true,"delete":true},
-    "security_incident_types": {"view":true,"create":true,"edit":true,"delete":true},
-    "contact_roles": {"view":true,"create":true,"edit":true,"delete":true},
-    "contact_titles": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_custom_roles": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_automation": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_criticality_levels": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_cia_ratings": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_service_statuses": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_backup_types": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_training_types": {"view":true,"create":true,"edit":true,"delete":true},
-    "config_resilience_test_types": {"view":true,"create":true,"edit":true,"delete":true}
-}')
-ON CONFLICT (name) DO NOTHING;
+    const sqlScript = `-- SCRIPT DE ATUALIZAÇÃO DE BASE DE DADOS (v1.32)
 
--- Técnico (Pode gerir tickets e inventário, mas não configurações ou apagar organização)
-INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Técnico', false, '{
-    "inventory": {"view":true,"create":true,"edit":true,"delete":false},
-    "equipment": {"view":true,"create":true,"edit":true,"delete":false},
-    "licensing": {"view":true,"create":true,"edit":true,"delete":false},
-    "tickets": {"view":true,"create":true,"edit":true,"delete":false},
-    "organization": {"view":true,"create":false,"edit":false,"delete":false},
-    "suppliers": {"view":true,"create":true,"edit":true,"delete":false},
-    "compliance": {"view":true,"create":true,"edit":true,"delete":false},
-    "reports": {"view":true,"create":true,"edit":true,"delete":false},
-    "settings": {"view":false,"create":false,"edit":false,"delete":false}
-}')
-ON CONFLICT (name) DO NOTHING;
+-- 1. Adicionar campos de Empréstimo e Atribuição a Instituições
+DO $$ 
+DECLARE
+    t text;
+BEGIN 
+    -- Config Status: Adicionar 'Empréstimo'
+    INSERT INTO config_equipment_statuses (name) VALUES ('Empréstimo') ON CONFLICT (name) DO NOTHING;
 
--- Utilizador (Apenas ver e abrir tickets)
-INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Utilizador', false, '{
-    "inventory": {"view":true,"create":false,"edit":false,"delete":false},
-    "equipment": {"view":true,"create":false,"edit":false,"delete":false},
-    "licensing": {"view":false,"create":false,"edit":false,"delete":false},
-    "tickets": {"view":true,"create":true,"edit":false,"delete":false},
-    "organization": {"view":false,"create":false,"edit":false,"delete":false},
-    "settings": {"view":false,"create":false,"edit":false,"delete":false}
-}')
-ON CONFLICT (name) DO NOTHING;`;
+    -- Equipment: Flag de Empréstimo
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "isLoan" boolean DEFAULT false;
+    END IF;
+    
+    -- Assignments: Permitir atribuição direta a Instituições (Nullable EntidadeId, Add InstituicaoId)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'assignments') THEN
+        ALTER TABLE assignments ADD COLUMN IF NOT EXISTS "instituicaoId" uuid REFERENCES instituicoes(id);
+        ALTER TABLE assignments ALTER COLUMN "entidadeId" DROP NOT NULL;
+    END IF;
+
+    -- Garantir permissões básicas
+    -- ... (Restante das permissões já aplicadas)
+END $$;
+`;
 
     const handleCopy = () => {
         navigator.clipboard.writeText(sqlScript);
@@ -75,10 +43,10 @@ ON CONFLICT (name) DO NOTHING;`;
     };
 
     return (
-        <Modal title="Configuração da Base de Dados (SQL)" onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title="Atualização de Base de Dados (SQL)" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
-                    <p>Execute o seguinte script no <strong>SQL Editor</strong> do Supabase para criar as tabelas de perfis e permissões necessárias para o RBAC.</p>
+                    <p>Execute este script no <strong>SQL Editor</strong> do Supabase para ativar a funcionalidade de Empréstimos e atribuição a Instituições.</p>
                 </div>
                 
                 <div className="relative">

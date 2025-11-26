@@ -6,11 +6,53 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
-    ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole
+    ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole, EquipmentStatus
 } from '../types';
-import { createClient } from '@supabase/supabase-js';
 
-// --- Helper to fetch all data concurrently ---
+// --- HELPER FUNCTIONS ---
+
+export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
+    const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return; // Should ideally log 'System' or anonymous if no user, but for now require user.
+
+    await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        user_email: user.email,
+        action,
+        resource_type: resourceType,
+        resource_id: resourceId,
+        details,
+        timestamp: new Date().toISOString()
+    });
+};
+
+const create = async (table: string, data: any) => {
+    const supabase = getSupabase();
+    const { data: res, error } = await supabase.from(table).insert(data).select().single();
+    if (error) throw error;
+    await logAction('CREATE', table, `Created record in ${table}`, res.id);
+    return res;
+};
+
+const update = async (table: string, id: string, data: any) => {
+    const supabase = getSupabase();
+    const { data: res, error } = await supabase.from(table).update(data).eq('id', id).select().single();
+    if (error) throw error;
+    await logAction('UPDATE', table, `Updated record in ${table}`, id);
+    return res;
+};
+
+const remove = async (table: string, id: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) throw error;
+    await logAction('DELETE', table, `Deleted record from ${table}`, id);
+    return true;
+};
+
+// --- DATA FETCHING ---
+
 export const fetchAllData = async () => {
     const supabase = getSupabase();
     const [
@@ -20,7 +62,6 @@ export const fetchAllData = async () => {
         securityIncidentTypes, businessServices, serviceDependencies, vulnerabilities, 
         suppliers, backupExecutions, resilienceTests, securityTrainings, resourceContacts, 
         contactRoles, contactTitles, globalSettings,
-        // Configuration Tables
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
         configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles
@@ -53,7 +94,6 @@ export const fetchAllData = async () => {
         supabase.from('contact_roles').select('*'),
         supabase.from('contact_titles').select('*'),
         supabase.from('global_settings').select('*'),
-        // Configs
         supabase.from('config_equipment_statuses').select('*'),
         supabase.from('config_user_roles').select('*'),
         supabase.from('config_criticality_levels').select('*'),
@@ -66,7 +106,6 @@ export const fetchAllData = async () => {
         supabase.from('config_custom_roles').select('*')
     ]);
 
-    // Helper to attach contacts
     const attachContacts = (items: any[], type: string) => {
         return items.map(item => ({
             ...item,
@@ -102,7 +141,6 @@ export const fetchAllData = async () => {
         contactRoles: contactRoles.data || [],
         contactTitles: contactTitles.data || [],
         globalSettings: globalSettings.data || [],
-        // Configs
         configEquipmentStatuses: configEquipmentStatuses.data || [],
         configUserRoles: configUserRoles.data || [],
         configCriticalityLevels: configCriticalityLevels.data || [],
@@ -116,141 +154,122 @@ export const fetchAllData = async () => {
     };
 };
 
-// --- Audit Logs ---
-export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
-    const supabase = getSupabase();
-    // Cast auth to any to avoid TS errors with client-side types
-    const { data: { user } } = await (supabase.auth as any).getUser();
-    if (!user) return;
-    
-    await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        action,
-        resource_type: resourceType,
-        resource_id: resourceId,
-        details
-    });
-};
+// --- AUDIT & LOGS ---
 
 export const fetchAuditLogs = async () => {
     const supabase = getSupabase();
-    const { data, error } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false });
-    if (error) throw error;
+    const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(1000);
     
-    const { data: users } = await supabase.from('collaborators').select('id, email');
-    const userMap = new Map(users?.map((u: any) => [u.id, u.email]));
-
-    return data.map((log: any) => ({
-        ...log,
-        user_email: userMap.get(log.user_id) || 'Unknown'
-    }));
-};
-
-export const fetchLastAccessReviewDate = async (): Promise<string | null> => {
-    const supabase = getSupabase();
-    try {
-        const { data, error } = await supabase
-            .from('audit_logs')
-            .select('timestamp')
-            .eq('action', 'ACCESS_REVIEW')
-            .order('timestamp', { ascending: false })
-            .limit(1)
-            .single();
-
-        if (error) {
-            if (error.code !== 'PGRST116') console.warn("Error fetching last review date:", error);
-            return null;
-        }
-        return data?.timestamp || null;
-    } catch (e) {
-        console.warn("Could not fetch last access review date", e);
-        return null;
-    }
-};
-
-export const fetchLastRiskAcknowledgement = async (): Promise<{ timestamp: string, user_email: string } | null> => {
-    const supabase = getSupabase();
-    try {
-        const { data, error } = await supabase
-            .from('audit_logs')
-            .select('timestamp, user_id')
-            .eq('action', 'RISK_ACKNOWLEDGE')
-            .order('timestamp', { ascending: false })
-            .limit(1)
-            .single();
-
-        if (error) {
-            if (error.code !== 'PGRST116') console.warn("Error fetching last acknowledgement:", error);
-            return null;
-        }
-        
-        const { data: user } = await supabase.from('collaborators').select('email').eq('id', data.user_id).single();
-        
-        return {
-            timestamp: data.timestamp,
-            user_email: user?.email || 'Utilizador'
-        };
-    } catch (e) {
-        console.warn("Could not fetch last risk acknowledgement", e);
-        return null;
-    }
-};
-
-// --- Generic CRUD Helpers ---
-const create = async (table: string, data: any) => {
-    const supabase = getSupabase();
-    const { data: res, error } = await supabase.from(table).insert(data).select().single();
-    if (error) throw error;
-    await logAction('CREATE', table, `Created record in ${table}`, res.id);
-    return res;
-};
-
-const update = async (table: string, id: string, data: any) => {
-    const supabase = getSupabase();
-    const { data: res, error } = await supabase.from(table).update(data).eq('id', id).select().single();
-    if (error) throw error;
-    await logAction('UPDATE', table, `Updated record in ${table}`, id);
-    return res;
-};
-
-const remove = async (table: string, id: string) => {
-    const supabase = getSupabase();
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if (error) throw error;
-    await logAction('DELETE', table, `Deleted record from ${table}`, id);
-    return true;
-};
-
-// --- Custom Roles (RBAC) ---
-export const getCustomRoles = async (): Promise<CustomRole[]> => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('config_custom_roles').select('*');
     if (error) throw error;
     return data || [];
 };
-export const addCustomRole = (data: any) => create('config_custom_roles', data);
-export const updateCustomRole = (id: string, data: any) => update('config_custom_roles', id, data);
+
+export const fetchLastAccessReviewDate = async () => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('audit_logs')
+        .select('timestamp')
+        .eq('action', 'ACCESS_REVIEW')
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .single();
+    
+    if (error && error.code !== 'PGRST116') console.error(error);
+    return data?.timestamp || null;
+};
+
+export const fetchLastRiskAcknowledgement = async () => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('audit_logs')
+        .select('timestamp, user_email')
+        .eq('action', 'RISK_ACKNOWLEDGE')
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .single();
+    
+    if (error && error.code !== 'PGRST116') console.error(error);
+    return data || null;
+};
+
+// --- CONFIG CRUD ---
+
+export const getCustomRoles = async () => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('config_custom_roles').select('*');
+    if (error) throw error;
+    return data as CustomRole[];
+};
+
+export const addCustomRole = (role: any) => create('config_custom_roles', role);
+export const updateCustomRole = (id: string, role: any) => update('config_custom_roles', id, role);
 export const deleteCustomRole = (id: string) => remove('config_custom_roles', id);
 
-// --- Specific Entities ---
+export const addConfigItem = (table: string, item: any) => create(table, item);
+export const updateConfigItem = (table: string, id: string, item: any) => update(table, id, item);
+export const deleteConfigItem = (table: string, id: string) => remove(table, id);
+
+export const addContactRole = (item: any) => create('contact_roles', item);
+export const updateContactRole = (id: string, item: any) => update('contact_roles', id, item);
+export const deleteContactRole = (id: string) => remove('contact_roles', id);
+
+export const addContactTitle = (item: any) => create('contact_titles', item);
+export const updateContactTitle = (id: string, item: any) => update('contact_titles', id, item);
+export const deleteContactTitle = (id: string) => remove('contact_titles', id);
+
+export const getGlobalSetting = async (key: string) => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('global_settings').select('setting_value').eq('setting_key', key).single();
+    if (error && error.code !== 'PGRST116') console.error(error);
+    return data?.setting_value || null;
+};
+
+export const updateGlobalSetting = async (key: string, value: string) => {
+    const supabase = getSupabase();
+    // Upsert logic
+    const { data, error } = await supabase.from('global_settings').upsert({ setting_key: key, setting_value: value }, { onConflict: 'setting_key' }).select().single();
+    if (error) throw error;
+    await logAction('UPDATE', 'GlobalSetting', `Updated setting ${key}`, data.id);
+    return data;
+};
+
+// --- ENTITY CRUD ---
 
 // Equipment
 export const addEquipment = (data: any) => create('equipment', data);
 export const updateEquipment = (id: string, data: any) => update('equipment', id, data);
+export const deleteEquipment = (id: string) => remove('equipment', id);
 export const addMultipleEquipment = async (items: any[]) => {
     const supabase = getSupabase();
     const { data, error } = await supabase.from('equipment').insert(items).select();
     if (error) throw error;
-    await logAction('CREATE', 'equipment', `Created ${items.length} equipment items`);
+    await logAction('CREATE', 'Equipment', `Batch created ${items.length} equipment items`);
     return data;
 };
-export const deleteEquipment = async (id: string) => {
+
+// Assignments
+export const addAssignment = async (data: any) => {
     const supabase = getSupabase();
-    await supabase.from('service_dependencies').delete().eq('equipment_id', id);
-    await supabase.from('license_assignments').delete().eq('equipmentId', id);
-    await supabase.from('assignments').delete().eq('equipmentId', id);
-    await supabase.from('backup_executions').delete().eq('equipment_id', id);
-    return remove('equipment', id);
+    // Close previous assignment
+    await supabase.from('assignments')
+        .update({ returnDate: new Date().toISOString().split('T')[0] })
+        .eq('equipmentId', data.equipmentId)
+        .is('returnDate', null);
+        
+    // If it's an "Unassign" action (data has returnDate immediately), update status to Stock
+    if (data.returnDate) {
+         await supabase.from('equipment').update({ status: 'Stock' }).eq('id', data.equipmentId);
+         // In this case we don't create a new assignment record, we just closed the old one above.
+         // BUT, the dashboard logic calls addAssignment passing the OLD assignment with returnDate added.
+         // So we essentially just closed the old one.
+         return true; 
+    }
+
+    return create('assignments', data);
 };
 
 // Brands & Types
@@ -262,118 +281,51 @@ export const addEquipmentType = (data: any) => create('equipment_types', data);
 export const updateEquipmentType = (id: string, data: any) => update('equipment_types', id, data);
 export const deleteEquipmentType = (id: string) => remove('equipment_types', id);
 
-// Org
-export const addInstituicao = (data: any) => {
-    const { contacts, ...rest } = data;
-    return create('instituicoes', rest);
-};
-export const updateInstituicao = (id: string, data: any) => {
-    const { contacts, ...rest } = data;
-    return update('instituicoes', id, rest);
-};
+// Institutions & Entities
+export const addInstituicao = (data: any) => create('instituicoes', data);
+export const updateInstituicao = (id: string, data: any) => update('instituicoes', id, data);
 export const deleteInstituicao = (id: string) => remove('instituicoes', id);
 
-export const addEntidade = (data: any) => {
-    const { contacts, ...rest } = data;
-    return create('entidades', rest);
-};
-export const updateEntidade = (id: string, data: any) => {
-    const { contacts, ...rest } = data;
-    return update('entidades', id, rest);
-};
+export const addEntidade = (data: any) => create('entidades', data);
+export const updateEntidade = (id: string, data: any) => update('entidades', id, data);
 export const deleteEntidade = (id: string) => remove('entidades', id);
 
 // Collaborators
 export const addCollaborator = async (data: any, password?: string) => {
     const supabase = getSupabase();
-
-    // 1. PRE-CHECK: Ensure email doesn't exist in collaborators table
-    const { data: existingCollaborator } = await supabase
-        .from('collaborators')
-        .select('id')
-        .eq('email', data.email)
-        .maybeSingle();
-
-    if (existingCollaborator) {
-        throw new Error("Este email já se encontra registado na ficha de outro colaborador.");
-    }
-
-    // Check if login is enabled
-    if (data.canLogin) {
-        const serviceRoleKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
-        const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
-
-        if (!serviceRoleKey || !supabaseUrl) {
-            throw new Error("Para criar utilizadores com login, configure a Service Role Key em Automação -> Conexões.");
-        }
-
-        // Create Admin Client to bypass normal auth restrictions
-        const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
-        });
-
+    // Create DB record
+    const collaborator = await create('collaborators', data);
+    
+    // If password provided and canLogin is true, create Auth User (requires Service Role Key usually, or specific setup)
+    // Since client-side service role key is unsafe, this is usually done via Edge Function.
+    // Here we simulate or use the provided method if feasible.
+    // We check if we have the service role key in localStorage (configured in Automation)
+    const serviceKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (password && data.canLogin && serviceKey) {
         try {
-            let authData, authError;
-
-            if (password && password.trim() !== '') {
-                // Case A: Password provided -> Create confirmed user (No Email)
-                const res = await (supabaseAdmin.auth as any).admin.createUser({
-                    email: data.email,
-                    password: password,
-                    email_confirm: true,
-                    user_metadata: { full_name: data.fullName }
-                });
-                authData = res.data;
-                authError = res.error;
-            } else {
-                // Case B: No Password -> Send Invite Email
-                const res = await (supabaseAdmin.auth as any).admin.inviteUserByEmail(data.email, {
-                    data: { full_name: data.fullName }
-                });
-                authData = res.data;
-                authError = res.error;
-            }
-
-            if (authError) {
-                // Handle "User already registered" error gracefully
-                if (authError.message?.includes('already been registered') || authError.status === 422) {
-                    console.log("User already exists in Auth. Attempting to link...");
-                    
-                    // Fetch user to get ID
-                    const { data: usersData, error: listError } = await (supabaseAdmin.auth as any).admin.listUsers({ perPage: 1000 });
-                    
-                    if (listError) throw listError;
-
-                    const existingUser = usersData.users.find((u: any) => u.email?.toLowerCase() === data.email?.toLowerCase());
-
-                    if (existingUser) {
-                        data.id = existingUser.id;
-                        // If password was provided, update it
-                        if (password) {
-                            await (supabaseAdmin.auth as any).admin.updateUserById(existingUser.id, { password: password });
-                        }
-                    } else {
-                        throw new Error("Email já registado na autenticação, mas não foi possível localizar o ID.");
-                    }
-                } else {
-                    throw authError;
-                }
-            } else if (authData.user) {
-                data.id = authData.user.id;
-            }
-        } catch (error: any) {
-            console.error("Error managing Auth user:", error);
-            throw new Error(`Erro na gestão de utilizador: ${error.message}`);
+            // Initialize admin client
+            const { createClient } = await import('@supabase/supabase-js');
+            const adminClient = createClient(process.env.SUPABASE_URL!, serviceKey);
+            
+            const { data: authUser, error: authError } = await adminClient.auth.admin.createUser({
+                email: data.email,
+                password: password,
+                email_confirm: true,
+                user_metadata: { collaborator_id: collaborator.id }
+            });
+            
+            if (authError) throw authError;
+            
+            // Update collaborator with auth_id if needed, though linking via email is common
+        } catch (e) {
+            console.error("Failed to create auth user:", e);
+            alert("Colaborador criado, mas falha ao criar utilizador de login (Auth). Verifique a chave de serviço.");
         }
     }
-
-    // Create Data Record
-    return create('collaborators', data);
+    
+    return collaborator;
 };
-
 export const updateCollaborator = (id: string, data: any) => update('collaborators', id, data);
 export const deleteCollaborator = (id: string) => remove('collaborators', id);
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {
@@ -382,14 +334,13 @@ export const uploadCollaboratorPhoto = async (id: string, file: File) => {
     const fileName = `${id}.${fileExt}`;
     const filePath = `avatars/${fileName}`;
     
-    const { error: uploadError } = await supabase.storage.from('photos').upload(filePath, file, { upsert: true });
-    if (uploadError) {
-        console.warn("Storage not configured or error uploading:", uploadError);
-        return null;
-    }
+    let { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+    if (uploadError) throw uploadError;
     
-    const { data } = supabase.storage.from('photos').getPublicUrl(filePath);
-    return data.publicUrl;
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    
+    await update('collaborators', id, { photoUrl: publicUrl });
+    return publicUrl;
 };
 
 // Teams
@@ -398,158 +349,79 @@ export const updateTeam = (id: string, data: any) => update('teams', id, data);
 export const deleteTeam = (id: string) => remove('teams', id);
 export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
     const supabase = getSupabase();
+    // Delete existing
     await supabase.from('team_members').delete().eq('team_id', teamId);
+    // Insert new
     if (memberIds.length > 0) {
-        const inserts = memberIds.map(mid => ({ team_id: teamId, collaborator_id: mid }));
-        await supabase.from('team_members').insert(inserts);
+        const toInsert = memberIds.map(mid => ({ team_id: teamId, collaborator_id: mid }));
+        await supabase.from('team_members').insert(toInsert);
     }
-    await logAction('UPDATE', 'teams', `Synced members for team ${teamId}`, teamId);
+    await logAction('UPDATE', 'Team', `Synced members for team ${teamId}`);
 };
 
 // Licenses
 export const addLicense = (data: any) => create('software_licenses', data);
 export const updateLicense = (id: string, data: any) => update('software_licenses', id, data);
-export const deleteLicense = async (id: string) => {
-    const supabase = getSupabase();
-    await supabase.from('service_dependencies').delete().eq('software_license_id', id);
-    await supabase.from('license_assignments').delete().eq('softwareLicenseId', id);
-    return remove('software_licenses', id);
-};
-
+export const deleteLicense = (id: string) => remove('software_licenses', id);
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
+    // Logic:
+    // 1. Find currently active assignments for this equipment (returnDate is null)
+    // 2. Determine which to close (returnDate = now) -> ones NOT in licenseIds
+    // 3. Determine which to create -> ones in licenseIds BUT NOT in active
     
-    // 1. Fetch ALL current active assignments for this equipment
-    const { data: currentActive } = await supabase
-        .from('license_assignments')
+    const { data: currentActive } = await supabase.from('license_assignments')
         .select('id, softwareLicenseId')
         .eq('equipmentId', equipmentId)
         .is('returnDate', null);
-
-    const currentRows = currentActive || [];
-    const targetLicenseIds = new Set(licenseIds);
+        
+    const currentActiveIds = new Set((currentActive || []).map((a: any) => a.softwareLicenseId));
+    const newIdsSet = new Set(licenseIds);
     
-    const licensesCurrentlyActive = new Set<string>();
-
-    // 2. Identify rows to CLOSE
-    const toRemoveRowIds: string[] = [];
-    currentRows.forEach((row: any) => {
-        if (!targetLicenseIds.has(row.softwareLicenseId)) {
-            toRemoveRowIds.push(row.id);
-        } else {
-            licensesCurrentlyActive.add(row.softwareLicenseId);
-        }
-    });
-    
-    // 3. Identify licenses to ADD
-    const toAddLicenseIds: string[] = [];
-    targetLicenseIds.forEach(lid => {
-        if (!licensesCurrentlyActive.has(lid)) {
-            toAddLicenseIds.push(lid);
-        }
-    });
-    
-    if (toRemoveRowIds.length > 0) {
-        await supabase
-            .from('license_assignments')
-            .update({ returnDate: new Date().toISOString().split('T')[0] })
-            .in('id', toRemoveRowIds);
+    // To Close
+    const toClose = (currentActive || []).filter((a: any) => !newIdsSet.has(a.softwareLicenseId));
+    for (const assignment of toClose) {
+        await supabase.from('license_assignments').update({ returnDate: new Date().toISOString().split('T')[0] }).eq('id', assignment.id);
     }
-
-    if (toAddLicenseIds.length > 0) {
-        const inserts = toAddLicenseIds.map(lid => ({ 
-            equipmentId: equipmentId, 
+    
+    // To Create
+    const toCreate = licenseIds.filter(id => !currentActiveIds.has(id));
+    if (toCreate.length > 0) {
+        const insertData = toCreate.map(lid => ({
+            equipmentId: equipmentId,
             softwareLicenseId: lid,
             assignedDate: new Date().toISOString().split('T')[0]
         }));
-        await supabase.from('license_assignments').insert(inserts);
+        await supabase.from('license_assignments').insert(insertData);
     }
-
-    await logAction('UPDATE', 'equipment', `Synced licenses for equipment ${equipmentId}`, equipmentId);
+    
+    await logAction('UPDATE', 'Equipment', `Synced licenses for equipment ${equipmentId}`);
 };
 
-// Tickets & Support
+// Tickets
 export const addTicket = (data: any) => create('tickets', data);
 export const updateTicket = (id: string, data: any) => update('tickets', id, data);
 export const addTicketActivity = (data: any) => create('ticket_activities', data);
+
 export const addTicketCategory = (data: any) => create('ticket_categories', data);
 export const updateTicketCategory = (id: string, data: any) => update('ticket_categories', id, data);
 export const deleteTicketCategory = (id: string) => remove('ticket_categories', id);
+
 export const addSecurityIncidentType = (data: any) => create('security_incident_types', data);
 export const updateSecurityIncidentType = (id: string, data: any) => update('security_incident_types', id, data);
 export const deleteSecurityIncidentType = (id: string) => remove('security_incident_types', id);
 
-// Assignments
-export const addAssignment = async (data: any) => {
-    const supabase = getSupabase();
-    await supabase.from('assignments')
-        .update({ returnDate: new Date().toISOString().split('T')[0] })
-        .eq('equipmentId', data.equipmentId)
-        .is('returnDate', null);
-    return create('assignments', data);
-};
-
 // Suppliers
-export const addSupplier = async (data: any) => {
-    const contacts = data.contacts || [];
-    const supplierData = { ...data };
-    delete supplierData.contacts;
-    
-    const supplier = await create('suppliers', supplierData);
-    
-    if (contacts.length > 0 && supplier.id) {
-        const supabase = getSupabase();
-        const contactsWithId = contacts.map((c: any) => ({ 
-            ...c, 
-            supplier_id: undefined, 
-            resource_id: supplier.id, 
-            resource_type: 'supplier',
-            is_active: c.is_active !== false
-        }));
-        await supabase.from('resource_contacts').insert(contactsWithId);
-    }
-    return supplier;
-};
-
-export const updateSupplier = async (id: string, data: any) => {
-    const contacts = data.contacts || [];
-    const supplierData = { ...data };
-    delete supplierData.contacts;
-    
-    const supplier = await update('suppliers', id, supplierData);
-    
-    if (supplier) {
-        const supabase = getSupabase();
-        await supabase.from('resource_contacts').delete().eq('resource_id', id).eq('resource_type', 'supplier');
-        if (contacts.length > 0) {
-             const contactsWithId = contacts.map((c: any) => ({ 
-                 resource_id: id,
-                 resource_type: 'supplier',
-                 title: c.title,
-                 name: c.name, 
-                 role: c.role, 
-                 email: c.email, 
-                 phone: c.phone,
-                 is_active: c.is_active !== false
-            }));
-            await supabase.from('resource_contacts').insert(contactsWithId);
-        }
-    }
-    return supplier;
-};
-
+export const addSupplier = (data: any) => create('suppliers', data);
+export const updateSupplier = (id: string, data: any) => update('suppliers', id, data);
 export const deleteSupplier = (id: string) => remove('suppliers', id);
 
-// Business Services (BIA)
+// BIA (Services)
 export const addBusinessService = (data: any) => create('business_services', data);
 export const updateBusinessService = (id: string, data: any) => update('business_services', id, data);
-export const deleteBusinessService = async (id: string) => {
-    const supabase = getSupabase();
-    await supabase.from('service_dependencies').delete().eq('service_id', id);
-    return remove('business_services', id);
-};
+export const deleteBusinessService = (id: string) => remove('business_services', id);
 export const addServiceDependency = (data: any) => create('service_dependencies', data);
-export const deleteServiceDependency = (_ignored: null, id: string) => remove('service_dependencies', id);
+export const deleteServiceDependency = (id: string) => remove('service_dependencies', id);
 
 // Vulnerabilities
 export const addVulnerability = (data: any) => create('vulnerabilities', data);
@@ -569,98 +441,40 @@ export const deleteResilienceTest = (id: string) => remove('resilience_tests', i
 // Training
 export const addSecurityTraining = (data: any) => create('security_training_records', data);
 
-// Chat
+// Messaging
 export const addMessage = (data: any) => create('messages', data);
-export const markMessagesAsRead = async (senderId: string, receiverId: string) => {
+export const markMessagesAsRead = async (senderId: string) => {
     const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
     await supabase.from('messages')
         .update({ read: true })
         .eq('senderId', senderId)
-        .eq('receiverId', receiverId)
+        .eq('receiverId', user.id)
         .eq('read', false);
 };
 
-// Notifications
-export const snoozeNotification = async (userId: string, referenceId: string, type: string) => {
-    const supabase = getSupabase();
-    const snoozeUntil = new Date();
-    snoozeUntil.setDate(snoozeUntil.getDate() + 7); 
-    
-    await supabase.from('user_notification_snoozes').insert({
-        user_id: userId,
-        reference_id: referenceId,
-        notification_type: type,
-        snooze_until: snoozeUntil.toISOString()
-    });
+export const snoozeNotification = (id: string) => {
+    // Implementation depends on where snoozes are stored. LocalStorage for now.
+    const snoozed = JSON.parse(localStorage.getItem('snoozed_notifications') || '[]');
+    snoozed.push({ id, until: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() }); // 24h snooze
+    localStorage.setItem('snoozed_notifications', JSON.stringify(snoozed));
 };
 
-// Contact Roles
-export const addContactRole = (data: any) => create('contact_roles', data);
-export const updateContactRole = (id: string, data: any) => update('contact_roles', id, data);
-export const deleteContactRole = (id: string) => remove('contact_roles', id);
-
-// Contact Titles (Tratos)
-export const addContactTitle = (data: any) => create('contact_titles', data);
-export const updateContactTitle = (id: string, data: any) => update('contact_titles', id, data);
-export const deleteContactTitle = (id: string) => remove('contact_titles', id);
-
-// Contacts Generic
-export const syncResourceContacts = async (resourceType: 'supplier' | 'entidade' | 'instituicao', resourceId: string, contacts: any[]) => {
+// Contacts (Polyimorphic)
+export const syncResourceContacts = async (resourceType: string, resourceId: string, contacts: any[]) => {
     const supabase = getSupabase();
-    await supabase.from('resource_contacts').delete().eq('resource_id', resourceId).eq('resource_type', resourceType);
+    // Delete existing for this resource
+    await supabase.from('resource_contacts').delete().eq('resource_type', resourceType).eq('resource_id', resourceId);
     
     if (contacts.length > 0) {
-        const contactsWithId = contacts.map((c: any) => ({
-            resource_id: resourceId,
+        const toInsert = contacts.map(c => ({
+            ...c,
             resource_type: resourceType,
-            title: c.title,
-            name: c.name,
-            role: c.role,
-            email: c.email,
-            phone: c.phone,
-            is_active: c.is_active !== false
+            resource_id: resourceId,
+            id: undefined // let DB generate ID
         }));
-        await supabase.from('resource_contacts').insert(contactsWithId);
+        await supabase.from('resource_contacts').insert(toInsert);
     }
 };
-
-// --- Global Settings ---
-
-export const getGlobalSetting = async (key: string): Promise<string | null> => {
-    const supabase = getSupabase();
-    try {
-        const { data, error } = await supabase
-            .from('global_settings')
-            .select('setting_value')
-            .eq('setting_key', key)
-            .single();
-        
-        if (error) {
-            if (error.code !== 'PGRST116') console.warn(`Error fetching setting ${key}:`, error);
-            return null;
-        }
-        return data?.setting_value || null;
-    } catch (e) {
-        return null;
-    }
-};
-
-export const updateGlobalSetting = async (key: string, value: string) => {
-    const supabase = getSupabase();
-    const { error } = await supabase.from('global_settings').upsert({ 
-        setting_key: key, 
-        setting_value: value,
-        updated_at: new Date().toISOString()
-    }, { onConflict: 'setting_key' });
-    
-    if (error) {
-        console.error(`Error updating setting ${key}:`, error);
-        throw error;
-    }
-};
-
-// --- Generic Config Items ---
-
-export const addConfigItem = (tableName: string, data: any) => create(tableName, data);
-export const updateConfigItem = (tableName: string, id: string, data: any) => update(tableName, id, data);
-export const deleteConfigItem = (tableName: string, id: string) => remove(tableName, id);

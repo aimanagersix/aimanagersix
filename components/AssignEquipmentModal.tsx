@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Entidade, Collaborator, Assignment, CollaboratorStatus, EquipmentStatus } from '../types';
-import { SpinnerIcon } from './common/Icons';
+import { Equipment, Entidade, Collaborator, Assignment, CollaboratorStatus, EquipmentStatus, Instituicao } from '../types';
+import { SpinnerIcon, FaUserTie, FaBuilding } from './common/Icons';
 import * as dataService from '../services/dataService';
 
 interface AssignEquipmentModalProps {
@@ -10,46 +10,73 @@ interface AssignEquipmentModalProps {
     brandMap: Map<string, string>;
     equipmentTypeMap: Map<string, string>;
     escolasDepartamentos: Entidade[];
+    instituicoes?: Instituicao[]; // NEW prop needed for direct assignment
     collaborators: Collaborator[];
     onClose: () => void;
     onAssign: (assignment: Omit<Assignment, 'id' | 'returnDate'>) => Promise<any>;
 }
 
-const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, brandMap, equipmentTypeMap, escolasDepartamentos: entidades, collaborators, onClose, onAssign }) => {
-    const [selectedEntidadeId, setSelectedEntidadeId] = useState<string>(entidades[0]?.id || '');
+const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, brandMap, equipmentTypeMap, escolasDepartamentos: entidades, instituicoes = [], collaborators, onClose, onAssign }) => {
+    const [assignType, setAssignType] = useState<'entidade' | 'instituicao'>('entidade');
+    
+    const [selectedEntidadeId, setSelectedEntidadeId] = useState<string>('');
+    const [selectedInstituicaoId, setSelectedInstituicaoId] = useState<string>('');
     const [selectedCollaboratorId, setSelectedCollaboratorId] = useState<string>('');
     const [isSaving, setIsSaving] = useState(false);
 
-    const filteredCollaborators = useMemo(() => {
-        if (!selectedEntidadeId) return [];
-        return collaborators.filter(c => c.entidadeId === selectedEntidadeId && c.status === CollaboratorStatus.Ativo);
-    }, [selectedEntidadeId, collaborators]);
-    
-    // This effect resets collaborator selection if the current one is no longer valid for the selected school
     useEffect(() => {
-        if (selectedCollaboratorId && !filteredCollaborators.some(c => c.id === selectedCollaboratorId)) {
-            setSelectedCollaboratorId('');
+        // Default selection
+        if (entidades.length > 0) setSelectedEntidadeId(entidades[0].id);
+        if (instituicoes.length > 0) setSelectedInstituicaoId(instituicoes[0].id);
+    }, [entidades, instituicoes]);
+
+    const filteredCollaborators = useMemo(() => {
+        if (assignType === 'entidade') {
+            if (!selectedEntidadeId) return [];
+            return collaborators.filter(c => c.entidadeId === selectedEntidadeId && c.status === CollaboratorStatus.Ativo);
+        } else {
+            if (!selectedInstituicaoId) return [];
+            // Collaborators directly assigned to institution OR to any entity within it
+            return collaborators.filter(c => c.instituicaoId === selectedInstituicaoId && c.status === CollaboratorStatus.Ativo);
         }
-    }, [filteredCollaborators, selectedCollaboratorId]);
+    }, [selectedEntidadeId, selectedInstituicaoId, collaborators, assignType]);
+    
+    // Reset collaborator selection if context changes
+    useEffect(() => {
+        setSelectedCollaboratorId('');
+    }, [selectedEntidadeId, selectedInstituicaoId, assignType]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedEntidadeId) {
+        
+        if (assignType === 'entidade' && !selectedEntidadeId) {
             alert("Por favor, selecione uma entidade.");
+            return;
+        }
+        if (assignType === 'instituicao' && !selectedInstituicaoId) {
+            alert("Por favor, selecione uma instituição.");
             return;
         }
         
         setIsSaving(true);
         try {
-            // Update equipment status to Operational automatically
-            await dataService.updateEquipment(equipment.id, { status: EquipmentStatus.Operational });
+            // Determine target status based on Loan flag
+            const targetStatus = equipment.isLoan ? EquipmentStatus.Loan : EquipmentStatus.Operational;
+            await dataService.updateEquipment(equipment.id, { status: targetStatus });
 
-            await onAssign({
+            const payload: any = {
                 equipmentId: equipment.id,
-                entidadeId: selectedEntidadeId,
                 collaboratorId: selectedCollaboratorId || undefined,
                 assignedDate: new Date().toISOString().split('T')[0],
-            });
+            };
+
+            if (assignType === 'entidade') {
+                payload.entidadeId = selectedEntidadeId;
+            } else {
+                payload.instituicaoId = selectedInstituicaoId;
+            }
+
+            await onAssign(payload);
             onClose();
         } catch (error) {
             console.error("Failed to assign", error);
@@ -58,6 +85,7 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
             setIsSaving(false);
         }
     };
+    
     const brandName = brandMap.get(equipment.brandId) || 'Marca Desconhecida';
     const equipmentTypeName = equipmentTypeMap.get(equipment.typeId) || 'Equipamento';
 
@@ -66,23 +94,63 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <p className="text-on-surface-dark-secondary">Equipamento: <span className="font-semibold text-on-surface-dark">{equipment.serialNumber}</span></p>
-                    <p className="text-xs text-green-400 mt-1">Nota: O equipamento passará automaticamente para o estado "Operacional".</p>
+                    <p className="text-xs text-green-400 mt-1">
+                        Nota: O equipamento passará para o estado <strong>{equipment.isLoan ? 'Empréstimo' : 'Operacional'}</strong>.
+                    </p>
                 </div>
-                <div>
-                    <label htmlFor="entidade" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
-                    <select
-                        id="entidade"
-                        value={selectedEntidadeId}
-                        onChange={(e) => setSelectedEntidadeId(e.target.value)}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                        disabled={isSaving}
+
+                {/* Toggle Type */}
+                <div className="flex gap-4 border-b border-gray-700 pb-2 mb-4">
+                    <button
+                        type="button"
+                        onClick={() => setAssignType('entidade')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${assignType === 'entidade' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}
                     >
-                         {entidades.length === 0 && <option value="" disabled>Nenhuma entidade disponível</option>}
-                        {entidades.map(entidade => (
-                            <option key={entidade.id} value={entidade.id}>{entidade.name}</option>
-                        ))}
-                    </select>
+                        <FaBuilding /> Entidade / Departamento
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setAssignType('instituicao')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${assignType === 'instituicao' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}
+                    >
+                        <FaUserTie /> Instituição (Direto)
+                    </button>
                 </div>
+
+                {assignType === 'entidade' ? (
+                    <div>
+                        <label htmlFor="entidade" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
+                        <select
+                            id="entidade"
+                            value={selectedEntidadeId}
+                            onChange={(e) => setSelectedEntidadeId(e.target.value)}
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            disabled={isSaving}
+                        >
+                             {entidades.length === 0 && <option value="" disabled>Nenhuma entidade disponível</option>}
+                            {entidades.map(entidade => (
+                                <option key={entidade.id} value={entidade.id}>{entidade.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                ) : (
+                    <div>
+                        <label htmlFor="instituicao" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Instituição</label>
+                        <select
+                            id="instituicao"
+                            value={selectedInstituicaoId}
+                            onChange={(e) => setSelectedInstituicaoId(e.target.value)}
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            disabled={isSaving}
+                        >
+                             {instituicoes.length === 0 && <option value="" disabled>Nenhuma instituição disponível</option>}
+                            {instituicoes.map(i => (
+                                <option key={i.id} value={i.id}>{i.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 <div>
                     <label htmlFor="collaborator" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Colaborador (Opcional)</label>
                     <select
@@ -90,7 +158,7 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
                         value={selectedCollaboratorId}
                         onChange={(e) => setSelectedCollaboratorId(e.target.value)}
                         className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                        disabled={!selectedEntidadeId || isSaving}
+                        disabled={(!selectedEntidadeId && !selectedInstituicaoId) || isSaving}
                     >
                         <option value="">-- Atribuir apenas à Localização --</option>
                         {filteredCollaborators.map(collaborator => (
@@ -98,6 +166,7 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
                         ))}
                     </select>
                 </div>
+
                 <div className="flex justify-end gap-4 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
                     <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2" disabled={isSaving}>

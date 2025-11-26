@@ -1,0 +1,21 @@
+{
+  "short_name": "AIManager",
+  "name": "AI Asset Manager",
+  "description": "Gestão Inteligente de Equipamentos de TI e Compliance",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2362/2362336.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2362/2362336.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0D47A1",
+  "background_color": "#121212"
+}

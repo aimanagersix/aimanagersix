@@ -22,6 +22,7 @@ interface ExtendedAssignment extends Assignment {
 const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignments, collaborators, entidades, brands, equipmentTypes }) => {
     const [activeTab, setActiveTab] = useState<'delivery' | 'finops'>('delivery');
     
+    // ... (rest of the component code remains same)
     // --- DELIVERY REPORT STATE ---
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedAssignment, setSelectedAssignment] = useState<ExtendedAssignment | null>(null);
@@ -316,7 +317,8 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
 
                                     <div className="text-xs text-justify text-gray-700 mb-6">
                                         <p className="mb-2">Declaro que recebi o equipamento acima descrito em perfeitas condições de funcionamento.</p>
-                                        <p>Comprometo-me a utilizá-lo para fins profissionais e a devolvê-lo quando solicitado ou no termo do contrato de trabalho.</p>
+                                        <p>Comprometo-me a zelar pelo bom estado do equipamento e a utilizá-lo exclusivamente para fins profissionais, de acordo com a política de segurança da informação da empresa.</p>
+                                        <p>Em caso de perda, roubo ou dano, deve comunicar imediatamente ao departamento de TI.</p>
                                     </div>
 
                                     <div className="mt-auto">

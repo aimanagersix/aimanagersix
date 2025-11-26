@@ -65,6 +65,7 @@ export const EquipmentStatus = {
   Operational: 'Operacional',
   Decommissioned: 'Abate',
   Warranty: 'Garantia',
+  Loan: 'Empréstimo', // New Status
 } as const;
 export type EquipmentStatus = string;
 
@@ -187,16 +188,17 @@ export interface Equipment {
   serialNumber: string;
   inventoryNumber?: string;
   invoiceNumber?: string;
-  requisitionNumber?: string; // New Field
+  requisitionNumber?: string;
   nomeNaRede?: string;
   macAddressWIFI?: string;
   macAddressCabo?: string;
-  installationLocation?: string; // New field: Local de Instalação (Physical)
+  installationLocation?: string; 
   purchaseDate: string;
   warrantyEndDate?: string;
   creationDate: string;
   modifiedDate: string;
   status: EquipmentStatus;
+  isLoan?: boolean; // New Field: Equipamento de Empréstimo
   // NIS2 Compliance Fields
   criticality?: CriticalityLevel;
   confidentiality?: CIARating;
@@ -364,7 +366,8 @@ export interface Collaborator {
 export interface Assignment {
   id: string;
   equipmentId: string;
-  entidadeId: string;
+  entidadeId?: string; // Optional if assigned to Institution directly
+  instituicaoId?: string; // NEW: Direct Institution Assignment
   collaboratorId?: string;
   assignedDate: string;
   returnDate?: string;
