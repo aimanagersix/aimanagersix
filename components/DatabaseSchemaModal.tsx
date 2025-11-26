@@ -75,6 +75,19 @@ CREATE TABLE IF NOT EXISTS integration_logs (
     created_at timestamptz DEFAULT now()
 );
 
+-- Tabela para Registos de Formação (NIS2)
+CREATE TABLE IF NOT EXISTS security_training_records (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
+    training_type text NOT NULL,
+    completion_date date NOT NULL,
+    status text DEFAULT 'Concluído',
+    score integer,
+    notes text,
+    valid_until date,
+    created_at timestamptz DEFAULT now()
+);
+
 -- ==========================================
 -- 3. INSERIR VALORES PADRÃO
 -- ==========================================
@@ -128,7 +141,7 @@ BEGIN
     END LOOP;
     
     -- Loop manual para contact_* e resource_contacts
-    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs']
+    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN
@@ -343,7 +356,7 @@ COMMIT;
                 {activeTab === 'update' && (
                     <div className="animate-fade-in">
                         <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                            <p>Este script cria tabelas em falta, adiciona colunas necessárias e cria a estrutura para <strong>Perfis Dinâmicos (Custom Roles)</strong>.</p>
+                            <p>Este script cria tabelas em falta (incluindo <strong>security_training_records</strong>), adiciona colunas necessárias e cria a estrutura para <strong>Perfis Dinâmicos (Custom Roles)</strong>.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">
