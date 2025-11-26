@@ -277,7 +277,35 @@ export type UserRole = string;
 
 // --- NEW RBAC TYPES ---
 export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
-export type ModuleKey = 'inventory' | 'tickets' | 'organization' | 'compliance' | 'settings';
+
+// Granular Keys for all modules and config tables
+export type ModuleKey = 
+    // Operational Modules
+    | 'equipment' // Inventory
+    | 'licensing' // Software
+    | 'tickets' // Support
+    | 'organization' // Entities/HR/Teams
+    | 'suppliers' // Vendors
+    | 'compliance' // NIS2/BIA
+    | 'reports' 
+    | 'settings' // General Settings Access
+    // Configuration Tables
+    | 'brands'
+    | 'equipment_types'
+    | 'config_equipment_statuses'
+    | 'config_software_categories'
+    | 'ticket_categories'
+    | 'security_incident_types'
+    | 'contact_roles'
+    | 'contact_titles'
+    | 'config_custom_roles' // RBAC itself
+    | 'config_automation' // API Keys etc
+    | 'config_criticality_levels'
+    | 'config_cia_ratings'
+    | 'config_service_statuses'
+    | 'config_backup_types'
+    | 'config_training_types'
+    | 'config_resilience_test_types';
 
 export interface PermissionMatrix {
     [module: string]: {

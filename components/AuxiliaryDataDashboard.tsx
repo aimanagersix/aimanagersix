@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig, CustomRole } from '../types';
+import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig, CustomRole, ModuleKey } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
 import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard, FaLink, FaDatabase, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
@@ -73,6 +73,7 @@ interface MenuItem {
     icon?: React.ReactNode;
     type: ViewType;
     targetTable?: string; 
+    permissionKey: ModuleKey; // Granular key
 }
 
 const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({ 
@@ -117,43 +118,42 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     // Custom Roles State
     const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
 
-    // Define Menu Structure
+    // Define Menu Structure mapped to Permission Keys
     const menuStructure: { group: string, items: MenuItem[] }[] = [
         {
             group: "Inventário & Ativos",
             items: [
-                { id: 'brands', label: 'Marcas (Fabricantes)', icon: <FaTags />, type: 'brands' },
-                { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes />, type: 'equipment_types' },
-                { id: 'status', label: 'Estados de Equipamento', icon: <FaList />, type: 'generic', targetTable: 'config_equipment_statuses' },
-                { id: 'software_categories', label: 'Categorias de Software', icon: <FaBoxOpen />, type: 'generic', targetTable: 'config_software_categories' }, 
+                { id: 'brands', label: 'Marcas (Fabricantes)', icon: <FaTags />, type: 'brands', permissionKey: 'brands' },
+                { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes />, type: 'equipment_types', permissionKey: 'equipment_types' },
+                { id: 'status', label: 'Estados de Equipamento', icon: <FaList />, type: 'generic', targetTable: 'config_equipment_statuses', permissionKey: 'config_equipment_statuses' },
+                { id: 'software_categories', label: 'Categorias de Software', icon: <FaBoxOpen />, type: 'generic', targetTable: 'config_software_categories', permissionKey: 'config_software_categories' }, 
             ]
         },
         {
             group: "Suporte & Tickets",
             items: [
-                { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt />, type: 'ticket_categories' },
-                { id: 'incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt />, type: 'incident_types' },
+                { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt />, type: 'ticket_categories', permissionKey: 'ticket_categories' },
+                { id: 'incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt />, type: 'incident_types', permissionKey: 'security_incident_types' },
             ]
         },
         {
             group: "Pessoas & Contactos",
             items: [
-                { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag />, type: 'generic', targetTable: 'contact_roles' },
-                { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag />, type: 'generic', targetTable: 'contact_titles' },
-                { id: 'rbac', label: 'Perfis de Acesso (RBAC)', icon: <FaIdCard />, type: 'rbac' },
+                { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag />, type: 'generic', targetTable: 'contact_roles', permissionKey: 'contact_roles' },
+                { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag />, type: 'generic', targetTable: 'contact_titles', permissionKey: 'contact_titles' },
+                { id: 'rbac', label: 'Perfis de Acesso (RBAC)', icon: <FaIdCard />, type: 'rbac', permissionKey: 'config_custom_roles' },
             ]
         },
         {
             group: "Sistema & Compliance",
             items: [
-                // Removed 'Interface & Tooltips' as it is now in User Profile
-                { id: 'automation', label: 'Automação & Integrações', icon: <FaRobot />, type: 'automation' },
-                { id: 'criticality', label: 'Níveis de Criticidade', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_criticality_levels' },
-                { id: 'cia_ratings', label: 'Classificação CIA', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_cia_ratings' },
-                { id: 'service_status', label: 'Estados de Serviço (BIA)', icon: <FaServer />, type: 'generic', targetTable: 'config_service_statuses' },
-                { id: 'backup_types', label: 'Tipos de Backup', icon: <FaServer />, type: 'generic', targetTable: 'config_backup_types' },
-                { id: 'training_types', label: 'Tipos de Formação', icon: <FaGraduationCap />, type: 'generic', targetTable: 'config_training_types' },
-                { id: 'resilience_types', label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_resilience_test_types' },
+                { id: 'automation', label: 'Automação & Integrações', icon: <FaRobot />, type: 'automation', permissionKey: 'config_automation' },
+                { id: 'criticality', label: 'Níveis de Criticidade', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_criticality_levels', permissionKey: 'config_criticality_levels' },
+                { id: 'cia_ratings', label: 'Classificação CIA', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_cia_ratings', permissionKey: 'config_cia_ratings' },
+                { id: 'service_status', label: 'Estados de Serviço (BIA)', icon: <FaServer />, type: 'generic', targetTable: 'config_service_statuses', permissionKey: 'config_service_statuses' },
+                { id: 'backup_types', label: 'Tipos de Backup', icon: <FaServer />, type: 'generic', targetTable: 'config_backup_types', permissionKey: 'config_backup_types' },
+                { id: 'training_types', label: 'Tipos de Formação', icon: <FaGraduationCap />, type: 'generic', targetTable: 'config_training_types', permissionKey: 'config_training_types' },
+                { id: 'resilience_types', label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt />, type: 'generic', targetTable: 'config_resilience_test_types', permissionKey: 'config_resilience_test_types' },
             ]
         }
     ];

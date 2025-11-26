@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, FaKey, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature } from 'react-icons/fa';
+import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, FaKey } from './common/Icons';
+import { FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaUsers, FaUserCircle, FaFingerprint, FaClipboardList, FaDatabase, FaCalendarAlt, FaBook } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -29,21 +29,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const { t, setLanguage, language } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     
-    // Sidebar toggle states for accordions
     const [isOrganizacaoOpen, setOrganizacaoOpen] = useState(activeTab.startsWith('organizacao') || activeTab === 'collaborators');
     const [isInventarioOpen, setInventarioOpen] = useState(activeTab.startsWith('equipment') || activeTab === 'licensing');
     const [isNis2Open, setIsNis2Open] = useState(activeTab.startsWith('nis2'));
-    const [isTicketsOpen, setIsTicketsOpen] = useState(activeTab.startsWith('tickets'));
     const [isOverviewOpen, setIsOverviewOpen] = useState(activeTab.startsWith('overview'));
     const [isToolsOpen, setIsToolsOpen] = useState(activeTab.startsWith('tools'));
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-    // Security Modals
     const [showMFA, setShowMFA] = useState(false);
     const [showAudit, setShowAudit] = useState(false);
     const [showDbSchema, setShowDbSchema] = useState(false);
 
-    // Logic
     const hasOverviewTabs = tabConfig['overview'] || tabConfig['overview.smart'];
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'];
@@ -55,13 +51,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
-    // Using anchor tags allows middle-click / right-click -> open new tab natively
     const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
         const handleClick = (e: React.MouseEvent) => {
-            // Allow normal link behavior for modifiers (ctrl+click, right click, etc.)
-            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) {
-                return;
-            }
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
             if (onClick) onClick();
             else if (tab && setActiveTab) setActiveTab(tab); 
@@ -95,10 +87,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             onMouseEnter={() => onHover(true)}
             onMouseLeave={() => {
                 onHover(false);
-                setIsUserMenuOpen(false); // Auto close menus on leave for cleaner UX
+                setIsUserMenuOpen(false); 
             }}
         >
-            {/* Brand Header */}
             <div className="flex items-center justify-center h-20 flex-shrink-0 bg-gray-900 border-b border-gray-800 overflow-hidden whitespace-nowrap cursor-pointer" onClick={() => setActiveTab('overview')}>
                 <span className="font-bold text-2xl text-white transition-all duration-300">
                     {isExpanded ? (
@@ -109,13 +100,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 </span>
             </div>
 
-            {/* Navigation */}
             <nav className="flex-grow py-4 px-2 space-y-1 overflow-y-auto custom-scrollbar overflow-x-hidden">
                 
-                {/* Visão Geral (With Submenu for Admin) */}
                 {hasOverviewTabs && (
                     <div className="space-y-1">
-                        {/* Check if it needs a dropdown (if admin has access to Smart Dashboard) */}
                         {tabConfig['overview.smart'] ? (
                             <>
                                 <button
@@ -135,18 +123,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                 </button>
                                 {isOverviewOpen && isExpanded && (
                                     <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
-                                        <TabButton tab="overview" label="Dashboard Geral" icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
-                                        <TabButton tab="overview.smart" label={tabConfig['overview.smart']} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                        <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                        <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
                                     </div>
                                 )}
                             </>
                         ) : (
-                            <TabButton tab="overview" label={tabConfig['overview']} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={setActiveTab}/>
+                            <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={setActiveTab}/>
                         )}
                     </div>
                 )}
 
-                {/* Organização */}
                 {hasOrganizacaoTabs && (
                     <div className="space-y-1">
                         <button
@@ -166,17 +153,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         </button>
                         {isOrganizacaoOpen && isExpanded && (
                             <div className="space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
-                                {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={tabConfig['organizacao.instituicoes']} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={tabConfig['organizacao.entidades']} icon={<OfficeBuildingIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={tabConfig['collaborators']} icon={<UserGroupIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={tabConfig['organizacao.teams']} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={tabConfig['organizacao.suppliers']} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<OfficeBuildingIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<UserGroupIcon />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={t('nav.teams')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Inventário */}
                 {hasInventarioTabs && (
                     <div className="space-y-1">
                         <button
@@ -203,17 +189,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     </div>
                 )}
 
-                {/* NIS2 */}
                 {hasNis2Tabs && (
                     <div className="space-y-1">
                         <button
                             onClick={() => setIsNis2Open(prev => !prev)}
                             className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isNis2Open ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
-                            title={!isExpanded ? (tabConfig.nis2?.title || 'Compliance') : undefined}
+                            title={!isExpanded ? (tabConfig.nis2?.title || t('nav.compliance')) : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
                                 <FaShieldAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{tabConfig.nis2?.title || 'Compliance'}</span>
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.compliance')}</span>
                             </div>
                             {isExpanded && (
                                 <span className={`transition-transform duration-200 ${isNis2Open ? 'rotate-90' : ''}`}>
@@ -223,58 +208,33 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         </button>
                         {isNis2Open && isExpanded && (
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
-                                {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={tabConfig.nis2.bia} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={tabConfig.nis2.security} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={tabConfig.nis2.backups} icon={<FaServer />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={tabConfig.nis2.resilience} icon={<FaShieldAlt className="text-purple-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={t('nav.backups')} icon={<FaServer />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={t('nav.resilience')} icon={<FaShieldAlt className="text-purple-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Tickets */}
                 {hasTicketTabs && (
-                    <div className="space-y-1">
-                        <button
-                            onClick={() => setActiveTab('tickets.list')}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${activeTab === 'tickets.list' ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
-                            title={!isExpanded ? (tabConfig.tickets?.title || 'Tickets') : undefined}
-                        >
-                            <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                                <FaTicketAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{tabConfig.tickets?.title || 'Tickets'}</span>
-                            </div>
-                        </button>
-                    </div>
+                    <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>
                 )}
                 
-                {/* Reports - NEW */}
                 {hasReportsTabs && (
-                    <div className="space-y-1">
-                        <button
-                            onClick={() => setActiveTab('reports')}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${activeTab === 'reports' ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
-                            title={!isExpanded ? 'Relatórios' : undefined}
-                        >
-                            <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                                <FaFileSignature className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Relatórios</span>
-                            </div>
-                        </button>
-                    </div>
+                    <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>
                 )}
 
-                {/* Tools Menu */}
                 {hasToolsTabs && (
                     <div className="space-y-1">
                         <button
                             onClick={() => setIsToolsOpen(!isToolsOpen)}
                             className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
-                            title={!isExpanded ? 'Tools' : undefined}
+                            title={!isExpanded ? t('nav.tools') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
                                 <FaToolbox className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Tools</span>
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.tools')}</span>
                             </div>
                             {isExpanded && (
                                 <span className={`transition-transform duration-200 ${isToolsOpen ? 'rotate-90' : ''}`}>
@@ -284,17 +244,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         </button>
                         {isToolsOpen && isExpanded && (
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
-                                {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={tabConfig['tools'].agenda} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['tools']?.map && <TabButton tab="tools.map" label={tabConfig['tools'].map} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {onOpenCalendar && <TabButton label="Calendário" icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={onOpenCalendar} />}
-                                {onOpenManual && <TabButton label="Manual de utilização" icon={<FaBook className="text-green-400" />} isDropdownItem onClick={onOpenManual} />}
+                                {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig['tools']?.map && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {onOpenCalendar && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={onOpenCalendar} />}
+                                {onOpenManual && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={onOpenManual} />}
                             </div>
                         )}
                     </div>
                 )}
             </nav>
 
-            {/* Footer / User Section */}
             <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0 relative">
                 {currentUser ? (
                     <div className="relative">
@@ -315,12 +274,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             {isExpanded && <FaChevronDown className="w-3 h-3 ml-auto text-gray-500" />}
                         </button>
 
-                        {/* User Menu Popup */}
                         {isUserMenuOpen && (
                             <div className="absolute bottom-full left-0 w-full mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50 min-w-[200px]">
                                 {onOpenProfile && (
                                     <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
-                                        <FaUserCircle className="text-brand-secondary" /> Meu Perfil
+                                        <FaUserCircle className="text-brand-secondary" /> {t('common.profile')}
                                     </button>
                                 )}
                                 <button onClick={() => setLayoutMode('top')} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
@@ -346,7 +304,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                     <>
                                         <TabButton 
                                             tab="settings" 
-                                            label="Configurações" 
+                                            label={t('common.settings')}
                                             icon={<FaCog className="mr-3 text-brand-secondary"/>} 
                                             isDropdownItem 
                                             activeTab={activeTab} 
@@ -355,15 +313,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                         />
                                         {onOpenAutomation && (
                                             <button onClick={() => { onOpenAutomation(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                                <FaRobot className="mr-3 text-purple-400" /> Automação
+                                                <FaRobot className="mr-3 text-purple-400" /> {t('common.automation')}
                                             </button>
                                         )}
                                         <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                            <FaClipboardList className="mr-3 text-yellow-400" /> Logs Auditoria
+                                            <FaClipboardList className="mr-3 text-yellow-400" /> {t('common.audit')}
                                         </button>
                                         {isSuperAdmin && (
                                             <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                                <FaDatabase className="mr-3 text-green-400" /> Config BD
+                                                <FaDatabase className="mr-3 text-green-400" /> {t('common.database')}
                                             </button>
                                         )}
                                     </>

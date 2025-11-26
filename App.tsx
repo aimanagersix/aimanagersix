@@ -4,7 +4,7 @@ import {
   Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, Instituicao, Ticket, TicketStatus,
   TicketActivity, CollaboratorHistory, Message, UserRole, CollaboratorStatus, SoftwareLicense, LicenseAssignment, Team, TeamMember,
   TicketCategoryItem, SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, CriticalityLevel, Supplier, BackupExecution, ResilienceTest, SecurityTrainingRecord,
-  ConfigItem, ContactRole, ContactTitle, TooltipConfig, defaultTooltipConfig, SoftwareCategory
+  ConfigItem, ContactRole, ContactTitle, TooltipConfig, defaultTooltipConfig, SoftwareCategory, ModuleKey
 } from './types';
 import { useLanguage, LanguageProvider } from './contexts/LanguageContext';
 import { useLayout, LayoutProvider } from './contexts/LayoutContext';
@@ -320,8 +320,20 @@ const InnerApp: React.FC = () => {
         try {
              const data = await dataService.fetchAllData();
              const user = data.collaborators.find((c: any) => c.id === userId);
+             
+             // Get Custom Role permissions for this user
+             let permissions = {}; 
              if (user) {
-                 setCurrentUser(user);
+                 const roles = await dataService.getCustomRoles();
+                 const role = roles.find(r => r.name === user.role);
+                 if (role) permissions = role.permissions;
+             }
+             
+             if (user) {
+                 // Merge dynamic permissions into user object for access control
+                 const userWithPermissions = { ...user, permissions };
+                 setCurrentUser(userWithPermissions);
+                 
                  if (user.preferences?.tooltipConfig) {
                      setTooltipConfig({ ...defaultTooltipConfig, ...user.preferences.tooltipConfig });
                  } else {
@@ -385,6 +397,24 @@ const InnerApp: React.FC = () => {
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
     const isBasic = currentUser?.role === UserRole.Basic || currentUser?.role === UserRole.Utilizador;
     
+    // --- RBAC PERMISSION CHECKER ---
+    // Updated to support granular keys
+    const checkPermission = (module: ModuleKey, action: 'view' | 'create' | 'edit' | 'delete' = 'view'): boolean => {
+        if (!currentUser) return false;
+        if (isSuperAdmin) return true; // SuperAdmin bypass
+        
+        // Check dynamic permissions
+        const perms = (currentUser as any).permissions;
+        if (!perms) {
+            // Fallback for legacy roles if migration didn't run perfectly (though migration script should fix this)
+            if (currentUser.role === 'Admin') return true;
+            // Map legacy keys for backward compat if needed, but better to rely on migration
+            return false;
+        }
+
+        return perms[module]?.[action] === true;
+    };
+
     const isCurrentUser = (collaboratorId: string) => currentUser && currentUser.id === collaboratorId;
 
     const handleMagicAction = (intent: string, data: any) => {
@@ -456,12 +486,6 @@ const InnerApp: React.FC = () => {
         setSession(null);
     };
 
-    const handleGenerateSecurityReport = (ticket: Ticket) => { 
-        setTicketToEdit(ticket);
-        // Logic to open RegulatoryNotificationModal inside AddTicketModal or separate
-        // Here we assume AddTicketModal handles it or separate state
-    };
-    
     const simpleSaveWrapper = async (saveFn: Function, data: any, editId?: string) => {
         try {
             let result;
@@ -512,21 +536,27 @@ const InnerApp: React.FC = () => {
         return <LoginPage onLogin={handleLogin} onForgotPassword={() => setShowForgotPassword(true)} />;
     }
     
+    // Build Tab Config based on Permissions
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
         'overview.smart': isAdmin ? 'C-Level Dashboard' : undefined,
-        'equipment.inventory': 'Inventário',
-        'organizacao.instituicoes': 'Instituições',
-        'organizacao.entidades': 'Entidades',
-        'organizacao.teams': 'Equipas',
-        'collaborators': 'Colaboradores',
-        'licensing': 'Licenciamento',
-        'organizacao.suppliers': 'Fornecedores (Risco)',
-        'tickets': { title: 'Tickets', list: 'Lista de Tickets' },
-        'nis2': { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' },
-        'reports': 'Relatórios', // NEW
+        'equipment.inventory': checkPermission('equipment', 'view') ? 'Inventário' : undefined,
+        'licensing': checkPermission('licensing', 'view') ? 'Licenciamento' : undefined,
+        
+        'organizacao.instituicoes': checkPermission('organization', 'view') ? 'Instituições' : undefined,
+        'organizacao.entidades': checkPermission('organization', 'view') ? 'Entidades' : undefined,
+        'organizacao.teams': checkPermission('organization', 'view') ? 'Equipas' : undefined,
+        'organizacao.suppliers': checkPermission('suppliers', 'view') ? 'Fornecedores' : undefined,
+        'collaborators': checkPermission('organization', 'view') ? 'Colaboradores' : undefined,
+        
+        'tickets': checkPermission('tickets', 'view') ? { title: 'Tickets', list: 'Lista de Tickets' } : undefined,
+        
+        'nis2': checkPermission('compliance', 'view') ? { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' } : undefined,
+        
+        'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,
+        
         'tools': { title: 'Tools', agenda: 'Agenda de contactos', map: 'Pesquisa no Mapa' },
-        'settings': isAdmin ? 'Configurações' : undefined
+        'settings': checkPermission('settings', 'view') || isAdmin ? 'Configurações' : undefined
     };
 
     const handleSaveEquipment = async (eqData: any, assignment?: any, licenseIds?: string[]) => {
@@ -577,7 +607,7 @@ const InnerApp: React.FC = () => {
                     tabConfig={tabConfig}
                     notificationCount={notificationCount}
                     onNotificationClick={() => setShowNotifications(true)}
-                    onOpenAutomation={() => setShowAutomationModal(true)}
+                    onOpenAutomation={checkPermission('config_automation') ? () => setShowAutomationModal(true) : undefined}
                     onOpenProfile={() => { if(currentUser) { setCollaboratorToEdit(currentUser); setShowProfileModal(true); }}}
                     onOpenCalendar={() => setShowCalendarModal(true)}
                     onOpenManual={() => setShowUserManual(true)}
@@ -593,7 +623,7 @@ const InnerApp: React.FC = () => {
                     onNotificationClick={() => setShowNotifications(true)}
                     isExpanded={sidebarExpanded}
                     onHover={setSidebarExpanded}
-                    onOpenAutomation={() => setShowAutomationModal(true)}
+                    onOpenAutomation={checkPermission('config_automation') ? () => setShowAutomationModal(true) : undefined}
                     onOpenProfile={() => { if(currentUser) { setCollaboratorToEdit(currentUser); setShowProfileModal(true); }}}
                     onOpenCalendar={() => setShowCalendarModal(true)}
                     onOpenManual={() => setShowUserManual(true)}
@@ -639,7 +669,7 @@ const InnerApp: React.FC = () => {
                         />
                     )}
                     
-                    {activeTab === 'reports' && (
+                    {activeTab === 'reports' && checkPermission('reports', 'view') && (
                         <ReportsDashboard
                             equipment={equipment}
                             assignments={assignments}
@@ -650,7 +680,7 @@ const InnerApp: React.FC = () => {
                         />
                     )}
 
-                    {activeTab === 'settings' && isAdmin && (
+                    {activeTab === 'settings' && (
                         <AuxiliaryDataDashboard
                             configTables={[
                                 { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: configEquipmentStatuses },
@@ -682,31 +712,36 @@ const InnerApp: React.FC = () => {
                             entidades={entidades}
                             instituicoes={instituicoes}
                             vulnerabilities={vulnerabilities}
-                            onCreateBrand={() => { setBrandToEdit(null); setShowAddBrand(true); }}
-                            onEditBrand={(b) => { setBrandToEdit(b); setShowAddBrand(true); }}
-                            onDeleteBrand={(id) => handleDelete('Excluir Marca', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBrand, id))}
-                            onCreateType={() => { setTypeToEdit(null); setShowAddType(true); }}
-                            onEditType={(t) => { setTypeToEdit(t); setShowAddType(true); }}
-                            onDeleteType={(id) => handleDelete('Excluir Tipo', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteEquipmentType, id))}
-                            onCreateCategory={() => { setCategoryToEdit(null); setShowAddCategory(true); }}
-                            onEditCategory={(c) => { setCategoryToEdit(c); setShowAddCategory(true); }}
-                            onDeleteCategory={(id) => handleDelete('Excluir Categoria', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteTicketCategory, id))}
+                            // Check specific permissions for handlers
+                            onCreateBrand={checkPermission('brands', 'create') ? () => { setBrandToEdit(null); setShowAddBrand(true); } : () => {}}
+                            onEditBrand={checkPermission('brands', 'edit') ? (b) => { setBrandToEdit(b); setShowAddBrand(true); } : () => {}}
+                            onDeleteBrand={checkPermission('brands', 'delete') ? (id) => handleDelete('Excluir Marca', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBrand, id)) : () => {}}
+                            
+                            onCreateType={checkPermission('equipment_types', 'create') ? () => { setTypeToEdit(null); setShowAddType(true); } : () => {}}
+                            onEditType={checkPermission('equipment_types', 'edit') ? (t) => { setTypeToEdit(t); setShowAddType(true); } : () => {}}
+                            onDeleteType={checkPermission('equipment_types', 'delete') ? (id) => handleDelete('Excluir Tipo', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteEquipmentType, id)) : () => {}}
+                            
+                            onCreateCategory={checkPermission('ticket_categories', 'create') ? () => { setCategoryToEdit(null); setShowAddCategory(true); } : () => {}}
+                            onEditCategory={checkPermission('ticket_categories', 'edit') ? (c) => { setCategoryToEdit(c); setShowAddCategory(true); } : () => {}}
+                            onDeleteCategory={checkPermission('ticket_categories', 'delete') ? (id) => handleDelete('Excluir Categoria', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteTicketCategory, id)) : () => {}}
                             onToggleCategoryStatus={(id) => {
                                 const cat = ticketCategories.find(c => c.id === id);
-                                if (cat) simpleSaveWrapper(dataService.updateTicketCategory, { is_active: !cat.is_active }, id);
+                                if (cat && checkPermission('ticket_categories', 'edit')) simpleSaveWrapper(dataService.updateTicketCategory, { is_active: !cat.is_active }, id);
                             }}
-                            onCreateIncidentType={() => { setIncidentTypeToEdit(null); setShowAddIncidentType(true); }}
-                            onEditIncidentType={(t) => { setIncidentTypeToEdit(t); setShowAddIncidentType(true); }}
-                            onDeleteIncidentType={(id) => handleDelete('Excluir Tipo Incidente', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteSecurityIncidentType, id))}
+                            
+                            onCreateIncidentType={checkPermission('security_incident_types', 'create') ? () => { setIncidentTypeToEdit(null); setShowAddIncidentType(true); } : () => {}}
+                            onEditIncidentType={checkPermission('security_incident_types', 'edit') ? (t) => { setIncidentTypeToEdit(t); setShowAddIncidentType(true); } : () => {}}
+                            onDeleteIncidentType={checkPermission('security_incident_types', 'delete') ? (id) => handleDelete('Excluir Tipo Incidente', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteSecurityIncidentType, id)) : () => {}}
                             onToggleIncidentTypeStatus={(id) => {
                                 const type = securityIncidentTypes.find(t => t.id === id);
-                                if (type) simpleSaveWrapper(dataService.updateSecurityIncidentType, { is_active: !type.is_active }, id);
+                                if (type && checkPermission('security_incident_types', 'edit')) simpleSaveWrapper(dataService.updateSecurityIncidentType, { is_active: !type.is_active }, id);
                             }}
+                            
                             onSaveTooltipConfig={setTooltipConfig}
                         />
                     )}
                     
-                    {activeTab === 'licensing' && (
+                    {activeTab === 'licensing' && checkPermission('licensing', 'view') && (
                         <LicenseDashboard
                             licenses={softwareLicenses}
                             licenseAssignments={licenseAssignments}
@@ -717,11 +752,11 @@ const InnerApp: React.FC = () => {
                             equipmentTypeMap={equipmentTypeMap}
                             initialFilter={initialFilter}
                             onClearInitialFilter={() => setInitialFilter(null)}
-                            onEdit={(l) => { setLicenseToEdit(l); setShowAddLicense(true); }}
-                            onDelete={(id) => handleDelete('Excluir Licença', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteLicense, id))}
+                            onEdit={checkPermission('licensing', 'edit') ? (l) => { setLicenseToEdit(l); setShowAddLicense(true); } : undefined}
+                            onDelete={checkPermission('licensing', 'delete') ? (id) => handleDelete('Excluir Licença', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteLicense, id)) : undefined}
                             onToggleStatus={(id) => {
                                 const lic = softwareLicenses.find(l => l.id === id);
-                                if (lic) {
+                                if (lic && checkPermission('licensing', 'edit')) {
                                     const newStatus = lic.status === 'Ativo' ? 'Inativo' : 'Ativo';
                                     simpleSaveWrapper(dataService.updateLicense, { status: newStatus }, id);
                                 }
@@ -729,12 +764,12 @@ const InnerApp: React.FC = () => {
                             onGenerateReport={() => setShowReport({ type: 'licensing', visible: true })}
                             businessServices={businessServices}
                             serviceDependencies={serviceDependencies}
-                            onCreate={() => { setLicenseToEdit(null); setShowAddLicense(true); }}
+                            onCreate={checkPermission('licensing', 'create') ? () => { setLicenseToEdit(null); setShowAddLicense(true); } : undefined}
                             softwareCategories={softwareCategories}
                         />
                     )}
 
-                    {activeTab === 'collaborators' && (
+                    {activeTab === 'collaborators' && checkPermission('organization', 'view') && (
                         <CollaboratorDashboard
                             collaborators={collaborators}
                             escolasDepartamentos={entidades}
@@ -747,16 +782,16 @@ const InnerApp: React.FC = () => {
                             collaboratorHistory={collaboratorHistory}
                             messages={messages}
                             currentUser={currentUser}
-                            onEdit={(c) => { setCollaboratorToEdit(c); setShowAddCollaborator(true); }}
-                            onDelete={(id) => handleDelete('Excluir Colaborador', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteCollaborator, id))}
+                            onEdit={checkPermission('organization', 'edit') ? (c) => { setCollaboratorToEdit(c); setShowAddCollaborator(true); } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? (id) => handleDelete('Excluir Colaborador', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteCollaborator, id)) : undefined}
                             onShowHistory={(c) => { setHistoryCollaborator(c); }}
                             onShowDetails={(c) => { if (isCurrentUser(c.id)) { setCollaboratorToEdit(c); setShowProfileModal(true); } else { setDetailCollaborator(c); } }}
                             onGenerateReport={() => setShowReport({ type: 'collaborator', visible: true })}
                             onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setIsChatOpen(true); }}
-                            onCreate={() => { setCollaboratorToEdit(null); setShowAddCollaborator(true); }}
+                            onCreate={checkPermission('organization', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaborator(true); } : undefined}
                             onToggleStatus={(id) => {
                                 const col = collaborators.find(c => c.id === id);
-                                if (col) {
+                                if (col && checkPermission('organization', 'edit')) {
                                     const newStatus = col.status === 'Ativo' ? 'Inativo' : 'Ativo';
                                     simpleSaveWrapper(dataService.updateCollaborator, { status: newStatus }, id);
                                 }
@@ -765,7 +800,7 @@ const InnerApp: React.FC = () => {
                         />
                     )}
 
-                     {activeTab === 'equipment.inventory' && (
+                     {activeTab === 'equipment.inventory' && checkPermission('equipment', 'view') && (
                         <EquipmentDashboard 
                             equipment={equipment}
                             brands={brands}
@@ -780,12 +815,12 @@ const InnerApp: React.FC = () => {
                             onClearInitialFilter={() => setInitialFilter(null)}
                             onAssign={(eq) => setShowAssignEquipment(eq)}
                             onShowHistory={(eq) => setDetailEquipment(eq)} 
-                            onEdit={(eq) => { setEquipmentToEdit(eq); setShowAddEquipment(true); }}
+                            onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setShowAddEquipment(true); } : undefined}
                             businessServices={businessServices}
                             serviceDependencies={serviceDependencies}
                             onGenerateReport={() => setShowReport({ type: 'equipment', visible: true })}
                             onManageKeys={(eq) => setShowManageLicenses(eq)}
-                            onCreate={() => { setEquipmentToEdit(null); setInitialEquipmentData(null); setShowAddEquipment(true); }}
+                            onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setInitialEquipmentData(null); setShowAddEquipment(true); } : undefined}
                             softwareLicenses={softwareLicenses}
                             licenseAssignments={licenseAssignments}
                             vulnerabilities={vulnerabilities}
@@ -794,16 +829,16 @@ const InnerApp: React.FC = () => {
                         />
                     )}
 
-                     {activeTab === 'organizacao.suppliers' && (
+                     {activeTab === 'organizacao.suppliers' && checkPermission('suppliers', 'view') && (
                         <SupplierDashboard
                             suppliers={suppliers}
-                            onEdit={(s) => { setSupplierToEdit(s); setShowAddSupplier(true); }}
-                            onDelete={(id) => handleDelete('Excluir Fornecedor', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteSupplier, id))}
-                            onCreate={() => { setSupplierToEdit(null); setShowAddSupplier(true); }}
+                            onEdit={checkPermission('suppliers', 'edit') ? (s) => { setSupplierToEdit(s); setShowAddSupplier(true); } : () => {}}
+                            onDelete={checkPermission('suppliers', 'delete') ? (id) => handleDelete('Excluir Fornecedor', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteSupplier, id)) : () => {}}
+                            onCreate={checkPermission('suppliers', 'create') ? () => { setSupplierToEdit(null); setShowAddSupplier(true); } : () => {}}
                             businessServices={businessServices}
                             onToggleStatus={(id) => {
                                 const sup = suppliers.find(s => s.id === id);
-                                if (sup) {
+                                if (sup && checkPermission('suppliers', 'edit')) {
                                     const newStatus = sup.is_active !== false ? false : true;
                                     simpleSaveWrapper(dataService.updateSupplier, { is_active: newStatus }, id);
                                 }
@@ -811,18 +846,18 @@ const InnerApp: React.FC = () => {
                         />
                     )}
 
-                    {activeTab === 'organizacao.instituicoes' && (
+                    {activeTab === 'organizacao.instituicoes' && checkPermission('organization', 'view') && (
                         <InstituicaoDashboard
                             instituicoes={instituicoes}
                             escolasDepartamentos={entidades}
                             collaborators={collaborators}
                             assignments={assignments}
-                            onCreate={() => { setInstituicaoToEdit(null); setShowAddInstituicao(true); }}
-                            onEdit={(i) => { setInstituicaoToEdit(i); setShowAddInstituicao(true); }}
-                            onDelete={(id) => handleDelete('Excluir Instituição', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteInstituicao, id))}
+                            onCreate={checkPermission('organization', 'create') ? () => { setInstituicaoToEdit(null); setShowAddInstituicao(true); } : undefined}
+                            onEdit={checkPermission('organization', 'edit') ? (i) => { setInstituicaoToEdit(i); setShowAddInstituicao(true); } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? (id) => handleDelete('Excluir Instituição', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteInstituicao, id)) : undefined}
                             onToggleStatus={(id) => {
                                 const inst = instituicoes.find(i => i.id === id);
-                                if (inst) simpleSaveWrapper(dataService.updateInstituicao, { is_active: inst.is_active !== false ? false : true }, id);
+                                if (inst && checkPermission('organization', 'edit')) simpleSaveWrapper(dataService.updateInstituicao, { is_active: inst.is_active !== false ? false : true }, id);
                             }}
                             equipment={equipment}
                             brands={brands}
@@ -830,7 +865,7 @@ const InnerApp: React.FC = () => {
                         />
                     )}
 
-                    {activeTab === 'organizacao.entidades' && (
+                    {activeTab === 'organizacao.entidades' && checkPermission('organization', 'view') && (
                         <EntidadeDashboard
                             escolasDepartamentos={entidades}
                             instituicoes={instituicoes}
@@ -838,12 +873,12 @@ const InnerApp: React.FC = () => {
                             assignments={assignments}
                             tickets={tickets}
                             collaboratorHistory={collaboratorHistory}
-                            onCreate={() => { setEntidadeToEdit(null); setShowAddEntidade(true); }}
-                            onEdit={(e) => { setEntidadeToEdit(e); setShowAddEntidade(true); }}
-                            onDelete={(id) => handleDelete('Excluir Entidade', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteEntidade, id))}
+                            onCreate={checkPermission('organization', 'create') ? () => { setEntidadeToEdit(null); setShowAddEntidade(true); } : undefined}
+                            onEdit={checkPermission('organization', 'edit') ? (e) => { setEntidadeToEdit(e); setShowAddEntidade(true); } : undefined}
+                            onDelete={checkPermission('organization', 'delete') ? (id) => handleDelete('Excluir Entidade', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteEntidade, id)) : undefined}
                             onToggleStatus={(id) => {
                                 const ent = entidades.find(e => e.id === id);
-                                if (ent) simpleSaveWrapper(dataService.updateEntidade, { status: ent.status === 'Ativo' ? 'Inativo' : 'Ativo' }, id);
+                                if (ent && checkPermission('organization', 'edit')) simpleSaveWrapper(dataService.updateEntidade, { status: ent.status === 'Ativo' ? 'Inativo' : 'Ativo' }, id);
                             }}
                             equipment={equipment}
                             brands={brands}
@@ -851,25 +886,25 @@ const InnerApp: React.FC = () => {
                         />
                     )}
 
-                    {activeTab === 'organizacao.teams' && (
+                    {activeTab === 'organizacao.teams' && checkPermission('organization', 'view') && (
                         <TeamDashboard
                             teams={teams}
                             teamMembers={teamMembers}
                             collaborators={collaborators}
                             tickets={tickets}
                             equipmentTypes={equipmentTypes}
-                            onCreate={() => { setTeamToEdit(null); setShowAddTeam(true); }}
-                            onEdit={(t) => { setTeamToEdit(t); setShowAddTeam(true); }}
-                            onDelete={(id) => handleDelete('Excluir Equipa', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteTeam, id))}
+                            onCreate={checkPermission('organization', 'create') ? () => { setTeamToEdit(null); setShowAddTeam(true); } : undefined}
+                            onEdit={checkPermission('organization', 'edit') ? (t) => { setTeamToEdit(t); setShowAddTeam(true); } : () => {}}
+                            onDelete={checkPermission('organization', 'delete') ? (id) => handleDelete('Excluir Equipa', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteTeam, id)) : () => {}}
                             onManageMembers={(t) => setShowManageTeamMembers(t)}
                             onToggleStatus={(id) => {
                                 const team = teams.find(t => t.id === id);
-                                if (team) simpleSaveWrapper(dataService.updateTeam, { is_active: team.is_active !== false ? false : true }, id);
+                                if (team && checkPermission('organization', 'edit')) simpleSaveWrapper(dataService.updateTeam, { is_active: team.is_active !== false ? false : true }, id);
                             }}
                         />
                     )}
 
-                    {activeTab === 'tickets.list' && (
+                    {activeTab === 'tickets.list' && checkPermission('tickets', 'view') && (
                         <TicketDashboard
                             tickets={tickets}
                             escolasDepartamentos={entidades}
@@ -880,22 +915,22 @@ const InnerApp: React.FC = () => {
                             initialFilter={initialFilter}
                             onClearInitialFilter={() => setInitialFilter(null)}
                             onUpdateTicket={(t) => simpleSaveWrapper(dataService.updateTicket, t, t.id)}
-                            onEdit={(t) => { setTicketToEdit(t); setShowAddTicket(true); }}
+                            onEdit={checkPermission('tickets', 'edit') ? (t) => { setTicketToEdit(t); setShowAddTicket(true); } : undefined}
                             onOpenCloseTicketModal={(t) => setShowCloseTicket(t)}
                             onGenerateReport={() => setShowReport({ type: 'ticket', visible: true })}
                             onOpenActivities={(t) => setTicketActivitiesModal(t)}
                             onGenerateSecurityReport={(t) => { /* Logic for Regulatory Modal */ setTicketToEdit(t); /* Open modal */ }}
                             categories={ticketCategories}
-                            onCreate={() => { setTicketToEdit(null); setShowAddTicket(true); }}
+                            onCreate={checkPermission('tickets', 'create') ? () => { setTicketToEdit(null); setShowAddTicket(true); } : undefined}
                         />
                     )}
 
-                    {activeTab === 'nis2.security' && (
+                    {activeTab === 'nis2.security' && checkPermission('compliance', 'view') && (
                         <VulnerabilityDashboard
                             vulnerabilities={vulnerabilities}
-                            onCreate={() => { setVulnerabilityToEdit(null); setShowAddVulnerability(true); }}
-                            onEdit={(v) => { setVulnerabilityToEdit(v); setShowAddVulnerability(true); }}
-                            onDelete={(id) => handleDelete('Excluir Vulnerabilidade', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteVulnerability, id))}
+                            onCreate={checkPermission('compliance', 'create') ? () => { setVulnerabilityToEdit(null); setShowAddVulnerability(true); } : () => {}}
+                            onEdit={checkPermission('compliance', 'edit') ? (v) => { setVulnerabilityToEdit(v); setShowAddVulnerability(true); } : () => {}}
+                            onDelete={checkPermission('compliance', 'delete') ? (id) => handleDelete('Excluir Vulnerabilidade', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteVulnerability, id)) : () => {}}
                             initialFilter={initialFilter}
                             onClearInitialFilter={() => setInitialFilter(null)}
                             onCreateTicket={(v) => {
@@ -911,36 +946,36 @@ const InnerApp: React.FC = () => {
                         />
                     )}
 
-                    {activeTab === 'nis2.bia' && (
+                    {activeTab === 'nis2.bia' && checkPermission('compliance', 'view') && (
                         <ServiceDashboard
                             services={businessServices}
                             dependencies={serviceDependencies}
                             collaborators={collaborators}
-                            onCreate={() => { setServiceToEdit(null); setShowAddService(true); }}
-                            onEdit={(s) => { setServiceToEdit(s); setShowAddService(true); }}
-                            onDelete={(id) => handleDelete('Excluir Serviço BIA', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBusinessService, id))}
+                            onCreate={checkPermission('compliance', 'create') ? () => { setServiceToEdit(null); setShowAddService(true); } : () => {}}
+                            onEdit={checkPermission('compliance', 'edit') ? (s) => { setServiceToEdit(s); setShowAddService(true); } : () => {}}
+                            onDelete={checkPermission('compliance', 'delete') ? (id) => handleDelete('Excluir Serviço BIA', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBusinessService, id)) : () => {}}
                             onManageDependencies={(s) => setShowServiceDependencies(s)}
                             onGenerateReport={() => setShowReport({ type: 'bia', visible: true })}
                         />
                     )}
 
-                    {activeTab === 'nis2.backups' && (
+                    {activeTab === 'nis2.backups' && checkPermission('compliance', 'view') && (
                         <BackupDashboard
                             backups={backupExecutions}
                             collaborators={collaborators}
                             equipment={equipment}
-                            onCreate={() => { setBackupToEdit(null); setShowAddBackup(true); }}
-                            onEdit={(b) => { setBackupToEdit(b); setShowAddBackup(true); }}
-                            onDelete={(id) => handleDelete('Excluir Registo Backup', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBackupExecution, id))}
+                            onCreate={checkPermission('compliance', 'create') ? () => { setBackupToEdit(null); setShowAddBackup(true); } : () => {}}
+                            onEdit={checkPermission('compliance', 'edit') ? (b) => { setBackupToEdit(b); setShowAddBackup(true); } : () => {}}
+                            onDelete={checkPermission('compliance', 'delete') ? (id) => handleDelete('Excluir Registo Backup', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteBackupExecution, id)) : () => {}}
                         />
                     )}
 
-                    {activeTab === 'nis2.resilience' && (
+                    {activeTab === 'nis2.resilience' && checkPermission('compliance', 'view') && (
                         <ResilienceDashboard
                             resilienceTests={resilienceTests}
-                            onCreate={() => { setResilienceTestToEdit(null); setShowAddResilienceTest(true); }}
-                            onEdit={(t) => { setResilienceTestToEdit(t); setShowAddResilienceTest(true); }}
-                            onDelete={(id) => handleDelete('Excluir Teste', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteResilienceTest, id))}
+                            onCreate={checkPermission('compliance', 'create') ? () => { setResilienceTestToEdit(null); setShowAddResilienceTest(true); } : () => {}}
+                            onEdit={checkPermission('compliance', 'edit') ? (t) => { setResilienceTestToEdit(t); setShowAddResilienceTest(true); } : () => {}}
+                            onDelete={checkPermission('compliance', 'delete') ? (id) => handleDelete('Excluir Teste', 'Tem a certeza?', () => simpleSaveWrapper(dataService.deleteResilienceTest, id)) : () => {}}
                             onCreateTicket={(t) => {
                                 setInitialTicketData(t);
                                 setShowAddTicket(true);
