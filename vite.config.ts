@@ -10,8 +10,8 @@ export default defineConfig(({ mode }) => {
   // --- DADOS DE ACESSO (COLE AS SUAS CHAVES DENTRO DAS ASPAS ABAIXO) ---
   
   // 1. Configuração do Supabase (Base de Dados)
-  const HARDCODED_SUPABASE_URL = "";      // Ex: "https://vossa-url.supabase.co"
-  const HARDCODED_SUPABASE_ANON_KEY = ""; // Ex: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  const HARDCODED_SUPABASE_URL = "https://afwtfuajkmrzdencuxor.supabase.co";      // Ex: "https://vossa-url.supabase.co"
+  const HARDCODED_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmd3RmdWFqa21yemRlbmN1eG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNjc1NDcsImV4cCI6MjA3ODY0MzU0N30._OUkGstLN0eN6g-CPbw5anMZ_uefNcBLO-0NqiHYV_k"; // Ex: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   
   // 2. Configuração do Google Gemini (Inteligência Artificial)
   // Obtenha a chave gratuita em: https://aistudio.google.com/app/apikey
