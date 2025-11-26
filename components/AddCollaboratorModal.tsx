@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
-import { FaGlobe } from 'react-icons/fa';
+import { FaGlobe, FaMagic, FaSync } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 const isValidEmail = (email: string) => {
@@ -113,7 +113,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             }
 
             // Global Admin Check (No entity, No institution)
-            if (!collaboratorToEdit.entidadeId && !collaboratorToEdit.instituicaoId && (collaboratorToEdit.role === UserRole.SuperAdmin || (isSuperAdmin && collaboratorToEdit.role === UserRole.Admin))) {
+            if (!collaboratorToEdit.entidadeId && !collaboratorToEdit.instituicaoId && (collaboratorToEdit.role === UserRole.SuperAdmin)) {
                 setIsGlobalAdmin(true);
             }
         } else {
@@ -168,9 +168,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
         }));
         
-        // Only SuperAdmin can create users without entity/institution
-        if (name === 'role' && value !== UserRole.SuperAdmin && !isSuperAdmin) {
+        // Se mudar o perfil e não for SuperAdmin, desativa o modo Global
+        if (name === 'role' && value !== UserRole.SuperAdmin) {
              setIsGlobalAdmin(false);
+             // Re-selecionar uma instituição padrão se estiver vazio
+             if (!selectedInstituicao && instituicoes.length > 0) {
+                 setSelectedInstituicao(instituicoes[0].id);
+             }
         }
         
         if (errors[name]) {
@@ -181,6 +185,15 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             });
         }
     };
+    
+    const handleGeneratePassword = () => {
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let newPass = "";
+        for (let i = 0; i < 12; i++) {
+            newPass += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        setPassword(newPass);
+    };
 
     const handleInstituicaoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const instId = e.target.value;
@@ -190,6 +203,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     
     const handleGlobalAdminToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
+        
+        // Double check safety: Only SuperAdmin role allows Global
+        if (formData.role !== UserRole.SuperAdmin) {
+            alert("Apenas o perfil 'SuperAdmin' pode ter Acesso Global.");
+            return;
+        }
+
         setIsGlobalAdmin(checked);
         if (checked) {
             setFormData(prev => ({ ...prev, entidadeId: '', instituicaoId: '' }));
@@ -211,22 +231,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         
-        // Logic for IDs
-        // 1. If Global Admin: both null
-        // 2. If Entity Selected: entidadeId = value, instituicaoId = null (inferred) OR both set?
-        //    Let's set both if Entity selected, just to be safe and queryable.
-        //    Or better: If Entity is selected, set EntidadeId. If NOT, set InstituicaoId.
-        
         let finalEntidadeId = formData.entidadeId || null;
         let finalInstituicaoId = selectedInstituicao || null;
 
         if (isGlobalAdmin) {
             finalEntidadeId = null;
             finalInstituicaoId = null;
-        } else if (finalEntidadeId) {
-             // If entity is set, we usually infer institution, but storing both helps filtering.
-             // But DB foreign key might be strict. Let's send what the DB expects.
-             // If entity is set, backend logic might not care about institutionId col if constraint allows.
         }
 
         const dataToSave: any = { 
@@ -258,7 +268,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     };
 
     const modalTitle = collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador";
-    const showGlobalToggle = isSuperAdmin && (formData.role === UserRole.Admin || formData.role === UserRole.SuperAdmin);
+    const showGlobalToggle = isSuperAdmin && formData.role === UserRole.SuperAdmin;
 
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-2xl">
@@ -313,6 +323,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
                             {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
+                        {formData.role === UserRole.SuperAdmin && !showGlobalToggle && (
+                             <p className="text-[10px] text-yellow-400 mt-1">Apenas o SuperAdmin atual pode conceder Acesso Global.</p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
@@ -371,7 +384,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                                     Acesso Global (Super Admin)
                                 </span>
                                 <p className="text-xs text-gray-400 mt-0.5">
-                                    Permite ver e gerir todas as instituições sem restrição.
+                                    Permite ver e gerir todas as instituições sem restrição. Apenas para perfil SuperAdmin.
                                 </p>
                             </div>
                         </label>
@@ -416,8 +429,24 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 {!collaboratorToEdit && formData.canLogin && (
                     <div className="border-t border-gray-600 pt-4">
                         <label className="block text-xs font-medium text-gray-400 mb-1">Password Inicial</label>
-                        <input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Opcional (será gerada se vazio)" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                        <p className="text-xs text-gray-500 mt-1">Se deixar em branco, o utilizador terá de fazer "Esqueci-me da password".</p>
+                        <div className="flex gap-2">
+                            <input 
+                                type="text" 
+                                value={password} 
+                                onChange={(e) => setPassword(e.target.value)} 
+                                placeholder="Opcional (será gerada se vazio)" 
+                                className="flex-grow bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" 
+                            />
+                             <button 
+                                type="button" 
+                                onClick={handleGeneratePassword} 
+                                className="p-2 bg-purple-600 text-white rounded hover:bg-purple-500 transition-colors"
+                                title="Gerar password forte"
+                            >
+                                <FaMagic />
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Se deixar em branco, o utilizador terá de fazer "Esqueci-me da password". Use o botão mágico para gerar uma.</p>
                     </div>
                 )}
 
