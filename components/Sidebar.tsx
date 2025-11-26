@@ -108,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             <>
                                 <button
                                     onClick={() => setIsOverviewOpen(!isOverviewOpen)}
-                                    className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOverviewOpen ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                                    className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                                     title={!isExpanded ? t('nav.overview') : undefined}
                                 >
                                     <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
@@ -138,7 +138,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setOrganizacaoOpen(!isOrganizacaoOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOrganizacaoOpen ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOrganizacaoOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                             title={!isExpanded ? t('nav.organization') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
@@ -167,7 +167,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setInventarioOpen(!isInventarioOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isInventarioOpen ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isInventarioOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                             title={!isExpanded ? t('nav.inventory') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
@@ -193,7 +193,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setIsNis2Open(prev => !prev)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isNis2Open ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isNis2Open ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                             title={!isExpanded ? (tabConfig.nis2?.title || t('nav.compliance')) : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
@@ -229,7 +229,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setIsToolsOpen(!isToolsOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                             title={!isExpanded ? t('nav.tools') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
