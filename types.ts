@@ -295,6 +295,7 @@ export type ModuleKey =
     | 'suppliers' // Vendors
     | 'compliance' // NIS2/BIA (Legacy/All Access)
     | 'compliance_training'
+    | 'compliance_policies' // New: Policies
     | 'reports' 
     | 'settings' // General Settings Access (Fallback)
     | 'dashboard_smart'
@@ -549,7 +550,7 @@ export interface UserNotificationSnooze {
     snoozeUntil: string;
 }
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE';
 
 export interface AuditLogEntry {
     id: string;
@@ -661,6 +662,26 @@ export interface SecurityTrainingRecord {
     notes?: string;
     valid_until?: string; // For recurring training
     duration_hours?: number; // New: Duration in hours
+}
+
+// --- Governance & Policies ---
+export interface Policy {
+    id: string;
+    title: string;
+    content: string; // Text content or URL
+    version: string; // e.g. "1.0"
+    is_active: boolean;
+    is_mandatory: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface PolicyAcceptance {
+    id: string;
+    policy_id: string;
+    user_id: string;
+    accepted_at: string;
+    version: string;
 }
 
 // --- DORA Resilience Testing ---

@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket 
@@ -39,6 +41,7 @@ import CalendarModal from './components/CalendarModal';
 import MagicCommandBar from './components/MagicCommandBar';
 import { ChatWidget } from './components/ChatWidget';
 import NotificationsModal from './components/NotificationsModal';
+import PolicyAcceptanceModal from './components/PolicyAcceptanceModal'; // NEW
 
 
 export const App: React.FC = () => {
@@ -129,8 +132,9 @@ export const App: React.FC = () => {
     // Granular Compliance Permissions
     const canViewGlobalCompliance = checkPermission('compliance', 'view');
     const canViewTraining = checkPermission('compliance_training', 'view');
+    const canViewPolicies = checkPermission('compliance_policies', 'view');
     const canViewSmartDashboard = checkPermission('dashboard_smart', 'view');
-    const showComplianceMenu = canViewGlobalCompliance || canViewTraining;
+    const showComplianceMenu = canViewGlobalCompliance || canViewTraining || canViewPolicies;
 
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
@@ -152,7 +156,8 @@ export const App: React.FC = () => {
             security: canViewGlobalCompliance ? 'Segurança (CVE)' : undefined, 
             backups: canViewGlobalCompliance ? 'Backups & Logs' : undefined, 
             resilience: canViewGlobalCompliance ? 'Testes Resiliência' : undefined, 
-            training: (canViewGlobalCompliance || canViewTraining) ? 'Formações' : undefined 
+            training: (canViewGlobalCompliance || canViewTraining) ? 'Formações' : undefined,
+            policies: (canViewGlobalCompliance || canViewPolicies) ? 'Políticas' : undefined
         } : undefined,
         
         'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,
@@ -160,6 +165,24 @@ export const App: React.FC = () => {
         'tools': { title: 'Tools', agenda: 'Agenda de contactos', map: 'Pesquisa no Mapa' },
         'settings': checkPermission('settings', 'view') || isAdmin ? 'Configurações' : undefined
     };
+
+    // --- Policy Acceptance Logic ---
+    const pendingPolicies = useMemo(() => {
+        if (!currentUser || appData.policies.length === 0) return [];
+        
+        // Find mandatory active policies that user hasn't accepted the CURRENT version of
+        return appData.policies.filter(p => {
+            if (!p.is_active || !p.is_mandatory) return false;
+            
+            const acceptance = appData.policyAcceptances.find(a => 
+                a.policy_id === p.id && 
+                a.user_id === currentUser.id && 
+                a.version === p.version
+            );
+            
+            return !acceptance;
+        });
+    }, [currentUser, appData.policies, appData.policyAcceptances]);
 
     // --- Authentication Handlers ---
     const handleLogin = async (email: string, password: string) => {
@@ -216,6 +239,19 @@ export const App: React.FC = () => {
             {showResetPasswordModal && <ResetPasswordModal onClose={() => { setShowResetPasswordModal(false); setResetSession(null); }} session={resetSession} />}
         </>
     );
+
+    // BLOCKING POLICY MODAL
+    if (pendingPolicies.length > 0) {
+        return (
+            <PolicyAcceptanceModal 
+                policies={pendingPolicies}
+                onAccept={async (id, version) => {
+                    await dataService.acceptPolicy(id, currentUser.id, version);
+                    refreshData(); // Refresh to update pending list
+                }}
+            />
+        );
+    }
 
     return (
         <div className={`min-h-screen bg-background-dark flex ${layoutMode === 'top' ? 'flex-col' : 'flex-row'}`}>

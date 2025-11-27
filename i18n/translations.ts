@@ -1,4 +1,5 @@
 
+
 export const translations = {
   pt: {
     "app.title": "Gestão Inteligente",
@@ -26,6 +27,7 @@ export const translations = {
     "nav.backups": "Backups",
     "nav.resilience": "Resiliência",
     "nav.training": "Formações",
+    "nav.policies": "Políticas",
     
     "nav.reports": "Relatórios",
     
@@ -82,6 +84,7 @@ export const translations = {
     "common.export": "Exportar",
     "common.email": "Email",
     "common.phone": "Telefone",
+    "common.accept": "Li e Aceito",
     
     "status.active": "Ativo",
     "status.inactive": "Inativo",
@@ -115,6 +118,7 @@ export const translations = {
     "nav.backups": "Backups",
     "nav.resilience": "Resilience",
     "nav.training": "Training",
+    "nav.policies": "Policies",
     
     "nav.reports": "Reports",
     
@@ -171,6 +175,7 @@ export const translations = {
     "common.export": "Export",
     "common.email": "Email",
     "common.phone": "Phone",
+    "common.accept": "I Read and Accept",
 
     "status.active": "Active",
     "status.inactive": "Inactive",

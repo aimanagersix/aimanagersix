@@ -134,6 +134,26 @@ CREATE TABLE IF NOT EXISTS security_training_records (
     created_at timestamptz DEFAULT now()
 );
 
+-- Tabelas para Gestão de Políticas (Governance)
+CREATE TABLE IF NOT EXISTS policies (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    title text NOT NULL,
+    content text,
+    version text NOT NULL DEFAULT '1.0',
+    is_active boolean DEFAULT true,
+    is_mandatory boolean DEFAULT true,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS policy_acceptances (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    policy_id uuid REFERENCES policies(id) ON DELETE CASCADE,
+    user_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
+    accepted_at timestamptz DEFAULT now(),
+    version text NOT NULL
+);
+
 -- ==========================================
 -- 4. INSERIR VALORES PADRÃO
 -- ==========================================
@@ -187,7 +207,7 @@ BEGIN
     END LOOP;
     
     -- Loop manual para contact_* e resource_contacts
-    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records']
+    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records', 'policies', 'policy_acceptances']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN
@@ -348,6 +368,8 @@ DELETE FROM resource_contacts;
 DELETE FROM team_members;
 DELETE FROM software_licenses;
 DELETE FROM integration_logs;
+DELETE FROM policy_acceptances;
+DELETE FROM policies;
 
 -- 3. Apagar Ativos
 DELETE FROM equipment;
@@ -473,7 +495,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.35</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.36</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

@@ -1,4 +1,6 @@
 
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -6,7 +8,8 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
-    ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole, EquipmentStatus
+    ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole, EquipmentStatus,
+    Policy, PolicyAcceptance
 } from '../types';
 
 // --- HELPER FUNCTIONS ---
@@ -64,7 +67,8 @@ export const fetchAllData = async () => {
         contactRoles, contactTitles, globalSettings,
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
-        configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles
+        configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles,
+        policies, policyAcceptances
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -103,7 +107,9 @@ export const fetchAllData = async () => {
         supabase.from('config_training_types').select('*'),
         supabase.from('config_resilience_test_types').select('*'),
         supabase.from('config_software_categories').select('*'),
-        supabase.from('config_custom_roles').select('*')
+        supabase.from('config_custom_roles').select('*'),
+        supabase.from('policies').select('*'),
+        supabase.from('policy_acceptances').select('*')
     ]);
 
     const attachContacts = (items: any[], type: string) => {
@@ -150,7 +156,9 @@ export const fetchAllData = async () => {
         configTrainingTypes: configTrainingTypes.data || [],
         configResilienceTestTypes: configResilienceTestTypes.data || [],
         configSoftwareCategories: configSoftwareCategories.data || [],
-        configCustomRoles: configCustomRoles.data || []
+        configCustomRoles: configCustomRoles.data || [],
+        policies: policies.data || [],
+        policyAcceptances: policyAcceptances.data || []
     };
 };
 
@@ -449,6 +457,25 @@ export const deleteResilienceTest = (id: string) => remove('resilience_tests', i
 
 // Training
 export const addSecurityTraining = (data: any) => create('security_training_records', data);
+
+// Policies (New)
+export const addPolicy = (data: any) => create('policies', data);
+export const updatePolicy = (id: string, data: any) => update('policies', id, data);
+export const deletePolicy = (id: string) => remove('policies', id);
+
+export const acceptPolicy = async (policyId: string, userId: string, version: string) => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('policy_acceptances').insert({
+        policy_id: policyId,
+        user_id: userId,
+        version: version,
+        accepted_at: new Date().toISOString()
+    }).select().single();
+    
+    if (error) throw error;
+    await logAction('POLICY_ACCEPTANCE', 'Policy', `User ${userId} accepted policy ${policyId} v${version}`);
+    return data;
+};
 
 // Messaging
 export const addMessage = (data: any) => create('messages', data);

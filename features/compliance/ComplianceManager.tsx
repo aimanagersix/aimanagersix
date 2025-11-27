@@ -1,8 +1,10 @@
 
+
+
 import React, { useState } from 'react';
 import { 
     Collaborator, BusinessService, ServiceDependency, Vulnerability, 
-    BackupExecution, ResilienceTest, ModuleKey, PermissionAction, SecurityTrainingRecord, TrainingType
+    BackupExecution, ResilienceTest, ModuleKey, PermissionAction, SecurityTrainingRecord, TrainingType, Policy
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -12,6 +14,7 @@ import VulnerabilityDashboard from '../../components/VulnerabilityDashboard';
 import BackupDashboard from '../../components/BackupDashboard';
 import ResilienceDashboard from '../../components/ResilienceDashboard';
 import TrainingDashboard from '../../components/TrainingDashboard';
+import PolicyDashboard from '../../components/PolicyDashboard'; // New
 
 // Modals
 import AddServiceModal from '../../components/AddServiceModal';
@@ -21,6 +24,7 @@ import AddBackupModal from '../../components/AddBackupModal';
 import AddResilienceTestModal from '../../components/AddResilienceTestModal';
 import AddTicketModal from '../../components/AddTicketModal';
 import AddTrainingSessionModal from '../../components/AddTrainingSessionModal';
+import AddPolicyModal from '../../components/AddPolicyModal'; // New
 
 interface ComplianceManagerProps {
     activeTab: string;
@@ -54,6 +58,10 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
     
     // Training
     const [showAddTrainingSessionModal, setShowAddTrainingSessionModal] = useState(false);
+    
+    // Policies
+    const [showAddPolicyModal, setShowAddPolicyModal] = useState(false);
+    const [policyToEdit, setPolicyToEdit] = useState<Policy | null>(null);
     
     // Ticket Modal (for auto-ticket creation from findings)
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
@@ -160,6 +168,17 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                 />
             )}
 
+            {activeTab === 'nis2.policies' && (
+                <PolicyDashboard 
+                    policies={appData.policies}
+                    acceptances={appData.policyAcceptances}
+                    collaborators={appData.collaborators}
+                    onEdit={checkPermission('compliance_policies', 'edit') ? (p) => { setPolicyToEdit(p); setShowAddPolicyModal(true); } : undefined}
+                    onDelete={checkPermission('compliance_policies', 'delete') ? async (id) => { if (window.confirm("Tem a certeza? O histórico de aceitação será perdido.")) { await dataService.deletePolicy(id); refreshData(); } } : undefined}
+                    onCreate={checkPermission('compliance_policies', 'create') ? () => { setPolicyToEdit(null); setShowAddPolicyModal(true); } : undefined}
+                />
+            )}
+
             {/* --- MODALS --- */}
             {showAddServiceModal && (
                 <AddServiceModal 
@@ -252,6 +271,17 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     onSave={handleBatchAddTraining}
                     collaborators={appData.collaborators}
                     trainingTypes={appData.configTrainingTypes}
+                />
+            )}
+            {showAddPolicyModal && (
+                <AddPolicyModal 
+                    onClose={() => setShowAddPolicyModal(false)}
+                    onSave={async (p) => {
+                        if (policyToEdit) await dataService.updatePolicy(policyToEdit.id, p);
+                        else await dataService.addPolicy(p);
+                        refreshData();
+                    }}
+                    policyToEdit={policyToEdit}
                 />
             )}
         </>
