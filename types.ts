@@ -293,6 +293,7 @@ export type ModuleKey =
     | 'compliance_training'
     | 'reports' 
     | 'settings' // General Settings Access (Fallback)
+    | 'dashboard_smart'
     // Configuration Tables
     | 'brands'
     | 'equipment_types'

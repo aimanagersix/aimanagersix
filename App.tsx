@@ -129,11 +129,12 @@ export const App: React.FC = () => {
     // Granular Compliance Permissions
     const canViewGlobalCompliance = checkPermission('compliance', 'view');
     const canViewTraining = checkPermission('compliance_training', 'view');
+    const canViewSmartDashboard = checkPermission('dashboard_smart', 'view');
     const showComplianceMenu = canViewGlobalCompliance || canViewTraining;
 
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
-        'overview.smart': isAdmin ? 'C-Level Dashboard' : undefined,
+        'overview.smart': canViewSmartDashboard ? 'C-Level Dashboard' : undefined,
         'equipment.inventory': checkPermission('equipment', 'view') ? 'Inventário' : undefined,
         'licensing': checkPermission('licensing', 'view') ? 'Licenciamento' : undefined,
         
@@ -274,7 +275,7 @@ export const App: React.FC = () => {
                         onGenerateComplianceReport={() => { setReportType('compliance'); setShowReportModal(true); }}
                     />}
 
-                    {activeTab === 'overview.smart' && (
+                    {activeTab === 'overview.smart' && canViewSmartDashboard && (
                         <SmartDashboard 
                             tickets={appData.tickets} 
                             vulnerabilities={appData.vulnerabilities} 

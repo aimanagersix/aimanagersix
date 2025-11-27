@@ -30,6 +30,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'compliance_training', label: 'Compliance: Formações' },
             { key: 'reports', label: 'Relatórios' },
             { key: 'settings', label: 'Configurações (Geral)' },
+            { key: 'dashboard_smart', label: 'Dashboard (C-Level)' },
         ]
     },
     {
