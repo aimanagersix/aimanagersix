@@ -1,4 +1,5 @@
 
+
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
@@ -288,7 +289,8 @@ export type ModuleKey =
     | 'tickets' // Support
     | 'organization' // Entities/HR/Teams
     | 'suppliers' // Vendors
-    | 'compliance' // NIS2/BIA
+    | 'compliance' // NIS2/BIA (Legacy/All Access)
+    | 'compliance_training'
     | 'reports' 
     | 'settings' // General Settings Access (Fallback)
     // Configuration Tables

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
 import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight } from 'react-icons/fa';
@@ -25,7 +26,8 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'tickets', label: 'Suporte & Tickets' },
             { key: 'organization', label: 'Organização (RH/Entidades)' },
             { key: 'suppliers', label: 'Fornecedores' },
-            { key: 'compliance', label: 'Compliance (NIS2/BIA)' },
+            { key: 'compliance', label: 'Compliance (GERAL - Todos os submódulos)' },
+            { key: 'compliance_training', label: 'Compliance: Formações' },
             { key: 'reports', label: 'Relatórios' },
             { key: 'settings', label: 'Configurações (Geral)' },
         ]

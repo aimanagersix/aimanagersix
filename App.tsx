@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket 
@@ -125,6 +126,11 @@ export const App: React.FC = () => {
     const isBasic = !checkPermission('equipment', 'view') && !checkPermission('organization', 'view');
     const isAdmin = checkPermission('settings', 'view');
 
+    // Granular Compliance Permissions
+    const canViewGlobalCompliance = checkPermission('compliance', 'view');
+    const canViewTraining = checkPermission('compliance_training', 'view');
+    const showComplianceMenu = canViewGlobalCompliance || canViewTraining;
+
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
         'overview.smart': isAdmin ? 'C-Level Dashboard' : undefined,
@@ -139,7 +145,14 @@ export const App: React.FC = () => {
         
         'tickets': checkPermission('tickets', 'view') ? { title: 'Tickets', list: 'Lista de Tickets' } : undefined,
         
-        'nis2': checkPermission('compliance', 'view') ? { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência', training: 'Formações' } : undefined,
+        'nis2': showComplianceMenu ? { 
+            title: 'Compliance', 
+            bia: canViewGlobalCompliance ? 'BIA (Serviços)' : undefined, 
+            security: canViewGlobalCompliance ? 'Segurança (CVE)' : undefined, 
+            backups: canViewGlobalCompliance ? 'Backups & Logs' : undefined, 
+            resilience: canViewGlobalCompliance ? 'Testes Resiliência' : undefined, 
+            training: (canViewGlobalCompliance || canViewTraining) ? 'Formações' : undefined 
+        } : undefined,
         
         'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,
         

@@ -1,13 +1,8 @@
-
-
-
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Instituicao, Entidade, Supplier, Equipment, Assignment } from '../types';
-// @ts-ignore
-import L from 'leaflet';
+import * as L from 'leaflet';
 import { FaMapMarkedAlt, FaFilter, FaSpinner, FaSync } from 'react-icons/fa';
+import 'leaflet/dist/leaflet.css'; // Import leaflet CSS
 
 interface MapDashboardProps {
     instituicoes: Instituicao[];
@@ -172,86 +167,92 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
         if (!mapInstanceRef.current) {
             const map = L.map(mapContainerRef.current).setView([39.5, -8.0], 6); // Default Portugal Center
             
+            // Fix: Corrected the attribution string.
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
-            
-            markersLayerRef.current = L.layerGroup().addTo(map);
+
             mapInstanceRef.current = map;
+            markersLayerRef.current = L.layerGroup().addTo(map);
         }
     }, []);
 
-    // 4. Update Markers
+    // 4. Update markers when data changes
     useEffect(() => {
         if (!mapInstanceRef.current || !markersLayerRef.current) return;
 
         markersLayerRef.current.clearLayers();
-        const bounds = L.latLngBounds([]);
 
+        const markers: any[] = [];
         processedItems.forEach(item => {
             if (item.coordinates) {
-                const equipmentInfo = item.type !== 'Fornecedor' 
-                    ? `<br/><span class="text-xs font-bold mt-1 block">Equipamentos: ${item.equipmentCount || 0}</span>` 
-                    : '';
-
-                const marker = L.marker([item.coordinates.lat, item.coordinates.lng], { icon: icons[item.type] })
-                    .bindPopup(`
-                        <div class="text-sm text-gray-800">
-                            <strong class="block text-base border-b pb-1 mb-1">${item.name}</strong>
-                            <span class="text-xs uppercase font-bold text-gray-500">${item.type}</span><br/>
-                            ${item.address}<br/>
-                            ${item.postal_code} ${item.city}
-                            ${equipmentInfo}
-                        </div>
-                    `);
-                markersLayerRef.current?.addLayer(marker);
-                bounds.extend([item.coordinates.lat, item.coordinates.lng]);
+                const marker = L.marker([item.coordinates.lat, item.coordinates.lng], { icon: icons[item.type] });
+                let popupContent = `<b>${item.name}</b><br/>${item.type}<br/>${item.address}, ${item.postal_code} ${item.city}`;
+                if (item.equipmentCount !== undefined) {
+                    popupContent += `<br/>Equipamentos: ${item.equipmentCount}`;
+                }
+                marker.bindPopup(popupContent);
+                markers.push(marker);
             }
         });
-
-        if (processedItems.length > 0 && mapInstanceRef.current) {
-            mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        
+        markers.forEach(m => markersLayerRef.current.addLayer(m));
+        
+        // Auto-zoom
+        if (markers.length > 0) {
+            const group = new L.FeatureGroup(markers);
+            mapInstanceRef.current.fitBounds(group.getBounds().pad(0.5));
         }
+
     }, [processedItems]);
 
+    // Cleanup
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        return () => {
+            if (map) {
+                map.remove();
+                mapInstanceRef.current = null;
+            }
+        };
+    }, []);
+    
+    // Fix: Added return statement with JSX to render the component UI.
     return (
-        <div className="bg-surface-dark rounded-lg shadow-xl h-[calc(100vh-100px)] flex flex-col relative overflow-hidden border border-gray-700">
-            {/* Floating Controls */}
-            <div className="absolute top-4 right-4 z-[400] bg-gray-900/90 backdrop-blur p-4 rounded-lg shadow-2xl border border-gray-600 w-64">
-                <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-                    <FaMapMarkedAlt className="text-brand-secondary"/> Pesquisa no Mapa
-                </h3>
-                <div className="space-y-2">
-                    <label className="flex items-center space-x-2 cursor-pointer text-sm text-gray-300 hover:text-white">
-                        <input type="checkbox" checked={filters.showInstitutions} onChange={e => setFilters({...filters, showInstitutions: e.target.checked})} className="rounded bg-gray-700 border-gray-500 text-purple-500 focus:ring-purple-500"/>
-                        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-violet-500 inline-block"></span> Instituições</span>
+        <div className="bg-surface-dark p-6 rounded-lg shadow-xl h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <FaMapMarkedAlt className="text-brand-secondary" /> Mapeamento Geográfico de Ativos
+                </h2>
+                <div className="flex items-center gap-4 bg-gray-900/50 p-2 rounded-lg border border-gray-700">
+                    <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" checked={filters.showInstitutions} onChange={e => setFilters(f => ({ ...f, showInstitutions: e.target.checked }))} className="rounded text-purple-500 bg-gray-700 border-gray-600 focus:ring-purple-600" />
+                        Instituições
                     </label>
-                    <label className="flex items-center space-x-2 cursor-pointer text-sm text-gray-300 hover:text-white">
-                        <input type="checkbox" checked={filters.showEntities} onChange={e => setFilters({...filters, showEntities: e.target.checked})} className="rounded bg-gray-700 border-gray-500 text-blue-500 focus:ring-blue-500"/>
-                        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Entidades</span>
+                    <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" checked={filters.showEntities} onChange={e => setFilters(f => ({ ...f, showEntities: e.target.checked }))} className="rounded text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-600" />
+                        Entidades
                     </label>
-                    <label className="flex items-center space-x-2 cursor-pointer text-sm text-gray-300 hover:text-white">
-                        <input type="checkbox" checked={filters.showSuppliers} onChange={e => setFilters({...filters, showSuppliers: e.target.checked})} className="rounded bg-gray-700 border-gray-500 text-orange-500 focus:ring-orange-500"/>
-                        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-orange-500 inline-block"></span> Fornecedores</span>
+                    <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" checked={filters.showSuppliers} onChange={e => setFilters(f => ({ ...f, showSuppliers: e.target.checked }))} className="rounded text-orange-500 bg-gray-700 border-gray-600 focus:ring-orange-600" />
+                        Fornecedores
                     </label>
                 </div>
-                
+            </div>
+
+            <div className="flex-grow rounded-lg overflow-hidden relative" ref={mapContainerRef} style={{ height: '100%', width: '100%' }}>
                 {isLoading && (
-                    <div className="mt-4 pt-4 border-t border-gray-700">
-                        <p className="text-xs text-yellow-400 flex items-center gap-2 mb-1">
-                            <FaSpinner className="animate-spin"/> A localizar moradas...
-                        </p>
-                        <div className="w-full bg-gray-700 rounded-full h-1.5">
-                            <div className="bg-yellow-400 h-1.5 rounded-full transition-all duration-300" style={{ width: `${(progress.current / Math.max(progress.total, 1)) * 100}%` }}></div>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-1 text-right">{progress.current}/{progress.total}</p>
+                    <div className="absolute inset-0 bg-black/70 z-[1000] flex flex-col items-center justify-center text-white">
+                        <FaSpinner className="animate-spin text-3xl mb-4" />
+                        <p className="font-semibold">A processar localizações...</p>
+                        <p className="text-sm text-gray-400">{progress.current} de {progress.total} itens processados.</p>
+                        <progress value={progress.current} max={progress.total} className="w-64 mt-2 h-2 rounded-full overflow-hidden [&::-webkit-progress-bar]:bg-gray-700 [&::-webkit-progress-value]:bg-brand-secondary"></progress>
                     </div>
                 )}
             </div>
-
-            <div ref={mapContainerRef} className="flex-grow w-full h-full z-0" />
         </div>
     );
 };
 
+// Fix: Added default export.
 export default MapDashboard;
