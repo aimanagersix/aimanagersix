@@ -53,24 +53,45 @@ END $$;
 -- 3. CRIAÇÃO DE TABELAS
 -- ==========================================
 
-CREATE TABLE IF NOT EXISTS config_equipment_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_criticality_levels (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_cia_ratings (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_service_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_backup_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_training_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_resilience_test_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_software_categories (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS contact_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS contact_titles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+-- Tabelas de Configuração (Garantir constraints UNIQUE para evitar erros futuros)
+CREATE TABLE IF NOT EXISTS config_equipment_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE config_equipment_statuses ADD CONSTRAINT config_equipment_statuses_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS config_criticality_levels (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE config_criticality_levels ADD CONSTRAINT config_criticality_levels_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS config_cia_ratings (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE config_cia_ratings ADD CONSTRAINT config_cia_ratings_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS config_service_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE config_service_statuses ADD CONSTRAINT config_service_statuses_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS config_backup_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE config_backup_types ADD CONSTRAINT config_backup_types_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS config_training_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE config_training_types ADD CONSTRAINT config_training_types_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS config_resilience_test_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE config_resilience_test_types ADD CONSTRAINT config_resilience_test_types_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS config_software_categories (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE config_software_categories ADD CONSTRAINT config_software_categories_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS contact_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE contact_roles ADD CONSTRAINT contact_roles_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS contact_titles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
+DO $$ BEGIN ALTER TABLE contact_titles ADD CONSTRAINT contact_titles_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS config_custom_roles (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
+    name text NOT NULL,
     permissions jsonb DEFAULT '{}'::jsonb,
     is_system boolean DEFAULT false,
     created_at timestamptz DEFAULT now()
 );
+DO $$ BEGIN ALTER TABLE config_custom_roles ADD CONSTRAINT config_custom_roles_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS resource_contacts (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -171,21 +192,58 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 );
 
 -- ==========================================
--- 4. INSERIR VALORES PADRÃO
+-- 4. INSERIR VALORES PADRÃO (Robust INSERT)
 -- ==========================================
 
-INSERT INTO config_equipment_statuses (name) VALUES ('Stock'), ('Operacional'), ('Abate'), ('Garantia'), ('Empréstimo') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_criticality_levels (name) VALUES ('Baixa'), ('Média'), ('Alta'), ('Crítica') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_cia_ratings (name) VALUES ('Baixo'), ('Médio'), ('Alto') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_service_statuses (name) VALUES ('Ativo'), ('Inativo'), ('Em Manutenção') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_backup_types (name) VALUES ('Completo'), ('Incremental'), ('Diferencial'), ('Snapshot VM') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_training_types (name) VALUES ('Simulação Phishing'), ('Leitura Política Segurança'), ('Higiene Cibernética (Geral)'), ('RGPD / Privacidade'), ('Ferramenta Específica') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_resilience_test_types (name) VALUES ('Scan Vulnerabilidades'), ('Penetration Test (Pentest)'), ('TLPT (Red Teaming)'), ('Exercício de Mesa (DRP)'), ('Recuperação de Desastres (Full)') ON CONFLICT (name) DO NOTHING;
-INSERT INTO contact_roles (name) VALUES ('Técnico'), ('Comercial'), ('Financeiro'), ('Diretor'), ('Administrativo'), ('DPO/CISO') ON CONFLICT (name) DO NOTHING;
-INSERT INTO contact_titles (name) VALUES ('Sr.'), ('Sra.'), ('Dr.'), ('Dra.'), ('Eng.'), ('Eng.ª'), ('Arq.') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_software_categories (name) VALUES ('Sistema Operativo'), ('Segurança / Endpoint'), ('Produtividade'), ('Design & Multimédia'), ('Desenvolvimento') ON CONFLICT (name) DO NOTHING;
+-- Config Equipment Statuses
+INSERT INTO config_equipment_statuses (name)
+SELECT v.name FROM (VALUES ('Stock'), ('Operacional'), ('Abate'), ('Garantia'), ('Empréstimo')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_equipment_statuses WHERE name = v.name);
 
--- ATUALIZAÇÃO DE PERFIS
+-- Config Criticality
+INSERT INTO config_criticality_levels (name)
+SELECT v.name FROM (VALUES ('Baixa'), ('Média'), ('Alta'), ('Crítica')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_criticality_levels WHERE name = v.name);
+
+-- Config CIA
+INSERT INTO config_cia_ratings (name)
+SELECT v.name FROM (VALUES ('Baixo'), ('Médio'), ('Alto')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_cia_ratings WHERE name = v.name);
+
+-- Config Service Statuses
+INSERT INTO config_service_statuses (name)
+SELECT v.name FROM (VALUES ('Ativo'), ('Inativo'), ('Em Manutenção')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_service_statuses WHERE name = v.name);
+
+-- Config Backup Types
+INSERT INTO config_backup_types (name)
+SELECT v.name FROM (VALUES ('Completo'), ('Incremental'), ('Diferencial'), ('Snapshot VM')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_backup_types WHERE name = v.name);
+
+-- Config Training Types
+INSERT INTO config_training_types (name)
+SELECT v.name FROM (VALUES ('Simulação Phishing'), ('Leitura Política Segurança'), ('Higiene Cibernética (Geral)'), ('RGPD / Privacidade'), ('Ferramenta Específica')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_training_types WHERE name = v.name);
+
+-- Config Resilience Test Types
+INSERT INTO config_resilience_test_types (name)
+SELECT v.name FROM (VALUES ('Scan Vulnerabilidades'), ('Penetration Test (Pentest)'), ('TLPT (Red Teaming)'), ('Exercício de Mesa (DRP)'), ('Recuperação de Desastres (Full)')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_resilience_test_types WHERE name = v.name);
+
+-- Config Contacts
+INSERT INTO contact_roles (name)
+SELECT v.name FROM (VALUES ('Técnico'), ('Comercial'), ('Financeiro'), ('Diretor'), ('Administrativo'), ('DPO/CISO')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM contact_roles WHERE name = v.name);
+
+INSERT INTO contact_titles (name)
+SELECT v.name FROM (VALUES ('Sr.'), ('Sra.'), ('Dr.'), ('Dra.'), ('Eng.'), ('Eng.ª'), ('Arq.')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM contact_titles WHERE name = v.name);
+
+INSERT INTO config_software_categories (name)
+SELECT v.name FROM (VALUES ('Sistema Operativo'), ('Segurança / Endpoint'), ('Produtividade'), ('Design & Multimédia'), ('Desenvolvimento')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_software_categories WHERE name = v.name);
+
+-- ATUALIZAÇÃO DE PERFIS (Usando INSERT ... ON CONFLICT para atualizar permissões)
 INSERT INTO config_custom_roles (name, is_system, permissions) 
 VALUES ('Admin', true, '{"inventory":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"compliance":{"view":true,"create":true,"edit":true,"delete":true},"compliance_training":{"view":true,"create":true,"edit":true,"delete":true},"compliance_policies":{"view":true,"create":true,"edit":true,"delete":true},"settings":{"view":true,"create":true,"edit":true,"delete":true},"procurement":{"view":true,"create":true,"edit":true,"delete":true},"dashboard_smart":{"view":true,"create":true,"edit":true,"delete":true}}')
 ON CONFLICT (name) DO UPDATE SET permissions = EXCLUDED.permissions;
@@ -198,7 +256,7 @@ INSERT INTO config_custom_roles (name, is_system, permissions)
 VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false},"procurement":{"view":true,"create":true,"edit":false,"delete":false},"dashboard_smart":{"view":false,"create":false,"edit":false,"delete":false}}')
 ON CONFLICT (name) DO NOTHING;
 
--- CANAL GERAL
+-- CANAL GERAL (System User)
 INSERT INTO collaborators (id, "fullName", email, "numeroMecanografico", role, status, "canLogin", "receivesNotifications")
 VALUES ('00000000-0000-0000-0000-000000000000', 'Canal Geral', 'general@system.local', 'SYS-001', 'System', 'Ativo', false, false)
 ON CONFLICT (id) DO NOTHING;
@@ -317,47 +375,66 @@ COMMIT;
     const seedScript = `
 -- SCRIPT DE SEED COMPLETO (TODOS OS MÓDULOS)
 -- Execute este script para popular a aplicação com dados de exemplo.
+-- Utiliza WHERE NOT EXISTS para evitar erros de chave duplicada em bases existentes.
 
 BEGIN;
 
 -- 1. Marcas & Tipos
-INSERT INTO brands (name, risk_level) VALUES 
-('Dell', 'Baixa'), ('HP', 'Baixa'), ('Lenovo', 'Baixa'), 
-('Apple', 'Baixa'), ('Microsoft', 'Baixa'), ('Cisco', 'Média'), ('Fortinet', 'Alta')
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO brands (name, risk_level)
+SELECT v.name, v.risk_level FROM (VALUES 
+  ('Dell', 'Baixa'), ('HP', 'Baixa'), ('Lenovo', 'Baixa'), 
+  ('Apple', 'Baixa'), ('Microsoft', 'Baixa'), ('Cisco', 'Média'), ('Fortinet', 'Alta')
+) AS v(name, risk_level)
+WHERE NOT EXISTS (SELECT 1 FROM brands WHERE name = v.name);
 
-INSERT INTO equipment_types (name, "requiresNomeNaRede", "requiresInventoryNumber", "is_maintenance") VALUES
-('Laptop', true, true, false), ('Desktop', true, true, false), ('Monitor', false, true, false), 
-('Servidor', true, true, false), ('Switch', true, true, false), ('Teclado', false, false, false),
-('Componente Hardware', false, false, true)
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO equipment_types (name, "requiresNomeNaRede", "requiresInventoryNumber", "is_maintenance")
+SELECT v.name, v.req_net, v.req_inv, v.is_maint FROM (VALUES
+  ('Laptop', true, true, false), ('Desktop', true, true, false), ('Monitor', false, true, false), 
+  ('Servidor', true, true, false), ('Switch', true, true, false), ('Teclado', false, false, false),
+  ('Componente Hardware', false, false, true)
+) AS v(name, req_net, req_inv, is_maint)
+WHERE NOT EXISTS (SELECT 1 FROM equipment_types WHERE name = v.name);
 
 -- 2. Categorias de Tickets & Incidentes
-INSERT INTO ticket_categories (name, is_active) VALUES 
-('Falha Técnica', true), ('Acesso & Contas', true), ('Incidente de Segurança', true), ('Pedido de Equipamento', true)
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO ticket_categories (name, is_active)
+SELECT v.name, v.is_active FROM (VALUES 
+  ('Falha Técnica', true), ('Acesso & Contas', true), ('Incidente de Segurança', true), ('Pedido de Equipamento', true)
+) AS v(name, is_active)
+WHERE NOT EXISTS (SELECT 1 FROM ticket_categories WHERE name = v.name);
 
-INSERT INTO security_incident_types (name, is_active) VALUES 
-('Phishing', true), ('Malware', true), ('Acesso Não Autorizado', true), ('Ransomware', true)
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO security_incident_types (name, is_active)
+SELECT v.name, v.is_active FROM (VALUES 
+  ('Phishing', true), ('Malware', true), ('Acesso Não Autorizado', true), ('Ransomware', true)
+) AS v(name, is_active)
+WHERE NOT EXISTS (SELECT 1 FROM security_incident_types WHERE name = v.name);
 
 -- 3. Instituições e Entidades
 WITH inst AS (
   INSERT INTO instituicoes (name, codigo, email, telefone) 
-  VALUES ('Empresa Principal SA', 'HQ', 'geral@empresa.com', '210000000') 
+  VALUES ('Empresa Principal SA', 'HQ', 'geral@empresa.com', '210000000')
+  ON CONFLICT DO NOTHING 
   RETURNING id
+),
+existing_inst AS (
+  SELECT id FROM instituicoes WHERE name = 'Empresa Principal SA'
 )
-INSERT INTO entidades (name, codigo, "instituicaoId", email, responsavel) VALUES
-('Departamento TI', 'TI', (SELECT id FROM inst), 'ti@empresa.com', 'João Admin'),
-('Recursos Humanos', 'RH', (SELECT id FROM inst), 'rh@empresa.com', 'Maria Silva'),
-('Financeiro', 'FIN', (SELECT id FROM inst), 'fin@empresa.com', 'Carlos Contas');
+INSERT INTO entidades (name, codigo, "instituicaoId", email, responsavel) 
+SELECT v.name, v.code, COALESCE((SELECT id FROM inst), (SELECT id FROM existing_inst)), v.email, v.resp
+FROM (VALUES
+  ('Departamento TI', 'TI', 'ti@empresa.com', 'João Admin'),
+  ('Recursos Humanos', 'RH', 'rh@empresa.com', 'Maria Silva'),
+  ('Financeiro', 'FIN', 'fin@empresa.com', 'Carlos Contas')
+) AS v(name, code, email, resp)
+WHERE NOT EXISTS (SELECT 1 FROM entidades WHERE codigo = v.code);
 
 -- 4. Equipas
-INSERT INTO teams (name, description) VALUES 
-('Helpdesk N1', 'Suporte de primeira linha'), 
-('Infraestruturas', 'Redes e Servidores'),
-('Segurança (SOC)', 'Resposta a incidentes')
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO teams (name, description)
+SELECT v.name, v.desc FROM (VALUES 
+  ('Helpdesk N1', 'Suporte de primeira linha'), 
+  ('Infraestruturas', 'Redes e Servidores'),
+  ('Segurança (SOC)', 'Resposta a incidentes')
+) AS v(name, desc)
+WHERE NOT EXISTS (SELECT 1 FROM teams WHERE name = v.name);
 
 -- 5. Colaboradores
 DO $$ 
@@ -370,24 +447,37 @@ BEGIN
     SELECT id INTO ent_rh FROM entidades WHERE codigo = 'RH' LIMIT 1;
     SELECT id INTO t_helpdesk FROM teams WHERE name = 'Helpdesk N1' LIMIT 1;
 
-    -- Admin
-    INSERT INTO collaborators ("fullName", email, "numeroMecanografico", role, status, "canLogin", "entidadeId") VALUES
-    ('Ana Técnica', 'ana@empresa.com', '101', 'Admin', 'Ativo', true, ent_ti);
+    IF ent_ti IS NOT NULL THEN
+        -- Admin
+        INSERT INTO collaborators ("fullName", email, "numeroMecanografico", role, status, "canLogin", "entidadeId") 
+        SELECT 'Ana Técnica', 'ana@empresa.com', '101', 'Admin', 'Ativo', true, ent_ti
+        WHERE NOT EXISTS (SELECT 1 FROM collaborators WHERE email = 'ana@empresa.com');
+        
+        -- Associar Ana à equipa Helpdesk (se existir)
+        IF t_helpdesk IS NOT NULL THEN
+             INSERT INTO team_members (team_id, collaborator_id) 
+             SELECT t_helpdesk, id FROM collaborators WHERE email = 'ana@empresa.com'
+             ON CONFLICT DO NOTHING;
+        END IF;
+    END IF;
     
-    -- Utilizador
-    INSERT INTO collaborators ("fullName", email, "numeroMecanografico", role, status, "canLogin", "entidadeId") VALUES
-    ('Rui Utilizador', 'rui@empresa.com', '102', 'Utilizador', 'Ativo', true, ent_rh);
-
-    -- Associar Ana à equipa Helpdesk
-    INSERT INTO team_members (team_id, collaborator_id) 
-    SELECT t_helpdesk, id FROM collaborators WHERE email = 'ana@empresa.com';
+    IF ent_rh IS NOT NULL THEN
+        -- Utilizador
+        INSERT INTO collaborators ("fullName", email, "numeroMecanografico", role, status, "canLogin", "entidadeId") 
+        SELECT 'Rui Utilizador', 'rui@empresa.com', '102', 'Utilizador', 'Ativo', true, ent_rh
+        WHERE NOT EXISTS (SELECT 1 FROM collaborators WHERE email = 'rui@empresa.com');
+    END IF;
 END $$;
 
 -- 6. Fornecedores
-INSERT INTO suppliers (name, contact_name, contact_email, risk_level, is_iso27001_certified) VALUES
-('Fornecedor TI Lda', 'Pedro Vendas', 'vendas@fornecedorti.pt', 'Baixa', true),
-('Datacenter Services', 'Suporte', 'support@datacenter.com', 'Média', true),
-('Loja de Esquina', 'Sr. Manel', 'manel@loja.pt', 'Alta', false);
+INSERT INTO suppliers (name, contact_name, contact_email, risk_level, is_iso27001_certified)
+SELECT v.name, v.contact, v.email, v.risk, v.iso
+FROM (VALUES
+  ('Fornecedor TI Lda', 'Pedro Vendas', 'vendas@fornecedorti.pt', 'Baixa', true),
+  ('Datacenter Services', 'Suporte', 'support@datacenter.com', 'Média', true),
+  ('Loja de Esquina', 'Sr. Manel', 'manel@loja.pt', 'Alta', false)
+) AS v(name, contact, email, risk, iso)
+WHERE NOT EXISTS (SELECT 1 FROM suppliers WHERE name = v.name);
 
 -- 7. Equipamentos & Licenças
 DO $$
@@ -397,29 +487,36 @@ DECLARE
     t_server uuid;
     u_rui uuid;
     ent_ti uuid;
+    new_eq_id uuid;
 BEGIN
     SELECT id INTO b_dell FROM brands WHERE name = 'Dell' LIMIT 1;
     SELECT id INTO t_laptop FROM equipment_types WHERE name = 'Laptop' LIMIT 1;
     SELECT id INTO t_server FROM equipment_types WHERE name = 'Servidor' LIMIT 1;
     SELECT id INTO u_rui FROM collaborators WHERE email = 'rui@empresa.com' LIMIT 1;
-    SELECT id INTO ent_ti FROM entidades WHERE codigo = 'TI' LIMIT 1;
 
     -- Laptop
-    WITH new_eq AS (
-        INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate", "nomeNaRede", criticality, confidentiality, integrity, availability) 
-        VALUES ('Dell Latitude 7420', 'SN001', b_dell, t_laptop, 'Operacional', 1200, '2023-01-15', 'PT-001', 'Média', 'Médio', 'Médio', 'Médio')
-        RETURNING id
-    )
-    INSERT INTO assignments ("equipmentId", "collaboratorId", "assignedDate")
-    SELECT id, u_rui, '2023-01-20' FROM new_eq;
+    IF b_dell IS NOT NULL AND t_laptop IS NOT NULL AND u_rui IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM equipment WHERE "serialNumber" = 'SN001') THEN
+            INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate", "nomeNaRede", criticality, confidentiality, integrity, availability) 
+            VALUES ('Dell Latitude 7420', 'SN001', b_dell, t_laptop, 'Operacional', 1200, '2023-01-15', 'PT-001', 'Média', 'Médio', 'Médio', 'Médio')
+            RETURNING id INTO new_eq_id;
+            
+            INSERT INTO assignments ("equipmentId", "collaboratorId", "assignedDate")
+            VALUES (new_eq_id, u_rui, '2023-01-20');
+        END IF;
+    END IF;
 
     -- Server (Stock)
-    INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate", "nomeNaRede", criticality, confidentiality, integrity, availability) 
-    VALUES ('Dell PowerEdge R740', 'SRV001', b_dell, t_server, 'Stock', 5000, '2022-05-20', 'SRV-APP-01', 'Crítica', 'Alto', 'Alto', 'Alto');
+    IF b_dell IS NOT NULL AND t_server IS NOT NULL THEN
+        INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate", "nomeNaRede", criticality, confidentiality, integrity, availability) 
+        SELECT 'Dell PowerEdge R740', 'SRV001', b_dell, t_server, 'Stock', 5000, '2022-05-20', 'SRV-APP-01', 'Crítica', 'Alto', 'Alto', 'Alto'
+        WHERE NOT EXISTS (SELECT 1 FROM equipment WHERE "serialNumber" = 'SRV001');
+    END IF;
 
     -- Licença Office
     INSERT INTO software_licenses ("productName", "licenseKey", "totalSeats", status, "unitCost") 
-    VALUES ('Microsoft Office 365 E3', 'MS-365-KEY-001', 50, 'Ativo', 25.00);
+    SELECT 'Microsoft Office 365 E3', 'MS-365-KEY-001', 50, 'Ativo', 25.00
+    WHERE NOT EXISTS (SELECT 1 FROM software_licenses WHERE "licenseKey" = 'MS-365-KEY-001');
 END $$;
 
 -- 8. Tickets de Suporte
@@ -430,14 +527,17 @@ DECLARE
     ent_rh uuid;
 BEGIN
     SELECT id INTO u_rui FROM collaborators WHERE email = 'rui@empresa.com' LIMIT 1;
-    SELECT id INTO u_ana FROM collaborators WHERE email = 'ana@empresa.com' LIMIT 1;
     SELECT id INTO ent_rh FROM entidades WHERE codigo = 'RH' LIMIT 1;
 
-    INSERT INTO tickets (title, description, status, priority, "collaboratorId", "entidadeId", "requestDate", category)
-    VALUES ('Impressora não funciona', 'Não consigo imprimir o relatório mensal.', 'Pedido', 'Baixa', u_rui, ent_rh, NOW(), 'Falha Técnica');
-    
-    INSERT INTO tickets (title, description, status, priority, "collaboratorId", "entidadeId", "requestDate", category, "securityIncidentType", "impactCriticality")
-    VALUES ('Email Suspeito', 'Recebi um email estranho a pedir password.', 'Em progresso', 'Alta', u_rui, ent_rh, NOW() - INTERVAL '1 day', 'Incidente de Segurança', 'Phishing', 'Alta');
+    IF u_rui IS NOT NULL AND ent_rh IS NOT NULL THEN
+        INSERT INTO tickets (title, description, status, priority, "collaboratorId", "entidadeId", "requestDate", category)
+        SELECT 'Impressora não funciona', 'Não consigo imprimir o relatório mensal.', 'Pedido', 'Baixa', u_rui, ent_rh, NOW(), 'Falha Técnica'
+        WHERE NOT EXISTS (SELECT 1 FROM tickets WHERE title = 'Impressora não funciona' AND "collaboratorId" = u_rui);
+        
+        INSERT INTO tickets (title, description, status, priority, "collaboratorId", "entidadeId", "requestDate", category, "securityIncidentType", "impactCriticality")
+        SELECT 'Email Suspeito', 'Recebi um email estranho a pedir password.', 'Em progresso', 'Alta', u_rui, ent_rh, NOW() - INTERVAL '1 day', 'Incidente de Segurança', 'Phishing', 'Alta'
+        WHERE NOT EXISTS (SELECT 1 FROM tickets WHERE title = 'Email Suspeito' AND "collaboratorId" = u_rui);
+    END IF;
 END $$;
 
 -- 9. Compliance (BIA, Vulns, Backups, Policies)
@@ -451,25 +551,34 @@ BEGIN
     SELECT id INTO s_datacenter FROM suppliers WHERE name = 'Datacenter Services' LIMIT 1;
     SELECT id INTO eq_srv FROM equipment WHERE "serialNumber" = 'SRV001' LIMIT 1;
 
-    -- BIA Service
-    INSERT INTO business_services (name, description, criticality, rto_goal, owner_id, status, external_provider_id)
-    VALUES ('Sistema ERP', 'Gestão financeira e RH', 'Crítica', '4h', u_ana, 'Ativo', s_datacenter);
+    IF u_ana IS NOT NULL THEN
+        -- BIA Service
+        INSERT INTO business_services (name, description, criticality, rto_goal, owner_id, status, external_provider_id)
+        SELECT 'Sistema ERP', 'Gestão financeira e RH', 'Crítica', '4h', u_ana, 'Ativo', s_datacenter
+        WHERE NOT EXISTS (SELECT 1 FROM business_services WHERE name = 'Sistema ERP');
 
-    -- Vulnerability
-    INSERT INTO vulnerabilities (cve_id, description, severity, status, affected_software, published_date)
-    VALUES ('CVE-2024-1234', 'Remote Code Execution in Server OS', 'Crítica', 'Aberto', 'Windows Server 2019', '2024-01-01');
+        -- Vulnerability
+        INSERT INTO vulnerabilities (cve_id, description, severity, status, affected_software, published_date)
+        SELECT 'CVE-2024-1234', 'Remote Code Execution in Server OS', 'Crítica', 'Aberto', 'Windows Server 2019', '2024-01-01'
+        WHERE NOT EXISTS (SELECT 1 FROM vulnerabilities WHERE cve_id = 'CVE-2024-1234');
 
-    -- Backup
-    INSERT INTO backup_executions (system_name, equipment_id, backup_date, test_date, status, type, tester_id)
-    VALUES ('Backup Diário ERP', eq_srv, '2024-02-01', '2024-02-02', 'Sucesso', 'Completo', u_ana);
+        -- Policy
+        INSERT INTO policies (title, content, version, is_active, is_mandatory)
+        SELECT 'Política de Passwords', 'As passwords devem ter 12 caracteres...', '1.0', true, true
+        WHERE NOT EXISTS (SELECT 1 FROM policies WHERE title = 'Política de Passwords');
 
-    -- Policy
-    INSERT INTO policies (title, content, version, is_active, is_mandatory)
-    VALUES ('Política de Passwords', 'As passwords devem ter 12 caracteres...', '1.0', true, true);
+        -- Training Record
+        INSERT INTO security_training_records (collaborator_id, training_type, completion_date, status, score, duration_hours)
+        SELECT u_ana, 'RGPD / Privacidade', '2024-01-10', 'Concluído', 95, 2
+        WHERE NOT EXISTS (SELECT 1 FROM security_training_records WHERE collaborator_id = u_ana AND training_type = 'RGPD / Privacidade');
+    END IF;
 
-    -- Training Record
-    INSERT INTO security_training_records (collaborator_id, training_type, completion_date, status, score, duration_hours)
-    VALUES (u_ana, 'RGPD / Privacidade', '2024-01-10', 'Concluído', 95, 2);
+    IF eq_srv IS NOT NULL AND u_ana IS NOT NULL THEN
+         -- Backup
+        INSERT INTO backup_executions (system_name, equipment_id, backup_date, test_date, status, type, tester_id)
+        SELECT 'Backup Diário ERP', eq_srv, '2024-02-01', '2024-02-02', 'Sucesso', 'Completo', u_ana
+        WHERE NOT EXISTS (SELECT 1 FROM backup_executions WHERE equipment_id = eq_srv AND backup_date = '2024-02-01');
+    END IF;
 END $$;
 
 -- 10. Aquisições (Procurement)
@@ -481,8 +590,11 @@ BEGIN
     SELECT id INTO u_ana FROM collaborators WHERE email = 'ana@empresa.com' LIMIT 1;
     SELECT id INTO s_dell FROM suppliers WHERE name = 'Fornecedor TI Lda' LIMIT 1;
 
-    INSERT INTO procurement_requests (title, description, quantity, estimated_cost, requester_id, supplier_id, status, priority)
-    VALUES ('5x Monitores 24"', 'Para novos estagiários', 5, 750.00, u_ana, s_dell, 'Pendente', 'Normal');
+    IF u_ana IS NOT NULL AND s_dell IS NOT NULL THEN
+        INSERT INTO procurement_requests (title, description, quantity, estimated_cost, requester_id, supplier_id, status, priority)
+        SELECT '5x Monitores 24"', 'Para novos estagiários', 5, 750.00, u_ana, s_dell, 'Pendente', 'Normal'
+        WHERE NOT EXISTS (SELECT 1 FROM procurement_requests WHERE title = '5x Monitores 24"' AND requester_id = u_ana);
+    END IF;
 END $$;
 
 COMMIT;
