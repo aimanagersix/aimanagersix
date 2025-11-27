@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom } from 'react-icons/fa';
@@ -194,20 +192,20 @@ INSERT INTO contact_titles (name) VALUES ('Sr.'), ('Sra.'), ('Dr.'), ('Dra.'), (
 
 INSERT INTO config_software_categories (name) VALUES ('Sistema Operativo'), ('Segurança / Endpoint'), ('Produtividade'), ('Design & Multimédia'), ('Desenvolvimento') ON CONFLICT (name) DO NOTHING;
 
--- MIGRAÇÃO DE PERFIS ANTIGOS PARA A NOVA TABELA
--- Admin (Acesso Total)
+-- ATUALIZAÇÃO DE PERFIS: Forçar atualização para incluir novos módulos (Procurement, Policies)
+-- Admin
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Admin', true, '{"inventory":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"compliance":{"view":true,"create":true,"edit":true,"delete":true},"settings":{"view":true,"create":true,"edit":true,"delete":true},"procurement":{"view":true,"create":true,"edit":true,"delete":true}}')
-ON CONFLICT (name) DO NOTHING;
+VALUES ('Admin', true, '{"inventory":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"compliance":{"view":true,"create":true,"edit":true,"delete":true},"compliance_training":{"view":true,"create":true,"edit":true,"delete":true},"compliance_policies":{"view":true,"create":true,"edit":true,"delete":true},"settings":{"view":true,"create":true,"edit":true,"delete":true},"procurement":{"view":true,"create":true,"edit":true,"delete":true},"dashboard_smart":{"view":true,"create":true,"edit":true,"delete":true}}')
+ON CONFLICT (name) DO UPDATE SET permissions = EXCLUDED.permissions;
 
--- Técnico (Pode gerir tickets e inventário, mas não configurações ou apagar organização)
+-- Técnico
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Técnico', false, '{"inventory":{"view":true,"create":true,"edit":true,"delete":false},"tickets":{"view":true,"create":true,"edit":true,"delete":false},"organization":{"view":true,"create":false,"edit":false,"delete":false},"compliance":{"view":true,"create":true,"edit":true,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false},"procurement":{"view":true,"create":true,"edit":true,"delete":false}}')
-ON CONFLICT (name) DO NOTHING;
+VALUES ('Técnico', false, '{"inventory":{"view":true,"create":true,"edit":true,"delete":false},"tickets":{"view":true,"create":true,"edit":true,"delete":false},"organization":{"view":true,"create":false,"edit":false,"delete":false},"compliance":{"view":true,"create":true,"edit":true,"delete":false},"compliance_training":{"view":true,"create":true,"edit":true,"delete":false},"compliance_policies":{"view":true,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false},"procurement":{"view":true,"create":true,"edit":true,"delete":false},"dashboard_smart":{"view":false,"create":false,"edit":false,"delete":false}}')
+ON CONFLICT (name) DO UPDATE SET permissions = EXCLUDED.permissions;
 
--- Utilizador (Apenas ver e abrir tickets)
+-- Utilizador
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false},"procurement":{"view":true,"create":true,"edit":false,"delete":false}}')
+VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false},"procurement":{"view":true,"create":true,"edit":false,"delete":false},"dashboard_smart":{"view":false,"create":false,"edit":false,"delete":false}}')
 ON CONFLICT (name) DO NOTHING;
 
 -- ==========================================
@@ -520,7 +518,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.42</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.43</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

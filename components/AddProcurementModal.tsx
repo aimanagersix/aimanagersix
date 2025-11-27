@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole } from '../types';
@@ -98,7 +97,7 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
     };
     
     // Status Steps Visualization
-    const steps = [ProcurementStatus.Pending, ProcurementStatus.Approved, ProcurementStatus.Ordered, ProcurementStatus.Received, ProcurementStatus.Completed];
+    const steps: ProcurementStatus[] = [ProcurementStatus.Pending, ProcurementStatus.Approved, ProcurementStatus.Ordered, ProcurementStatus.Received, ProcurementStatus.Completed];
     const currentStepIdx = steps.indexOf(formData.status || ProcurementStatus.Pending);
     const isRejected = formData.status === ProcurementStatus.Rejected;
 
