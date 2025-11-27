@@ -1,5 +1,6 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory } from '../types';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory, ProcurementRequest } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull, FaChartLine, FaStopwatch } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
@@ -19,6 +20,7 @@ interface OverviewDashboardProps {
     licenseAssignments: LicenseAssignment[];
     businessServices?: BusinessService[];
     vulnerabilities?: Vulnerability[];
+    procurementRequests?: ProcurementRequest[];
     onViewItem: (tab: string, filter: any) => void;
     onGenerateComplianceReport: () => void;
 }
@@ -188,7 +190,7 @@ const DashboardSection: React.FC<{ title: string; icon?: React.ReactNode; childr
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
-    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], vulnerabilities = [], onViewItem, onGenerateComplianceReport 
+    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], vulnerabilities = [], procurementRequests = [], onViewItem, onGenerateComplianceReport 
 }) => {
     const { t } = useLanguage();
     const [needsAccessReview, setNeedsAccessReview] = useState(false);

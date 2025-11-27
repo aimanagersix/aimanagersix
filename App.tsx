@@ -1,14 +1,7 @@
 
-
-
-
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket 
+    Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType 
 } from './types';
 import * as dataService from './services/dataService';
 import { useAppData } from './hooks/useAppData';
@@ -46,6 +39,7 @@ import MagicCommandBar from './components/MagicCommandBar';
 import { ChatWidget } from './components/ChatWidget';
 import NotificationsModal from './components/NotificationsModal';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
+import CollaboratorDetailModal from './components/CollaboratorDetailModal';
 
 
 export const App: React.FC = () => {
@@ -95,6 +89,7 @@ export const App: React.FC = () => {
     const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
     const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
     const [resetSession, setResetSession] = useState<any>(null);
+    const [showProfileModal, setShowProfileModal] = useState(false);
     
     // Global Ticket Creation (Magic Bar)
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
@@ -233,6 +228,10 @@ export const App: React.FC = () => {
         setActiveTab(tab);
         setDashboardFilter(filter);
     };
+    
+    const handleOpenProfile = () => {
+        setShowProfileModal(true);
+    };
 
     // --- Render ---
 
@@ -272,7 +271,7 @@ export const App: React.FC = () => {
                     isExpanded={isSidebarExpanded}
                     onHover={setIsSidebarExpanded}
                     onOpenAutomation={() => { setActiveTab('settings'); }}
-                    onOpenProfile={() => { alert("Perfil - Clique no seu nome"); }} // Simplified
+                    onOpenProfile={handleOpenProfile}
                     onOpenCalendar={() => setShowCalendarModal(true)}
                     onOpenManual={() => setShowUserManualModal(true)}
                 />
@@ -286,7 +285,7 @@ export const App: React.FC = () => {
                     notificationCount={0} 
                     onNotificationClick={() => setShowNotificationsModal(true)}
                     onOpenAutomation={() => { setActiveTab('settings'); }}
-                    onOpenProfile={() => { alert("Perfil - Clique no seu nome"); }}
+                    onOpenProfile={handleOpenProfile}
                     onOpenCalendar={() => setShowCalendarModal(true)}
                     onOpenManual={() => setShowUserManualModal(true)}
                 />
@@ -314,6 +313,7 @@ export const App: React.FC = () => {
                         vulnerabilities={appData.vulnerabilities}
                         onViewItem={handleViewItem}
                         onGenerateComplianceReport={() => { setReportType('compliance'); setShowReportModal(true); }}
+                        procurementRequests={appData.procurementRequests}
                     />}
 
                     {activeTab === 'overview.smart' && canViewSmartDashboard && (
@@ -395,6 +395,8 @@ export const App: React.FC = () => {
                             entidades={appData.entidades}
                             brands={appData.brands}
                             equipmentTypes={appData.equipmentTypes}
+                            softwareLicenses={appData.softwareLicenses}
+                            licenseAssignments={appData.licenseAssignments}
                         />
                     )}
 
@@ -409,6 +411,7 @@ export const App: React.FC = () => {
                             suppliers={appData.suppliers}
                             equipment={appData.equipment}
                             assignments={appData.assignments}
+                            onClose={() => setActiveTab('overview')}
                         />
                     )}
                 </div>
@@ -488,6 +491,22 @@ export const App: React.FC = () => {
                     categories={appData.ticketCategories}
                     securityIncidentTypes={appData.securityIncidentTypes}
                     pastTickets={appData.tickets}
+                />
+            )}
+
+            {/* Profile Modal */}
+            {showProfileModal && (
+                <CollaboratorDetailModal
+                    collaborator={currentUser}
+                    assignments={appData.assignments}
+                    equipment={appData.equipment}
+                    tickets={appData.tickets}
+                    brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(appData.equipmentTypes.map((t: EquipmentType) => [t.id, t.name]))}
+                    onClose={() => setShowProfileModal(false)}
+                    onShowHistory={() => {}}
+                    onStartChat={() => {}}
+                    onEdit={() => alert("Use a edição no menu de configurações se for admin.")}
                 />
             )}
 

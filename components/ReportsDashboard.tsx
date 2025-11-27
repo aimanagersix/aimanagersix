@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Equipment, Assignment, Collaborator, Entidade, Brand, EquipmentType } from '../types';
-import { FaFileSignature, FaPrint, FaChartLine, FaSearch, FaEuroSign, FaCalendarAlt, FaEraser, FaPen } from 'react-icons/fa';
+import { Equipment, Assignment, Collaborator, Entidade, Brand, EquipmentType, SoftwareLicense, LicenseAssignment } from '../types';
+import { FaFileSignature, FaPrint, FaChartLine, FaSearch, FaEuroSign, FaCalendarAlt, FaEraser, FaPen, FaBuilding } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import * as dataService from '../services/dataService';
 
@@ -12,6 +12,8 @@ interface ReportsDashboardProps {
     entidades: Entidade[];
     brands: Brand[];
     equipmentTypes: EquipmentType[];
+    softwareLicenses?: SoftwareLicense[];
+    licenseAssignments?: LicenseAssignment[];
 }
 
 interface ExtendedAssignment extends Assignment {
@@ -19,10 +21,9 @@ interface ExtendedAssignment extends Assignment {
     collaborator?: Collaborator;
 }
 
-const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignments, collaborators, entidades, brands, equipmentTypes }) => {
-    const [activeTab, setActiveTab] = useState<'delivery' | 'finops'>('delivery');
+const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignments, collaborators, entidades, brands, equipmentTypes, softwareLicenses = [], licenseAssignments = [] }) => {
+    const [activeTab, setActiveTab] = useState<'delivery' | 'finops' | 'chargeback'>('delivery');
     
-    // ... (rest of the component code remains same)
     // --- DELIVERY REPORT STATE ---
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedAssignment, setSelectedAssignment] = useState<ExtendedAssignment | null>(null);
@@ -69,7 +70,6 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
             const lifespan = eq.expectedLifespanYears || 4;
             const endOfLifeYear = purchaseYear + lifespan;
             
-            // Only show forecast for future or current year
             if (endOfLifeYear >= currentYear) {
                 if (!forecast[endOfLifeYear]) {
                     forecast[endOfLifeYear] = { count: 0, cost: 0, items: [] };
@@ -84,6 +84,62 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
             .map(([year, data]) => ({ year: parseInt(year), ...data }))
             .sort((a, b) => a.year - b.year);
     }, [equipment, currentYear]);
+
+    // --- CHARGEBACK DATA ---
+    const chargebackData = useMemo(() => {
+        const entityCosts = new Map<string, { name: string, hardwareCost: number, softwareCost: number, items: number }>();
+
+        // Initialize with all entities
+        entidades.forEach(e => {
+            entityCosts.set(e.id, { name: e.name, hardwareCost: 0, softwareCost: 0, items: 0 });
+        });
+
+        // Calculate Hardware Costs
+        // Logic: Find active assignment for equipment -> get entity (direct or via collaborator) -> add cost
+        const activeEqAssignments = assignments.filter(a => !a.returnDate);
+        const eqAssignmentMap = new Map(activeEqAssignments.map(a => [a.equipmentId, a]));
+
+        equipment.forEach(eq => {
+            const assignment = eqAssignmentMap.get(eq.id);
+            if (assignment) {
+                let entityId = assignment.entidadeId;
+                if (!entityId && assignment.collaboratorId) {
+                    const col = collaboratorMap.get(assignment.collaboratorId);
+                    if (col && col.entidadeId) entityId = col.entidadeId;
+                }
+
+                if (entityId && entityCosts.has(entityId)) {
+                    const entry = entityCosts.get(entityId)!;
+                    entry.hardwareCost += (eq.acquisitionCost || 0);
+                    entry.items += 1;
+                    entityCosts.set(entityId, entry);
+                }
+            }
+        });
+
+        // Calculate Software Costs (Licenses assigned to equipment)
+        licenseAssignments.filter(la => !la.returnDate).forEach(la => {
+             const license = softwareLicenses.find(l => l.id === la.softwareLicenseId);
+             const eqAssignment = eqAssignmentMap.get(la.equipmentId);
+             
+             if (license && eqAssignment) {
+                let entityId = eqAssignment.entidadeId;
+                if (!entityId && eqAssignment.collaboratorId) {
+                    const col = collaboratorMap.get(eqAssignment.collaboratorId);
+                    if (col && col.entidadeId) entityId = col.entidadeId;
+                }
+                
+                if (entityId && entityCosts.has(entityId)) {
+                     const entry = entityCosts.get(entityId)!;
+                     entry.softwareCost += (license.unitCost || 0);
+                     entityCosts.set(entityId, entry);
+                }
+             }
+        });
+
+        return Array.from(entityCosts.values()).sort((a, b) => (b.hardwareCost + b.softwareCost) - (a.hardwareCost + a.softwareCost));
+    }, [entidades, equipment, assignments, collaboratorMap, licenseAssignments, softwareLicenses]);
+
 
     // --- SIGNATURE CANVAS LOGIC ---
     const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
@@ -164,7 +220,6 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
         
         const eq = selectedAssignment.equipment;
         const col = selectedAssignment.collaborator;
-        const today = new Date().toLocaleDateString();
         
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
@@ -178,7 +233,6 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
                 <style>
                     body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; line-height: 1.6; }
                     h1 { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 30px; }
-                    .header-info { margin-bottom: 30px; }
                     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
                     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
                     th { background-color: #f0f0f0; }
@@ -234,18 +288,15 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
 
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl h-[calc(100vh-120px)] flex flex-col">
-            <div className="flex border-b border-gray-700 mb-6 flex-shrink-0">
-                <button 
-                    onClick={() => setActiveTab('delivery')} 
-                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'delivery' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                >
+            <div className="flex border-b border-gray-700 mb-6 flex-shrink-0 overflow-x-auto">
+                <button onClick={() => setActiveTab('delivery')} className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'delivery' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>
                     <FaFileSignature /> Auto de Entrega
                 </button>
-                <button 
-                    onClick={() => setActiveTab('finops')} 
-                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'finops' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                >
-                    <FaChartLine /> FinOps & Previsão
+                <button onClick={() => setActiveTab('finops')} className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'finops' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>
+                    <FaChartLine /> Previsão Capex
+                </button>
+                <button onClick={() => setActiveTab('chargeback')} className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'chargeback' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>
+                    <FaBuilding /> Custos por Entidade (Chargeback)
                 </button>
             </div>
 
@@ -284,7 +335,7 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
                             </div>
                         </div>
 
-                        {/* Document Preview & Signature */}
+                        {/* Document Preview */}
                         <div className="w-full md:w-2/3 bg-white text-gray-900 p-8 rounded-lg shadow-lg overflow-y-auto flex flex-col relative">
                             {selectedAssignment ? (
                                 <>
@@ -292,65 +343,39 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
                                         <h1 className="text-2xl font-bold uppercase">Auto de Entrega</h1>
                                         <p className="text-sm text-gray-600">Gestão de Ativos de TI</p>
                                     </div>
-                                    
                                     <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
                                         <div>
                                             <p className="font-bold">Colaborador:</p>
                                             <p>{selectedAssignment.collaborator?.fullName}</p>
-                                            <p className="text-gray-600">Nº Mec: {selectedAssignment.collaborator?.numeroMecanografico}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-bold">Data de Entrega:</p>
+                                            <p className="font-bold">Data:</p>
                                             <p>{selectedAssignment.assignedDate}</p>
                                         </div>
                                     </div>
-
                                     <table className="w-full text-sm mb-6 border-collapse border border-gray-300">
                                         <tbody>
                                             <tr className="bg-gray-100"><th className="border p-2 text-left">Equipamento</th><td className="border p-2">{selectedAssignment.equipment?.description}</td></tr>
-                                            <tr><th className="border p-2 text-left">Marca/Modelo</th><td className="border p-2">{brandMap.get(selectedAssignment.equipment?.brandId || '')} {typeMap.get(selectedAssignment.equipment?.typeId || '')}</td></tr>
-                                            <tr className="bg-gray-100"><th className="border p-2 text-left">Nº Série</th><td className="border p-2 font-mono">{selectedAssignment.equipment?.serialNumber}</td></tr>
-                                            <tr><th className="border p-2 text-left">Nº Inventário</th><td className="border p-2">{selectedAssignment.equipment?.inventoryNumber || '-'}</td></tr>
-                                            <tr className="bg-gray-100"><th className="border p-2 text-left">Nº Requisição</th><td className="border p-2">{selectedAssignment.equipment?.requisitionNumber || '-'}</td></tr>
+                                            <tr><th className="border p-2 text-left">S/N</th><td className="border p-2 font-mono">{selectedAssignment.equipment?.serialNumber}</td></tr>
+                                            <tr className="bg-gray-100"><th className="border p-2 text-left">Inventário</th><td className="border p-2">{selectedAssignment.equipment?.inventoryNumber || '-'}</td></tr>
                                         </tbody>
                                     </table>
-
-                                    <div className="text-xs text-justify text-gray-700 mb-6">
-                                        <p className="mb-2">Declaro que recebi o equipamento acima descrito em perfeitas condições de funcionamento.</p>
-                                        <p>Comprometo-me a zelar pelo bom estado do equipamento e a utilizá-lo exclusivamente para fins profissionais, de acordo com a política de segurança da informação da empresa.</p>
-                                        <p>Em caso de perda, roubo ou dano, deve comunicar imediatamente ao departamento de TI.</p>
-                                    </div>
-
                                     <div className="mt-auto">
-                                        <p className="font-bold text-sm mb-2">Assinatura do Colaborador (Digital):</p>
+                                        <p className="font-bold text-sm mb-2">Assinatura:</p>
                                         <div className="border-2 border-dashed border-gray-400 rounded bg-gray-50 h-32 relative touch-none">
-                                            <canvas 
-                                                ref={canvasRef}
-                                                className="w-full h-full cursor-crosshair"
-                                                onMouseDown={startDrawing}
-                                                onMouseMove={draw}
-                                                onMouseUp={stopDrawing}
-                                                onMouseLeave={stopDrawing}
-                                                onTouchStart={startDrawing}
-                                                onTouchMove={draw}
-                                                onTouchEnd={stopDrawing}
-                                            />
-                                            <button onClick={clearSignature} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 bg-white rounded-full p-1 shadow">
-                                                <FaEraser />
-                                            </button>
+                                            <canvas ref={canvasRef} className="w-full h-full cursor-crosshair" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+                                            <button onClick={clearSignature} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 bg-white rounded-full p-1 shadow"><FaEraser /></button>
                                             {!isDrawing && !signatureData && <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-300 text-sm"><FaPen className="mr-2"/> Assine aqui</div>}
                                         </div>
                                         <div className="flex justify-end mt-4">
-                                            <button onClick={handlePrintDelivery} className="flex items-center gap-2 bg-brand-primary text-white px-6 py-2 rounded hover:bg-brand-secondary shadow-lg">
-                                                <FaPrint /> Imprimir / Guardar PDF
-                                            </button>
+                                            <button onClick={handlePrintDelivery} className="flex items-center gap-2 bg-brand-primary text-white px-6 py-2 rounded hover:bg-brand-secondary shadow-lg"><FaPrint /> Imprimir</button>
                                         </div>
                                     </div>
                                 </>
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
                                     <FaFileSignature className="text-4xl mb-2 opacity-50" />
-                                    <p>Selecione uma atribuição à esquerda para gerar o documento.</p>
+                                    <p>Selecione uma atribuição para gerar o documento.</p>
                                 </div>
                             )}
                         </div>
@@ -361,37 +386,57 @@ const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ equipment, assignme
                 {activeTab === 'finops' && (
                     <div className="h-full overflow-y-auto custom-scrollbar p-2">
                         <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg mb-6">
-                            <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaChartLine className="text-green-400"/> Previsão de Custos de Substituição (Capex Forecast)</h3>
-                            <p className="text-sm text-gray-400">
-                                Estimativa de investimento necessário com base na vida útil esperada dos equipamentos ativos.
-                            </p>
+                            <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaChartLine className="text-green-400"/> Previsão de Custos de Substituição</h3>
+                            <p className="text-sm text-gray-400">Estimativa de investimento necessário com base na vida útil esperada.</p>
                         </div>
-
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                             {forecastData.map((yearData) => (
                                 <div key={yearData.year} className="bg-surface-dark border border-gray-700 rounded-lg p-4 shadow-lg">
                                     <div className="flex justify-between items-start mb-4 border-b border-gray-700 pb-2">
-                                        <h4 className="text-xl font-bold text-white flex items-center gap-2">
-                                            <FaCalendarAlt className="text-brand-secondary"/> {yearData.year}
-                                        </h4>
-                                        <div className="text-right">
-                                            <p className="text-xs text-gray-400 uppercase">Orçamento Estimado</p>
-                                            <p className="text-xl font-bold text-green-400">€ {yearData.cost.toLocaleString()}</p>
-                                        </div>
+                                        <h4 className="text-xl font-bold text-white flex items-center gap-2"><FaCalendarAlt className="text-brand-secondary"/> {yearData.year}</h4>
+                                        <div className="text-right"><p className="text-xs text-gray-400 uppercase">Orçamento Estimado</p><p className="text-xl font-bold text-green-400">€ {yearData.cost.toLocaleString()}</p></div>
                                     </div>
-                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
-                                        {yearData.items.map(eq => (
-                                            <div key={eq.id} className="flex justify-between text-sm p-2 bg-gray-800 rounded">
-                                                <span className="text-white truncate w-2/3">{eq.description}</span>
-                                                <span className="text-gray-400 font-mono">€ {eq.acquisitionCost}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="mt-3 text-xs text-gray-500 text-center border-t border-gray-700 pt-2">
-                                        {yearData.count} equipamentos para substituir
-                                    </div>
+                                    <div className="text-center text-xs text-gray-500">{yearData.count} equipamentos para substituir</div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* CHARGEBACK TAB */}
+                {activeTab === 'chargeback' && (
+                    <div className="h-full overflow-y-auto custom-scrollbar p-2 animate-fade-in">
+                         <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg mb-6">
+                            <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaEuroSign className="text-yellow-400"/> Custos por Entidade (Chargeback)</h3>
+                            <p className="text-sm text-gray-400">Distribuição de custos de Hardware e Software por departamento/entidade.</p>
+                        </div>
+                        
+                        <div className="overflow-x-auto border border-gray-700 rounded-lg">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-800 text-xs uppercase text-gray-400">
+                                    <tr>
+                                        <th className="px-4 py-3">Entidade</th>
+                                        <th className="px-4 py-3 text-center">Nº Ativos</th>
+                                        <th className="px-4 py-3 text-right">Hardware (€)</th>
+                                        <th className="px-4 py-3 text-right">Software (€)</th>
+                                        <th className="px-4 py-3 text-right">Total (€)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-700 bg-surface-dark">
+                                    {chargebackData.map((row, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-700/50">
+                                            <td className="px-4 py-3 font-medium text-white">{row.name}</td>
+                                            <td className="px-4 py-3 text-center">{row.items}</td>
+                                            <td className="px-4 py-3 text-right font-mono text-gray-300">{row.hardwareCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                            <td className="px-4 py-3 text-right font-mono text-gray-300">{row.softwareCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-green-400 font-mono">{(row.hardwareCost + row.softwareCost).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                        </tr>
+                                    ))}
+                                    {chargebackData.length === 0 && (
+                                        <tr><td colSpan={5} className="p-8 text-center text-gray-500">Sem dados de custos para apresentar.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}

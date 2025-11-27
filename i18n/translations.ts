@@ -1,6 +1,4 @@
 
-
-
 export const translations = {
   pt: {
     "app.title": "Gestão Inteligente",
@@ -32,6 +30,7 @@ export const translations = {
     "nav.policies": "Políticas",
     
     "nav.reports": "Relatórios",
+    "reports.chargeback": "Custos por Entidade",
     
     "nav.tools": "Ferramentas",
     "nav.agenda": "Agenda",
@@ -131,6 +130,7 @@ export const translations = {
     "nav.policies": "Policies",
     
     "nav.reports": "Reports",
+    "reports.chargeback": "Chargeback",
     
     "nav.tools": "Tools",
     "nav.agenda": "Agenda",

@@ -107,7 +107,7 @@ const SortableHeader: React.FC<{
 
     return (
         <th scope="col" className="px-6 py-3">
-            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 uppercase font-bold text-xs hover:text-white">
+            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 uppercase font-bold text-xs hover:text-white w-full">
                 {title}
                 {isSorted ? (direction === 'ascending' ? <FaSortUp /> : <FaSortDown />) : <FaSort className="opacity-50" />}
             </button>

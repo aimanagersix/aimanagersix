@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Instituicao, Entidade, Supplier, Equipment, Assignment } from '../types';
 import * as L from 'leaflet';
 import { FaMapMarkedAlt, FaFilter, FaSpinner, FaSync } from 'react-icons/fa';
+import { XIcon } from './common/Icons';
 import 'leaflet/dist/leaflet.css'; // Import leaflet CSS
 
 interface MapDashboardProps {
@@ -10,6 +12,7 @@ interface MapDashboardProps {
     suppliers: Supplier[];
     equipment?: Equipment[];
     assignments?: Assignment[];
+    onClose?: () => void;
 }
 
 interface MapItem {
@@ -42,7 +45,7 @@ const icons = {
 // Cache for geocoding to avoid API abuse
 const geoCache: Record<string, { lat: number; lng: number } | null> = {};
 
-const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, suppliers, equipment = [], assignments = [] }) => {
+const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, suppliers, equipment = [], assignments = [], onClose }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -237,6 +240,11 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
                         <input type="checkbox" checked={filters.showSuppliers} onChange={e => setFilters(f => ({ ...f, showSuppliers: e.target.checked }))} className="rounded text-orange-500 bg-gray-700 border-gray-600 focus:ring-orange-600" />
                         Fornecedores
                     </label>
+                    {onClose && (
+                        <button onClick={onClose} className="text-gray-400 hover:text-white ml-2 p-1" title="Fechar Mapa">
+                            <XIcon />
+                        </button>
+                    )}
                 </div>
             </div>
 
