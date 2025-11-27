@@ -784,3 +784,48 @@ export const extractFindingsFromReport = async (base64File: string, mimeType: st
         throw new Error("Failed to analyze report.");
     }
 };
+
+// --- SQL AI Helper ---
+
+export const generateSqlHelper = async (userRequest: string): Promise<string> => {
+    try {
+        const ai = getAiClient();
+        
+        const schemaContext = `
+        Tables:
+        - equipment (id, serialNumber, description, status, brandId, typeId, purchaseDate, acquisitionCost, ...)
+        - collaborators (id, fullName, email, role, status, ...)
+        - tickets (id, title, description, status, requestDate, technicianId, ...)
+        - assignments (id, equipmentId, collaboratorId, assignedDate, returnDate, ...)
+        - software_licenses (id, productName, licenseKey, ...)
+        - license_assignments (id, softwareLicenseId, equipmentId, ...)
+        - brands (id, name, ...)
+        - equipment_types (id, name, ...)
+        - entidades (id, name, ...)
+        - instituicoes (id, name, ...)
+        `;
+
+        const prompt = `
+        Act as a PostgreSQL Expert.
+        Generate a valid SQL query based on the following request: "${userRequest}".
+        
+        Schema Context:
+        ${schemaContext}
+        
+        Rules:
+        - Return ONLY the SQL code. No markdown, no explanations.
+        - Use standard PostgreSQL syntax.
+        - If a join is needed, assume standard foreign keys based on field names (e.g. brandId -> brands.id).
+        `;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+
+        return response.text ? response.text.trim().replace(/```sql/g, '').replace(/```/g, '') : "-- No SQL generated";
+    } catch (error) {
+        console.error("Error generating SQL:", error);
+        return "-- Error generating SQL";
+    }
+};

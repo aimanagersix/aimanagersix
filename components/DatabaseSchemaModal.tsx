@@ -1,9 +1,8 @@
 
-
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner } from 'react-icons/fa';
+import { generateSqlHelper, isAiConfigured } from '../services/geminiService';
 
 interface DatabaseSchemaModalProps {
     onClose: () => void;
@@ -11,7 +10,13 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'reset' | 'cleanup'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'reset' | 'cleanup' | 'sql_ai'>('update');
+    
+    // SQL AI State
+    const [sqlRequest, setSqlRequest] = useState('');
+    const [generatedSql, setGeneratedSql] = useState('');
+    const [isGeneratingSql, setIsGeneratingSql] = useState(false);
+    const aiConfigured = isAiConfigured();
 
     const updateScript = `
 -- EXECUTE ESTE SCRIPT NO EDITOR SQL DO SUPABASE PARA ATUALIZAR A BASE DE DADOS
@@ -426,23 +431,46 @@ COMMIT;
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
+    
+    const handleGenerateSql = async () => {
+        if (!sqlRequest.trim() || !aiConfigured) return;
+        setIsGeneratingSql(true);
+        setGeneratedSql('');
+        try {
+            const result = await generateSqlHelper(sqlRequest);
+            setGeneratedSql(result);
+        } catch (e) {
+            console.error(e);
+            setGeneratedSql("-- Erro ao gerar SQL. Tente novamente.");
+        } finally {
+            setIsGeneratingSql(false);
+        }
+    };
 
     return (
         <Modal title="SQL de Configuração e Manutenção" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 {/* Tabs */}
-                <div className="flex border-b border-gray-700 mb-4">
+                <div className="flex border-b border-gray-700 mb-4 overflow-x-auto">
                     <button
                         onClick={() => setActiveTab('update')}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                             activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'
                         }`}
                     >
                         <FaDatabase className="inline mr-2"/> Atualização (Schema)
                     </button>
                     <button
+                        onClick={() => setActiveTab('sql_ai')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                            activeTab === 'sql_ai' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        <FaRobot className="inline mr-2"/> SQL AI (Assistente)
+                    </button>
+                    <button
                         onClick={() => setActiveTab('cleanup')}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                             activeTab === 'cleanup' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-400 hover:text-white'
                         }`}
                     >
@@ -450,7 +478,7 @@ COMMIT;
                     </button>
                     <button
                         onClick={() => setActiveTab('reset')}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                             activeTab === 'reset' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-400 hover:text-white'
                         }`}
                     >
@@ -475,6 +503,51 @@ COMMIT;
                                 {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
                                 {copied ? "Copiado!" : "Copiar SQL"}
                             </button>
+                        </div>
+                    </div>
+                )}
+                
+                {activeTab === 'sql_ai' && (
+                    <div className="animate-fade-in flex flex-col h-[500px]">
+                        <div className="bg-purple-900/20 border border-purple-900/50 p-4 rounded-lg text-sm text-purple-200 mb-4">
+                            <p className="font-bold mb-1 flex items-center gap-2"><FaRobot/> Assistente SQL (Gemini)</p>
+                            <p>Descreva o que pretende saber da base de dados e a IA irá gerar a query SQL correspondente.</p>
+                        </div>
+                        
+                        <div className="flex gap-2 mb-4">
+                            <input 
+                                type="text" 
+                                value={sqlRequest} 
+                                onChange={(e) => setSqlRequest(e.target.value)} 
+                                placeholder="Ex: Mostra todos os computadores HP comprados em 2023..." 
+                                className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-3 text-sm"
+                                onKeyDown={(e) => e.key === 'Enter' && handleGenerateSql()}
+                            />
+                            <button 
+                                onClick={handleGenerateSql} 
+                                disabled={isGeneratingSql || !aiConfigured || !sqlRequest.trim()}
+                                className="bg-purple-600 hover:bg-purple-500 text-white px-6 rounded-md font-bold disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isGeneratingSql ? <FaSpinner className="animate-spin"/> : <FaPlay/>} Gerar
+                            </button>
+                        </div>
+
+                        <div className="relative flex-grow">
+                             <textarea 
+                                value={generatedSql} 
+                                readOnly
+                                className="w-full h-full bg-black text-green-400 p-4 rounded-lg text-xs font-mono border border-gray-700 resize-none"
+                                placeholder="O código SQL gerado aparecerá aqui..."
+                            />
+                            {generatedSql && (
+                                <button 
+                                    onClick={() => handleCopy(generatedSql)}
+                                    className="absolute top-4 right-4 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md shadow-lg transition-colors flex items-center gap-2"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                    {copied ? "Copiado!" : "Copiar"}
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -525,7 +598,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.43</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.50</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar
