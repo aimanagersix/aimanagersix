@@ -1,8 +1,8 @@
-
 export const translations = {
   pt: {
     "app.title": "Gestão Inteligente",
     "nav.overview": "Visão Geral",
+    "nav.dashboard": "Dashboard",
     "nav.c_level": "Dashboard C-Level",
     
     "nav.inventory": "Ativos",
@@ -91,6 +91,7 @@ export const translations = {
   en: {
     "app.title": "Intelligent Management",
     "nav.overview": "Overview",
+    "nav.dashboard": "Dashboard",
     "nav.c_level": "C-Level Dashboard",
     
     "nav.inventory": "Assets",

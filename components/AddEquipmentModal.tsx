@@ -385,21 +385,21 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         e.preventDefault();
         if (!validate()) return;
         
-        // Clean up undefined fields
+        // Clean up empty fields to null for DB update
         const dataToSubmit = {
             ...formData,
-            inventoryNumber: formData.inventoryNumber || undefined,
-            invoiceNumber: formData.invoiceNumber || undefined,
-            requisitionNumber: formData.requisitionNumber || undefined,
-            nomeNaRede: formData.nomeNaRede || undefined,
-            macAddressWIFI: formData.macAddressWIFI || undefined,
-            macAddressCabo: formData.macAddressCabo || undefined,
-            warrantyEndDate: formData.warrantyEndDate || undefined,
-            supplier_id: formData.supplier_id || undefined,
+            inventoryNumber: formData.inventoryNumber || null,
+            invoiceNumber: formData.invoiceNumber || null,
+            requisitionNumber: formData.requisitionNumber || null,
+            nomeNaRede: formData.nomeNaRede || null,
+            macAddressWIFI: formData.macAddressWIFI || null,
+            macAddressCabo: formData.macAddressCabo || null,
+            warrantyEndDate: formData.warrantyEndDate || null,
+            supplier_id: formData.supplier_id || null,
             acquisitionCost: formData.acquisitionCost || 0,
             expectedLifespanYears: formData.expectedLifespanYears || 4,
-            embedded_license_key: formData.embedded_license_key || undefined,
-            installationLocation: formData.installationLocation || undefined,
+            embedded_license_key: formData.embedded_license_key || null,
+            installationLocation: formData.installationLocation || null,
             isLoan: formData.isLoan || false
         };
 
@@ -414,7 +414,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }
 
         if (equipmentToEdit && equipmentToEdit.id) {
-            onSave({ ...equipmentToEdit, ...dataToSubmit }, assignment, undefined);
+            onSave(dataToSubmit as Equipment, assignment, undefined);
         } else {
             onSave(dataToSubmit as Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>, assignment, undefined);
         }
@@ -537,7 +537,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedType?.requiresInventoryNumber && (
+                     {selectedType?.requiresInventoryNumber && (
                         <div>
                             <label htmlFor="inventoryNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Inventário</label>
                             <input type="text" name="inventoryNumber" id="inventoryNumber" value={formData.inventoryNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />

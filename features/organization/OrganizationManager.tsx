@@ -233,14 +233,19 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 <AddCollaboratorModal
                     onClose={() => setShowAddCollaboratorModal(false)}
                     onSave={async (col, pass) => {
-                        if (collaboratorToEdit) await dataService.updateCollaborator(collaboratorToEdit.id, col);
-                        else {
+                        if (collaboratorToEdit) {
+                            const updatedCollaborator = await dataService.updateCollaborator(collaboratorToEdit.id, col);
+                            refreshData();
+                            return updatedCollaborator;
+                        } else {
                             const newCol = await dataService.addCollaborator(col, pass);
-                            if (pass && newCol) setNewCredentials({ email: newCol.email, password: pass });
-                            if (newCol) setShowCredentialsModal(true);
+                            if (pass && newCol) {
+                                setNewCredentials({ email: newCol.email, password: pass });
+                                setShowCredentialsModal(true);
+                            }
+                            refreshData();
+                            return newCol;
                         }
-                        refreshData();
-                        return true;
                     }}
                     collaboratorToEdit={collaboratorToEdit}
                     escolasDepartamentos={appData.entidades}
@@ -278,9 +283,14 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 <AddSupplierModal 
                     onClose={() => setShowAddSupplierModal(false)}
                     onSave={async (sup) => {
-                        if (supplierToEdit) await dataService.updateSupplier(supplierToEdit.id, sup);
-                        else await dataService.addSupplier(sup);
+                        let savedSupplier;
+                        if (supplierToEdit) {
+                            savedSupplier = await dataService.updateSupplier(supplierToEdit.id, sup);
+                        } else {
+                            savedSupplier = await dataService.addSupplier(sup);
+                        }
                         refreshData();
+                        return savedSupplier;
                     }}
                     supplierToEdit={supplierToEdit}
                     teams={appData.teams}

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, FaKey } from './common/Icons';
@@ -123,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                 </button>
                                 {isOverviewOpen && isExpanded && (
                                     <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
-                                        <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                        <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
                                         <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
                                     </div>
                                 )}
