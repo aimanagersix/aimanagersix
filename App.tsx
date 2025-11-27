@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket 
@@ -138,7 +139,7 @@ export const App: React.FC = () => {
         
         'tickets': checkPermission('tickets', 'view') ? { title: 'Tickets', list: 'Lista de Tickets' } : undefined,
         
-        'nis2': checkPermission('compliance', 'view') ? { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência' } : undefined,
+        'nis2': checkPermission('compliance', 'view') ? { title: 'Compliance', bia: 'BIA (Serviços)', security: 'Segurança (CVE)', backups: 'Backups & Logs', resilience: 'Testes Resiliência', training: 'Formações' } : undefined,
         
         'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,
         

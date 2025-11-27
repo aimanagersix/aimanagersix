@@ -111,7 +111,7 @@ export const translations = {
     "nav.bia": "BIA",
     "nav.security": "Security",
     "nav.backups": "Backups",
-    "nav.resilience": "Resiliência",
+    "nav.resilience": "Resilience",
     "nav.training": "Training",
     
     "nav.reports": "Reports",
