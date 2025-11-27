@@ -1,12 +1,3 @@
-
-
-
-
-
-
-
-
-
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -467,6 +458,7 @@ export const deleteResilienceTest = (id: string) => remove('resilience_tests', i
 
 // Training
 export const addSecurityTraining = (data: any) => create('security_training_records', data);
+export const deleteSecurityTraining = (id: string) => remove('security_training_records', id);
 
 // Policies (New)
 export const addPolicy = (data: any) => create('policies', data);
@@ -540,123 +532,102 @@ export const syncResourceContacts = async (resourceType: string, resourceId: str
 export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
     const results: DiagnosticResult[] = [];
     const timestamp = new Date().toISOString();
+    const idMap: Record<string, string> = {};
     
     const addResult = (module: string, status: 'Success' | 'Failure' | 'Warning', message: string, details?: any) => {
         results.push({ module, status, message, details: details ? JSON.stringify(details) : undefined, timestamp });
     };
-
-    // 1. Collaborator CRUD
-    let testCollabId = '';
-    try {
-        // Create
-        const collab = await addCollaborator({
-            fullName: 'TEST_DIAGNOSTIC_USER',
-            email: `test_diag_${Date.now()}@system.local`,
-            numeroMecanografico: 'TEST-001',
-            role: 'Utilizador',
-            status: 'Ativo',
-            canLogin: false,
-            receivesNotifications: false
-        });
-        testCollabId = collab.id;
-        addResult('Collaborators', 'Success', 'Created dummy collaborator.');
-
-        // Read (Verify)
-        const supabase = getSupabase();
-        const { data: verifyCol } = await supabase.from('collaborators').select('*').eq('id', testCollabId).single();
-        if (!verifyCol) throw new Error("Read verification failed.");
-        
-        // Update
-        await updateCollaborator(testCollabId, { fullName: 'TEST_DIAGNOSTIC_UPDATED' });
-        addResult('Collaborators', 'Success', 'Updated dummy collaborator.');
-
-        // Delete (Cleanup) happens at the end to test foreign keys? No, delete now to test full cycle.
-        await deleteCollaborator(testCollabId);
-        addResult('Collaborators', 'Success', 'Deleted dummy collaborator.');
-        testCollabId = ''; // Clear ID so we don't try to delete again in catch block
-    } catch (e: any) {
-        addResult('Collaborators', 'Failure', `CRUD Cycle failed: ${e.message}`);
-    }
-
-    // 2. Equipment CRUD
-    let testEquipId = '';
-    try {
-        // Need a brand and type first. Assuming seeding exists, but safer to fetch one.
-        const supabase = getSupabase();
-        const { data: brands } = await supabase.from('brands').select('id').limit(1);
-        const { data: types } = await supabase.from('equipment_types').select('id').limit(1);
-        
-        if (!brands?.length || !types?.length) {
-            throw new Error("Cannot test Equipment: No Brands or Types found in DB.");
+    
+    // Helper to run atomic test and store ID for cleanup
+    const runTest = async (name: string, action: () => Promise<any>, keyName: string) => {
+        try {
+            const result = await action();
+            if (result && result.id) idMap[keyName] = result.id;
+            addResult(name, 'Success', 'Operação CRUD completada.');
+        } catch (e: any) {
+            addResult(name, 'Failure', `Erro: ${e.message}`);
         }
+    };
 
-        // Create
-        const equip = await addEquipment({
-            brandId: brands[0].id,
-            typeId: types[0].id,
-            description: 'TEST_DIAGNOSTIC_EQUIPMENT',
-            serialNumber: `TEST-SN-${Date.now()}`,
-            status: 'Stock',
-            purchaseDate: new Date().toISOString().split('T')[0]
-        });
-        testEquipId = equip.id;
-        addResult('Equipment', 'Success', 'Created dummy equipment.');
+    // --- 1. SETUP DEPENDENCIES (Metadata) ---
+    await runTest('Config: Brands', () => addBrand({ name: 'DIAG_BRAND_' + Date.now() }), 'brandId');
+    await runTest('Config: EquipTypes', () => addEquipmentType({ name: 'DIAG_TYPE_' + Date.now() }), 'typeId');
 
-        // Update
-        await updateEquipment(testEquipId, { description: 'TEST_DIAGNOSTIC_UPDATED' });
-        addResult('Equipment', 'Success', 'Updated dummy equipment.');
-
-        // Delete
-        await deleteEquipment(testEquipId);
-        addResult('Equipment', 'Success', 'Deleted dummy equipment.');
-        testEquipId = '';
-    } catch (e: any) {
-        addResult('Equipment', 'Failure', `CRUD Cycle failed: ${e.message}`);
+    // --- 2. ORGANIZATION ---
+    await runTest('Org: Institution', () => addInstituicao({ name: 'DIAG_INST', codigo: 'DG', email: 'd@d.com', telefone: '123' }), 'instId');
+    
+    if (idMap.instId) {
+        await runTest('Org: Entity', () => addEntidade({ name: 'DIAG_ENT', codigo: 'DE', email: 'e@e.com', instituicaoId: idMap.instId }), 'entId');
+    }
+    
+    if (idMap.entId) {
+        await runTest('Org: Collaborator', () => addCollaborator({ fullName: 'DIAG_USER', email: `diag_${Date.now()}@sys.com`, numeroMecanografico: 'D01', role: 'Utilizador', status: 'Ativo', entidadeId: idMap.entId }), 'collabId');
+        await runTest('Org: Team', () => addTeam({ name: 'DIAG_TEAM' }), 'teamId');
     }
 
-    // 3. Ticket CRUD
-    let testTicketId = '';
+    // --- 3. INVENTORY ---
+    if (idMap.brandId && idMap.typeId) {
+        await runTest('Inventory: Equipment', () => addEquipment({ description: 'DIAG_PC', serialNumber: 'DIAG-' + Date.now(), brandId: idMap.brandId, typeId: idMap.typeId, status: 'Stock', purchaseDate: '2024-01-01' }), 'eqId');
+    }
+    await runTest('Inventory: License', () => addLicense({ productName: 'DIAG_SOFT', licenseKey: 'KEY-123', totalSeats: 1, status: 'Ativo' }), 'licId');
+
+    // --- 4. OPERATIONS (Tickets) ---
+    if (idMap.collabId) {
+        await runTest('Support: Ticket', () => addTicket({ title: 'DIAG_TICKET', description: 'Diagnostic test', status: 'Pedido', requestDate: new Date().toISOString(), collaboratorId: idMap.collabId, entidadeId: idMap.entId }), 'ticketId');
+    }
+
+    // --- 5. COMPLIANCE & SECURITY ---
+    if (idMap.collabId) {
+        await runTest('Compliance: Service (BIA)', () => addBusinessService({ name: 'DIAG_SERVICE', criticality: 'Baixa', status: 'Ativo', owner_id: idMap.collabId }), 'serviceId');
+    }
+    await runTest('Compliance: Vulnerability', () => addVulnerability({ cve_id: 'CVE-DIAG-000', description: 'Diag Test', severity: 'Baixa', status: 'Aberto' }), 'vulnId');
+    if (idMap.eqId) {
+        await runTest('Compliance: Backup', () => addBackupExecution({ system_name: 'DIAG_SYS', equipment_id: idMap.eqId, backup_date: '2024-01-01', test_date: '2024-01-01', status: 'Sucesso', type: 'Completo', tester_id: idMap.collabId }), 'backupId');
+    }
+    await runTest('Compliance: Resilience', () => addResilienceTest({ title: 'DIAG_TEST', test_type: 'Scan Vulnerabilidades', planned_date: '2024-01-01', status: 'Planeado' }), 'resTestId');
+    if (idMap.collabId) {
+         await runTest('Compliance: Training', () => addSecurityTraining({ collaborator_id: idMap.collabId, training_type: 'Geral', completion_date: '2024-01-01', status: 'Concluído' }), 'trainId');
+    }
+    await runTest('Compliance: Policy', () => addPolicy({ title: 'DIAG_POLICY', content: 'Test', version: '1.0', is_active: true }), 'policyId');
+
+    // --- 6. SUPPLY CHAIN ---
+    await runTest('SupplyChain: Supplier', () => addSupplier({ name: 'DIAG_SUPPLIER', nif: '999999990', risk_level: 'Baixa' }), 'supplierId');
+    if (idMap.collabId) {
+        await runTest('SupplyChain: Procurement', () => addProcurement({ title: 'DIAG_REQ', quantity: 1, requester_id: idMap.collabId, status: 'Pendente' }), 'procId');
+    }
+
+    // --- 7. CLEANUP (Reverse Order) ---
     try {
-         // Needs a collaborator (or we create a temp one again)
-         // For simplicity, let's assume we can use the current user or fetch one
-         const supabase = getSupabase();
-         const { data: cols } = await supabase.from('collaborators').select('id, entidadeId').limit(1);
-         
-         if (!cols?.length) {
-              throw new Error("Cannot test Tickets: No Collaborators found.");
-         }
-         
-         // Create
-         const ticket = await addTicket({
-             title: 'TEST_DIAGNOSTIC_TICKET',
-             description: 'System diagnostic test ticket',
-             collaboratorId: cols[0].id,
-             entidadeId: cols[0].entidadeId, // Might be null if SuperAdmin, handle?
-             status: 'Pedido',
-             requestDate: new Date().toISOString(),
-             category: 'Suporte Geral'
-         });
-         testTicketId = ticket.id;
-         addResult('Tickets', 'Success', 'Created dummy ticket.');
-         
-         // Update
-         await updateTicket(testTicketId, { status: 'Em progresso' });
-         addResult('Tickets', 'Success', 'Updated dummy ticket.');
-         
-         // Delete (Requires permission usually, but admin can)
-         // Since deleteTicket isn't exported/standard, we use the generic remove
-         await remove('tickets', testTicketId);
-         addResult('Tickets', 'Success', 'Deleted dummy ticket.');
-         testTicketId = '';
+        // Operations & Compliance
+        if (idMap.procId) await deleteProcurement(idMap.procId);
+        if (idMap.supplierId) await deleteSupplier(idMap.supplierId);
+        if (idMap.policyId) await deletePolicy(idMap.policyId);
+        if (idMap.trainId) await deleteSecurityTraining(idMap.trainId);
+        if (idMap.resTestId) await deleteResilienceTest(idMap.resTestId);
+        if (idMap.backupId) await deleteBackupExecution(idMap.backupId);
+        if (idMap.vulnId) await deleteVulnerability(idMap.vulnId);
+        if (idMap.serviceId) await deleteBusinessService(idMap.serviceId); // Cascades dependencies usually
+        if (idMap.ticketId) await remove('tickets', idMap.ticketId); // Using generic remove as deleteTicket not exported
+        
+        // Inventory
+        if (idMap.licId) await deleteLicense(idMap.licId);
+        if (idMap.eqId) await deleteEquipment(idMap.eqId);
+        
+        // Org
+        if (idMap.teamId) await deleteTeam(idMap.teamId);
+        if (idMap.collabId) await deleteCollaborator(idMap.collabId);
+        if (idMap.entId) await deleteEntidade(idMap.entId);
+        if (idMap.instId) await deleteInstituicao(idMap.instId);
+
+        // Config
+        if (idMap.typeId) await deleteEquipmentType(idMap.typeId);
+        if (idMap.brandId) await deleteBrand(idMap.brandId);
+
+        addResult('System', 'Success', 'Cleanup executado com sucesso.');
     } catch (e: any) {
-        addResult('Tickets', 'Failure', `CRUD Cycle failed: ${e.message}`);
+        addResult('System', 'Warning', `Falha no Cleanup: ${e.message}. Podem existir dados órfãos.`);
     }
 
-    // Cleanup logic if failures prevented deletion
-    if (testCollabId) try { await deleteCollaborator(testCollabId); } catch {}
-    if (testEquipId) try { await deleteEquipment(testEquipId); } catch {}
-    if (testTicketId) try { await remove('tickets', testTicketId); } catch {}
-
-    await logAction('DIAGNOSTIC', 'System', 'Executed system diagnostics.');
+    await logAction('DIAGNOSTIC', 'System', 'Executed comprehensive system diagnostics.');
     return results;
 };

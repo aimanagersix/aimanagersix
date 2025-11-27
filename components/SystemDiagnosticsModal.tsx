@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { DiagnosticResult } from '../types';
@@ -42,15 +41,16 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
     const overallColor = overallStatus === 'Sucesso' ? 'text-green-400' : 'text-red-400';
 
     return (
-        <Modal title="Diagnóstico de Sistema" onClose={onClose} maxWidth="max-w-2xl">
+        <Modal title="Diagnóstico de Sistema (Full Check)" onClose={onClose} maxWidth="max-w-3xl">
             <div className="space-y-6">
                 <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 flex items-start gap-3">
                     <FaClipboardList className="text-xl mt-1" />
                     <div>
-                        <p className="font-bold mb-1">Teste de Integridade CRUD</p>
+                        <p className="font-bold mb-1">Teste de Integridade Global (End-to-End)</p>
                         <p>
-                            Este módulo executa operações de criação, leitura, atualização e eliminação em entidades chave (Colaboradores, Equipamentos, Tickets) para validar a saúde da base de dados e permissões.
-                            Os dados de teste são removidos automaticamente.
+                            Este módulo executa uma bateria de testes em <strong>todos os módulos da aplicação</strong> (Organização, Inventário, Tickets, Compliance, Supply Chain).
+                            <br/>
+                            O sistema cria registos temporários em cadeia para validar relações e permissões, removendo-os automaticamente no final.
                         </p>
                     </div>
                 </div>
@@ -61,7 +61,7 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
                             onClick={handleRun}
                             className="flex items-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-full hover:bg-brand-secondary transition-all hover:scale-105 shadow-lg font-bold text-lg"
                         >
-                            <FaPlay /> Iniciar Diagnóstico
+                            <FaPlay /> Iniciar Diagnóstico Completo
                         </button>
                     </div>
                 )}
@@ -69,7 +69,8 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
                 {isRunning && (
                     <div className="text-center py-12">
                         <FaSpinner className="animate-spin text-4xl text-brand-secondary mx-auto mb-4" />
-                        <p className="text-gray-300">A executar testes de sistema...</p>
+                        <p className="text-gray-300">A executar testes em todos os módulos...</p>
+                        <p className="text-xs text-gray-500 mt-2">Isto pode demorar alguns segundos.</p>
                     </div>
                 )}
 
@@ -80,11 +81,11 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
                             <span className={`text-xl font-bold ${overallColor}`}>{overallStatus}</span>
                         </div>
 
-                        <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-hidden">
+                        <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-hidden max-h-96 overflow-y-auto custom-scrollbar">
                             <table className="w-full text-sm text-left">
-                                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                                <thead className="bg-gray-800 text-gray-400 uppercase text-xs sticky top-0">
                                     <tr>
-                                        <th className="p-3">Módulo</th>
+                                        <th className="p-3">Módulo / Teste</th>
                                         <th className="p-3">Mensagem</th>
                                         <th className="p-3 text-center">Estado</th>
                                     </tr>
@@ -92,8 +93,8 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
                                 <tbody className="divide-y divide-gray-800">
                                     {results.map((res, idx) => (
                                         <tr key={idx} className="hover:bg-gray-800/30">
-                                            <td className="p-3 font-semibold text-white">{res.module}</td>
-                                            <td className="p-3 text-gray-300">{res.message}</td>
+                                            <td className="p-3 font-semibold text-white text-xs">{res.module}</td>
+                                            <td className="p-3 text-gray-300 text-xs">{res.message}</td>
                                             <td className="p-3 text-center text-lg">{getStatusIcon(res.status)}</td>
                                         </tr>
                                     ))}
