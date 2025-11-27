@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom } from 'react-icons/fa';
@@ -207,6 +209,11 @@ ON CONFLICT (name) DO UPDATE SET permissions = EXCLUDED.permissions;
 INSERT INTO config_custom_roles (name, is_system, permissions) 
 VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false},"procurement":{"view":true,"create":true,"edit":false,"delete":false},"dashboard_smart":{"view":false,"create":false,"edit":false,"delete":false}}')
 ON CONFLICT (name) DO NOTHING;
+
+-- CANAL GERAL (Utilizador de Sistema para Broadcast no Chat)
+INSERT INTO collaborators (id, "fullName", email, "numeroMecanografico", role, status, "canLogin", "receivesNotifications")
+VALUES ('00000000-0000-0000-0000-000000000000', 'Canal Geral', 'general@system.local', 'SYS-001', 'System', 'Ativo', false, false)
+ON CONFLICT (id) DO NOTHING;
 
 -- ==========================================
 -- 5. PERMISSÕES (RLS)

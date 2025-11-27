@@ -1,12 +1,15 @@
+
 import React, { useState } from 'react';
 import * as dataService from '../../services/dataService';
 import AuxiliaryDataDashboard from '../../components/AuxiliaryDataDashboard';
+import SystemDiagnosticsModal from '../../components/SystemDiagnosticsModal';
 
 // Modals
 import AddBrandModal from '../../components/AddBrandModal';
 import AddEquipmentTypeModal from '../../components/AddEquipmentTypeModal';
 import AddCategoryModal from '../../components/AddCategoryModal';
 import AddSecurityIncidentTypeModal from '../../components/AddSecurityIncidentTypeModal';
+import { FaHeartbeat } from 'react-icons/fa';
 
 interface SettingsManagerProps {
     appData: any;
@@ -26,9 +29,21 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     
     const [showAddIncidentTypeModal, setShowAddIncidentTypeModal] = useState(false);
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
+    
+    const [showDiagnostics, setShowDiagnostics] = useState(false);
 
     return (
         <>
+            {/* Header with Diagnostics Button */}
+            <div className="flex justify-end mb-4 px-6">
+                <button 
+                    onClick={() => setShowDiagnostics(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-md transition-colors border border-gray-600"
+                >
+                    <FaHeartbeat className="text-red-400" /> Diagnóstico de Sistema
+                </button>
+            </div>
+
             <AuxiliaryDataDashboard 
                 configTables={[
                     { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: appData.configEquipmentStatuses },
@@ -99,6 +114,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     typeToEdit={incidentTypeToEdit}
                 />
             )}
+            {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
         </>
     );
 };

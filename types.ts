@@ -551,7 +551,7 @@ export interface UserNotificationSnooze {
     snoozeUntil: string;
 }
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE' | 'DIAGNOSTIC';
 
 export interface AuditLogEntry {
     id: string;
@@ -756,4 +756,13 @@ export interface ProcurementRequest {
     priority: 'Normal' | 'Urgente';
     
     attachments?: { name: string; dataUrl: string }[]; // Quotes, Invoices
+}
+
+// --- SYSTEM DIAGNOSTICS ---
+export interface DiagnosticResult {
+    module: string;
+    status: 'Success' | 'Failure' | 'Warning';
+    message: string;
+    details?: string;
+    timestamp: string;
 }

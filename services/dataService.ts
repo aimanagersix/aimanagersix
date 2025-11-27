@@ -3,6 +3,8 @@
 
 
 
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -11,7 +13,7 @@ import {
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
     ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole, EquipmentStatus,
-    Policy, PolicyAcceptance, ProcurementRequest
+    Policy, PolicyAcceptance, ProcurementRequest, DiagnosticResult
 } from '../types';
 
 // --- HELPER FUNCTIONS ---
@@ -522,4 +524,129 @@ export const syncResourceContacts = async (resourceType: string, resourceId: str
         }));
         await supabase.from('resource_contacts').insert(toInsert);
     }
+};
+
+// --- SYSTEM DIAGNOSTICS ---
+export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
+    const results: DiagnosticResult[] = [];
+    const timestamp = new Date().toISOString();
+    
+    const addResult = (module: string, status: 'Success' | 'Failure' | 'Warning', message: string, details?: any) => {
+        results.push({ module, status, message, details: details ? JSON.stringify(details) : undefined, timestamp });
+    };
+
+    // 1. Collaborator CRUD
+    let testCollabId = '';
+    try {
+        // Create
+        const collab = await addCollaborator({
+            fullName: 'TEST_DIAGNOSTIC_USER',
+            email: `test_diag_${Date.now()}@system.local`,
+            numeroMecanografico: 'TEST-001',
+            role: 'Utilizador',
+            status: 'Ativo',
+            canLogin: false,
+            receivesNotifications: false
+        });
+        testCollabId = collab.id;
+        addResult('Collaborators', 'Success', 'Created dummy collaborator.');
+
+        // Read (Verify)
+        const supabase = getSupabase();
+        const { data: verifyCol } = await supabase.from('collaborators').select('*').eq('id', testCollabId).single();
+        if (!verifyCol) throw new Error("Read verification failed.");
+        
+        // Update
+        await updateCollaborator(testCollabId, { fullName: 'TEST_DIAGNOSTIC_UPDATED' });
+        addResult('Collaborators', 'Success', 'Updated dummy collaborator.');
+
+        // Delete (Cleanup) happens at the end to test foreign keys? No, delete now to test full cycle.
+        await deleteCollaborator(testCollabId);
+        addResult('Collaborators', 'Success', 'Deleted dummy collaborator.');
+        testCollabId = ''; // Clear ID so we don't try to delete again in catch block
+    } catch (e: any) {
+        addResult('Collaborators', 'Failure', `CRUD Cycle failed: ${e.message}`);
+    }
+
+    // 2. Equipment CRUD
+    let testEquipId = '';
+    try {
+        // Need a brand and type first. Assuming seeding exists, but safer to fetch one.
+        const supabase = getSupabase();
+        const { data: brands } = await supabase.from('brands').select('id').limit(1);
+        const { data: types } = await supabase.from('equipment_types').select('id').limit(1);
+        
+        if (!brands?.length || !types?.length) {
+            throw new Error("Cannot test Equipment: No Brands or Types found in DB.");
+        }
+
+        // Create
+        const equip = await addEquipment({
+            brandId: brands[0].id,
+            typeId: types[0].id,
+            description: 'TEST_DIAGNOSTIC_EQUIPMENT',
+            serialNumber: `TEST-SN-${Date.now()}`,
+            status: 'Stock',
+            purchaseDate: new Date().toISOString().split('T')[0]
+        });
+        testEquipId = equip.id;
+        addResult('Equipment', 'Success', 'Created dummy equipment.');
+
+        // Update
+        await updateEquipment(testEquipId, { description: 'TEST_DIAGNOSTIC_UPDATED' });
+        addResult('Equipment', 'Success', 'Updated dummy equipment.');
+
+        // Delete
+        await deleteEquipment(testEquipId);
+        addResult('Equipment', 'Success', 'Deleted dummy equipment.');
+        testEquipId = '';
+    } catch (e: any) {
+        addResult('Equipment', 'Failure', `CRUD Cycle failed: ${e.message}`);
+    }
+
+    // 3. Ticket CRUD
+    let testTicketId = '';
+    try {
+         // Needs a collaborator (or we create a temp one again)
+         // For simplicity, let's assume we can use the current user or fetch one
+         const supabase = getSupabase();
+         const { data: cols } = await supabase.from('collaborators').select('id, entidadeId').limit(1);
+         
+         if (!cols?.length) {
+              throw new Error("Cannot test Tickets: No Collaborators found.");
+         }
+         
+         // Create
+         const ticket = await addTicket({
+             title: 'TEST_DIAGNOSTIC_TICKET',
+             description: 'System diagnostic test ticket',
+             collaboratorId: cols[0].id,
+             entidadeId: cols[0].entidadeId, // Might be null if SuperAdmin, handle?
+             status: 'Pedido',
+             requestDate: new Date().toISOString(),
+             category: 'Suporte Geral'
+         });
+         testTicketId = ticket.id;
+         addResult('Tickets', 'Success', 'Created dummy ticket.');
+         
+         // Update
+         await updateTicket(testTicketId, { status: 'Em progresso' });
+         addResult('Tickets', 'Success', 'Updated dummy ticket.');
+         
+         // Delete (Requires permission usually, but admin can)
+         // Since deleteTicket isn't exported/standard, we use the generic remove
+         await remove('tickets', testTicketId);
+         addResult('Tickets', 'Success', 'Deleted dummy ticket.');
+         testTicketId = '';
+    } catch (e: any) {
+        addResult('Tickets', 'Failure', `CRUD Cycle failed: ${e.message}`);
+    }
+
+    // Cleanup logic if failures prevented deletion
+    if (testCollabId) try { await deleteCollaborator(testCollabId); } catch {}
+    if (testEquipId) try { await deleteEquipment(testEquipId); } catch {}
+    if (testTicketId) try { await remove('tickets', testTicketId); } catch {}
+
+    await logAction('DIAGNOSTIC', 'System', 'Executed system diagnostics.');
+    return results;
 };
