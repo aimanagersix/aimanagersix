@@ -44,8 +44,8 @@ const geoCache: Record<string, { lat: number; lng: number } | null> = {};
 
 const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, suppliers, equipment = [], assignments = [] }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<any>(null);
-    const markersLayerRef = useRef<any>(null);
+    const mapInstanceRef = useRef<L.Map | null>(null);
+    const markersLayerRef = useRef<L.LayerGroup | null>(null);
     
     const [filters, setFilters] = useState({
         showInstitutions: true,
@@ -74,7 +74,9 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
         const institutionEquipmentCount: Record<string, number> = {};
         entidades.forEach(e => {
             const count = entityEquipmentCount[e.id] || 0;
-            institutionEquipmentCount[e.instituicaoId] = (institutionEquipmentCount[e.instituicaoId] || 0) + count;
+            if(e.instituicaoId) {
+                institutionEquipmentCount[e.instituicaoId] = (institutionEquipmentCount[e.instituicaoId] || 0) + count;
+            }
         });
         
         if (filters.showInstitutions) {
@@ -167,7 +169,6 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
         if (!mapInstanceRef.current) {
             const map = L.map(mapContainerRef.current).setView([39.5, -8.0], 6); // Default Portugal Center
             
-            // Fix: Corrected the attribution string.
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
@@ -183,7 +184,7 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
 
         markersLayerRef.current.clearLayers();
 
-        const markers: any[] = [];
+        const markers: L.Marker[] = [];
         processedItems.forEach(item => {
             if (item.coordinates) {
                 const marker = L.marker([item.coordinates.lat, item.coordinates.lng], { icon: icons[item.type] });
@@ -196,7 +197,7 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
             }
         });
         
-        markers.forEach(m => markersLayerRef.current.addLayer(m));
+        markers.forEach(m => markersLayerRef.current!.addLayer(m));
         
         // Auto-zoom
         if (markers.length > 0) {
@@ -217,7 +218,6 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
         };
     }, []);
     
-    // Fix: Added return statement with JSX to render the component UI.
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl h-[80vh] flex flex-col">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
@@ -254,5 +254,4 @@ const MapDashboard: React.FC<MapDashboardProps> = ({ instituicoes, entidades, su
     );
 };
 
-// Fix: Added default export.
 export default MapDashboard;
