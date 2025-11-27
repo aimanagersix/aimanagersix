@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig, EquipmentStatus } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave, FaBoxOpen, FaSearch, FaUnlink, FaLink } from './common/Icons';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave, FaBoxOpen, FaSearch, FaUnlink, FaLink, FaExclamationTriangle, FaLock, FaUnlock } from './common/Icons';
 import { analyzeCollaboratorRisk, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -39,6 +39,22 @@ const getTicketStatusClass = (status: TicketStatus) => {
     }
 };
 
+// Subcomponent for KPI Cards
+const KpiCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode; color: string; onClick?: () => void }> = ({ title, value, icon, color, onClick }) => (
+    <div 
+        onClick={onClick}
+        className={`p-4 rounded-lg border border-gray-700 bg-gray-800/50 flex items-center gap-4 ${onClick ? 'cursor-pointer hover:bg-gray-700/50 transition-colors' : ''}`}
+    >
+        <div className={`p-3 rounded-full ${color} text-white`}>
+            {icon}
+        </div>
+        <div>
+            <p className="text-xs text-gray-400 uppercase font-bold">{title}</p>
+            <p className="text-xl font-bold text-white">{value}</p>
+        </div>
+    </div>
+);
+
 const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     collaborator,
     assignments,
@@ -53,7 +69,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     onAssignEquipment,
     onUnassignEquipment
 }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'training' | 'preferences'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'support' | 'training' | 'preferences'>('overview');
     
     // Training State
     const [trainings, setTrainings] = useState<SecurityTrainingRecord[]>([]);
@@ -149,6 +165,8 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
             .filter(t => t.collaboratorId === collaborator.id)
             .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     }, [tickets, collaborator.id]);
+
+    const openTicketsCount = collaboratorTickets.filter(t => t.status !== TicketStatus.Finished).length;
 
     const handleChatClick = () => {
         onStartChat(collaborator);
@@ -390,20 +408,26 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                         onClick={() => setActiveTab('inventory')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'inventory' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        Inventário & Ativos
+                        Inventário
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('support')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'support' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        Suporte
                     </button>
                     <button 
                         onClick={() => setActiveTab('training')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'training' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        Formação & Segurança (NIS2)
+                        Formação & Segurança
                     </button>
                     {isCurrentUser && (
                         <button 
                             onClick={() => setActiveTab('preferences')} 
                             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'preferences' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                         >
-                            Preferências & UI
+                            Preferências
                         </button>
                     )}
                 </div>
@@ -412,8 +436,39 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                 <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6">
                     
                     {activeTab === 'overview' && (
-                        <>
-                            {/* Change Password Section (Only for Current User) */}
+                        <div className="space-y-6">
+                            {/* KPI Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <KpiCard 
+                                    title="Total de Ativos" 
+                                    value={assignedEquipment.length} 
+                                    icon={<FaLaptop className="text-xl"/>} 
+                                    color="bg-blue-600" 
+                                    onClick={() => setActiveTab('inventory')}
+                                />
+                                <KpiCard 
+                                    title="Tickets Abertos" 
+                                    value={openTicketsCount} 
+                                    icon={<FaTicketAlt className="text-xl"/>} 
+                                    color={openTicketsCount > 0 ? "bg-yellow-600" : "bg-green-600"}
+                                    onClick={() => setActiveTab('support')}
+                                />
+                                <KpiCard 
+                                    title="Formações" 
+                                    value={trainings.length} 
+                                    icon={<FaGraduationCap className="text-xl"/>} 
+                                    color="bg-purple-600"
+                                    onClick={() => setActiveTab('training')}
+                                />
+                                <KpiCard 
+                                    title="Acesso ao Sistema" 
+                                    value={collaborator.canLogin ? 'Permitido' : 'Bloqueado'} 
+                                    icon={collaborator.canLogin ? <FaUnlock className="text-xl"/> : <FaLock className="text-xl"/>} 
+                                    color={collaborator.canLogin ? "bg-green-600" : "bg-red-600"}
+                                />
+                            </div>
+
+                            {/* Account Management (Password) */}
                             {isCurrentUser && (
                                 <section className="bg-gray-800/30 p-4 rounded-lg border border-gray-700">
                                     <div className="flex justify-between items-center">
@@ -464,65 +519,23 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                     )}
                                 </section>
                             )}
-
-                            {/* Assigned Equipment Summary */}
-                            <section>
-                                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2"><FaLaptop /> Equipamentos Atribuídos ({assignedEquipment.length})</h3>
-                                {assignedEquipment.length > 0 ? (
-                                    <table className="w-full text-sm text-left text-on-surface-dark-secondary border border-gray-700 rounded-md overflow-hidden">
-                                        <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
-                                            <tr>
-                                                <th className="px-4 py-2">Descrição</th>
-                                                <th className="px-4 py-2">Nº Série</th>
-                                                <th className="px-4 py-2">Nº Inventário</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {assignedEquipment.map(item => (
-                                                <tr key={item.id} className="border-b border-gray-700 last:border-0">
-                                                    <td className="px-4 py-2 text-on-surface-dark">{item.description} <span className="text-xs">({brandMap.get(item.brandId)})</span></td>
-                                                    <td className="px-4 py-2 font-mono">{item.serialNumber}</td>
-                                                    <td className="px-4 py-2">{item.inventoryNumber || '—'}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                ) : (
-                                    <p className="text-center py-4 text-on-surface-dark-secondary border border-gray-700 rounded-md bg-gray-900/20">Nenhum equipamento atribuído.</p>
-                                )}
-                            </section>
                             
-                            {/* Tickets Section */}
-                            <section>
-                                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2"><FaTicketAlt /> Histórico de Tickets ({collaboratorTickets.length})</h3>
-                                {collaboratorTickets.length > 0 ? (
-                                     <table className="w-full text-sm text-left text-on-surface-dark-secondary border border-gray-700 rounded-md overflow-hidden">
-                                        <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
-                                            <tr>
-                                                <th className="px-4 py-2">Data</th>
-                                                <th className="px-4 py-2">Descrição</th>
-                                                <th className="px-4 py-2">Estado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {collaboratorTickets.map(ticket => (
-                                                <tr key={ticket.id} className="border-b border-gray-700 last:border-0">
-                                                    <td className="px-4 py-2">{new Date(ticket.requestDate).toLocaleDateString()}</td>
-                                                    <td className="px-4 py-2 text-on-surface-dark truncate max-w-xs" title={ticket.description}>{ticket.description}</td>
-                                                    <td className="px-4 py-2">
-                                                        <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${getTicketStatusClass(ticket.status)}`}>
-                                                            {ticket.status}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                ) : (
-                                    <p className="text-center py-4 text-on-surface-dark-secondary border border-gray-700 rounded-md bg-gray-900/20">Nenhum ticket registado.</p>
-                                )}
-                            </section>
-                        </>
+                            {/* Address Info */}
+                             <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700">
+                                <h3 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada Pessoal</h3>
+                                <div className="text-sm text-gray-300 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-gray-500 text-xs uppercase">Endereço</p>
+                                        <p>{collaborator.address_line || 'Não definido'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500 text-xs uppercase">Localidade</p>
+                                        <p>{collaborator.postal_code} {collaborator.locality}</p>
+                                        <p>{collaborator.city}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     )}
 
                     {activeTab === 'inventory' && (
@@ -537,6 +550,7 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                                 <div>
                                                     <p className="font-bold text-white">{item.description}</p>
                                                     <p className="text-xs text-gray-400">S/N: {item.serialNumber}</p>
+                                                    <p className="text-xs text-gray-500">{brandMap.get(item.brandId)}</p>
                                                 </div>
                                                 <button 
                                                     onClick={() => handleUnassign(item.id)}
@@ -592,6 +606,44 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {activeTab === 'support' && (
+                        <section>
+                             <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold text-white flex items-center gap-2"><FaTicketAlt /> Histórico de Suporte</h3>
+                                <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">Total: {collaboratorTickets.length}</span>
+                            </div>
+                            
+                            {collaboratorTickets.length > 0 ? (
+                                 <table className="w-full text-sm text-left text-on-surface-dark-secondary border border-gray-700 rounded-md overflow-hidden">
+                                    <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
+                                        <tr>
+                                            <th className="px-4 py-2">Data</th>
+                                            <th className="px-4 py-2">Assunto</th>
+                                            <th className="px-4 py-2">Descrição</th>
+                                            <th className="px-4 py-2">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {collaboratorTickets.map(ticket => (
+                                            <tr key={ticket.id} className="border-b border-gray-700 last:border-0 hover:bg-gray-800/50 transition-colors">
+                                                <td className="px-4 py-3">{new Date(ticket.requestDate).toLocaleDateString()}</td>
+                                                <td className="px-4 py-3 text-white font-medium">{ticket.title}</td>
+                                                <td className="px-4 py-3 text-gray-400 truncate max-w-xs" title={ticket.description}>{ticket.description}</td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${getTicketStatusClass(ticket.status)}`}>
+                                                        {ticket.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <p className="text-center py-8 text-gray-500 border border-dashed border-gray-700 rounded-md">Nenhum ticket registado.</p>
+                            )}
+                        </section>
                     )}
 
                     {activeTab === 'training' && (
