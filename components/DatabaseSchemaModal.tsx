@@ -233,11 +233,12 @@ END $$;
 DO $$ 
 DECLARE t text;
 BEGIN 
-    -- Add missing columns logic here (same as original file to ensure robustness)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'config_equipment_statuses') THEN
         ALTER TABLE config_equipment_statuses ADD COLUMN IF NOT EXISTS color text;
     END IF;
-    -- ... (other update logic omitted for brevity but implied present)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS is_maintenance boolean DEFAULT false;
+    END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "isLoan" boolean DEFAULT false;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "requisitionNumber" text;
@@ -314,25 +315,36 @@ COMMIT;
 `;
 
     const seedScript = `
--- SCRIPT DE SEED (DADOS DE TESTE)
--- Execute após criar as tabelas para popular a aplicação.
+-- SCRIPT DE SEED COMPLETO (TODOS OS MÓDULOS)
+-- Execute este script para popular a aplicação com dados de exemplo.
 
 BEGIN;
 
--- 1. Marcas
+-- 1. Marcas & Tipos
 INSERT INTO brands (name, risk_level) VALUES 
 ('Dell', 'Baixa'), ('HP', 'Baixa'), ('Lenovo', 'Baixa'), 
-('Apple', 'Baixa'), ('Microsoft', 'Baixa'), ('Cisco', 'Média');
+('Apple', 'Baixa'), ('Microsoft', 'Baixa'), ('Cisco', 'Média'), ('Fortinet', 'Alta')
+ON CONFLICT (name) DO NOTHING;
 
--- 2. Tipos de Equipamento
-INSERT INTO equipment_types (name, "requiresNomeNaRede", "requiresInventoryNumber") VALUES
-('Laptop', true, true), ('Desktop', true, true), ('Monitor', false, true), 
-('Servidor', true, true), ('Switch', true, true), ('Teclado', false, false);
+INSERT INTO equipment_types (name, "requiresNomeNaRede", "requiresInventoryNumber", "is_maintenance") VALUES
+('Laptop', true, true, false), ('Desktop', true, true, false), ('Monitor', false, true, false), 
+('Servidor', true, true, false), ('Switch', true, true, false), ('Teclado', false, false, false),
+('Componente Hardware', false, false, true)
+ON CONFLICT (name) DO NOTHING;
+
+-- 2. Categorias de Tickets & Incidentes
+INSERT INTO ticket_categories (name, is_active) VALUES 
+('Falha Técnica', true), ('Acesso & Contas', true), ('Incidente de Segurança', true), ('Pedido de Equipamento', true)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO security_incident_types (name, is_active) VALUES 
+('Phishing', true), ('Malware', true), ('Acesso Não Autorizado', true), ('Ransomware', true)
+ON CONFLICT (name) DO NOTHING;
 
 -- 3. Instituições e Entidades
 WITH inst AS (
   INSERT INTO instituicoes (name, codigo, email, telefone) 
-  VALUES ('Empresa Principal', 'HQ', 'geral@empresa.com', '210000000') 
+  VALUES ('Empresa Principal SA', 'HQ', 'geral@empresa.com', '210000000') 
   RETURNING id
 )
 INSERT INTO entidades (name, codigo, "instituicaoId", email, responsavel) VALUES
@@ -340,37 +352,137 @@ INSERT INTO entidades (name, codigo, "instituicaoId", email, responsavel) VALUES
 ('Recursos Humanos', 'RH', (SELECT id FROM inst), 'rh@empresa.com', 'Maria Silva'),
 ('Financeiro', 'FIN', (SELECT id FROM inst), 'fin@empresa.com', 'Carlos Contas');
 
--- 4. Fornecedores
-INSERT INTO suppliers (name, contact_name, contact_email, risk_level) VALUES
-('Fornecedor TI Lda', 'Pedro Vendas', 'vendas@fornecedorti.pt', 'Baixa'),
-('Datacenter Services', 'Suporte', 'support@datacenter.com', 'Média');
+-- 4. Equipas
+INSERT INTO teams (name, description) VALUES 
+('Helpdesk N1', 'Suporte de primeira linha'), 
+('Infraestruturas', 'Redes e Servidores'),
+('Segurança (SOC)', 'Resposta a incidentes')
+ON CONFLICT (name) DO NOTHING;
 
--- 5. Colaboradores (Assumindo que entidades foram criadas, usamos subqueries)
+-- 5. Colaboradores
 DO $$ 
 DECLARE 
     ent_ti uuid;
     ent_rh uuid;
+    t_helpdesk uuid;
 BEGIN
     SELECT id INTO ent_ti FROM entidades WHERE codigo = 'TI' LIMIT 1;
     SELECT id INTO ent_rh FROM entidades WHERE codigo = 'RH' LIMIT 1;
+    SELECT id INTO t_helpdesk FROM teams WHERE name = 'Helpdesk N1' LIMIT 1;
 
+    -- Admin
     INSERT INTO collaborators ("fullName", email, "numeroMecanografico", role, status, "canLogin", "entidadeId") VALUES
-    ('Ana Técnica', 'ana@empresa.com', '101', 'Técnico', 'Ativo', true, ent_ti),
+    ('Ana Técnica', 'ana@empresa.com', '101', 'Admin', 'Ativo', true, ent_ti);
+    
+    -- Utilizador
+    INSERT INTO collaborators ("fullName", email, "numeroMecanografico", role, status, "canLogin", "entidadeId") VALUES
     ('Rui Utilizador', 'rui@empresa.com', '102', 'Utilizador', 'Ativo', true, ent_rh);
+
+    -- Associar Ana à equipa Helpdesk
+    INSERT INTO team_members (team_id, collaborator_id) 
+    SELECT t_helpdesk, id FROM collaborators WHERE email = 'ana@empresa.com';
 END $$;
 
--- 6. Equipamentos (Exemplos)
+-- 6. Fornecedores
+INSERT INTO suppliers (name, contact_name, contact_email, risk_level, is_iso27001_certified) VALUES
+('Fornecedor TI Lda', 'Pedro Vendas', 'vendas@fornecedorti.pt', 'Baixa', true),
+('Datacenter Services', 'Suporte', 'support@datacenter.com', 'Média', true),
+('Loja de Esquina', 'Sr. Manel', 'manel@loja.pt', 'Alta', false);
+
+-- 7. Equipamentos & Licenças
 DO $$
 DECLARE
     b_dell uuid;
     t_laptop uuid;
+    t_server uuid;
+    u_rui uuid;
+    ent_ti uuid;
 BEGIN
     SELECT id INTO b_dell FROM brands WHERE name = 'Dell' LIMIT 1;
     SELECT id INTO t_laptop FROM equipment_types WHERE name = 'Laptop' LIMIT 1;
+    SELECT id INTO t_server FROM equipment_types WHERE name = 'Servidor' LIMIT 1;
+    SELECT id INTO u_rui FROM collaborators WHERE email = 'rui@empresa.com' LIMIT 1;
+    SELECT id INTO ent_ti FROM entidades WHERE codigo = 'TI' LIMIT 1;
 
-    INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate") VALUES
-    ('Dell Latitude 7420', 'SN001', b_dell, t_laptop, 'Stock', 1200, '2023-01-15'),
-    ('Dell Latitude 5520', 'SN002', b_dell, t_laptop, 'Operacional', 1100, '2023-02-20');
+    -- Laptop
+    WITH new_eq AS (
+        INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate", "nomeNaRede", criticality, confidentiality, integrity, availability) 
+        VALUES ('Dell Latitude 7420', 'SN001', b_dell, t_laptop, 'Operacional', 1200, '2023-01-15', 'PT-001', 'Média', 'Médio', 'Médio', 'Médio')
+        RETURNING id
+    )
+    INSERT INTO assignments ("equipmentId", "collaboratorId", "assignedDate")
+    SELECT id, u_rui, '2023-01-20' FROM new_eq;
+
+    -- Server (Stock)
+    INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate", "nomeNaRede", criticality, confidentiality, integrity, availability) 
+    VALUES ('Dell PowerEdge R740', 'SRV001', b_dell, t_server, 'Stock', 5000, '2022-05-20', 'SRV-APP-01', 'Crítica', 'Alto', 'Alto', 'Alto');
+
+    -- Licença Office
+    INSERT INTO software_licenses ("productName", "licenseKey", "totalSeats", status, "unitCost") 
+    VALUES ('Microsoft Office 365 E3', 'MS-365-KEY-001', 50, 'Ativo', 25.00);
+END $$;
+
+-- 8. Tickets de Suporte
+DO $$
+DECLARE
+    u_rui uuid;
+    u_ana uuid;
+    ent_rh uuid;
+BEGIN
+    SELECT id INTO u_rui FROM collaborators WHERE email = 'rui@empresa.com' LIMIT 1;
+    SELECT id INTO u_ana FROM collaborators WHERE email = 'ana@empresa.com' LIMIT 1;
+    SELECT id INTO ent_rh FROM entidades WHERE codigo = 'RH' LIMIT 1;
+
+    INSERT INTO tickets (title, description, status, priority, "collaboratorId", "entidadeId", "requestDate", category)
+    VALUES ('Impressora não funciona', 'Não consigo imprimir o relatório mensal.', 'Pedido', 'Baixa', u_rui, ent_rh, NOW(), 'Falha Técnica');
+    
+    INSERT INTO tickets (title, description, status, priority, "collaboratorId", "entidadeId", "requestDate", category, "securityIncidentType", "impactCriticality")
+    VALUES ('Email Suspeito', 'Recebi um email estranho a pedir password.', 'Em progresso', 'Alta', u_rui, ent_rh, NOW() - INTERVAL '1 day', 'Incidente de Segurança', 'Phishing', 'Alta');
+END $$;
+
+-- 9. Compliance (BIA, Vulns, Backups, Policies)
+DO $$
+DECLARE
+    u_ana uuid;
+    s_datacenter uuid;
+    eq_srv uuid;
+BEGIN
+    SELECT id INTO u_ana FROM collaborators WHERE email = 'ana@empresa.com' LIMIT 1;
+    SELECT id INTO s_datacenter FROM suppliers WHERE name = 'Datacenter Services' LIMIT 1;
+    SELECT id INTO eq_srv FROM equipment WHERE "serialNumber" = 'SRV001' LIMIT 1;
+
+    -- BIA Service
+    INSERT INTO business_services (name, description, criticality, rto_goal, owner_id, status, external_provider_id)
+    VALUES ('Sistema ERP', 'Gestão financeira e RH', 'Crítica', '4h', u_ana, 'Ativo', s_datacenter);
+
+    -- Vulnerability
+    INSERT INTO vulnerabilities (cve_id, description, severity, status, affected_software, published_date)
+    VALUES ('CVE-2024-1234', 'Remote Code Execution in Server OS', 'Crítica', 'Aberto', 'Windows Server 2019', '2024-01-01');
+
+    -- Backup
+    INSERT INTO backup_executions (system_name, equipment_id, backup_date, test_date, status, type, tester_id)
+    VALUES ('Backup Diário ERP', eq_srv, '2024-02-01', '2024-02-02', 'Sucesso', 'Completo', u_ana);
+
+    -- Policy
+    INSERT INTO policies (title, content, version, is_active, is_mandatory)
+    VALUES ('Política de Passwords', 'As passwords devem ter 12 caracteres...', '1.0', true, true);
+
+    -- Training Record
+    INSERT INTO security_training_records (collaborator_id, training_type, completion_date, status, score, duration_hours)
+    VALUES (u_ana, 'RGPD / Privacidade', '2024-01-10', 'Concluído', 95, 2);
+END $$;
+
+-- 10. Aquisições (Procurement)
+DO $$
+DECLARE
+    u_ana uuid;
+    s_dell uuid;
+BEGIN
+    SELECT id INTO u_ana FROM collaborators WHERE email = 'ana@empresa.com' LIMIT 1;
+    SELECT id INTO s_dell FROM suppliers WHERE name = 'Fornecedor TI Lda' LIMIT 1;
+
+    INSERT INTO procurement_requests (title, description, quantity, estimated_cost, requester_id, supplier_id, status, priority)
+    VALUES ('5x Monitores 24"', 'Para novos estagiários', 5, 750.00, u_ana, s_dell, 'Pendente', 'Normal');
 END $$;
 
 COMMIT;
@@ -424,8 +536,8 @@ COMMIT;
                 {activeTab === 'seed' && (
                     <div className="animate-fade-in">
                          <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-4">
-                            <p className="font-bold mb-2"><FaSeedling className="inline mr-2"/> POPULAR BASE DE DADOS</p>
-                            <p>Insere dados fictícios (Marcas, Tipos, Instituições, Entidades, Colaboradores e Equipamentos) para testes.</p>
+                            <p className="font-bold mb-2"><FaSeedling className="inline mr-2"/> POPULAR BASE DE DADOS (Completo)</p>
+                            <p>Insere dados de exemplo em todos os módulos: Ativos, Tickets, Compliance, Fornecedores, Equipas, etc.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-green-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-green-900/50 whitespace-pre-wrap">{seedScript}</pre>
