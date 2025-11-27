@@ -766,3 +766,19 @@ export interface DiagnosticResult {
     details?: string;
     timestamp: string;
 }
+
+// --- CALENDAR EVENTS ---
+export interface CalendarEvent {
+    id: string;
+    title: string;
+    description?: string;
+    start_date: string;
+    end_date?: string;
+    is_all_day: boolean;
+    color: string; // hex
+    created_by: string; // collaborator ID
+    team_id?: string; // If set, visible to team
+    is_private: boolean;
+    reminder_minutes?: number; // Notification trigger
+    created_at?: string;
+}

@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket 
@@ -438,6 +440,7 @@ export const App: React.FC = () => {
                 <CalendarModal 
                     onClose={() => setShowCalendarModal(false)}
                     tickets={appData.tickets}
+                    calendarEvents={appData.calendarEvents} // Pass new events
                     currentUser={currentUser}
                     teams={appData.teams}
                     teamMembers={appData.teamMembers}

@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner } from 'react-icons/fa';
@@ -183,6 +184,22 @@ CREATE TABLE IF NOT EXISTS procurement_requests (
     updated_at timestamptz DEFAULT now()
 );
 
+-- Tabelas para Calendário de Eventos / Tarefas
+CREATE TABLE IF NOT EXISTS calendar_events (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    title text NOT NULL,
+    description text,
+    start_date timestamptz NOT NULL,
+    end_date timestamptz,
+    is_all_day boolean DEFAULT false,
+    color text, -- Hex color
+    created_by uuid REFERENCES collaborators(id),
+    team_id uuid REFERENCES teams(id), -- Optional, for shared team events
+    is_private boolean DEFAULT false, -- If true, only creator sees it
+    reminder_minutes integer, -- Minutes before to notify
+    created_at timestamptz DEFAULT now()
+);
+
 -- ==========================================
 -- 4. INSERIR VALORES PADRÃO
 -- ==========================================
@@ -241,7 +258,7 @@ BEGIN
     END LOOP;
     
     -- Loop manual para contact_* e resource_contacts
-    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records', 'policies', 'policy_acceptances', 'procurement_requests']
+    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records', 'policies', 'policy_acceptances', 'procurement_requests', 'calendar_events']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN
@@ -405,6 +422,7 @@ DELETE FROM integration_logs;
 DELETE FROM policy_acceptances;
 DELETE FROM policies;
 DELETE FROM procurement_requests;
+DELETE FROM calendar_events;
 
 -- 3. Apagar Ativos
 DELETE FROM equipment;
@@ -598,7 +616,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.50</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.55</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar
