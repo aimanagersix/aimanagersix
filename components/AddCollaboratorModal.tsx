@@ -266,8 +266,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             finalInstituicaoId = null;
         }
         
-        // Sanitization: Remove extra fields that DB might reject if columns don't exist (like 'contacts' if injected)
-        // Although Collaborator usually doesn't have contacts array in types.ts, safe to clear unknown props
         const dataToSave: any = { 
             ...formData, 
             address,
@@ -276,11 +274,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             instituicaoId: finalInstituicaoId
         };
         
-        // Remove fields that might be present in edit mode but are read-only/joined
         delete dataToSave.contacts;
-        delete dataToSave.preferences; // Unless preferences are explicitly managed here, let's not overwrite if not needed, or sanitize.
-        // If editing, preferences might be in formData. Let's keep it if it's part of updates, but usually modal doesn't edit prefs.
-        // If formData came from collaboratorToEdit, it has preferences.
+        delete dataToSave.preferences; 
 
         try {
             let savedCollaborator;
@@ -293,15 +288,14 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             }
 
             // 2. Upload Photo if selected
-            // Must use the ID from the saved result (crucial for new records)
             const targetId = savedCollaborator?.id || collaboratorToEdit?.id;
 
             if (photoFile && targetId) {
                 try {
                     await dataService.uploadCollaboratorPhoto(targetId, photoFile);
-                } catch (uploadErr) {
+                } catch (uploadErr: any) {
                     console.error("Photo upload failed", uploadErr);
-                    alert("Colaborador salvo, mas a foto falhou ao carregar.");
+                    alert(`Colaborador salvo, mas a foto falhou ao carregar: ${uploadErr.message}`);
                 }
             } else if (!photoPreview && collaboratorToEdit?.photoUrl && targetId) {
                  // Handle photo removal

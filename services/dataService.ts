@@ -332,10 +332,19 @@ export const uploadCollaboratorPhoto = async (id: string, file: File) => {
     const supabase = getSupabase();
     const fileExt = file.name.split('.').pop();
     const fileName = `${id}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
+    const filePath = `avatars/${fileName}`; // Explicit folder 'avatars'
+    
+    // Ensure bucket exists is hard from client without admin key, 
+    // so we assume the 'DatabaseSchemaModal' script has been run.
     
     let { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+        console.error("Upload failed:", uploadError);
+        if (uploadError.message.includes("Bucket not found")) {
+             throw new Error("O bucket 'avatars' não existe. Por favor, vá a Configurações > Config BD e execute o script de atualização.");
+        }
+        throw uploadError;
+    }
     
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
     

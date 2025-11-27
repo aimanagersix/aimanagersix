@@ -20,7 +20,36 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ==========================================
--- 2. CRIAÇÃO DE TABELAS DE CONFIGURAÇÃO E CONTACTOS
+-- 2. STORAGE (IMAGENS DE PERFIL)
+-- ==========================================
+-- Criação do Bucket para avatares (se não existir)
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('avatars', 'avatars', true) 
+ON CONFLICT (id) DO NOTHING;
+
+-- Políticas de Acesso ao Storage (Necessário para upload/leitura)
+-- Nota: Pode dar erro se as policies já existirem, o bloco DO resolve isso ou ignore o erro
+DO $$
+BEGIN
+    BEGIN
+        CREATE POLICY "Avatar Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'avatars' );
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    
+    BEGIN
+        CREATE POLICY "Avatar Upload Access" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'avatars' );
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    
+    BEGIN
+        CREATE POLICY "Avatar Update Access" ON storage.objects FOR UPDATE USING ( bucket_id = 'avatars' );
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    
+    BEGIN
+        CREATE POLICY "Avatar Delete Access" ON storage.objects FOR DELETE USING ( bucket_id = 'avatars' );
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+END $$;
+
+-- ==========================================
+-- 3. CRIAÇÃO DE TABELAS DE CONFIGURAÇÃO E CONTACTOS
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS config_equipment_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
@@ -90,7 +119,7 @@ CREATE TABLE IF NOT EXISTS security_training_records (
 );
 
 -- ==========================================
--- 3. INSERIR VALORES PADRÃO
+-- 4. INSERIR VALORES PADRÃO
 -- ==========================================
 
 INSERT INTO config_equipment_statuses (name) VALUES ('Stock'), ('Operacional'), ('Abate'), ('Garantia'), ('Empréstimo') ON CONFLICT (name) DO NOTHING;
@@ -122,7 +151,7 @@ VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":fa
 ON CONFLICT (name) DO NOTHING;
 
 -- ==========================================
--- 4. PERMISSÕES (RLS)
+-- 5. PERMISSÕES (RLS)
 -- ==========================================
 
 DO $$ 
@@ -153,7 +182,7 @@ BEGIN
 END $$;
 
 -- ==========================================
--- 5. SCRIPT DE CORREÇÃO DE COLUNAS (Atualizações)
+-- 6. SCRIPT DE CORREÇÃO DE COLUNAS (Atualizações)
 -- ==========================================
 
 DO $$ 
@@ -362,7 +391,7 @@ COMMIT;
                 {activeTab === 'update' && (
                     <div className="animate-fade-in">
                         <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                            <p>Este script cria tabelas em falta (incluindo <strong>security_training_records</strong>), adiciona colunas necessárias e cria a estrutura para <strong>Perfis Dinâmicos (Custom Roles)</strong>.</p>
+                            <p>Este script cria tabelas em falta e <strong>configura o Armazenamento (Storage)</strong> para uploads de fotos.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">
@@ -425,7 +454,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.33</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.34</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar
