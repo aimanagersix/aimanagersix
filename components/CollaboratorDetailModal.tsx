@@ -278,9 +278,11 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                     .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
                     .info-group { margin-bottom: 10px; }
                     .label { font-weight: bold; font-size: 12px; text-transform: uppercase; color: #666; }
-                    .value { font-size: 16px; }
+                    .value { font-size: 16px; margin-bottom: 5px; }
                     ul { margin-top: 10px; padding-left: 20px; }
                     .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 20px; font-size: 12px; text-align: center; }
+                    .signature-box { margin-top: 40px; display: flex; justify-content: space-between; }
+                    .signature-line { border-top: 1px solid #000; padding-top: 10px; text-align: center; font-size: 14px; width: 40%; }
                 </style>
             </head>
             <body>
@@ -315,11 +317,11 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                 <h2>Equipamentos Atribuídos</h2>
                 ${assignedEquipment.length > 0 ? `<ul>${equipmentList}</ul>` : '<p>Nenhum equipamento atribuído.</p>'}
 
-                <div style="margin-top: 60px; display: flex; justify-content: space-between;">
-                    <div style="text-align: center; width: 40%; border-top: 1px solid #000; padding-top: 10px;">
+                <div class="signature-box">
+                    <div class="signature-line">
                         Assinatura do Colaborador
                     </div>
-                    <div style="text-align: center; width: 40%; border-top: 1px solid #000; padding-top: 10px;">
+                    <div class="signature-line">
                         Data
                     </div>
                 </div>
@@ -697,6 +699,9 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                                         <span className={`text-sm font-bold ${t.score >= 70 ? 'text-green-400' : 'text-red-400'}`}>
                                                             {t.score}%
                                                         </span>
+                                                    )}
+                                                    {t.duration_hours && (
+                                                        <span className="block text-xs text-gray-500 mt-1">{t.duration_hours} Horas</span>
                                                     )}
                                                 </div>
                                             </div>
