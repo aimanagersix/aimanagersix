@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Policy } from '../types';
-import { FaCheck, FaFileSignature, FaShieldAlt } from 'react-icons/fa';
+import { FaCheck, FaShieldAlt, FaSpinner } from 'react-icons/fa';
 
 interface PolicyAcceptanceModalProps {
     policies: Policy[];
@@ -25,8 +25,9 @@ const PolicyAcceptanceModal: React.FC<PolicyAcceptanceModalProps> = ({ policies,
                 setCurrentPolicyIndex(prev => prev + 1);
             }
             // If it was the last one, the parent component (App.tsx) will unmount this modal automatically as the list of pending policies empties.
-        } catch (e) {
-            alert("Erro ao registar aceitação.");
+        } catch (e: any) {
+            console.error(e);
+            alert(`Erro ao registar aceitação: ${e.message || "Erro de rede ou permissões."}`);
         } finally {
             setIsAccepting(false);
         }
@@ -91,7 +92,7 @@ const PolicyAcceptanceModal: React.FC<PolicyAcceptanceModalProps> = ({ policies,
                         disabled={!hasRead || isAccepting}
                         className="w-full py-3 bg-brand-primary hover:bg-brand-secondary text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
-                        {isAccepting ? 'A registar...' : <>Aceitar e Continuar <FaCheck /></>}
+                        {isAccepting ? <><FaSpinner className="animate-spin" /> A registar...</> : <>Aceitar e Continuar <FaCheck /></>}
                     </button>
                 </div>
             </div>

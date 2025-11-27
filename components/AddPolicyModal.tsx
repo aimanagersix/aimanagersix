@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Policy } from '../types';
-import { FaSave, FaFileSignature } from 'react-icons/fa';
+import { FaSave, FaFileSignature, FaSpinner } from 'react-icons/fa';
 
 interface AddPolicyModalProps {
     onClose: () => void;
@@ -19,6 +19,7 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
         is_mandatory: true
     });
     const [incrementVersion, setIncrementVersion] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (policyToEdit) {
@@ -33,16 +34,32 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
             return;
         }
 
-        const payload = { ...formData };
-        
-        // If editing and user chose to increment version, calculate new version string
-        if (policyToEdit && incrementVersion) {
-            const currentVer = parseFloat(policyToEdit.version);
-            payload.version = (currentVer + 0.1).toFixed(1);
-        }
+        setIsSaving(true);
 
-        await onSave(policyToEdit ? { ...policyToEdit, ...payload } : payload as any);
-        onClose();
+        try {
+            const payload = { ...formData };
+            
+            // If editing and user chose to increment version, calculate new version string
+            if (policyToEdit && incrementVersion) {
+                const currentVer = parseFloat(policyToEdit.version);
+                payload.version = (currentVer + 0.1).toFixed(1);
+            }
+
+            // Sanitize: Remove system fields that shouldn't be sent back to DB manually
+            // (Supabase handles timestamps, and ID shouldn't change)
+            const cleanPayload = { ...payload };
+            delete (cleanPayload as any).id;
+            delete (cleanPayload as any).created_at;
+            delete (cleanPayload as any).updated_at;
+
+            await onSave(policyToEdit ? { ...policyToEdit, ...cleanPayload } : cleanPayload as any);
+            onClose();
+        } catch (error: any) {
+            console.error("Failed to save policy:", error);
+            alert("Erro ao gravar política: " + (error.message || "Erro desconhecido."));
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -113,9 +130,12 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
                 )}
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
-                        <FaSave /> Guardar Política
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>
+                        Cancelar
+                    </button>
+                    <button type="submit" disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50">
+                        {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />}
+                        {isSaving ? 'A Gravar...' : 'Guardar Política'}
                     </button>
                 </div>
             </form>
