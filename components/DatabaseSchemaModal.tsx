@@ -27,25 +27,40 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true) 
 ON CONFLICT (id) DO NOTHING;
 
--- Políticas de Acesso ao Storage (Necessário para upload/leitura)
--- Nota: Pode dar erro se as policies já existirem, o bloco DO resolve isso ou ignore o erro
+-- Políticas de Acesso ao Storage (Blocos protegidos contra erros de permissão 42501)
 DO $$
 BEGIN
+    -- Public Access
     BEGIN
         CREATE POLICY "Avatar Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'avatars' );
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    EXCEPTION 
+        WHEN duplicate_object THEN NULL; 
+        WHEN OTHERS THEN NULL; -- Ignora erro se não for dono da tabela (42501)
+    END;
     
+    -- Upload Access
     BEGIN
         CREATE POLICY "Avatar Upload Access" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'avatars' );
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    EXCEPTION 
+        WHEN duplicate_object THEN NULL; 
+        WHEN OTHERS THEN NULL;
+    END;
     
+    -- Update Access
     BEGIN
         CREATE POLICY "Avatar Update Access" ON storage.objects FOR UPDATE USING ( bucket_id = 'avatars' );
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    EXCEPTION 
+        WHEN duplicate_object THEN NULL; 
+        WHEN OTHERS THEN NULL;
+    END;
     
+    -- Delete Access
     BEGIN
         CREATE POLICY "Avatar Delete Access" ON storage.objects FOR DELETE USING ( bucket_id = 'avatars' );
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    EXCEPTION 
+        WHEN duplicate_object THEN NULL; 
+        WHEN OTHERS THEN NULL;
+    END;
 END $$;
 
 -- ==========================================
@@ -392,6 +407,7 @@ COMMIT;
                     <div className="animate-fade-in">
                         <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
                             <p>Este script cria tabelas em falta e <strong>configura o Armazenamento (Storage)</strong> para uploads de fotos.</p>
+                            <p className="mt-1 text-xs text-yellow-400">Nota: Se as políticas de storage falharem (erro 42501), o script continuará, mas deverá configurar as permissões do bucket 'avatars' manualmente no menu Storage do Supabase.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">
