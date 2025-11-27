@@ -216,8 +216,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }
     }, [equipmentToEdit, initialData]);
 
-    // ... (Keep other effects and helpers: auto-fill description, isComputingDevice, validate, handleChange) ...
-    
     // Auto-fill description based on brand and type for new equipment
     useEffect(() => {
         if (equipmentToEdit?.id) return; 
@@ -289,7 +287,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }));
     };
     
-    // ... (Keep handleSetWarranty, handleGenerateName, handleFetchInfo, handleScanComplete, handleAddNewBrand, handleAddNewType) ...
      const handleSetWarranty = (years: number) => {
         if (!formData.purchaseDate) return;
         const purchase = new Date(formData.purchaseDate);
@@ -387,7 +384,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         
         const dataToSubmit: any = {};
         // Only include fields that are part of the form to avoid sending stale data
+        // Also sanitize: remove view-only fields
+        const excludeFields = ['assignedTo', 'assignment', 'contacts', 'id', 'creationDate', 'modifiedDate'];
+        
         Object.keys(formData).forEach(key => {
+            if (excludeFields.includes(key)) return;
+
             const typedKey = key as keyof Equipment;
             const value = formData[typedKey];
             

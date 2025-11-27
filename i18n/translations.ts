@@ -1,3 +1,4 @@
+
 export const translations = {
   pt: {
     "app.title": "Gestão Inteligente",

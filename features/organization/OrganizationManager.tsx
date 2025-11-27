@@ -97,7 +97,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         if (collaboratorToEdit) {
             const updatedCollaborator = await dataService.updateCollaborator(collaboratorToEdit.id, col);
             refreshData();
-            return updatedCollaborator;
+            return updatedCollaborator; // Return full object
         } else {
             const newCol = await dataService.addCollaborator(col, pass);
             if (pass && newCol) {
@@ -105,7 +105,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 setShowCredentialsModal(true);
             }
             refreshData();
-            return newCol;
+            return newCol; // Return full object
         }
     };
 
@@ -338,18 +338,18 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))}
                     onClose={() => setShowCollaboratorDetailModal(false)}
                     onShowHistory={(c) => { setShowCollaboratorDetailModal(false); setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }}
-                    onStartChat={(c) => { onStartChat(c); setShowCollaboratorDetailModal(false); }}
-                    onEdit={(c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); setShowCollaboratorDetailModal(false); }}
-                    // Passing handlers for quick assignment inside detail modal
+                    onStartChat={onStartChat}
+                    onEdit={(c) => { setShowCollaboratorDetailModal(false); setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); }}
                     onAssignEquipment={checkPermission('equipment', 'edit') ? handleAssignEquipment : undefined}
                     onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
                 />
             )}
+            
             {showCredentialsModal && newCredentials && (
                 <CredentialsModal 
-                    onClose={() => setShowCredentialsModal(false)} 
-                    email={newCredentials.email} 
-                    password={newCredentials.password} 
+                    onClose={() => { setShowCredentialsModal(false); setNewCredentials(null); }}
+                    email={newCredentials.email}
+                    password={newCredentials.password}
                 />
             )}
         </>

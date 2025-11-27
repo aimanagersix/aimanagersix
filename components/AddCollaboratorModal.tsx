@@ -265,7 +265,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             finalEntidadeId = null;
             finalInstituicaoId = null;
         }
-
+        
+        // Sanitization: Remove extra fields that DB might reject if columns don't exist (like 'contacts' if injected)
+        // Although Collaborator usually doesn't have contacts array in types.ts, safe to clear unknown props
         const dataToSave: any = { 
             ...formData, 
             address,
@@ -273,6 +275,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             entidadeId: finalEntidadeId,
             instituicaoId: finalInstituicaoId
         };
+        
+        // Remove fields that might be present in edit mode but are read-only/joined
+        delete dataToSave.contacts;
+        delete dataToSave.preferences; // Unless preferences are explicitly managed here, let's not overwrite if not needed, or sanitize.
+        // If editing, preferences might be in formData. Let's keep it if it's part of updates, but usually modal doesn't edit prefs.
+        // If formData came from collaboratorToEdit, it has preferences.
 
         try {
             let savedCollaborator;
@@ -285,18 +293,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             }
 
             // 2. Upload Photo if selected
-            if (photoFile && savedCollaborator && savedCollaborator.id) {
+            // Must use the ID from the saved result (crucial for new records)
+            const targetId = savedCollaborator?.id || collaboratorToEdit?.id;
+
+            if (photoFile && targetId) {
                 try {
-                    const publicUrl = await dataService.uploadCollaboratorPhoto(savedCollaborator.id, photoFile);
-                    // The onSave might not update local state immediately for photo, but dataService does.
-                    // The UI should reflect this on next fetch/refresh.
+                    await dataService.uploadCollaboratorPhoto(targetId, photoFile);
                 } catch (uploadErr) {
                     console.error("Photo upload failed", uploadErr);
                     alert("Colaborador salvo, mas a foto falhou ao carregar.");
                 }
-            } else if (!photoPreview && collaboratorToEdit?.photoUrl) {
-                 // Logic to handle photo removal if needed in backend (currently just updates URL to empty if sent)
-                 await dataService.updateCollaborator(savedCollaborator.id, { photoUrl: '' });
+            } else if (!photoPreview && collaboratorToEdit?.photoUrl && targetId) {
+                 // Handle photo removal
+                 await dataService.updateCollaborator(targetId, { photoUrl: '' });
             }
             
             setSuccessMessage("Colaborador gravado com sucesso!");
