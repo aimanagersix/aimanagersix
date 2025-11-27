@@ -1,10 +1,11 @@
 
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // ... (Keep CameraScanner Component as is)
@@ -186,7 +187,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         expectedLifespanYears: 4,
         embedded_license_key: '',
         installationLocation: '',
-        isLoan: false
+        isLoan: false,
+        parent_equipment_id: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -196,12 +198,22 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const [isAddingType, setIsAddingType] = useState(false);
     const [newTypeName, setNewTypeName] = useState('');
     const [showKitButton, setShowKitButton] = useState(false);
+    const [allEquipment, setAllEquipment] = useState<Equipment[]>([]); // To select parent
     
     // Assignment Logic
     const [assignToEntityId, setAssignToEntityId] = useState('');
     const [assignToCollaboratorId, setAssignToCollaboratorId] = useState('');
     
     const aiConfigured = isAiConfigured();
+
+    // Fetch all equipment to populate parent dropdown
+    useEffect(() => {
+        const loadEq = async () => {
+            const data = await dataService.fetchAllData();
+            setAllEquipment(data.equipment.filter((e: Equipment) => !equipmentToEdit || e.id !== equipmentToEdit.id)); // exclude self
+        };
+        loadEq();
+    }, [equipmentToEdit]);
 
     useEffect(() => {
         if (equipmentToEdit) {
@@ -242,6 +254,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const selectedType = useMemo(() => {
         return equipmentTypes.find(t => t.id === formData.typeId);
     }, [formData.typeId, equipmentTypes]);
+    
+    const isMaintenanceType = useMemo(() => {
+        return selectedType?.is_maintenance === true;
+    }, [selectedType]);
 
     const isComputingDevice = useMemo(() => {
         const name = selectedType?.name.toLowerCase() || '';
@@ -272,6 +288,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         const type = equipmentTypes.find(t => t.id === formData.typeId);
         if (type?.requiresLocation && !formData.installationLocation?.trim()) {
             newErrors.installationLocation = "O local de instalação é obrigatório para este tipo de equipamento.";
+        }
+        if (type?.is_maintenance && !formData.parent_equipment_id) {
+            newErrors.parent_equipment_id = "É obrigatório associar o Equipamento Principal para itens de manutenção/consumíveis.";
         }
         
         setErrors(newErrors);
@@ -398,7 +417,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 const nullableFields = [
                     'inventoryNumber', 'invoiceNumber', 'requisitionNumber',
                     'nomeNaRede', 'macAddressWIFI', 'macAddressCabo',
-                    'warrantyEndDate', 'supplier_id', 'embedded_license_key', 'installationLocation'
+                    'warrantyEndDate', 'supplier_id', 'embedded_license_key', 'installationLocation', 'parent_equipment_id'
                 ];
                 if (nullableFields.includes(typedKey)) {
                     dataToSubmit[typedKey] = null;
@@ -535,6 +554,32 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         </div>
                     )}
                 </div>
+                
+                {/* Maintenance / Component Logic */}
+                {isMaintenanceType && (
+                     <div className="bg-orange-900/20 p-4 rounded border border-orange-500/30 animate-fade-in">
+                        <h3 className="text-sm font-bold text-orange-200 mb-2 flex items-center gap-2"><FaTools /> Componente de Manutenção</h3>
+                        <p className="text-xs text-gray-400 mb-3">
+                            Este item é identificado como um componente ou consumível. Deve ser associado a um equipamento principal para cálculo correto do Custo Total de Propriedade (TCO).
+                        </p>
+                        <label htmlFor="parent_equipment_id" className="block text-xs font-medium text-white mb-1">Equipamento Principal (Pai)</label>
+                        <select 
+                            name="parent_equipment_id" 
+                            id="parent_equipment_id" 
+                            value={formData.parent_equipment_id} 
+                            onChange={handleChange} 
+                            className={`w-full bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.parent_equipment_id ? 'border-red-500' : 'border-gray-600'}`}
+                        >
+                            <option value="">-- Selecione o equipamento onde será instalado --</option>
+                            {allEquipment.map(eq => (
+                                <option key={eq.id} value={eq.id}>
+                                    {eq.description} (S/N: {eq.serialNumber})
+                                </option>
+                            ))}
+                        </select>
+                        {errors.parent_equipment_id && <p className="text-red-400 text-xs italic mt-1">{errors.parent_equipment_id}</p>}
+                    </div>
+                )}
 
                 {selectedType?.requiresLocation && (
                     <div>
@@ -631,7 +676,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 </div>
 
                 {/* --- NEW: INITIAL ASSIGNMENT SECTION --- */}
-                {!isEditMode && isComputingDevice && (
+                {!isEditMode && isComputingDevice && !isMaintenanceType && (
                     <div className="border-t border-gray-600 pt-4 mt-4">
                         <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
                             <FaUserTag className="text-blue-400" />

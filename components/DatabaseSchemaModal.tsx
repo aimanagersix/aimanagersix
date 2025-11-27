@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom } from 'react-icons/fa';
@@ -236,6 +237,7 @@ BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresLocation" boolean DEFAULT false;
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "is_maintenance" boolean DEFAULT false;
     END IF;
     
     -- Assignments (Instituicao Link)
@@ -244,11 +246,12 @@ BEGIN
         ALTER TABLE assignments ALTER COLUMN "entidadeId" DROP NOT NULL;
     END IF;
     
-    -- Equipment (Loan & Requisition)
+    -- Equipment (Loan, Requisition, Parent Equipment)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "isLoan" boolean DEFAULT false;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "requisitionNumber" text;
         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "installationLocation" text;
+        ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "parent_equipment_id" uuid REFERENCES equipment(id) ON DELETE SET NULL;
     END IF;
 
     -- Backup Executions
@@ -470,7 +473,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.34</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.35</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

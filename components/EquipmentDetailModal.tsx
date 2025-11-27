@@ -1,10 +1,12 @@
 
-import React, { useMemo, useState } from 'react';
+
+import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory, FaTools } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
+import { getSupabase } from '../services/supabaseClient'; // Need DB access to fetch children
 
 interface EquipmentDetailModalProps {
     equipment: Equipment;
@@ -38,9 +40,26 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
 }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'licenses' | 'security'>('details');
     const [showManageLicenses, setShowManageLicenses] = useState(false);
+    const [childEquipment, setChildEquipment] = useState<Equipment[]>([]);
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+
+    // Fetch child equipment (maintenance parts)
+    useEffect(() => {
+        const fetchChildren = async () => {
+            const supabase = getSupabase();
+            const { data, error } = await supabase
+                .from('equipment')
+                .select('*')
+                .eq('parent_equipment_id', equipment.id);
+            
+            if (!error && data) {
+                setChildEquipment(data);
+            }
+        };
+        fetchChildren();
+    }, [equipment.id]);
 
     // Current Assignment
     const currentAssignment = useMemo(() => {
@@ -100,6 +119,14 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         return lastUpdate < ninetyDaysAgo;
     }, [equipment.last_security_update]);
+
+    // Calculate Maintenance Costs
+    const maintenanceCost = useMemo(() => {
+        return childEquipment.reduce((sum, part) => sum + (part.acquisitionCost || 0), 0);
+    }, [childEquipment]);
+    
+    // Total TCO
+    const totalTCO = (equipment.acquisitionCost || 0) + maintenanceCost;
 
     const handleSaveLicenses = async (eqId: string, licenseIds: string[]) => {
         await dataService.syncLicenseAssignments(eqId, licenseIds);
@@ -190,6 +217,51 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                         <div className="flex justify-between"><span className="text-gray-500">Custo Aquisição:</span> <span className="text-white font-bold">€ {equipment.acquisitionCost || 0}</span></div>
                                     </div>
                                 </div>
+                            </div>
+                            
+                            {/* FinOps TCO Block */}
+                            <div className="bg-gray-800/30 p-4 rounded border border-gray-700">
+                                <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
+                                    <FaEuroSign className="text-green-400"/> FinOps: TCO & Manutenção
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                    <div className="bg-gray-900 p-3 rounded">
+                                        <span className="block text-xs text-gray-500 uppercase">Compra</span>
+                                        <span className="text-lg font-bold text-white">€ {equipment.acquisitionCost || 0}</span>
+                                    </div>
+                                    <div className="bg-gray-900 p-3 rounded">
+                                        <span className="block text-xs text-gray-500 uppercase">Peças / Manutenção</span>
+                                        <span className="text-lg font-bold text-yellow-400">€ {maintenanceCost}</span>
+                                    </div>
+                                    <div className="bg-gray-900 p-3 rounded border border-green-900">
+                                        <span className="block text-xs text-green-500 uppercase font-bold">Custo Total (TCO)</span>
+                                        <span className="text-xl font-bold text-green-400">€ {totalTCO}</span>
+                                    </div>
+                                </div>
+                                
+                                {childEquipment.length > 0 && (
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-2"><FaTools/> Histórico de Peças Substituídas / Consumíveis</h4>
+                                        <table className="w-full text-xs text-left">
+                                            <thead className="bg-gray-900 text-gray-500 uppercase">
+                                                <tr>
+                                                    <th className="p-2">Descrição</th>
+                                                    <th className="p-2">Data Compra</th>
+                                                    <th className="p-2 text-right">Custo</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-700">
+                                                {childEquipment.map(child => (
+                                                    <tr key={child.id}>
+                                                        <td className="p-2 text-gray-300">{child.description} ({child.serialNumber})</td>
+                                                        <td className="p-2 text-gray-400">{child.purchaseDate}</td>
+                                                        <td className="p-2 text-right font-mono text-white">€ {child.acquisitionCost || 0}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </div>
 
                             {equipmentSupplier && (

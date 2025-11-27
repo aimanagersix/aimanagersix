@@ -179,6 +179,7 @@ export interface EquipmentType {
   default_team_id?: string;
   requiresBackupTest?: boolean; // New field for Backup linkage
   requiresLocation?: boolean; // New field for Physical Location
+  is_maintenance?: boolean; // NEW: Flag for Maintenance/Component types
 }
 
 export interface Equipment {
@@ -217,6 +218,9 @@ export interface Equipment {
 
   // OEM / Embedded License
   embedded_license_key?: string; // Unique key for this machine
+  
+  // Maintenance Link
+  parent_equipment_id?: string; // NEW: Link to main equipment if this is a part
 }
 
 export interface Instituicao {

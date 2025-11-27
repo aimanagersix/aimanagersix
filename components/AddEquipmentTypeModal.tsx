@@ -1,8 +1,5 @@
 
 
-
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { EquipmentType, Team } from '../types';
@@ -24,7 +21,8 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requiresInventoryNumber: false,
         default_team_id: '',
         requiresBackupTest: false,
-        requiresLocation: false, // New field
+        requiresLocation: false,
+        is_maintenance: false, // New field
     });
     const [error, setError] = useState('');
 
@@ -38,7 +36,8 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requiresInventoryNumber: typeToEdit.requiresInventoryNumber || false,
                 default_team_id: typeToEdit.default_team_id || '',
                 requiresBackupTest: typeToEdit.requiresBackupTest || false,
-                requiresLocation: typeToEdit.requiresLocation || false, // New field
+                requiresLocation: typeToEdit.requiresLocation || false,
+                is_maintenance: typeToEdit.is_maintenance || false, // New field
             });
         }
     }, [typeToEdit]);
@@ -148,6 +147,10 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                         <label className="flex items-center cursor-pointer sm:col-span-2 mt-2 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">
                             <input type="checkbox" name="requiresBackupTest" checked={formData.requiresBackupTest} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-indigo-200 font-bold">Requer Teste de Restauro (Backups)</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer sm:col-span-2 mt-2 bg-orange-900/20 p-2 rounded border border-orange-500/30">
+                            <input type="checkbox" name="is_maintenance" checked={formData.is_maintenance} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-orange-200 font-bold">É Material de Manutenção/Consumível?</span>
                         </label>
                     </div>
                 </div>
