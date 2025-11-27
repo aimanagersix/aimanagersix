@@ -656,6 +656,7 @@ export interface SecurityTrainingRecord {
     score?: number; // e.g. 80/100
     notes?: string;
     valid_until?: string; // For recurring training
+    duration_hours?: number; // New: Duration in hours
 }
 
 // --- DORA Resilience Testing ---

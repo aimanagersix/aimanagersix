@@ -98,6 +98,7 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
                             <th className="px-6 py-3">Colaborador</th>
                             <th className="px-6 py-3">Tipo de Formação</th>
                             <th className="px-6 py-3 text-center">Score</th>
+                            <th className="px-6 py-3 text-center">Duração (H)</th>
                             <th className="px-6 py-3 text-center">Estado</th>
                             <th className="px-6 py-3">Notas</th>
                         </tr>
@@ -118,6 +119,7 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
                                         <span className={t.score >= 70 ? 'text-green-400' : 'text-red-400'}>{t.score}%</span>
                                     ) : '-'}
                                 </td>
+                                <td className="px-6 py-4 text-center font-mono">{t.duration_hours || '-'}</td>
                                 <td className="px-6 py-4 text-center">
                                     {t.status === 'Concluído' ? (
                                         <FaCheckCircle className="text-green-500 mx-auto" title="Concluído"/>
@@ -131,7 +133,7 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={6} className="text-center py-8 text-gray-500">Nenhuma formação registada.</td>
+                                <td colSpan={7} className="text-center py-8 text-gray-500">Nenhuma formação registada.</td>
                             </tr>
                         )}
                     </tbody>

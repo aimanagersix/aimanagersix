@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS security_training_records (
     score integer,
     notes text,
     valid_until date,
+    duration_hours numeric,
     created_at timestamptz DEFAULT now()
 );
 
@@ -216,6 +217,11 @@ BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'ticket_categories') THEN
         ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_warning_hours integer DEFAULT 0;
         ALTER TABLE ticket_categories ADD COLUMN IF NOT EXISTS sla_critical_hours integer DEFAULT 0;
+    END IF;
+    
+    -- Security Training Records
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'security_training_records') THEN
+        ALTER TABLE security_training_records ADD COLUMN IF NOT EXISTS duration_hours numeric;
     END IF;
 
     -- Address Columns

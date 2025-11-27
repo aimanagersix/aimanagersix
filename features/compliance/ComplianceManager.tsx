@@ -65,6 +65,7 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
         completion_date: string;
         notes?: string;
         score: number;
+        duration_hours?: number;
     }) => {
         // Create records for each collaborator
         const promises = data.collaboratorIds.map(collabId => {
@@ -74,7 +75,8 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                 completion_date: data.completion_date,
                 status: 'Concluído',
                 score: data.score,
-                notes: data.notes
+                notes: data.notes,
+                duration_hours: data.duration_hours,
             };
             return dataService.addSecurityTraining(record);
         });

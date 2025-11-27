@@ -11,7 +11,8 @@ interface AddTrainingSessionModalProps {
         training_type: string, 
         completion_date: string, 
         notes?: string, 
-        score: number 
+        score: number,
+        duration_hours?: number
     }) => void;
     collaborators: Collaborator[];
     trainingTypes: ConfigItem[];
@@ -22,6 +23,7 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
     const [completionDate, setCompletionDate] = useState(new Date().toISOString().split('T')[0]);
     const [notes, setNotes] = useState('');
     const [score, setScore] = useState(100);
+    const [durationHours, setDurationHours] = useState<number | string>(1);
     const [selectedCollaborators, setSelectedCollaborators] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -77,7 +79,8 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
             training_type: trainingType,
             completion_date: completionDate,
             notes,
-            score
+            score,
+            duration_hours: Number(durationHours) || 0
         });
         onClose();
     };
@@ -114,16 +117,28 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
                             required
                         />
                     </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Score / Nota (0-100)</label>
-                        <input 
-                            type="number" 
-                            value={score} 
-                            onChange={(e) => setScore(parseInt(e.target.value))} 
-                            min="0" max="100"
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
-                        />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Score / Nota (%)</label>
+                            <input 
+                                type="number" 
+                                value={score} 
+                                onChange={(e) => setScore(parseInt(e.target.value))} 
+                                min="0" max="100"
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Duração (Horas)</label>
+                            <input 
+                                type="number" 
+                                value={durationHours} 
+                                onChange={(e) => setDurationHours(e.target.value)} 
+                                min="0.5" step="0.5"
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                            />
+                        </div>
                     </div>
 
                     <div>
