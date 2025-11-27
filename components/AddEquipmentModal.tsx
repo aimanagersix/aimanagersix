@@ -385,23 +385,32 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         e.preventDefault();
         if (!validate()) return;
         
-        // Clean up empty fields to null for DB update
-        const dataToSubmit = {
-            ...formData,
-            inventoryNumber: formData.inventoryNumber || null,
-            invoiceNumber: formData.invoiceNumber || null,
-            requisitionNumber: formData.requisitionNumber || null,
-            nomeNaRede: formData.nomeNaRede || null,
-            macAddressWIFI: formData.macAddressWIFI || null,
-            macAddressCabo: formData.macAddressCabo || null,
-            warrantyEndDate: formData.warrantyEndDate || null,
-            supplier_id: formData.supplier_id || null,
-            acquisitionCost: formData.acquisitionCost || 0,
-            expectedLifespanYears: formData.expectedLifespanYears || 4,
-            embedded_license_key: formData.embedded_license_key || null,
-            installationLocation: formData.installationLocation || null,
-            isLoan: formData.isLoan || false
-        };
+        const dataToSubmit: any = {};
+        // Only include fields that are part of the form to avoid sending stale data
+        Object.keys(formData).forEach(key => {
+            const typedKey = key as keyof Equipment;
+            const value = formData[typedKey];
+            
+            // Convert empty strings for optional text fields to null
+            if (typeof value === 'string' && value.trim() === '') {
+                const nullableFields = [
+                    'inventoryNumber', 'invoiceNumber', 'requisitionNumber',
+                    'nomeNaRede', 'macAddressWIFI', 'macAddressCabo',
+                    'warrantyEndDate', 'supplier_id', 'embedded_license_key', 'installationLocation'
+                ];
+                if (nullableFields.includes(typedKey)) {
+                    dataToSubmit[typedKey] = null;
+                } else {
+                    dataToSubmit[typedKey] = value; // Keep required strings
+                }
+            } else if (value !== undefined) {
+                 dataToSubmit[typedKey] = value;
+            }
+        });
+        
+        // Ensure numbers are numbers and not NaN
+        dataToSubmit.acquisitionCost = isNaN(parseFloat(String(formData.acquisitionCost))) ? 0 : parseFloat(String(formData.acquisitionCost));
+        dataToSubmit.expectedLifespanYears = isNaN(parseInt(String(formData.expectedLifespanYears))) ? 4 : parseInt(String(formData.expectedLifespanYears));
 
         // Prepare auxiliary data
         let assignment = null;
@@ -413,11 +422,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             };
         }
 
-        if (equipmentToEdit && equipmentToEdit.id) {
-            onSave(dataToSubmit as Equipment, assignment, undefined);
-        } else {
-            onSave(dataToSubmit as Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'>, assignment, undefined);
-        }
+        onSave(dataToSubmit, assignment, undefined);
         onClose();
     };
     

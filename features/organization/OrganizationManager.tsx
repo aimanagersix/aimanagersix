@@ -93,6 +93,22 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         refreshData();
     };
 
+    const handleSaveCollaborator = async (col: any, pass?: string) => {
+        if (collaboratorToEdit) {
+            const updatedCollaborator = await dataService.updateCollaborator(collaboratorToEdit.id, col);
+            refreshData();
+            return updatedCollaborator;
+        } else {
+            const newCol = await dataService.addCollaborator(col, pass);
+            if (pass && newCol) {
+                setNewCredentials({ email: newCol.email, password: pass });
+                setShowCredentialsModal(true);
+            }
+            refreshData();
+            return newCol;
+        }
+    };
+
     return (
         <>
              {activeTab === 'organizacao.instituicoes' && (
@@ -232,21 +248,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
             {showAddCollaboratorModal && (
                 <AddCollaboratorModal
                     onClose={() => setShowAddCollaboratorModal(false)}
-                    onSave={async (col, pass) => {
-                        if (collaboratorToEdit) {
-                            const updatedCollaborator = await dataService.updateCollaborator(collaboratorToEdit.id, col);
-                            refreshData();
-                            return updatedCollaborator;
-                        } else {
-                            const newCol = await dataService.addCollaborator(col, pass);
-                            if (pass && newCol) {
-                                setNewCredentials({ email: newCol.email, password: pass });
-                                setShowCredentialsModal(true);
-                            }
-                            refreshData();
-                            return newCol;
-                        }
-                    }}
+                    onSave={handleSaveCollaborator}
                     collaboratorToEdit={collaboratorToEdit}
                     escolasDepartamentos={appData.entidades}
                     instituicoes={appData.instituicoes}
