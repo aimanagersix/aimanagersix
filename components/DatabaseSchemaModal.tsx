@@ -429,11 +429,11 @@ WHERE NOT EXISTS (SELECT 1 FROM entidades WHERE codigo = v.code);
 
 -- 4. Equipas
 INSERT INTO teams (name, description)
-SELECT v.name, v.desc FROM (VALUES 
+SELECT v.name, v.description FROM (VALUES 
   ('Helpdesk N1', 'Suporte de primeira linha'), 
   ('Infraestruturas', 'Redes e Servidores'),
   ('Segurança (SOC)', 'Resposta a incidentes')
-) AS v(name, desc)
+) AS v(name, description)
 WHERE NOT EXISTS (SELECT 1 FROM teams WHERE name = v.name);
 
 -- 5. Colaboradores
