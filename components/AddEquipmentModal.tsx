@@ -209,8 +209,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     // Fetch all equipment to populate parent dropdown
     useEffect(() => {
         const loadEq = async () => {
-            const data = await dataService.fetchAllData();
-            setAllEquipment(data.equipment.filter((e: Equipment) => !equipmentToEdit || e.id !== equipmentToEdit.id)); // exclude self
+            try {
+                const data = await dataService.fetchAllData();
+                setAllEquipment(data.equipment.filter((e: Equipment) => !equipmentToEdit || e.id !== equipmentToEdit.id)); // exclude self
+            } catch (e) {
+                console.error("Failed to load equipment for dropdown", e);
+            }
         };
         loadEq();
     }, [equipmentToEdit]);
@@ -220,6 +224,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             setFormData({
                 ...equipmentToEdit,
                 purchaseDate: equipmentToEdit.purchaseDate || new Date().toISOString().split('T')[0],
+                parent_equipment_id: equipmentToEdit.parent_equipment_id || ''
                 // Keep other fields
             });
         } else if (initialData) {
@@ -256,6 +261,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     }, [formData.typeId, equipmentTypes]);
     
     const isMaintenanceType = useMemo(() => {
+        // Explicit check for true, handling potential undefined/null from DB
         return selectedType?.is_maintenance === true;
     }, [selectedType]);
 
@@ -285,10 +291,13 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
         if (!formData.purchaseDate) newErrors.purchaseDate = "A data de compra é obrigatória.";
         
+        // Dynamic type validation
         const type = equipmentTypes.find(t => t.id === formData.typeId);
         if (type?.requiresLocation && !formData.installationLocation?.trim()) {
             newErrors.installationLocation = "O local de instalação é obrigatório para este tipo de equipamento.";
         }
+        
+        // Critical check for maintenance/component items
         if (type?.is_maintenance && !formData.parent_equipment_id) {
             newErrors.parent_equipment_id = "É obrigatório associar o Equipamento Principal para itens de manutenção/consumíveis.";
         }

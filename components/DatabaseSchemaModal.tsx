@@ -233,7 +233,7 @@ BEGIN
         ALTER TABLE resilience_tests ADD COLUMN IF NOT EXISTS auditor_internal_entidade_id uuid;
     END IF;
 
-    -- Equipment Types (Localização e Backups)
+    -- Equipment Types (Localização e Backups e Manutenção)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" boolean DEFAULT false;
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS "requiresLocation" boolean DEFAULT false;

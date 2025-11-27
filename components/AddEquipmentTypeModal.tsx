@@ -37,7 +37,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 default_team_id: typeToEdit.default_team_id || '',
                 requiresBackupTest: typeToEdit.requiresBackupTest || false,
                 requiresLocation: typeToEdit.requiresLocation || false,
-                is_maintenance: typeToEdit.is_maintenance || false, // New field
+                is_maintenance: typeToEdit.is_maintenance || false, // Ensure default is false if null
             });
         }
     }, [typeToEdit]);

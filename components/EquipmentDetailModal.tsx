@@ -239,9 +239,9 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                     </div>
                                 </div>
                                 
-                                {childEquipment.length > 0 && (
+                                {childEquipment.length > 0 ? (
                                     <div>
-                                        <h4 className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-2"><FaTools/> Histórico de Peças Substituídas / Consumíveis</h4>
+                                        <h4 className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-2"><FaTools/> Peças & Componentes Instalados</h4>
                                         <table className="w-full text-xs text-left">
                                             <thead className="bg-gray-900 text-gray-500 uppercase">
                                                 <tr>
@@ -261,6 +261,8 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                             </tbody>
                                         </table>
                                     </div>
+                                ) : (
+                                    <p className="text-xs text-gray-500 italic">Nenhum componente ou manutenção registada.</p>
                                 )}
                             </div>
 
