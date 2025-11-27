@@ -1,9 +1,7 @@
-
-
 import React, { useMemo, useState, useEffect } from 'react';
-import { Ticket, TicketStatus, CriticalityLevel, Vulnerability, VulnerabilityStatus, BackupExecution, SecurityTrainingRecord, Collaborator, UserRole } from '../types';
-import { FaShieldAlt, FaTachometerAlt, FaExclamationTriangle, FaCheckCircle, FaUserShield, FaFileSignature, FaSpinner } from './common/Icons';
-import { fetchLastRiskAcknowledgement, logAction } from '../services/dataService';
+import { Ticket, TicketStatus, CriticalityLevel, Vulnerability, VulnerabilityStatus, BackupExecution, SecurityTrainingRecord, Collaborator, UserRole, Equipment, EquipmentStatus } from '../types';
+import { FaShieldAlt, FaTachometerAlt, FaExclamationTriangle, FaCheckCircle, FaUserShield, FaFileSignature, FaSpinner, FaEuroSign, FaBuilding } from './common/Icons';
+import { fetchLastRiskAcknowledgement, logAction, fetchAllData } from '../services/dataService';
 
 interface SmartDashboardProps {
     tickets: Ticket[];
@@ -17,13 +15,21 @@ interface SmartDashboardProps {
 const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilities, backups, trainings, collaborators, currentUser }) => {
     const [isAcknowledging, setIsAcknowledging] = useState(false);
     const [lastAckData, setLastAckData] = useState<{ timestamp: string, user_email: string } | null>(null);
+    const [equipment, setEquipment] = useState<Equipment[]>([]);
+    const [entidades, setEntidades] = useState<any[]>([]);
 
     useEffect(() => {
         const loadAck = async () => {
             const data = await fetchLastRiskAcknowledgement();
             setLastAckData(data);
         };
+        const loadExtraData = async () => {
+            const allData = await fetchAllData();
+            setEquipment(allData.equipment);
+            setEntidades(allData.entidades);
+        };
         loadAck();
+        loadExtraData();
     }, []);
 
     // --- CALCULATE METRICS ---
@@ -52,22 +58,71 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
         return Math.round((successes / recentBackups.length) * 100);
     }, [backups]);
 
-    // 4. Training Coverage (Users with recent training)
+    // 4. Training Coverage
     const trainingCoverage = useMemo(() => {
         if (collaborators.length === 0) return 0;
         const trainedUserIds = new Set(trainings.map(t => t.collaborator_id));
         return Math.round((trainedUserIds.size / collaborators.length) * 100);
     }, [collaborators, trainings]);
 
+    // 5. FinOps Data
+    const finOpsData = useMemo(() => {
+        let totalAcquisition = 0;
+        let totalCurrentValue = 0;
+
+        equipment.forEach(eq => {
+            const cost = eq.acquisitionCost || 0;
+            totalAcquisition += cost;
+            
+            // Simple Linear Depreciation
+            if (eq.status !== EquipmentStatus.Decommissioned && eq.purchaseDate) {
+                const purchaseDate = new Date(eq.purchaseDate);
+                const ageInYears = (new Date().getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+                const lifespan = eq.expectedLifespanYears || 4;
+                
+                const annualDepreciation = cost / lifespan;
+                const accumulatedDepreciation = Math.min(annualDepreciation * ageInYears, cost);
+                totalCurrentValue += Math.max(cost - accumulatedDepreciation, 0);
+            }
+        });
+
+        return {
+            capex: totalAcquisition,
+            currentValue: totalCurrentValue,
+            depreciation: totalAcquisition - totalCurrentValue
+        };
+    }, [equipment]);
+
+    // 6. Risk per Entity
+    const entityRiskMap = useMemo(() => {
+        const riskMap: Record<string, number> = {};
+        const entMap = new Map(entidades.map(e => [e.id, e.name]));
+
+        // Incidents add 5 points
+        tickets.forEach(t => {
+            if (t.entidadeId && t.impactCriticality === CriticalityLevel.Critical) {
+                const name = entMap.get(t.entidadeId) || 'Desconhecido';
+                riskMap[name] = (riskMap[name] || 0) + 5;
+            }
+        });
+
+        // Critical Vulns add 3 points (if linked to asset in entity - tough to map without direct link, skipped for simplicity)
+        
+        return Object.entries(riskMap)
+            .map(([name, score]) => ({ name, score }))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 5); // Top 5
+    }, [tickets, entidades]);
+
+
     // --- COMPLIANCE SCORE ALGORITHM ---
     const complianceScore = useMemo(() => {
         let score = 100;
         
-        // Penalties
         if (openCriticalIncidents > 0) score -= 30;
         if (unmitigatedCriticalVulns > 0) score -= 20;
-        if (backupSuccessRate < 90) score -= (90 - backupSuccessRate); // 1 point per % under 90
-        if (trainingCoverage < 80) score -= ((80 - trainingCoverage) / 2); // 0.5 point per % under 80
+        if (backupSuccessRate < 90) score -= (90 - backupSuccessRate); 
+        if (trainingCoverage < 80) score -= ((80 - trainingCoverage) / 2); 
 
         return Math.max(0, Math.round(score));
     }, [openCriticalIncidents, unmitigatedCriticalVulns, backupSuccessRate, trainingCoverage]);
@@ -87,7 +142,6 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
                 'Compliance', 
                 `Administração tomou conhecimento do Score: ${complianceScore}% | Incidentes Críticos: ${openCriticalIncidents}`
             );
-            // Refresh Ack Data
             const data = await fetchLastRiskAcknowledgement();
             setLastAckData(data);
         } catch (e) {
@@ -181,6 +235,54 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
                             <FaUserShield className="text-purple-400" />
                         </div>
                         <p className="text-xs text-gray-500 mt-2">KPI: &gt; 80%</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* FinOps & Risk Analysis Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* FinOps Widget */}
+                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                        <FaEuroSign className="text-green-400" /> FinOps - Valor do Parque
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="bg-gray-800 p-3 rounded">
+                            <p className="text-xs text-gray-400 uppercase">Investimento Total (CAPEX)</p>
+                            <p className="text-xl font-bold text-white">€ {finOpsData.capex.toLocaleString()}</p>
+                        </div>
+                        <div className="bg-gray-800 p-3 rounded">
+                            <p className="text-xs text-gray-400 uppercase">Valor Atual (Depreciado)</p>
+                            <p className="text-xl font-bold text-green-400">€ {finOpsData.currentValue.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2.5 mb-1">
+                        <div 
+                            className="bg-green-500 h-2.5 rounded-full transition-all duration-1000" 
+                            style={{ width: `${finOpsData.capex > 0 ? (finOpsData.currentValue / finOpsData.capex) * 100 : 0}%` }}
+                        ></div>
+                    </div>
+                    <p className="text-xs text-gray-500 text-right">
+                        {finOpsData.capex > 0 ? Math.round((finOpsData.currentValue / finOpsData.capex) * 100) : 0}% do valor inicial retido
+                    </p>
+                </div>
+
+                {/* Top Risk Entities */}
+                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                     <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                        <FaBuilding className="text-red-400" /> Top Risco por Entidade
+                    </h3>
+                    <div className="space-y-2">
+                        {entityRiskMap.length > 0 ? entityRiskMap.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-2 bg-gray-800 rounded border border-gray-700">
+                                <span className="text-sm text-white font-medium">{item.name}</span>
+                                <span className="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded font-bold">
+                                    Score Risco: {item.score}
+                                </span>
+                            </div>
+                        )) : (
+                            <p className="text-center text-gray-500 text-sm py-4">Nenhum risco elevado detetado por entidade.</p>
+                        )}
                     </div>
                 </div>
             </div>

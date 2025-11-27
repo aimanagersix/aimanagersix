@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory } from '../types';
-import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull } from './common/Icons';
+import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull, FaChartLine, FaStopwatch } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
 
@@ -85,6 +85,36 @@ const BarChart: React.FC<{ title: string; data: { name: string; value: number }[
     );
 };
 
+const TrendChart: React.FC<{ title: string; data: { label: string; value: number }[] }> = ({ title, data }) => {
+    const maxValue = Math.max(...data.map(d => d.value), 1);
+
+    return (
+        <div className="bg-surface-dark p-5 rounded-lg shadow-lg h-full border border-gray-800 flex flex-col">
+            <h3 className="text-md font-semibold text-white flex items-center gap-2 mb-4">
+                <FaChartLine className="text-blue-400"/>
+                {title}
+            </h3>
+            <div className="flex items-end justify-between gap-2 h-40 pb-2">
+                {data.map((item, idx) => (
+                    <div key={idx} className="flex flex-col items-center flex-1 group">
+                        <div className="relative w-full flex justify-center items-end h-full">
+                            <div 
+                                className="w-full max-w-[20px] bg-blue-600/80 hover:bg-blue-500 rounded-t transition-all duration-500 min-h-[4px]"
+                                style={{ height: `${(item.value / maxValue) * 100}%` }}
+                            >
+                                <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs py-1 px-2 rounded pointer-events-none transition-opacity">
+                                    {item.value}
+                                </div>
+                            </div>
+                        </div>
+                        <span className="text-[10px] text-gray-400 mt-2">{item.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const RecentActivityItem: React.FC<{ activity: any, icon: React.ReactNode }> = ({ activity, icon }) => (
     <div className="flex items-start gap-3 p-3 rounded-md hover:bg-gray-800/30 transition-colors border-l-2 border-transparent hover:border-brand-secondary">
         <div className="p-2 bg-gray-800 rounded-full mt-1 shadow-sm">
@@ -102,7 +132,6 @@ const RecentActivityItem: React.FC<{ activity: any, icon: React.ReactNode }> = (
 
 const AvailableLicensesCard: React.FC<{ licenses: { productName: string; availableSeats: number; isOEM?: boolean }[]; onViewAll: () => void; }> = ({ licenses, onViewAll }) => {
     const { t } = useLanguage();
-    // Total Available seats, including OEM stock
     const totalAvailable = licenses.reduce((sum, l) => sum + l.availableSeats, 0);
     const topLicenses = licenses.slice(0, 6);
 
@@ -165,7 +194,6 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
     const [lastReviewDate, setLastReviewDate] = useState<string | null>(null);
 
-    // Access Review Logic (NIS2)
     useEffect(() => {
         const checkAccessReview = async () => {
             const date = await dataService.fetchLastAccessReviewDate();
@@ -201,14 +229,43 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         };
     }, [equipment]);
 
-    const ticketStats = useMemo(() => ({
-        open: tickets.filter(t => t.status === TicketStatus.Requested || t.status === TicketStatus.InProgress).length,
-        securityIncidents: tickets.filter(t => 
+    const ticketStats = useMemo(() => {
+        const open = tickets.filter(t => t.status === TicketStatus.Requested || t.status === TicketStatus.InProgress).length;
+        const securityIncidents = tickets.filter(t => 
             (t.category === TicketCategory.SecurityIncident || t.category === 'Incidente de Segurança') && 
             (t.status === TicketStatus.Requested || t.status === TicketStatus.InProgress)
-        ).length
-    }), [tickets]);
+        ).length;
+
+        // Average Resolution Time
+        const resolvedTickets = tickets.filter(t => t.status === TicketStatus.Finished && t.finishDate);
+        let totalDuration = 0;
+        resolvedTickets.forEach(t => {
+            const start = new Date(t.requestDate).getTime();
+            const end = new Date(t.finishDate!).getTime();
+            totalDuration += (end - start);
+        });
+        const avgResolutionHours = resolvedTickets.length > 0 ? Math.round(totalDuration / resolvedTickets.length / (1000 * 60 * 60)) : 0;
+
+        return { open, securityIncidents, avgResolutionHours };
+    }, [tickets]);
     
+    const ticketTrendData = useMemo(() => {
+        const last7Days = [...Array(7)].map((_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (6 - i));
+            return d;
+        });
+
+        return last7Days.map(date => {
+            const dateStr = date.toISOString().split('T')[0];
+            const count = tickets.filter(t => t.requestDate.startsWith(dateStr)).length;
+            return {
+                label: date.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' }),
+                value: count
+            };
+        });
+    }, [tickets]);
+
     const healthStats = useMemo(() => {
         return {
             expiringWarranties: expiringWarranties.length,
@@ -229,7 +286,6 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     }, [vulnerabilities]);
 
     const availableLicensesData = useMemo(() => {
-        // 1. Calculate Traditional Licenses
         const usedSeatsMap = licenseAssignments.reduce((acc, assignment) => {
             acc.set(assignment.softwareLicenseId, (acc.get(assignment.softwareLicenseId) || 0) + 1);
             return acc;
@@ -244,18 +300,10 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             })
             .filter(license => license.availableSeats > 0);
 
-        // 2. Calculate OEM Licenses (from Equipment)
-        // OEM Logic:
-        // - A license exists if equipment.embedded_license_key is present.
-        // - It is considered "Used" if equipment is Operational/Assigned.
-        // - It is considered "Available" if equipment is in Stock (since the license comes with the hardware).
         const oemCounts: Record<string, number> = {};
         equipment.forEach(eq => {
             if (eq.embedded_license_key && eq.os_version) {
-                // Clean up version name to grouping
                 const osName = eq.os_version;
-                
-                // If equipment is in stock, it counts as an "Available" license (ready to deploy)
                 if (eq.status === EquipmentStatus.Stock) {
                     oemCounts[osName] = (oemCounts[osName] || 0) + 1;
                 }
@@ -268,7 +316,6 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             isOEM: true
         }));
 
-        // 3. Merge & Sort
         return [...traditionalLicenses, ...oemLicenses].sort((a, b) => b.availableSeats - a.availableSeats);
     }, [softwareLicenses, licenseAssignments, equipment]);
 
@@ -450,18 +497,27 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             {/* --- MODULE 2: SUPPORT & TICKETS --- */}
             <DashboardSection title="Suporte Técnico" icon={<FaTicketAlt />}>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    <div className="md:col-span-3">
+                    <div className="md:col-span-3 flex flex-col gap-4">
                         <StatCard 
                             title={t('overview.open_tickets')} 
                             value={ticketStats.open} 
                             icon={<FaTicketAlt className="h-8 w-8" />} 
                             color={ticketStats.open > 0 ? "bg-blue-600" : "bg-green-600"} 
                             onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} 
-                            className="h-full"
                             subtext="A aguardar resolução"
                         />
+                         <StatCard 
+                            title="Tempo Médio Resolução" 
+                            value={`${ticketStats.avgResolutionHours}h`} 
+                            icon={<FaStopwatch className="h-8 w-8" />} 
+                            color="bg-teal-600" 
+                            subtext="Eficiência da Equipa"
+                        />
                     </div>
-                    <div className="md:col-span-9">
+                    <div className="md:col-span-6">
+                        <TrendChart title="Volume de Tickets (7 Dias)" data={ticketTrendData} />
+                    </div>
+                    <div className="md:col-span-3">
                         <BarChart title={t('overview.tickets_team')} data={ticketsByTeam} icon={<FaUsers />} colorBar="bg-blue-500" />
                     </div>
                 </div>
