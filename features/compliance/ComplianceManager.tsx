@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
     Collaborator, BusinessService, ServiceDependency, Vulnerability, 
@@ -11,7 +10,7 @@ import ServiceDashboard from '../../components/ServiceDashboard';
 import VulnerabilityDashboard from '../../components/VulnerabilityDashboard';
 import BackupDashboard from '../../components/BackupDashboard';
 import ResilienceDashboard from '../../components/ResilienceDashboard';
-import TrainingDashboard from '../../components/TrainingDashboard'; // New
+import TrainingDashboard from '../../components/TrainingDashboard';
 
 // Modals
 import AddServiceModal from '../../components/AddServiceModal';
@@ -20,7 +19,7 @@ import AddVulnerabilityModal from '../../components/AddVulnerabilityModal';
 import AddBackupModal from '../../components/AddBackupModal';
 import AddResilienceTestModal from '../../components/AddResilienceTestModal';
 import AddTicketModal from '../../components/AddTicketModal';
-import AddTrainingSessionModal from '../../components/AddTrainingSessionModal'; // New
+import AddTrainingSessionModal from '../../components/AddTrainingSessionModal';
 
 interface ComplianceManagerProps {
     activeTab: string;
