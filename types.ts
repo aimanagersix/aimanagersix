@@ -289,6 +289,7 @@ export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
 export type ModuleKey = 
     // Operational Modules
     | 'equipment' // Inventory
+    | 'procurement' // NEW: Procurement
     | 'licensing' // Software
     | 'tickets' // Support
     | 'organization' // Entities/HR/Teams
@@ -719,4 +720,40 @@ export interface GlobalSetting {
     setting_key: string; // e.g. 'scan_frequency_days'
     setting_value: string; // e.g. '7'
     updated_at: string;
+}
+
+// --- PROCUREMENT (AQUISIÇÕES) ---
+export const ProcurementStatus = {
+    Pending: 'Pendente',
+    Approved: 'Aprovado',
+    Rejected: 'Rejeitado',
+    Ordered: 'Encomendado',
+    Received: 'Recebido',
+    Completed: 'Concluído' // After assets are created
+} as const;
+export type ProcurementStatus = typeof ProcurementStatus[keyof typeof ProcurementStatus];
+
+export interface ProcurementRequest {
+    id: string;
+    title: string; // e.g. "5x Laptop Dell"
+    description?: string;
+    quantity: number;
+    estimated_cost?: number;
+    requester_id: string; // Collaborator
+    approver_id?: string;
+    supplier_id?: string; // Optional initially, mandatory for Order
+    
+    status: ProcurementStatus;
+    
+    request_date: string;
+    approval_date?: string;
+    order_date?: string; // When ordered from supplier
+    received_date?: string; // When physically received
+    
+    order_reference?: string; // Supplier order #
+    invoice_number?: string;
+    
+    priority: 'Normal' | 'Urgente';
+    
+    attachments?: { name: string; dataUrl: string }[]; // Quotes, Invoices
 }

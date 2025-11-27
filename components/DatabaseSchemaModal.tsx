@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom } from 'react-icons/fa';
@@ -154,6 +155,29 @@ CREATE TABLE IF NOT EXISTS policy_acceptances (
     version text NOT NULL
 );
 
+-- Tabelas para Gestão de Aquisições (Procurement)
+CREATE TABLE IF NOT EXISTS procurement_requests (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    title text NOT NULL,
+    description text,
+    quantity integer DEFAULT 1,
+    estimated_cost numeric,
+    requester_id uuid REFERENCES collaborators(id),
+    approver_id uuid REFERENCES collaborators(id),
+    supplier_id uuid REFERENCES suppliers(id),
+    status text NOT NULL DEFAULT 'Pendente', -- Pendente, Aprovado, Rejeitado, Encomendado, Recebido, Concluído
+    request_date date DEFAULT CURRENT_DATE,
+    approval_date date,
+    order_date date,
+    received_date date,
+    order_reference text,
+    invoice_number text,
+    priority text DEFAULT 'Normal',
+    attachments jsonb DEFAULT '[]'::jsonb,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
 -- ==========================================
 -- 4. INSERIR VALORES PADRÃO
 -- ==========================================
@@ -173,17 +197,17 @@ INSERT INTO config_software_categories (name) VALUES ('Sistema Operativo'), ('Se
 -- MIGRAÇÃO DE PERFIS ANTIGOS PARA A NOVA TABELA
 -- Admin (Acesso Total)
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Admin', true, '{"inventory":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"compliance":{"view":true,"create":true,"edit":true,"delete":true},"settings":{"view":true,"create":true,"edit":true,"delete":true}}')
+VALUES ('Admin', true, '{"inventory":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"compliance":{"view":true,"create":true,"edit":true,"delete":true},"settings":{"view":true,"create":true,"edit":true,"delete":true},"procurement":{"view":true,"create":true,"edit":true,"delete":true}}')
 ON CONFLICT (name) DO NOTHING;
 
 -- Técnico (Pode gerir tickets e inventário, mas não configurações ou apagar organização)
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Técnico', false, '{"inventory":{"view":true,"create":true,"edit":true,"delete":false},"tickets":{"view":true,"create":true,"edit":true,"delete":false},"organization":{"view":true,"create":false,"edit":false,"delete":false},"compliance":{"view":true,"create":true,"edit":true,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false}}')
+VALUES ('Técnico', false, '{"inventory":{"view":true,"create":true,"edit":true,"delete":false},"tickets":{"view":true,"create":true,"edit":true,"delete":false},"organization":{"view":true,"create":false,"edit":false,"delete":false},"compliance":{"view":true,"create":true,"edit":true,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false},"procurement":{"view":true,"create":true,"edit":true,"delete":false}}')
 ON CONFLICT (name) DO NOTHING;
 
 -- Utilizador (Apenas ver e abrir tickets)
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false}}')
+VALUES ('Utilizador', false, '{"inventory":{"view":true,"create":false,"edit":false,"delete":false},"tickets":{"view":true,"create":true,"edit":false,"delete":false},"organization":{"view":false,"create":false,"edit":false,"delete":false},"settings":{"view":false,"create":false,"edit":false,"delete":false},"procurement":{"view":true,"create":true,"edit":false,"delete":false}}')
 ON CONFLICT (name) DO NOTHING;
 
 -- ==========================================
@@ -207,7 +231,7 @@ BEGIN
     END LOOP;
     
     -- Loop manual para contact_* e resource_contacts
-    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records', 'policies', 'policy_acceptances']
+    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records', 'policies', 'policy_acceptances', 'procurement_requests']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN
@@ -370,6 +394,7 @@ DELETE FROM software_licenses;
 DELETE FROM integration_logs;
 DELETE FROM policy_acceptances;
 DELETE FROM policies;
+DELETE FROM procurement_requests;
 
 -- 3. Apagar Ativos
 DELETE FROM equipment;
@@ -495,7 +520,7 @@ COMMIT;
                 <div className="flex justify-between items-center mt-4">
                      <div className="flex flex-col items-center justify-center border border-gray-600 rounded-lg p-2 bg-gray-800">
                         <span className="text-xs text-gray-400 uppercase">App Version</span>
-                        <span className="text-lg font-bold text-brand-secondary">v1.36</span>
+                        <span className="text-lg font-bold text-brand-secondary">v1.42</span>
                     </div>
                     <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                         Fechar

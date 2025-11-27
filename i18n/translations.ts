@@ -10,6 +10,7 @@ export const translations = {
     "nav.inventory": "Ativos",
     "nav.assets_inventory": "Equipamentos",
     "nav.licensing": "Licenças",
+    "nav.procurement": "Aquisições",
     
     "nav.organization": "Organização",
     "nav.institutions": "Instituições",
@@ -90,7 +91,14 @@ export const translations = {
     "status.inactive": "Inativo",
     "status.success": "Sucesso",
     "status.failure": "Falha",
-    "status.partial": "Parcial"
+    "status.partial": "Parcial",
+
+    "procurement.status.Pending": "Pendente",
+    "procurement.status.Approved": "Aprovado",
+    "procurement.status.Rejected": "Rejeitado",
+    "procurement.status.Ordered": "Encomendado",
+    "procurement.status.Received": "Recebido",
+    "procurement.status.Completed": "Concluído"
   },
   en: {
     "app.title": "Intelligent Management",
@@ -101,6 +109,7 @@ export const translations = {
     "nav.inventory": "Assets",
     "nav.assets_inventory": "Equipment",
     "nav.licensing": "Licenses",
+    "nav.procurement": "Procurement",
     
     "nav.organization": "Organization",
     "nav.institutions": "Institutions",
@@ -181,6 +190,13 @@ export const translations = {
     "status.inactive": "Inactive",
     "status.success": "Success",
     "status.failure": "Failure",
-    "status.partial": "Partial"
+    "status.partial": "Partial",
+
+    "procurement.status.Pending": "Pending",
+    "procurement.status.Approved": "Approved",
+    "procurement.status.Rejected": "Rejected",
+    "procurement.status.Ordered": "Ordered",
+    "procurement.status.Received": "Received",
+    "procurement.status.Completed": "Completed"
   }
 };

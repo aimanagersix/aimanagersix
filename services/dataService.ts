@@ -1,6 +1,8 @@
 
 
 
+
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -9,7 +11,7 @@ import {
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
     ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole, EquipmentStatus,
-    Policy, PolicyAcceptance
+    Policy, PolicyAcceptance, ProcurementRequest
 } from '../types';
 
 // --- HELPER FUNCTIONS ---
@@ -68,7 +70,7 @@ export const fetchAllData = async () => {
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
         configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles,
-        policies, policyAcceptances
+        policies, policyAcceptances, procurementRequests
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -109,7 +111,8 @@ export const fetchAllData = async () => {
         supabase.from('config_software_categories').select('*'),
         supabase.from('config_custom_roles').select('*'),
         supabase.from('policies').select('*'),
-        supabase.from('policy_acceptances').select('*')
+        supabase.from('policy_acceptances').select('*'),
+        supabase.from('procurement_requests').select('*')
     ]);
 
     const attachContacts = (items: any[], type: string) => {
@@ -158,7 +161,8 @@ export const fetchAllData = async () => {
         configSoftwareCategories: configSoftwareCategories.data || [],
         configCustomRoles: configCustomRoles.data || [],
         policies: policies.data || [],
-        policyAcceptances: policyAcceptances.data || []
+        policyAcceptances: policyAcceptances.data || [],
+        procurementRequests: procurementRequests.data || []
     };
 };
 
@@ -476,6 +480,11 @@ export const acceptPolicy = async (policyId: string, userId: string, version: st
     await logAction('POLICY_ACCEPTANCE', 'Policy', `User ${userId} accepted policy ${policyId} v${version}`);
     return data;
 };
+
+// Procurement (NEW)
+export const addProcurement = (data: any) => create('procurement_requests', data);
+export const updateProcurement = (id: string, data: any) => update('procurement_requests', id, data);
+export const deleteProcurement = (id: string) => remove('procurement_requests', id);
 
 // Messaging
 export const addMessage = (data: any) => create('messages', data);

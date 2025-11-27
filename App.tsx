@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket 
@@ -41,7 +43,7 @@ import CalendarModal from './components/CalendarModal';
 import MagicCommandBar from './components/MagicCommandBar';
 import { ChatWidget } from './components/ChatWidget';
 import NotificationsModal from './components/NotificationsModal';
-import PolicyAcceptanceModal from './components/PolicyAcceptanceModal'; // NEW
+import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 
 
 export const App: React.FC = () => {
@@ -140,6 +142,7 @@ export const App: React.FC = () => {
         'overview': !isBasic ? 'Visão Geral' : undefined,
         'overview.smart': canViewSmartDashboard ? 'C-Level Dashboard' : undefined,
         'equipment.inventory': checkPermission('equipment', 'view') ? 'Inventário' : undefined,
+        'equipment.procurement': checkPermission('procurement', 'view') ? 'Aquisições' : undefined,
         'licensing': checkPermission('licensing', 'view') ? 'Licenciamento' : undefined,
         
         'organizacao.instituicoes': checkPermission('organization', 'view') ? 'Instituições' : undefined,
@@ -324,7 +327,7 @@ export const App: React.FC = () => {
 
                     {/* --- MODULARIZED MANAGERS --- */}
                     
-                    {(activeTab === 'equipment.inventory' || activeTab === 'licensing') && (
+                    {(activeTab === 'equipment.inventory' || activeTab === 'licensing' || activeTab === 'equipment.procurement') && (
                         <InventoryManager 
                             activeTab={activeTab}
                             appData={appData}

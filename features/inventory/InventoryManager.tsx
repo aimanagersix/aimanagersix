@@ -1,14 +1,16 @@
+
 import React, { useState } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
     SoftwareLicense, Assignment, 
-    defaultTooltipConfig, ModuleKey, PermissionAction, LicenseAssignment, ConfigItem
+    defaultTooltipConfig, ModuleKey, PermissionAction, LicenseAssignment, ConfigItem, ProcurementRequest
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
 // Components
 import EquipmentDashboard from '../../components/EquipmentDashboard';
 import LicenseDashboard from '../../components/LicenseDashboard';
+import ProcurementDashboard from '../../components/ProcurementDashboard';
 
 // Modals
 import AddEquipmentModal from '../../components/AddEquipmentModal';
@@ -17,6 +19,8 @@ import AssignEquipmentModal from '../../components/AssignEquipmentModal';
 import AssignMultipleEquipmentModal from '../../components/AssignMultipleEquipmentModal';
 import EquipmentDetailModal from '../../components/EquipmentDetailModal';
 import AddLicenseModal from '../../components/AddLicenseModal';
+import AddProcurementModal from '../../components/AddProcurementModal';
+import ReceiveAssetsModal from '../../components/ReceiveAssetsModal';
 
 interface InventoryManagerProps {
     activeTab: string;
@@ -46,6 +50,12 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
     const [showAddLicenseModal, setShowAddLicenseModal] = useState(false);
     const [licenseToEdit, setLicenseToEdit] = useState<SoftwareLicense | null>(null);
+    
+    // Procurement Modals
+    const [showAddProcurementModal, setShowAddProcurementModal] = useState(false);
+    const [procurementToEdit, setProcurementToEdit] = useState<ProcurementRequest | null>(null);
+    const [showReceiveAssetsModal, setShowReceiveAssetsModal] = useState(false);
+    const [procurementToReceive, setProcurementToReceive] = useState<ProcurementRequest | null>(null);
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
@@ -132,6 +142,19 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     businessServices={appData.businessServices}
                     serviceDependencies={appData.serviceDependencies}
                     softwareCategories={appData.softwareCategories}
+                />
+            )}
+            
+            {activeTab === 'equipment.procurement' && (
+                <ProcurementDashboard 
+                    requests={appData.procurementRequests}
+                    collaborators={appData.collaborators}
+                    suppliers={appData.suppliers}
+                    currentUser={currentUser}
+                    onCreate={checkPermission('procurement', 'create') ? () => { setProcurementToEdit(null); setShowAddProcurementModal(true); } : undefined}
+                    onEdit={checkPermission('procurement', 'edit') ? (req) => { setProcurementToEdit(req); setShowAddProcurementModal(true); } : undefined}
+                    onReceive={checkPermission('equipment', 'create') ? (req) => { setProcurementToReceive(req); setShowReceiveAssetsModal(true); } : undefined}
+                    onDelete={checkPermission('procurement', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteProcurement(id); refreshData(); } } : undefined}
                 />
             )}
 
@@ -233,6 +256,35 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     licenseToEdit={licenseToEdit}
                     suppliers={appData.suppliers}
                     categories={appData.softwareCategories}
+                />
+            )}
+            
+            {showAddProcurementModal && (
+                <AddProcurementModal 
+                    onClose={() => setShowAddProcurementModal(false)}
+                    onSave={async (req) => {
+                        if (procurementToEdit) await dataService.updateProcurement(procurementToEdit.id, req);
+                        else await dataService.addProcurement(req);
+                        refreshData();
+                    }}
+                    procurementToEdit={procurementToEdit}
+                    currentUser={currentUser}
+                    collaborators={appData.collaborators}
+                    suppliers={appData.suppliers}
+                />
+            )}
+            
+            {showReceiveAssetsModal && procurementToReceive && (
+                <ReceiveAssetsModal 
+                    onClose={() => setShowReceiveAssetsModal(false)}
+                    request={procurementToReceive}
+                    brands={appData.brands}
+                    types={appData.equipmentTypes}
+                    onSave={async (assets) => {
+                        await dataService.addMultipleEquipment(assets);
+                        await dataService.updateProcurement(procurementToReceive.id, { status: 'Concluído' });
+                        refreshData();
+                    }}
                 />
             )}
         </>
