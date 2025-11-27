@@ -27,7 +27,7 @@ const getStatusClass = (status: string) => {
     }
 };
 
-const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests, collaborators, suppliers, currentUser, onCreate, onEdit, onDelete, onReceive }) => {
+const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = [], collaborators, suppliers, currentUser, onCreate, onEdit, onDelete, onReceive }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -37,6 +37,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests, c
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
 
     const filteredRequests = useMemo(() => {
+        if (!requests) return [];
         return requests.filter(r => {
             const requesterName = collaboratorMap.get(r.requester_id)?.toLowerCase() || '';
             const supplierName = r.supplier_id ? (supplierMap.get(r.supplier_id)?.toLowerCase() || '') : '';

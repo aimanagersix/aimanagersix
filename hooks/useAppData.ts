@@ -1,6 +1,4 @@
 
-
-
 import { useState, useEffect, useCallback } from 'react';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -10,7 +8,7 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, 
     Vulnerability, BackupExecution, ResilienceTest, SecurityTrainingRecord,
-    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance
+    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest
 } from '../types';
 
 export interface AppData {
@@ -51,6 +49,7 @@ export interface AppData {
     configResilienceTestTypes: ConfigItem[];
     policies: Policy[];
     policyAcceptances: PolicyAcceptance[];
+    procurementRequests: ProcurementRequest[];
 }
 
 const initialData: AppData = {
@@ -63,7 +62,7 @@ const initialData: AppData = {
     softwareCategories: [], configEquipmentStatuses: [], contactRoles: [], contactTitles: [], 
     configCriticalityLevels: [], configCiaRatings: [], configServiceStatuses: [], 
     configBackupTypes: [], configTrainingTypes: [], configResilienceTestTypes: [],
-    policies: [], policyAcceptances: []
+    policies: [], policyAcceptances: [], procurementRequests: []
 };
 
 export const useAppData = () => {
@@ -121,7 +120,8 @@ export const useAppData = () => {
                 configTrainingTypes: data.configTrainingTypes,
                 configResilienceTestTypes: data.configResilienceTestTypes,
                 policies: data.policies,
-                policyAcceptances: data.policyAcceptances
+                policyAcceptances: data.policyAcceptances,
+                procurementRequests: data.procurementRequests
             });
         } catch (error) {
             console.error("Failed to fetch data", error);
