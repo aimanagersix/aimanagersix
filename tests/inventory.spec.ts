@@ -18,31 +18,24 @@ test.describe('Inventory Management', () => {
   });
 
   test('should create a new equipment item successfully', async ({ page }) => {
-    // 1. Expandir Sidebar (Passar o rato para revelar menus)
-    // A sidebar é o elemento <aside>
-    const sidebar = page.locator('aside');
-    await sidebar.hover();
-    
-    // Esperar que o texto "Ativos" fique visível (confirma expansão)
-    await expect(page.getByText('Ativos').first()).toBeVisible();
-
-    // 2. Navegar para Inventário -> Equipamentos
-    // Clicar no menu pai (Ativos)
+    // 1. Navegação via Menu Superior (Default Layout)
+    // Clicar no menu pai "Ativos" para abrir o dropdown
     await page.getByRole('button', { name: /Ativos/i }).click();
     
-    // Clicar no submenu (Equipamentos)
+    // Aguardar e clicar no submenu "Equipamentos"
+    // Nota: Usamos 'link' ou 'menuitem' dependendo da implementação, mas getByText ou Role costuma funcionar bem
     await page.getByRole('menuitem', { name: /Equipamentos/i }).click(); 
     
     // Verificar se o título da tabela carregou
     await expect(page.getByRole('heading', { name: 'Inventário de Equipamentos' })).toBeVisible();
 
-    // 3. Abrir Modal de Adicionar
+    // 2. Abrir Modal de Adicionar
     await page.getByRole('button', { name: 'Adicionar' }).first().click();
     
     // Verificar se o modal abriu
     await expect(page.getByRole('heading', { name: /Adicionar/i }).first()).toBeVisible();
 
-    // 4. Preencher Formulário
+    // 3. Preencher Formulário
     const uniqueSerial = `E2E-${Date.now()}`;
     await page.locator('input[name="serialNumber"]').fill(uniqueSerial);
     
@@ -53,17 +46,17 @@ test.describe('Inventory Management', () => {
     await page.locator('textarea[name="description"]').fill('Automated Test Asset via Playwright');
     await page.locator('input[name="purchaseDate"]').fill('2024-01-01');
 
-    // 5. Submeter (Procurar botão pelo tipo submit para ser mais robusto)
+    // 4. Submeter
     await page.locator('button[type="submit"]').click();
 
-    // 6. Verificação
+    // 5. Verificação
     // O modal deve fechar
     await expect(page.getByRole('heading', { name: /Adicionar/i }).first()).not.toBeVisible();
     
-    // Usar o filtro de pesquisa para encontrar o item criado
+    // Usar o filtro de pesquisa para encontrar o item criado e garantir que foi salvo
     await page.locator('input[name="serialNumber"]').fill(uniqueSerial);
     
-    // Validar que aparece na tabela (aguarda até aparecer)
+    // Validar que aparece na tabela
     await expect(page.getByRole('cell', { name: uniqueSerial })).toBeVisible();
   });
 });
