@@ -129,11 +129,16 @@ export const App: React.FC = () => {
     const isAdmin = checkPermission('settings', 'view');
 
     // Granular Compliance Permissions
-    const canViewGlobalCompliance = checkPermission('compliance', 'view');
+    const canViewBia = checkPermission('compliance_bia', 'view');
+    const canViewSecurity = checkPermission('compliance_security', 'view');
+    const canViewBackups = checkPermission('compliance_backups', 'view');
+    const canViewResilience = checkPermission('compliance_resilience', 'view');
     const canViewTraining = checkPermission('compliance_training', 'view');
     const canViewPolicies = checkPermission('compliance_policies', 'view');
+    
+    const showComplianceMenu = canViewBia || canViewSecurity || canViewBackups || canViewResilience || canViewTraining || canViewPolicies;
+
     const canViewSmartDashboard = checkPermission('dashboard_smart', 'view');
-    const showComplianceMenu = canViewGlobalCompliance || canViewTraining || canViewPolicies;
 
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
@@ -152,12 +157,12 @@ export const App: React.FC = () => {
         
         'nis2': showComplianceMenu ? { 
             title: 'Compliance', 
-            bia: canViewGlobalCompliance ? 'BIA (Serviços)' : undefined, 
-            security: canViewGlobalCompliance ? 'Segurança (CVE)' : undefined, 
-            backups: canViewGlobalCompliance ? 'Backups & Logs' : undefined, 
-            resilience: canViewGlobalCompliance ? 'Testes Resiliência' : undefined, 
-            training: (canViewGlobalCompliance || canViewTraining) ? 'Formações' : undefined,
-            policies: (canViewGlobalCompliance || canViewPolicies) ? 'Políticas' : undefined
+            bia: canViewBia ? 'BIA (Serviços)' : undefined, 
+            security: canViewSecurity ? 'Segurança (CVE)' : undefined, 
+            backups: canViewBackups ? 'Backups & Logs' : undefined, 
+            resilience: canViewResilience ? 'Testes Resiliência' : undefined, 
+            training: canViewTraining ? 'Formações' : undefined,
+            policies: canViewPolicies ? 'Políticas' : undefined
         } : undefined,
         
         'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,

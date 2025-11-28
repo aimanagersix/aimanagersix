@@ -1,5 +1,4 @@
 
-
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
@@ -289,14 +288,19 @@ export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
 export type ModuleKey = 
     // Operational Modules
     | 'equipment' // Inventory
-    | 'procurement' // NEW: Procurement
+    | 'procurement' // Procurement
     | 'licensing' // Software
     | 'tickets' // Support
     | 'organization' // Entities/HR/Teams
     | 'suppliers' // Vendors
-    | 'compliance' // NIS2/BIA (Legacy/All Access)
+    // Granular Compliance
+    | 'compliance_bia' 
+    | 'compliance_security' 
+    | 'compliance_backups' 
+    | 'compliance_resilience'
     | 'compliance_training'
-    | 'compliance_policies' // New: Policies
+    | 'compliance_policies' 
+    // General
     | 'reports' 
     | 'settings' // General Settings Access (Fallback)
     | 'dashboard_smart'
@@ -449,7 +453,7 @@ export interface Ticket {
   // NIS2 Incident Response Fields
   category?: string; // Changed to string to support dynamic categories
   securityIncidentType?: string; // Changed to string to support dynamic types
-  impactCriticality?: CriticalityLevel; // Specific to this incident
+  impactCriticality?: CriticalityLevel; // Specific to incident
   impactConfidentiality?: CIARating; // Was confidentiality compromised?
   impactIntegrity?: CIARating;      // Was integrity compromised?
   impactAvailability?: CIARating;   // Was availability compromised?

@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig, EquipmentStatus } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave, FaBoxOpen, FaSearch, FaUnlink, FaLink, FaExclamationTriangle, FaLock, FaUnlock } from './common/Icons';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave, FaBoxOpen, FaSearch, FaUnlink, FaLink, FaExclamationTriangle, FaLock, FaUnlock, FaChevronDown, FaListAlt, FaIdCard } from './common/Icons';
 import { analyzeCollaboratorRisk, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -104,6 +104,10 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     // User Preferences State
     const [userTooltipConfig, setUserTooltipConfig] = useState<TooltipConfig>(collaborator.preferences?.tooltipConfig || defaultTooltipConfig);
 
+    // Print Menu State
+    const [showPrintMenu, setShowPrintMenu] = useState(false);
+    const printMenuRef = useRef<HTMLDivElement>(null);
+
     // Check if current user
     useEffect(() => {
         const checkUser = async () => {
@@ -115,6 +119,17 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         };
         checkUser();
     }, [collaborator.id]);
+
+    // Click outside handler for print menu
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (printMenuRef.current && !printMenuRef.current.contains(event.target as Node)) {
+                setShowPrintMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Fetch training on mount
     useEffect(() => {
@@ -279,84 +294,178 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
         }
     };
 
-    const handlePrint = () => {
+    const handlePrint = (type: 'inventory' | 'full') => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const equipmentList = assignedEquipment.map(e => `<li>${e.description} (S/N: ${e.serialNumber})</li>`).join('');
+        const commonStyles = `
+            body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; max-width: 850px; margin: 0 auto; }
+            h1 { color: #0D47A1; border-bottom: 2px solid #0D47A1; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px; }
+            h2 { font-size: 16px; background-color: #f0f0f0; padding: 8px; border-left: 4px solid #0D47A1; margin-top: 30px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f9f9f9; font-weight: bold; color: #555; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+            .info-item { margin-bottom: 8px; }
+            .label { font-weight: bold; font-size: 11px; color: #666; text-transform: uppercase; display: block; }
+            .value { font-size: 14px; color: #222; }
+            .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 10px; text-align: center; color: #888; }
+            .signature-box { margin-top: 50px; display: flex; justify-content: space-between; }
+            .signature-line { border-top: 1px solid #333; padding-top: 5px; text-align: center; font-size: 12px; width: 40%; }
+            .term-text { font-size: 11px; color: #555; text-align: justify; margin-top: 20px; font-style: italic; }
+        `;
+
+        const headerHtml = `
+            <div class="info-grid">
+                <div>
+                    <div class="info-item"><span class="label">Nome Completo</span><span class="value">${collaborator.fullName}</span></div>
+                    <div class="info-item"><span class="label">Nº Mecanográfico</span><span class="value">${collaborator.numeroMecanografico || 'N/A'}</span></div>
+                    <div class="info-item"><span class="label">Função / Cargo</span><span class="value">${collaborator.role}</span></div>
+                </div>
+                <div>
+                    <div class="info-item"><span class="label">Email</span><span class="value">${collaborator.email}</span></div>
+                    <div class="info-item"><span class="label">Telefone</span><span class="value">${collaborator.telemovel || collaborator.telefoneInterno || 'N/A'}</span></div>
+                    <div class="info-item"><span class="label">Status</span><span class="value">${collaborator.status}</span></div>
+                </div>
+            </div>
+        `;
+
+        const inventoryRows = assignedEquipment.length > 0 
+            ? assignedEquipment.map(e => `
+                <tr>
+                    <td>${equipmentTypeMap.get(e.typeId)}</td>
+                    <td>${brandMap.get(e.brandId)}</td>
+                    <td>${e.description}</td>
+                    <td>${e.serialNumber}</td>
+                    <td>${e.inventoryNumber || '-'}</td>
+                </tr>`).join('')
+            : '<tr><td colspan="5" style="text-align:center; padding: 15px;">Nenhum equipamento atribuído.</td></tr>';
+
+        const inventoryHtml = `
+            <h2>Equipamentos Atribuídos</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Marca</th>
+                        <th>Descrição</th>
+                        <th>Nº Série</th>
+                        <th>Nº Inventário</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${inventoryRows}
+                </tbody>
+            </table>
+        `;
+
+        let contentHtml = '';
+
+        if (type === 'inventory') {
+            contentHtml = `
+                <h1>Ficha de Inventário do Colaborador</h1>
+                ${headerHtml}
+                ${inventoryHtml}
+                <div class="term-text">
+                    <p>Declaro que recebi os equipamentos acima listados em bom estado de conservação e funcionamento. Comprometo-me a utilizá-los exclusivamente para fins profissionais e a devolvê-los quando solicitado ou no término da minha colaboração com a empresa.</p>
+                </div>
+                <div class="signature-box">
+                    <div class="signature-line">Departamento de TI</div>
+                    <div class="signature-line">O Colaborador<br>(${new Date().toLocaleDateString()})</div>
+                </div>
+            `;
+        } else {
+            // Full Dossier
+            const trainingRows = trainings.length > 0
+                ? trainings.map(t => `
+                    <tr>
+                        <td>${t.training_type}</td>
+                        <td>${new Date(t.completion_date).toLocaleDateString()}</td>
+                        <td>${t.status}</td>
+                        <td>${t.score ? t.score + '%' : '-'}</td>
+                        <td>${t.duration_hours ? t.duration_hours + 'h' : '-'}</td>
+                    </tr>`).join('')
+                : '<tr><td colspan="5" style="text-align:center;">Sem registo de formação.</td></tr>';
+
+            const recentTicketsRows = collaboratorTickets.slice(0, 5).length > 0
+                ? collaboratorTickets.slice(0, 5).map(t => `
+                    <tr>
+                        <td>${new Date(t.requestDate).toLocaleDateString()}</td>
+                        <td>${t.title}</td>
+                        <td>${t.category || '-'}</td>
+                        <td>${t.status}</td>
+                    </tr>`).join('')
+                : '<tr><td colspan="4" style="text-align:center;">Sem tickets recentes.</td></tr>';
+
+            contentHtml = `
+                <h1>Dossier do Colaborador</h1>
+                ${headerHtml}
+                
+                <div class="info-item" style="margin-top: -10px; margin-bottom: 20px;">
+                     <span class="label">Morada</span>
+                     <span class="value">${collaborator.address_line || '-'}, ${collaborator.postal_code || ''} ${collaborator.city || ''}</span>
+                </div>
+
+                ${inventoryHtml}
+
+                <h2>Histórico de Formação & Segurança</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Formação</th>
+                            <th>Data</th>
+                            <th>Estado</th>
+                            <th>Score</th>
+                            <th>Duração</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${trainingRows}
+                    </tbody>
+                </table>
+
+                <h2>Últimos Tickets de Suporte</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Assunto</th>
+                            <th>Categoria</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${recentTicketsRows}
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    Documento gerado automaticamente pelo AIManager em ${new Date().toLocaleString()}
+                </div>
+            `;
+        }
 
         printWindow.document.write(`
             <html>
             <head>
-                <title>Ficha de Colaborador - ${collaborator.fullName}</title>
-                <style>
-                    body { font-family: sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
-                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
-                    h2 { font-size: 18px; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-                    .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
-                    .info-group { margin-bottom: 10px; }
-                    .label { font-weight: bold; font-size: 12px; text-transform: uppercase; color: #666; }
-                    .value { font-size: 16px; margin-bottom: 5px; }
-                    ul { margin-top: 10px; padding-left: 20px; }
-                    .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 20px; font-size: 12px; text-align: center; }
-                    .signature-box { margin-top: 40px; display: flex; justify-content: space-between; }
-                    .signature-line { border-top: 1px solid #000; padding-top: 10px; text-align: center; font-size: 14px; width: 40%; }
-                </style>
+                <title>Ficha Colaborador - ${collaborator.fullName}</title>
+                <style>${commonStyles}</style>
             </head>
             <body>
-                <h1>Ficha de Colaborador</h1>
-                <div class="header">
-                    <div>
-                        <div class="info-group">
-                            <div class="label">Nome Completo</div>
-                            <div class="value">${collaborator.fullName}</div>
-                        </div>
-                        <div class="info-group">
-                            <div class="label">Número Mecanográfico</div>
-                            <div class="value">${collaborator.numeroMecanografico}</div>
-                        </div>
-                        <div class="info-group">
-                            <div class="label">Função</div>
-                            <div class="value">${collaborator.role}</div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="info-group">
-                            <div class="label">Email</div>
-                            <div class="value">${collaborator.email}</div>
-                        </div>
-                        <div class="info-group">
-                            <div class="label">Telefone</div>
-                            <div class="value">${collaborator.telemovel || collaborator.telefoneInterno || 'N/A'}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>Equipamentos Atribuídos</h2>
-                ${assignedEquipment.length > 0 ? `<ul>${equipmentList}</ul>` : '<p>Nenhum equipamento atribuído.</p>'}
-
-                <div class="signature-box">
-                    <div class="signature-line">
-                        Assinatura do Colaborador
-                    </div>
-                    <div class="signature-line">
-                        Data
-                    </div>
-                </div>
-
-                <div class="footer">Gerado por AIManager em ${new Date().toLocaleDateString()}</div>
+                ${contentHtml}
                 <script>window.onload = function() { window.print(); }</script>
             </body>
             </html>
         `);
         printWindow.document.close();
+        setShowPrintMenu(false);
     };
 
     return (
         <Modal title={`Detalhes do Colaborador`} onClose={onClose} maxWidth="max-w-4xl">
             <div className="flex flex-col h-[80vh]">
                 {/* Header Section */}
-                <div className="flex-shrink-0 flex flex-col sm:flex-row items-start gap-6 p-4 bg-gray-900/50 rounded-lg mb-4">
+                <div className="flex-shrink-0 flex flex-col sm:flex-row items-start gap-6 p-4 bg-gray-900/50 rounded-lg mb-4 relative">
                     {collaborator.photoUrl ? (
                         <img src={collaborator.photoUrl} alt={collaborator.fullName} className="w-24 h-24 rounded-full object-cover flex-shrink-0" />
                     ) : (
@@ -378,12 +487,31 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                         </div>
                     </div>
                      <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
-                        <button 
-                            onClick={handlePrint}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg"
-                        >
-                            <FaPrint /> Imprimir Ficha
-                        </button>
+                        <div className="relative" ref={printMenuRef}>
+                            <button 
+                                onClick={() => setShowPrintMenu(!showPrintMenu)}
+                                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg"
+                            >
+                                <FaPrint /> Imprimir <FaChevronDown className="text-xs" />
+                            </button>
+                            {showPrintMenu && (
+                                <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-md shadow-xl z-50 py-1">
+                                    <button 
+                                        onClick={() => handlePrint('inventory')}
+                                        className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 transition-colors"
+                                    >
+                                        <FaListAlt className="text-blue-400"/> Ficha de Inventário
+                                    </button>
+                                    <button 
+                                        onClick={() => handlePrint('full')}
+                                        className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 transition-colors border-t border-gray-700"
+                                    >
+                                        <FaIdCard className="text-green-400"/> Dossier Completo
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        
                         <button 
                             onClick={() => { onClose(); onEdit(collaborator); }} 
                             className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg font-semibold"

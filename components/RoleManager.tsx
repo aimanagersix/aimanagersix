@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
 import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight } from 'react-icons/fa';
@@ -27,11 +25,21 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'tickets', label: 'Suporte & Tickets' },
             { key: 'organization', label: 'Organização (RH/Entidades)' },
             { key: 'suppliers', label: 'Fornecedores' },
-            { key: 'compliance', label: 'Compliance (GERAL - Todos os submódulos)' },
-            { key: 'compliance_training', label: 'Compliance: Formações' },
+            { key: 'procurement', label: 'Aquisições (Procurement)' },
             { key: 'reports', label: 'Relatórios' },
             { key: 'settings', label: 'Configurações (Geral)' },
             { key: 'dashboard_smart', label: 'Dashboard (C-Level)' },
+        ]
+    },
+    {
+        label: 'Módulos de Compliance (NIS2/DORA)',
+        items: [
+            { key: 'compliance_bia', label: 'BIA (Serviços de Negócio)' },
+            { key: 'compliance_security', label: 'Segurança (Vulnerabilidades/CVE)' },
+            { key: 'compliance_backups', label: 'Backups & Restauros' },
+            { key: 'compliance_resilience', label: 'Testes de Resiliência' },
+            { key: 'compliance_training', label: 'Formação & Consciencialização' },
+            { key: 'compliance_policies', label: 'Políticas & Governance' },
         ]
     },
     {

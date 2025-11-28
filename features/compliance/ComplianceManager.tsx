@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { 
     Collaborator, BusinessService, ServiceDependency, Vulnerability, 
@@ -106,10 +104,10 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     services={appData.businessServices}
                     dependencies={appData.serviceDependencies}
                     collaborators={appData.collaborators}
-                    onEdit={checkPermission('compliance', 'edit') ? (s) => { setServiceToEdit(s); setShowAddServiceModal(true); } : undefined}
-                    onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBusinessService(id); refreshData(); } } : undefined}
-                    onCreate={checkPermission('compliance', 'create') ? () => { setServiceToEdit(null); setShowAddServiceModal(true); } : undefined}
-                    onManageDependencies={checkPermission('compliance', 'edit') ? (s) => { setServiceForDependencies(s); setShowServiceDependencyModal(true); } : undefined}
+                    onEdit={checkPermission('compliance_bia', 'edit') ? (s) => { setServiceToEdit(s); setShowAddServiceModal(true); } : undefined}
+                    onDelete={checkPermission('compliance_bia', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBusinessService(id); refreshData(); } } : undefined}
+                    onCreate={checkPermission('compliance_bia', 'create') ? () => { setServiceToEdit(null); setShowAddServiceModal(true); } : undefined}
+                    onManageDependencies={checkPermission('compliance_bia', 'edit') ? (s) => { setServiceForDependencies(s); setShowServiceDependencyModal(true); } : undefined}
                     onGenerateReport={() => setReportType('bia')}
                 />
             )}
@@ -117,9 +115,9 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
             {activeTab === 'nis2.security' && (
                 <VulnerabilityDashboard 
                     vulnerabilities={appData.vulnerabilities}
-                    onEdit={checkPermission('compliance', 'edit') ? (v) => { setVulnerabilityToEdit(v); setShowAddVulnerabilityModal(true); } : undefined}
-                    onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteVulnerability(id); refreshData(); } } : undefined}
-                    onCreate={checkPermission('compliance', 'create') ? () => { setVulnerabilityToEdit(null); setShowAddVulnerabilityModal(true); } : undefined}
+                    onEdit={checkPermission('compliance_security', 'edit') ? (v) => { setVulnerabilityToEdit(v); setShowAddVulnerabilityModal(true); } : undefined}
+                    onDelete={checkPermission('compliance_security', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteVulnerability(id); refreshData(); } } : undefined}
+                    onCreate={checkPermission('compliance_security', 'create') ? () => { setVulnerabilityToEdit(null); setShowAddVulnerabilityModal(true); } : undefined}
                     initialFilter={dashboardFilter}
                     onClearInitialFilter={() => setDashboardFilter(null)}
                     onCreateTicket={(vuln) => {
@@ -140,18 +138,18 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     backups={appData.backupExecutions}
                     collaborators={appData.collaborators}
                     equipment={appData.equipment}
-                    onEdit={checkPermission('compliance', 'edit') ? (b) => { setBackupToEdit(b); setShowAddBackupModal(true); } : undefined}
-                    onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBackupExecution(id); refreshData(); } } : undefined}
-                    onCreate={checkPermission('compliance', 'create') ? () => { setBackupToEdit(null); setShowAddBackupModal(true); } : undefined}
+                    onEdit={checkPermission('compliance_backups', 'edit') ? (b) => { setBackupToEdit(b); setShowAddBackupModal(true); } : undefined}
+                    onDelete={checkPermission('compliance_backups', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBackupExecution(id); refreshData(); } } : undefined}
+                    onCreate={checkPermission('compliance_backups', 'create') ? () => { setBackupToEdit(null); setShowAddBackupModal(true); } : undefined}
                 />
             )}
 
             {activeTab === 'nis2.resilience' && (
                 <ResilienceDashboard 
                     resilienceTests={appData.resilienceTests}
-                    onEdit={checkPermission('compliance', 'edit') ? (t) => { setTestToEdit(t); setShowAddResilienceTestModal(true); } : undefined}
-                    onDelete={checkPermission('compliance', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteResilienceTest(id); refreshData(); } } : undefined}
-                    onCreate={checkPermission('compliance', 'create') ? () => { setTestToEdit(null); setShowAddResilienceTestModal(true); } : undefined}
+                    onEdit={checkPermission('compliance_resilience', 'edit') ? (t) => { setTestToEdit(t); setShowAddResilienceTestModal(true); } : undefined}
+                    onDelete={checkPermission('compliance_resilience', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteResilienceTest(id); refreshData(); } } : undefined}
+                    onCreate={checkPermission('compliance_resilience', 'create') ? () => { setTestToEdit(null); setShowAddResilienceTestModal(true); } : undefined}
                     onCreateTicket={(ticketData) => {
                         setTicketToEdit(ticketData as any);
                         setShowAddTicketModal(true);
@@ -164,7 +162,7 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     trainings={appData.securityTrainings}
                     collaborators={appData.collaborators}
                     trainingTypes={appData.configTrainingTypes}
-                    onCreate={checkPermission('compliance', 'create') ? () => setShowAddTrainingSessionModal(true) : undefined}
+                    onCreate={checkPermission('compliance_training', 'create') ? () => setShowAddTrainingSessionModal(true) : undefined}
                 />
             )}
 
