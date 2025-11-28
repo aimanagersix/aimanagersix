@@ -90,11 +90,23 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Fetch Summary Data
+    // 1. Obter destinatários da configuração global
+    const { data: setting } = await supabase
+      .from('global_settings')
+      .select('setting_value')
+      .eq('setting_key', 'weekly_report_recipients')
+      .single()
+    
+    // Default fallback
+    const recipients = setting?.setting_value 
+        ? setting.setting_value.split(',').map(e => e.trim()) 
+        : ['admin@exemplo.com']
+
+    // 2. Fetch Summary Data
     const { count: ticketCount } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Pedido')
     const { count: vulnCount } = await supabase.from('vulnerabilities').select('*', { count: 'exact', head: true }).eq('status', 'Aberto')
     
-    // 2. Construct Email Body
+    // 3. Construct Email Body
     const emailHtml = \`
       <h1>Relatório Semanal - AIManager</h1>
       <p>Aqui está o resumo do estado do seu parque informático:</p>
@@ -103,9 +115,10 @@ serve(async (req) => {
         <li><strong>Vulnerabilidades Abertas:</strong> \${vulnCount}</li>
       </ul>
       <p>Aceda ao dashboard para mais detalhes.</p>
+      <p><small>Enviado automaticamente pelo sistema.</small></p>
     \`
 
-    // 3. Send Email (Example using Fetch to Resend)
+    // 4. Send Email (via Resend)
     if (RESEND_API_KEY) {
         await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -115,14 +128,14 @@ serve(async (req) => {
             },
             body: JSON.stringify({
                 from: 'AIManager <onboarding@resend.dev>',
-                to: ['admin@empresa.com'], // Change this
+                to: recipients, 
                 subject: 'Relatório Semanal de Ativos',
                 html: emailHtml
             })
         })
     }
 
-    return new Response(JSON.stringify({ success: true, sent: !!RESEND_API_KEY }), { headers: { 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ success: true, recipients: recipients.length }), { headers: { 'Content-Type': 'application/json' } })
 
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 })
@@ -215,10 +228,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 serve(async (req) => {
   try {
     // 1. Parse Inbound Email (Webhook from Resend/Mailgun)
-    const formData = await req.formData()
-    const subject = formData.get('subject')?.toString() || ''
-    const text = formData.get('text')?.toString() || ''
-    const from = formData.get('from')?.toString() || ''
+    const payload = await req.json()
+    const subject = payload.subject || ''
+    const text = payload.text || ''
+    const from = payload.from || ''
 
     // 2. Extract Ticket ID from Subject (Regex: #[UUID-PART])
     // Example Subject: "Re: [Novo Ticket] Impressora (#a1b2c3d4)"
@@ -245,6 +258,7 @@ serve(async (req) => {
     if (!ticket) return new Response('Ticket not found', { status: 404 })
 
     // 4. Find Technician by Email (From)
+    // Clean up sender "Name <email>"
     const cleanEmail = from.match(/<(.+)>/)?.[1] || from
     const { data: tech } = await supabase
         .from('collaborators')
@@ -304,6 +318,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [sbUrl, setSbUrl] = useState('');
     const [sbKey, setSbKey] = useState('');
     const [sbServiceKey, setSbServiceKey] = useState('');
+    
+    // Reporting Config
+    const [reportRecipients, setReportRecipients] = useState('');
+    const [cronFunctionUrl, setCronFunctionUrl] = useState('');
+    const [isTestingCron, setIsTestingCron] = useState(false);
     
     // Custom Roles State
     const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
@@ -372,6 +391,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 const prefix = await dataService.getGlobalSetting('equipment_naming_prefix');
                 const digits = await dataService.getGlobalSetting('equipment_naming_digits');
                 
+                const recipients = await dataService.getGlobalSetting('weekly_report_recipients');
+                
                 if (freq) setScanFrequency(freq);
                 if (start) setScanStartTime(start);
                 if (last) setLastScanDate(new Date(last).toLocaleString());
@@ -383,6 +404,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 
                 if (prefix) setEquipPrefix(prefix);
                 if (digits) setEquipDigits(digits);
+                
+                if (recipients) setReportRecipients(recipients);
                 
                 // Connections
                 const nistKey = await dataService.getGlobalSetting('nist_api_key');
@@ -396,6 +419,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 const projectUrl = localStorage.getItem('SUPABASE_URL');
                 if (projectUrl) {
                     setWebhookUrl(`${projectUrl}/functions/v1/siem-ingest`);
+                    setCronFunctionUrl(`${projectUrl}/functions/v1/weekly-report`);
                 }
 
             } else if (selectedMenuId === 'rbac') {
@@ -417,8 +441,39 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         
         await dataService.updateGlobalSetting('equipment_naming_prefix', equipPrefix);
         await dataService.updateGlobalSetting('equipment_naming_digits', equipDigits);
+        
+        await dataService.updateGlobalSetting('weekly_report_recipients', reportRecipients);
 
         alert("Configuração geral guardada.");
+    };
+    
+    const handleTestCron = async () => {
+        if (!cronFunctionUrl) {
+            alert("URL da função não definido. Verifique as conexões.");
+            return;
+        }
+        setIsTestingCron(true);
+        try {
+            const response = await fetch(cronFunctionUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${sbKey}`, // Use Anon key if function allows, or Service Role if secured
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            
+            const result = await response.json();
+            if (response.ok) {
+                alert(`Teste executado com sucesso!\nResultado: ${JSON.stringify(result)}`);
+            } else {
+                alert(`Erro ao executar teste: ${result.error || response.statusText}`);
+            }
+        } catch (e: any) {
+            alert(`Erro de conexão: ${e.message}`);
+        } finally {
+            setIsTestingCron(false);
+        }
     };
     
     const handleSaveConnections = async () => {
@@ -1175,10 +1230,54 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 </div>
 
                                 <div className="space-y-4">
+                                    {/* New Config Section for Recipients & Testing */}
+                                    <div className="bg-gray-900/50 p-4 rounded border border-gray-700 relative">
+                                        <h4 className="text-white font-bold mb-4 text-sm flex items-center gap-2"><FaCog className="text-gray-400"/> Configuração & Teste</h4>
+                                        
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-xs text-gray-500 uppercase mb-1">Emails Destinatários do Relatório (separados por vírgula)</label>
+                                                <div className="flex gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={reportRecipients} 
+                                                        onChange={(e) => setReportRecipients(e.target.value)}
+                                                        className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
+                                                        placeholder="admin@empresa.com, gestor@empresa.com"
+                                                    />
+                                                    <button onClick={handleSaveAutomation} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
+                                                        <FaSave /> Guardar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="border-t border-gray-700 pt-3">
+                                                 <label className="block text-xs text-gray-500 uppercase mb-1">URL da Função (Para Teste)</label>
+                                                 <div className="flex gap-2 items-center">
+                                                    <input 
+                                                        type="text" 
+                                                        value={cronFunctionUrl} 
+                                                        onChange={(e) => setCronFunctionUrl(e.target.value)}
+                                                        className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono"
+                                                        placeholder="https://[PROJECT].supabase.co/functions/v1/weekly-report"
+                                                    />
+                                                    <button 
+                                                        onClick={handleTestCron} 
+                                                        disabled={isTestingCron || !cronFunctionUrl}
+                                                        className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
+                                                    >
+                                                        {isTestingCron ? <FaSpinner className="animate-spin"/> : <FaPlay />} Testar Envio Agora
+                                                    </button>
+                                                 </div>
+                                                 <p className="text-xs text-gray-500 mt-1">Este botão executa a função imediatamente, enviando o relatório para os emails configurados.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaEnvelope className="text-yellow-400"/> 1. Edge Function (Envio de Email)</h4>
+                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaEnvelope className="text-yellow-400"/> 1. Código da Função (Envio de Email)</h4>
                                         <p className="text-xs text-gray-400 mb-2">
-                                            Crie uma nova função `supabase functions new weekly-report` e use este código. Necessita de uma API Key de um serviço de email (ex: Resend).
+                                            Crie uma nova função `supabase functions new weekly-report` e use este código. A função lê automaticamente os emails configurados acima.
                                         </p>
                                         <div className="relative">
                                             <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
