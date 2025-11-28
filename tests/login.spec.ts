@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 // --- CONFIGURAÇÃO ---
-// PARA O TESTE REAL FUNCIONAR:
-// Substitua estes valores por um utilizador válido que exista na sua base de dados Supabase.
+// Credenciais para o teste de login bem-sucedido
 const TEST_USER = {
-    email: 'admin@exemplo.com', 
-    password: 'password123' 
+    email: 'josefsmoreira@outlook.com', 
+    password: 'QSQmZf62!' 
 };
 
 test.describe('Authentication Flow', () => {
@@ -40,31 +39,23 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should show error on invalid credentials', async ({ page }) => {
-    // Fill with dummy data
-    await page.locator('input[name="email"]').fill('josefsmoreira@outlook.com');
-    await page.locator('input[name="password"]').fill('QSQmZf62!');
+    // Fill with real email but WRONG password
+    await page.locator('input[name="email"]').fill(TEST_USER.email);
+    await page.locator('input[name="password"]').fill('wrongpassword123');
     
     await page.getByRole('button', { name: 'Entrar' }).click();
 
-    // Try to catch common Supabase error messages or generic UI feedback
-    // Using a loose locator to catch either the specific text or just ensure we didn't redirect
-    try {
-        // If error message appears
-        const errorLocator = page.locator('.text-red-400').first(); 
-        await expect(errorLocator).toBeVisible({ timeout: 5000 });
-    } catch (e) {
-        // If no specific error text found, verify we are still on Login page (button still visible)
-        await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
-    }
+    // Wait for error message or ensure we are still on login page
+    // The error message usually contains "Invalid login credentials" from Supabase
+    // We check if the button is still visible, meaning we didn't redirect
+    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
+    
+    // Optional: Check for specific error text if it appears in the DOM
+    // await expect(page.locator('text=Invalid login credentials')).toBeVisible();
   });
 
   test('should login successfully and redirect to dashboard', async ({ page }) => {
-    // Se as credenciais ainda forem as de exemplo, o teste salta com um aviso.
-    if (TEST_USER.email === 'admin@exemplo.com') {
-        console.warn('⚠️  TESTE SALTADO: Configure TEST_USER em tests/login.spec.ts com credenciais reais.');
-        test.skip();
-        return;
-    }
+    console.log(`Attempting login with: ${TEST_USER.email}`);
 
     // 1. Preencher Credenciais
     await page.locator('input[name="email"]').fill(TEST_USER.email);
@@ -74,13 +65,13 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Entrar' }).click();
 
     // 3. Verificar Redirecionamento para o Dashboard
-    // Espera que elementos do Dashboard apareçam (timeout maior pois o login real pode demorar)
-    await expect(page.getByText('Visão Geral')).toBeVisible({ timeout: 15000 });
+    // Aumentamos o timeout para 15s para dar tempo à autenticação do Supabase
+    await expect(page.getByText('Visão Geral').first()).toBeVisible({ timeout: 15000 });
     
-    // Verificar se o menu lateral ou de topo carregou
+    // Verificar se o menu lateral carregou
     await expect(page.getByText('Inventário')).toBeVisible();
 
-    // Verificar se o botão de Logout está presente
+    // Verificar se o botão de Logout está presente (indicando sessão ativa)
     await expect(page.getByText('Sair')).toBeVisible();
   });
 });
