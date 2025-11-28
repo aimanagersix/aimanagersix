@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig, CustomRole, ModuleKey } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard, FaLink, FaDatabase, FaCheckCircle, FaExclamationCircle, FaNetworkWired, FaPlay, FaSpinner, FaCopy } from 'react-icons/fa';
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard, FaLink, FaDatabase, FaCheckCircle, FaExclamationCircle, FaNetworkWired, FaPlay, FaSpinner, FaCopy, FaEnvelope, FaPaperPlane, FaReply } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 import { parseSecurityAlert } from '../services/geminiService';
 
@@ -77,6 +77,195 @@ interface MenuItem {
     permissionKey: ModuleKey; // Granular key
 }
 
+const cronFunctionCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+// Use Resend.com for free transactional emails
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+
+serve(async (req) => {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // 1. Fetch Summary Data
+    const { count: ticketCount } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Pedido')
+    const { count: vulnCount } = await supabase.from('vulnerabilities').select('*', { count: 'exact', head: true }).eq('status', 'Aberto')
+    
+    // 2. Construct Email Body
+    const emailHtml = \`
+      <h1>Relatório Semanal - AIManager</h1>
+      <p>Aqui está o resumo do estado do seu parque informático:</p>
+      <ul>
+        <li><strong>Tickets Pendentes:</strong> \${ticketCount}</li>
+        <li><strong>Vulnerabilidades Abertas:</strong> \${vulnCount}</li>
+      </ul>
+      <p>Aceda ao dashboard para mais detalhes.</p>
+    \`
+
+    // 3. Send Email (Example using Fetch to Resend)
+    if (RESEND_API_KEY) {
+        await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': \`Bearer \${RESEND_API_KEY}\`
+            },
+            body: JSON.stringify({
+                from: 'AIManager <onboarding@resend.dev>',
+                to: ['admin@empresa.com'], // Change this
+                subject: 'Relatório Semanal de Ativos',
+                html: emailHtml
+            })
+        })
+    }
+
+    return new Response(JSON.stringify({ success: true, sent: !!RESEND_API_KEY }), { headers: { 'Content-Type': 'application/json' } })
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+})
+`;
+
+const cronSqlCode = `
+-- Habilitar extensão pg_cron (necessário projeto Pro ou instância própria com suporte)
+create extension if not exists pg_cron;
+
+-- Agendar execução todas as Segundas-feiras às 09:00 AM
+select cron.schedule(
+  'weekly-report-job', -- nome do job
+  '0 9 * * 1',         -- cron expression (min hora dia mes dia_semana)
+  $$
+  select
+    net.http_post(
+        url:='https://PROJECT_REF.supabase.co/functions/v1/weekly-report',
+        headers:='{"Content-Type": "application/json", "Authorization": "Bearer SERVICE_ROLE_KEY"}'::jsonb,
+        body:='{}'::jsonb
+    ) as request_id;
+  $$
+);
+
+-- Para ver jobs agendados:
+-- select * from cron.job;
+`;
+
+const emailNotifyCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+
+serve(async (req) => {
+  try {
+    // Webhook Payload from Database Insert
+    const { record } = await req.json()
+    
+    if (!record || !record.team_id) {
+        return new Response('No team assigned', { status: 200 })
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // 1. Fetch Team Members emails
+    const { data: members } = await supabase
+        .from('team_members')
+        .select('collaborator_id, collaborators(email)')
+        .eq('team_id', record.team_id)
+
+    if (!members || members.length === 0) return new Response('No members found', { status: 200 })
+    
+    const emails = members.map((m:any) => m.collaborators?.email).filter(Boolean)
+
+    // 2. Send Email via Resend
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': \`Bearer \${RESEND_API_KEY}\`
+      },
+      body: JSON.stringify({
+        from: 'AIManager Support <support@resend.dev>',
+        to: emails,
+        subject: \`[Novo Ticket] \${record.title} (#\${record.id.substring(0,8)})\`,
+        html: \`
+            <h2>Novo Ticket Atribuído à Equipa</h2>
+            <p><strong>Assunto:</strong> \${record.title}</p>
+            <p><strong>Prioridade:</strong> \${record.impactCriticality || 'Normal'}</p>
+            <p><strong>Descrição:</strong> \${record.description}</p>
+            <br/>
+            <p>Para responder e adicionar notas ao ticket, responda diretamente a este email.</p>
+        \`
+      })
+    })
+
+    return new Response(JSON.stringify(await res.json()), { headers: { 'Content-Type': 'application/json' } })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+})`;
+
+const emailReplyCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+serve(async (req) => {
+  try {
+    // 1. Parse Inbound Email (Webhook from Resend/Mailgun)
+    const formData = await req.formData()
+    const subject = formData.get('subject')?.toString() || ''
+    const text = formData.get('text')?.toString() || ''
+    const from = formData.get('from')?.toString() || ''
+
+    // 2. Extract Ticket ID from Subject (Regex: #[UUID-PART])
+    // Example Subject: "Re: [Novo Ticket] Impressora (#a1b2c3d4)"
+    const ticketIdMatch = subject.match(/#([a-f0-9-]{8})/)
+    
+    if (!ticketIdMatch) {
+        return new Response('No Ticket ID found', { status: 200 })
+    }
+    
+    const shortId = ticketIdMatch[1] // Partial ID
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // 3. Find full Ticket ID
+    const { data: ticket } = await supabase
+        .from('tickets')
+        .select('id')
+        .ilike('id', \`\${shortId}%\`)
+        .single()
+
+    if (!ticket) return new Response('Ticket not found', { status: 404 })
+
+    // 4. Find Technician by Email (From)
+    const cleanEmail = from.match(/<(.+)>/)?.[1] || from
+    const { data: tech } = await supabase
+        .from('collaborators')
+        .select('id')
+        .eq('email', cleanEmail)
+        .single()
+
+    // 5. Insert Activity
+    await supabase.from('ticket_activities').insert({
+        ticketId: ticket.id,
+        description: \`[Email Reply]: \${text.substring(0, 500)}...\`,
+        technicianId: tech?.id || null, // Null if external user
+        date: new Date().toISOString()
+    })
+
+    return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+})`;
+
 const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({ 
     configTables, onRefresh,
     brands, equipment, onEditBrand, onDeleteBrand, onCreateBrand,
@@ -95,7 +284,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [error, setError] = useState('');
 
     // Automation & Branding State
-    const [activeAutoTab, setActiveAutoTab] = useState<'general' | 'connections' | 'webhooks'>('general');
+    const [activeAutoTab, setActiveAutoTab] = useState<'general' | 'connections' | 'webhooks' | 'cron' | 'email'>('general');
     const [scanFrequency, setScanFrequency] = useState('0');
     const [scanStartTime, setScanStartTime] = useState('02:00');
     const [lastScanDate, setLastScanDate] = useState('-');
@@ -124,6 +313,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [isSimulating, setIsSimulating] = useState(false);
     const [simulatedTicket, setSimulatedTicket] = useState<any>(null);
     const [webhookUrl, setWebhookUrl] = useState('');
+    const [copied, setCopied] = useState(false);
 
     // Define Menu Structure mapped to Permission Keys
     const menuStructure: { group: string, items: MenuItem[] }[] = [
@@ -245,6 +435,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         if (confirm("Credenciais guardadas com sucesso. A página será recarregada para aplicar a nova ligação à base de dados.")) {
             window.location.reload();
         }
+    };
+
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
     
     const handleSimulateWebhook = async () => {
@@ -594,24 +790,36 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                         </h2>
 
                         {/* Tab Navigation */}
-                        <div className="flex border-b border-gray-700 mb-6">
+                        <div className="flex border-b border-gray-700 mb-6 overflow-x-auto">
                             <button 
                                 onClick={() => setActiveAutoTab('general')} 
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeAutoTab === 'general' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeAutoTab === 'general' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                             >
                                 Geral & Scans
                             </button>
                             <button 
                                 onClick={() => setActiveAutoTab('connections')} 
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeAutoTab === 'connections' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'connections' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                             >
                                 Conexões & Credenciais
                             </button>
                              <button 
                                 onClick={() => setActiveAutoTab('webhooks')} 
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeAutoTab === 'webhooks' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'webhooks' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                             >
                                 <FaNetworkWired className="text-green-400" /> Integração RMM/SIEM
+                            </button>
+                            <button 
+                                onClick={() => setActiveAutoTab('cron')} 
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'cron' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                            >
+                                <FaClock className="text-yellow-400" /> Cron Jobs
+                            </button>
+                             <button 
+                                onClick={() => setActiveAutoTab('email')} 
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'email' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                            >
+                                <FaEnvelope className="text-blue-400" /> Email Automations
                             </button>
                         </div>
 
@@ -949,6 +1157,98 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                                     <p>A aguardar input para análise...</p>
                                                 </div>
                                             )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeAutoTab === 'cron' && (
+                             <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
+                                <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200">
+                                    <div className="flex items-center gap-2 font-bold mb-2">
+                                        <FaClock /> Cron Jobs (Relatórios Automáticos)
+                                    </div>
+                                    <p>
+                                        Configure o envio automático de relatórios semanais por email utilizando Edge Functions e o agendador `pg_cron` da base de dados.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaEnvelope className="text-yellow-400"/> 1. Edge Function (Envio de Email)</h4>
+                                        <p className="text-xs text-gray-400 mb-2">
+                                            Crie uma nova função `supabase functions new weekly-report` e use este código. Necessita de uma API Key de um serviço de email (ex: Resend).
+                                        </p>
+                                        <div className="relative">
+                                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
+                                                {cronFunctionCode}
+                                            </pre>
+                                            <button onClick={() => handleCopy(cronFunctionCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                                <FaCopy />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase className="text-blue-400"/> 2. Configuração SQL (pg_cron)</h4>
+                                        <p className="text-xs text-gray-400 mb-2">
+                                            Execute este comando no <strong>SQL Editor</strong> do Supabase para agendar a execução da função todas as segundas-feiras.
+                                        </p>
+                                        <div className="relative">
+                                            <pre className="text-xs font-mono text-orange-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
+                                                {cronSqlCode}
+                                            </pre>
+                                            <button onClick={() => handleCopy(cronSqlCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                                <FaCopy />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeAutoTab === 'email' && (
+                             <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
+                                <div className="bg-orange-900/20 border border-orange-500/50 p-4 rounded-lg text-sm text-orange-200">
+                                    <div className="flex items-center gap-2 font-bold mb-2">
+                                        <FaEnvelope /> Email & Tickets (Inbound/Outbound)
+                                    </div>
+                                    <p>
+                                        Automatize o envio de notificações de novos tickets e permita que a equipa responda diretamente por email para atualizar o ticket (usando Resend/Mailgun).
+                                    </p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {/* Outbound Notification */}
+                                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaPaperPlane className="text-blue-400"/> 1. Notificação de Novo Ticket (Outbound)</h4>
+                                        <p className="text-xs text-gray-400 mb-2">
+                                            Crie uma função <code>ticket-notify</code>. No Dashboard Supabase, crie um <strong>Database Webhook</strong> na tabela <code>tickets</code> (INSERT) que chame esta função.
+                                        </p>
+                                        <div className="relative">
+                                            <pre className="text-xs font-mono text-blue-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
+                                                {emailNotifyCode}
+                                            </pre>
+                                            <button onClick={() => handleCopy(emailNotifyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                                <FaCopy />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Inbound Reply */}
+                                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaReply className="text-green-400"/> 2. Processar Respostas (Inbound)</h4>
+                                        <p className="text-xs text-gray-400 mb-2">
+                                            Crie uma função <code>email-processor</code>. Configure o seu serviço de email (Resend/Mailgun) para reencaminhar emails recebidos (Inbound Webhook) para a URL desta função.
+                                        </p>
+                                        <div className="relative">
+                                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
+                                                {emailReplyCode}
+                                            </pre>
+                                            <button onClick={() => handleCopy(emailReplyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                                <FaCopy />
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
