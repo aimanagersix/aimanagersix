@@ -18,13 +18,15 @@ test.describe('Inventory Management', () => {
   });
 
   test('should create a new equipment item successfully', async ({ page }) => {
-    // 1. Navegação via Menu Superior (Default Layout)
+    // 1. Navegação
     // Clicar no menu pai "Ativos" para abrir o dropdown
     await page.getByRole('button', { name: /Ativos/i }).click();
     
-    // Aguardar e clicar no submenu "Equipamentos"
-    // Nota: Usamos 'link' ou 'menuitem' dependendo da implementação, mas getByText ou Role costuma funcionar bem
-    await page.getByRole('menuitem', { name: /Equipamentos/i }).click(); 
+    // Pequena pausa para garantir que a animação do menu termina
+    await page.waitForTimeout(500);
+    
+    // Clicar no submenu "Equipamentos" (procura pelo texto exato para evitar confusão)
+    await page.getByText('Equipamentos', { exact: true }).click(); 
     
     // Verificar se o título da tabela carregou
     await expect(page.getByRole('heading', { name: 'Inventário de Equipamentos' })).toBeVisible();
@@ -53,8 +55,10 @@ test.describe('Inventory Management', () => {
     // O modal deve fechar
     await expect(page.getByRole('heading', { name: /Adicionar/i }).first()).not.toBeVisible();
     
-    // Usar o filtro de pesquisa para encontrar o item criado e garantir que foi salvo
+    // Usar o filtro de pesquisa para encontrar o item criado
     await page.locator('input[name="serialNumber"]').fill(uniqueSerial);
+    // Pressionar Enter para garantir que o filtro aplica (alguns inputs precisam de change/enter)
+    await page.locator('input[name="serialNumber"]').press('Enter');
     
     // Validar que aparece na tabela
     await expect(page.getByRole('cell', { name: uniqueSerial })).toBeVisible();
