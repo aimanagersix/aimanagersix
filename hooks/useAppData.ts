@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import * as dataService from '../services/dataService';
 import { getSupabase, SUPABASE_CONFIG } from '../services/supabaseClient';
