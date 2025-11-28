@@ -1,14 +1,14 @@
 
 import React, { useState, useRef } from 'react';
 import Modal from './common/Modal';
-import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal, FaClock, FaEnvelope, FaList } from 'react-icons/fa';
+import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal, FaClock, FaEnvelope, FaList, FaPaperPlane, FaReply } from 'react-icons/fa';
 
 interface AutomationModalProps {
     onClose: () => void;
 }
 
 const AutomationModal: React.FC<AutomationModalProps> = ({ onClose }) => {
-    const [activeTab, setActiveTab] = useState<'client' | 'server' | 'cron'>('client');
+    const [activeTab, setActiveTab] = useState<'client' | 'server' | 'cron' | 'email'>('client');
     const [copied, setCopied] = useState(false);
 
     // Get configured keys from localStorage to pre-fill the script
@@ -342,6 +342,120 @@ select cron.schedule(
 -- select * from cron.job;
 `;
 
+    const emailNotifyCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+
+serve(async (req) => {
+  try {
+    // Webhook Payload from Database Insert
+    const { record } = await req.json()
+    
+    if (!record || !record.team_id) {
+        return new Response('No team assigned', { status: 200 })
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // 1. Fetch Team Members emails
+    const { data: members } = await supabase
+        .from('team_members')
+        .select('collaborator_id, collaborators(email)')
+        .eq('team_id', record.team_id)
+
+    if (!members || members.length === 0) return new Response('No members found', { status: 200 })
+    
+    const emails = members.map((m:any) => m.collaborators?.email).filter(Boolean)
+
+    // 2. Send Email via Resend
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': \`Bearer \${RESEND_API_KEY}\`
+      },
+      body: JSON.stringify({
+        from: 'AIManager Support <support@resend.dev>',
+        to: emails,
+        subject: \`[Novo Ticket] \${record.title} (#\${record.id.substring(0,8)})\`,
+        html: \`
+            <h2>Novo Ticket Atribuído à Equipa</h2>
+            <p><strong>Assunto:</strong> \${record.title}</p>
+            <p><strong>Prioridade:</strong> \${record.impactCriticality || 'Normal'}</p>
+            <p><strong>Descrição:</strong> \${record.description}</p>
+            <br/>
+            <p>Para responder e adicionar notas ao ticket, responda diretamente a este email.</p>
+        \`
+      })
+    })
+
+    return new Response(JSON.stringify(await res.json()), { headers: { 'Content-Type': 'application/json' } })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+})`;
+
+    const emailReplyCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+serve(async (req) => {
+  try {
+    // 1. Parse Inbound Email (Webhook from Resend/Mailgun)
+    const formData = await req.formData()
+    const subject = formData.get('subject')?.toString() || ''
+    const text = formData.get('text')?.toString() || ''
+    const from = formData.get('from')?.toString() || ''
+
+    // 2. Extract Ticket ID from Subject (Regex: #[UUID-PART])
+    // Example Subject: "Re: [Novo Ticket] Impressora (#a1b2c3d4)"
+    const ticketIdMatch = subject.match(/#([a-f0-9-]{8})/)
+    
+    if (!ticketIdMatch) {
+        return new Response('No Ticket ID found', { status: 200 })
+    }
+    
+    const shortId = ticketIdMatch[1] // Partial ID
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // 3. Find full Ticket ID
+    const { data: ticket } = await supabase
+        .from('tickets')
+        .select('id')
+        .ilike('id', \`\${shortId}%\`)
+        .single()
+
+    if (!ticket) return new Response('Ticket not found', { status: 404 })
+
+    // 4. Find Technician by Email (From)
+    const cleanEmail = from.match(/<(.+)>/)?.[1] || from
+    const { data: tech } = await supabase
+        .from('collaborators')
+        .select('id')
+        .eq('email', cleanEmail)
+        .single()
+
+    // 5. Insert Activity
+    await supabase.from('ticket_activities').insert({
+        ticketId: ticket.id,
+        description: \`[Email Reply]: \${text.substring(0, 500)}...\`,
+        technicianId: tech?.id || null, // Null if external user
+        date: new Date().toISOString()
+    })
+
+    return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+})`;
+
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
         setCopied(true);
@@ -362,30 +476,38 @@ select cron.schedule(
     return (
         <Modal title="Automação e Agentes" onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[75vh]">
-                <div className="flex gap-4 mb-4 border-b border-gray-700 pb-2">
+                <div className="flex gap-4 mb-4 border-b border-gray-700 pb-2 overflow-x-auto">
                     <button
                         onClick={() => setActiveTab('client')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
+                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap ${
                             activeTab === 'client' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaWindows /> 1. Script do PC (PowerShell)
+                        <FaWindows /> 1. Script do PC
                     </button>
                     <button
                         onClick={() => setActiveTab('server')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
+                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap ${
                             activeTab === 'server' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaServer /> 2. Edge Function (Supabase)
+                        <FaServer /> 2. Edge Functions
                     </button>
                     <button
                         onClick={() => setActiveTab('cron')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
+                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap ${
                             activeTab === 'cron' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                     >
-                        <FaClock /> 3. Cron Jobs (Relatórios)
+                        <FaClock /> 3. Cron Jobs
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('email')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap ${
+                            activeTab === 'email' ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        <FaEnvelope /> 4. Email & Tickets
                     </button>
                 </div>
 
@@ -527,6 +649,53 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --pro
                                             {cronSqlCode}
                                         </pre>
                                         <button onClick={() => handleCopy(cronSqlCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                            <FaCopy />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'email' && (
+                         <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+                            <div className="bg-orange-900/20 border border-orange-500/50 p-4 rounded-lg text-sm text-orange-200">
+                                <div className="flex items-center gap-2 font-bold mb-2">
+                                    <FaEnvelope /> Email & Tickets (Inbound/Outbound)
+                                </div>
+                                <p>
+                                    Automatize o envio de notificações de novos tickets e permita que a equipa responda diretamente por email para atualizar o ticket (usando Resend/Mailgun).
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Outbound Notification */}
+                                <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaPaperPlane className="text-blue-400"/> 1. Notificação de Novo Ticket (Outbound)</h4>
+                                    <p className="text-xs text-gray-400 mb-2">
+                                        Crie uma função <code>ticket-notify</code>. No Dashboard Supabase, crie um <strong>Database Webhook</strong> na tabela <code>tickets</code> (INSERT) que chame esta função.
+                                    </p>
+                                    <div className="relative">
+                                        <pre className="text-xs font-mono text-blue-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
+                                            {emailNotifyCode}
+                                        </pre>
+                                        <button onClick={() => handleCopy(emailNotifyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                            <FaCopy />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Inbound Reply */}
+                                <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaReply className="text-green-400"/> 2. Processar Respostas (Inbound)</h4>
+                                    <p className="text-xs text-gray-400 mb-2">
+                                        Crie uma função <code>email-processor</code>. Configure o seu serviço de email (Resend/Mailgun) para reencaminhar emails recebidos (Inbound Webhook) para a URL desta função.
+                                    </p>
+                                    <div className="relative">
+                                        <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
+                                            {emailReplyCode}
+                                        </pre>
+                                        <button onClick={() => handleCopy(emailReplyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
                                             <FaCopy />
                                         </button>
                                     </div>
