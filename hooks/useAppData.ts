@@ -76,12 +76,11 @@ export const useAppData = () => {
     
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [appData, setAppData] = useState<AppData>(initialData);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); // Start true to block rendering until check is done
 
     // --- Data Loading ---
     const loadData = useCallback(async () => {
         if (!isConfigured) return;
-        // setIsLoading(true); // Optional: can cause flicker if used on every poll
         try {
             const data = await dataService.fetchAllData();
             setAppData({
@@ -127,31 +126,34 @@ export const useAppData = () => {
             });
         } catch (error) {
             console.error("Failed to fetch data", error);
-        } finally {
-            // setIsLoading(false);
         }
     }, [isConfigured]);
 
     // --- Initial Check & Polling ---
     useEffect(() => {
-        const checkConfig = () => {
+        const checkConfig = async () => {
+             setIsLoading(true);
              try {
                 if (isConfigured) {
                     const supabase = getSupabase();
-                    supabase.auth.getSession().then(({ data: { session } }) => {
-                         if (session) {
-                             loadData().then(() => {
-                                dataService.fetchAllData().then(d => {
-                                    const user = d.collaborators.find((c: Collaborator) => c.email === session.user.email);
-                                    if (user) setCurrentUser(user);
-                                });
-                             });
-                         }
-                    });
+                    const { data: { session } } = await supabase.auth.getSession();
+                    
+                    if (session) {
+                        // Fetch data first to ensure we have the collaborator list to match the user
+                        await loadData();
+                        const freshData = await dataService.fetchAllData();
+                        const user = freshData.collaborators.find((c: Collaborator) => c.email === session.user.email);
+                        if (user) {
+                            setCurrentUser(user);
+                        }
+                    }
                 }
             } catch (e) {
-                // Only set false if hardcoded fallback also failed (which shouldn't happen now)
+                // Only set false if hardcoded fallback also failed
                 setIsConfigured(false);
+                console.error("Config check failed", e);
+            } finally {
+                setIsLoading(false);
             }
         };
         checkConfig();
@@ -159,7 +161,7 @@ export const useAppData = () => {
 
     useEffect(() => {
         if (isConfigured && currentUser) {
-            loadData();
+            // loadData(); // Already loaded in initial check
             const interval = setInterval(loadData, 30000); // Poll every 30s
             return () => clearInterval(interval);
         }

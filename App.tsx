@@ -47,7 +47,8 @@ export const App: React.FC = () => {
     const { 
         isConfigured, setIsConfigured, 
         currentUser, setCurrentUser, 
-        appData, refreshData 
+        appData, refreshData,
+        isLoading 
     } = useAppData();
     
     const { layoutMode } = useLayout();
@@ -239,6 +240,14 @@ export const App: React.FC = () => {
     };
 
     // --- Render ---
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-background-dark flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary"></div>
+            </div>
+        );
+    }
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (!currentUser) return (
