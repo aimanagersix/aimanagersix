@@ -2,7 +2,10 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { VulnerabilityScanConfig } from "../types";
 
 let aiInstance: GoogleGenAI | null = null;
-const model = "gemini-2.5-flash";
+
+// Model Definitions
+const flashModel = "gemini-2.5-flash";
+const proModel = "gemini-3-pro-preview";
 
 export const isAiConfigured = (): boolean => {
     const key = process.env.API_KEY;
@@ -41,7 +44,7 @@ export const extractTextFromImage = async (base64Image: string, mimeType: string
     };
     
     const response = await ai.models.generateContent({
-        model: model,
+        model: flashModel,
         contents: { parts: [imagePart, textPart] },
     });
     
@@ -56,7 +59,7 @@ export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ bra
     try {
         const ai = getAiClient();
         const response = await ai.models.generateContent({
-            model: model,
+            model: flashModel,
             contents: `Based on the serial number or model code "${serialNumber}", identify the brand and type of the electronic device. For example, for "SN-DELL-001", you might respond with Dell and Laptop.`,
             config: {
                 responseMimeType: "application/json",
@@ -89,7 +92,7 @@ export const suggestPeripheralsForKit = async (primaryDevice: { brand: string; t
     try {
         const ai = getAiClient();
         const response = await ai.models.generateContent({
-            model: model,
+            model: flashModel,
             contents: `For a primary device that is a ${primaryDevice.brand} ${primaryDevice.type} described as "${primaryDevice.description}", suggest a standard set of peripherals (like Monitor, Keyboard, Mouse, Docking Station if applicable). For each peripheral, provide a common brand and a generic model name or description. The brand should be plausible (e.g., a Dell monitor for a Dell computer).`,
             config: {
                 responseMimeType: "application/json",
@@ -163,7 +166,7 @@ export const parseNaturalLanguageAction = async (
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: flashModel,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -216,7 +219,7 @@ export const generateExecutiveReport = async (
     try {
         const ai = getAiClient();
         
-        // Truncate data context if too large (Gemini has limits, though high)
+        // Truncate data context if too large
         const contextString = JSON.stringify(dataContext).substring(0, 30000); 
 
         const prompt = `
@@ -240,7 +243,7 @@ export const generateExecutiveReport = async (
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
         });
 
@@ -279,7 +282,7 @@ export const analyzeTicketRequest = async (description: string): Promise<TicketT
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -338,7 +341,7 @@ export const parseSecurityAlert = async (rawJson: string): Promise<SecurityAlert
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -395,7 +398,7 @@ export const generateTicketResolutionSummary = async (
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
         });
 
@@ -434,7 +437,7 @@ export const findSimilarPastTickets = async (
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -483,7 +486,7 @@ export const analyzeBackupScreenshot = async (base64Image: string, mimeType: str
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: flashModel,
             contents: {
                 role: 'user',
                 parts: [imagePart, { text: prompt }]
@@ -561,7 +564,7 @@ export const scanForVulnerabilities = async (
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -629,7 +632,7 @@ export const generateNis2Notification = async (ticket: any, activities: any[]): 
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -692,7 +695,7 @@ export const analyzeCollaboratorRisk = async (ticketHistory: any[]): Promise<Tra
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -752,7 +755,7 @@ export const extractFindingsFromReport = async (base64File: string, mimeType: st
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: flashModel, // Keep vision tasks on Flash unless Pro vision is required for complex reasoning
             contents: {
                 role: 'user',
                 parts: [filePart, { text: prompt }]
@@ -818,7 +821,7 @@ export const generateSqlHelper = async (userRequest: string): Promise<string> =>
         `;
 
         const response = await ai.models.generateContent({
-            model: model,
+            model: proModel,
             contents: prompt,
         });
 
