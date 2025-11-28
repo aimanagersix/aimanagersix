@@ -1,9 +1,6 @@
-
-
-
 import { useState, useEffect, useCallback } from 'react';
 import * as dataService from '../services/dataService';
-import { getSupabase } from '../services/supabaseClient';
+import { getSupabase, SUPABASE_CONFIG } from '../services/supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
     Assignment, Ticket, TicketActivity, SoftwareLicense, LicenseAssignment, 
@@ -71,8 +68,9 @@ const initialData: AppData = {
 export const useAppData = () => {
     // --- Authentication & Setup State ---
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
-        const url = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
-        const key = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
+        // Check LocalStorage OR Process Env OR Hardcoded Defaults
+        const url = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL || SUPABASE_CONFIG.url;
+        const key = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY || SUPABASE_CONFIG.key;
         return !!(url && key);
     });
     
@@ -152,6 +150,7 @@ export const useAppData = () => {
                     });
                 }
             } catch (e) {
+                // Only set false if hardcoded fallback also failed (which shouldn't happen now)
                 setIsConfigured(false);
             }
         };
