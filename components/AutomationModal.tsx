@@ -381,14 +381,14 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'AIManager Support <support@resend.dev>',
         to: emails,
-        subject: \`[Novo Ticket] \${record.title} (#\${record.id.substring(0,8)})\`,
+        subject: \`[Ticket: \${record.id.substring(0,8)}] \${record.title}\`,
         html: \`
             <h2>Novo Ticket Atribuído à Equipa</h2>
             <p><strong>Assunto:</strong> \${record.title}</p>
             <p><strong>Prioridade:</strong> \${record.impactCriticality || 'Normal'}</p>
             <p><strong>Descrição:</strong> \${record.description}</p>
             <br/>
-            <p>Para responder e adicionar notas ao ticket, responda diretamente a este email.</p>
+            <p>Para adicionar um comentário, responda diretamente a este email.</p>
         \`
       })
     })
@@ -404,17 +404,21 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 serve(async (req) => {
   try {
-    // 1. Parse Inbound Email (Webhook from Resend/Mailgun)
-    const formData = await req.formData()
-    const subject = formData.get('subject')?.toString() || ''
-    const text = formData.get('text')?.toString() || ''
-    const from = formData.get('from')?.toString() || ''
+    // 1. Parse Inbound Email
+    // Resend uses a specific JSON payload for webhooks, unlike Mailgun/SendGrid that use FormData
+    const payload = await req.json()
+    
+    // Check payload structure (Resend specific)
+    const subject = payload.subject || ''
+    const text = payload.text || ''
+    const from = payload.from || ''
 
-    // 2. Extract Ticket ID from Subject (Regex: #[UUID-PART])
-    // Example Subject: "Re: [Novo Ticket] Impressora (#a1b2c3d4)"
-    const ticketIdMatch = subject.match(/#([a-f0-9-]{8})/)
+    // 2. Extract Ticket ID from Subject (Regex: [Ticket: UUID-PART])
+    // Example Subject: "Re: [Ticket: a1b2c3d4] Impressora"
+    const ticketIdMatch = subject.match(/Ticket: ([a-f0-9-]{8})/)
     
     if (!ticketIdMatch) {
+        console.log("No Ticket ID found in subject:", subject)
         return new Response('No Ticket ID found', { status: 200 })
     }
     
@@ -435,17 +439,22 @@ serve(async (req) => {
     if (!ticket) return new Response('Ticket not found', { status: 404 })
 
     // 4. Find Technician by Email (From)
+    // Clean up sender string if it comes as "Name <email@domain.com>"
     const cleanEmail = from.match(/<(.+)>/)?.[1] || from
+    
     const { data: tech } = await supabase
         .from('collaborators')
         .select('id')
         .eq('email', cleanEmail)
         .single()
 
-    // 5. Insert Activity
+    // 5. Insert Activity (Comment)
+    // Filter out email signatures if possible (simple split by common delimiters)
+    const cleanText = text.split('On ')[0].split('-----Original Message-----')[0].substring(0, 1000)
+
     await supabase.from('ticket_activities').insert({
         ticketId: ticket.id,
-        description: \`[Email Reply]: \${text.substring(0, 500)}...\`,
+        description: \`[Email Reply]: \${cleanText}\`,
         technicianId: tech?.id || null, // Null if external user
         date: new Date().toISOString()
     })
@@ -661,10 +670,13 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --pro
                          <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar">
                             <div className="bg-orange-900/20 border border-orange-500/50 p-4 rounded-lg text-sm text-orange-200">
                                 <div className="flex items-center gap-2 font-bold mb-2">
-                                    <FaEnvelope /> Email & Tickets (Inbound/Outbound)
+                                    <FaEnvelope /> Email & Tickets (Resend Integration)
                                 </div>
                                 <p>
-                                    Automatize o envio de notificações de novos tickets e permita que a equipa responda diretamente por email para atualizar o ticket (usando Resend/Mailgun).
+                                    Configure o envio de notificações e a recepção de respostas (Inbound) utilizando o serviço <strong>Resend</strong>.
+                                </p>
+                                <p className="mt-2 text-xs text-white">
+                                    Nota: O Resend utiliza <strong>Webhooks JSON</strong>. O código abaixo está preparado para isso.
                                 </p>
                             </div>
 
@@ -673,7 +685,9 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --pro
                                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
                                     <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaPaperPlane className="text-blue-400"/> 1. Notificação de Novo Ticket (Outbound)</h4>
                                     <p className="text-xs text-gray-400 mb-2">
-                                        Crie uma função <code>ticket-notify</code>. No Dashboard Supabase, crie um <strong>Database Webhook</strong> na tabela <code>tickets</code> (INSERT) que chame esta função.
+                                        Esta função envia um email quando um ticket é criado, incluindo o ID no assunto para rastreio.
+                                        <br/>
+                                        <strong>Setup:</strong> Crie a função <code>ticket-notify</code> e configure um Database Webhook no Supabase (Tabela: tickets, Evento: INSERT).
                                     </p>
                                     <div className="relative">
                                         <pre className="text-xs font-mono text-blue-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
@@ -687,9 +701,14 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --pro
 
                                 {/* Inbound Reply */}
                                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaReply className="text-green-400"/> 2. Processar Respostas (Inbound)</h4>
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaReply className="text-green-400"/> 2. Processar Respostas (Inbound Webhook)</h4>
                                     <p className="text-xs text-gray-400 mb-2">
-                                        Crie uma função <code>email-processor</code>. Configure o seu serviço de email (Resend/Mailgun) para reencaminhar emails recebidos (Inbound Webhook) para a URL desta função.
+                                        Esta função recebe o JSON do Resend, extrai o ID do ticket do assunto e insere o comentário.
+                                        <br/>
+                                        <strong>Setup:</strong>
+                                        <br/>1. Crie a função <code>email-processor</code> com este código.
+                                        <br/>2. Faça deploy: <code>supabase functions deploy email-processor --no-verify-jwt</code>
+                                        <br/>3. No <strong>Resend Dashboard</strong>: Adicione o seu domínio, verifique os registos MX e configure um <strong>Webhook</strong> apontando para a URL da função.
                                     </p>
                                     <div className="relative">
                                         <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
