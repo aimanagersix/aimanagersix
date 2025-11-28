@@ -4,9 +4,10 @@ import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier } from '../types';
 import { DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark, FaDownload } from './common/Icons';
 import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
-import { FaLightbulb, FaLock, FaUserTie, FaTruck } from 'react-icons/fa';
+import { FaLightbulb, FaLock, FaUserTie, FaTruck, FaUsers } from 'react-icons/fa';
 import RegulatoryNotificationModal from './RegulatoryNotificationModal';
 import * as dataService from '../services/dataService';
+import { getSupabase } from '../services/supabaseClient';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -120,11 +121,58 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     const [similarTicket, setSimilarTicket] = useState<{id: string, resolution: string, reason: string} | null>(null);
     const [autoSeverityMessage, setAutoSeverityMessage] = useState<string | null>(null);
     const [showRegulatoryModal, setShowRegulatoryModal] = useState(false);
+
+    // Realtime Presence State
+    const [activeViewers, setActiveViewers] = useState<any[]>([]);
     
     const aiConfigured = isAiConfigured();
      
     const isUtilizador = userPermissions.viewScope === 'own';
     const isSecurityIncident = formData.category === TicketCategory.SecurityIncident || formData.category === 'Incidente de Segurança';
+
+    // --- REALTIME PRESENCE LOGIC ---
+    useEffect(() => {
+        if (!ticketToEdit || !currentUser) return;
+
+        const supabase = getSupabase();
+        const channel = supabase.channel(`ticket_presence:${ticketToEdit.id}`, {
+            config: {
+                presence: {
+                    key: currentUser.id,
+                },
+            },
+        });
+
+        channel
+            .on('presence', { event: 'sync' }, () => {
+                const newState = channel.presenceState();
+                const viewers: any[] = [];
+                
+                // Flatten presence state
+                for (const key in newState) {
+                    if (key !== currentUser.id) { // Exclude self from visual list
+                        viewers.push(...newState[key]);
+                    }
+                }
+                setActiveViewers(viewers);
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    await channel.track({
+                        user_id: currentUser.id,
+                        name: currentUser.fullName,
+                        photo: currentUser.photoUrl,
+                        online_at: new Date().toISOString(),
+                        role: currentUser.role
+                    });
+                }
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [ticketToEdit, currentUser]);
+
 
     useEffect(() => {
         if (ticketToEdit) {
@@ -377,6 +425,34 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
     return (
         <>
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
+            
+            {/* Realtime Viewers Indicator */}
+            {activeViewers.length > 0 && (
+                <div className="absolute top-4 right-16 flex -space-x-2 z-10">
+                    {activeViewers.map((viewer, idx) => (
+                        <div 
+                            key={idx} 
+                            className="w-8 h-8 rounded-full border-2 border-surface-dark bg-brand-secondary text-white flex items-center justify-center text-xs font-bold relative group cursor-help"
+                        >
+                            {viewer.photo ? (
+                                <img src={viewer.photo} alt={viewer.name} className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                                viewer.name?.charAt(0) || '?'
+                            )}
+                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border border-surface-dark rounded-full"></div>
+                            
+                            {/* Tooltip */}
+                            <div className="absolute -bottom-8 right-0 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity z-20">
+                                {viewer.name} (A ver...)
+                            </div>
+                        </div>
+                    ))}
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-700 text-gray-400 border-2 border-surface-dark text-xs z-0" title="Outros utilizadores a ver este ticket">
+                        <FaUsers />
+                    </div>
+                </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
                 
                 {/* Requester Toggle */}
@@ -713,7 +789,7 @@ const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticket
                     </div>
                 </div>
                 
-                <div className="flex justify-end gap-4 pt-4">
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
                     <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
                 </div>

@@ -1,14 +1,14 @@
 
 import React, { useState, useRef } from 'react';
 import Modal from './common/Modal';
-import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal } from 'react-icons/fa';
+import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal, FaClock, FaEnvelope, FaList } from 'react-icons/fa';
 
 interface AutomationModalProps {
     onClose: () => void;
 }
 
 const AutomationModal: React.FC<AutomationModalProps> = ({ onClose }) => {
-    const [activeTab, setActiveTab] = useState<'client' | 'server'>('client');
+    const [activeTab, setActiveTab] = useState<'client' | 'server' | 'cron'>('client');
     const [copied, setCopied] = useState(false);
 
     // Get configured keys from localStorage to pre-fill the script
@@ -16,7 +16,6 @@ const AutomationModal: React.FC<AutomationModalProps> = ({ onClose }) => {
     const supabaseKey = localStorage.getItem('SUPABASE_ANON_KEY') || 'SUA-CHAVE-PUBLICA';
 
     // The PowerShell Agent Script (DIRECT REST API VERSION)
-    // Logic: 1. Check/Register Brand, 2. Check/Register Type, 3. Register/Update Equipment
     const clientScript = `# ==========================================
 # AIManager - Agente de Inventário (v2.0 - Auto Registo)
 # ==========================================
@@ -180,7 +179,6 @@ serve(async (req) => {
 
   try {
     // 2. Initialize Client (Service Role needed for upserts/creates)
-    // Define environment variables in Supabase Dashboard > Edge Functions > Secrets
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -200,7 +198,6 @@ serve(async (req) => {
     }
 
     // 5. Find or Create Type (Opção 2)
-    // Simplificação: Assume 'Desktop' por defeito se não enviado
     const typeName = model.toLowerCase().includes('laptop') ? 'Laptop' : 'Desktop';
     let { data: type } = await supabase.from('equipment_types').select('id').eq('name', typeName).single()
     if (!type) {
@@ -209,22 +206,18 @@ serve(async (req) => {
     }
 
     // 6. Upsert Equipment (Opção 3)
-    // Check existence
     let { data: equipment } = await supabase.from('equipment').select('id, description').eq('serialNumber', serialNumber).single()
     
     const updateData = {
         os_version,
         last_security_update: new Date().toISOString().split('T')[0],
         modifiedDate: new Date().toISOString().split('T')[0],
-        // Update description if hostname changed
         description: \`\${manufacturer} \${model} (\${hostname})\`
     }
 
     if (equipment) {
-        // Update existing
         await supabase.from('equipment').update(updateData).eq('id', equipment.id)
     } else {
-        // Create new
         const { data: newEq } = await supabase.from('equipment').insert({
             serialNumber,
             description: \`\${manufacturer} \${model} (\${hostname})\`,
@@ -239,7 +232,6 @@ serve(async (req) => {
 
     // 7. Security Logic (Create Ticket)
     if (defender_status && !defender_status.RealTimeProtectionEnabled) {
-        // Check for existing open ticket
         const { data: tickets } = await supabase.from('tickets')
             .select('id')
             .eq('equipmentId', equipment.id)
@@ -272,6 +264,82 @@ serve(async (req) => {
     )
   }
 })
+`;
+
+    // CRON Job Scripts
+    const cronFunctionCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+// Use Resend.com for free transactional emails
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+
+serve(async (req) => {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // 1. Fetch Summary Data
+    const { count: ticketCount } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Pedido')
+    const { count: vulnCount } = await supabase.from('vulnerabilities').select('*', { count: 'exact', head: true }).eq('status', 'Aberto')
+    
+    // 2. Construct Email Body
+    const emailHtml = \`
+      <h1>Relatório Semanal - AIManager</h1>
+      <p>Aqui está o resumo do estado do seu parque informático:</p>
+      <ul>
+        <li><strong>Tickets Pendentes:</strong> \${ticketCount}</li>
+        <li><strong>Vulnerabilidades Abertas:</strong> \${vulnCount}</li>
+      </ul>
+      <p>Aceda ao dashboard para mais detalhes.</p>
+    \`
+
+    // 3. Send Email (Example using Fetch to Resend)
+    if (RESEND_API_KEY) {
+        await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': \`Bearer \${RESEND_API_KEY}\`
+            },
+            body: JSON.stringify({
+                from: 'AIManager <onboarding@resend.dev>',
+                to: ['admin@empresa.com'], // Change this
+                subject: 'Relatório Semanal de Ativos',
+                html: emailHtml
+            })
+        })
+    }
+
+    return new Response(JSON.stringify({ success: true, sent: !!RESEND_API_KEY }), { headers: { 'Content-Type': 'application/json' } })
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+})
+`;
+
+    const cronSqlCode = `
+-- Habilitar extensão pg_cron (necessário projeto Pro ou instância própria com suporte)
+create extension if not exists pg_cron;
+
+-- Agendar execução todas as Segundas-feiras às 09:00 AM
+select cron.schedule(
+  'weekly-report-job', -- nome do job
+  '0 9 * * 1',         -- cron expression (min hora dia mes dia_semana)
+  $$
+  select
+    net.http_post(
+        url:='https://PROJECT_REF.supabase.co/functions/v1/weekly-report',
+        headers:='{"Content-Type": "application/json", "Authorization": "Bearer SERVICE_ROLE_KEY"}'::jsonb,
+        body:='{}'::jsonb
+    ) as request_id;
+  $$
+);
+
+-- Para ver jobs agendados:
+-- select * from cron.job;
 `;
 
     const handleCopy = (text: string) => {
@@ -310,6 +378,14 @@ serve(async (req) => {
                         }`}
                     >
                         <FaServer /> 2. Edge Function (Supabase)
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('cron')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
+                            activeTab === 'cron' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        <FaClock /> 3. Cron Jobs (Relatórios)
                     </button>
                 </div>
 
@@ -353,7 +429,7 @@ serve(async (req) => {
                     )}
 
                     {activeTab === 'server' && (
-                        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2">
+                        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar">
                             <div className="bg-purple-900/20 border border-purple-900/50 p-4 rounded-lg text-sm text-purple-200">
                                 <div className="flex items-center gap-2 font-bold mb-2">
                                     <FaCode /> Criar Supabase Edge Function (Segurança Avançada)
@@ -387,7 +463,7 @@ supabase functions new sync-agent`}
                                         Este código implementa a lógica de auto-registo de Marca, Tipo e Equipamento.
                                     </p>
                                     <div className="relative">
-                                        <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64">
+                                        <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
                                             {edgeFunctionCode}
                                         </pre>
                                         <button onClick={() => handleCopy(edgeFunctionCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
@@ -409,6 +485,51 @@ supabase functions deploy sync-agent --project-ref SEU_PROJECT_ID --no-verify-jw
 supabase secrets set SUPABASE_URL=${supabaseUrl} --project-ref SEU_PROJECT_ID
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --project-ref SEU_PROJECT_ID`}
                                     </pre>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'cron' && (
+                         <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+                            <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200">
+                                <div className="flex items-center gap-2 font-bold mb-2">
+                                    <FaClock /> Cron Jobs (Relatórios Automáticos)
+                                </div>
+                                <p>
+                                    Configure o envio automático de relatórios semanais por email utilizando Edge Functions e o agendador `pg_cron` da base de dados.
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaEnvelope className="text-yellow-400"/> 1. Edge Function (Envio de Email)</h4>
+                                    <p className="text-xs text-gray-400 mb-2">
+                                        Crie uma nova função `supabase functions new weekly-report` e use este código. Necessita de uma API Key de um serviço de email (ex: Resend).
+                                    </p>
+                                    <div className="relative">
+                                        <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
+                                            {cronFunctionCode}
+                                        </pre>
+                                        <button onClick={() => handleCopy(cronFunctionCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                            <FaCopy />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase className="text-blue-400"/> 2. Configuração SQL (pg_cron)</h4>
+                                    <p className="text-xs text-gray-400 mb-2">
+                                        Execute este comando no <strong>SQL Editor</strong> do Supabase para agendar a execução da função todas as segundas-feiras.
+                                    </p>
+                                    <div className="relative">
+                                        <pre className="text-xs font-mono text-orange-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
+                                            {cronSqlCode}
+                                        </pre>
+                                        <button onClick={() => handleCopy(cronSqlCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                            <FaCopy />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
