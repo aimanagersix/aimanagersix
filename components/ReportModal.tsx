@@ -526,8 +526,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
              rows = reportData.rawTickets.map(t => [
                 escapeCsv(t.id),
                 escapeCsv(t.title),
-                escapeCsv(t.category),
-                escapeCsv(t.impactCriticality),
+                escapeCsv(t.category || ''),
+                escapeCsv(t.impactCriticality || ''),
                 escapeCsv(t.status),
                 escapeCsv(collaboratorMap.get(t.collaboratorId) || ''),
                 escapeCsv(t.requestDate)
@@ -555,10 +555,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                     escapeCsv(item.description),
                     escapeCsv(`${brandName} ${typeName}`),
                     escapeCsv(item.serialNumber),
-                    escapeCsv(item.criticality),
-                    escapeCsv(item.confidentiality),
-                    escapeCsv(item.integrity),
-                    escapeCsv(item.availability),
+                    escapeCsv(item.criticality || ''),
+                    escapeCsv(item.confidentiality || ''),
+                    escapeCsv(item.integrity || ''),
+                    escapeCsv(item.availability || ''),
                 ].join(',')
             });
             fileName = `relatorio_compliance_nis2_${new Date().toISOString().split('T')[0]}.csv`;
@@ -566,9 +566,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             headers = ["Serviço", "Descrição", "Criticidade", "RTO Alvo", "Responsável", "Status", "Dependências (Nome)", "Dependências (Tipo)", "Dependências (Notas)"];
             rows = reportData.items.map(item => [
                 escapeCsv(item.service.name),
-                escapeCsv(item.service.description),
+                escapeCsv(item.service.description || ''),
                 escapeCsv(item.service.criticality),
-                escapeCsv(item.service.rto_goal),
+                escapeCsv(item.service.rto_goal || ''),
                 escapeCsv(item.ownerName),
                 escapeCsv(item.service.status),
                 escapeCsv(item.dependencies.map(d => `${d.name}`).join('; ')),
@@ -814,7 +814,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                                 <ul className="list-disc list-inside text-xs space-y-1">
                                                 {item.equipmentList.map(eq => (
                                                     <li key={eq.id}>
-                                                        <span className="font-semibold text-on-surface-dark">{brandMap.get(eq.brandId || '') || ''} {equipmentTypeMap.get(eq.typeId || '') || ''}</span>
+                                                        <span className="font-semibold text-on-surface-dark">{brandMap.get(eq.brandId) || ''} {equipmentTypeMap.get(eq.typeId) || ''}</span>
                                                         <span className="text-on-surface-dark-secondary"> (S/N: {eq.serialNumber}, Inv: {eq.inventoryNumber || 'N/A'})</span>
                                                     </li>
                                                 ))}
