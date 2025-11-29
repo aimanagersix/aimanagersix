@@ -9,11 +9,11 @@ interface ServiceDashboardProps {
   services: BusinessService[];
   dependencies: ServiceDependency[];
   collaborators: Collaborator[];
-  onEdit: (service: BusinessService) => void;
-  onDelete: (id: string) => void;
-  onManageDependencies: (service: BusinessService) => void;
-  onCreate: () => void;
-  onGenerateReport: () => void;
+  onEdit?: (service: BusinessService) => void;
+  onDelete?: (id: string) => void;
+  onManageDependencies?: (service: BusinessService) => void;
+  onCreate?: () => void;
+  onGenerateReport?: () => void;
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -45,8 +45,10 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
             filterCriticality === '' || s.criticality === filterCriticality
         ).sort((a,b) => {
             // Sort by criticality priority
-            const priority = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
-            return priority[b.criticality] - priority[a.criticality];
+            const priority: Record<string, number> = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
+            const prioA = priority[a.criticality || 'Baixa'] || 0;
+            const prioB = priority[b.criticality || 'Baixa'] || 0;
+            return prioB - prioA;
         });
     }, [services, filterCriticality]);
 
@@ -76,6 +78,7 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
                         <option value="">Todas as Criticidades</option>
                         {Object.values(CriticalityLevel).map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
+                     {onGenerateReport && (
                      <button
                         onClick={onGenerateReport}
                         className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors border border-gray-600"
@@ -83,9 +86,12 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
                         <ReportIcon />
                         Relatório BIA
                     </button>
+                    )}
+                    {onCreate && (
                     <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
                         <PlusIcon /> Novo Serviço
                     </button>
+                    )}
                 </div>
             </div>
             
@@ -132,6 +138,7 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
+                                        {onManageDependencies && (
                                         <button 
                                             onClick={() => onManageDependencies(service)} 
                                             className="text-indigo-400 hover:text-indigo-300" 
@@ -139,12 +146,17 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
                                         >
                                             <FaSitemap />
                                         </button>
+                                        )}
+                                        {onEdit && (
                                         <button onClick={() => onEdit(service)} className="text-blue-400 hover:text-blue-300" title="Editar Serviço">
                                             <EditIcon />
                                         </button>
+                                        )}
+                                        {onDelete && (
                                         <button onClick={() => onDelete(service.id)} className="text-red-400 hover:text-red-300" title="Excluir Serviço">
                                             <DeleteIcon />
                                         </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>

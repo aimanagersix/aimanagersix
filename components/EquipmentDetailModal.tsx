@@ -1,12 +1,11 @@
 
-
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
 import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory, FaTools } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
-import { getSupabase } from '../services/supabaseClient'; // Need DB access to fetch children
+import { getSupabase } from '../services/supabaseClient';
 
 interface EquipmentDetailModalProps {
     equipment: Equipment;
@@ -160,7 +159,7 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                 ) : (
                                     <p className="text-white font-bold flex items-center gap-2">
                                         <FaMapMarkerAlt className="text-brand-secondary"/> 
-                                        {entidadeMap.get(currentAssignment.entidadeId)} (Localização)
+                                        {entidadeMap.get(currentAssignment.entidadeId || '') || 'Entidade Desconhecida'}
                                     </p>
                                 )}
                                 <p className="text-xs text-gray-500 mt-1">Desde: {currentAssignment.assignedDate}</p>
@@ -300,7 +299,7 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                         <tbody className="divide-y divide-gray-700">
                                             {equipmentAssignments.map(a => (
                                                 <tr key={a.id}>
-                                                    <td className="p-2 text-white">{a.collaboratorId ? collaboratorMap.get(a.collaboratorId) : entidadeMap.get(a.entidadeId)}</td>
+                                                    <td className="p-2 text-white">{a.collaboratorId ? collaboratorMap.get(a.collaboratorId) : entidadeMap.get(a.entidadeId || '')}</td>
                                                     <td className="p-2 text-gray-300">{a.assignedDate}</td>
                                                     <td className="p-2 text-gray-300">{a.returnDate || <span className="text-green-400">Atual</span>}</td>
                                                 </tr>

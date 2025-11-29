@@ -307,7 +307,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                             const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
                             const sla = getSLATimer(ticket, categoryObj);
                             const nis2Countdown = getNis2Countdown(ticket);
-                            const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança' || (categoryObj && (categoryObj.sla_warning_hours > 0 || categoryObj.sla_critical_hours > 0));
+                            const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança' || (categoryObj && (categoryObj.sla_warning_hours || 0 > 0 || categoryObj.sla_critical_hours || 0 > 0));
                             const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
                             
                             // Determine requester display

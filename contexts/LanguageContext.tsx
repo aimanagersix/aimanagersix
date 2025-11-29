@@ -25,7 +25,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     const t = (key: string): string => {
         const keys = key.split('.');
-        let current: any = translations[language];
+        let current: any = (translations as any)[language];
         
         // Try to find the key directly first
         if (current[key]) return current[key];
@@ -34,8 +34,8 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
         for (const k of keys) {
             if (current[k] === undefined) {
                 // Fallback to Portuguese if key missing in current lang
-                if (language !== 'pt' && translations['pt'][key]) {
-                    return translations['pt'][key];
+                if (language !== 'pt' && (translations as any)['pt'][key]) {
+                    return (translations as any)['pt'][key];
                 }
                 return key;
             }

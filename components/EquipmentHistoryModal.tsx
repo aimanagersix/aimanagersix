@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
@@ -40,6 +41,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     // Memoize maps for efficient lookups
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const equipmentMap = useMemo(() => new Map(equipment ? [[equipment.id, equipment]] : []), [equipment]); // Just for activity lookup consistency if needed, though activities linked by ID.
 
     // Filter and sort the assignments for the current equipment
     const equipmentAssignments = useMemo(() => {
@@ -66,11 +68,14 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
         const relevantDependencies = serviceDependencies.filter(d => d.equipment_id === equipment.id);
         const serviceIds = new Set(relevantDependencies.map(d => d.service_id));
         
+        const priority: Record<string, number> = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
+
         return businessServices
             .filter(s => serviceIds.has(s.id))
             .sort((a, b) => {
-                const priority = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
-                return priority[b.criticality] - priority[a.criticality];
+                const prioA = priority[a.criticality || 'Baixa'] || 0;
+                const prioB = priority[b.criticality || 'Baixa'] || 0;
+                return prioB - prioA;
             });
     }, [businessServices, serviceDependencies, equipment.id]);
     
@@ -82,7 +87,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     const potentialVulnerabilities = useMemo(() => {
         const searchText = [
             equipment.description,
-            equipment.brandId, // Assuming brand names are unique enough if mapped, but let's stick to description
+            equipment.brandId, 
             ...installedSoftware.map(s => s.productName)
         ].join(' ').toLowerCase();
 
@@ -365,7 +370,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                 {equipmentAssignments.map(assignment => (
                                     <tr key={assignment.id} className="bg-surface-dark border-b border-gray-700">
                                         <td className="px-6 py-4 font-medium text-on-surface-dark">{assignment.collaboratorId ? collaboratorMap.get(assignment.collaboratorId) : 'Atribuído à Localização'}</td>
-                                        <td className="px-6 py-4">{entidadeMap.get(assignment.entidadeId) || 'N/A'}</td>
+                                        <td className="px-6 py-4">{entidadeMap.get(assignment.entidadeId || '') || 'N/A'}</td>
                                         <td className="px-6 py-4">{assignment.assignedDate}</td>
                                         <td className="px-6 py-4">{assignment.returnDate || '—'}</td>
                                         <td className="px-6 py-4">

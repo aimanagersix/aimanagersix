@@ -52,7 +52,9 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
 
     const collaboratorsByEntidade = React.useMemo(() => {
         return collaborators.reduce((acc, curr) => {
-            acc[curr.entidadeId] = (acc[curr.entidadeId] || 0) + 1;
+            if (curr.entidadeId) {
+                acc[curr.entidadeId] = (acc[curr.entidadeId] || 0) + 1;
+            }
             return acc;
         }, {} as Record<string, number>);
     }, [collaborators]);

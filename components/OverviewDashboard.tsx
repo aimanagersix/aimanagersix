@@ -339,7 +339,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     }, [equipment]);
 
     const equipmentByCriticality = useMemo(() => {
-        const counts = { [CriticalityLevel.Low]: 0, [CriticalityLevel.Medium]: 0, [CriticalityLevel.High]: 0, [CriticalityLevel.Critical]: 0 };
+        const counts: Record<string, number> = { [CriticalityLevel.Low]: 0, [CriticalityLevel.Medium]: 0, [CriticalityLevel.High]: 0, [CriticalityLevel.Critical]: 0 };
         equipment.forEach(eq => {
             const level = eq.criticality || CriticalityLevel.Low;
             counts[level] = (counts[level] || 0) + 1;

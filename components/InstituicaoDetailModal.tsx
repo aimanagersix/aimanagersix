@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
@@ -62,7 +58,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                     ...eq,
                     assignmentDate: a.assignedDate,
                     assignedToName: a.collaboratorId ? collabMap.get(a.collaboratorId) : 'Atribuído à Localização',
-                    entityName: entMap.get(a.entidadeId)
+                    entityName: entMap.get(a.entidadeId || '')
                 };
             })
             .filter(item => item.id)

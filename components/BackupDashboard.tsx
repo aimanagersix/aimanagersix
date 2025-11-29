@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import { BackupExecution, Collaborator, BackupType, Equipment } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon, FaServer, FaSearch, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaClock, FaPaperclip } from './common/Icons';
@@ -12,9 +8,9 @@ interface BackupDashboardProps {
     backups: BackupExecution[];
     collaborators: Collaborator[];
     equipment: Equipment[]; // Added prop
-    onEdit: (backup: BackupExecution) => void;
-    onDelete: (id: string) => void;
-    onCreate: () => void;
+    onEdit?: (backup: BackupExecution) => void;
+    onDelete?: (id: string) => void;
+    onCreate?: () => void;
 }
 
 const getStatusIcon = (status: string) => {
@@ -88,9 +84,11 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                         <span className="block text-xs text-gray-400">Taxa de Sucesso</span>
                         <span className={`font-bold text-lg ${successRate >= 90 ? 'text-green-400' : 'text-yellow-400'}`}>{successRate}%</span>
                     </div>
+                    {onCreate && (
                     <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
                         <PlusIcon /> Registar Teste
                     </button>
+                    )}
                 </div>
             </div>
 
@@ -171,27 +169,30 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                                 </td>
                                 <td className="px-6 py-4">{collaboratorMap.get(backup.tester_id) || 'Desconhecido'}</td>
                                 <td className="px-6 py-4 text-center">
-                                    <div className="flex justify-center items-center gap-4">
+                                    <div className="flex justify-center gap-3">
+                                        {onEdit && (
                                         <button onClick={() => onEdit(backup)} className="text-blue-400 hover:text-blue-300" title="Editar">
                                             <EditIcon />
                                         </button>
+                                        )}
+                                        {onDelete && (
                                         <button onClick={() => onDelete(backup.id)} className="text-red-400 hover:text-red-300" title="Excluir">
                                             <DeleteIcon />
                                         </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
                         )}) : (
                             <tr>
-                                <td colSpan={9} className="text-center py-8 text-on-surface-dark-secondary">
-                                    Nenhum teste de backup registado.
-                                </td>
+                                <td colSpan={9} className="text-center py-8 text-gray-500">Nenhum registo de teste encontrado.</td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
-            <Pagination
+            
+            <Pagination 
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}

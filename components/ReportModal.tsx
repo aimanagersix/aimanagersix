@@ -199,7 +199,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             if (!complianceFilterLevel) return true;
             return eq.criticality === complianceFilterLevel;
         }).sort((a,b) => {
-            const levels = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
+            const levels: Record<string, number> = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
             const levelA = levels[a.criticality || CriticalityLevel.Low];
             const levelB = levels[b.criticality || CriticalityLevel.Low];
             return levelB - levelA; // Descending order
@@ -218,7 +218,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             if (!biaFilterCriticality) return true;
             return s.criticality === biaFilterCriticality;
         }).sort((a,b) => {
-             const priority = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
+             const priority: Record<string, number> = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
              return priority[b.criticality] - priority[a.criticality];
         });
 
@@ -381,8 +381,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 totalItems: rData.items.length,
                 items: rData.items.slice(0, 50).map((i: any) => ({ // Limit to 50 for context window
                     description: i.equipment?.description,
-                    brand: brandMap.get(i.equipment?.brandId),
-                    type: equipmentTypeMap.get(i.equipment?.typeId),
+                    brand: brandMap.get(i.equipment?.brandId || ''),
+                    type: equipmentTypeMap.get(i.equipment?.typeId || ''),
                     age: i.equipment?.purchaseDate,
                     status: i.equipment?.status
                 }))
@@ -752,7 +752,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                     <tr className="border-b border-gray-600 bg-gray-800/50">
                                         <td className="px-4 py-3 text-on-surface-dark font-semibold">{item.collaborator.fullName}</td>
                                         <td className="px-4 py-3">{item.collaborator.email}</td>
-                                        <td className="px-4 py-3">{entidadeMap.get(item.collaborator.entidadeId) || 'N/A'}</td>
+                                        <td className="px-4 py-3">{entidadeMap.get(item.collaborator.entidadeId || '') || 'N/A'}</td>
                                         <td className="px-4 py-3 text-center font-bold text-white">{item.equipmentCount}</td>
                                     </tr>
                                     {item.equipmentList.length > 0 && (
