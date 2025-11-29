@@ -200,8 +200,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             return eq.criticality === complianceFilterLevel;
         }).sort((a,b) => {
             const levels: Record<string, number> = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
-            const levelA = levels[a.criticality || CriticalityLevel.Low];
-            const levelB = levels[b.criticality || CriticalityLevel.Low];
+            const levelA = levels[a.criticality || CriticalityLevel.Low] || 0;
+            const levelB = levels[b.criticality || CriticalityLevel.Low] || 0;
             return levelB - levelA; // Descending order
         });
         
@@ -219,7 +219,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             return s.criticality === biaFilterCriticality;
         }).sort((a,b) => {
              const priority: Record<string, number> = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
-             return priority[b.criticality] - priority[a.criticality];
+             return (priority[b.criticality] || 0) - (priority[a.criticality] || 0);
         });
 
         const items = filteredServices.map(service => {

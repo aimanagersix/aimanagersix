@@ -343,7 +343,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 {cfg.showOsVersion && <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
                 {cfg.showLastPatch && <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
                 {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
-                {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</span></p>}
+                {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</span></p>}
                 {cfg.showWarranty && <p><strong className="text-on-surface-dark-secondary">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
                 {cfg.showLocation && item.installationLocation && <p><strong className="text-on-surface-dark-secondary">Localização:</strong> <span className="text-white">{item.installationLocation}</span></p>}
                 {item.isLoan && <p className="text-purple-400 font-bold">Equipamento de Empréstimo</p>}
@@ -513,7 +513,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                       )}
                       {item.isLoan && <span className="text-[10px] bg-purple-900/30 text-purple-300 px-1 rounded border border-purple-500/30">LOAN</span>}
                   </div>
-                  <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</div>
+                  <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</div>
                 </td>
                 <td className="px-6 py-4">{item.serialNumber}</td>
                 <td className="px-6 py-4">{item.assignedTo}</td>

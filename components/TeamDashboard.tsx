@@ -1,6 +1,4 @@
 
-
-
 import React, { useMemo, useState } from 'react';
 import { Team, TeamMember, Collaborator, Ticket, EquipmentType } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
@@ -13,9 +11,9 @@ interface TeamDashboardProps {
     collaborators: Collaborator[];
     tickets: Ticket[];
     equipmentTypes: EquipmentType[];
-    onEdit: (team: Team) => void;
-    onDelete: (id: string) => void;
-    onManageMembers: (team: Team) => void;
+    onEdit?: (team: Team) => void;
+    onDelete?: (id: string) => void;
+    onManageMembers?: (team: Team) => void;
     onCreate?: () => void;
     onToggleStatus?: (id: string) => void;
 }
@@ -131,24 +129,30 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                                                 {isActive ? <FaToggleOn /> : <FaToggleOff />}
                                             </button>
                                         )}
-                                        <button onClick={(e) => { e.stopPropagation(); onManageMembers(team); }} className="text-green-400 hover:text-green-300" title="Gerir Membros">
-                                            <FaUsers />
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); onEdit(team); }} className="text-blue-400 hover:text-blue-300" title="Editar Equipa">
-                                            <EditIcon />
-                                        </button>
-                                        <button 
-                                            onClick={(e) => { 
-                                                e.stopPropagation(); 
-                                                if (!isDeleteDisabled) onDelete(team.id); 
-                                            }} 
-                                            className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
-                                            disabled={isDeleteDisabled}
-                                            title={isDeleteDisabled ? `Impossível excluir: ${disabledReason}` : `Excluir ${team.name}`}
-                                            aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${team.name}`}
-                                        >
-                                            <DeleteIcon />
-                                        </button>
+                                        {onManageMembers && (
+                                            <button onClick={(e) => { e.stopPropagation(); onManageMembers(team); }} className="text-green-400 hover:text-green-300" title="Gerir Membros">
+                                                <FaUsers />
+                                            </button>
+                                        )}
+                                        {onEdit && (
+                                            <button onClick={(e) => { e.stopPropagation(); onEdit(team); }} className="text-blue-400 hover:text-blue-300" title="Editar Equipa">
+                                                <EditIcon />
+                                            </button>
+                                        )}
+                                        {onDelete && (
+                                            <button 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    if (!isDeleteDisabled) onDelete(team.id); 
+                                                }} 
+                                                className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                                disabled={isDeleteDisabled}
+                                                title={isDeleteDisabled ? `Impossível excluir: ${disabledReason}` : `Excluir ${team.name}`}
+                                                aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${team.name}`}
+                                            >
+                                                <DeleteIcon />
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>

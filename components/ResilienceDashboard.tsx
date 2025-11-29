@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { ResilienceTest, ResilienceTestType, Ticket, Entidade, Supplier } from '../types';
 import { FaShieldAlt, FaSearch, FaPlus, FaCheckCircle, FaTimesCircle, FaClock, FaFilePdf, FaExclamationTriangle, FaCalendarAlt } from './common/Icons';
@@ -12,9 +8,9 @@ import * as dataService from '../services/dataService';
 
 interface ResilienceDashboardProps {
     resilienceTests: ResilienceTest[];
-    onCreate: () => void;
-    onEdit: (test: ResilienceTest) => void;
-    onDelete: (id: string) => void;
+    onCreate?: () => void;
+    onEdit?: (test: ResilienceTest) => void;
+    onDelete?: (id: string) => void;
     onCreateTicket?: (ticket: Partial<Ticket>) => void;
 }
 
@@ -86,9 +82,11 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
                         Planeamento e registo de testes de segurança avançados (Pentests, Red Teaming, DRP).
                     </p>
                 </div>
-                <button onClick={() => { setTestToEdit(null); setShowAddModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors shadow-lg">
-                    <FaPlus /> Agendar Teste
-                </button>
+                {onCreate && (
+                    <button onClick={() => { setTestToEdit(null); setShowAddModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors shadow-lg">
+                        <FaPlus /> Agendar Teste
+                    </button>
+                )}
             </div>
 
             <div className="mb-6 relative max-w-md">
@@ -177,8 +175,12 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center gap-3">
-                                        <button onClick={() => { setTestToEdit(test); setShowAddModal(true); }} className="text-blue-400 hover:text-blue-300">Editar</button>
-                                        <button onClick={() => onDelete(test.id)} className="text-red-400 hover:text-red-300">Excluir</button>
+                                        {onEdit && (
+                                            <button onClick={() => { setTestToEdit(test); setShowAddModal(true); }} className="text-blue-400 hover:text-blue-300">Editar</button>
+                                        )}
+                                        {onDelete && (
+                                            <button onClick={() => onDelete(test.id)} className="text-red-400 hover:text-red-300">Excluir</button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>

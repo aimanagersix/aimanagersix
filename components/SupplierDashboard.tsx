@@ -8,9 +8,9 @@ import SupplierDetailModal from './SupplierDetailModal';
 
 interface SupplierDashboardProps {
   suppliers: Supplier[];
-  onEdit: (supplier: Supplier) => void;
-  onDelete: (id: string) => void;
-  onCreate: () => void;
+  onEdit?: (supplier: Supplier) => void;
+  onDelete?: (id: string) => void;
+  onCreate?: () => void;
   businessServices: BusinessService[];
   onToggleStatus?: (id: string) => void;
 }
@@ -135,9 +135,11 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                         Avaliação e controlo de fornecedores críticos para a cadeia de abastecimento (NIS2 / DORA).
                     </p>
                 </div>
-                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                    <PlusIcon /> Novo Fornecedor
-                </button>
+                {onCreate && (
+                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <PlusIcon /> Novo Fornecedor
+                    </button>
+                )}
             </div>
 
             <ConcentrationRiskWidget services={businessServices} suppliers={suppliers} />
@@ -268,12 +270,16 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                                 {isActive ? <FaToggleOn /> : <FaToggleOff />}
                                             </button>
                                         )}
-                                        <button onClick={(e) => { e.stopPropagation(); onEdit(supplier); }} className="text-blue-400 hover:text-blue-300" title="Editar">
-                                            <EditIcon />
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); onDelete(supplier.id); }} className="text-red-400 hover:text-red-300" title="Excluir">
-                                            <DeleteIcon />
-                                        </button>
+                                        {onEdit && (
+                                            <button onClick={(e) => { e.stopPropagation(); onEdit(supplier); }} className="text-blue-400 hover:text-blue-300" title="Editar">
+                                                <EditIcon />
+                                            </button>
+                                        )}
+                                        {onDelete && (
+                                            <button onClick={(e) => { e.stopPropagation(); onDelete(supplier.id); }} className="text-red-400 hover:text-red-300" title="Excluir">
+                                                <DeleteIcon />
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
