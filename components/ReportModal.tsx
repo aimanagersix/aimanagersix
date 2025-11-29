@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
@@ -379,11 +380,11 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 report: 'Inventory Status',
                 totalItems: rData.items.length,
                 items: rData.items.slice(0, 50).map((i: any) => ({ // Limit to 50 for context window
-                    description: i.equipment?.description,
-                    brand: brandMap.get(i.equipment?.brandId || ''),
-                    type: equipmentTypeMap.get(i.equipment?.typeId || ''),
-                    age: i.equipment?.purchaseDate,
-                    status: i.equipment?.status
+                    description: i.equipment?.description || '',
+                    brand: brandMap.get(i.equipment?.brandId || '') || 'N/A',
+                    type: equipmentTypeMap.get(i.equipment?.typeId || '') || 'N/A',
+                    age: i.equipment?.purchaseDate || '',
+                    status: i.equipment?.status || ''
                 }))
             };
         } else if (type === 'ticket') {
@@ -394,7 +395,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                     byInstitution: ticketReportData?.byInstituicao
                 },
                 recentTickets: ticketReportData?.rawTickets.slice(0, 20).map((t: Ticket) => ({
-                    category: t.category,
+                    category: t.category || '',
                     status: t.status,
                     description: t.description,
                     date: t.requestDate
