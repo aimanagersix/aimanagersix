@@ -96,6 +96,9 @@ serve(async (req) => {
   }
 
   try {
+    // --- ROBUST INPUT HANDLING ---
+    // We do NOT need to parse req.json() for this report, preventing 'Unexpected end of JSON' error if body is empty.
+    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -131,29 +134,53 @@ serve(async (req) => {
 
     // 4. Send Email (via Resend)
     let emailResult = null;
+    let emailStatus = 'skipped';
+
     if (RESEND_API_KEY) {
-        const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': \`Bearer \${RESEND_API_KEY}\`
-            },
-            body: JSON.stringify({
-                from: 'AIManager <onboarding@resend.dev>',
-                to: recipients, 
-                subject: 'Relatório Semanal de Ativos',
-                html: emailHtml
+        try {
+            const res = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': \`Bearer \${RESEND_API_KEY}\`
+                },
+                body: JSON.stringify({
+                    from: 'AIManager <onboarding@resend.dev>',
+                    to: recipients, 
+                    subject: 'Relatório Semanal de Ativos',
+                    html: emailHtml
+                })
             })
-        })
-        emailResult = await res.json()
+            
+            // Safe JSON parsing for response
+            const text = await res.text()
+            try {
+                emailResult = text ? JSON.parse(text) : { message: "No content returned" }
+            } catch (e) {
+                emailResult = { error: "Failed to parse Resend response", raw: text }
+            }
+
+            emailStatus = res.ok ? 'sent' : 'failed'
+            
+            if (!res.ok) {
+                console.error("Resend API Error:", emailResult)
+            }
+        } catch (fetchError) {
+            console.error("Fetch Error:", fetchError)
+            emailResult = { error: fetchError.message }
+            emailStatus = 'error'
+        }
+    } else {
+        console.warn("RESEND_API_KEY not set")
     }
 
     return new Response(
-        JSON.stringify({ success: true, recipients: recipients.length, emailResult }), 
+        JSON.stringify({ success: true, recipients: recipients.length, emailStatus, emailResult }), 
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
+    console.error("Function Error:", error)
     return new Response(
         JSON.stringify({ error: error.message }), 
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
