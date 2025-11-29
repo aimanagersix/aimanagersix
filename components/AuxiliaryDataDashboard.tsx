@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig, CustomRole, ModuleKey } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
-import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard, FaLink, FaDatabase, FaCheckCircle, FaExclamationCircle, FaNetworkWired, FaPlay, FaSpinner, FaCopy, FaEnvelope, FaPaperPlane, FaReply } from 'react-icons/fa';
+// FIX: Import FaCheck icon from react-icons/fa
+import { FaCog, FaSave, FaTimes, FaTags, FaShapes, FaShieldAlt, FaTicketAlt, FaUsers, FaUserTag, FaList, FaServer, FaGraduationCap, FaLock, FaRobot, FaClock, FaImage, FaInfoCircle, FaMousePointer, FaUser, FaKey, FaPalette, FaKeyboard, FaBoxOpen, FaIdCard, FaLink, FaDatabase, FaCheckCircle, FaExclamationCircle, FaNetworkWired, FaPlay, FaSpinner, FaCopy, FaEnvelope, FaPaperPlane, FaReply, FaCheck } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 import { parseSecurityAlert } from '../services/geminiService';
 
@@ -139,9 +140,15 @@ serve(async (req) => {
     
     const result = await res.json()
 
-    return new Response(JSON.stringify({ success: res.ok, result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (!res.ok) {
+        console.error("Resend Error:", result)
+        throw new Error(\`Resend API Error: \${JSON.stringify(result)}\`)
+    }
+
+    return new Response(JSON.stringify({ success: true, result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {
+    console.error("Function Error:", error)
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 })
@@ -319,6 +326,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [simulatedTicket, setSimulatedTicket] = useState<any>(null);
     const [webhookUrl, setWebhookUrl] = useState('');
     const [copied, setCopied] = useState(false);
+    const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | null>(null);
 
     // Define Menu Structure mapped to Permission Keys
     const menuStructure: { group: string, items: MenuItem[] }[] = [
@@ -456,7 +464,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             if (response.ok) {
                 alert(`Teste executado com sucesso!\nResultado: ${JSON.stringify(result)}`);
             } else {
-                alert(`Erro ao executar teste: ${result.error || response.statusText}`);
+                 alert(`Erro ao executar teste: ${result.error || response.statusText}\n\nVerifique se a Edge Function 'weekly-report' foi implementada (deployed) e se os 'secrets' (chaves) estão configurados corretamente.`);
             }
         } catch (e: any) {
             alert(`Erro de conexão: ${e.message}.\n\nVerifique se a Edge Function 'weekly-report' foi implementada (deployed) corretamente no Supabase e se os segredos (secrets) estão configurados. Consulte o Guia de Configuração.`);
@@ -482,10 +490,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         }
     };
 
-    const handleCopy = (text: string) => {
+    const handleCopy = (text: string, type: 'cron_fn' | 'cron_sql') => {
         navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setCopiedCode(type);
+        setTimeout(() => setCopiedCode(null), 2000);
     };
     
     const handleSimulateWebhook = async () => {
@@ -1229,72 +1237,59 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                              <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
                                  <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg space-y-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaClock className="text-yellow-400"/> Guia de Configuração: Relatórios Automáticos</h3>
-                                    <div className="text-sm text-gray-300 space-y-3">
-                                        <div className="flex items-start gap-3">
-                                            <div className="bg-gray-700 text-white font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">1</div>
-                                            <div>
-                                                <strong className="text-white">Crie a Edge Function</strong>
-                                                <p className="text-xs text-gray-400">Vá à aba "Config BD" &rarr; "Automação" e copie o código da função <code>weekly-report</code>. Use a CLI do Supabase para criar e colar este código na sua função.</p>
+                                    
+                                    <div className="space-y-4">
+                                        <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                            <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaEnvelope className="text-yellow-400"/> Passo 1: Criar a Edge Function (`weekly-report`)</h4>
+                                            <p className="text-xs text-gray-400 mb-2">
+                                                Crie uma nova função <code>weekly-report</code> e cole o seguinte código no ficheiro <code>index.ts</code> da função.
+                                            </p>
+                                            <div className="relative">
+                                                <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
+                                                    {cronFunctionCode}
+                                                </pre>
+                                                <button onClick={() => handleCopy(cronFunctionCode, 'cron_fn')} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                                    {copiedCode === 'cron_fn' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="bg-gray-700 text-white font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">2</div>
-                                            <div>
-                                                <strong className="text-white">Configure as Chaves (Secrets)</strong>
-                                                <p className="text-xs text-gray-400">A função precisa de acesso à sua <strong>Resend API Key</strong>. Certifique-se que a preencheu na aba "Conexões". Depois, execute os comandos <code>supabase secrets set</code> para a função no seu terminal, conforme indicado no guia "Config BD".</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="bg-gray-700 text-white font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">3</div>
-                                            <div>
-                                                <strong className="text-white">Agende o Cron Job</strong>
-                                                <p className="text-xs text-gray-400">Copie o código SQL da aba "Config BD" &rarr; "Automação" e execute-o no seu Editor SQL do Supabase para agendar a tarefa.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div className="space-y-4">
-                                    {/* New Config Section for Recipients & Testing */}
-                                    <div className="bg-gray-900/50 p-4 rounded border border-gray-700 relative">
-                                        <h4 className="text-white font-bold mb-4 text-sm flex items-center gap-2"><FaCog className="text-gray-400"/> Configuração & Teste</h4>
-                                        
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="block text-xs text-gray-500 uppercase mb-1">Emails Destinatários do Relatório (separados por vírgula)</label>
-                                                <div className="flex gap-2">
-                                                    <input 
-                                                        type="text" 
-                                                        value={reportRecipients} 
-                                                        onChange={(e) => setReportRecipients(e.target.value)}
-                                                        className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
-                                                        placeholder="admin@empresa.com, gestor@empresa.com"
-                                                    />
-                                                    <button onClick={handleSaveAutomation} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
-                                                        <FaSave /> Guardar
-                                                    </button>
-                                                </div>
+                                        <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                            <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase className="text-blue-400"/> Passo 2: Agendar a Tarefa (SQL)</h4>
+                                            <p className="text-xs text-gray-400 mb-2">
+                                                Execute este comando no SQL Editor do seu projeto Supabase para agendar a tarefa. Substitua <code>[PROJECT-REF]</code> e <code>[SERVICE_ROLE_KEY]</code> pelos seus valores.
+                                            </p>
+                                            <div className="relative">
+                                                <pre className="text-xs font-mono text-orange-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
+                                                    {cronSqlCode}
+                                                </pre>
+                                                <button onClick={() => handleCopy(cronSqlCode, 'cron_sql')} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                                     {copiedCode === 'cron_sql' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                                                </button>
                                             </div>
+                                        </div>
+
+                                        <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                                            <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaCog className="text-gray-400"/> Passo 3: Configuração & Teste</h4>
                                             
-                                            <div className="border-t border-gray-700 pt-3">
-                                                 <label className="block text-xs text-gray-500 uppercase mb-1">URL da Função (Para Teste)</label>
-                                                 <div className="flex gap-2 items-center">
-                                                    <input 
-                                                        type="text" 
-                                                        value={cronFunctionUrl} 
-                                                        onChange={(e) => setCronFunctionUrl(e.target.value)}
-                                                        className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono"
-                                                        placeholder="https://[PROJECT].supabase.co/functions/v1/weekly-report"
-                                                    />
-                                                    <button 
-                                                        onClick={handleTestCron} 
-                                                        disabled={isTestingCron || !cronFunctionUrl}
-                                                        className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
-                                                    >
-                                                        {isTestingCron ? <FaSpinner className="animate-spin"/> : <FaPlay />} Testar Envio Agora
-                                                    </button>
-                                                 </div>
-                                                 <p className="text-xs text-gray-500 mt-1">Este botão executa a função imediatamente, enviando o relatório para os emails configurados.</p>
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="block text-xs text-gray-500 uppercase mb-1">Emails Destinatários (separados por vírgula)</label>
+                                                    <div className="flex gap-2">
+                                                        <input type="text" value={reportRecipients} onChange={(e) => setReportRecipients(e.target.value)} className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="admin@empresa.com, gestor@empresa.com" />
+                                                        <button onClick={handleSaveAutomation} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2"><FaSave /> Guardar</button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="border-t border-gray-700 pt-3">
+                                                     <label className="block text-xs text-gray-500 uppercase mb-1">URL da Função (Para Teste)</label>
+                                                     <div className="flex gap-2 items-center">
+                                                        <input type="text" value={cronFunctionUrl} onChange={(e) => setCronFunctionUrl(e.target.value)} className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono" placeholder="https://[PROJECT].supabase.co/functions/v1/weekly-report"/>
+                                                        <button onClick={handleTestCron} disabled={isTestingCron || !cronFunctionUrl} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50">
+                                                            {isTestingCron ? <FaSpinner className="animate-spin"/> : <FaPlay />} Testar Envio Agora
+                                                        </button>
+                                                     </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1326,7 +1321,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                             <pre className="text-xs font-mono text-blue-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
                                                 {emailNotifyCode}
                                             </pre>
-                                            <button onClick={() => handleCopy(emailNotifyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                            <button onClick={() => navigator.clipboard.writeText(emailNotifyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
                                                 <FaCopy />
                                             </button>
                                         </div>
@@ -1342,7 +1337,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                             <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
                                                 {emailReplyCode}
                                             </pre>
-                                            <button onClick={() => handleCopy(emailReplyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                            <button onClick={() => navigator.clipboard.writeText(emailReplyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
                                                 <FaCopy />
                                             </button>
                                         </div>
