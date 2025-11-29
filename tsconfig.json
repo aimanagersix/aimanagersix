@@ -23,6 +23,6 @@
     /* Vite specific */
     "types": ["vite/client"]
   },
-  "include": ["."],
+  "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "supabase", "dist"]
 }

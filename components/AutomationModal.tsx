@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import Modal from './common/Modal';
-import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal, FaClock, FaEnvelope, FaList, FaPaperPlane, FaReply, FaPlay, FaSpinner } from 'react-icons/fa';
+import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal, FaClock, FaEnvelope, FaList, FaPaperPlane, FaReply, FaPlay, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 
 interface AutomationModalProps {
@@ -275,28 +275,51 @@ serve(async (req) => {
 })
 `;
 
-    // CRON Job Scripts
     const cronFunctionCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-// Use Resend.com for free transactional emails
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Fetch Summary Data
+    // 1. Ler Configurações da DB (Emails e API Key)
+    const { data: settings } = await supabase
+      .from('global_settings')
+      .select('setting_key, setting_value')
+      .in('setting_key', ['weekly_report_recipients', 'resend_api_key'])
+    
+    const recipientsStr = settings?.find(s => s.setting_key === 'weekly_report_recipients')?.setting_value
+    const resendKey = settings?.find(s => s.setting_key === 'resend_api_key')?.setting_value
+    
+    // Default recipients if none configured
+    const recipients = recipientsStr ? recipientsStr.split(',').map(e => e.trim()) : []
+
+    // Early return if no key, but return JSON to avoid crashing frontend fetch
+    if (!resendKey) {
+         return new Response(JSON.stringify({ error: "Resend API Key não configurada na tabela global_settings." }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    
+    if (recipients.length === 0) {
+        return new Response(JSON.stringify({ message: "Sem destinatários configurados para envio." }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    // 2. Fetch Data
     const { count: ticketCount } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Pedido')
     const { count: vulnCount } = await supabase.from('vulnerabilities').select('*', { count: 'exact', head: true }).eq('status', 'Aberto')
     
-    // 2. Construct Email Body
     const emailHtml = \`
       <h1>Relatório Semanal - AIManager</h1>
-      <p>Aqui está o resumo do estado do seu parque informático:</p>
       <ul>
         <li><strong>Tickets Pendentes:</strong> \${ticketCount}</li>
         <li><strong>Vulnerabilidades Abertas:</strong> \${vulnCount}</li>
@@ -304,27 +327,40 @@ serve(async (req) => {
       <p>Aceda ao dashboard para mais detalhes.</p>
     \`
 
-    // 3. Send Email (Example using Fetch to Resend)
-    if (RESEND_API_KEY) {
-        await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': \`Bearer \${RESEND_API_KEY}\`
-            },
-            body: JSON.stringify({
-                from: 'AIManager <onboarding@resend.dev>',
-                to: ['admin@empresa.com'], // Change this
-                subject: 'Relatório Semanal de Ativos',
-                html: emailHtml
-            })
+    // 3. Send Email via Resend
+    const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': \`Bearer \${resendKey}\`
+        },
+        body: JSON.stringify({
+            from: 'AIManager <onboarding@resend.dev>',
+            to: recipients, 
+            subject: 'Relatório Semanal de Ativos',
+            html: emailHtml
         })
+    })
+    
+    // Parse Resend response safely
+    const resultText = await res.text()
+    let resultJson = {}
+    try {
+        resultJson = JSON.parse(resultText)
+    } catch (e) {
+        resultJson = { raw: resultText }
     }
 
-    return new Response(JSON.stringify({ success: true, sent: !!RESEND_API_KEY }), { headers: { 'Content-Type': 'application/json' } })
+    if (!res.ok) {
+        console.error("Resend Error:", resultJson)
+        throw new Error(\`Resend API Error: \${JSON.stringify(resultJson)}\`)
+    }
+
+    return new Response(JSON.stringify({ success: true, result: resultJson }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    console.error("Function Error:", error)
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 })
 `;
@@ -340,37 +376,39 @@ select cron.schedule(
   $$
   select
     net.http_post(
-        url:='https://PROJECT_REF.supabase.co/functions/v1/weekly-report',
-        headers:='{"Content-Type": "application/json", "Authorization": "Bearer SERVICE_ROLE_KEY"}'::jsonb,
+        url:='https://[PROJECT-REF].supabase.co/functions/v1/weekly-report',
+        headers:='{"Content-Type": "application/json", "Authorization": "Bearer [SERVICE_ROLE_KEY]"}'::jsonb,
         body:='{}'::jsonb
     ) as request_id;
   $$
 );
-
--- Para ver jobs agendados:
--- select * from cron.job;
 `;
 
     const emailNotifyCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-
 serve(async (req) => {
   try {
-    // Webhook Payload from Database Insert
     const { record } = await req.json()
     
-    if (!record || !record.team_id) {
-        return new Response('No team assigned', { status: 200 })
-    }
+    if (!record || !record.team_id) return new Response('No team assigned', { status: 200 })
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Fetch Team Members emails
+    // 1. Ler API Key da DB
+    const { data: setting } = await supabase
+      .from('global_settings')
+      .select('setting_value')
+      .eq('setting_key', 'resend_api_key')
+      .single()
+      
+    const resendKey = setting?.setting_value
+    if (!resendKey) return new Response('Resend API Key missing in DB', { status: 500 })
+
+    // 2. Fetch Team Emails
     const { data: members } = await supabase
         .from('team_members')
         .select('collaborator_id, collaborators(email)')
@@ -380,12 +418,12 @@ serve(async (req) => {
     
     const emails = members.map((m:any) => m.collaborators?.email).filter(Boolean)
 
-    // 2. Send Email via Resend
+    // 3. Send Email
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': \`Bearer \${RESEND_API_KEY}\`
+        'Authorization': \`Bearer \${resendKey}\`
       },
       body: JSON.stringify({
         from: 'AIManager Support <support@resend.dev>',
@@ -394,10 +432,8 @@ serve(async (req) => {
         html: \`
             <h2>Novo Ticket Atribuído à Equipa</h2>
             <p><strong>Assunto:</strong> \${record.title}</p>
-            <p><strong>Prioridade:</strong> \${record.impactCriticality || 'Normal'}</p>
             <p><strong>Descrição:</strong> \${record.description}</p>
-            <br/>
-            <p>Para adicionar um comentário, responda diretamente a este email.</p>
+            <p>Responda a este email para adicionar comentários.</p>
         \`
       })
     })
@@ -413,58 +449,31 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 serve(async (req) => {
   try {
-    // 1. Parse Inbound Email
-    // Resend uses a specific JSON payload for webhooks, unlike Mailgun/SendGrid that use FormData
     const payload = await req.json()
-    
-    // Check payload structure (Resend specific)
     const subject = payload.subject || ''
     const text = payload.text || ''
     const from = payload.from || ''
 
-    // 2. Extract Ticket ID from Subject (Regex: [Ticket: UUID-PART])
-    // Example Subject: "Re: [Ticket: a1b2c3d4] Impressora"
     const ticketIdMatch = subject.match(/Ticket: ([a-f0-9-]{8})/)
+    if (!ticketIdMatch) return new Response('No Ticket ID found', { status: 200 })
     
-    if (!ticketIdMatch) {
-        console.log("No Ticket ID found in subject:", subject)
-        return new Response('No Ticket ID found', { status: 200 })
-    }
-    
-    const shortId = ticketIdMatch[1] // Partial ID
+    const shortId = ticketIdMatch[1]
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 3. Find full Ticket ID
-    const { data: ticket } = await supabase
-        .from('tickets')
-        .select('id')
-        .ilike('id', \`\${shortId}%\`)
-        .single()
-
+    const { data: ticket } = await supabase.from('tickets').select('id').ilike('id', \`\${shortId}%\`).single()
     if (!ticket) return new Response('Ticket not found', { status: 404 })
 
-    // 4. Find Technician by Email (From)
-    // Clean up sender string if it comes as "Name <email@domain.com>"
     const cleanEmail = from.match(/<(.+)>/)?.[1] || from
-    
-    const { data: tech } = await supabase
-        .from('collaborators')
-        .select('id')
-        .eq('email', cleanEmail)
-        .single()
-
-    // 5. Insert Activity (Comment)
-    // Filter out email signatures if possible (simple split by common delimiters)
-    const cleanText = text.split('On ')[0].split('-----Original Message-----')[0].substring(0, 1000)
+    const { data: tech } = await supabase.from('collaborators').select('id').eq('email', cleanEmail).single()
 
     await supabase.from('ticket_activities').insert({
         ticketId: ticket.id,
-        description: \`[Email Reply]: \${cleanText}\`,
-        technicianId: tech?.id || null, // Null if external user
+        description: \`[Email Reply]: \${text.substring(0, 1000)}\`,
+        technicianId: tech?.id || null, 
         date: new Date().toISOString()
     })
 
@@ -701,13 +710,12 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --pro
                          <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar">
                             <div className="bg-orange-900/20 border border-orange-500/50 p-4 rounded-lg text-sm text-orange-200">
                                 <div className="flex items-center gap-2 font-bold mb-2">
-                                    <FaEnvelope /> Email & Tickets (Resend Integration)
+                                    <FaEnvelope /> Email & Tickets (Inbound/Outbound)
                                 </div>
                                 <p>
-                                    Configure o envio de notificações e a recepção de respostas (Inbound) utilizando o serviço <strong>Resend</strong>.
-                                </p>
-                                <p className="mt-2 text-xs text-white">
-                                    Nota: O Resend utiliza <strong>Webhooks JSON</strong>. O código abaixo está preparado para isso.
+                                    Automatize o envio de notificações de novos tickets e permita que a equipa responda diretamente por email para atualizar o ticket (usando Resend).
+                                    <br/>
+                                    <strong>Requisito:</strong> Chave API do Resend configurada na aba "Conexões".
                                 </p>
                             </div>
 
@@ -733,14 +741,44 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --pro
                                 {/* Inbound Reply */}
                                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
                                     <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaReply className="text-green-400"/> 2. Processar Respostas (Inbound Webhook)</h4>
-                                    <p className="text-xs text-gray-400 mb-2">
-                                        Esta função recebe o JSON do Resend, extrai o ID do ticket do assunto e insere o comentário.
-                                        <br/>
-                                        <strong>Setup:</strong>
-                                        <br/>1. Crie a função <code>email-processor</code> com este código.
-                                        <br/>2. Faça deploy: <code>supabase functions deploy email-processor --no-verify-jwt</code>
-                                        <br/>3. No <strong>Resend Dashboard</strong>: Adicione o seu domínio, verifique os registos MX e configure um <strong>Webhook</strong> apontando para a URL da função.
-                                    </p>
+                                    <div className="text-xs text-gray-400 mb-3 space-y-2">
+                                        <p>
+                                            Crie uma função <code>email-processor</code> para receber os emails. O Resend fará um POST para esta função sempre que chegar um email ao seu domínio.
+                                        </p>
+
+                                        {/* DOMAIN REQUIREMENT WARNING */}
+                                        <div className="bg-red-900/20 border-l-2 border-red-500 p-3">
+                                            <strong>Requisito Obrigatório (Domínio Próprio):</strong>
+                                            <p className="mt-1 text-gray-300">
+                                                Para receber emails (Inbound), o Resend exige que configure registos <strong>MX</strong> no DNS de um domínio que possua (ex: <code>suporte@suaempresa.com</code>).
+                                                <br/>
+                                                <strong>Se não tem domínio próprio (ex: usa apenas Vercel/Gmail):</strong> Esta funcionalidade <u>não funcionará</u> em produção, mas pode deixar o código pronto (Deploy) para quando tiver um domínio.
+                                            </p>
+                                        </div>
+
+                                        {/* TESTING TIP */}
+                                        <div className="bg-blue-900/20 border-l-2 border-blue-500 p-3">
+                                            <strong>Como Testar sem Domínio?</strong>
+                                            <p className="mt-1 text-gray-300">
+                                                Pode testar a lógica da função simulando o Webhook manualmente. Use o Postman ou o comando curl abaixo para enviar um JSON de teste para a sua função:
+                                            </p>
+                                            <div className="mt-2 bg-black p-2 rounded font-mono text-[10px] text-green-400 overflow-x-auto">
+                                                curl -X POST https://[PROJECT-REF].supabase.co/functions/v1/email-processor \<br/>
+                                                -H "Content-Type: application/json" \<br/>
+                                                -H "Authorization: Bearer [ANON_KEY]" \<br/>
+                                                -d '{'{'}"subject": "Re: [Ticket: [ID-TICKET]] Assunto", "text": "Esta é uma resposta de teste.", "from": "teste@email.com"{'}'}'
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-yellow-900/20 border-l-2 border-yellow-500 p-2">
+                                            <strong>Configuração no Resend (Quando tiver domínio):</strong>
+                                            <ul className="list-disc list-inside mt-1 ml-1">
+                                                <li>Vá a <strong>Webhooks</strong> &rarr; <strong>Add Webhook</strong>.</li>
+                                                <li>URL: <code>https://[PROJECT-REF].supabase.co/functions/v1/email-processor</code></li>
+                                                <li>Select Events: <strong>Inbound Email</strong> (só aparece se MX estiver configurado).</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                     <div className="relative">
                                         <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
                                             {emailReplyCode}
@@ -755,7 +793,7 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --pro
                     )}
 
                     {activeTab === 'tests' && (
-                        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
+                        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar">
                              <div className="bg-pink-900/20 border border-pink-500/50 p-4 rounded-lg text-sm text-pink-200">
                                 <div className="flex items-center gap-2 font-bold mb-2">
                                     <FaRobot /> Gerador de Testes E2E (Playwright)

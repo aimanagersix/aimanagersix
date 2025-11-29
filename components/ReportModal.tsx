@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Instituicao, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, CriticalityLevel, BusinessService, ServiceDependency } from '../types';
@@ -472,8 +471,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
             rows = reportData.items.map(item => [
                 escapeCsv(reportData.instituicao?.name), escapeCsv(reportData.entidade?.name), 
-                escapeCsv(brandMap.get(item.equipment?.brandId || '') || ''), // Fallback empty string for TS safety
-                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '') || ''), // Fallback empty string
+                escapeCsv(brandMap.get(item.equipment?.brandId || '') || ''), 
+                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '') || ''), 
                 escapeCsv(item.equipment?.serialNumber), escapeCsv(item.equipment?.inventoryNumber), escapeCsv(item.equipment?.invoiceNumber), escapeCsv(item.equipment?.description),
                 escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
                 escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), escapeCsv(item.collaborator?.email), escapeCsv(item.assignedDate), escapeCsv(item.returnDate),
@@ -503,7 +502,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             headers = ["Equipamento", "Marca/Tipo", "Nº Série", "Criticidade", "Confidencialidade", "Integridade", "Disponibilidade"];
             rows = reportData.items.map(item => [
                 escapeCsv(item.description),
-                escapeCsv(`${brandMap.get(item.brandId) || ''} ${equipmentTypeMap.get(item.typeId) || ''}`),
+                escapeCsv(`${brandMap.get(item.brandId || '') || ''} ${equipmentTypeMap.get(item.typeId || '') || ''}`),
                 escapeCsv(item.serialNumber),
                 escapeCsv(item.criticality),
                 escapeCsv(item.confidentiality),
@@ -671,7 +670,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                         <tbody>
                             {reportData.items.map((item, index) => (
                                 <tr key={index} className="border-b border-gray-700">
-                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId || '')} {equipmentTypeMap.get(item.equipment?.typeId || '')}</td>
+                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId || '') || ''} {equipmentTypeMap.get(item.equipment?.typeId || '') || ''}</td>
                                     <td className="px-4 py-2">{item.equipment?.serialNumber}</td>
                                     <td className="px-4 py-2">{item.equipment?.nomeNaRede || '—'}</td>
                                     <td className="px-4 py-2">{item.equipment?.inventoryNumber || '—'}</td>
@@ -718,7 +717,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                         <tbody>
                             {reportData.items.map((item, index) => (
                                 <tr key={index} className="border-b border-gray-700">
-                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId || '')} {equipmentTypeMap.get(item.equipment?.typeId || '')}</td>
+                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId || '') || ''} {equipmentTypeMap.get(item.equipment?.typeId || '') || ''}</td>
                                     <td className="px-4 py-2">{item.equipment?.serialNumber}</td>
                                     <td className="px-4 py-2">{item.equipment?.nomeNaRede || '—'}</td>
                                     <td className="px-4 py-2">{item.equipment?.inventoryNumber || '—'}</td>
@@ -764,7 +763,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                                 <ul className="list-disc list-inside text-xs space-y-1">
                                                 {item.equipmentList.map(eq => (
                                                     <li key={eq.id}>
-                                                        <span className="font-semibold text-on-surface-dark">{brandMap.get(eq.brandId)} {equipmentTypeMap.get(eq.typeId)}</span>
+                                                        <span className="font-semibold text-on-surface-dark">{brandMap.get(eq.brandId || '') || ''} {equipmentTypeMap.get(eq.typeId || '') || ''}</span>
                                                         <span className="text-on-surface-dark-secondary"> (S/N: {eq.serialNumber}, Inv: {eq.inventoryNumber || 'N/A'})</span>
                                                     </li>
                                                 ))}
@@ -842,7 +841,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                 <tr key={item.id} className="border-b border-gray-700">
                                     <td className="px-4 py-2">
                                         <div className="text-on-surface-dark font-medium">{item.description}</div>
-                                        <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId)} {equipmentTypeMap.get(item.typeId)}</div>
+                                        <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId || '')} {equipmentTypeMap.get(item.typeId || '')}</div>
                                     </td>
                                     <td className="px-4 py-2 font-mono text-xs">{item.serialNumber}</td>
                                     <td className={`px-4 py-2 text-center ${getLevelColor(item.criticality)}`}>{item.criticality || 'N/A'}</td>

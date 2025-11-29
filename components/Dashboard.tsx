@@ -1,15 +1,11 @@
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import EquipmentDetailModal from './EquipmentDetailModal';
 import * as dataService from '../services/dataService';
-
 
 interface EquipmentDashboardProps {
   equipment: Equipment[];
@@ -21,6 +17,7 @@ interface EquipmentDashboardProps {
   assignments: Assignment[];
   collaborators: Collaborator[];
   entidades: Entidade[];
+  instituicoes?: Instituicao[]; // Needed for mapping
   initialFilter: any;
   onClearInitialFilter: () => void;
   onAssign?: (equipment: Equipment) => void;
@@ -54,6 +51,17 @@ interface TooltipState {
 
 type SortableKeys = keyof Equipment | 'brand' | 'type' | 'assignedTo';
 
+const getStatusClass = (status: string) => {
+    switch (status) {
+        case 'Operacional': return 'bg-green-500/20 text-green-400 border-green-500/30';
+        case 'Stock': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+        case 'Garantia': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+        case 'Abate': return 'bg-red-500/20 text-red-400 border-red-500/30';
+        case 'Empréstimo': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+        default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
+};
+
 const getCriticalityClass = (level?: CriticalityLevel) => {
     switch (level) {
         case CriticalityLevel.Critical: return 'bg-red-600 text-white border-red-700';
@@ -61,16 +69,6 @@ const getCriticalityClass = (level?: CriticalityLevel) => {
         case CriticalityLevel.Medium: return 'bg-yellow-600 text-white border-yellow-700';
         case CriticalityLevel.Low: return 'bg-gray-600 text-white border-gray-700';
         default: return 'bg-gray-700 text-gray-300 border-gray-600';
-    }
-};
-
-const getStatusClass = (status: string) => {
-    switch (status) {
-        case 'Operacional': return 'bg-green-500/20 text-green-400 border-green-500/30';
-        case 'Stock': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-        case 'Garantia': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-        case 'Abate': return 'bg-red-500/20 text-red-400 border-red-500/30';
-        default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
 };
 
@@ -108,7 +106,7 @@ const SortableHeader: React.FC<{
 
     return (
         <th scope="col" className="px-6 py-3">
-            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 uppercase font-bold text-xs hover:text-white">
+            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 uppercase font-bold text-xs hover:text-white w-full">
                 {title}
                 {isSorted ? (direction === 'ascending' ? <FaSortUp /> : <FaSortDown />) : <FaSort className="opacity-50" />}
             </button>
@@ -153,6 +151,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+    
     const activeAssignmentsMap = useMemo(() => {
         const map = new Map<string, Assignment>();
         assignments.filter(a => !a.returnDate).forEach(a => {
@@ -205,8 +204,10 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             if (assignment) {
                 if (assignment.collaboratorId) {
                     assignedTo = collaboratorMap.get(assignment.collaboratorId) || 'Colaborador desconhecido';
-                } else {
-                    assignedTo = `Entidade: ${entidadeMap.get(assignment.entidadeId) || 'desconhecida'}`;
+                } else if (assignment.entidadeId) {
+                    assignedTo = `${entidadeMap.get(assignment.entidadeId) || 'Entidade desconhecida'}`;
+                } else if (assignment.instituicaoId) {
+                     assignedTo = `Instituição`; // Ideally fetch inst name
                 }
             }
             return { ...eq, assignedTo, assignment };
@@ -247,11 +248,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 let bValue: any;
 
                 if (sortConfig.key === 'brand') {
-                    aValue = brandMap.get(a.brandId) || '';
-                    bValue = brandMap.get(b.brandId) || '';
+                    aValue = brandMap.get(a.brandId || '') || '';
+                    bValue = brandMap.get(b.brandId || '') || '';
                 } else if (sortConfig.key === 'type') {
-                    aValue = equipmentTypeMap.get(a.typeId) || '';
-                    bValue = equipmentTypeMap.get(b.typeId) || '';
+                    aValue = equipmentTypeMap.get(a.typeId || '') || '';
+                    bValue = equipmentTypeMap.get(b.typeId || '') || '';
                 } else if (sortConfig.key === 'assignedTo') {
                     aValue = a.assignedTo || '';
                     bValue = b.assignedTo || '';
@@ -318,7 +319,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         }
     };
 
-
     const handleStatusChange = (item: Equipment, newStatus: EquipmentStatus) => {
         if (!onUpdateStatus || !onAssign) return;
 
@@ -333,7 +333,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     };
 
     const handleMouseOver = (item: Equipment & { assignedTo: string }, event: React.MouseEvent) => {
-        // Ensure config is merged with defaults
         const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
         
         const content = (
@@ -343,9 +342,10 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 {cfg.showOsVersion && <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
                 {cfg.showLastPatch && <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
                 {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
-                {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</span></p>}
+                {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId || '') || ''} / {equipmentTypeMap.get(item.typeId || '') || ''}</span></p>}
                 {cfg.showWarranty && <p><strong className="text-on-surface-dark-secondary">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
                 {cfg.showLocation && item.installationLocation && <p><strong className="text-on-surface-dark-secondary">Localização:</strong> <span className="text-white">{item.installationLocation}</span></p>}
+                {item.isLoan && <p className="text-purple-400 font-bold">Equipamento de Empréstimo</p>}
             </div>
         );
 
@@ -456,9 +456,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
               <th scope="col" className="px-4 py-3 w-12">
                  <input
                         type="checkbox"
-                        className="rounded border-gray-500 bg-gray-700 text-brand-secondary focus:ring-brand-secondary"
+                        className="rounded border-gray-500 bg-gray-700 text-brand-secondary focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                        checked={selectedIds.has(stockEquipment.length > 0 ? stockEquipment[0].id : '') && stockEquipment.length > 0 && selectedIds.size === stockEquipment.length}
                         onChange={handleSelectAll}
-                        checked={stockEquipment.length > 0 && selectedIds.size === stockEquipment.length}
                         disabled={stockEquipment.length === 0}
                     />
               </th>
@@ -478,7 +478,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 const isSelectable = item.status === EquipmentStatus.Stock;
                 const linkedServiceCriticality = equipmentCriticalityMap.get(item.id);
                 
-                // Apply custom color for status if available
                 const customColor = statusColors[item.status];
                 const statusStyle = customColor 
                     ? { backgroundColor: `${customColor}33`, color: customColor, borderColor: `${customColor}66` } 
@@ -491,7 +490,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                onClick={() => setDetailEquipment(item)} 
+                onClick={() => setDetailEquipment(item)}
               >
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                      <input
@@ -511,8 +510,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                           </span>
                       )}
+                      {item.isLoan && <span className="text-[10px] bg-purple-900/30 text-purple-300 px-1 rounded border border-purple-500/30">LOAN</span>}
                   </div>
-                  <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId)} / {equipmentTypeMap.get(item.typeId)}</div>
+                  <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId || '') || ''} / {equipmentTypeMap.get(item.typeId || '') || ''}</div>
                 </td>
                 <td className="px-6 py-4">{item.serialNumber}</td>
                 <td className="px-6 py-4">{item.assignedTo}</td>
@@ -538,7 +538,16 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <td className="px-6 py-4 text-center">
                     <div className="flex justify-center items-center gap-4">
                         {isAssigned ? (
-                            <button onClick={(e) => { e.stopPropagation(); onUnassign && onUnassign(item.id); }} className="text-red-400 hover:text-red-300" title="Desassociar Equipamento">
+                            <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if(window.confirm("Deseja desassociar este equipamento? O estado passará para 'Stock'.")) {
+                                        onUnassign && onUnassign(item.id); 
+                                    }
+                                }} 
+                                className="text-red-400 hover:text-red-300" 
+                                title="Desassociar Equipamento"
+                            >
                                 <UnassignIcon />
                             </button>
                         ) : (
@@ -555,7 +564,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                             </button>
                         )}
                         {onEdit && (
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar Equipamento">
+                            <button onClick={(e) => { e.stopPropagation(); setDetailEquipment(item); }} className="text-blue-400 hover:text-blue-300" title="Ver Detalhe / Editar">
                                 <EditIcon />
                             </button>
                         )}
@@ -604,7 +613,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 ticketActivities={ticketActivities}
                 onClose={() => setDetailEquipment(null)}
                 onEdit={(eq) => { setDetailEquipment(null); onEdit && onEdit(eq); }}
-                // Pass everything else
                 businessServices={businessServices}
                 serviceDependencies={serviceDependencies}
                 softwareLicenses={softwareLicenses}

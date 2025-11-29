@@ -77,114 +77,73 @@ interface MenuItem {
     permissionKey: ModuleKey; // Granular key
 }
 
+// --- EDGE FUNCTION SCRIPTS (Atualizados para ler da DB) ---
+
 const cronFunctionCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-// CORS Headers are required for browser requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Use Resend.com for free transactional emails
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-
 serve(async (req) => {
-  // Handle CORS preflight request
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    // --- ROBUST INPUT HANDLING ---
-    // We do NOT need to parse req.json() for this report, preventing 'Unexpected end of JSON' error if body is empty.
-    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Obter destinatários da configuração global
-    const { data: setting } = await supabase
+    // 1. Ler Configurações da DB (Emails e API Key)
+    const { data: settings } = await supabase
       .from('global_settings')
-      .select('setting_value')
-      .eq('setting_key', 'weekly_report_recipients')
-      .single()
+      .select('setting_key, setting_value')
+      .in('setting_key', ['weekly_report_recipients', 'resend_api_key'])
     
-    // Default fallback
-    const recipients = setting?.setting_value 
-        ? setting.setting_value.split(',').map(e => e.trim()) 
-        : ['admin@exemplo.com']
+    const recipientsStr = settings?.find(s => s.setting_key === 'weekly_report_recipients')?.setting_value
+    const resendKey = settings?.find(s => s.setting_key === 'resend_api_key')?.setting_value
+    
+    const recipients = recipientsStr ? recipientsStr.split(',').map(e => e.trim()) : []
 
-    // 2. Fetch Summary Data
+    if (!resendKey) throw new Error("Resend API Key não configurada na tabela global_settings.")
+    if (recipients.length === 0) return new Response(JSON.stringify({ message: "Sem destinatários configurados." }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
+    // 2. Fetch Data
     const { count: ticketCount } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Pedido')
     const { count: vulnCount } = await supabase.from('vulnerabilities').select('*', { count: 'exact', head: true }).eq('status', 'Aberto')
     
-    // 3. Construct Email Body
     const emailHtml = \`
       <h1>Relatório Semanal - AIManager</h1>
-      <p>Aqui está o resumo do estado do seu parque informático:</p>
       <ul>
         <li><strong>Tickets Pendentes:</strong> \${ticketCount}</li>
         <li><strong>Vulnerabilidades Abertas:</strong> \${vulnCount}</li>
       </ul>
       <p>Aceda ao dashboard para mais detalhes.</p>
-      <p><small>Enviado automaticamente pelo sistema.</small></p>
     \`
 
-    // 4. Send Email (via Resend)
-    let emailResult = null;
-    let emailStatus = 'skipped';
+    // 3. Send Email
+    const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': \`Bearer \${resendKey}\`
+        },
+        body: JSON.stringify({
+            from: 'AIManager <onboarding@resend.dev>',
+            to: recipients, 
+            subject: 'Relatório Semanal de Ativos',
+            html: emailHtml
+        })
+    })
+    
+    const result = await res.json()
 
-    if (RESEND_API_KEY) {
-        try {
-            const res = await fetch('https://api.resend.com/emails', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': \`Bearer \${RESEND_API_KEY}\`
-                },
-                body: JSON.stringify({
-                    from: 'AIManager <onboarding@resend.dev>',
-                    to: recipients, 
-                    subject: 'Relatório Semanal de Ativos',
-                    html: emailHtml
-                })
-            })
-            
-            // Safe JSON parsing for response
-            const text = await res.text()
-            try {
-                emailResult = text ? JSON.parse(text) : { message: "No content returned" }
-            } catch (e) {
-                emailResult = { error: "Failed to parse Resend response", raw: text }
-            }
-
-            emailStatus = res.ok ? 'sent' : 'failed'
-            
-            if (!res.ok) {
-                console.error("Resend API Error:", emailResult)
-            }
-        } catch (fetchError) {
-            console.error("Fetch Error:", fetchError)
-            emailResult = { error: fetchError.message }
-            emailStatus = 'error'
-        }
-    } else {
-        console.warn("RESEND_API_KEY not set")
-    }
-
-    return new Response(
-        JSON.stringify({ success: true, recipients: recipients.length, emailStatus, emailResult }), 
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ success: res.ok, result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {
-    console.error("Function Error:", error)
-    return new Response(
-        JSON.stringify({ error: error.message }), 
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 })
 `;
@@ -200,37 +159,39 @@ select cron.schedule(
   $$
   select
     net.http_post(
-        url:='https://PROJECT_REF.supabase.co/functions/v1/weekly-report',
-        headers:='{"Content-Type": "application/json", "Authorization": "Bearer SERVICE_ROLE_KEY"}'::jsonb,
+        url:='https://[PROJECT-REF].supabase.co/functions/v1/weekly-report',
+        headers:='{"Content-Type": "application/json", "Authorization": "Bearer [SERVICE_ROLE_KEY]"}'::jsonb,
         body:='{}'::jsonb
     ) as request_id;
   $$
 );
-
--- Para ver jobs agendados:
--- select * from cron.job;
 `;
 
 const emailNotifyCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-
 serve(async (req) => {
   try {
-    // Webhook Payload from Database Insert
     const { record } = await req.json()
     
-    if (!record || !record.team_id) {
-        return new Response('No team assigned', { status: 200 })
-    }
+    if (!record || !record.team_id) return new Response('No team assigned', { status: 200 })
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Fetch Team Members emails
+    // 1. Ler API Key da DB
+    const { data: setting } = await supabase
+      .from('global_settings')
+      .select('setting_value')
+      .eq('setting_key', 'resend_api_key')
+      .single()
+      
+    const resendKey = setting?.setting_value
+    if (!resendKey) return new Response('Resend API Key missing in DB', { status: 500 })
+
+    // 2. Fetch Team Emails
     const { data: members } = await supabase
         .from('team_members')
         .select('collaborator_id, collaborators(email)')
@@ -240,24 +201,22 @@ serve(async (req) => {
     
     const emails = members.map((m:any) => m.collaborators?.email).filter(Boolean)
 
-    // 2. Send Email via Resend
+    // 3. Send Email
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': \`Bearer \${RESEND_API_KEY}\`
+        'Authorization': \`Bearer \${resendKey}\`
       },
       body: JSON.stringify({
         from: 'AIManager Support <support@resend.dev>',
         to: emails,
-        subject: \`[Novo Ticket] \${record.title} (#\${record.id.substring(0,8)})\`,
+        subject: \`[Ticket: \${record.id.substring(0,8)}] \${record.title}\`,
         html: \`
             <h2>Novo Ticket Atribuído à Equipa</h2>
             <p><strong>Assunto:</strong> \${record.title}</p>
-            <p><strong>Prioridade:</strong> \${record.impactCriticality || 'Normal'}</p>
             <p><strong>Descrição:</strong> \${record.description}</p>
-            <br/>
-            <p>Para responder e adicionar notas ao ticket, responda diretamente a este email.</p>
+            <p>Responda a este email para adicionar comentários.</p>
         \`
       })
     })
@@ -273,50 +232,31 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 serve(async (req) => {
   try {
-    // 1. Parse Inbound Email (Webhook from Resend/Mailgun)
     const payload = await req.json()
     const subject = payload.subject || ''
     const text = payload.text || ''
     const from = payload.from || ''
 
-    // 2. Extract Ticket ID from Subject (Regex: #[UUID-PART])
-    // Example Subject: "Re: [Novo Ticket] Impressora (#a1b2c3d4)"
-    const ticketIdMatch = subject.match(/#([a-f0-9-]{8})/)
+    const ticketIdMatch = subject.match(/Ticket: ([a-f0-9-]{8})/)
+    if (!ticketIdMatch) return new Response('No Ticket ID found', { status: 200 })
     
-    if (!ticketIdMatch) {
-        return new Response('No Ticket ID found', { status: 200 })
-    }
-    
-    const shortId = ticketIdMatch[1] // Partial ID
+    const shortId = ticketIdMatch[1]
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 3. Find full Ticket ID
-    const { data: ticket } = await supabase
-        .from('tickets')
-        .select('id')
-        .ilike('id', \`\${shortId}%\`)
-        .single()
-
+    const { data: ticket } = await supabase.from('tickets').select('id').ilike('id', \`\${shortId}%\`).single()
     if (!ticket) return new Response('Ticket not found', { status: 404 })
 
-    // 4. Find Technician by Email (From)
-    // Clean up sender "Name <email>"
     const cleanEmail = from.match(/<(.+)>/)?.[1] || from
-    const { data: tech } = await supabase
-        .from('collaborators')
-        .select('id')
-        .eq('email', cleanEmail)
-        .single()
+    const { data: tech } = await supabase.from('collaborators').select('id').eq('email', cleanEmail).single()
 
-    // 5. Insert Activity
     await supabase.from('ticket_activities').insert({
         ticketId: ticket.id,
-        description: \`[Email Reply]: \${text.substring(0, 500)}...\`,
-        technicianId: tech?.id || null, // Null if external user
+        description: \`[Email Reply]: \${text.substring(0, 1000)}\`,
+        technicianId: tech?.id || null, 
         date: new Date().toISOString()
     })
 
@@ -360,10 +300,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [scanCustomPrompt, setScanCustomPrompt] = useState('');
     const [nistApiKey, setNistApiKey] = useState('');
     
-    // Connections State (Supabase)
+    // Connections State (Supabase & Resend)
     const [sbUrl, setSbUrl] = useState('');
     const [sbKey, setSbKey] = useState('');
     const [sbServiceKey, setSbServiceKey] = useState('');
+    const [resendApiKey, setResendApiKey] = useState('');
     
     // Reporting Config
     const [reportRecipients, setReportRecipients] = useState('');
@@ -455,7 +396,10 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 
                 // Connections
                 const nistKey = await dataService.getGlobalSetting('nist_api_key');
+                const rKey = await dataService.getGlobalSetting('resend_api_key');
+                
                 if (nistKey) setNistApiKey(nistKey);
+                if (rKey) setResendApiKey(rKey);
 
                 setSbUrl(localStorage.getItem('SUPABASE_URL') || '');
                 setSbKey(localStorage.getItem('SUPABASE_ANON_KEY') || '');
@@ -503,7 +447,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             const response = await fetch(cronFunctionUrl, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${sbKey}`, // Use Anon key if function allows, or Service Role if secured
+                    'Authorization': `Bearer ${sbKey}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({})
@@ -524,6 +468,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     
     const handleSaveConnections = async () => {
         await dataService.updateGlobalSetting('nist_api_key', nistApiKey);
+        await dataService.updateGlobalSetting('resend_api_key', resendApiKey);
         
         if (sbUrl && sbKey) {
             localStorage.setItem('SUPABASE_URL', sbUrl);
@@ -550,7 +495,6 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         try {
             const result = await parseSecurityAlert(webhookJson);
             
-            // Simulate ticket creation visualization
             setSimulatedTicket({
                 title: result.title,
                 description: `${result.description}\n\n[Origem: ${result.sourceSystem}] [Ativo: ${result.affectedAsset}]`,
@@ -579,8 +523,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                     impactCriticality: simulatedTicket.severity,
                     status: 'Pedido',
                     requestDate: new Date().toISOString(),
-                    entidadeId: entidades[0]?.id || '', // Default to first entity for test
-                    collaboratorId: collaborators[0]?.id || '' // Default to first user for test
+                    entidadeId: entidades[0]?.id || '', 
+                    collaboratorId: collaborators[0]?.id || '' 
                 });
                 alert("Ticket criado com sucesso!");
                 setSimulatedTicket(null);
@@ -590,7 +534,6 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         }
     };
 
-    // Helper to find current selection details
     const getCurrentSelection = () => {
         for (const group of menuStructure) {
             const found = group.items.find(i => i.id === selectedMenuId);
@@ -604,7 +547,6 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     
     const showColorPicker = currentSelection.targetTable === 'config_equipment_statuses';
 
-    // Helper to check if item is in use
     const checkUsage = (tableName: string, item: ConfigItem): boolean => {
         const name = item.name;
         switch (tableName) {
@@ -650,7 +592,6 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         }
     };
 
-    // Generic Handlers
     const handleGenericAdd = async () => {
         if (currentSelection.type !== 'generic' || !currentTableConfig) return;
         
@@ -1115,6 +1056,27 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 </div>
 
                                 <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
+                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaEnvelope className="text-orange-400"/> Email e Comunicações (Resend)</h3>
+                                    
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Resend API Key</label>
+                                        <div className="relative">
+                                            <FaKey className="absolute top-3 left-3 text-gray-500" />
+                                            <input 
+                                                type="password" 
+                                                value={resendApiKey}
+                                                onChange={(e) => setResendApiKey(e.target.value)}
+                                                className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
+                                                placeholder="re_123456789..."
+                                            />
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Necessária para enviar emails automáticos (Tickets, Relatórios). Será guardada na tabela <code>global_settings</code>.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
                                     <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaShieldAlt className="text-red-400"/> Segurança Externa (NIST)</h3>
                                     
                                     <div>
@@ -1360,7 +1322,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                         <FaEnvelope /> Email & Tickets (Inbound/Outbound)
                                     </div>
                                     <p>
-                                        Automatize o envio de notificações de novos tickets e permita que a equipa responda diretamente por email para atualizar o ticket (usando Resend/Mailgun).
+                                        Automatize o envio de notificações de novos tickets e permita que a equipa responda diretamente por email para atualizar o ticket (usando Resend).
+                                        <br/>
+                                        <strong>Requisito:</strong> Chave API do Resend configurada na aba "Conexões".
                                     </p>
                                 </div>
 
@@ -1385,7 +1349,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                     <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
                                         <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaReply className="text-green-400"/> 2. Processar Respostas (Inbound)</h4>
                                         <p className="text-xs text-gray-400 mb-2">
-                                            Crie uma função <code>email-processor</code>. Configure o seu serviço de email (Resend/Mailgun) para reencaminhar emails recebidos (Inbound Webhook) para a URL desta função.
+                                            Crie uma função <code>email-processor</code>. Configure o seu serviço de email (Resend) para reencaminhar emails recebidos (Inbound Webhook) para a URL desta função.
                                         </p>
                                         <div className="relative">
                                             <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
