@@ -331,7 +331,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             const entidadesInInstituicao = entidades.filter(e => e.instituicaoId === selectedInstituicaoId);
             const entidadesInInstituicaoIds = new Set(entidadesInInstituicao.map(e => e.id));
 
-            const instituicaoAssignments = assignments.filter(a => entidadesInInstituicaoIds.has(a.entidadeId));
+            const instituicaoAssignments = assignments.filter(a => a.entidadeId && entidadesInInstituicaoIds.has(a.entidadeId));
             
             const items = instituicaoAssignments.map(assignment => {
                 const eq = equipment.find(e => e.id === assignment.equipmentId);
@@ -474,8 +474,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
         if (reportData.type === 'entidade') {
             headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
             rows = reportData.items.map(item => {
-                 const brandName = brandMap.get(item.equipment?.brandId || '') || '';
-                 const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
+                 const brandName = brandMap.get(item.equipment?.brandId ?? '') ?? '';
+                 const typeName = equipmentTypeMap.get(item.equipment?.typeId ?? '') ?? '';
                  return [
                     escapeCsv(reportData.instituicao?.name ?? ''), escapeCsv(reportData.entidade?.name ?? ''), 
                     escapeCsv(brandName), 
@@ -489,8 +489,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
         } else if (reportData.type === 'instituicao') {
              headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
             rows = reportData.items.map(item => {
-                const brandName = brandMap.get(item.equipment?.brandId || '') || '';
-                const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
+                const brandName = brandMap.get(item.equipment?.brandId ?? '') ?? '';
+                const typeName = equipmentTypeMap.get(item.equipment?.typeId ?? '') ?? '';
                 return [
                     escapeCsv(reportData.instituicao.name), 
                     escapeCsv(item.entidade?.name ?? ''), 
@@ -549,8 +549,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
         else if (reportData.type === 'compliance') {
             headers = ["Equipamento", "Marca/Tipo", "Nº Série", "Criticidade", "Confidencialidade", "Integridade", "Disponibilidade"];
             rows = reportData.items.map(item => {
-                const brandName = brandMap.get(item.brandId || '') || '';
-                const typeName = equipmentTypeMap.get(item.typeId || '') || '';
+                const brandName = brandMap.get(item.brandId) ?? '';
+                const typeName = equipmentTypeMap.get(item.typeId) ?? '';
                 return [
                     escapeCsv(item.description),
                     escapeCsv(`${brandName} ${typeName}`),
@@ -721,7 +721,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                         <tbody>
                             {reportData.items.map((item, index) => (
                                 <tr key={index} className="border-b border-gray-700">
-                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId || '') || ''} {equipmentTypeMap.get(item.equipment?.typeId || '') || ''}</td>
+                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId ?? '') ?? ''} {equipmentTypeMap.get(item.equipment?.typeId ?? '') ?? ''}</td>
                                     <td className="px-4 py-2">{item.equipment?.serialNumber}</td>
                                     <td className="px-4 py-2">{item.equipment?.nomeNaRede || '—'}</td>
                                     <td className="px-4 py-2">{item.equipment?.inventoryNumber || '—'}</td>
@@ -768,7 +768,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                         <tbody>
                             {reportData.items.map((item, index) => (
                                 <tr key={index} className="border-b border-gray-700">
-                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId || '') || ''} {equipmentTypeMap.get(item.equipment?.typeId || '') || ''}</td>
+                                    <td className="px-4 py-2 text-on-surface-dark">{brandMap.get(item.equipment?.brandId ?? '') ?? ''} {equipmentTypeMap.get(item.equipment?.typeId ?? '') ?? ''}</td>
                                     <td className="px-4 py-2">{item.equipment?.serialNumber}</td>
                                     <td className="px-4 py-2">{item.equipment?.nomeNaRede || '—'}</td>
                                     <td className="px-4 py-2">{item.equipment?.inventoryNumber || '—'}</td>
@@ -814,7 +814,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                                 <ul className="list-disc list-inside text-xs space-y-1">
                                                 {item.equipmentList.map(eq => (
                                                     <li key={eq.id}>
-                                                        <span className="font-semibold text-on-surface-dark">{brandMap.get(eq.brandId) || ''} {equipmentTypeMap.get(eq.typeId) || ''}</span>
+                                                        <span className="font-semibold text-on-surface-dark">{brandMap.get(eq.brandId)} {equipmentTypeMap.get(eq.typeId)}</span>
                                                         <span className="text-on-surface-dark-secondary"> (S/N: {eq.serialNumber}, Inv: {eq.inventoryNumber || 'N/A'})</span>
                                                     </li>
                                                 ))}
@@ -892,7 +892,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                 <tr key={item.id} className="border-b border-gray-700">
                                     <td className="px-4 py-2">
                                         <div className="text-on-surface-dark font-medium">{item.description}</div>
-                                        <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId || '')} {equipmentTypeMap.get(item.typeId || '')}</div>
+                                        <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId)} {equipmentTypeMap.get(item.typeId)}</div>
                                     </td>
                                     <td className="px-4 py-2 font-mono text-xs">{item.serialNumber}</td>
                                     <td className={`px-4 py-2 text-center ${getLevelColor(item.criticality)}`}>{item.criticality || 'N/A'}</td>
