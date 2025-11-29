@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ConfigItem, Brand, Equipment, EquipmentType, TicketCategoryItem, Ticket, Team, SecurityIncidentTypeItem, Collaborator, SoftwareLicense, BusinessService, BackupExecution, SecurityTrainingRecord, ResilienceTest, Supplier, Entidade, Instituicao, Vulnerability, TooltipConfig, defaultTooltipConfig, CustomRole, ModuleKey } from '../types';
 import { PlusIcon, EditIcon, DeleteIcon } from './common/Icons';
@@ -460,7 +459,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 alert(`Erro ao executar teste: ${result.error || response.statusText}`);
             }
         } catch (e: any) {
-            alert(`Erro de conexão: ${e.message}`);
+            alert(`Erro de conexão: ${e.message}.\n\nVerifique se a Edge Function 'weekly-report' foi implementada (deployed) corretamente no Supabase e se os segredos (secrets) estão configurados. Consulte o Guia de Configuração.`);
         } finally {
             setIsTestingCron(false);
         }
@@ -1228,13 +1227,31 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
                         {activeAutoTab === 'cron' && (
                              <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
-                                <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200">
-                                    <div className="flex items-center gap-2 font-bold mb-2">
-                                        <FaClock /> Cron Jobs (Relatórios Automáticos)
+                                 <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg space-y-4">
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaClock className="text-yellow-400"/> Guia de Configuração: Relatórios Automáticos</h3>
+                                    <div className="text-sm text-gray-300 space-y-3">
+                                        <div className="flex items-start gap-3">
+                                            <div className="bg-gray-700 text-white font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">1</div>
+                                            <div>
+                                                <strong className="text-white">Crie a Edge Function</strong>
+                                                <p className="text-xs text-gray-400">Vá à aba "Config BD" &rarr; "Automação" e copie o código da função <code>weekly-report</code>. Use a CLI do Supabase para criar e colar este código na sua função.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="bg-gray-700 text-white font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">2</div>
+                                            <div>
+                                                <strong className="text-white">Configure as Chaves (Secrets)</strong>
+                                                <p className="text-xs text-gray-400">A função precisa de acesso à sua <strong>Resend API Key</strong>. Certifique-se que a preencheu na aba "Conexões". Depois, execute os comandos <code>supabase secrets set</code> para a função no seu terminal, conforme indicado no guia "Config BD".</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="bg-gray-700 text-white font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">3</div>
+                                            <div>
+                                                <strong className="text-white">Agende o Cron Job</strong>
+                                                <p className="text-xs text-gray-400">Copie o código SQL da aba "Config BD" &rarr; "Automação" e execute-o no seu Editor SQL do Supabase para agendar a tarefa.</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p>
-                                        Configure o envio automático de relatórios semanais por email utilizando Edge Functions e o agendador `pg_cron` da base de dados.
-                                    </p>
                                 </div>
 
                                 <div className="space-y-4">
@@ -1279,36 +1296,6 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                                  </div>
                                                  <p className="text-xs text-gray-500 mt-1">Este botão executa a função imediatamente, enviando o relatório para os emails configurados.</p>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaEnvelope className="text-yellow-400"/> 1. Código da Função (Envio de Email)</h4>
-                                        <p className="text-xs text-gray-400 mb-2">
-                                            Crie uma nova função `supabase functions new weekly-report` e use este código. A função lê automaticamente os emails configurados acima.
-                                        </p>
-                                        <div className="relative">
-                                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
-                                                {cronFunctionCode}
-                                            </pre>
-                                            <button onClick={() => handleCopy(cronFunctionCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
-                                                <FaCopy />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase className="text-blue-400"/> 2. Configuração SQL (pg_cron)</h4>
-                                        <p className="text-xs text-gray-400 mb-2">
-                                            Execute este comando no <strong>SQL Editor</strong> do Supabase para agendar a execução da função todas as segundas-feiras.
-                                        </p>
-                                        <div className="relative">
-                                            <pre className="text-xs font-mono text-orange-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
-                                                {cronSqlCode}
-                                            </pre>
-                                            <button onClick={() => handleCopy(cronSqlCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
-                                                <FaCopy />
-                                            </button>
                                         </div>
                                     </div>
                                 </div>
