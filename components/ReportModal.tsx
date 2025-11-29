@@ -379,13 +379,17 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             dataContext = {
                 report: 'Inventory Status',
                 totalItems: rData.items.length,
-                items: rData.items.slice(0, 50).map((i: any) => ({ // Limit to 50 for context window
-                    description: i.equipment?.description || '',
-                    brand: brandMap.get(String(i.equipment?.brandId || '')) || 'N/A',
-                    type: equipmentTypeMap.get(String(i.equipment?.typeId || '')) || 'N/A',
-                    age: i.equipment?.purchaseDate || '',
-                    status: i.equipment?.status || ''
-                }))
+                items: rData.items.slice(0, 50).map((i: any) => {
+                    const brandKey = i.equipment?.brandId ? String(i.equipment.brandId) : '';
+                    const typeKey = i.equipment?.typeId ? String(i.equipment.typeId) : '';
+                    return {
+                        description: i.equipment?.description || '',
+                        brand: brandMap.get(brandKey) || 'N/A',
+                        type: equipmentTypeMap.get(typeKey) || 'N/A',
+                        age: i.equipment?.purchaseDate || '',
+                        status: i.equipment?.status || ''
+                    };
+                })
             };
         } else if (type === 'ticket') {
             dataContext = {
