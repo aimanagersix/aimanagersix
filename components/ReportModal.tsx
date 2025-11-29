@@ -460,7 +460,6 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
     };
 
     const handleExportCSV = () => {
-        // ... (existing export logic - keep as is)
         if (!reportData) return;
 
         let headers: string[] = [];
@@ -470,26 +469,16 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
         if (reportData.type === 'entidade') {
             headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
             rows = reportData.items.map(item => {
-                const brandName = brandMap.get(item.equipment?.brandId || '') || '';
-                const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
-                
-                return [
-                    escapeCsv(reportData.instituicao?.name), 
-                    escapeCsv(reportData.entidade?.name), 
+                 const brandName = brandMap.get(item.equipment?.brandId || '') || '';
+                 const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
+                 return [
+                    escapeCsv(reportData.instituicao?.name), escapeCsv(reportData.entidade?.name), 
                     escapeCsv(brandName), 
                     escapeCsv(typeName), 
-                    escapeCsv(item.equipment?.serialNumber), 
-                    escapeCsv(item.equipment?.inventoryNumber), 
-                    escapeCsv(item.equipment?.invoiceNumber), 
-                    escapeCsv(item.equipment?.description),
-                    escapeCsv(item.equipment?.nomeNaRede), 
-                    escapeCsv(item.equipment?.macAddressWIFI), 
-                    escapeCsv(item.equipment?.macAddressCabo),
-                    escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), 
-                    escapeCsv(item.collaborator?.email), 
-                    escapeCsv(item.assignedDate), 
-                    escapeCsv(item.returnDate),
-                ].join(',');
+                    escapeCsv(item.equipment?.serialNumber), escapeCsv(item.equipment?.inventoryNumber), escapeCsv(item.equipment?.invoiceNumber), escapeCsv(item.equipment?.description),
+                    escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
+                    escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), escapeCsv(item.collaborator?.email), escapeCsv(item.assignedDate), escapeCsv(item.returnDate),
+                ].join(',')
             });
             fileName = `relatorio_equip_${reportData.entidade.name.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
         } else if (reportData.type === 'instituicao') {
@@ -497,7 +486,6 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             rows = reportData.items.map(item => {
                 const brandName = brandMap.get(item.equipment?.brandId || '') || '';
                 const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
-                
                 return [
                     escapeCsv(reportData.instituicao.name), 
                     escapeCsv(item.entidade?.name), 
@@ -507,33 +495,66 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                     escapeCsv(item.equipment?.inventoryNumber),
                     escapeCsv(item.equipment?.invoiceNumber), 
                     escapeCsv(item.equipment?.description),
-                    escapeCsv(item.equipment?.nomeNaRede), 
-                    escapeCsv(item.equipment?.macAddressWIFI), 
-                    escapeCsv(item.equipment?.macAddressCabo),
+                    escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
                     escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), 
                     escapeCsv(item.collaborator?.email), 
                     escapeCsv(item.assignment.assignedDate), 
                     escapeCsv(item.assignment.returnDate),
-                ].join(',');
+                ].join(',')
             });
              fileName = `relatorio_equip_${reportData.instituicao.name.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
         }
-        // ... (Include other types from original file if needed)
+        else if (reportData.type === 'collaborator') {
+             headers = ["Nome", "Email", "Nº Mecanográfico", "Função", "Entidade", "Total Equipamentos"];
+             rows = reportData.items.map(item => [
+                escapeCsv(item.collaborator.fullName),
+                escapeCsv(item.collaborator.email),
+                escapeCsv(item.collaborator.numeroMecanografico),
+                escapeCsv(item.collaborator.role),
+                escapeCsv(entidadeMap.get(item.collaborator.entidadeId || '')),
+                escapeCsv(item.equipmentCount.toString())
+             ].join(','));
+             fileName = `relatorio_colaboradores_${new Date().toISOString().split('T')[0]}.csv`;
+        }
+        else if (reportData.type === 'ticket') {
+             headers = ["ID", "Assunto", "Categoria", "Prioridade", "Estado", "Solicitante", "Data"];
+             rows = reportData.rawTickets.map(t => [
+                escapeCsv(t.id),
+                escapeCsv(t.title),
+                escapeCsv(t.category),
+                escapeCsv(t.impactCriticality),
+                escapeCsv(t.status),
+                escapeCsv(collaboratorMap.get(t.collaboratorId)),
+                escapeCsv(t.requestDate)
+             ].join(','));
+             fileName = `relatorio_tickets_${new Date().toISOString().split('T')[0]}.csv`;
+        }
+        else if (reportData.type === 'licensing') {
+             headers = ["Produto", "Chave", "Total", "Em Uso", "Disponível", "Status"];
+             rows = reportData.items.map(item => [
+                escapeCsv(item.productName),
+                escapeCsv(item.licenseKey),
+                escapeCsv(item.totalSeats.toString()),
+                escapeCsv(item.usedSeats.toString()),
+                escapeCsv(item.availableSeats.toString()),
+                escapeCsv(item.status)
+             ].join(','));
+             fileName = `relatorio_licencas_${new Date().toISOString().split('T')[0]}.csv`;
+        }
         else if (reportData.type === 'compliance') {
             headers = ["Equipamento", "Marca/Tipo", "Nº Série", "Criticidade", "Confidencialidade", "Integridade", "Disponibilidade"];
             rows = reportData.items.map(item => {
-                const brand = brandMap.get(item.brandId || '') || '';
-                const type = equipmentTypeMap.get(item.typeId || '') || '';
-                
+                const brandName = brandMap.get(item.brandId || '') || '';
+                const typeName = equipmentTypeMap.get(item.typeId || '') || '';
                 return [
                     escapeCsv(item.description),
-                    escapeCsv(`${brand} ${type}`),
+                    escapeCsv(`${brandName} ${typeName}`),
                     escapeCsv(item.serialNumber),
                     escapeCsv(item.criticality),
                     escapeCsv(item.confidentiality),
                     escapeCsv(item.integrity),
                     escapeCsv(item.availability),
-                ].join(',');
+                ].join(',')
             });
             fileName = `relatorio_compliance_nis2_${new Date().toISOString().split('T')[0]}.csv`;
         } else if (reportData.type === 'bia') {
@@ -605,7 +626,6 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
         </div>
     );
     
-    // ... (keep renderCollaboratorFilters, renderTicketFilters, etc. from previous file if present, or use placeholders for brevity as main logic is above)
     const renderCollaboratorFilters = () => (
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
              <div>
@@ -903,7 +923,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                 </div>
                                 <div className="text-right">
                                     <span className={`block text-sm font-bold ${getLevelColor(item.service.criticality)}`}>{item.service.criticality}</span>
-                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</p> 
+                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</span> 
                                 </div>
                             </div>
                             
