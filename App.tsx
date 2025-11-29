@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType 
@@ -28,7 +29,7 @@ import OverviewDashboard from './components/OverviewDashboard';
 import SmartDashboard from './components/SmartDashboard';
 import AgendaDashboard from './components/AgendaDashboard';
 import MapDashboard from './components/MapDashboard';
-import ReportsDashboard from './components/ReportsDashboard';
+import BIReportDashboard from './components/BIReportDashboard';
 
 // Modals (Global or Non-Refactored)
 import AddTicketModal from './components/AddTicketModal';
@@ -402,16 +403,7 @@ export const App: React.FC = () => {
                     )}
 
                     {activeTab === 'reports' && (
-                        <ReportsDashboard 
-                            equipment={appData.equipment}
-                            assignments={appData.assignments}
-                            collaborators={appData.collaborators}
-                            entidades={appData.entidades}
-                            brands={appData.brands}
-                            equipmentTypes={appData.equipmentTypes}
-                            softwareLicenses={appData.softwareLicenses}
-                            licenseAssignments={appData.licenseAssignments}
-                        />
+                        <BIReportDashboard appData={appData} />
                     )}
 
                     {activeTab === 'tools.agenda' && (
