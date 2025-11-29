@@ -511,7 +511,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 escapeCsv(item.collaborator.email),
                 escapeCsv(item.collaborator.numeroMecanografico),
                 escapeCsv(item.collaborator.role),
-                escapeCsv(entidadeMap.get(item.collaborator.entidadeId || '')),
+                escapeCsv(entidadeMap.get(item.collaborator.entidadeId || '') || ''),
                 escapeCsv(item.equipmentCount.toString())
              ].join(','));
              fileName = `relatorio_colaboradores_${new Date().toISOString().split('T')[0]}.csv`;
@@ -524,7 +524,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 escapeCsv(t.category),
                 escapeCsv(t.impactCriticality),
                 escapeCsv(t.status),
-                escapeCsv(collaboratorMap.get(t.collaboratorId)),
+                escapeCsv(collaboratorMap.get(t.collaboratorId) || ''),
                 escapeCsv(t.requestDate)
              ].join(','));
              fileName = `relatorio_tickets_${new Date().toISOString().split('T')[0]}.csv`;
