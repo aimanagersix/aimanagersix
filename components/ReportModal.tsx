@@ -469,46 +469,72 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
 
         if (reportData.type === 'entidade') {
             headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
-            rows = reportData.items.map(item => [
-                escapeCsv(reportData.instituicao?.name), escapeCsv(reportData.entidade?.name), 
-                escapeCsv(brandMap.get(item.equipment?.brandId || '') || ''), 
-                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '') || ''), 
-                escapeCsv(item.equipment?.serialNumber), escapeCsv(item.equipment?.inventoryNumber), escapeCsv(item.equipment?.invoiceNumber), escapeCsv(item.equipment?.description),
-                escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
-                escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), escapeCsv(item.collaborator?.email), escapeCsv(item.assignedDate), escapeCsv(item.returnDate),
-            ].join(','));
+            rows = reportData.items.map(item => {
+                const brandName = brandMap.get(item.equipment?.brandId || '') || '';
+                const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
+                
+                return [
+                    escapeCsv(reportData.instituicao?.name), 
+                    escapeCsv(reportData.entidade?.name), 
+                    escapeCsv(brandName), 
+                    escapeCsv(typeName), 
+                    escapeCsv(item.equipment?.serialNumber), 
+                    escapeCsv(item.equipment?.inventoryNumber), 
+                    escapeCsv(item.equipment?.invoiceNumber), 
+                    escapeCsv(item.equipment?.description),
+                    escapeCsv(item.equipment?.nomeNaRede), 
+                    escapeCsv(item.equipment?.macAddressWIFI), 
+                    escapeCsv(item.equipment?.macAddressCabo),
+                    escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), 
+                    escapeCsv(item.collaborator?.email), 
+                    escapeCsv(item.assignedDate), 
+                    escapeCsv(item.returnDate),
+                ].join(',');
+            });
             fileName = `relatorio_equip_${reportData.entidade.name.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
         } else if (reportData.type === 'instituicao') {
              headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
-            rows = reportData.items.map(item => [
-                escapeCsv(reportData.instituicao.name), 
-                escapeCsv(item.entidade?.name), 
-                escapeCsv(brandMap.get(item.equipment?.brandId || '') || ''), 
-                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '') || ''), 
-                escapeCsv(item.equipment?.serialNumber), 
-                escapeCsv(item.equipment?.inventoryNumber),
-                escapeCsv(item.equipment?.invoiceNumber), 
-                escapeCsv(item.equipment?.description),
-                escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
-                escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), 
-                escapeCsv(item.collaborator?.email), 
-                escapeCsv(item.assignment.assignedDate), 
-                escapeCsv(item.assignment.returnDate),
-            ].join(','));
+            rows = reportData.items.map(item => {
+                const brandName = brandMap.get(item.equipment?.brandId || '') || '';
+                const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
+                
+                return [
+                    escapeCsv(reportData.instituicao.name), 
+                    escapeCsv(item.entidade?.name), 
+                    escapeCsv(brandName), 
+                    escapeCsv(typeName), 
+                    escapeCsv(item.equipment?.serialNumber), 
+                    escapeCsv(item.equipment?.inventoryNumber),
+                    escapeCsv(item.equipment?.invoiceNumber), 
+                    escapeCsv(item.equipment?.description),
+                    escapeCsv(item.equipment?.nomeNaRede), 
+                    escapeCsv(item.equipment?.macAddressWIFI), 
+                    escapeCsv(item.equipment?.macAddressCabo),
+                    escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), 
+                    escapeCsv(item.collaborator?.email), 
+                    escapeCsv(item.assignment.assignedDate), 
+                    escapeCsv(item.assignment.returnDate),
+                ].join(',');
+            });
              fileName = `relatorio_equip_${reportData.instituicao.name.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
         }
         // ... (Include other types from original file if needed)
         else if (reportData.type === 'compliance') {
             headers = ["Equipamento", "Marca/Tipo", "Nº Série", "Criticidade", "Confidencialidade", "Integridade", "Disponibilidade"];
-            rows = reportData.items.map(item => [
-                escapeCsv(item.description),
-                escapeCsv(`${brandMap.get(item.brandId || '') || ''} ${equipmentTypeMap.get(item.typeId || '') || ''}`),
-                escapeCsv(item.serialNumber),
-                escapeCsv(item.criticality),
-                escapeCsv(item.confidentiality),
-                escapeCsv(item.integrity),
-                escapeCsv(item.availability),
-            ].join(','));
+            rows = reportData.items.map(item => {
+                const brand = brandMap.get(item.brandId || '') || '';
+                const type = equipmentTypeMap.get(item.typeId || '') || '';
+                
+                return [
+                    escapeCsv(item.description),
+                    escapeCsv(`${brand} ${type}`),
+                    escapeCsv(item.serialNumber),
+                    escapeCsv(item.criticality),
+                    escapeCsv(item.confidentiality),
+                    escapeCsv(item.integrity),
+                    escapeCsv(item.availability),
+                ].join(',');
+            });
             fileName = `relatorio_compliance_nis2_${new Date().toISOString().split('T')[0]}.csv`;
         } else if (reportData.type === 'bia') {
             headers = ["Serviço", "Descrição", "Criticidade", "RTO Alvo", "Responsável", "Status", "Dependências (Nome)", "Dependências (Tipo)", "Dependências (Notas)"];
@@ -877,7 +903,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                                 </div>
                                 <div className="text-right">
                                     <span className={`block text-sm font-bold ${getLevelColor(item.service.criticality)}`}>{item.service.criticality}</span>
-                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</span> 
+                                    <span className="block text-xs text-gray-400">RTO: {item.service.rto_goal || 'N/A'}</p> 
                                 </div>
                             </div>
                             
