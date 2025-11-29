@@ -831,3 +831,50 @@ export const generateSqlHelper = async (userRequest: string): Promise<string> =>
         return "-- Error generating SQL";
     }
 };
+
+// --- Playwright Test Generator ---
+
+export const generatePlaywrightTest = async (userPrompt: string, credentials: {email: string, pass: string}): Promise<string> => {
+    try {
+        const ai = getAiClient();
+        
+        const prompt = `
+        Act as a Senior QA Automation Engineer.
+        Generate a Playwright (TypeScript) test file based on the user scenario.
+        
+        User Scenario: "${userPrompt}"
+        
+        App Context & Selectors:
+        - Login Page: inputs 'input[name="email"]', 'input[name="password"]', button 'button:has-text("Entrar")'.
+        - Dashboard: Verify visibility of text "Visão Geral".
+        - Navigation (Sidebar): Buttons with text "Ativos", "Suporte", "Organização", "Compliance". Submenus appear on click.
+        - Modals: Usually have headers h2, inputs with name attributes matching DB fields.
+        - Creating Equipment: Click "Adicionar", fill form, click "Adicionar Equipamento".
+        - Creating Ticket: Click "Abrir Ticket", fill form, click "Salvar".
+        
+        Test Data to use:
+        - Email: "${credentials.email}"
+        - Password: "${credentials.pass}"
+        
+        Output Rules:
+        - Return ONLY the TypeScript code. No markdown blocks, no explanations.
+        - Import { test, expect } from '@playwright/test'.
+        - Structure the test properly with test.describe and test().
+        - Include comments explaining steps.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: proModel,
+            contents: prompt,
+        });
+
+        // Clean up markdown if present
+        let code = response.text || "";
+        code = code.replace(/```typescript/g, '').replace(/```ts/g, '').replace(/```/g, '');
+        return code.trim();
+
+    } catch (error) {
+        console.error("Error generating test:", error);
+        return "// Error generating test code.";
+    }
+};

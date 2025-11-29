@@ -1,15 +1,24 @@
 
 import React, { useState, useRef } from 'react';
 import Modal from './common/Modal';
-import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal, FaClock, FaEnvelope, FaList, FaPaperPlane, FaReply } from 'react-icons/fa';
+import { FaRobot, FaWindows, FaServer, FaCopy, FaCheck, FaDatabase, FaCode, FaTerminal, FaClock, FaEnvelope, FaList, FaPaperPlane, FaReply, FaPlay, FaSpinner } from 'react-icons/fa';
+import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 
 interface AutomationModalProps {
     onClose: () => void;
 }
 
 const AutomationModal: React.FC<AutomationModalProps> = ({ onClose }) => {
-    const [activeTab, setActiveTab] = useState<'client' | 'server' | 'cron' | 'email'>('client');
+    const [activeTab, setActiveTab] = useState<'client' | 'server' | 'cron' | 'email' | 'tests'>('client');
     const [copied, setCopied] = useState(false);
+
+    // Test Generator State
+    const [testEmail, setTestEmail] = useState('admin@empresa.com');
+    const [testPass, setTestPass] = useState('password123');
+    const [testPrompt, setTestPrompt] = useState('');
+    const [generatedTestCode, setGeneratedTestCode] = useState('');
+    const [isGeneratingTest, setIsGeneratingTest] = useState(false);
+    const aiConfigured = isAiConfigured();
 
     // Get configured keys from localStorage to pre-fill the script
     const supabaseUrl = localStorage.getItem('SUPABASE_URL') || 'https://SEU-PROJECT-ID.supabase.co';
@@ -481,6 +490,20 @@ serve(async (req) => {
         a.click();
         document.body.removeChild(a);
     };
+    
+    const handleGenerateTest = async () => {
+        if (!testPrompt.trim() || !aiConfigured) return;
+        setIsGeneratingTest(true);
+        try {
+            const code = await generatePlaywrightTest(testPrompt, { email: testEmail, pass: testPass });
+            setGeneratedTestCode(code);
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao gerar teste.");
+        } finally {
+            setIsGeneratingTest(false);
+        }
+    };
 
     return (
         <Modal title="Automação e Agentes" onClose={onClose} maxWidth="max-w-5xl">
@@ -517,6 +540,14 @@ serve(async (req) => {
                         }`}
                     >
                         <FaEnvelope /> 4. Email & Tickets
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('tests')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap ${
+                            activeTab === 'tests' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        <FaPlay /> 5. Gerador E2E (AI)
                     </button>
                 </div>
 
@@ -720,6 +751,73 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui --pro
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'tests' && (
+                        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
+                             <div className="bg-pink-900/20 border border-pink-500/50 p-4 rounded-lg text-sm text-pink-200">
+                                <div className="flex items-center gap-2 font-bold mb-2">
+                                    <FaRobot /> Gerador de Testes E2E (Playwright)
+                                </div>
+                                <p>
+                                    Como o Playwright corre fora do browser (em Node.js), utilize esta ferramenta para <strong>gerar o código do teste</strong> com IA.
+                                    Basta descrever o cenário e copiar o código para o seu ficheiro `.spec.ts` local.
+                                </p>
+                            </div>
+
+                            <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1">Email de Teste (Utilizador)</label>
+                                        <input 
+                                            type="text" 
+                                            value={testEmail} 
+                                            onChange={(e) => setTestEmail(e.target.value)} 
+                                            className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1">Password de Teste</label>
+                                        <input 
+                                            type="password" 
+                                            value={testPass} 
+                                            onChange={(e) => setTestPass(e.target.value)} 
+                                            className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-1">Descrição do Cenário (Prompt)</label>
+                                    <textarea 
+                                        value={testPrompt}
+                                        onChange={(e) => setTestPrompt(e.target.value)}
+                                        rows={3}
+                                        className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm"
+                                        placeholder="Ex: Fazer login, ir ao menu Ativos -> Equipamentos, clicar em Adicionar, preencher o formulário com um serial único e verificar se foi criado."
+                                    />
+                                </div>
+                                <div className="mt-4 flex justify-end">
+                                    <button 
+                                        onClick={handleGenerateTest}
+                                        disabled={isGeneratingTest || !aiConfigured}
+                                        className="bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isGeneratingTest ? <FaSpinner className="animate-spin"/> : <FaPlay />} Gerar Teste (IA)
+                                    </button>
+                                </div>
+                            </div>
+
+                            {generatedTestCode && (
+                                <div className="relative flex-grow">
+                                    <pre className="w-full h-full min-h-[300px] bg-gray-900 p-4 rounded-lg text-xs font-mono text-pink-300 border border-pink-900/50 overflow-auto custom-scrollbar">
+                                        {generatedTestCode}
+                                    </pre>
+                                    <button onClick={() => handleCopy(generatedTestCode)} className="absolute top-4 right-4 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md shadow transition-colors">
+                                        {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

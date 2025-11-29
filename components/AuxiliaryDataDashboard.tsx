@@ -80,10 +80,21 @@ interface MenuItem {
 const cronFunctionCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+// CORS Headers are required for browser requests
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 // Use Resend.com for free transactional emails
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
 serve(async (req) => {
+  // Handle CORS preflight request
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -119,8 +130,9 @@ serve(async (req) => {
     \`
 
     // 4. Send Email (via Resend)
+    let emailResult = null;
     if (RESEND_API_KEY) {
-        await fetch('https://api.resend.com/emails', {
+        const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -133,12 +145,19 @@ serve(async (req) => {
                 html: emailHtml
             })
         })
+        emailResult = await res.json()
     }
 
-    return new Response(JSON.stringify({ success: true, recipients: recipients.length }), { headers: { 'Content-Type': 'application/json' } })
+    return new Response(
+        JSON.stringify({ success: true, recipients: recipients.length, emailResult }), 
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    return new Response(
+        JSON.stringify({ error: error.message }), 
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 })
 `;
