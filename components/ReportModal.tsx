@@ -471,8 +471,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
         if (reportData.type === 'entidade') {
             headers = ["Instituição", "Entidade", "Marca", "Tipo", "Nº Série", "Nº Inventário", "Nº Fatura", "Descrição", "Nome na Rede", "MAC WIFI", "MAC Cabo", "Colaborador", "Email Colaborador", "Data de Associação", "Data de Fim (Devolução/Abate)"];
             rows = reportData.items.map(item => [
-                escapeCsv(reportData.instituicao?.name), escapeCsv(reportData.entidade?.name), escapeCsv(brandMap.get(item.equipment?.brandId || '')),
-                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '')), escapeCsv(item.equipment?.serialNumber), escapeCsv(item.equipment?.inventoryNumber), escapeCsv(item.equipment?.invoiceNumber), escapeCsv(item.equipment?.description),
+                escapeCsv(reportData.instituicao?.name), escapeCsv(reportData.entidade?.name), 
+                escapeCsv(brandMap.get(item.equipment?.brandId || '') || ''), // Fallback empty string for TS safety
+                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '') || ''), // Fallback empty string
+                escapeCsv(item.equipment?.serialNumber), escapeCsv(item.equipment?.inventoryNumber), escapeCsv(item.equipment?.invoiceNumber), escapeCsv(item.equipment?.description),
                 escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
                 escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), escapeCsv(item.collaborator?.email), escapeCsv(item.assignedDate), escapeCsv(item.returnDate),
             ].join(','));
@@ -482,8 +484,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             rows = reportData.items.map(item => [
                 escapeCsv(reportData.instituicao.name), 
                 escapeCsv(item.entidade?.name), 
-                escapeCsv(brandMap.get(item.equipment?.brandId || '')),
-                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '')), 
+                escapeCsv(brandMap.get(item.equipment?.brandId || '') || ''), 
+                escapeCsv(equipmentTypeMap.get(item.equipment?.typeId || '') || ''), 
                 escapeCsv(item.equipment?.serialNumber), 
                 escapeCsv(item.equipment?.inventoryNumber),
                 escapeCsv(item.equipment?.invoiceNumber), 
@@ -501,7 +503,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             headers = ["Equipamento", "Marca/Tipo", "Nº Série", "Criticidade", "Confidencialidade", "Integridade", "Disponibilidade"];
             rows = reportData.items.map(item => [
                 escapeCsv(item.description),
-                escapeCsv(`${brandMap.get(item.brandId)} ${equipmentTypeMap.get(item.typeId)}`),
+                escapeCsv(`${brandMap.get(item.brandId) || ''} ${equipmentTypeMap.get(item.typeId) || ''}`),
                 escapeCsv(item.serialNumber),
                 escapeCsv(item.criticality),
                 escapeCsv(item.confidentiality),
