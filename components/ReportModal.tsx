@@ -477,12 +477,12 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                  const brandName = brandMap.get(item.equipment?.brandId || '') || '';
                  const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
                  return [
-                    escapeCsv(reportData.instituicao?.name), escapeCsv(reportData.entidade?.name), 
+                    escapeCsv(reportData.instituicao?.name ?? ''), escapeCsv(reportData.entidade?.name ?? ''), 
                     escapeCsv(brandName), 
                     escapeCsv(typeName), 
-                    escapeCsv(item.equipment?.serialNumber), escapeCsv(item.equipment?.inventoryNumber), escapeCsv(item.equipment?.invoiceNumber), escapeCsv(item.equipment?.description),
-                    escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
-                    escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), escapeCsv(item.collaborator?.email), escapeCsv(item.assignedDate), escapeCsv(item.returnDate),
+                    escapeCsv(item.equipment?.serialNumber ?? ''), escapeCsv(item.equipment?.inventoryNumber ?? ''), escapeCsv(item.equipment?.invoiceNumber ?? ''), escapeCsv(item.equipment?.description ?? ''),
+                    escapeCsv(item.equipment?.nomeNaRede ?? ''), escapeCsv(item.equipment?.macAddressWIFI ?? ''), escapeCsv(item.equipment?.macAddressCabo ?? ''),
+                    escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), escapeCsv(item.collaborator?.email ?? ''), escapeCsv(item.assignedDate), escapeCsv(item.returnDate ?? ''),
                 ].join(',')
             });
             fileName = `relatorio_equip_${reportData.entidade.name.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
@@ -493,18 +493,18 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 const typeName = equipmentTypeMap.get(item.equipment?.typeId || '') || '';
                 return [
                     escapeCsv(reportData.instituicao.name), 
-                    escapeCsv(item.entidade?.name), 
+                    escapeCsv(item.entidade?.name ?? ''), 
                     escapeCsv(brandName), 
                     escapeCsv(typeName), 
-                    escapeCsv(item.equipment?.serialNumber), 
-                    escapeCsv(item.equipment?.inventoryNumber),
-                    escapeCsv(item.equipment?.invoiceNumber), 
-                    escapeCsv(item.equipment?.description),
-                    escapeCsv(item.equipment?.nomeNaRede), escapeCsv(item.equipment?.macAddressWIFI), escapeCsv(item.equipment?.macAddressCabo),
+                    escapeCsv(item.equipment?.serialNumber ?? ''), 
+                    escapeCsv(item.equipment?.inventoryNumber ?? ''),
+                    escapeCsv(item.equipment?.invoiceNumber ?? ''), 
+                    escapeCsv(item.equipment?.description ?? ''),
+                    escapeCsv(item.equipment?.nomeNaRede ?? ''), escapeCsv(item.equipment?.macAddressWIFI ?? ''), escapeCsv(item.equipment?.macAddressCabo ?? ''),
                     escapeCsv(item.collaborator?.fullName || 'Atribuído à Localização'), 
-                    escapeCsv(item.collaborator?.email), 
+                    escapeCsv(item.collaborator?.email ?? ''), 
                     escapeCsv(item.assignment.assignedDate), 
-                    escapeCsv(item.assignment.returnDate),
+                    escapeCsv(item.assignment.returnDate ?? ''),
                 ].join(',')
             });
              fileName = `relatorio_equip_${reportData.instituicao.name.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
@@ -514,7 +514,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
              rows = reportData.items.map(item => [
                 escapeCsv(item.collaborator.fullName),
                 escapeCsv(item.collaborator.email),
-                escapeCsv(item.collaborator.numeroMecanografico),
+                escapeCsv(item.collaborator.numeroMecanografico ?? ''),
                 escapeCsv(item.collaborator.role),
                 escapeCsv(entidadeMap.get(item.collaborator.entidadeId || '') || ''),
                 escapeCsv(item.equipmentCount.toString())
@@ -526,8 +526,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
              rows = reportData.rawTickets.map(t => [
                 escapeCsv(t.id),
                 escapeCsv(t.title),
-                escapeCsv(t.category || ''),
-                escapeCsv(t.impactCriticality || ''),
+                escapeCsv(t.category ?? ''),
+                escapeCsv(t.impactCriticality ?? ''),
                 escapeCsv(t.status),
                 escapeCsv(collaboratorMap.get(t.collaboratorId) || ''),
                 escapeCsv(t.requestDate)
@@ -555,10 +555,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                     escapeCsv(item.description),
                     escapeCsv(`${brandName} ${typeName}`),
                     escapeCsv(item.serialNumber),
-                    escapeCsv(item.criticality || ''),
-                    escapeCsv(item.confidentiality || ''),
-                    escapeCsv(item.integrity || ''),
-                    escapeCsv(item.availability || ''),
+                    escapeCsv(item.criticality ?? ''),
+                    escapeCsv(item.confidentiality ?? ''),
+                    escapeCsv(item.integrity ?? ''),
+                    escapeCsv(item.availability ?? ''),
                 ].join(',')
             });
             fileName = `relatorio_compliance_nis2_${new Date().toISOString().split('T')[0]}.csv`;
@@ -566,14 +566,14 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
             headers = ["Serviço", "Descrição", "Criticidade", "RTO Alvo", "Responsável", "Status", "Dependências (Nome)", "Dependências (Tipo)", "Dependências (Notas)"];
             rows = reportData.items.map(item => [
                 escapeCsv(item.service.name),
-                escapeCsv(item.service.description || ''),
+                escapeCsv(item.service.description ?? ''),
                 escapeCsv(item.service.criticality),
-                escapeCsv(item.service.rto_goal || ''),
+                escapeCsv(item.service.rto_goal ?? ''),
                 escapeCsv(item.ownerName),
                 escapeCsv(item.service.status),
                 escapeCsv(item.dependencies.map(d => `${d.name}`).join('; ')),
                 escapeCsv(item.dependencies.map(d => `${d.type} [${d.isDirect ? 'Direta' : 'Indireta'}]`).join('; ')),
-                escapeCsv(item.dependencies.map(d => `${d.notes || ''}`).join('; '))
+                escapeCsv(item.dependencies.map(d => `${d.notes ?? ''}`).join('; '))
             ].join(','));
             fileName = `relatorio_bia_servicos_${new Date().toISOString().split('T')[0]}.csv`;
         }
