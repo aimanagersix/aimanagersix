@@ -96,19 +96,24 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Ler Configurações da DB (Emails e API Key)
+    // 1. Ler Configurações da DB
     const { data: settings } = await supabase
       .from('global_settings')
       .select('setting_key, setting_value')
-      .in('setting_key', ['weekly_report_recipients', 'resend_api_key'])
+      .in('setting_key', ['weekly_report_recipients', 'resend_api_key', 'resend_from_email'])
     
     const recipientsStr = settings?.find(s => s.setting_key === 'weekly_report_recipients')?.setting_value
     const resendKey = settings?.find(s => s.setting_key === 'resend_api_key')?.setting_value
+    const resendFrom = settings?.find(s => s.setting_key === 'resend_from_email')?.setting_value
     
     const recipients = recipientsStr ? recipientsStr.split(',').map(e => e.trim()) : []
 
     if (!resendKey) throw new Error("Resend API Key não configurada na tabela global_settings.")
-    if (recipients.length === 0) return new Response(JSON.stringify({ message: "Sem destinatários configurados." }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (!resendFrom) throw new Error("Email do remetente (Resend From) não configurado na tabela global_settings.")
+    
+    if (recipients.length === 0) {
+        return new Response(JSON.stringify({ message: "Sem destinatários configurados para envio." }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
     // 2. Fetch Data
     const { count: ticketCount } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Pedido')
@@ -131,21 +136,28 @@ serve(async (req) => {
             'Authorization': \`Bearer \${resendKey}\`
         },
         body: JSON.stringify({
-            from: 'AIManager <onboarding@resend.dev>',
+            from: resendFrom,
             to: recipients, 
             subject: 'Relatório Semanal de Ativos',
             html: emailHtml
         })
     })
     
-    const result = await res.json()
-
-    if (!res.ok) {
-        console.error("Resend Error:", result)
-        throw new Error(\`Resend API Error: \${JSON.stringify(result)}\`)
+    // Parse Resend response safely
+    const resultText = await res.text()
+    let resultJson = {}
+    try {
+        resultJson = JSON.parse(resultText)
+    } catch (e) {
+        resultJson = { raw: resultText }
     }
 
-    return new Response(JSON.stringify({ success: true, result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (!res.ok) {
+        console.error("Resend Error:", resultJson)
+        throw new Error(\`Resend API Error: \${JSON.stringify(resultJson)}\`)
+    }
+
+    return new Response(JSON.stringify({ success: true, result: resultJson }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {
     console.error("Function Error:", error)
@@ -187,15 +199,17 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Ler API Key da DB
-    const { data: setting } = await supabase
+    // 1. Ler API Key e From Email da DB
+    const { data: settings } = await supabase
       .from('global_settings')
-      .select('setting_value')
-      .eq('setting_key', 'resend_api_key')
-      .single()
+      .select('setting_key, setting_value')
+      .in('setting_key', ['resend_api_key', 'resend_from_email'])
       
-    const resendKey = setting?.setting_value
+    const resendKey = settings?.find(s => s.setting_key === 'resend_api_key')?.setting_value
+    const resendFrom = settings?.find(s => s.setting_key === 'resend_from_email')?.setting_value
+
     if (!resendKey) return new Response('Resend API Key missing in DB', { status: 500 })
+    if (!resendFrom) return new Response('Resend From Email missing in DB', { status: 500 })
 
     // 2. Fetch Team Emails
     const { data: members } = await supabase
@@ -215,7 +229,7 @@ serve(async (req) => {
         'Authorization': \`Bearer \${resendKey}\`
       },
       body: JSON.stringify({
-        from: 'AIManager Support <support@resend.dev>',
+        from: resendFrom,
         to: emails,
         subject: \`[Ticket: \${record.id.substring(0,8)}] \${record.title}\`,
         html: \`
@@ -311,6 +325,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [sbKey, setSbKey] = useState('');
     const [sbServiceKey, setSbServiceKey] = useState('');
     const [resendApiKey, setResendApiKey] = useState('');
+    const [resendFromEmail, setResendFromEmail] = useState('');
     
     // Reporting Config
     const [reportRecipients, setReportRecipients] = useState('');
@@ -404,9 +419,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 // Connections
                 const nistKey = await dataService.getGlobalSetting('nist_api_key');
                 const rKey = await dataService.getGlobalSetting('resend_api_key');
+                const rFrom = await dataService.getGlobalSetting('resend_from_email');
                 
                 if (nistKey) setNistApiKey(nistKey);
                 if (rKey) setResendApiKey(rKey);
+                if (rFrom) setResendFromEmail(rFrom);
 
                 setSbUrl(localStorage.getItem('SUPABASE_URL') || '');
                 setSbKey(localStorage.getItem('SUPABASE_ANON_KEY') || '');
@@ -476,6 +493,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const handleSaveConnections = async () => {
         await dataService.updateGlobalSetting('nist_api_key', nistApiKey);
         await dataService.updateGlobalSetting('resend_api_key', resendApiKey);
+        await dataService.updateGlobalSetting('resend_from_email', resendFromEmail);
         
         if (sbUrl && sbKey) {
             localStorage.setItem('SUPABASE_URL', sbUrl);
@@ -1079,6 +1097,19 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                         </div>
                                         <p className="text-xs text-gray-500 mt-1">
                                             Necessária para enviar emails automáticos (Tickets, Relatórios). Será guardada na tabela <code>global_settings</code>.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-orange-400 font-bold uppercase mb-1 flex items-center gap-1"><FaEnvelope/> Remetente do Email (From)</label>
+                                        <input 
+                                            type="email" 
+                                            value={resendFromEmail}
+                                            onChange={(e) => setResendFromEmail(e.target.value)}
+                                            className="bg-gray-800 border border-orange-500/50 text-white rounded-md p-2 text-sm w-full font-mono"
+                                            placeholder="Ex: seu-email@seu-dominio.com"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            <strong>Obrigatório.</strong> Use um email de um domínio verificado no Resend, ou o seu próprio email de login para testes.
                                         </p>
                                     </div>
                                 </div>
