@@ -381,8 +381,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ type, onClose, equipment, bra
                 totalItems: rData.items.length,
                 items: rData.items.slice(0, 50).map((i: any) => ({ // Limit to 50 for context window
                     description: i.equipment?.description || '',
-                    brand: brandMap.get(i.equipment?.brandId || '') || 'N/A',
-                    type: equipmentTypeMap.get(i.equipment?.typeId || '') || 'N/A',
+                    brand: brandMap.get(String(i.equipment?.brandId || '')) || 'N/A',
+                    type: equipmentTypeMap.get(String(i.equipment?.typeId || '')) || 'N/A',
                     age: i.equipment?.purchaseDate || '',
                     status: i.equipment?.status || ''
                 }))
