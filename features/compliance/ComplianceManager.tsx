@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
     Collaborator, BusinessService, ServiceDependency, Vulnerability, 
@@ -269,6 +268,8 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     onSave={handleBatchAddTraining}
                     collaborators={appData.collaborators}
                     trainingTypes={appData.configTrainingTypes}
+                    instituicoes={appData.instituicoes}
+                    entidades={appData.entidades}
                 />
             )}
             {showAddPolicyModal && (

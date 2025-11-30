@@ -1,7 +1,6 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, ConfigItem, TrainingType } from '../types';
+import { Collaborator, ConfigItem, TrainingType, Instituicao, Entidade } from '../types';
 import { FaGraduationCap, FaUsers, FaSearch, FaCheck } from 'react-icons/fa';
 
 interface AddTrainingSessionModalProps {
@@ -16,9 +15,11 @@ interface AddTrainingSessionModalProps {
     }) => void;
     collaborators: Collaborator[];
     trainingTypes: ConfigItem[];
+    instituicoes: Instituicao[];
+    entidades: Entidade[];
 }
 
-const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClose, onSave, collaborators, trainingTypes }) => {
+const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClose, onSave, collaborators, trainingTypes, instituicoes, entidades }) => {
     const [trainingType, setTrainingType] = useState('');
     const [completionDate, setCompletionDate] = useState(new Date().toISOString().split('T')[0]);
     const [notes, setNotes] = useState('');
@@ -26,6 +27,10 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
     const [durationHours, setDurationHours] = useState<number | string>(1);
     const [selectedCollaborators, setSelectedCollaborators] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
+
+    // New filters
+    const [filterInstituicao, setFilterInstituicao] = useState('');
+    const [filterEntidade, setFilterEntidade] = useState('');
 
     const trainingOptions = useMemo(() => {
         if (trainingTypes && trainingTypes.length > 0) return trainingTypes.map(t => t.name);
@@ -37,12 +42,36 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
         if (trainingOptions.length > 0) setTrainingType(trainingOptions[0]);
     });
 
+    const filteredEntidades = useMemo(() => {
+        if (!filterInstituicao) return entidades;
+        return entidades.filter(e => e.instituicaoId === filterInstituicao);
+    }, [entidades, filterInstituicao]);
+
+    useEffect(() => {
+        setFilterEntidade('');
+    }, [filterInstituicao]);
+
+
     const filteredCollaborators = useMemo(() => {
-        return collaborators.filter(c => 
-            c.status === 'Ativo' && 
-            (c.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase()))
-        ).sort((a,b) => a.fullName.localeCompare(b.fullName));
-    }, [collaborators, searchQuery]);
+        let collabs = collaborators.filter(c => c.status === 'Ativo');
+
+        if (filterEntidade) {
+            collabs = collabs.filter(c => c.entidadeId === filterEntidade);
+        } else if (filterInstituicao) {
+            const entityIdsInInst = new Set(entidades.filter(e => e.instituicaoId === filterInstituicao).map(e => e.id));
+            collabs = collabs.filter(c => c.entidadeId && entityIdsInInst.has(c.entidadeId));
+        }
+        
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            collabs = collabs.filter(c => 
+                c.fullName.toLowerCase().includes(query) || 
+                c.email.toLowerCase().includes(query)
+            );
+        }
+        
+        return collabs.sort((a,b) => a.fullName.localeCompare(b.fullName));
+    }, [collaborators, searchQuery, filterInstituicao, filterEntidade, entidades]);
 
     const toggleCollaborator = (id: string) => {
         setSelectedCollaborators(prev => {
@@ -160,6 +189,25 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
                         <span className="text-xs bg-blue-900 px-2 py-1 rounded text-blue-200">{selectedCollaborators.size} selecionados</span>
                     </h3>
                     
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                         <select 
+                            value={filterInstituicao} 
+                            onChange={(e) => setFilterInstituicao(e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
+                        >
+                            <option value="">Todas as Instituições</option>
+                            {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                        </select>
+                         <select 
+                            value={filterEntidade} 
+                            onChange={(e) => setFilterEntidade(e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
+                            disabled={!filterInstituicao}
+                        >
+                            <option value="">Todas as Entidades</option>
+                            {filteredEntidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        </select>
+                    </div>
                     <div className="flex gap-2 mb-3">
                         <div className="relative flex-grow">
                             <FaSearch className="absolute left-3 top-2.5 text-gray-400 text-xs"/>
@@ -167,7 +215,7 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
                                 type="text" 
                                 value={searchQuery} 
                                 onChange={(e) => setSearchQuery(e.target.value)} 
-                                placeholder="Filtrar colaboradores..." 
+                                placeholder="Filtrar por nome..." 
                                 className="w-full bg-gray-800 border border-gray-600 text-white rounded-md pl-8 p-2 text-sm"
                             />
                         </div>

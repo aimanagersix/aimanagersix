@@ -37,7 +37,7 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
     // 1. Incident Response
     const openCriticalIncidents = useMemo(() => tickets.filter(t => 
         (t.category === 'Incidente de Segurança' || t.securityIncidentType) && 
-        t.impactCriticality === CriticalityLevel.Critical &&
+        (t.impactCriticality === CriticalityLevel.Critical || t.impactCriticality === CriticalityLevel.High) &&
         t.status !== TicketStatus.Finished
     ).length, [tickets]);
 
