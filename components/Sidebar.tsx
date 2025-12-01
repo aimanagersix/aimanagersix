@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
@@ -47,7 +46,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
     const hasReportsTabs = tabConfig['reports'];
-    const hasAutomationTab = tabConfig['automation'];
     
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
@@ -227,10 +225,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 
                 {hasReportsTabs && (
                     <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>
-                )}
-
-                {hasAutomationTab && (
-                    <TabButton tab="automation" label={t('common.automation')} icon={<FaRobot />} activeTab={activeTab} setActiveTab={setActiveTab}/>
                 )}
 
                 {hasToolsTabs && (

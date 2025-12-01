@@ -21,7 +21,6 @@ import OrganizationManager from './features/organization/OrganizationManager';
 import TicketManager from './features/tickets/TicketManager';
 import ComplianceManager from './features/compliance/ComplianceManager';
 import SettingsManager from './features/settings/SettingsManager';
-import AuxiliaryDataDashboard from './components/AuxiliaryDataDashboard'; // For Automation
 
 // Dashboards (Non-Refactored Modules)
 import OverviewDashboard from './components/OverviewDashboard';
@@ -198,7 +197,6 @@ export const App: React.FC = () => {
         } : undefined,
         
         'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,
-        'automation': checkPermission('config_automation', 'view') ? 'Automação' : undefined,
         
         'tools': { title: 'Tools', agenda: 'Agenda de contactos', map: 'Pesquisa no Mapa' },
         'settings': checkPermission('settings', 'view') || isAdmin ? 'Configurações' : undefined
@@ -421,13 +419,6 @@ export const App: React.FC = () => {
                              setDashboardFilter={setDashboardFilter}
                              setReportType={(t) => { setReportType(t as any); setShowReportModal(true); }}
                              currentUser={currentUser}
-                        />
-                    )}
-
-                    {activeTab === 'automation' && (
-                        <AuxiliaryDataDashboard 
-                            appData={appData}
-                            onRefresh={refreshData}
                         />
                     )}
 
