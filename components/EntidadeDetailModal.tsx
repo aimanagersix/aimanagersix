@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
@@ -54,8 +48,13 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const logoUrl = await dataService.getGlobalSetting('app_logo_url');
-        const logoHtml = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Logótipo" style="max-height: 80px; display: inline-block;" /></div>` : '';
+        const [logoBase64, sizeStr] = await Promise.all([
+            dataService.getGlobalSetting('app_logo_base64'),
+            dataService.getGlobalSetting('app_logo_size')
+        ]);
+        const logoSize = sizeStr ? parseInt(sizeStr) : 80;
+        const logoHtml = logoBase64 ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px; display: inline-block;" /></div>` : '';
+
 
         const collaboratorRows = activeCollaborators.map(col => {
             const phone = col.telemovel || col.telefoneInterno || '-';

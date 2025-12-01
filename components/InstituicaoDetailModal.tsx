@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
@@ -44,7 +40,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
 
     // Filter collaborators belonging to entities of this institution
     const relatedCollaborators = useMemo(() => {
-        return collaborators.filter(c => relatedEntityIds.has(c.entidadeId));
+        return collaborators.filter(c => c.entidadeId && relatedEntityIds.has(c.entidadeId));
     }, [collaborators, relatedEntityIds]);
 
     // Filter equipment belonging to any entity in this institution
@@ -55,7 +51,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
         const collabMap = new Map(collaborators.map(c => [c.id, c.fullName]));
 
         return assignments
-            .filter(a => relatedEntityIds.has(a.entidadeId) && !a.returnDate)
+            .filter(a => a.entidadeId && relatedEntityIds.has(a.entidadeId) && !a.returnDate)
             .map(a => {
                 const eq = equipment.find(e => e.id === a.equipmentId);
                 return {
@@ -73,8 +69,12 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const logoUrl = await dataService.getGlobalSetting('app_logo_url');
-        const logoHtml = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Logótipo" style="max-height: 80px; display: inline-block;" /></div>` : '';
+        const [logoBase64, sizeStr] = await Promise.all([
+            dataService.getGlobalSetting('app_logo_base64'),
+            dataService.getGlobalSetting('app_logo_size')
+        ]);
+        const logoSize = sizeStr ? parseInt(sizeStr) : 80;
+        const logoHtml = logoBase64 ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px; display: inline-block;" /></div>` : '';
 
         const collaboratorRows = relatedCollaborators.map(col => {
             const entName = entidades.find(e => e.id === col.entidadeId)?.name || 'N/A';

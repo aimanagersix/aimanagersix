@@ -1,14 +1,12 @@
-
-
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig, EquipmentStatus } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave, FaBoxOpen, FaSearch, FaUnlink, FaLink, FaExclamationTriangle, FaLock, FaUnlock, FaChevronDown, FaListAlt, FaIdCard } from './common/Icons';
+import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig, EquipmentStatus, Brand, EquipmentType, LicenseAssignment, SoftwareLicense } from '../types';
+// FIX: Import FaUserSlash icon
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaEdit, FaUserShield, FaGraduationCap, FaPlus, FaMagic, FaSpinner, FaKey, FaPrint, FaMousePointer, FaInfoCircle, FaSave, FaBoxOpen, FaSearch, FaUnlink, FaLink, FaExclamationTriangle, FaLock, FaUnlock, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash } from './common/Icons';
 import { analyzeCollaboratorRisk, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
+import OffboardingModal from './OffboardingModal'; // New import
 
 interface CollaboratorDetailModalProps {
     collaborator: Collaborator;
@@ -23,6 +21,10 @@ interface CollaboratorDetailModalProps {
     onEdit: (collaborator: Collaborator) => void;
     onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
     onUnassignEquipment?: (equipmentId: string) => Promise<void>;
+    onConfirmOffboarding?: (collaboratorId: string) => Promise<void>; // New prop
+    // FIX: Add license assignments and software licenses to props
+    licenseAssignments?: LicenseAssignment[];
+    softwareLicenses?: SoftwareLicense[];
 }
 
 const getStatusClass = (status: CollaboratorStatus) => {
@@ -58,7 +60,6 @@ const KpiCard: React.FC<{ title: string; value: string | number; icon: React.Rea
     </div>
 );
 
-// FIX: Changed to named export
 export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     collaborator,
     assignments,
@@ -71,7 +72,11 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
     onStartChat,
     onEdit,
     onAssignEquipment,
-    onUnassignEquipment
+    onUnassignEquipment,
+    onConfirmOffboarding,
+    // FIX: Receive license props and provide default values
+    licenseAssignments = [],
+    softwareLicenses = []
 }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'support' | 'training' | 'preferences'>('overview');
     
@@ -111,6 +116,9 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
     // Print Menu State
     const [showPrintMenu, setShowPrintMenu] = useState(false);
     const printMenuRef = useRef<HTMLDivElement>(null);
+    
+    // Offboarding State
+    const [showOffboardingModal, setShowOffboardingModal] = useState(false);
 
     // Check if current user
     useEffect(() => {
@@ -302,8 +310,12 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const logoUrl = await dataService.getGlobalSetting('app_logo_url');
-        const logoHtml = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Logótipo" style="max-height: 80px; display: inline-block;" /></div>` : '';
+        const [logoBase64, sizeStr] = await Promise.all([
+            dataService.getGlobalSetting('app_logo_base64'),
+            dataService.getGlobalSetting('app_logo_size')
+        ]);
+        const logoSize = sizeStr ? parseInt(sizeStr) : 80;
+        const logoHtml = logoBase64 ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px; display: inline-block;" /></div>` : '';
 
 
         const commonStyles = `
@@ -471,6 +483,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
     };
 
     return (
+        <>
         <Modal title={`Detalhes do Colaborador`} onClose={onClose} maxWidth="max-w-4xl">
             <div className="flex flex-col h-[80vh]">
                 {/* Header Section */}
@@ -496,76 +509,33 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                         </div>
                     </div>
                      <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
-                        <div className="relative" ref={printMenuRef}>
-                            <button 
-                                onClick={() => setShowPrintMenu(!showPrintMenu)}
-                                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg"
-                            >
-                                <FaPrint /> Imprimir <FaChevronDown className="text-xs" />
-                            </button>
-                            {showPrintMenu && (
-                                <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-md shadow-xl z-50 py-1">
-                                    <button 
-                                        onClick={() => handlePrint('inventory')}
-                                        className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 transition-colors"
-                                    >
-                                        <FaListAlt className="text-blue-400"/> Ficha de Inventário
-                                    </button>
-                                    <button 
-                                        onClick={() => handlePrint('full')}
-                                        className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 transition-colors border-t border-gray-700"
-                                    >
-                                        <FaIdCard className="text-green-400"/> Dossier Completo
-                                    </button>
-                                </div>
-                            )}
+                        <div className="flex gap-2">
+                            <div className="relative" ref={printMenuRef}>
+                                <button onClick={() => setShowPrintMenu(!showPrintMenu)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg"><FaPrint /> Imprimir <FaChevronDown className="text-xs" /></button>
+                                {showPrintMenu && (
+                                    <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-md shadow-xl z-50 py-1">
+                                        <button onClick={() => handlePrint('inventory')} className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700"><FaListAlt className="text-blue-400"/> Ficha de Inventário</button>
+                                        <button onClick={() => handlePrint('full')} className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 border-t border-gray-700"><FaIdCard className="text-green-400"/> Dossier Completo</button>
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={() => { onClose(); onEdit(collaborator); }} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg font-semibold"><FaEdit /> Editar</button>
                         </div>
-                        
-                        <button 
-                            onClick={() => { onClose(); onEdit(collaborator); }} 
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors shadow-lg font-semibold"
-                        >
-                            <FaEdit /> Editar Dados
-                        </button>
-                        <button onClick={handleChatClick} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
-                            <FaComment /> Enviar Mensagem
-                        </button>
+                        <button onClick={handleChatClick} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors"><FaComment /> Enviar Mensagem</button>
+                        {onConfirmOffboarding && (
+                            <button onClick={() => setShowOffboardingModal(true)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-800 hover:bg-red-700 text-white rounded-md transition-colors mt-2"><FaUserSlash /> Assistente de Saída</button>
+                        )}
                     </div>
                 </div>
 
                 {/* Tab Navigation */}
                 <div className="flex border-b border-gray-700 mb-4">
-                    <button 
-                        onClick={() => setActiveTab('overview')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'overview' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        Visão Geral
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('inventory')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'inventory' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        Inventário
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('support')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'support' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        Suporte
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('training')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'training' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        Formação & Segurança
-                    </button>
+                    <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'overview' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Visão Geral</button>
+                    <button onClick={() => setActiveTab('inventory')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'inventory' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Inventário</button>
+                    <button onClick={() => setActiveTab('support')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'support' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Suporte</button>
+                    <button onClick={() => setActiveTab('training')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'training' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Formação & Segurança</button>
                     {isCurrentUser && (
-                        <button 
-                            onClick={() => setActiveTab('preferences')} 
-                            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'preferences' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                        >
-                            Preferências
-                        </button>
+                        <button onClick={() => setActiveTab('preferences')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'preferences' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Preferências</button>
                     )}
                 </div>
 
@@ -576,48 +546,17 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                         <div className="space-y-6">
                             {/* KPI Cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <KpiCard 
-                                    title="Total de Ativos" 
-                                    value={assignedEquipment.length} 
-                                    icon={<FaLaptop className="text-xl"/>} 
-                                    color="bg-blue-600" 
-                                    onClick={() => setActiveTab('inventory')}
-                                />
-                                <KpiCard 
-                                    title="Tickets Abertos" 
-                                    value={openTicketsCount} 
-                                    icon={<FaTicketAlt className="text-xl"/>} 
-                                    color={openTicketsCount > 0 ? "bg-yellow-600" : "bg-green-600"}
-                                    onClick={() => setActiveTab('support')}
-                                />
-                                <KpiCard 
-                                    title="Formações" 
-                                    value={trainings.length} 
-                                    icon={<FaGraduationCap className="text-xl"/>} 
-                                    color="bg-purple-600"
-                                    onClick={() => setActiveTab('training')}
-                                />
-                                <KpiCard 
-                                    title="Acesso ao Sistema" 
-                                    value={collaborator.canLogin ? 'Permitido' : 'Bloqueado'} 
-                                    icon={collaborator.canLogin ? <FaUnlock className="text-xl"/> : <FaLock className="text-xl"/>} 
-                                    color={collaborator.canLogin ? "bg-green-600" : "bg-red-600"}
-                                />
+                                <KpiCard title="Total de Ativos" value={assignedEquipment.length} icon={<FaLaptop className="text-xl"/>} color="bg-blue-600" onClick={() => setActiveTab('inventory')}/>
+                                <KpiCard title="Tickets Abertos" value={openTicketsCount} icon={<FaTicketAlt className="text-xl"/>} color={openTicketsCount > 0 ? "bg-yellow-600" : "bg-green-600"} onClick={() => setActiveTab('support')}/>
+                                <KpiCard title="Formações" value={trainings.length} icon={<FaGraduationCap className="text-xl"/>} color="bg-purple-600" onClick={() => setActiveTab('training')}/>
+                                <KpiCard title="Acesso ao Sistema" value={collaborator.canLogin ? 'Permitido' : 'Bloqueado'} icon={collaborator.canLogin ? <FaUnlock className="text-xl"/> : <FaLock className="text-xl"/>} color={collaborator.canLogin ? "bg-green-600" : "bg-red-600"}/>
                             </div>
 
-                            {/* Account Management (Password) */}
                             {isCurrentUser && (
                                 <section className="bg-gray-800/30 p-4 rounded-lg border border-gray-700">
                                     <div className="flex justify-between items-center">
-                                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                            <FaKey className="text-yellow-500" /> Segurança da Conta
-                                        </h3>
-                                        <button 
-                                            onClick={() => setShowPasswordChange(!showPasswordChange)}
-                                            className="text-xs text-brand-secondary hover:text-white underline"
-                                        >
-                                            {showPasswordChange ? 'Cancelar' : 'Alterar Password'}
-                                        </button>
+                                        <h3 className="text-sm font-bold text-white flex items-center gap-2"><FaKey className="text-yellow-500" /> Segurança da Conta</h3>
+                                        <button onClick={() => setShowPasswordChange(!showPasswordChange)} className="text-xs text-brand-secondary hover:text-white underline">{showPasswordChange ? 'Cancelar' : 'Alterar Password'}</button>
                                     </div>
                                     
                                     {showPasswordChange && (
@@ -625,39 +564,22 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="block text-xs text-gray-400 mb-1">Nova Password</label>
-                                                    <input 
-                                                        type="password" 
-                                                        value={newPassword}
-                                                        onChange={(e) => setNewPassword(e.target.value)}
-                                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                                    />
+                                                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs text-gray-400 mb-1">Confirmar Password</label>
-                                                    <input 
-                                                        type="password" 
-                                                        value={confirmPassword}
-                                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                                    />
+                                                    <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
                                                 </div>
                                             </div>
                                             {passwordError && <p className="text-red-400 text-xs">{passwordError}</p>}
                                             <div className="flex justify-end">
-                                                <button 
-                                                    onClick={handleUpdatePassword}
-                                                    disabled={isUpdatingPassword}
-                                                    className="px-4 py-2 bg-brand-primary text-white rounded text-sm hover:bg-brand-secondary disabled:opacity-50"
-                                                >
-                                                    {isUpdatingPassword ? 'A atualizar...' : 'Atualizar Password'}
-                                                </button>
+                                                <button onClick={handleUpdatePassword} disabled={isUpdatingPassword} className="px-4 py-2 bg-brand-primary text-white rounded text-sm hover:bg-brand-secondary disabled:opacity-50">{isUpdatingPassword ? 'A atualizar...' : 'Atualizar Password'}</button>
                                             </div>
                                         </div>
                                     )}
                                 </section>
                             )}
                             
-                            {/* Address Info */}
                              <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700">
                                 <h3 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada Pessoal</h3>
                                 <div className="text-sm text-gray-300 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -689,12 +611,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                                     <p className="text-xs text-gray-400">S/N: {item.serialNumber}</p>
                                                     <p className="text-xs text-gray-500">{brandMap.get(item.brandId)}</p>
                                                 </div>
-                                                <button 
-                                                    onClick={() => handleUnassign(item.id)}
-                                                    className="text-xs bg-red-900/30 text-red-400 border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-900/50 flex items-center gap-1 transition-colors"
-                                                >
-                                                    <FaUnlink /> Desassociar
-                                                </button>
+                                                <button onClick={() => handleUnassign(item.id)} className="text-xs bg-red-900/30 text-red-400 border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-900/50 flex items-center gap-1 transition-colors"><FaUnlink /> Desassociar</button>
                                             </div>
                                         ))}
                                     </div>
@@ -710,36 +627,15 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                 
                                 <div className="flex flex-col sm:flex-row gap-2 items-center">
                                     <div className="flex-grow relative w-full">
-                                        <input
-                                            type="text"
-                                            placeholder="Filtrar stock por série, marca ou tipo..."
-                                            value={assignSearchQuery}
-                                            onChange={(e) => setAssignSearchQuery(e.target.value)}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-t-md p-2 pl-8 text-sm focus:ring-green-500 focus:border-green-500 border-b-0"
-                                        />
+                                        <input type="text" placeholder="Filtrar stock por série, marca ou tipo..." value={assignSearchQuery} onChange={(e) => setAssignSearchQuery(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-t-md p-2 pl-8 text-sm focus:ring-green-500 focus:border-green-500 border-b-0"/>
                                         <FaSearch className="absolute left-2.5 top-2.5 text-gray-400 h-3 w-3 pointer-events-none"/>
                                         
-                                        <select 
-                                            value={selectedStockId} 
-                                            onChange={(e) => setSelectedStockId(e.target.value)} 
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-b-md p-2 text-sm"
-                                        >
+                                        <select value={selectedStockId} onChange={(e) => setSelectedStockId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-b-md p-2 text-sm">
                                             <option value="">-- Selecione do Stock ({filteredStock.length}) --</option>
-                                            {filteredStock.map(e => (
-                                                <option key={e.id} value={e.id}>
-                                                    {e.description} (S/N: {e.serialNumber})
-                                                </option>
-                                            ))}
+                                            {filteredStock.map(e => (<option key={e.id} value={e.id}>{e.description} (S/N: {e.serialNumber})</option>))}
                                         </select>
                                     </div>
-                                    <button 
-                                        onClick={handleQuickAssign}
-                                        disabled={!selectedStockId || isAssigning}
-                                        className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-500 disabled:opacity-50 flex items-center justify-center gap-2 h-[72px] sm:h-auto"
-                                    >
-                                        {isAssigning ? <FaSpinner className="animate-spin"/> : <FaCheckCircle />} 
-                                        Associar
-                                    </button>
+                                    <button onClick={handleQuickAssign} disabled={!selectedStockId || isAssigning} className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-500 disabled:opacity-50 flex items-center justify-center gap-2 h-[72px] sm:h-auto">{isAssigning ? <FaSpinner className="animate-spin"/> : <FaCheckCircle />} Associar</button>
                                 </div>
                             </div>
                         </div>
@@ -768,11 +664,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                                 <td className="px-4 py-3">{new Date(ticket.requestDate).toLocaleDateString()}</td>
                                                 <td className="px-4 py-3 text-white font-medium">{ticket.title}</td>
                                                 <td className="px-4 py-3 text-gray-400 truncate max-w-xs" title={ticket.description}>{ticket.description}</td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${getTicketStatusClass(ticket.status)}`}>
-                                                        {ticket.status}
-                                                    </span>
-                                                </td>
+                                                <td className="px-4 py-3"><span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${getTicketStatusClass(ticket.status)}`}>{ticket.status}</span></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -785,120 +677,15 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
 
                     {activeTab === 'training' && (
                         <div className="space-y-6">
-                            <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
-                                <div className="flex items-center gap-2 font-bold mb-2">
-                                    <FaUserShield className="text-xl"/> Higiene Cibernética (NIS2 Artigo 7º)
-                                </div>
-                                <p>
-                                    Os colaboradores devem receber formação regular em segurança.
-                                    Utilize a IA para analisar o comportamento de risco com base nos tickets abertos.
-                                </p>
-                            </div>
-
-                            {/* AI Risk Analysis */}
+                            <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200"><div className="flex items-center gap-2 font-bold mb-2"><FaUserShield className="text-xl"/> Higiene Cibernética (NIS2 Artigo 7º)</div><p>Os colaboradores devem receber formação regular em segurança. Utilize a IA para analisar o comportamento de risco com base nos tickets abertos.</p></div>
                             <div className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg">
-                                <div className="flex justify-between items-center mb-3">
-                                    <h4 className="font-bold text-white flex items-center gap-2"><FaMagic className="text-purple-400"/> Análise de Risco Humano (IA)</h4>
-                                    <button 
-                                        onClick={handleAnalyzeRisk}
-                                        disabled={isAnalyzingRisk || !aiConfigured}
-                                        className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded disabled:opacity-50 flex items-center gap-2"
-                                    >
-                                        {isAnalyzingRisk ? <FaSpinner className="animate-spin"/> : <FaMagic/>} Analisar Comportamento
-                                    </button>
-                                </div>
-                                
-                                {aiRiskAnalysis && (
-                                    <div className={`p-3 rounded border ${aiRiskAnalysis.needsTraining ? 'bg-orange-900/20 border-orange-500/50' : 'bg-green-900/20 border-green-500/50'} animate-fade-in`}>
-                                        <p className={`font-bold ${aiRiskAnalysis.needsTraining ? 'text-orange-400' : 'text-green-400'}`}>
-                                            {aiRiskAnalysis.needsTraining ? "Risco Detetado: Formação Recomendada" : "Comportamento Seguro"}
-                                        </p>
-                                        <p className="text-sm text-gray-300 mt-1">{aiRiskAnalysis.reason}</p>
-                                        {aiRiskAnalysis.needsTraining && (
-                                            <div className="mt-2 text-xs text-white bg-orange-600/20 p-2 rounded inline-block">
-                                                Recomendação: <strong>{aiRiskAnalysis.recommendedModule}</strong>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                                {!aiRiskAnalysis && !isAnalyzingRisk && (
-                                    <p className="text-xs text-gray-500 italic">Clique para analisar o histórico de tickets e detetar padrões de risco.</p>
-                                )}
+                                <div className="flex justify-between items-center mb-3"><h4 className="font-bold text-white flex items-center gap-2"><FaMagic className="text-purple-400"/> Análise de Risco Humano (IA)</h4><button onClick={handleAnalyzeRisk} disabled={isAnalyzingRisk || !aiConfigured} className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded disabled:opacity-50 flex items-center gap-2">{isAnalyzingRisk ? <FaSpinner className="animate-spin"/> : <FaMagic/>} Analisar Comportamento</button></div>
+                                {aiRiskAnalysis && (<div className={`p-3 rounded border ${aiRiskAnalysis.needsTraining ? 'bg-orange-900/20 border-orange-500/50' : 'bg-green-900/20 border-green-500/50'} animate-fade-in`}><p className={`font-bold ${aiRiskAnalysis.needsTraining ? 'text-orange-400' : 'text-green-400'}`}>{aiRiskAnalysis.needsTraining ? "Risco Detetado: Formação Recomendada" : "Comportamento Seguro"}</p><p className="text-sm text-gray-300 mt-1">{aiRiskAnalysis.reason}</p>{aiRiskAnalysis.needsTraining && (<div className="mt-2 text-xs text-white bg-orange-600/20 p-2 rounded inline-block">Recomendação: <strong>{aiRiskAnalysis.recommendedModule}</strong></div>)}</div>)}{!aiRiskAnalysis && !isAnalyzingRisk && (<p className="text-xs text-gray-500 italic">Clique para analisar o histórico de tickets e detetar padrões de risco.</p>)}
                             </div>
-
-                            {/* Training Records */}
                             <div>
-                                <div className="flex justify-between items-center mb-3">
-                                    <h4 className="font-bold text-white flex items-center gap-2"><FaGraduationCap /> Registo de Formação</h4>
-                                    <button onClick={() => setShowAddTraining(!showAddTraining)} className="text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded flex items-center gap-2">
-                                        <FaPlus /> Registar Ação
-                                    </button>
-                                </div>
-
-                                {showAddTraining && (
-                                    <div className="bg-gray-800 p-3 rounded border border-gray-600 mb-4 animate-fade-in">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                                            <select 
-                                                className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm"
-                                                value={newTraining.training_type}
-                                                onChange={(e) => setNewTraining({...newTraining, training_type: e.target.value as TrainingType})}
-                                            >
-                                                {Object.values(TrainingType).map(t => <option key={t} value={t}>{t}</option>)}
-                                            </select>
-                                            <input 
-                                                type="date" 
-                                                className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm"
-                                                value={newTraining.completion_date}
-                                                onChange={(e) => setNewTraining({...newTraining, completion_date: e.target.value})}
-                                            />
-                                            <input 
-                                                type="number" 
-                                                placeholder="Score (0-100)" 
-                                                className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm"
-                                                value={newTraining.score}
-                                                onChange={(e) => setNewTraining({...newTraining, score: parseInt(e.target.value)})}
-                                            />
-                                            <input 
-                                                type="text" 
-                                                placeholder="Notas..." 
-                                                className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm"
-                                                value={newTraining.notes}
-                                                onChange={(e) => setNewTraining({...newTraining, notes: e.target.value})}
-                                            />
-                                        </div>
-                                        <div className="flex justify-end gap-2">
-                                            <button onClick={() => setShowAddTraining(false)} className="text-xs px-3 py-1 bg-gray-600 text-white rounded">Cancelar</button>
-                                            <button onClick={handleAddTraining} className="text-xs px-3 py-1 bg-brand-primary text-white rounded">Salvar</button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {isLoadingTraining ? (
-                                    <p className="text-center text-gray-500 text-sm"><FaSpinner className="animate-spin"/> A carregar...</p>
-                                ) : trainings.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {trainings.map(t => (
-                                            <div key={t.id} className="flex items-center justify-between p-3 bg-surface-dark rounded border border-gray-700">
-                                                <div>
-                                                    <p className="font-bold text-white text-sm">{t.training_type}</p>
-                                                    <p className="text-xs text-gray-400">{new Date(t.completion_date).toLocaleDateString()} - {t.status}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    {t.score !== undefined && (
-                                                        <span className={`text-sm font-bold ${t.score >= 70 ? 'text-green-400' : 'text-red-400'}`}>
-                                                            {t.score}%
-                                                        </span>
-                                                    )}
-                                                    {t.duration_hours && (
-                                                        <span className="block text-xs text-gray-500 mt-1">{t.duration_hours} Horas</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-center py-4 text-gray-500 text-sm bg-gray-900/20 rounded border border-dashed border-gray-700">Nenhuma formação registada.</p>
-                                )}
+                                <div className="flex justify-between items-center mb-3"><h4 className="font-bold text-white flex items-center gap-2"><FaGraduationCap /> Registo de Formação</h4><button onClick={() => setShowAddTraining(!showAddTraining)} className="text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded flex items-center gap-2"><FaPlus /> Registar Ação</button></div>
+                                {showAddTraining && (<div className="bg-gray-800 p-3 rounded border border-gray-600 mb-4 animate-fade-in"><div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3"><select className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm" value={newTraining.training_type} onChange={(e) => setNewTraining({...newTraining, training_type: e.target.value as TrainingType})}>{Object.values(TrainingType).map(t => <option key={t} value={t}>{t}</option>)}</select><input type="date" className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm" value={newTraining.completion_date} onChange={(e) => setNewTraining({...newTraining, completion_date: e.target.value})}/><input type="number" placeholder="Score (0-100)" className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm" value={newTraining.score} onChange={(e) => setNewTraining({...newTraining, score: parseInt(e.target.value)})}/><input type="text" placeholder="Notas..." className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm" value={newTraining.notes} onChange={(e) => setNewTraining({...newTraining, notes: e.target.value})}/></div><div className="flex justify-end gap-2"><button onClick={() => setShowAddTraining(false)} className="text-xs px-3 py-1 bg-gray-600 text-white rounded">Cancelar</button><button onClick={handleAddTraining} className="text-xs px-3 py-1 bg-brand-primary text-white rounded">Salvar</button></div></div>)}
+                                {isLoadingTraining ? (<p className="text-center text-gray-500 text-sm"><FaSpinner className="animate-spin"/> A carregar...</p>) : trainings.length > 0 ? (<div className="space-y-2">{trainings.map(t => (<div key={t.id} className="flex items-center justify-between p-3 bg-surface-dark rounded border border-gray-700"><div><p className="font-bold text-white text-sm">{t.training_type}</p><p className="text-xs text-gray-400">{new Date(t.completion_date).toLocaleDateString()} - {t.status}</p></div><div className="text-right">{t.score !== undefined && (<span className={`text-sm font-bold ${t.score >= 70 ? 'text-green-400' : 'text-red-400'}`}>{t.score}%</span>)}{t.duration_hours && (<span className="block text-xs text-gray-500 mt-1">{t.duration_hours} Horas</span>)}</div></div>))}</div>) : (<p className="text-center py-4 text-gray-500 text-sm bg-gray-900/20 rounded border border-dashed border-gray-700">Nenhuma formação registada.</p>)}
                             </div>
                         </div>
                     )}
@@ -907,66 +694,17 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                          <div className="p-1">
                             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
                                 <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaMousePointer className="text-blue-400"/> Personalização de Tooltips</h3>
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Escolha quais informações aparecem quando passa o rato sobre os equipamentos nas listagens.
-                                </p>
+                                <p className="text-sm text-gray-400 mb-4">Escolha quais informações aparecem quando passa o rato sobre os equipamentos nas listagens.</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {Object.keys(defaultTooltipConfig).filter(k => !k.startsWith('showCollab')).map(key => {
-                                        const field = key as keyof TooltipConfig;
-                                        const labels: Record<string, string> = {
-                                            showNomeNaRede: "Nome na Rede",
-                                            showAssignedTo: "Atribuído a",
-                                            showOsVersion: "Versão do SO",
-                                            showLastPatch: "Último Patch",
-                                            showFirmwareVersion: "Versão do Firmware",
-                                            showSerialNumber: "Número de Série",
-                                            showBrand: "Marca / Tipo",
-                                            showWarranty: "Garantia",
-                                            showLocation: "Localização",
-                                        };
-                                        // FIX: Added return statement with JSX to render the element
-                                        return (
-                                            <label key={field} className="flex items-center justify-between p-2 bg-gray-800 rounded border border-gray-700">
-                                                <span className="text-sm text-gray-300">{labels[field]}</span>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={!!userTooltipConfig[field]}
-                                                    onChange={() => toggleTooltipField(field)}
-                                                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                                                />
-                                            </label>
-                                        );
-                                    })}
+                                    {Object.keys(defaultTooltipConfig).filter(k => !k.startsWith('showCollab')).map(key => {const field = key as keyof TooltipConfig;const labels: Record<string, string> = {showNomeNaRede: "Nome na Rede",showAssignedTo: "Atribuído a",showOsVersion: "Versão do SO",showLastPatch: "Último Patch",showFirmwareVersion: "Versão do Firmware",showSerialNumber: "Número de Série",showBrand: "Marca / Tipo",showWarranty: "Garantia",showLocation: "Localização",};return (<label key={field} className="flex items-center justify-between p-2 bg-gray-800 rounded border border-gray-700"><span className="text-sm text-gray-300">{labels[field]}</span><input type="checkbox" checked={!!userTooltipConfig[field]} onChange={() => toggleTooltipField(field)} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"/></label>);})}
                                 </div>
                                 
                                 <h4 className="font-bold text-white mb-3 mt-6">Tooltips de Colaboradores</h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {Object.keys(defaultTooltipConfig).filter(k => k.startsWith('showCollab')).map(key => {
-                                        const field = key as keyof TooltipConfig;
-                                        const labels: Record<string, string> = {
-                                            showCollabName: "Nome do Colaborador",
-                                            showCollabJob: "Função",
-                                            showCollabContact: "Contacto (Email/Tel)",
-                                            showCollabEntity: "Entidade/Associação"
-                                        };
-                                        // FIX: Added return statement with JSX to render the element
-                                        return (
-                                            <label key={field} className="flex items-center justify-between p-2 bg-gray-800 rounded border border-gray-700">
-                                                <span className="text-sm text-gray-300">{labels[field]}</span>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={!!userTooltipConfig[field]}
-                                                    onChange={() => toggleTooltipField(field)}
-                                                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                                                />
-                                            </label>
-                                        );
-                                    })}
+                                    {Object.keys(defaultTooltipConfig).filter(k => k.startsWith('showCollab')).map(key => {const field = key as keyof TooltipConfig;const labels: Record<string, string> = {showCollabName: "Nome do Colaborador",showCollabJob: "Função",showCollabContact: "Contacto (Email/Tel)",showCollabEntity: "Entidade/Associação"};return (<label key={field} className="flex items-center justify-between p-2 bg-gray-800 rounded border border-gray-700"><span className="text-sm text-gray-300">{labels[field]}</span><input type="checkbox" checked={!!userTooltipConfig[field]} onChange={() => toggleTooltipField(field)} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"/></label>);})}
                                 </div>
                                 <div className="mt-6 border-t border-gray-700 pt-4 flex justify-end">
-                                    <button onClick={handleSavePreferences} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2">
-                                        <FaSave /> Guardar Preferências
-                                    </button>
+                                    <button onClick={handleSavePreferences} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2"><FaSave /> Guardar Preferências</button>
                                 </div>
                             </div>
                         </div>
@@ -974,11 +712,26 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-gray-700 mt-auto">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">
-                        Fechar
-                    </button>
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar</button>
                 </div>
             </div>
         </Modal>
+
+        {showOffboardingModal && onConfirmOffboarding && (
+            <OffboardingModal 
+                onClose={() => setShowOffboardingModal(false)}
+                onConfirm={onConfirmOffboarding}
+                collaborator={collaborator}
+                assignments={assignments}
+                // FIX: Pass the correct props instead of appData
+                licenseAssignments={licenseAssignments || []}
+                equipment={equipment}
+                // FIX: Pass the correct props instead of appData
+                softwareLicenses={softwareLicenses || []}
+                brandMap={brandMap}
+                equipmentTypeMap={equipmentTypeMap}
+            />
+        )}
+        </>
     );
 };

@@ -536,6 +536,9 @@ export const App: React.FC = () => {
                     tickets={appData.tickets}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
                     equipmentTypeMap={new Map(appData.equipmentTypes.map((t: EquipmentType) => [t.id, t.name]))}
+                    // FIX: Pass license data to the detail modal
+                    licenseAssignments={appData.licenseAssignments}
+                    softwareLicenses={appData.softwareLicenses}
                     onClose={() => setShowProfileModal(false)}
                     onShowHistory={() => {}}
                     onStartChat={() => {}}

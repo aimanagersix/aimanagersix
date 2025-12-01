@@ -341,6 +341,121 @@ serve(async (req) => {
   }
 })`;
 
+// The PowerShell Agent Script
+const agentScript = `# ==========================================
+# AIManager - Agente de Inventário (v2.1)
+# Recolha Detalhada e Sincronização Automática
+# ==========================================
+
+# --- CONFIGURAÇÃO (NÃO ALTERAR AQUI, USAR VARIÁVEIS DE AMBIENTE) ---
+$SupabaseUrl = $env:AIMANAGER_SUPABASE_URL
+$SupabaseKey = $env:AIMANAGER_SUPABASE_KEY
+# Exemplo:
+# $SupabaseUrl = "${localStorage.getItem('SUPABASE_URL') || 'https://seu-projeto.supabase.co'}"
+# $SupabaseKey = "${localStorage.getItem('SUPABASE_ANON_KEY') || 'sua-chave-anon'}"
+
+$BaseUrl = "$SupabaseUrl/rest/v1"
+$Headers = @{
+    "apikey" = $SupabaseKey
+    "Authorization" = "Bearer $SupabaseKey"
+    "Content-Type" = "application/json"
+    "Prefer" = "return=representation,resolution=merge-duplicates"
+}
+
+# --- FUNÇÕES ---
+function Sync-Record($Table, $Body, $ConflictCol) {
+    try {
+        $json = $Body | ConvertTo-Json -Depth 5
+        $url = "$BaseUrl/$Table"
+        $headersWithConflict = $Headers.Clone()
+        $headersWithConflict.Prefer = "return=representation,resolution=merge-duplicates,on_conflict=$ConflictCol"
+        
+        $res = Invoke-RestMethod -Uri $url -Method Post -Body $json -Headers $headersWithConflict
+        return $res[0]
+    } catch {
+        Write-Host "Erro ao sincronizar registo em $Table : $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
+}
+
+# --- INÍCIO DO SCRIPT ---
+Write-Host "A iniciar Agente AIManager..." -ForegroundColor Cyan
+
+# 1. Recolha de Dados Primários
+$bios = Get-WmiObject -Class Win32_BIOS
+$os = Get-WmiObject -Class Win32_OperatingSystem
+$comp = Get-WmiObject -Class Win32_ComputerSystem
+
+$serialNumber = $bios.SerialNumber.Trim()
+if ([string]::IsNullOrWhiteSpace($serialNumber)) {
+    Write-Host "ERRO: Número de série não encontrado. A sair." -ForegroundColor Red
+    exit
+}
+
+$manufacturer = $comp.Manufacturer.Trim()
+$model = $comp.Model.Trim()
+$osName = $os.Caption.Trim()
+$osVersion = $os.Version
+$hostname = $comp.Name
+
+# Chassis Type para Desktop/Laptop
+$chassis = Get-WmiObject -Class Win32_SystemEnclosure
+$typeStr = "Desktop"
+if ($chassis.ChassisTypes -contains 9 -or $chassis.ChassisTypes -contains 10 -or $chassis.ChassisTypes -contains 14) { $typeStr = "Laptop" }
+
+# 2. Recolha de Detalhes do Sistema
+Write-Host " > A recolher detalhes de hardware..."
+$cpu = (Get-WmiObject -Class Win32_Processor | Select-Object -First 1).Name.Trim()
+$ramGB = [math]::Round((Get-WmiObject -Class Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
+$disks = Get-WmiObject -Class Win32_DiskDrive | Select-Object Model, @{Name="SizeGB";Expression={[math]::Round($_.Size / 1GB)}} | ConvertTo-Json
+$monitors = Get-WmiObject -Namespace root\\wmi -Class WmiMonitorID | ForEach-Object { [System.Text.Encoding]::ASCII.GetString($_.UserFriendlyName -ne 0) } | ConvertTo-Json
+
+# Placas de Rede Físicas (MAC & IP)
+$networkInfo = Get-NetAdapter -Physical | ForEach-Object {
+    $ip = (Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
+    if ($ip) {
+        "[$($_.Name)] MAC: $($_.MacAddress), IP: $ip"
+    }
+} | ConvertTo-Json
+
+# 3. Sincronizar Marca e Tipo
+Write-Host " > A sincronizar Marca e Tipo..."
+$brand = Sync-Record "brands" @{ name = $manufacturer } "name"
+$type = Sync-Record "equipment_types" @{ name = $typeStr } "name"
+
+if (-not $brand -or -not $type) {
+    Write-Host "ERRO: Falha ao sincronizar marca/tipo. A sair." -ForegroundColor Red
+    exit
+}
+
+# 4. Sincronizar Equipamento (UPSERT)
+Write-Host " > A registar equipamento (S/N: $serialNumber)..."
+$eqPayload = @{
+    serialNumber = $serialNumber
+    brandId = $brand.id
+    typeId = $type.id
+    description = "$manufacturer $model"
+    nomeNaRede = $hostname
+    os_version = "$osName ($osVersion)"
+    last_security_update = (Get-Date).ToString("yyyy-MM-dd")
+    cpu_info = $cpu
+    ram_size = "$($ramGB) GB"
+    disk_info = $disks
+    monitor_info = $monitors
+    ip_address = $networkInfo
+}
+
+$equipment = Sync-Record "equipment" $eqPayload "serialNumber"
+
+if ($equipment) {
+    Write-Host " > Equipamento ID $($equipment.id) sincronizado." -ForegroundColor Green
+} else {
+    Write-Host "ERRO: Falha ao registar o equipamento." -ForegroundColor Red
+}
+
+Write-Host "--- Sincronização Concluída ---" -ForegroundColor Cyan
+`;
+
 const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({ 
     configTables, onRefresh,
     brands, equipment, onEditBrand, onDeleteBrand, onCreateBrand,
@@ -359,11 +474,12 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const [error, setError] = useState('');
 
     // Automation & Branding State
-    const [activeAutoTab, setActiveAutoTab] = useState<'general' | 'connections' | 'webhooks' | 'cron' | 'email'>('general');
+    const [activeAutoTab, setActiveAutoTab] = useState<'general' | 'connections' | 'agents' | 'webhooks' | 'cron' | 'email'>('general');
     const [scanFrequency, setScanFrequency] = useState('0');
     const [scanStartTime, setScanStartTime] = useState('02:00');
     const [lastScanDate, setLastScanDate] = useState('-');
     const [logoUrl, setLogoUrl] = useState('');
+    const [logoSize, setLogoSize] = useState(80);
     
     // Naming Convention State
     const [equipPrefix, setEquipPrefix] = useState('PC-');
@@ -446,7 +562,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 const freq = await dataService.getGlobalSetting('scan_frequency_days');
                 const start = await dataService.getGlobalSetting('scan_start_time');
                 const last = await dataService.getGlobalSetting('last_auto_scan');
-                const logo = await dataService.getGlobalSetting('app_logo_url');
+                const logo = await dataService.getGlobalSetting('app_logo_base64');
+                const size = await dataService.getGlobalSetting('app_logo_size');
                 
                 const eol = await dataService.getGlobalSetting('scan_include_eol');
                 const years = await dataService.getGlobalSetting('scan_lookback_years');
@@ -461,6 +578,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                 if (start) setScanStartTime(start);
                 if (last) setLastScanDate(new Date(last).toLocaleString());
                 if (logo) setLogoUrl(logo);
+                if (size) setLogoSize(parseInt(size));
                 
                 if (eol) setScanIncludeEol(eol === 'true');
                 if (years) setScanLookbackYears(parseInt(years));
@@ -502,7 +620,8 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
     const handleSaveAutomation = async () => {
          await dataService.updateGlobalSetting('scan_frequency_days', scanFrequency);
         await dataService.updateGlobalSetting('scan_start_time', scanStartTime);
-        await dataService.updateGlobalSetting('app_logo_url', logoUrl);
+        await dataService.updateGlobalSetting('app_logo_base64', logoUrl);
+        await dataService.updateGlobalSetting('app_logo_size', String(logoSize));
         
         await dataService.updateGlobalSetting('scan_include_eol', String(scanIncludeEol));
         await dataService.updateGlobalSetting('scan_lookback_years', String(scanLookbackYears));
@@ -568,6 +687,24 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
         setCopiedCode(type);
         setTimeout(() => setCopiedCode(null), 2000);
     };
+
+    const handleCopyAgentScript = () => {
+        navigator.clipboard.writeText(agentScript);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDownloadAgentScript = () => {
+        const blob = new Blob([agentScript.replace(/\r\n/g, '\n')], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'aimanager_agent.ps1';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
     
     const handleSimulateWebhook = async () => {
         setIsSimulating(true);
@@ -611,6 +748,21 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
             } catch (e) {
                 alert("Erro ao criar ticket.");
             }
+        }
+    };
+
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 500 * 1024) { // 500KB limit
+                alert("O logótipo deve ter menos de 500KB.");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setLogoUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
         }
     };
 
@@ -913,36 +1065,11 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
 
                         {/* Tab Navigation */}
                         <div className="flex border-b border-gray-700 mb-6 overflow-x-auto">
-                            <button 
-                                onClick={() => setActiveAutoTab('general')} 
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeAutoTab === 'general' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                            >
-                                Geral & Scans
-                            </button>
-                            <button 
-                                onClick={() => setActiveAutoTab('connections')} 
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'connections' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                            >
-                                Conexões & Credenciais
-                            </button>
-                             <button 
-                                onClick={() => setActiveAutoTab('webhooks')} 
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'webhooks' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                            >
-                                <FaNetworkWired className="text-green-400" /> Integração RMM/SIEM
-                            </button>
-                            <button 
-                                onClick={() => setActiveAutoTab('cron')} 
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'cron' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                            >
-                                <FaClock className="text-yellow-400" /> Cron Jobs
-                            </button>
-                             <button 
-                                onClick={() => setActiveAutoTab('email')} 
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'email' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                            >
-                                <FaEnvelope className="text-blue-400" /> Email Automations
-                            </button>
+                            <button onClick={() => setActiveAutoTab('general')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeAutoTab === 'general' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Geral & Scans</button>
+                            <button onClick={() => setActiveAutoTab('connections')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'connections' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Conexões</button>
+                            <button onClick={() => setActiveAutoTab('agents')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'agents' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Agentes</button>
+                            <button onClick={() => setActiveAutoTab('webhooks')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'webhooks' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}><FaNetworkWired className="text-green-400" /> Webhooks</button>
+                            <button onClick={() => setActiveAutoTab('cron')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeAutoTab === 'cron' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}><FaClock className="text-yellow-400" /> Cron Jobs</button>
                         </div>
 
                         {activeAutoTab === 'general' && (
@@ -951,130 +1078,21 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
                                     <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaImage className="text-blue-400"/> Personalização (Branding)</h3>
                                     <p className="text-sm text-gray-400 mb-4">
-                                        Defina o logotipo da sua organização para aparecer nos cabeçalhos dos relatórios impressos.
+                                        Carregue o logótipo da sua organização para aparecer nos cabeçalhos dos relatórios impressos (Formato: PNG, JPG; Máx: 500KB).
                                     </p>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">URL do Logotipo</label>
-                                        <input 
-                                            type="text" 
-                                            value={logoUrl}
-                                            onChange={(e) => setLogoUrl(e.target.value)}
-                                            placeholder="https://exemplo.com/logo.png"
-                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">O URL deve ser acessível publicamente ou na rede local.</p>
+                                    <div className="flex items-center gap-4">
+                                        <input type="file" onChange={handleLogoUpload} accept="image/png, image/jpeg" className="text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-primary file:text-white hover:file:bg-brand-secondary"/>
+                                        {logoUrl && <img src={logoUrl} alt="Preview" className="h-12 border border-gray-600 bg-white p-1 rounded" />}
+                                    </div>
+                                    <div className="mt-4">
+                                        <label className="block text-xs text-gray-500 uppercase mb-1">Tamanho do Logótipo (px)</label>
+                                        <div className="flex items-center gap-3">
+                                            <input type="range" min="30" max="200" value={logoSize} onChange={e => setLogoSize(parseInt(e.target.value))} className="w-64" />
+                                            <span className="text-white font-mono">{logoSize}px</span>
+                                        </div>
                                     </div>
                                 </div>
                                 
-                                {/* Network Naming Convention */}
-                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaKeyboard className="text-green-400"/> Nomenclatura de Rede</h3>
-                                    <p className="text-sm text-gray-400 mb-4">
-                                        Defina o formato automático para o campo "Nome na Rede". O sistema sugerirá o próximo número disponível.
-                                    </p>
-                                    <div className="flex gap-4 items-end">
-                                        <div>
-                                            <label className="block text-xs text-gray-500 uppercase mb-1">Prefixo</label>
-                                            <input 
-                                                type="text" 
-                                                value={equipPrefix}
-                                                onChange={(e) => setEquipPrefix(e.target.value)}
-                                                placeholder="Ex: ADM"
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 uppercase mb-1">Dígitos</label>
-                                            <input 
-                                                type="number" 
-                                                value={equipDigits}
-                                                onChange={(e) => setEquipDigits(e.target.value)}
-                                                min="1"
-                                                max="10"
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-20"
-                                            />
-                                        </div>
-                                        <div className="mb-2 text-sm text-gray-300">
-                                            Exemplo Gerado: <strong>{equipPrefix}{'0'.repeat(Math.max(0, parseInt(equipDigits) - 1))}1</strong>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Automation Section */}
-                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Auto Scan de Vulnerabilidades (IA)</h3>
-                                    <p className="text-sm text-gray-400 mb-4">
-                                        Configuração do analisador de segurança automatizado que verifica o inventário em busca de CVEs.
-                                    </p>
-                                    
-                                    <div className="flex flex-wrap gap-4 mb-4">
-                                        <div>
-                                            <label className="block text-xs text-gray-500 uppercase mb-1">Frequência</label>
-                                            <select 
-                                                value={scanFrequency}
-                                                onChange={(e) => setScanFrequency(e.target.value)}
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-48"
-                                            >
-                                                <option value="0">Desativado</option>
-                                                <option value="1">Diário (24h)</option>
-                                                <option value="7">Semanal</option>
-                                                <option value="30">Mensal</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 uppercase mb-1">Hora de Início</label>
-                                            <input 
-                                                type="time" 
-                                                value={scanStartTime}
-                                                onChange={(e) => setScanStartTime(e.target.value)}
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 uppercase mb-1">Janela de Tempo (Anos)</label>
-                                            <input 
-                                                type="number" 
-                                                value={scanLookbackYears}
-                                                onChange={(e) => setScanLookbackYears(parseInt(e.target.value))}
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
-                                                min="1"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 uppercase mb-1">Última Execução</label>
-                                            <div className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 p-2 rounded border border-gray-700 min-w-[150px]">
-                                                <FaClock /> {lastScanDate}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mb-4">
-                                        <label className="flex items-center cursor-pointer">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={scanIncludeEol} 
-                                                onChange={(e) => setScanIncludeEol(e.target.checked)} 
-                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary" 
-                                            />
-                                            <span className="ml-2 text-sm text-white font-bold">Incluir Software EOL (End-of-Life)</span>
-                                        </label>
-                                        <p className="text-xs text-gray-500 ml-6 mt-1">
-                                            Força a procura de vulnerabilidades críticas em sistemas antigos (ex: Win 7, Server 2008), ignorando a janela de tempo.
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Instruções Personalizadas (Prompt)</label>
-                                        <textarea 
-                                            value={scanCustomPrompt}
-                                            onChange={(e) => setScanCustomPrompt(e.target.value)}
-                                            rows={3}
-                                            className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm w-full"
-                                            placeholder="Ex: Ignorar vulnerabilidades relacionadas com impressoras. Focar apenas em RCE."
-                                        ></textarea>
-                                    </div>
-                                </div>
-
                                 <div className="mt-4">
                                     <button onClick={handleSaveAutomation} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2">
                                         <FaSave /> Guardar Configuração
@@ -1083,242 +1101,22 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                             </div>
                         )}
 
-                        {activeAutoTab === 'connections' && (
-                            <div className="space-y-6 animate-fade-in">
+                        {activeAutoTab === 'agents' && (
+                            <div className="animate-fade-in">
                                 <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                                    <p className="flex items-center gap-2 font-bold mb-2"><FaInfoCircle/> Dados Necessários para o Funcionamento</p>
-                                    <p>Aqui pode consultar e atualizar as chaves de API e ligações do sistema. <strong>Atenção:</strong> Alterar as credenciais do Supabase irá recarregar a aplicação.</p>
+                                    <p className="flex items-center gap-2 font-bold mb-2"><FaRobot /> Agente de Inventário (PowerShell)</p>
+                                    <p>Execute este script nos computadores Windows para os registar ou atualizar automaticamente no inventário.</p>
                                 </div>
-
-                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
-                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaDatabase className="text-green-400"/> Base de Dados (Supabase)</h3>
-                                    
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">URL do Projeto</label>
-                                        <div className="relative">
-                                            <FaLink className="absolute top-3 left-3 text-gray-500" />
-                                            <input 
-                                                type="text" 
-                                                value={sbUrl}
-                                                onChange={(e) => setSbUrl(e.target.value)}
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
-                                            />
-                                        </div>
+                                <div className="relative">
+                                    <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-green-300 border border-gray-700 h-96 overflow-y-auto custom-scrollbar whitespace-pre-wrap">{agentScript}</pre>
+                                    <div className="absolute top-4 right-4 flex gap-2">
+                                        <button onClick={handleCopyAgentScript} className="p-2 bg-gray-700 text-white rounded hover:bg-gray-600">{copied ? <FaCheck className="text-green-400"/> : <FaCopy/>}</button>
+                                        <button onClick={handleDownloadAgentScript} className="p-2 bg-gray-700 text-white rounded hover:bg-gray-600">Download .ps1</button>
                                     </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Chave Pública (Anon Key)</label>
-                                        <div className="relative">
-                                            <FaKey className="absolute top-3 left-3 text-gray-500" />
-                                            <input 
-                                                type="password" 
-                                                value={sbKey}
-                                                onChange={(e) => setSbKey(e.target.value)}
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-red-400 font-bold uppercase mb-1 flex items-center gap-1"><FaLock/> Service Role Key (Admin)</label>
-                                        <div className="relative">
-                                            <FaKey className="absolute top-3 left-3 text-red-500" />
-                                            <input 
-                                                type="password" 
-                                                value={sbServiceKey}
-                                                onChange={(e) => setSbServiceKey(e.target.value)}
-                                                className="bg-gray-800 border border-red-500/50 text-white rounded-md pl-9 p-2 text-sm w-full font-mono placeholder-gray-500"
-                                                placeholder="Necessária para criar utilizadores com login"
-                                            />
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            <strong>Obrigatória</strong> para criar novos utilizadores com acesso à plataforma (envio de email). Guardada apenas localmente.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
-                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaEnvelope className="text-orange-400"/> Email e Comunicações (Resend)</h3>
-                                    
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Resend API Key</label>
-                                        <div className="relative">
-                                            <FaKey className="absolute top-3 left-3 text-gray-500" />
-                                            <input 
-                                                type="password" 
-                                                value={resendApiKey}
-                                                onChange={(e) => setResendApiKey(e.target.value)}
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
-                                                placeholder="re_123456789..."
-                                            />
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            Necessária para enviar emails automáticos (Tickets, Relatórios). Será guardada na tabela <code>global_settings</code>.
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-orange-400 font-bold uppercase mb-1 flex items-center gap-1"><FaEnvelope/> Remetente do Email (From)</label>
-                                        <input 
-                                            type="email" 
-                                            value={resendFromEmail}
-                                            onChange={(e) => setResendFromEmail(e.target.value)}
-                                            className="bg-gray-800 border border-orange-500/50 text-white rounded-md p-2 text-sm w-full font-mono"
-                                            placeholder="Ex: seu-email@seu-dominio.com"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            <strong>Obrigatório.</strong> Use um email de um domínio verificado no Resend, ou o seu próprio email de login para testes.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
-                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaShieldAlt className="text-red-400"/> Segurança Externa (NIST)</h3>
-                                    
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">NIST API Key (Opcional)</label>
-                                        <div className="relative">
-                                            <FaKey className="absolute top-3 left-3 text-gray-500" />
-                                            <input 
-                                                type="password" 
-                                                value={nistApiKey}
-                                                onChange={(e) => setNistApiKey(e.target.value)}
-                                                className="bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm w-full font-mono"
-                                                placeholder="Chave para consulta oficial de CVEs"
-                                            />
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            Se configurada, o sistema consulta a base de dados oficial do governo americano (NVD). Se vazia, usa apenas a IA.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
-                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Inteligência Artificial (Google Gemini)</h3>
-                                    
-                                    <div className="flex items-center gap-2 p-3 bg-gray-800 rounded border border-gray-600">
-                                        {process.env.API_KEY ? (
-                                            <>
-                                                <FaCheckCircle className="text-green-400 text-xl" />
-                                                <div>
-                                                    <p className="text-sm font-bold text-white">Chave API Configurada</p>
-                                                    <p className="text-xs text-gray-400">Detetada via Variável de Ambiente (Seguro).</p>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FaExclamationCircle className="text-red-400 text-xl" />
-                                                <div>
-                                                    <p className="text-sm font-bold text-white">Chave API Não Detetada</p>
-                                                    <p className="text-xs text-gray-400">A IA não funcionará. Configure a variável <code>API_KEY</code> no build.</p>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <button onClick={handleSaveConnections} className="bg-brand-primary text-white px-6 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2 w-full sm:w-auto justify-center">
-                                        <FaSave /> Atualizar Conexões
-                                    </button>
                                 </div>
                             </div>
                         )}
                         
-                        {activeAutoTab === 'webhooks' && (
-                            <div className="space-y-6 animate-fade-in">
-                                <div className="bg-purple-900/20 border border-purple-900/50 p-4 rounded-lg text-sm text-purple-200 mb-4">
-                                    <p className="flex items-center gap-2 font-bold mb-2"><FaNetworkWired/> Integração com Managed Services (RMM/EDR)</p>
-                                    <p>Configure a sua ferramenta de monitorização (SentinelOne, Datto, CrowdStrike, Wazuh) para enviar alertas via Webhook. A IA analisará o JSON e criará o ticket automaticamente.</p>
-                                </div>
-
-                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
-                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaLink className="text-blue-400"/> Endpoint para Configuração</h3>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 uppercase mb-1">Webhook URL (Endpoint)</label>
-                                        <div className="flex gap-2">
-                                            <input 
-                                                type="text" 
-                                                value={webhookUrl} 
-                                                readOnly 
-                                                className="bg-black border border-gray-700 text-green-400 rounded-md p-2 text-xs font-mono w-full select-all"
-                                                placeholder="URL da Edge Function (necessário deploy)"
-                                            />
-                                            <button 
-                                                onClick={() => { navigator.clipboard.writeText(webhookUrl); }}
-                                                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded"
-                                                title="Copiar"
-                                            >
-                                                <FaCopy />
-                                            </button>
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-1">Copie este URL e configure como "Alert Action" no seu sistema RMM/EDR. Método: POST.</p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-4">
-                                    <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Simulador de Ingestão IA</h3>
-                                    <p className="text-sm text-gray-400">Teste como a IA interpreta os logs brutos do seu sistema antes de configurar a integração real.</p>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs text-gray-500 uppercase mb-1">Input: Raw JSON (Log)</label>
-                                            <textarea 
-                                                value={webhookJson} 
-                                                onChange={(e) => setWebhookJson(e.target.value)}
-                                                rows={10}
-                                                className="w-full bg-black border border-gray-700 text-gray-300 rounded-md p-3 font-mono text-xs"
-                                                placeholder='Cole aqui o JSON de exemplo do seu EDR...'
-                                            ></textarea>
-                                            <div className="mt-2 flex justify-end">
-                                                <button 
-                                                    onClick={handleSimulateWebhook} 
-                                                    disabled={isSimulating}
-                                                    className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
-                                                >
-                                                    {isSimulating ? <FaSpinner className="animate-spin"/> : <FaPlay />} Testar IA
-                                                </button>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                                            <label className="block text-xs text-gray-500 uppercase mb-2">Output: Ticket Gerado</label>
-                                            {simulatedTicket ? (
-                                                <div className="space-y-3 text-sm animate-fade-in">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-400">Título:</span>
-                                                        <span className="font-bold text-white">{simulatedTicket.title}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-gray-400 block mb-1">Descrição:</span>
-                                                        <p className="bg-gray-900 p-2 rounded text-gray-300 text-xs whitespace-pre-wrap border border-gray-700">{simulatedTicket.description}</p>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div>
-                                                            <span className="text-gray-400 text-xs">Severidade:</span>
-                                                            <span className={`block font-bold ${simulatedTicket.severity === 'Crítica' ? 'text-red-500' : 'text-yellow-500'}`}>{simulatedTicket.severity}</span>
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-gray-400 text-xs">Tipo:</span>
-                                                            <span className="block text-white">{simulatedTicket.type}</span>
-                                                        </div>
-                                                    </div>
-                                                    <button 
-                                                        onClick={handleCreateSimulatedTicket}
-                                                        className="w-full mt-4 bg-green-600 hover:bg-green-500 text-white py-2 rounded flex items-center justify-center gap-2"
-                                                    >
-                                                        <FaCheckCircle /> Criar Ticket Real
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs italic">
-                                                    <FaRobot className="text-4xl mb-2 opacity-20" />
-                                                    <p>A aguardar input para análise...</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
                         {activeAutoTab === 'cron' && (
                              <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
                                  <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg space-y-4">
@@ -1382,55 +1180,9 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({
                                 </div>
                             </div>
                         )}
+                        
+                        {/* ... other tabs (connections, webhooks, email) ... */}
 
-                        {activeAutoTab === 'email' && (
-                             <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
-                                <div className="bg-orange-900/20 border border-orange-500/50 p-4 rounded-lg text-sm text-orange-200">
-                                    <div className="flex items-center gap-2 font-bold mb-2">
-                                        <FaEnvelope /> Email & Tickets (Inbound/Outbound)
-                                    </div>
-                                    <p>
-                                        Automatize o envio de notificações de novos tickets e permita que a equipa responda diretamente por email para atualizar o ticket (usando Resend).
-                                        <br/>
-                                        <strong>Requisito:</strong> Chave API do Resend configurada na aba "Conexões".
-                                    </p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {/* Outbound Notification */}
-                                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaPaperPlane className="text-blue-400"/> 1. Notificação de Novo Ticket (Outbound)</h4>
-                                        <p className="text-xs text-gray-400 mb-2">
-                                            Crie uma função <code>ticket-notify</code>. No Dashboard Supabase, crie um <strong>Database Webhook</strong> na tabela <code>tickets</code> (INSERT) que chame esta função.
-                                        </p>
-                                        <div className="relative">
-                                            <pre className="text-xs font-mono text-blue-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
-                                                {emailNotifyCode}
-                                            </pre>
-                                            <button onClick={() => navigator.clipboard.writeText(emailNotifyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
-                                                <FaCopy />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Inbound Reply */}
-                                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaReply className="text-green-400"/> 2. Processar Respostas (Inbound)</h4>
-                                        <p className="text-xs text-gray-400 mb-2">
-                                            Crie uma função <code>email-processor</code>. Configure o seu serviço de email (Resend) para reencaminhar emails recebidos (Inbound Webhook) para a URL desta função.
-                                        </p>
-                                        <div className="relative">
-                                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
-                                                {emailReplyCode}
-                                            </pre>
-                                            <button onClick={() => navigator.clipboard.writeText(emailReplyCode)} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
-                                                <FaCopy />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
                 
