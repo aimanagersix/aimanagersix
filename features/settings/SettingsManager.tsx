@@ -131,14 +131,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
     
-    // State for Automation Tabs (migrated)
-     const [settings, setSettings] = useState<any>({
-        webhookJson: '{\n  "alert_name": "Malware Detected",\n  "severity": "Critical",\n  "hostname": "PC-FINANCE-01",\n  "description": "Ransomware detected in C:\\\\Users\\\\Admin"\n}',
-        isSimulating: false,
-        simulatedTicket: null,
-        isTestingCron: false,
-        copiedCode: null,
-     });
+    // State for Automation Tabs (migrated from AuxiliaryDataDashboard)
+     const [settings, setSettings] = useState<any>({});
 
      useEffect(() => {
         const loadSettings = async () => {
@@ -157,8 +151,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
             const projectUrl = localStorage.getItem('SUPABASE_URL');
 
-            setSettings((prev: any) => ({
-                ...prev,
+            setSettings({
                 scan_frequency_days: fetchedSettings.scan_frequency_days || '0',
                 scan_start_time: fetchedSettings.scan_start_time || '02:00',
                 last_auto_scan: fetchedSettings.last_auto_scan ? new Date(fetchedSettings.last_auto_scan).toLocaleString() : '-',
@@ -179,14 +172,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 app_logo_size: parseInt(fetchedSettings.app_logo_size || '80'),
                 app_logo_alignment: fetchedSettings.app_logo_alignment || 'center',
                 report_footer_institution_id: fetchedSettings.report_footer_institution_id || '',
-            }));
+            });
         };
         loadSettings();
-    }, [selectedMenuId]); 
-    
-    const handleSettingsChange = (key: string, value: any) => {
-        setSettings((prev: any) => ({ ...prev, [key]: value }));
-    };
+    }, [selectedMenuId]); // Reload when menu changes to fetch fresh data for specific tabs
 
     const menuStructure: { group: string; items: { id: string; label: string; icon: React.ReactNode }[] }[] = [
         {
@@ -194,9 +183,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             items: [
                 { id: 'general', label: 'Geral & Scans', icon: <FaRobot /> },
                 { id: 'connections', label: 'Conexões & APIs', icon: <FaKey /> },
-                { id: 'agents', label: 'Agentes (Scripts)', icon: <FaRobot /> },
-                { id: 'webhooks', label: 'Webhooks (SIEM)', icon: <FaNetworkWired /> },
-                { id: 'cron', label: 'Tarefas Agendadas', icon: <FaClock /> },
                 { id: 'branding', label: 'Branding (Relatórios)', icon: <FaPalette /> },
                 { id: 'diagnostics', label: 'Diagnóstico de Sistema', icon: <FaHeartbeat /> },
             ]
@@ -274,16 +260,19 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 {/* Content Area */}
                 <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col" key={selectedMenuId}>
                     
-                    {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={handleSettingsChange} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
-                    {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={handleSettingsChange} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
-                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={handleSettingsChange} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
+                    {/* Automation Tabs */}
+                    {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
+                    {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
+                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
                     
+                    {/* Complex Dashboards */}
                     {selectedMenuId === 'roles' && <RoleManager roles={appData.customRoles} onRefresh={refreshData} />}
                     {selectedMenuId === 'brands' && <BrandDashboard brands={appData.brands} equipment={appData.equipment} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />}
                     {selectedMenuId === 'equipment_types' && <EquipmentTypeDashboard equipmentTypes={appData.equipmentTypes} equipment={appData.equipment} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />}
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
+                    {/* Simple Generic Dashboards */}
                     {simpleConfigTables[selectedMenuId] && (
                         <GenericConfigDashboard 
                             title={simpleConfigTables[selectedMenuId].label}
