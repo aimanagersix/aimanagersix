@@ -1,5 +1,3 @@
-
-
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
@@ -182,6 +180,9 @@ export interface EquipmentType {
   requiresBackupTest?: boolean; // New field for Backup linkage
   requiresLocation?: boolean; // New field for Physical Location
   is_maintenance?: boolean; // NEW: Flag for Maintenance/Component types
+  requires_wwan_address?: boolean;
+  requires_bluetooth_address?: boolean;
+  requires_usb_thunderbolt_address?: boolean;
 }
 
 export interface Equipment {
@@ -212,6 +213,15 @@ export interface Equipment {
   os_version?: string;
   last_security_update?: string;
   firmware_version?: string;
+  wwan_address?: string;
+  bluetooth_address?: string;
+  usb_thunderbolt_address?: string;
+  // New Automation Fields
+  ip_address?: string;
+  ram_size?: string;
+  cpu_info?: string;
+  disk_info?: string;
+  monitor_info?: string;
   // Vendor Link
   supplier_id?: string;
   

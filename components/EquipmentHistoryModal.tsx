@@ -1,9 +1,7 @@
-
-
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
 
@@ -104,10 +102,6 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
         return suppliers.find(s => s.id === equipment.supplier_id);
     }, [equipment.supplier_id, suppliers]);
 
-    const getStatusText = (assignment: Assignment) => {
-        return assignment.returnDate ? 'Concluída' : 'Ativa';
-    };
-    
     const isPatchOutdated = useMemo(() => {
         if (!equipment.last_security_update) return false;
         const lastUpdate = new Date(equipment.last_security_update);
@@ -149,16 +143,30 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
         await dataService.syncLicenseAssignments(eqId, licenseIds);
     };
 
+    const parsedInfo = useMemo(() => {
+        const tryParse = (jsonString?: string) => {
+            if (!jsonString) return null;
+            try { return JSON.parse(jsonString); } catch (e) { return null; }
+        };
+        return {
+            disks: tryParse(equipment.disk_info),
+            monitors: tryParse(equipment.monitor_info),
+            network: tryParse(equipment.ip_address),
+        };
+    }, [equipment.disk_info, equipment.monitor_info, equipment.ip_address]);
+
     return (
-        <Modal title={`Histórico do Equipamento: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
+        <Modal title={`Detalhes e Histórico: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
             <div className="space-y-6">
                  {/* Top Bar with Details and Edit Button */}
                  <div className="bg-gray-900/50 p-3 rounded-lg text-sm flex justify-between items-center border border-gray-700">
-                    <div className="grid grid-cols-3 gap-x-4 text-gray-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2 text-gray-300">
                         <p><span className="font-semibold text-on-surface-dark-secondary">Nº Inventário:</span> {equipment.inventoryNumber || 'N/A'}</p>
                         <p><span className="font-semibold text-on-surface-dark-secondary">Nº Fatura:</span> {equipment.invoiceNumber || 'N/A'}</p>
+                        <p><span className="font-semibold text-on-surface-dark-secondary">MAC (Cabo):</span> <span className="font-mono">{equipment.macAddressCabo || 'N/A'}</span></p>
+                        <p><span className="font-semibold text-on-surface-dark-secondary">MAC (WiFi):</span> <span className="font-mono">{equipment.macAddressWIFI || 'N/A'}</span></p>
                         {equipment.installationLocation && (
-                            <p className="flex items-center gap-1 text-brand-secondary font-semibold">
+                            <p className="flex items-center gap-1 text-brand-secondary font-semibold col-span-full mt-1">
                                 <FaMapMarkerAlt /> {equipment.installationLocation}
                             </p>
                         )}
@@ -171,6 +179,40 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                             <FaEdit /> Editar Dados
                         </button>
                     )}
+                </div>
+
+                {/* System Info from Agent */}
+                 <div className="border border-gray-700 bg-gray-800/30 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
+                        <FaServer className="text-blue-400"/>
+                        Informação de Sistema (Agente)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <p className="text-gray-400 text-xs uppercase">CPU</p>
+                            <p className="text-white font-mono">{equipment.cpu_info || '-'}</p>
+                        </div>
+                         <div>
+                            <p className="text-gray-400 text-xs uppercase">RAM</p>
+                            <p className="text-white font-mono">{equipment.ram_size || '-'}</p>
+                        </div>
+                         <div>
+                            <p className="text-gray-400 text-xs uppercase">IP/MACs</p>
+                            <p className="text-white font-mono text-xs">{equipment.ip_address || '-'}</p>
+                        </div>
+                        {parsedInfo.disks && Array.isArray(parsedInfo.disks) && (
+                             <div className="md:col-span-2">
+                                <p className="text-gray-400 text-xs uppercase">Discos</p>
+                                <p className="text-white font-mono text-xs">{parsedInfo.disks.map((d: any) => `${d.Model} (${d.SizeGB}GB)`).join(', ')}</p>
+                            </div>
+                        )}
+                         {parsedInfo.monitors && Array.isArray(parsedInfo.monitors) && (
+                             <div className="md:col-span-3">
+                                <p className="text-gray-400 text-xs uppercase">Monitores</p>
+                                <p className="text-white font-mono text-xs">{parsedInfo.monitors.map((m: any) => m).join(' | ')}</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Security & Patching Section */}
@@ -195,6 +237,9 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                     {equipment.last_security_update || 'N/A'}
                                 </span>
                             </div>
+                            <div className="flex justify-between"><span className="text-gray-400">Endereço WWAN:</span> <span className="text-white font-mono">{equipment.wwan_address || '-'}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-400">Endereço Bluetooth:</span> <span className="text-white font-mono">{equipment.bluetooth_address || '-'}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-400">Endereço USB/Thunderbolt:</span> <span className="text-white font-mono">{equipment.usb_thunderbolt_address || '-'}</span></div>
                             {isPatchOutdated && (
                                 <p className="text-xs text-red-400 mt-2 bg-red-900/20 p-2 rounded border border-red-500/30">
                                     <FaExclamationTriangle className="inline mr-1"/>
@@ -384,7 +429,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                                 ? 'bg-gray-500/30 text-gray-300' 
                                                 : 'bg-green-500/30 text-green-300'
                                             }`}>
-                                                {getStatusText(assignment)}
+                                                {assignment.returnDate ? 'Concluída' : 'Ativa'}
                                             </span>
                                         </td>
                                     </tr>

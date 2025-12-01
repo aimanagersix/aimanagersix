@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense
@@ -502,7 +498,6 @@ export const App: React.FC = () => {
                     collaborators={appData.collaborators}
                     teams={appData.teams}
                     onViewItem={handleViewItem}
-                    onSnooze={dataService.snoozeNotification}
                     currentUser={currentUser}
                     licenseAssignments={appData.licenseAssignments}
                 />

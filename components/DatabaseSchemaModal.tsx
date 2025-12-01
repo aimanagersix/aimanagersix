@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaSeedling } from 'react-icons/fa';
@@ -342,6 +340,9 @@ BEGIN
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS is_maintenance boolean DEFAULT false;
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_wwan_address boolean DEFAULT false;
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_bluetooth_address boolean DEFAULT false;
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_usb_thunderbolt_address boolean DEFAULT false;
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "isLoan" boolean DEFAULT false;
@@ -351,6 +352,14 @@ BEGIN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "os_version" text;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "last_security_update" date;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "firmware_version" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "wwan_address" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "bluetooth_address" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "usb_thunderbolt_address" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "ip_address" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "ram_size" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "cpu_info" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "disk_info" jsonb;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "monitor_info" jsonb;
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'security_training_records') THEN
         ALTER TABLE security_training_records ADD COLUMN IF NOT EXISTS duration_hours numeric;

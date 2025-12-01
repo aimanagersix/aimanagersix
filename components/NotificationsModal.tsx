@@ -1,8 +1,8 @@
-
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, Ticket, Collaborator, Team, LicenseAssignment } from '../types';
 import { FaEye, FaBellSlash, FaTicketAlt, FaExclamationTriangle, FaShieldAlt } from './common/Icons';
+import * as dataService from '../services/dataService';
 
 interface NotificationsModalProps {
     onClose: () => void;
@@ -12,7 +12,6 @@ interface NotificationsModalProps {
     collaborators: Collaborator[];
     teams: Team[];
     onViewItem: (tab: string, filter: any) => void;
-    onSnooze: (id: string) => void;
     currentUser: Collaborator | null;
     licenseAssignments: LicenseAssignment[];
 }
@@ -36,8 +35,41 @@ const getExpiryStatus = (dateStr?: string): { text: string; className: string; d
     return { text: `Válido (${diffDays} dias restantes)`, className: 'text-green-400', daysRemaining: diffDays };
 };
 
-const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiringWarranties, expiringLicenses, teamTickets, collaborators, teams, onViewItem, onSnooze, currentUser, licenseAssignments }) => {
-    
+const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiringWarranties, expiringLicenses, teamTickets, collaborators, teams, onViewItem, currentUser, licenseAssignments }) => {
+    const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        const snoozedRaw = localStorage.getItem('snoozed_notifications');
+        if (snoozedRaw) {
+            try {
+                const snoozed = JSON.parse(snoozedRaw);
+                const now = new Date().toISOString();
+                const activeSnoozedIds = new Set<string>();
+                
+                if(Array.isArray(snoozed)) {
+                    snoozed.forEach((item: { id: string; until: string }) => {
+                        if (item.until > now) {
+                            activeSnoozedIds.add(item.id);
+                        }
+                    });
+                    setSnoozedIds(activeSnoozedIds);
+                    
+                    // Cleanup expired items from localStorage
+                    const stillSnoozed = snoozed.filter((item: { until: string }) => item.until > now);
+                    localStorage.setItem('snoozed_notifications', JSON.stringify(stillSnoozed));
+                }
+            } catch(e) {
+                console.error("Error parsing snoozed notifications from localStorage", e);
+                localStorage.removeItem('snoozed_notifications');
+            }
+        }
+    }, []);
+
+    const handleSnooze = (id: string) => {
+        dataService.snoozeNotification(id);
+        setSnoozedIds(prev => new Set(prev).add(id));
+    };
+
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
 
@@ -48,17 +80,23 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
         }, new Map<string, number>());
     }, [licenseAssignments]);
 
-    const sortedWarranties = [...expiringWarranties].sort((a, b) => 
-        (getExpiryStatus(a.warrantyEndDate).daysRemaining ?? Infinity) - (getExpiryStatus(b.warrantyEndDate).daysRemaining ?? Infinity)
-    );
+    const sortedWarranties = [...expiringWarranties]
+        .filter(item => !snoozedIds.has(item.id))
+        .sort((a, b) => 
+            (getExpiryStatus(a.warrantyEndDate).daysRemaining ?? Infinity) - (getExpiryStatus(b.warrantyEndDate).daysRemaining ?? Infinity)
+        );
 
-    const sortedLicenses = [...expiringLicenses].sort((a, b) => {
-        const aDate = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
-        const bDate = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
-        return aDate - bDate;
-    });
+    const sortedLicenses = [...expiringLicenses]
+        .filter(item => !snoozedIds.has(item.id))
+        .sort((a, b) => {
+            const aDate = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+            const bDate = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+            return aDate - bDate;
+        });
     
-    const sortedTeamTickets = [...teamTickets].sort((a,b) => new Date(a.requestDate).getTime() - new Date(b.requestDate).getTime());
+    const sortedTeamTickets = [...teamTickets]
+        .filter(item => !snoozedIds.has(item.id))
+        .sort((a,b) => new Date(a.requestDate).getTime() - new Date(b.requestDate).getTime());
 
     return (
         <Modal title="Centro de Notificações" onClose={onClose} maxWidth="max-w-4xl">
@@ -93,7 +131,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                                 <FaEye /> Ver
                                             </button>
                                             <button 
-                                                onClick={() => onSnooze(ticket.id)}
+                                                onClick={() => handleSnooze(ticket.id)}
                                                 className="p-2 text-xs text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors"
                                                 title="Ocultar esta notificação"
                                             >
@@ -145,7 +183,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                                <FaEye /> Ver
                                             </button>
                                             <button 
-                                                onClick={() => onSnooze(license.id)}
+                                                onClick={() => handleSnooze(license.id)}
                                                 className="p-2 text-xs text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors"
                                                 title="Ocultar esta notificação"
                                             >
@@ -184,7 +222,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                                 <FaEye /> Ver
                                             </button>
                                             <button 
-                                                onClick={() => onSnooze(item.id)}
+                                                onClick={() => handleSnooze(item.id)}
                                                 className="p-2 text-xs text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors"
                                                 title="Ocultar esta notificação"
                                             >
