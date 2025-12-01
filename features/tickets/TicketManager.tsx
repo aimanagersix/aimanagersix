@@ -8,7 +8,8 @@ import * as dataService from '../../services/dataService';
 import TicketDashboard from '../../components/TicketDashboard';
 
 // Modals
-import AddTicketModal from '../../components/AddTicketModal';
+// FIX: Changed default import to named import for AddTicketModal to resolve the module export error.
+import { AddTicketModal } from '../../components/AddTicketModal';
 import CloseTicketModal from '../../components/CloseTicketModal';
 import TicketActivitiesModal from '../../components/TicketActivitiesModal';
 

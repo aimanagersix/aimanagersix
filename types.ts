@@ -477,6 +477,7 @@ export interface Ticket {
   
   // KB / RAG Fields
   resolution_summary?: string; // For AI Knowledge Base
+  resolution_embedding?: any; // For pg_vector search
 
   // DORA / NIS2 Regulatory Reporting
   regulatory_status?: 'NotRequired' | 'Pending' | 'EarlyWarningSent' | 'NotificationSent';

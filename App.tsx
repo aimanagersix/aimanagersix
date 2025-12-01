@@ -30,7 +30,7 @@ import MapDashboard from './components/MapDashboard';
 import BIReportDashboard from './components/BIReportDashboard';
 
 // Modals (Global or Non-Refactored)
-import AddTicketModal from './components/AddTicketModal';
+import { AddTicketModal } from './components/AddTicketModal';
 import ReportModal from './components/ReportModal';
 import UserManualModal from './components/UserManualModal';
 import CalendarModal from './components/CalendarModal';
