@@ -1,9 +1,11 @@
 
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, TicketActivity, Collaborator, TicketStatus, Equipment, EquipmentType, Entidade, Assignment } from '../types';
 import { PlusIcon, FaPrint } from './common/Icons';
 import { FaDownload } from 'react-icons/fa';
+import * as dataService from '../services/dataService';
 
 interface TicketActivitiesModalProps {
     ticket: Ticket;
@@ -59,12 +61,15 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         return [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [activities]);
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
             alert("Por favor, permita pop-ups para imprimir.");
             return;
         }
+
+        const logoUrl = await dataService.getGlobalSetting('app_logo_url');
+        const logoHtml = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Logótipo" style="max-height: 80px; display: inline-block;" /></div>` : '';
 
         const activitiesHtml = sortedActivities.map(act => `
             <div class="activity-item">
@@ -107,6 +112,7 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                 </style>
             </head>
             <body>
+                ${logoHtml}
                 <h1>Ficha de Intervenção Técnica</h1>
                 
                 <div class="header-info">

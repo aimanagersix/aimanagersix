@@ -3,10 +3,12 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
 import { OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint, FaGlobe } from './common/Icons';
+import * as dataService from '../services/dataService';
 
 interface EntidadeDetailModalProps {
     entidade: Entidade;
@@ -48,9 +50,12 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
             .sort((a,b) => (a.description || '').localeCompare(b.description || ''));
     }, [assignments, entidade.id, equipment, collabMap]);
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
+
+        const logoUrl = await dataService.getGlobalSetting('app_logo_url');
+        const logoHtml = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Logótipo" style="max-height: 80px; display: inline-block;" /></div>` : '';
 
         const collaboratorRows = activeCollaborators.map(col => {
             const phone = col.telemovel || col.telefoneInterno || '-';
@@ -92,6 +97,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                 </style>
             </head>
             <body>
+                ${logoHtml}
                 <h1>${entidade.name}</h1>
                 <div class="section">
                     <div class="label">Instituição</div>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AppData } from '../hooks/useAppData';
-import { FaFilter, FaSync, FaEuroSign, FaBoxOpen, FaFileInvoiceDollar, FaLaptop } from 'react-icons/fa';
+import { FaFilter, FaSync, FaEuroSign, FaBoxOpen, FaFileInvoiceDollar, FaLaptop, FaPrint } from 'react-icons/fa';
 
 // Helper component for multi-select filters
 const MultiSelectFilter: React.FC<{
@@ -184,9 +184,9 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in">
+        <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in print:block">
             {/* Filters Panel */}
-            <div className="w-full lg:w-1/4 xl:w-1/5 bg-gray-800/50 p-4 rounded-lg border border-gray-700 flex-shrink-0">
+            <div className="w-full lg:w-1/4 xl:w-1/5 bg-gray-800/50 p-4 rounded-lg border border-gray-700 flex-shrink-0 print:hidden">
                 <div className="flex justify-between items-center mb-4 border-b border-gray-600 pb-2">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2"><FaFilter /> Filtros</h2>
                     <button onClick={handleClearFilters} className="text-xs text-gray-400 hover:text-white flex items-center gap-1"><FaSync /> Limpar</button>
@@ -205,7 +205,16 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto print:overflow-visible">
+                 <div className="flex justify-between items-center mb-6 print:hidden">
+                    <h2 className="text-xl font-bold text-white">Relatório de Custos (BI)</h2>
+                    <button
+                        onClick={() => window.print()}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
+                    >
+                        <FaPrint /> Imprimir / Guardar PDF
+                    </button>
+                </div>
                 {/* KPIs */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div className="bg-blue-900/30 p-4 rounded-lg border border-blue-500/30 text-center">

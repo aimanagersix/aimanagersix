@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
@@ -376,11 +377,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                         setActiveTab={(tab) => { setActiveTab(tab); setIsUserMenuOpen(false); }}
                                         className="text-gray-300 hover:bg-gray-700 hover:text-white flex w-full items-center px-4 py-2 text-sm"
                                     />
-                                    {onOpenAutomation && (
-                                        <button onClick={() => { onOpenAutomation(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                            <FaRobot className="mr-3 text-purple-400" /> {t('common.automation')}
-                                        </button>
-                                    )}
                                     <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
                                         <FaClipboardList className="mr-3 text-yellow-400" /> {t('common.audit')}
                                     </button>
