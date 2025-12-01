@@ -48,13 +48,23 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const [logoBase64, sizeStr] = await Promise.all([
+        const [logoBase64, sizeStr, align, footerId] = await Promise.all([
             dataService.getGlobalSetting('app_logo_base64'),
-            dataService.getGlobalSetting('app_logo_size')
+            dataService.getGlobalSetting('app_logo_size'),
+            dataService.getGlobalSetting('app_logo_alignment'),
+            dataService.getGlobalSetting('report_footer_institution_id')
         ]);
         const logoSize = sizeStr ? parseInt(sizeStr) : 80;
-        const logoHtml = logoBase64 ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px; display: inline-block;" /></div>` : '';
+        const logoHtml = logoBase64 ? `<div style="display: flex; justify-content: ${align || 'center'}; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px;" /></div>` : '';
 
+        let footerHtml = '';
+        if (footerId) {
+            const allData = await dataService.fetchAllData();
+            const inst = allData.instituicoes.find((i: any) => i.id === footerId);
+            if (inst) {
+                footerHtml = `<div class="footer"><p><strong>${inst.name}</strong> | ${[inst.address_line, inst.postal_code, inst.city].filter(Boolean).join(', ')} | NIF: ${inst.nif}</p></div>`;
+            }
+        }
 
         const collaboratorRows = activeCollaborators.map(col => {
             const phone = col.telemovel || col.telefoneInterno || '-';
@@ -93,6 +103,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
                     th { background-color: #f2f2f2; font-weight: bold; }
                     h3 { margin-top: 0; color: #444; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                    .footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 9pt; color: #666; }
                 </style>
             </head>
             <body>
@@ -153,6 +164,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     <div class="value">Total Colaboradores: ${activeCollaborators.length}</div>
                     <div class="value">Total Equipamentos: ${associatedEquipment.length}</div>
                 </div>
+                ${footerHtml}
                 <script>window.onload = function() { window.print(); }</script>
             </body>
             </html>

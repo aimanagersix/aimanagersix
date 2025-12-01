@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency, SoftwareCategory } from '../types';
-import { EditIcon, DeleteIcon, ReportIcon, PlusIcon, MailIcon, FaPrint } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, ReportIcon, PlusIcon, MailIcon, FaPrint } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown, FaTags } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import AddLicenseModal from './AddLicenseModal';
@@ -205,12 +206,23 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const [logoBase64, sizeStr] = await Promise.all([
+        const [logoBase64, sizeStr, align, footerId] = await Promise.all([
             dataService.getGlobalSetting('app_logo_base64'),
-            dataService.getGlobalSetting('app_logo_size')
+            dataService.getGlobalSetting('app_logo_size'),
+            dataService.getGlobalSetting('app_logo_alignment'),
+            dataService.getGlobalSetting('report_footer_institution_id')
         ]);
         const logoSize = sizeStr ? parseInt(sizeStr) : 80;
-        const logoHtml = logoBase64 ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px; display: inline-block;" /></div>` : '';
+        const logoHtml = logoBase64 ? `<div style="display: flex; justify-content: ${align || 'center'}; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px;" /></div>` : '';
+        
+        let footerHtml = '';
+        if (footerId) {
+            const allData = await dataService.fetchAllData();
+            const inst = allData.instituicoes.find((i: any) => i.id === footerId);
+            if (inst) {
+                footerHtml = `<div class="footer"><p><strong>${inst.name}</strong> | ${[inst.address_line, inst.postal_code, inst.city].filter(Boolean).join(', ')} | NIF: ${inst.nif}</p></div>`;
+            }
+        }
         
         const content = `
             <html><head><title>Ficha de Licença</title>
@@ -218,6 +230,7 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                 body { font-family: sans-serif; padding: 20px; color: #333; }
                 h1 { color: #0D47A1; } .label { font-weight: bold; color: #666; font-size: 12px; }
                 .value { font-size: 16px; margin-bottom: 15px; border-bottom: 1px dotted #ccc; padding: 2px 0;}
+                .footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 9pt; color: #666; }
             </style>
             </head><body>
             ${logoHtml}
@@ -226,6 +239,7 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
             <div class="label">Total / Em Uso</div><div class="value">${license.totalSeats} / ${usedSeatsMap.get(license.id) || 0}</div>
             <div class="label">Data Compra</div><div class="value">${license.purchaseDate || '-'}</div>
             <div class="label">Data Expiração</div><div class="value">${license.expiryDate || 'Vitalícia'}</div>
+            ${footerHtml}
             <script>window.onload = function() { window.print(); }</script>
             </body></html>
         `;

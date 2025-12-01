@@ -1,6 +1,5 @@
 import React from 'react';
-import { FaImage, FaKeyboard, FaSave, FaCog, FaMousePointer } from 'react-icons/fa';
-import { TooltipConfig } from '../../types';
+import { FaRobot, FaKeyboard, FaSave, FaCog } from 'react-icons/fa';
 
 interface GeneralScansTabProps {
     settings: any;
@@ -9,63 +8,48 @@ interface GeneralScansTabProps {
     instituicoes: any[];
 }
 
-const GeneralScansTab: React.FC<GeneralScansTabProps> = ({ settings, onSettingsChange, onSave, instituicoes }) => {
+const GeneralScansTab: React.FC<GeneralScansTabProps> = ({ settings, onSettingsChange, onSave }) => {
     
-    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 500 * 1024) { // 500KB limit
-                alert("O logótipo deve ter menos de 500KB.");
-                return;
-            }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                onSettingsChange('app_logo_base64', reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
     return (
         <div className="space-y-6 animate-fade-in">
-            {/* Branding Section */}
+            {/* Auto Scan Section */}
             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaImage className="text-blue-400"/> Personalização (Branding)</h3>
+                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Auto Scan de Vulnerabilidades (IA)</h3>
                 <p className="text-sm text-gray-400 mb-4">
-                    Personalize os relatórios com o logótipo da sua organização.
+                    Configure o scanner automático para procurar vulnerabilidades conhecidas (CVEs) no seu inventário de software e hardware.
+                    Última execução: <span className="font-mono text-purple-300">{settings.last_auto_scan}</span>
                 </p>
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs text-gray-500 uppercase mb-1">Carregar Logótipo</label>
-                        <div className="flex items-center gap-4">
-                            <input type="file" onChange={handleLogoUpload} accept="image/png, image/jpeg" className="text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-primary file:text-white hover:file:bg-brand-secondary"/>
-                            {settings.app_logo_base64 && <img src={settings.app_logo_base64} alt="Preview" className="h-12 border border-gray-600 bg-white p-1 rounded" />}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs text-gray-500 uppercase mb-1">Tamanho do Logótipo (px)</label>
-                            <div className="flex items-center gap-3">
-                                <input type="range" min="30" max="200" value={settings.app_logo_size || 80} onChange={e => onSettingsChange('app_logo_size', parseInt(e.target.value))} className="w-full" />
-                                <span className="text-white font-mono text-sm">{settings.app_logo_size || 80}px</span>
-                            </div>
-                        </div>
-                         <div>
-                            <label className="block text-xs text-gray-500 uppercase mb-1">Alinhamento do Logótipo</label>
-                            <select value={settings.app_logo_alignment || 'center'} onChange={e => onSettingsChange('app_logo_alignment', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                                <option value="flex-start">Esquerda</option>
-                                <option value="center">Centro</option>
-                                <option value="flex-end">Direita</option>
-                            </select>
-                        </div>
-                    </div>
-                     <div>
-                        <label className="block text-xs text-gray-500 uppercase mb-1">Rodapé dos Relatórios</label>
-                        <select value={settings.report_footer_institution_id || ''} onChange={e => onSettingsChange('report_footer_institution_id', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                            <option value="">-- Nenhum --</option>
-                            {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                        <label className="block text-xs text-gray-500 uppercase mb-1">Frequência (Dias)</label>
+                        <select value={settings.scan_frequency_days} onChange={e => onSettingsChange('scan_frequency_days', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                            <option value="0">Desativado</option>
+                            <option value="1">Diário</option>
+                            <option value="7">Semanal</option>
+                            <option value="30">Mensal</option>
                         </select>
-                        <p className="text-xs text-gray-500 mt-1">Selecione uma instituição para que os seus dados (morada, NIF, contactos) apareçam no rodapé dos documentos impressos.</p>
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 uppercase mb-1">Hora de Execução</label>
+                        <input type="time" value={settings.scan_start_time} onChange={e => onSettingsChange('scan_start_time', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
+                    </div>
+                </div>
+            </div>
+
+            {/* Naming Convention Section */}
+            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaKeyboard className="text-green-400"/> Convenções de Nomenclatura</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                    Defina o padrão para a geração automática de nomes de equipamentos (ex: Nome na Rede).
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs text-gray-500 uppercase mb-1">Prefixo</label>
+                        <input type="text" value={settings.equipment_naming_prefix} onChange={e => onSettingsChange('equipment_naming_prefix', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Ex: PC-"/>
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 uppercase mb-1">Nº de Dígitos</label>
+                        <input type="number" min="1" max="8" value={settings.equipment_naming_digits} onChange={e => onSettingsChange('equipment_naming_digits', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
                     </div>
                 </div>
             </div>

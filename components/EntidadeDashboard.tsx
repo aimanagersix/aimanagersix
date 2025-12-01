@@ -1,7 +1,9 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment, Brand, EquipmentType } from '../types';
-import { EditIcon, DeleteIcon, SearchIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, SearchIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import EntidadeDetailModal from './EntidadeDetailModal';

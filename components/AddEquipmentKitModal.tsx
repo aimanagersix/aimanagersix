@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand } from '../types';
-import { DeleteIcon, PlusIcon } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
 
 type KitItem = Partial<Omit<Equipment, 'id' | 'status' | 'modifiedDate' | 'creationDate'>> & { key: number; typeName: string };
 

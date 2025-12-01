@@ -1,9 +1,11 @@
 
 
 
+
 import React, { useMemo, useState } from 'react';
 import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaPrint, FaFileImport, SearchIcon } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaPrint, FaFileImport, SearchIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
@@ -227,93 +229,3 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                         )}
                         {onEdit && (
                             <button onClick={(e) => { e.stopPropagation(); onEdit(instituicao); }} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${instituicao.name}`}>
-                                <EditIcon />
-                            </button>
-                        )}
-                        {onDelete && (
-                             <button 
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    if (!isDeleteDisabled) onDelete(instituicao.id); 
-                                }} 
-                                className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
-                                disabled={isDeleteDisabled}
-                                title={isDeleteDisabled ? "Impossível excluir: Existem entidades associadas" : `Excluir ${instituicao.name}`}
-                                aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${instituicao.name}`}
-                            >
-                                <DeleteIcon />
-                            </button>
-                        )}
-                    </div>
-                </td>
-              </tr>
-            )}) : (
-                <tr>
-                    <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma instituição encontrada.</td>
-                </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onItemsPerPageChange={handleItemsPerPageChange}
-            totalItems={filteredInstituicoes.length}
-        />
-
-        {selectedInstituicao && (
-            <InstituicaoDetailModal
-                instituicao={selectedInstituicao}
-                entidades={entidades}
-                collaborators={collaborators}
-                onClose={() => setSelectedInstituicao(null)}
-                onEdit={() => {
-                    setSelectedInstituicao(null);
-                    if (onEdit) onEdit(selectedInstituicao);
-                }}
-                onAddEntity={onAddEntity}
-                onCreateCollaborator={onCreateCollaborator}
-                onOpenEntity={handleOpenEntity}
-                // Pass Assignments and Equipment
-                assignments={assignments}
-                equipment={equipment}
-                brands={brands}
-                equipmentTypes={equipmentTypes}
-            />
-        )}
-
-        {selectedEntityForDrillDown && (
-            <EntidadeDetailModal 
-                entidade={selectedEntityForDrillDown}
-                instituicao={instituicoes.find(i => i.id === selectedEntityForDrillDown.instituicaoId)}
-                collaborators={collaborators}
-                assignments={assignments}
-                onClose={() => setSelectedEntityForDrillDown(null)}
-                onEdit={() => {
-                    if (onEditEntity) {
-                        setSelectedEntityForDrillDown(null);
-                        onEditEntity(selectedEntityForDrillDown);
-                    } else {
-                        alert("Para editar esta entidade, navegue para o menu 'Entidades'.");
-                    }
-                }}
-                onAddCollaborator={onAddCollaborator}
-                onAssignEquipment={onAssignEquipment}
-                onOpenInstitution={(inst) => {
-                    setSelectedEntityForDrillDown(null);
-                    // Logic to go back to institution detail?
-                    if (inst) setSelectedInstituicao(inst);
-                }}
-                equipment={equipment}
-                brands={brands}
-                equipmentTypes={equipmentTypes}
-            />
-        )}
-    </div>
-  );
-};
-
-export default InstituicaoDashboard;

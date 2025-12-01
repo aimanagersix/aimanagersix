@@ -1,41 +1,117 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as dataService from '../../services/dataService';
-import AuxiliaryDataDashboard from '../../components/AuxiliaryDataDashboard';
-import SystemDiagnosticsModal from '../../components/SystemDiagnosticsModal';
+import { FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, FaGraduationCap, FaLock, FaIdCard, FaPalette } from 'react-icons/fa';
 
-// Modals
+// Components
+import BrandDashboard from '../../components/BrandDashboard';
+import EquipmentTypeDashboard from '../../components/EquipmentTypeDashboard';
+import CategoryDashboard from '../../components/CategoryDashboard';
+import SecurityIncidentTypeDashboard from '../../components/SecurityIncidentTypeDashboard';
+import RoleManager from '../../components/RoleManager'; 
+import SystemDiagnosticsModal from '../../components/SystemDiagnosticsModal';
 import AddBrandModal from '../../components/AddBrandModal';
 import AddEquipmentTypeModal from '../../components/AddEquipmentTypeModal';
 import AddCategoryModal from '../../components/AddCategoryModal';
 import AddSecurityIncidentTypeModal from '../../components/AddSecurityIncidentTypeModal';
-import { FaHeartbeat } from 'react-icons/fa';
+import BrandingTab from '../../components/settings/BrandingTab'; // NEW
 
 interface SettingsManagerProps {
     appData: any;
     refreshData: () => void;
 }
 
+interface MenuItem {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+}
+
 const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData }) => {
+    const [selectedMenuId, setSelectedMenuId] = useState<string>('brands'); 
+    
+    // Generic Editor State
+    const [newItemName, setNewItemName] = useState('');
+    const [newItemColor, setNewItemColor] = useState('#3b82f6'); 
+    const [editingItem, setEditingItem] = useState<any | null>(null);
+    const [error, setError] = useState('');
+    
     // Modals State
     const [showAddBrandModal, setShowAddBrandModal] = useState(false);
     const [brandToEdit, setBrandToEdit] = useState<any>(null);
-    
     const [showAddTypeModal, setShowAddTypeModal] = useState(false);
     const [typeToEdit, setTypeToEdit] = useState<any>(null);
-    
     const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
     const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
-    
     const [showAddIncidentTypeModal, setShowAddIncidentTypeModal] = useState(false);
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
-    
     const [showDiagnostics, setShowDiagnostics] = useState(false);
+    
+    // Branding State
+    const [brandingSettings, setBrandingSettings] = useState({
+        app_logo_base64: '',
+        app_logo_size: 80,
+        app_logo_alignment: 'center',
+        report_footer_institution_id: ''
+    });
 
+    useEffect(() => {
+        const loadSettings = async () => {
+            const logo = await dataService.getGlobalSetting('app_logo_base64') || '';
+            const size = await dataService.getGlobalSetting('app_logo_size') || '80';
+            const align = await dataService.getGlobalSetting('app_logo_alignment') || 'center';
+            const footerId = await dataService.getGlobalSetting('report_footer_institution_id') || '';
+            setBrandingSettings({
+                app_logo_base64: logo,
+                app_logo_size: parseInt(size),
+                app_logo_alignment: align,
+                report_footer_institution_id: footerId
+            });
+        };
+        if(selectedMenuId === 'branding') {
+            loadSettings();
+        }
+    }, [selectedMenuId]);
+    
+    const handleBrandingChange = (key: string, value: any) => {
+        setBrandingSettings(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleSaveBranding = async () => {
+        try {
+            await dataService.updateGlobalSetting('app_logo_base64', brandingSettings.app_logo_base64);
+            await dataService.updateGlobalSetting('app_logo_size', String(brandingSettings.app_logo_size));
+            await dataService.updateGlobalSetting('app_logo_alignment', brandingSettings.app_logo_alignment);
+            await dataService.updateGlobalSetting('report_footer_institution_id', brandingSettings.report_footer_institution_id);
+            alert("Configurações de branding guardadas.");
+        } catch(e) {
+            alert("Erro ao guardar as configurações.");
+        }
+    };
+
+
+    const menuStructure: { group: string, items: MenuItem[] }[] = [
+        {
+            group: "Personalização",
+            items: [
+                { id: 'branding', label: 'Branding (Relatórios)', icon: <FaPalette /> }
+            ]
+        },
+        {
+            group: "Inventário & Ativos",
+            items: [
+                { id: 'brands', label: 'Marcas (Fabricantes)', icon: <FaTags /> },
+                { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes /> },
+                // Generic items will render from here
+            ]
+        },
+        // ... more groups can be added ...
+    ];
+
+    const currentSelectionLabel = menuStructure.flatMap(g => g.items).find(i => i.id === selectedMenuId)?.label || 'Configurações';
+    
     return (
         <>
-            {/* Header with Diagnostics Button */}
-            <div className="flex justify-end mb-4 px-6">
+            <div className="flex justify-end mb-4">
                 <button 
                     onClick={() => setShowDiagnostics(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-md transition-colors border border-gray-600"
@@ -44,28 +120,64 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 </button>
             </div>
 
-            <AuxiliaryDataDashboard 
-                configTables={[
-                    { tableName: 'config_equipment_statuses', label: 'Estados de Equipamento', data: appData.configEquipmentStatuses },
-                    { tableName: 'contact_roles', label: 'Funções de Contacto', data: appData.contactRoles },
-                    { tableName: 'contact_titles', label: 'Tratos (Honoríficos)', data: appData.contactTitles },
-                    { tableName: 'config_criticality_levels', label: 'Níveis de Criticidade', data: appData.configCriticalityLevels },
-                    { tableName: 'config_cia_ratings', label: 'Classificação CIA', data: appData.configCiaRatings },
-                    { tableName: 'config_service_statuses', label: 'Estados de Serviço (BIA)', data: appData.configServiceStatuses },
-                    { tableName: 'config_backup_types', label: 'Tipos de Backup', data: appData.configBackupTypes },
-                    { tableName: 'config_training_types', label: 'Tipos de Formação', data: appData.configTrainingTypes },
-                    { tableName: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', data: appData.configResilienceTestTypes },
-                    { tableName: 'config_software_categories', label: 'Categorias de Software', data: appData.softwareCategories }
-                ]}
-                onRefresh={refreshData}
-                brands={appData.brands} equipment={appData.equipment} onEditBrand={async (b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDeleteBrand={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} onCreateBrand={() => { setBrandToEdit(null); setShowAddBrandModal(true); }}
-                equipmentTypes={appData.equipmentTypes} onEditType={async (t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDeleteType={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} onCreateType={() => { setTypeToEdit(null); setShowAddTypeModal(true); }}
-                ticketCategories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onEditCategory={async (c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDeleteCategory={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteTicketCategory(id); refreshData(); } }} onToggleCategoryStatus={async (id) => { const cat = appData.ticketCategories.find((c:any) => c.id === id); if (cat) { await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData(); } }} onCreateCategory={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }}
-                securityIncidentTypes={appData.securityIncidentTypes} onEditIncidentType={async (t) => { setIncidentTypeToEdit(t); setShowAddIncidentTypeModal(true); }} onDeleteIncidentType={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteSecurityIncidentType(id); refreshData(); } }} onToggleIncidentTypeStatus={async (id) => { const t = appData.securityIncidentTypes.find((i:any) => i.id === id); if (t) { await dataService.updateSecurityIncidentType(id, { is_active: !t.is_active }); refreshData(); } }} onCreateIncidentType={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }}
-                collaborators={appData.collaborators} softwareLicenses={appData.softwareLicenses} businessServices={appData.businessServices} backupExecutions={appData.backupExecutions} securityTrainings={appData.securityTrainings} resilienceTests={appData.resilienceTests} suppliers={appData.suppliers} entidades={appData.entidades} instituicoes={appData.instituicoes} vulnerabilities={appData.vulnerabilities}
-            />
+            <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)]">
+                {/* Sidebar Menu */}
+                <div className="w-full lg:w-64 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden flex-shrink-0">
+                    <div className="overflow-y-auto flex-grow p-2 space-y-4 custom-scrollbar">
+                        {menuStructure.map((group, gIdx) => (
+                            <div key={gIdx}>
+                                <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{group.group}</h3>
+                                <div className="space-y-1">
+                                    {group.items.map(item => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => setSelectedMenuId(item.id)}
+                                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md flex items-center gap-3 transition-colors ${
+                                                selectedMenuId === item.id
+                                                ? 'bg-brand-primary text-white shadow-md'
+                                                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                                            }`}
+                                        >
+                                            {item.icon}
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
 
-             {/* ... Modals ... */}
+                {/* Content Area */}
+                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col" key={selectedMenuId}>
+                    
+                    {selectedMenuId === 'branding' && (
+                        <div className="h-full overflow-y-auto p-6">
+                             <BrandingTab 
+                                settings={brandingSettings}
+                                onSettingsChange={handleBrandingChange}
+                                onSave={handleSaveBranding}
+                                instituicoes={appData.instituicoes}
+                             />
+                        </div>
+                    )}
+
+                    {selectedMenuId === 'brands' && (
+                        <div className="h-full overflow-y-auto">
+                            <BrandDashboard brands={appData.brands} equipment={appData.equipment} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />
+                        </div>
+                    )}
+                    {selectedMenuId === 'equipment_types' && (
+                        <div className="h-full overflow-y-auto">
+                            <EquipmentTypeDashboard equipmentTypes={appData.equipmentTypes} equipment={appData.equipment} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />
+                        </div>
+                    )}
+
+                </div>
+            </div>
+
+            {/* Modals */}
+            {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
             {showAddBrandModal && (
                 <AddBrandModal
                     onClose={() => setShowAddBrandModal(false)}
@@ -91,30 +203,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     existingTypes={appData.equipmentTypes}
                 />
             )}
-             {showAddCategoryModal && (
-                <AddCategoryModal
-                    onClose={() => setShowAddCategoryModal(false)}
-                    onSave={async (cat) => {
-                        if (categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, cat);
-                        else await dataService.addTicketCategory(cat);
-                        refreshData();
-                    }}
-                    categoryToEdit={categoryToEdit}
-                    teams={appData.teams}
-                />
-            )}
-            {showAddIncidentTypeModal && (
-                <AddSecurityIncidentTypeModal
-                    onClose={() => setShowAddIncidentTypeModal(false)}
-                    onSave={async (type) => {
-                        if (incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, type);
-                        else await dataService.addSecurityIncidentType(type);
-                        refreshData();
-                    }}
-                    typeToEdit={incidentTypeToEdit}
-                />
-            )}
-            {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
         </>
     );
 };

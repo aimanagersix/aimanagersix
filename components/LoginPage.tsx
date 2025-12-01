@@ -1,6 +1,8 @@
 
+
 import React, { useState } from 'react';
-import { UserIcon, LockClosedIcon, FaFingerprint } from './common/Icons';
+// FIX: Replaced non-existent icon imports with aliased exports from ./common/Icons
+import { FaUserCircle as UserIcon, FaLock as LockClosedIcon, FaFingerprint } from './common/Icons';
 import { getSupabase } from '../services/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 

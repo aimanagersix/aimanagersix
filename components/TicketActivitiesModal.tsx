@@ -66,13 +66,31 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
             return;
         }
 
-        const [logoBase64, sizeStr] = await Promise.all([
+        const [logoBase64, sizeStr, align, footerId] = await Promise.all([
             dataService.getGlobalSetting('app_logo_base64'),
-            dataService.getGlobalSetting('app_logo_size')
+            dataService.getGlobalSetting('app_logo_size'),
+            dataService.getGlobalSetting('app_logo_alignment'),
+            dataService.getGlobalSetting('report_footer_institution_id')
         ]);
         const logoSize = sizeStr ? parseInt(sizeStr) : 80;
 
-        const logoHtml = logoBase64 ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px; display: inline-block;" /></div>` : '';
+        const logoHtml = logoBase64 ? `<div style="display: flex; justify-content: ${align || 'center'}; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px;" /></div>` : '';
+
+        let footerHtml = '';
+        if (footerId) {
+            const allData = await dataService.fetchAllData();
+            const inst = allData.instituicoes.find((i: any) => i.id === footerId);
+            if (inst) {
+                footerHtml = `
+                    <div class="footer">
+                        <p><strong>${inst.name}</strong></p>
+                        <p>${[inst.address_line, inst.postal_code, inst.city].filter(Boolean).join(', ')}</p>
+                        <p>Tel: ${inst.telefone} | Email: ${inst.email} | NIF: ${inst.nif}</p>
+                    </div>
+                `;
+            }
+        }
+
 
         const activitiesHtml = sortedActivities.map(act => `
             <div class="activity-item">
@@ -103,7 +121,8 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                     .activity-header { font-size: 12px; color: #777; margin-bottom: 5px; }
                     .technician { font-weight: bold; color: #0D47A1; margin-right: 10px; }
                     .equipment-ref { font-size: 12px; color: #666; font-style: italic; margin-top: 5px; }
-                    .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 20px; font-size: 12px; text-align: center; color: #777; }
+                    .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 10px; text-align: center; color: #777; }
+                    .footer p { margin: 2px 0; }
                     .signature-box { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
                     .signature-line { border-top: 1px solid #333; padding-top: 5px; text-align: center; font-size: 14px; }
                     
@@ -169,9 +188,7 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                     </div>
                 </div>
 
-                <div class="footer">
-                    Gerado por AIManager em ${new Date().toLocaleString()}
-                </div>
+                ${footerHtml}
                 
                 <script>
                     window.onload = function() { window.print(); }

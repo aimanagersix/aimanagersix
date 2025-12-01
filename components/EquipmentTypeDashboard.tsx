@@ -6,7 +6,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { EquipmentType, Equipment } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 
 interface EquipmentTypeDashboardProps {

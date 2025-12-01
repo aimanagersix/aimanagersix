@@ -5,9 +5,11 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import { Brand, Equipment, CriticalityLevel } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaCheckCircle, FaTimesCircle } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaCheckCircle, FaTimesCircle } from './common/Icons';
 import Pagination from './common/Pagination';
 
 interface BrandDashboardProps {
