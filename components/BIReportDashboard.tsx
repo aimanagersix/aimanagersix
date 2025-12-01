@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { AppData } from '../hooks/useAppData';
 import { FaFilter, FaSync, FaEuroSign, FaBoxOpen, FaFileInvoiceDollar, FaLaptop, FaPrint } from 'react-icons/fa';
@@ -268,7 +269,7 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
                         </div>
                     </ChartCard>
                      <ChartCard title="Distribuição de Custos por Estado">
-                        <div className="flex items-center justify-center h-full">
+                        <div className="flex flex-wrap items-center justify-center h-full gap-4">
                         {costByStatus.map((item, idx) => {
                             const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
                             return (

@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
@@ -348,10 +345,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                 </button>
                             )}
                             <button onClick={() => setLayoutMode('side')} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                <FaColumns className="mr-3 text-gray-400" /> Menu Lateral
+                                <FaColumns className="mr-3 text-gray-400" /> {t('common.side_menu')}
                             </button>
                             <button onClick={() => setShowMFA(true)} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
-                                <FaFingerprint className="mr-3 text-brand-secondary" /> Configurar 2FA
+                                <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
                             </button>
                             
                             {/* Language Switch */}

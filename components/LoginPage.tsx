@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { UserIcon, LockClosedIcon, FaFingerprint } from './common/Icons';
 import { getSupabase } from '../services/supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface LoginPageProps {
     onLogin: (email: string, password: string) => Promise<{ success: boolean, error?: string }>;
@@ -9,6 +10,7 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
+    const { t } = useLanguage();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [mfaCode, setMfaCode] = useState('');
@@ -47,7 +49,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
 
         setIsLoading(true);
         
-        // We intercept the standard onLogin to check for MFA first manually
         const supabase = getSupabase();
         const { data, error: loginError } = await (supabase.auth as any).signInWithPassword({ email, password });
 
@@ -68,12 +69,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
             const totpFactor = factors.data?.totp.find((f: any) => f.status === 'verified');
             
             if (totpFactor) {
-                setStep('mfa'); // Move to MFA step
+                setStep('mfa');
                 setIsLoading(false);
-                // We don't call onLogin success yet, we wait for the code
             } else {
-                // No MFA, proceed normally
-                window.location.reload(); // Or handle success callback properly if needed
+                window.location.reload();
             }
         }
     };
@@ -99,7 +98,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
 
             if (verify.error) throw verify.error;
 
-            // MFA Success
             window.location.reload();
 
         } catch (err: any) {
@@ -118,17 +116,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
             <div className="w-full max-w-md">
                 <div className="flex flex-col items-center mb-8">
                     <h1 className="font-bold text-4xl text-white">
-                        AI<span className="text-brand-secondary">Manager</span>
+                        {t('login.title')}
                     </h1>
-                    <p className="text-on-surface-dark-secondary mt-2">Gestão Inteligente de Equipamentos</p>
+                    <p className="text-on-surface-dark-secondary mt-2">{t('login.subtitle')}</p>
                 </div>
                 <div className="bg-surface-dark shadow-2xl rounded-xl px-8 pt-6 pb-8 mb-4">
                     
                     {step === 'credentials' ? (
                         <form onSubmit={handleLoginSubmit} noValidate>
-                            <h2 className="text-2xl font-bold text-center text-white mb-6">Login</h2>
+                            <h2 className="text-2xl font-bold text-center text-white mb-6">{t('login.header')}</h2>
                             <div className="mb-4">
-                                <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2" htmlFor="login-email">Email</label>
+                                <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2" htmlFor="login-email">{t('login.email_label')}</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><UserIcon className="h-5 w-5 text-gray-400" /></div>
                                     <input 
@@ -136,7 +134,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                                         id="login-email" 
                                         type="email" 
                                         name="email"
-                                        placeholder="seu.email@exemplo.com" 
+                                        placeholder={t('login.email_placeholder')} 
                                         value={email} 
                                         onChange={(e) => setEmail(e.target.value)} 
                                         onBlur={handleBlur}
@@ -147,7 +145,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                                 {validationErrors.email && <p className="text-red-400 text-xs italic mt-2">{validationErrors.email}</p>}
                             </div>
                             <div className="mb-4">
-                                <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2" htmlFor="login-password">Password</label>
+                                <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2" htmlFor="login-password">{t('login.password_label')}</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><LockClosedIcon className="h-5 w-5 text-gray-400" /></div>
                                     <input 
@@ -169,7 +167,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                                 <div className="flex items-center">
                                     <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-brand-secondary focus:ring-brand-primary border-gray-600 rounded bg-gray-700"/>
                                     <label htmlFor="remember-me" className="ml-2 block text-sm text-on-surface-dark-secondary">
-                                        Lembrar-me
+                                        {t('login.remember_me')}
                                     </label>
                                 </div>
                                 <div className="text-sm">
@@ -178,14 +176,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                                         onClick={onForgotPassword}
                                         className="font-medium text-brand-secondary hover:text-blue-400 focus:outline-none"
                                     >
-                                        Esqueceu-se da password?
+                                        {t('login.forgot_password')}
                                     </button>
                                 </div>
                             </div>
                             {error && <p className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs italic p-3 rounded mb-4 text-center">{error}</p>}
                             <div className="flex items-center justify-between">
                                 <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 disabled:opacity-50" type="submit" disabled={isLoading}>
-                                    {isLoading ? 'A verificar...' : 'Entrar'}
+                                    {isLoading ? t('login.verifying') : t('login.login_button')}
                                 </button>
                             </div>
                         </form>
@@ -213,14 +211,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                             </div>
                             {error && <p className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs italic p-3 rounded mb-4 text-center">{error}</p>}
                              <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none transition-colors duration-300 disabled:opacity-50" type="submit" disabled={isLoading || mfaCode.length !== 6}>
-                                {isLoading ? 'A verificar...' : 'Confirmar Código'}
+                                {isLoading ? t('login.verifying') : 'Confirmar Código'}
                             </button>
                         </form>
                     )}
 
                 </div>
                 <p className="text-center text-gray-500 text-xs">
-                    &copy;{new Date().getFullYear()} AIManager. Todos os direitos reservados.
+                    &copy;{new Date().getFullYear()} AIManager. {t('login.copyright')}
                 </p>
             </div>
         </div>

@@ -5,6 +5,7 @@ import { FaPlus, FaUserTie, FaEnvelope, FaPhone, FaTrash, FaCog, FaEdit, FaSave,
 import * as dataService from '../../services/dataService';
 import ManageContactRolesModal from '../ManageContactRolesModal';
 import ManageContactTitlesModal from '../ManageContactTitlesModal';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface ContactListProps {
     contacts: ResourceContact[];
@@ -20,6 +21,7 @@ const isValidPhone = (phone: string) => {
 };
 
 export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, resourceType }) => {
+    const { t } = useLanguage();
     const [newContact, setNewContact] = useState<Partial<ResourceContact>>({
         title: '',
         name: '',
@@ -174,7 +176,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         </div>
                     </div>
                     <div className="md:col-span-2">
-                        <label className="block text-xs text-gray-400 mb-1">Nome</label>
+                        <label className="block text-xs text-gray-400 mb-1">{t('common.name')}</label>
                         <input 
                             type="text" 
                             value={newContact.name || ''}
@@ -186,7 +188,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
-                        <label className="block text-xs text-gray-400 mb-1">Papel / Função</label>
+                        <label className="block text-xs text-gray-400 mb-1">{t('common.role')}</label>
                         <div className="flex gap-2">
                             <select 
                                 value={newContact.role || ''}
@@ -206,7 +208,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-400 mb-1">Email</label>
+                        <label className="block text-xs text-gray-400 mb-1">{t('common.email')}</label>
                         <input 
                             type="email" 
                             value={newContact.email || ''}
@@ -216,7 +218,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-400 mb-1">Telefone</label>
+                        <label className="block text-xs text-gray-400 mb-1">{t('common.phone')}</label>
                         <input 
                             type="text" 
                             value={newContact.phone || ''}
@@ -244,7 +246,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                     {contacts.map((contact, idx) => {
                         const isActive = contact.is_active !== false;
                         return (
-                            <div key={idx} className={`p-3 rounded border flex justify-between items-center ${isActive ? 'bg-gray-800 border-gray-700' : 'bg-gray-800/50 border-gray-700 opacity-70'}`}>
+                            <div key={idx} className={`p-3 rounded border flex flex-col sm:flex-row justify-between items-start sm:items-center ${isActive ? 'bg-gray-800 border-gray-700' : 'bg-gray-800/50 border-gray-700 opacity-70'}`}>
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <p className={`font-bold text-sm flex items-center gap-2 ${isActive ? 'text-white' : 'text-gray-400'}`}>
@@ -253,19 +255,19 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                                             {contact.name} 
                                         </p>
                                         <span className="text-xs font-normal bg-gray-700 px-2 rounded text-gray-300">{contact.role}</span>
-                                        {!isActive && <span className="text-[10px] uppercase bg-red-900/50 text-red-300 px-1 rounded">Inativo</span>}
+                                        {!isActive && <span className="text-[10px] uppercase bg-red-900/50 text-red-300 px-1 rounded">{t('status.inactive')}</span>}
                                     </div>
-                                    <div className="text-xs text-gray-400 flex gap-3 mt-1">
+                                    <div className="text-xs text-gray-400 flex flex-col sm:flex-row sm:gap-3 mt-1">
                                         {contact.email && <span className="flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {contact.email}</span>}
                                         {contact.phone && <span className="flex items-center gap-1"><FaPhone className="h-3 w-3"/> {contact.phone}</span>}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 mt-2 sm:mt-0">
                                     <button 
                                         type="button" 
                                         onClick={() => handleToggleStatus(idx)}
                                         className={`p-2 rounded-full hover:bg-gray-700 ${isActive ? 'text-green-400' : 'text-gray-500'}`}
-                                        title={isActive ? "Colocar Inativo" : "Ativar"}
+                                        title={isActive ? t('status.inactive') : t('status.active')}
                                     >
                                         {isActive ? <FaToggleOn className="h-5 w-5"/> : <FaToggleOff className="h-5 w-5"/>}
                                     </button>
@@ -273,7 +275,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                                         type="button" 
                                         onClick={() => handleEditContact(idx)}
                                         className="text-blue-400 hover:text-blue-300 p-2 hover:bg-gray-700 rounded-full"
-                                        title="Editar"
+                                        title={t('common.edit')}
                                     >
                                         <FaEdit className="h-4 w-4"/>
                                     </button>
@@ -281,7 +283,7 @@ export const ContactList: React.FC<ContactListProps> = ({ contacts, onChange, re
                                         type="button" 
                                         onClick={() => handleRemoveContact(idx)}
                                         className="text-red-400 hover:text-red-300 p-2 hover:bg-gray-700 rounded-full"
-                                        title="Remover"
+                                        title={t('common.delete')}
                                     >
                                         <FaTrash className="h-4 w-4"/>
                                     </button>
