@@ -120,6 +120,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     licenseAssignments={appData.licenseAssignments}
                     vulnerabilities={appData.vulnerabilities}
                     suppliers={appData.suppliers}
+                    procurementRequests={appData.procurementRequests}
                     tooltipConfig={userTooltipConfig}
                 />
             )}

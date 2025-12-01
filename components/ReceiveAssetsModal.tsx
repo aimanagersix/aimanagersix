@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, Brand, EquipmentType, Equipment, EquipmentStatus, CriticalityLevel } from '../types';
@@ -69,6 +68,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                 invoiceNumber: request.invoice_number,
                 requisitionNumber: request.order_reference,
                 acquisitionCost: request.estimated_cost ? (request.estimated_cost / request.quantity) : 0,
+                procurement_request_id: request.id,
                 criticality: CriticalityLevel.Low, // Default
                 creationDate: new Date().toISOString(),
                 modifiedDate: new Date().toISOString()

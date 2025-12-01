@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao } from '../types';
 import { EditIcon, DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
@@ -23,7 +22,7 @@ interface CollaboratorDashboardProps {
   onShowDetails?: (collaborator: Collaborator) => void;
   onGenerateReport?: () => void;
   onStartChat?: (collaborator: Collaborator) => void;
-  onToggleStatus?: (id: string) => void;
+  onToggleStatus?: (collaborator: Collaborator) => void;
   onCreate?: () => void;
   tooltipConfig?: TooltipConfig;
   // New Handlers passed to Detail Modal
@@ -130,7 +129,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         teamMembers.forEach(tm => {
             if (tm.collaborator_id) addDependency(tm.collaborator_id, 'Membro de Equipa');
         });
-
+        
         // Check Collaborator History
         collaboratorHistory.forEach(ch => {
             if (ch.collaboratorId) addDependency(ch.collaboratorId, 'Histórico Funcional');
@@ -169,7 +168,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
             const searchMatch = query === '' ||
                 col.fullName.toLowerCase().includes(query) ||
                 col.email.toLowerCase().includes(query) ||
-                col.numeroMecanografico.toLowerCase().includes(query);
+                (col.numeroMecanografico || '').toLowerCase().includes(query);
 
             const entidadeMatch = filters.entidadeId === '' || col.entidadeId === filters.entidadeId;
             const statusMatch = filters.status === '' || col.status === filters.status;
@@ -422,9 +421,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                      <div className="flex justify-center items-center gap-4">
                         {onToggleStatus && (
                             <button 
-                                onClick={(e) => { e.stopPropagation(); onToggleStatus(col.id); }}
+                                onClick={(e) => { e.stopPropagation(); onToggleStatus(col); }}
                                 className={`text-xl ${col.status === CollaboratorStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
-                                title={col.status === CollaboratorStatus.Ativo ? 'Inativar' : 'Ativar'}
+                                title={col.status === CollaboratorStatus.Ativo ? 'Inativar (Assistente de Saída)' : 'Ativar'}
                             >
                                 {col.status === CollaboratorStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
                             </button>

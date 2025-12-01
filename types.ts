@@ -235,6 +235,7 @@ export interface Equipment {
   
   // Maintenance Link
   parent_equipment_id?: string; // NEW: Link to main equipment if this is a part
+  procurement_request_id?: string;
 }
 
 export interface Instituicao {

@@ -1,9 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency, SoftwareCategory } from '../types';
-import { EditIcon, DeleteIcon, ReportIcon, PlusIcon, MailIcon } from './common/Icons';
+import { EditIcon, DeleteIcon, ReportIcon, PlusIcon, MailIcon, FaPrint } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown, FaTags } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import AddLicenseModal from './AddLicenseModal';
+import * as dataService from '../services/dataService';
+
 
 interface LicenseDashboardProps {
   licenses: SoftwareLicense[];
@@ -39,7 +41,7 @@ const getCriticalityClass = (level?: CriticalityLevel) => {
         case CriticalityLevel.Critical: return 'bg-red-600 text-white border-red-700';
         case CriticalityLevel.High: return 'bg-orange-600 text-white border-orange-700';
         case CriticalityLevel.Medium: return 'bg-yellow-600 text-white border-yellow-700';
-        case CriticalityLevel.Low: return 'bg-gray-600 text-white border-gray-700';
+        case CriticalityLevel.Low: return 'bg-green-600 text-white border-green-700';
         default: return 'bg-gray-700 text-gray-300 border-gray-600';
     }
 };
@@ -199,6 +201,37 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
+    const handlePrintLicense = async (license: SoftwareLicense) => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const [logoBase64, sizeStr] = await Promise.all([
+            dataService.getGlobalSetting('app_logo_base64'),
+            dataService.getGlobalSetting('app_logo_size')
+        ]);
+        const logoSize = sizeStr ? parseInt(sizeStr) : 80;
+        const logoHtml = logoBase64 ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px; display: inline-block;" /></div>` : '';
+        
+        const content = `
+            <html><head><title>Ficha de Licença</title>
+            <style>
+                body { font-family: sans-serif; padding: 20px; color: #333; }
+                h1 { color: #0D47A1; } .label { font-weight: bold; color: #666; font-size: 12px; }
+                .value { font-size: 16px; margin-bottom: 15px; border-bottom: 1px dotted #ccc; padding: 2px 0;}
+            </style>
+            </head><body>
+            ${logoHtml}
+            <h1>${license.productName}</h1>
+            <div class="label">Chave</div><div class="value">${license.licenseKey}</div>
+            <div class="label">Total / Em Uso</div><div class="value">${license.totalSeats} / ${usedSeatsMap.get(license.id) || 0}</div>
+            <div class="label">Data Compra</div><div class="value">${license.purchaseDate || '-'}</div>
+            <div class="label">Data Expiração</div><div class="value">${license.expiryDate || 'Vitalícia'}</div>
+            <script>window.onload = function() { window.print(); }</script>
+            </body></html>
+        `;
+        printWindow.document.write(content);
+        printWindow.document.close();
+    };
 
     const processedLicenses = useMemo(() => {
         let filtered = licenses.filter(license => {
@@ -397,6 +430,7 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex justify-center items-center gap-4">
+                                                <button onClick={(e) => { e.stopPropagation(); handlePrintLicense(license); }} className="text-gray-400 hover:text-white" title="Imprimir Ficha"><FaPrint /></button>
                                                 <button onClick={(e) => { e.stopPropagation(); handleSendEmail(license); }} className="text-gray-400 hover:text-white" title="Partilhar Chave"><MailIcon /></button>
                                                 {onEdit && (
                                                     <button onClick={(e) => { e.stopPropagation(); onEdit(license); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>

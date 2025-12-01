@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
     Collaborator, Instituicao, Entidade, Team, Supplier, 
-    ModuleKey, PermissionAction, defaultTooltipConfig, Brand
+    ModuleKey, PermissionAction, defaultTooltipConfig, Brand, Assignment, SoftwareLicense, LicenseAssignment, TicketStatus
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -21,9 +21,9 @@ import ManageTeamMembersModal from '../../components/ManageTeamMembersModal';
 import AddSupplierModal from '../../components/AddSupplierModal';
 import ImportModal from '../../components/ImportModal';
 import CollaboratorHistoryModal from '../../components/CollaboratorHistoryModal';
-// FIX: Changed to named import for CollaboratorDetailModal
 import { CollaboratorDetailModal } from '../../components/CollaboratorDetailModal';
 import CredentialsModal from '../../components/CredentialsModal';
+import OffboardingModal from '../../components/OffboardingModal';
 
 interface OrganizationManagerProps {
     activeTab: string;
@@ -68,28 +68,22 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
 
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
     const [newCredentials, setNewCredentials] = useState<{email: string, password?: string} | null>(null);
+    
+    // Offboarding State
+    const [showOffboardingModal, setShowOffboardingModal] = useState(false);
+    const [collaboratorToOffboard, setCollaboratorToOffboard] = useState<Collaborator | null>(null);
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
     // Handlers for Detail Modal Actions
     const handleAssignEquipment = async (collaboratorId: string, equipmentId: string) => {
-        // 1. Set Equipment as Operational
         await dataService.updateEquipment(equipmentId, { status: 'Operacional' });
-        // 2. Create Assignment
-        await dataService.addAssignment({
-            equipmentId,
-            collaboratorId,
-            assignedDate: new Date().toISOString().split('T')[0]
-        });
+        await dataService.addAssignment({ equipmentId, collaboratorId, assignedDate: new Date().toISOString().split('T')[0] });
         refreshData();
     };
 
     const handleUnassignEquipment = async (equipmentId: string) => {
-        // Creating assignment with returnDate effectively unassigns it and sets status to Stock (handled in dataService)
-        await dataService.addAssignment({
-            equipmentId,
-            returnDate: new Date().toISOString().split('T')[0]
-        });
+        await dataService.addAssignment({ equipmentId, returnDate: new Date().toISOString().split('T')[0] });
         refreshData();
     };
 
@@ -97,7 +91,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         if (collaboratorToEdit) {
             const updatedCollaborator = await dataService.updateCollaborator(collaboratorToEdit.id, col);
             refreshData();
-            return updatedCollaborator; // Return full object
+            return updatedCollaborator;
         } else {
             const newCol = await dataService.addCollaborator(col, pass);
             if (pass && newCol) {
@@ -105,8 +99,62 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 setShowCredentialsModal(true);
             }
             refreshData();
-            return newCol; // Return full object
+            return newCol;
         }
+    };
+    
+    const onToggleStatus = async (collaborator: Collaborator) => {
+        if (!collaborator) return;
+        
+        const isActivating = collaborator.status === 'Inativo';
+        if (isActivating) {
+            await dataService.updateCollaborator(collaborator.id, { status: 'Ativo' });
+            refreshData();
+            return;
+        }
+
+        const assignedEquipment = appData.assignments.filter((a: Assignment) => a.collaboratorId === collaborator.id && !a.returnDate);
+        if (assignedEquipment.length > 0) {
+            setCollaboratorToOffboard(collaborator);
+            setShowOffboardingModal(true);
+        } else {
+            if(confirm(`Tem a certeza que deseja inativar ${collaborator.fullName}?`)) {
+                await dataService.updateCollaborator(collaborator.id, { status: 'Inativo' });
+                refreshData();
+            }
+        }
+    };
+    
+    const handleConfirmOffboarding = async (collaboratorId: string) => {
+        const collaborator = appData.collaborators.find((c: Collaborator) => c.id === collaboratorId);
+        if (!collaborator) return;
+
+        // 1. Unassign all equipment
+        const assignedEquipmentIds = appData.assignments
+            .filter((a: Assignment) => a.collaboratorId === collaboratorId && !a.returnDate)
+            .map((a: Assignment) => a.equipmentId);
+        
+        for (const eqId of assignedEquipmentIds) {
+            await handleUnassignEquipment(eqId);
+        }
+        
+        // 2. Inactivate collaborator
+        await dataService.updateCollaborator(collaboratorId, { status: 'Inativo' });
+        
+        // 3. Create ticket for IT
+        await dataService.addTicket({
+            title: `Offboarding: ${collaborator.fullName}`,
+            description: `Processo de saída iniciado para ${collaborator.fullName}. Por favor, revogar todos os acessos (Email, VPN, sistemas internos).`,
+            status: TicketStatus.Requested,
+            category: 'Manutenção',
+            requestDate: new Date().toISOString(),
+            collaboratorId: currentUser?.id,
+            entidadeId: currentUser?.entidadeId
+        });
+        
+        await dataService.logAction('OFFBOARDING', 'Collaborator', `Offboarding process initiated for ${collaborator.fullName}`, collaboratorId);
+
+        refreshData();
     };
 
     return (
@@ -176,12 +224,8 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onShowDetails={(c) => { setDetailCollaborator(c); setShowCollaboratorDetailModal(true); }}
                     onStartChat={onStartChat}
                     onGenerateReport={checkPermission('reports', 'view') ? () => setReportType('collaborator') : undefined}
-                    onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
-                        const col = appData.collaborators.find((c: Collaborator) => c.id === id);
-                        if (col) { await dataService.updateCollaborator(id, { status: col.status === 'Ativo' ? 'Inativo' : 'Ativo' }); refreshData(); }
-                    } : undefined}
+                    onToggleStatus={checkPermission('organization', 'edit') ? onToggleStatus : undefined}
                     tooltipConfig={userTooltipConfig}
-                    // Passing handlers for quick assignment
                     onAssignEquipment={checkPermission('equipment', 'edit') ? handleAssignEquipment : undefined}
                     onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
                 />
@@ -334,7 +378,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     tickets={appData.tickets}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
                     equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))}
-                    // FIX: Pass license data to the detail modal
                     licenseAssignments={appData.licenseAssignments}
                     softwareLicenses={appData.softwareLicenses}
                     onClose={() => setShowCollaboratorDetailModal(false)}
@@ -343,6 +386,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onEdit={(c) => { setShowCollaboratorDetailModal(false); setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); }}
                     onAssignEquipment={checkPermission('equipment', 'edit') ? handleAssignEquipment : undefined}
                     onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
+                    onConfirmOffboarding={checkPermission('organization', 'edit') ? handleConfirmOffboarding : undefined}
                 />
             )}
             
@@ -351,6 +395,20 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onClose={() => { setShowCredentialsModal(false); setNewCredentials(null); }}
                     email={newCredentials.email}
                     password={newCredentials.password}
+                />
+            )}
+
+            {showOffboardingModal && collaboratorToOffboard && (
+                <OffboardingModal 
+                    onClose={() => setShowOffboardingModal(false)}
+                    onConfirm={handleConfirmOffboarding}
+                    collaborator={collaboratorToOffboard}
+                    assignments={appData.assignments}
+                    licenseAssignments={appData.licenseAssignments}
+                    equipment={appData.equipment}
+                    softwareLicenses={appData.softwareLicenses}
+                    brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))}
                 />
             )}
         </>

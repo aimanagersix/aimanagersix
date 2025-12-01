@@ -1,12 +1,11 @@
-
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
-import EquipmentDetailModal from './EquipmentDetailModal';
+// FIX: Correctly import EquipmentHistoryModal instead of the non-existent EquipmentDetailModal.
+import EquipmentHistoryModal from './EquipmentHistoryModal';
 import * as dataService from '../services/dataService';
 
 interface EquipmentDashboardProps {
@@ -40,6 +39,7 @@ interface EquipmentDashboardProps {
   licenseAssignments?: LicenseAssignment[];
   vulnerabilities?: Vulnerability[];
   suppliers?: Supplier[];
+  procurementRequests?: ProcurementRequest[];
   // Tooltip Config
   tooltipConfig?: TooltipConfig;
 }
@@ -119,7 +119,7 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
-    businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers
+    businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -607,7 +607,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         />
 
         {detailEquipment && (
-            <EquipmentDetailModal
+            <EquipmentHistoryModal
                 equipment={detailEquipment}
                 assignments={assignments}
                 collaborators={collaborators}
@@ -622,6 +622,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 licenseAssignments={licenseAssignments}
                 vulnerabilities={vulnerabilities}
                 suppliers={suppliers}
+                procurementRequests={procurementRequests}
             />
         )}
     </div>

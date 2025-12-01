@@ -375,6 +375,7 @@ BEGIN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "cpu_info" text;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "disk_info" jsonb;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "monitor_info" jsonb;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "procurement_request_id" uuid REFERENCES procurement_requests(id) ON DELETE SET NULL;
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'security_training_records') THEN
         ALTER TABLE security_training_records ADD COLUMN IF NOT EXISTS duration_hours numeric;

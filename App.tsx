@@ -38,7 +38,6 @@ import MagicCommandBar from './components/MagicCommandBar';
 import { ChatWidget } from './components/ChatWidget';
 import NotificationsModal from './components/NotificationsModal';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
-// FIX: Changed to named import for CollaboratorDetailModal
 import { CollaboratorDetailModal } from './components/CollaboratorDetailModal';
 
 
@@ -536,7 +535,6 @@ export const App: React.FC = () => {
                     tickets={appData.tickets}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
                     equipmentTypeMap={new Map(appData.equipmentTypes.map((t: EquipmentType) => [t.id, t.name]))}
-                    // FIX: Pass license data to the detail modal
                     licenseAssignments={appData.licenseAssignments}
                     softwareLicenses={appData.softwareLicenses}
                     onClose={() => setShowProfileModal(false)}
