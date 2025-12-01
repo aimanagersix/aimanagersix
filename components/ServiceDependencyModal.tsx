@@ -2,7 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { BusinessService, Equipment, SoftwareLicense, ServiceDependency } from '../types';
-import { DeleteIcon, PlusIcon, FaLaptop, FaKey } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { FaTrash as DeleteIcon, PlusIcon, FaLaptop, FaKey } from './common/Icons';
 
 interface ServiceDependencyModalProps {
     onClose: () => void;

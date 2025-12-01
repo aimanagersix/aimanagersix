@@ -1,7 +1,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { Team, TeamMember, Collaborator, Ticket, EquipmentType } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
 import { FaUsers, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import TeamDetailModal from './TeamDetailModal';
 

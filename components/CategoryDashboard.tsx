@@ -2,9 +2,11 @@
 
 
 
+
+
 import React, { useState, useMemo } from 'react';
 import { TicketCategoryItem, Ticket, Team } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon } from './common/Icons';
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import { FaToggleOn, FaToggleOff, FaUsers } from 'react-icons/fa';
 

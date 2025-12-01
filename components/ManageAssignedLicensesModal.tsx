@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, LicenseAssignment } from '../types';
-// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { PlusIcon, FaTrash as DeleteIcon, FaExclamationTriangle, SpinnerIcon, CheckIcon } from './common/Icons';
 
 

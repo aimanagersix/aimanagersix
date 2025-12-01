@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
@@ -9,7 +10,6 @@ import * as dataService from '../../services/dataService';
 
 // Components
 import EquipmentDashboard from '../../components/EquipmentDashboard';
-// FIX: Changed to named import for LicenseDashboard to resolve the module export error.
 import { LicenseDashboard } from '../../components/LicenseDashboard';
 import ProcurementDashboard from '../../components/ProcurementDashboard';
 

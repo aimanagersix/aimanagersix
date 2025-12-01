@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus, ServiceDependency } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaSitemap, ReportIcon } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaSitemap, ReportIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import { FaShieldAlt, FaNetworkWired } from 'react-icons/fa';
 

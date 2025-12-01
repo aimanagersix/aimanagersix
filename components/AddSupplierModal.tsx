@@ -5,11 +5,13 @@
 
 
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, SupplierContact } from '../types';
 import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic } from 'react-icons/fa';
-import { SearchIcon, SpinnerIcon, DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { SearchIcon, SpinnerIcon, FaTrash as DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
 import { ContactList } from './common/ContactList'; // Import generic contact list
 import * as dataService from '../services/dataService';
 
@@ -955,7 +957,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                                     <span className="text-gray-400 text-xs ml-2">| {contract.description}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded ${contract.is_active ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded ${contract.is_active ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'}`}>
                                                         {contract.is_active ? 'Ativo' : 'Inativo'}
                                                     </span>
                                                     <button 

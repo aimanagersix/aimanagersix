@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { Supplier, CriticalityLevel, BusinessService } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import SupplierDetailModal from './SupplierDetailModal';

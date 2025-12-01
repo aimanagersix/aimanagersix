@@ -6,9 +6,9 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import { Brand, Equipment, CriticalityLevel } from '../types';
-// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaCheckCircle, FaTimesCircle } from './common/Icons';
 import Pagination from './common/Pagination';
 

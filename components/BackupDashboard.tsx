@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { BackupExecution, Collaborator, BackupType, Equipment } from '../types';
-import { EditIcon, DeleteIcon, PlusIcon, FaServer, FaSearch, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaClock, FaPaperclip } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaServer, FaSearch, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaClock, FaPaperclip } from './common/Icons';
 import Pagination from './common/Pagination';
 
 interface BackupDashboardProps {

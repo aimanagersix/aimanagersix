@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Modal from './common/Modal';
 import { BackupExecution, BackupType, Collaborator, Equipment, EquipmentType, Ticket, TicketStatus } from '../types';
 import { FaServer, FaFileContract, FaDownload, FaTicketAlt, FaCalendarPlus, FaRobot } from 'react-icons/fa';
-import { DeleteIcon, SpinnerIcon } from './common/Icons';
+// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+import { FaTrash as DeleteIcon, SpinnerIcon } from './common/Icons';
 import { analyzeBackupScreenshot, isAiConfigured } from '../services/geminiService';
 
 interface AddBackupModalProps {

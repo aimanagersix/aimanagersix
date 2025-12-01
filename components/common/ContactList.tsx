@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { ResourceContact, ContactRole, ContactTitle } from '../../types';
 import { FaPlus, FaUserTie, FaEnvelope, FaPhone, FaTrash, FaCog, FaEdit, FaSave, FaToggleOn, FaToggleOff, FaExclamationCircle } from 'react-icons/fa';

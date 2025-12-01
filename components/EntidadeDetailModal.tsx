@@ -1,10 +1,10 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
-// FIX: Replaced OfficeBuildingIcon with an alias for FaBuilding
 import { FaBuilding as OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint, FaGlobe } from './common/Icons';
 import * as dataService from '../services/dataService';
 
