@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -459,9 +460,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
               <th scope="col" className="px-4 py-3 w-12">
                  <input
                         type="checkbox"
-                        className="rounded border-gray-500 bg-gray-700 text-brand-secondary focus:ring-brand-secondary"
+                        className="rounded border-gray-500 bg-gray-700 text-brand-secondary focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                        checked={selectedIds.has(stockEquipment.length > 0 ? stockEquipment[0].id : '') && stockEquipment.length > 0 && selectedIds.size === stockEquipment.length}
                         onChange={handleSelectAll}
-                        checked={stockEquipment.length > 0 && selectedIds.size === stockEquipment.length}
                         disabled={stockEquipment.length === 0}
                     />
               </th>
@@ -531,102 +532,4 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                   <select
                     value={item.status}
                     onChange={(e) => handleStatusChange(item, e.target.value as EquipmentStatus)}
-                    className={`px-2 py-1 rounded-md text-xs border bg-transparent focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70 ${!customColor ? getStatusClass(item.status) : ''}`}
-                    style={statusStyle}
-                    disabled={!onUpdateStatus}
-                  >
-                    {Object.values(EquipmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </td>
-                <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center items-center gap-4">
-                        {isAssigned ? (
-                            <button 
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    if(window.confirm("Deseja desassociar este equipamento? O estado passará para 'Stock'.")) {
-                                        onUnassign && onUnassign(item.id); 
-                                    }
-                                }} 
-                                className="text-red-400 hover:text-red-300" 
-                                title="Desassociar Equipamento"
-                            >
-                                <UnassignIcon />
-                            </button>
-                        ) : (
-                            <button onClick={(e) => { e.stopPropagation(); onAssign && onAssign(item); }} className="text-green-400 hover:text-green-300" title="Atribuir Equipamento">
-                                <AssignIcon />
-                            </button>
-                        )}
-                        <button onClick={(e) => { e.stopPropagation(); setDetailEquipment(item); }} className="text-gray-400 hover:text-white" title="Detalhes e Histórico">
-                            <FaHistory />
-                        </button>
-                        {onManageKeys && (
-                            <button onClick={(e) => { e.stopPropagation(); onManageKeys(item); }} className="text-yellow-400 hover:text-yellow-300" title="Gerir Licenças de Software">
-                                <FaKey />
-                            </button>
-                        )}
-                        {onEdit && (
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar">
-                                <EditIcon />
-                            </button>
-                        )}
-                    </div>
-                </td>
-              </tr>
-            )
-            }) : (
-                <tr>
-                    <td colSpan={9} className="text-center py-8 text-on-surface-dark-secondary">Nenhum equipamento encontrado com os filtros atuais.</td>
-                </tr>
-            )}
-          </tbody>
-        </table>
-        {tooltip?.visible && (
-            <div
-                style={{
-                    position: 'fixed',
-                    top: tooltip.y + 15,
-                    left: tooltip.x + 15,
-                    pointerEvents: 'none',
-                }}
-                className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm"
-                role="tooltip"
-            >
-                {tooltip.content}
-            </div>
-        )}
-      </div>
-       <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onItemsPerPageChange={handleItemsPerPageChange}
-            totalItems={filteredEquipment.length}
-        />
-
-        {detailEquipment && (
-            <EquipmentHistoryModal
-                equipment={detailEquipment}
-                assignments={assignments}
-                collaborators={collaborators}
-                escolasDepartamentos={entidades}
-                tickets={tickets}
-                ticketActivities={ticketActivities}
-                onClose={() => setDetailEquipment(null)}
-                onEdit={(eq) => { setDetailEquipment(null); onEdit && onEdit(eq); }}
-                businessServices={businessServices}
-                serviceDependencies={serviceDependencies}
-                softwareLicenses={softwareLicenses}
-                licenseAssignments={licenseAssignments}
-                vulnerabilities={vulnerabilities}
-                suppliers={suppliers}
-                procurementRequests={procurementRequests}
-            />
-        )}
-    </div>
-  );
-};
-
-export default EquipmentDashboard;
+                    className={`px-2 py-1 rounded-md text-xs border bg-transparent

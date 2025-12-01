@@ -1,4 +1,5 @@
 
+
 // FIX: Changed CommonJS 'require' to ES module 'import' to resolve TypeScript error.
 import { defineConfig, devices } from '@playwright/test';
 

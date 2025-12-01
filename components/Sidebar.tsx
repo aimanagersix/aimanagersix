@@ -1,11 +1,10 @@
 
 
-
-
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
-import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, FaKey } from './common/Icons';
-import { FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaUsers, FaUserCircle, FaFingerprint, FaClipboardList, FaDatabase, FaCalendarAlt, FaBook, FaGraduationCap, FaShoppingCart } from 'react-icons/fa';
+// FIX: Replaced non-existent icon imports with aliased exports from ./common/Icons.
+import { FaClipboardList as ClipboardListIcon, FaBuilding as OfficeBuildingIcon, FaUsers as UserGroupIcon, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaUsers, FaGraduationCap, FaShoppingCart } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';

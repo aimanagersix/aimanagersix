@@ -1,8 +1,10 @@
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck } from 'react-icons/fa';
-import { LockClosedIcon, MailIcon } from './common/Icons';
+// FIX: Replaced non-existent LockClosedIcon with FaLock
+import { FaLock as LockClosedIcon, MailIcon } from './common/Icons';
 
 interface CredentialsModalProps {
     onClose: () => void;

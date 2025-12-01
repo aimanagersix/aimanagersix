@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
@@ -17,7 +18,7 @@ import AddEquipmentModal from '../../components/AddEquipmentModal';
 import AddEquipmentKitModal from '../../components/AddEquipmentKitModal';
 import AssignEquipmentModal from '../../components/AssignEquipmentModal';
 import AssignMultipleEquipmentModal from '../../components/AssignMultipleEquipmentModal';
-import EquipmentDetailModal from '../../components/EquipmentDetailModal';
+import EquipmentHistoryModal from '../../components/EquipmentHistoryModal';
 import AddLicenseModal from '../../components/AddLicenseModal';
 import AddProcurementModal from '../../components/AddProcurementModal';
 import ReceiveAssetsModal from '../../components/ReceiveAssetsModal';
@@ -196,7 +197,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             )}
 
             {detailEquipment && (
-                 <EquipmentDetailModal 
+                 <EquipmentHistoryModal 
                     equipment={detailEquipment}
                     assignments={appData.assignments}
                     collaborators={appData.collaborators}
@@ -211,6 +212,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     licenseAssignments={appData.licenseAssignments}
                     vulnerabilities={appData.vulnerabilities}
                     suppliers={appData.suppliers}
+                    procurementRequests={appData.procurementRequests}
                  />
             )}
 
