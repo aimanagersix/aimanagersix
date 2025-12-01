@@ -2,8 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest } from '../types';
-// FIX: Add FaLaptop to the import list
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop, FaTools, FaTicketAlt, FaHistory } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
