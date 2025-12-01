@@ -235,6 +235,20 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     created_at timestamptz DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS continuity_plans (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    title text NOT NULL,
+    type text NOT NULL,
+    description text,
+    document_url text,
+    document_name text,
+    service_id uuid REFERENCES business_services(id) ON DELETE SET NULL,
+    last_review_date date NOT NULL,
+    next_review_date date,
+    owner_id uuid REFERENCES collaborators(id) ON DELETE SET NULL,
+    created_at timestamptz DEFAULT now()
+);
+
 -- ==========================================
 -- 4. INSERIR VALORES PADRÃO (Robust INSERT)
 -- ==========================================
@@ -321,7 +335,7 @@ BEGIN
         EXECUTE format('CREATE POLICY "Allow all" ON %I FOR ALL USING (true) WITH CHECK (true);', t); 
     END LOOP;
     
-    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records', 'policies', 'policy_acceptances', 'procurement_requests', 'calendar_events']
+    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records', 'policies', 'policy_acceptances', 'procurement_requests', 'calendar_events', 'continuity_plans']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -352,6 +366,7 @@ BEGIN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "os_version" text;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "last_security_update" date;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "firmware_version" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "encryption_status" text;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "wwan_address" text;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "bluetooth_address" text;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "usb_thunderbolt_address" text;
@@ -363,6 +378,9 @@ BEGIN
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'security_training_records') THEN
         ALTER TABLE security_training_records ADD COLUMN IF NOT EXISTS duration_hours numeric;
+    END IF;
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'config_custom_roles') THEN
+        ALTER TABLE config_custom_roles ADD COLUMN IF NOT EXISTS requires_mfa boolean DEFAULT false;
     END IF;
 END $$;
 `;
@@ -412,6 +430,7 @@ DELETE FROM policy_acceptances;
 DELETE FROM policies;
 DELETE FROM procurement_requests;
 DELETE FROM calendar_events;
+DELETE FROM continuity_plans;
 
 -- 3. Apagar Ativos e Configurações Vinculadas
 UPDATE equipment SET parent_equipment_id = NULL; -- Break self-ref

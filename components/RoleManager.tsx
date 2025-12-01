@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
-import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint } from 'react-icons/fa';
 import { EditIcon, DeleteIcon } from './common/Icons';
 import * as dataService from '../services/dataService';
 
@@ -40,6 +39,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'compliance_resilience', label: 'Testes de Resiliência' },
             { key: 'compliance_training', label: 'Formação & Consciencialização' },
             { key: 'compliance_policies', label: 'Políticas & Governance' },
+            { key: 'compliance_continuity', label: 'Planos de Continuidade' },
         ]
     },
     {
@@ -91,6 +91,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const [selectedRole, setSelectedRole] = useState<CustomRole | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedPermissions, setEditedPermissions] = useState<PermissionMatrix>({});
+    const [requiresMfa, setRequiresMfa] = useState(false);
     const [newRoleName, setNewRoleName] = useState('');
     const [showNewRoleInput, setShowNewRoleInput] = useState(false);
     
@@ -108,6 +109,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         if (selectedRole) {
             // Deep copy permissions to avoid reference issues
             setEditedPermissions(JSON.parse(JSON.stringify(selectedRole.permissions || {})));
+            setRequiresMfa(selectedRole.requires_mfa || false);
         }
     }, [selectedRole]);
 
@@ -128,7 +130,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const handleSavePermissions = async () => {
         if (!selectedRole) return;
         try {
-            await dataService.updateCustomRole(selectedRole.id, { permissions: editedPermissions });
+            await dataService.updateCustomRole(selectedRole.id, { permissions: editedPermissions, requires_mfa: requiresMfa });
             alert("Permissões atualizadas com sucesso!");
             setIsEditing(false);
             onRefresh();
@@ -252,6 +254,22 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                     <span>Modo de Leitura. Clique em "Editar Permissões" para alterar.</span>
                                 </div>
                             )}
+                            
+                            <div className={`p-4 rounded border mb-6 ${requiresMfa ? 'bg-purple-900/20 border-purple-500/50' : 'bg-gray-800/50 border-gray-700'}`}>
+                                <label className="flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox"
+                                        checked={requiresMfa}
+                                        onChange={(e) => setRequiresMfa(e.target.checked)}
+                                        disabled={!isEditing}
+                                        className="h-5 w-5 rounded border-gray-500 bg-gray-700 text-purple-500 focus:ring-purple-600"
+                                    />
+                                    <div className="ml-3">
+                                        <span className="text-sm font-bold text-white flex items-center gap-2"><FaFingerprint className="text-purple-400" /> Exigir Autenticação de 2 Fatores (MFA)</span>
+                                        <p className="text-xs text-gray-400 mt-1">Se ativado, utilizadores com este perfil serão forçados a configurar e usar 2FA para fazer login.</p>
+                                    </div>
+                                </label>
+                            </div>
 
                             <div className="space-y-6">
                                 {PERMISSION_GROUPS.map((group, gIdx) => (

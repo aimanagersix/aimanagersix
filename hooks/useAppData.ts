@@ -8,7 +8,7 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, 
     Vulnerability, BackupExecution, ResilienceTest, SecurityTrainingRecord,
-    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest, CalendarEvent
+    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest, CalendarEvent, ContinuityPlan
 } from '../types';
 
 export interface AppData {
@@ -51,6 +51,7 @@ export interface AppData {
     policyAcceptances: PolicyAcceptance[];
     procurementRequests: ProcurementRequest[];
     calendarEvents: CalendarEvent[];
+    continuityPlans: ContinuityPlan[]; // NEW
 }
 
 const initialData: AppData = {
@@ -63,7 +64,8 @@ const initialData: AppData = {
     softwareCategories: [], configEquipmentStatuses: [], contactRoles: [], contactTitles: [], 
     configCriticalityLevels: [], configCiaRatings: [], configServiceStatuses: [], 
     configBackupTypes: [], configTrainingTypes: [], configResilienceTestTypes: [],
-    policies: [], policyAcceptances: [], procurementRequests: [], calendarEvents: []
+    policies: [], policyAcceptances: [], procurementRequests: [], calendarEvents: [],
+    continuityPlans: [] // NEW
 };
 
 export const useAppData = () => {
@@ -123,7 +125,8 @@ export const useAppData = () => {
                 policies: data.policies,
                 policyAcceptances: data.policyAcceptances,
                 procurementRequests: data.procurementRequests,
-                calendarEvents: data.calendarEvents
+                calendarEvents: data.calendarEvents,
+                continuityPlans: data.continuityPlans // NEW
             });
         } catch (error) {
             console.error("Failed to fetch data", error);

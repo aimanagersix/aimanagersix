@@ -7,7 +7,7 @@ import {
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
     BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
     ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole, EquipmentStatus,
-    Policy, PolicyAcceptance, ProcurementRequest, DiagnosticResult, CalendarEvent
+    Policy, PolicyAcceptance, ProcurementRequest, DiagnosticResult, CalendarEvent, ContinuityPlan
 } from '../types';
 
 // --- HELPER FUNCTIONS ---
@@ -66,7 +66,7 @@ export const fetchAllData = async () => {
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
         configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles,
-        policies, policyAcceptances, procurementRequests, calendarEvents
+        policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
         supabase.from('brands').select('*'),
@@ -109,7 +109,9 @@ export const fetchAllData = async () => {
         supabase.from('policies').select('*'),
         supabase.from('policy_acceptances').select('*'),
         supabase.from('procurement_requests').select('*'),
-        supabase.from('calendar_events').select('*')
+        supabase.from('calendar_events').select('*'),
+// FIX: Fetch continuity_plans data
+        supabase.from('continuity_plans').select('*')
     ]);
 
     const attachContacts = (items: any[], type: string) => {
@@ -160,7 +162,9 @@ export const fetchAllData = async () => {
         policies: policies.data || [],
         policyAcceptances: policyAcceptances.data || [],
         procurementRequests: procurementRequests.data || [],
-        calendarEvents: calendarEvents.data || []
+        calendarEvents: calendarEvents.data || [],
+// FIX: Add continuityPlans to returned data
+        continuityPlans: continuityPlans.data || []
     };
 };
 
@@ -490,6 +494,10 @@ export const addCalendarEvent = (data: any) => create('calendar_events', data);
 export const updateCalendarEvent = (id: string, data: any) => update('calendar_events', id, data);
 export const deleteCalendarEvent = (id: string) => remove('calendar_events', id);
 
+// FIX: Add CRUD functions for continuity plans
+export const addContinuityPlan = (data: any) => create('continuity_plans', data);
+export const updateContinuityPlan = (id: string, data: any) => update('continuity_plans', id, data);
+export const deleteContinuityPlan = (id: string) => remove('continuity_plans', id);
 
 // Messaging
 export const addMessage = (data: any) => create('messages', data);

@@ -213,6 +213,7 @@ export interface Equipment {
   os_version?: string;
   last_security_update?: string;
   firmware_version?: string;
+  encryption_status?: 'N/A' | 'Ativa (BitLocker)' | 'Ativa (FileVault)' | 'Ativa (LUKS)' | 'Inativa' | 'Desconhecido';
   wwan_address?: string;
   bluetooth_address?: string;
   usb_thunderbolt_address?: string;
@@ -314,6 +315,7 @@ export type ModuleKey =
     | 'compliance_resilience'
     | 'compliance_training'
     | 'compliance_policies' 
+    | 'compliance_continuity' // NEW
     // General
     | 'reports' 
     | 'settings' // General Settings Access (Fallback)
@@ -350,6 +352,7 @@ export interface CustomRole {
     name: string;
     permissions: PermissionMatrix;
     is_system?: boolean; // Protected roles like Admin
+    requires_mfa?: boolean; // NEW: Enforce MFA
 }
 // ---------------------
 
@@ -569,7 +572,7 @@ export interface UserNotificationSnooze {
     snoozeUntil: string;
 }
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE' | 'DIAGNOSTIC';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE' | 'DIAGNOSTIC' | 'OFFBOARDING';
 
 export interface AuditLogEntry {
     id: string;
@@ -730,6 +733,20 @@ export interface ResilienceTest {
     summary_findings?: string;
     attachments?: { name: string; dataUrl: string }[]; // Reports
     created_at?: string;
+}
+
+// --- NEW: Business Continuity ---
+export interface ContinuityPlan {
+    id: string;
+    title: string;
+    type: 'BCP' | 'DRP' | 'Crise';
+    description?: string;
+    document_url?: string;
+    document_name?: string;
+    service_id?: string; // Link to BIA
+    last_review_date: string;
+    next_review_date: string;
+    owner_id: string; // Collaborator
 }
 
 // --- Global Settings (Automation) ---
