@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense
@@ -318,7 +319,6 @@ export const App: React.FC = () => {
                     onNotificationClick={() => setShowNotificationsModal(true)}
                     isExpanded={isSidebarExpanded}
                     onHover={setIsSidebarExpanded}
-                    onOpenAutomation={() => { setActiveTab('settings'); }}
                     onOpenProfile={handleOpenProfile}
                     onOpenCalendar={() => setShowCalendarModal(true)}
                     onOpenManual={() => setShowUserManualModal(true)}
@@ -332,7 +332,6 @@ export const App: React.FC = () => {
                     tabConfig={tabConfig}
                     notificationCount={expiringWarranties.length + expiringLicenses.length + appData.tickets.filter((t: Ticket) => t.status === 'Pedido').length}
                     onNotificationClick={() => setShowNotificationsModal(true)}
-                    onOpenAutomation={() => { setActiveTab('settings'); }}
                     onOpenProfile={handleOpenProfile}
                     onOpenCalendar={() => setShowCalendarModal(true)}
                     onOpenManual={() => setShowUserManualModal(true)}

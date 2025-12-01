@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, FaKey } from './common/Icons';
@@ -20,13 +22,12 @@ interface SidebarProps {
   onNotificationClick: () => void;
   isExpanded: boolean;
   onHover: (state: boolean) => void;
-  onOpenAutomation?: () => void;
   onOpenProfile?: () => void;
   onOpenCalendar?: () => void;
   onOpenManual?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenProfile, onOpenCalendar, onOpenManual }) => {
     const { t, setLanguage, language } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     

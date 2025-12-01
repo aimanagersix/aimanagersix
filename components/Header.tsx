@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { ClipboardListIcon, OfficeBuildingIcon, UserGroupIcon, LogoutIcon, UserIcon, MenuIcon, FaKey, FaBell, FaUsers, FaFingerprint, FaClipboardList, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
@@ -19,7 +21,6 @@ interface HeaderProps {
   tabConfig: Record<string, any>;
   notificationCount: number;
   onNotificationClick: () => void;
-  onOpenAutomation?: () => void;
   onOpenProfile?: () => void;
   onOpenCalendar?: () => void;
   onOpenManual?: () => void;
@@ -54,7 +55,7 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
 };
 
 
-const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenAutomation, onOpenProfile, onOpenCalendar, onOpenManual }) => {
+const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenProfile, onOpenCalendar, onOpenManual }) => {
     const { t, setLanguage, language } = useLanguage();
     const { setLayoutMode } = useLayout();
     const [isOrganizacaoMenuOpen, setOrganizacaoMenuOpen] = useState(false);

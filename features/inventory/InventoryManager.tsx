@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
@@ -9,7 +8,8 @@ import * as dataService from '../../services/dataService';
 
 // Components
 import EquipmentDashboard from '../../components/EquipmentDashboard';
-import LicenseDashboard from '../../components/LicenseDashboard';
+// FIX: Changed to named import for LicenseDashboard to resolve the module export error.
+import { LicenseDashboard } from '../../components/LicenseDashboard';
 import ProcurementDashboard from '../../components/ProcurementDashboard';
 
 // Modals

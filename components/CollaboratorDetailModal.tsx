@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig, EquipmentStatus } from '../types';
@@ -297,9 +298,13 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
         }
     };
 
-    const handlePrint = (type: 'inventory' | 'full') => {
+    const handlePrint = async (type: 'inventory' | 'full') => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
+
+        const logoUrl = await dataService.getGlobalSetting('app_logo_url');
+        const logoHtml = logoUrl ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${logoUrl}" alt="Logótipo" style="max-height: 80px; display: inline-block;" /></div>` : '';
+
 
         const commonStyles = `
             body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; max-width: 850px; margin: 0 auto; }
@@ -455,6 +460,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                 <style>${commonStyles}</style>
             </head>
             <body>
+                ${logoHtml}
                 ${contentHtml}
                 <script>window.onload = function() { window.print(); }</script>
             </body>
@@ -657,7 +663,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                 <div className="text-sm text-gray-300 grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <p className="text-gray-500 text-xs uppercase">Endereço</p>
-                                        <p>{collaborator.address_line || '-'}, {collaborator.postal_code || ''} {collaborator.city || ''}</p>
+                                        <p>{collaborator.address_line || '-'}, {collaborator.postal_code || ''} ${collaborator.city || ''}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-500 text-xs uppercase">Localidade</p>

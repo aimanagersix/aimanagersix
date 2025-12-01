@@ -1,5 +1,3 @@
-
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency, SoftwareCategory } from '../types';
 import { EditIcon, DeleteIcon, ReportIcon, PlusIcon, MailIcon } from './common/Icons';
@@ -69,7 +67,7 @@ const SortableHeader: React.FC<{
 };
 
 
-const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ 
+export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({ 
     licenses, 
     licenseAssignments, 
     equipmentData,
@@ -359,68 +357,56 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                                         </span>
                                                     )}
                                                 </div>
-                                                {categoryName && <span className="text-xs text-brand-secondary flex items-center gap-1"><FaTags className="h-2 w-2"/> {categoryName}</span>}
+                                                {categoryName && <span className="text-xs text-gray-400 mt-1 flex items-center gap-1"><FaTags/> {categoryName}</span>}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 font-mono">{license.licenseKey}</td>
+                                        <td className="px-6 py-4 font-mono text-xs">{license.licenseKey}</td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs rounded-full border ${getCriticalityClass(license.criticality || CriticalityLevel.Low)}`}>
+                                            <span className={`px-2 py-1 text-xs rounded border ${getCriticalityClass(license.criticality)}`}>
                                                 {license.criticality || 'Baixa'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(status)}`}>
-                                                {status}
-                                            </span>
+                                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                            {onToggleStatus ? (
+                                                <button onClick={() => onToggleStatus(license.id)} className={`flex items-center gap-1 text-xl ${status === LicenseStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`} title={status === LicenseStatus.Ativo ? 'Desativar' : 'Ativar'}>
+                                                    {status === LicenseStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
+                                                </button>
+                                            ) : (
+                                                <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(status)}`}>
+                                                    {status}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {license.is_oem ? (
-                                                <span className="text-xs text-gray-400">
-                                                    <span className="font-bold text-blue-300">{usedSeats}</span> instalada(s) (Dinâmico)
-                                                </span>
+                                                <span className="text-xs italic text-blue-400">Dinâmico (OEM)</span>
                                             ) : (
-                                                <>
-                                                    <span className="font-semibold text-white">{license.totalSeats}</span> / <span>{usedSeats}</span> / <span className={`font-bold ${availableSeats > 0 ? 'text-green-400' : 'text-red-400'}`}>{availableSeats}</span>
-                                                </>
+                                                <div className="flex flex-col items-center">
+                                                     <div className="w-full bg-gray-700 rounded-full h-2.5 mb-1">
+                                                        <div className="bg-brand-secondary h-2.5 rounded-full" style={{ width: `${license.totalSeats > 0 ? (usedSeats/license.totalSeats)*100 : 0}%`}}></div>
+                                                    </div>
+                                                    <span className="text-xs whitespace-nowrap">
+                                                        <span className="text-white font-bold">{license.totalSeats}</span> / <span className="text-yellow-400">{usedSeats}</span> / <span className="text-green-400">{availableSeats}</span>
+                                                    </span>
+                                                </div>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-xs">
-                                            {license.purchaseDate && <div>Compra: {license.purchaseDate}</div>}
-                                            {license.expiryDate && <div className="text-yellow-400">Expira: {license.expiryDate}</div>}
+                                            <div>Compra: {license.purchaseDate || 'N/A'}</div>
+                                            <div>Expira: {license.expiryDate || 'Vitalícia'}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-6 py-4 text-center">
                                             <div className="flex justify-center items-center gap-4">
-                                                <button 
-                                                    onClick={() => handleSendEmail(license)} 
-                                                    className="text-gray-400 hover:text-white"
-                                                    title="Enviar Detalhes por Email"
-                                                >
-                                                    <MailIcon className="h-5 w-5"/>
-                                                </button>
-                                                {onToggleStatus && (
-                                                    <button 
-                                                        onClick={() => onToggleStatus(license.id)} 
-                                                        className={`text-xl ${status === LicenseStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
-                                                        title={status === LicenseStatus.Ativo ? 'Inativar' : 'Ativar'}
-                                                    >
-                                                        {status === LicenseStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
-                                                    </button>
-                                                )}
+                                                <button onClick={(e) => { e.stopPropagation(); handleSendEmail(license); }} className="text-gray-400 hover:text-white" title="Partilhar Chave"><MailIcon /></button>
                                                 {onEdit && (
-                                                    <button onClick={() => onEdit(license)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${license.productName}`}>
-                                                        <EditIcon />
-                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); onEdit(license); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>
                                                 )}
                                                 {onDelete && (
                                                     <button 
-                                                        onClick={(e) => { 
-                                                            e.stopPropagation(); 
-                                                            if (!isDeleteDisabled) onDelete(license.id); 
-                                                        }} 
-                                                        className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                                        onClick={(e) => { e.stopPropagation(); onDelete(license.id); }} 
+                                                        className={isDeleteDisabled ? "text-gray-600 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                                        title={isDeleteDisabled ? "Impossível excluir: Licença em uso" : "Excluir"}
                                                         disabled={isDeleteDisabled}
-                                                        title={isDeleteDisabled ? "Impossível excluir: Existem licenças em uso" : `Excluir ${license.productName}`}
-                                                        aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${license.productName}`}
                                                     >
                                                         <DeleteIcon />
                                                     </button>
@@ -429,29 +415,17 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                                         </td>
                                     </tr>
                                     {isExpanded && (
-                                        <tr className="bg-gray-900/50" onClick={(e) => e.stopPropagation()}>
-                                            <td colSpan={8} className="p-4">
-                                                <h4 className="text-sm font-semibold text-white mb-3">Atribuído a:</h4>
-                                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
-                                                    {assignedDetails.map(({ equipment: eq, user }, index) => (
-                                                        <div key={index} className="flex items-center gap-4 p-3 bg-surface-dark rounded-md border border-gray-700">
-                                                            <div className="flex-shrink-0">
-                                                                <FaLaptop className="h-6 w-6 text-brand-secondary" />
-                                                            </div>
-                                                            <div className="flex-grow text-sm">
-                                                                <p className="font-semibold text-on-surface-dark">{eq.description}</p>
-                                                                <p className="text-xs text-on-surface-dark-secondary">
-                                                                    {brandMap.get(eq.brandId)} / {equipmentTypeMap.get(eq.typeId)}
-                                                                </p>
-                                                                <p className="text-xs font-mono text-gray-400">S/N: {eq.serialNumber}</p>
-                                                            </div>
-                                                            <div className="flex-shrink-0 text-right text-xs">
-                                                                <p className="text-on-surface-dark-secondary">Utilizador:</p>
-                                                                <p className="font-semibold text-on-surface-dark">{user || 'À Localização'}</p>
-                                                            </div>
-                                                        </div>
+                                        <tr className="bg-gray-800/50">
+                                            <td colSpan={9} className="p-4">
+                                                <h4 className="text-sm font-bold text-white mb-2">Atribuído a:</h4>
+                                                <ul className="list-disc list-inside text-xs text-gray-300 space-y-1 pl-4">
+                                                    {assignedDetails.map(({ equipment, user }, index) => (
+                                                        <li key={index}>
+                                                            <span className="font-semibold text-white">{equipment.description}</span> (S/N: {equipment.serialNumber})
+                                                            {user && <span className="text-gray-400"> - Utilizador: {user}</span>}
+                                                        </li>
                                                     ))}
-                                                </div>
+                                                </ul>
                                             </td>
                                         </tr>
                                     )}
@@ -459,13 +433,13 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                             );
                         }) : (
                             <tr>
-                                <td colSpan={8} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma licença de software encontrada.</td>
+                                <td colSpan={9} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma licença encontrada.</td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
-            <Pagination
+             <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
@@ -476,5 +450,3 @@ const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         </div>
     );
 };
-
-export default LicenseDashboard;
