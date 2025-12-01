@@ -126,6 +126,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
     const hasReportsTabs = tabConfig['reports']; 
+    const hasAutomationTab = tabConfig['automation'];
     
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
@@ -272,6 +273,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
               {/* Reports - NEW */}
               {hasReportsTabs && (
                   <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>
+              )}
+
+              {/* Automation */}
+              {hasAutomationTab && (
+                  <TabButton tab="automation" label={t('common.automation')} icon={<FaRobot />} activeTab={activeTab} setActiveTab={setActiveTab}/>
               )}
 
               {/* Tools */}
@@ -432,12 +438,13 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 {tabConfig.nis2?.training && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap className="text-green-400"/>} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 {tabConfig.nis2?.policies && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature className="text-yellow-400"/>} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 
-                {/* Reports */}
+                {/* Reports & Automation */}
+                <div className="border-t border-gray-700 my-2"></div>
                 {tabConfig['reports'] && (
-                    <>
-                        <div className="border-t border-gray-700 my-2"></div>
-                        <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
-                    </>
+                    <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
+                )}
+                {hasAutomationTab && (
+                    <TabButton tab="automation" label={t('common.automation')} icon={<FaRobot />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
                 )}
 
                 {/* Tools */}

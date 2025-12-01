@@ -40,7 +40,7 @@ const AuxiliaryDataDashboard: React.FC<AuxiliaryDataDashboardProps> = ({ appData
         resendFromEmail: '',
 
         // Webhook
-        webhookJson: '{\n  "alert_name": "Malware Detected",\n  "severity": "Critical",\n  "hostname": "PC-FINANCE-01",\n  "description": "Ransomware detected in C:\\Users\\Admin"\n}',
+        webhookJson: '{\n  "alert_name": "Malware Detected",\n  "severity": "Critical",\n  "hostname": "PC-FINANCE-01",\n  "description": "Ransomware detected in C:\\\\Users\\\\Admin"\n}',
         isSimulating: false,
         simulatedTicket: null as { title: string; description: string; severity: any; category: string; type: string; status: string; } | null,
         webhookUrl: '',
