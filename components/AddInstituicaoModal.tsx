@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Instituicao } from '../types';
@@ -239,25 +234,13 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         if (!validate()) return;
         
         setIsSaving(true);
-        setSuccessMessage('');
-
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
-        
         const dataToSave: any = { ...formData, address };
         delete dataToSave.contacts;
 
         try {
-            let result;
-            if (instituicaoToEdit) {
-                result = await onSave({ ...instituicaoToEdit, ...dataToSave });
-            } else {
-                result = await onSave(dataToSave);
-            }
-
-            if (result) {
-                setSuccessMessage('Dados guardados com sucesso!');
-                setTimeout(() => setSuccessMessage(''), 3000);
-            }
+            await onSave(dataToSave);
+            onClose();
         } catch (e) {
             console.error("Failed to save institution", e);
             alert("Erro ao gravar instituição.");

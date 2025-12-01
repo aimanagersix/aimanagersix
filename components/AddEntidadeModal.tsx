@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, EntidadeStatus } from '../types';
@@ -245,26 +240,13 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         if (!validate()) return;
         
         setIsSaving(true);
-        setSuccessMessage('');
-
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
-        
-        // Clean up contacts
         const dataToSave: any = { ...formData, address };
         delete dataToSave.contacts;
 
         try {
-            let result;
-            if (entidadeToEdit) {
-                result = await onSave({ ...entidadeToEdit, ...dataToSave });
-            } else {
-                result = await onSave(dataToSave);
-            }
-
-            if (result) {
-                setSuccessMessage('Dados guardados com sucesso!');
-                setTimeout(() => setSuccessMessage(''), 3000);
-            }
+            await onSave(dataToSave);
+            onClose();
         } catch (e) {
             console.error(e);
             alert("Erro ao gravar entidade.");

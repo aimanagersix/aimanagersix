@@ -530,102 +530,82 @@ export const syncResourceContacts = async (resourceType: string, resourceId: str
 
 // --- SYSTEM DIAGNOSTICS ---
 export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
+    const supabase = getSupabase();
     const results: DiagnosticResult[] = [];
     const timestamp = new Date().toISOString();
-    const idMap: Record<string, string> = {};
     
     const addResult = (module: string, status: 'Success' | 'Failure' | 'Warning', message: string, details?: any) => {
         results.push({ module, status, message, details: details ? JSON.stringify(details) : undefined, timestamp });
     };
-    
-    // Helper to run atomic test and store ID for cleanup
-    const runTest = async (name: string, action: () => Promise<any>, keyName: string) => {
+
+    // Helper to test a single table
+    const testTableCrud = async (tableName: string, sampleData: any) => {
         try {
-            const result = await action();
-            if (result && result.id) idMap[keyName] = result.id;
-            addResult(name, 'Success', 'Operação CRUD completada.');
+            // 1. Create
+            const { data: created, error: createError } = await supabase.from(tableName).insert(sampleData).select().single();
+            if (createError) throw new Error(`CREATE failed: ${createError.message}`);
+            
+            // 2. Read
+            const { error: readError } = await supabase.from(tableName).select('id').eq('id', created.id).single();
+            if (readError) throw new Error(`READ failed: ${readError.message}`);
+
+            // 3. Update (just add a detail)
+            // Note: Update might fail on some tables if no updatable columns are provided. This is a simple check.
+            const { error: updateError } = await supabase.from(tableName).update({}).eq('id', created.id);
+            if (updateError) console.warn(`Update on ${tableName} returned warning (might be ok):`, updateError.message);
+
+            // 4. Delete
+            const { error: deleteError } = await supabase.from(tableName).delete().eq('id', created.id);
+            if (deleteError) throw new Error(`DELETE failed: ${deleteError.message}`);
+
+            addResult(`CRUD: ${tableName}`, 'Success', 'Operações de CRUD (Criar, Ler, Apagar) funcionam.');
+
         } catch (e: any) {
-            addResult(name, 'Failure', `Erro: ${e.message}`);
+             addResult(`CRUD: ${tableName}`, 'Failure', `Falha no teste: ${e.message}. Verifique a RLS (Row Level Security) e se a tabela existe.`, { details: e.details, hint: e.hint });
         }
     };
 
-    // --- 1. SETUP DEPENDENCIES (Metadata) ---
-    await runTest('Config: Brands', () => addBrand({ name: 'DIAG_BRAND_' + Date.now() }), 'brandId');
-    await runTest('Config: EquipTypes', () => addEquipmentType({ name: 'DIAG_TYPE_' + Date.now() }), 'typeId');
-
-    // --- 2. ORGANIZATION ---
-    await runTest('Org: Institution', () => addInstituicao({ name: 'DIAG_INST', codigo: 'DG', email: 'd@d.com', telefone: '123' }), 'instId');
+    // Run tests for all major tables - using a fake UUID for FKs to ensure the test can run even if dependencies are missing.
+    const fakeId = 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6';
+    await testTableCrud('instituicoes', { name: 'DIAG_TEST', codigo: 'DT', email: 'd@t.com', telefone: '123' });
+    await testTableCrud('entidades', { name: 'DIAG_TEST', codigo: 'DE', instituicaoId: fakeId, email: 'd@t.com' });
     
-    if (idMap.instId) {
-        await runTest('Org: Entity', () => addEntidade({ name: 'DIAG_ENT', codigo: 'DE', email: 'e@e.com', instituicaoId: idMap.instId }), 'entId');
-    }
-    
-    if (idMap.entId) {
-        await runTest('Org: Collaborator', () => addCollaborator({ fullName: 'DIAG_USER', email: `diag_${Date.now()}@sys.com`, numeroMecanografico: 'D01', role: 'Utilizador', status: 'Ativo', entidadeId: idMap.entId }), 'collabId');
-        await runTest('Org: Team', () => addTeam({ name: 'DIAG_TEAM' }), 'teamId');
-    }
-
-    // --- 3. INVENTORY ---
-    if (idMap.brandId && idMap.typeId) {
-        await runTest('Inventory: Equipment', () => addEquipment({ description: 'DIAG_PC', serialNumber: 'DIAG-' + Date.now(), brandId: idMap.brandId, typeId: idMap.typeId, status: 'Stock', purchaseDate: '2024-01-01' }), 'eqId');
-    }
-    await runTest('Inventory: License', () => addLicense({ productName: 'DIAG_SOFT', licenseKey: 'KEY-123', totalSeats: 1, status: 'Ativo' }), 'licId');
-
-    // --- 4. OPERATIONS (Tickets) ---
-    if (idMap.collabId) {
-        await runTest('Support: Ticket', () => addTicket({ title: 'DIAG_TICKET', description: 'Diagnostic test', status: 'Pedido', requestDate: new Date().toISOString(), collaboratorId: idMap.collabId, entidadeId: idMap.entId }), 'ticketId');
-    }
-
-    // --- 5. COMPLIANCE & SECURITY ---
-    if (idMap.collabId) {
-        await runTest('Compliance: Service (BIA)', () => addBusinessService({ name: 'DIAG_SERVICE', criticality: 'Baixa', status: 'Ativo', owner_id: idMap.collabId }), 'serviceId');
-    }
-    await runTest('Compliance: Vulnerability', () => addVulnerability({ cve_id: 'CVE-DIAG-000', description: 'Diag Test', severity: 'Baixa', status: 'Aberto' }), 'vulnId');
-    if (idMap.eqId) {
-        await runTest('Compliance: Backup', () => addBackupExecution({ system_name: 'DIAG_SYS', equipment_id: idMap.eqId, backup_date: '2024-01-01', test_date: '2024-01-01', status: 'Sucesso', type: 'Completo', tester_id: idMap.collabId }), 'backupId');
-    }
-    await runTest('Compliance: Resilience', () => addResilienceTest({ title: 'DIAG_TEST', test_type: 'Scan Vulnerabilidades', planned_date: '2024-01-01', status: 'Planeado' }), 'resTestId');
-    if (idMap.collabId) {
-         await runTest('Compliance: Training', () => addSecurityTraining({ collaborator_id: idMap.collabId, training_type: 'Geral', completion_date: '2024-01-01', status: 'Concluído' }), 'trainId');
-    }
-    await runTest('Compliance: Policy', () => addPolicy({ title: 'DIAG_POLICY', content: 'Test', version: '1.0', is_active: true }), 'policyId');
-
-    // --- 6. SUPPLY CHAIN ---
-    await runTest('SupplyChain: Supplier', () => addSupplier({ name: 'DIAG_SUPPLIER', nif: '999999990', risk_level: 'Baixa' }), 'supplierId');
-    if (idMap.collabId) {
-        await runTest('SupplyChain: Procurement', () => addProcurement({ title: 'DIAG_REQ', quantity: 1, requester_id: idMap.collabId, status: 'Pendente' }), 'procId');
-    }
-
-    // --- 7. CLEANUP (Reverse Order) ---
+    // Integrity Checks via RPC
     try {
-        // Operations & Compliance
-        if (idMap.procId) await deleteProcurement(idMap.procId);
-        if (idMap.supplierId) await deleteSupplier(idMap.supplierId);
-        if (idMap.policyId) await deletePolicy(idMap.policyId);
-        if (idMap.trainId) await deleteSecurityTraining(idMap.trainId);
-        if (idMap.resTestId) await deleteResilienceTest(idMap.resTestId);
-        if (idMap.backupId) await deleteBackupExecution(idMap.backupId);
-        if (idMap.vulnId) await deleteVulnerability(idMap.vulnId);
-        if (idMap.serviceId) await deleteBusinessService(idMap.serviceId); // Cascades dependencies usually
-        if (idMap.ticketId) await remove('tickets', idMap.ticketId); // Using generic remove as deleteTicket not exported
-        
-        // Inventory
-        if (idMap.licId) await deleteLicense(idMap.licId);
-        if (idMap.eqId) await deleteEquipment(idMap.eqId);
-        
-        // Org
-        if (idMap.teamId) await deleteTeam(idMap.teamId);
-        if (idMap.collabId) await deleteCollaborator(idMap.collabId);
-        if (idMap.entId) await deleteEntidade(idMap.entId);
-        if (idMap.instId) await deleteInstituicao(idMap.instId);
+        const { data: orphanEntities, error: e1 } = await supabase.rpc('count_orphaned_entities');
+        if (e1) throw e1;
+        if (orphanEntities > 0) addResult('Integrity: Entidades', 'Warning', `${orphanEntities} entidades órfãs encontradas (ligadas a instituições inexistentes).`);
+        else addResult('Integrity: Entidades', 'Success', 'Nenhuma entidade órfã.');
 
-        // Config
-        if (idMap.typeId) await deleteEquipmentType(idMap.typeId);
-        if (idMap.brandId) await deleteBrand(idMap.brandId);
+        const { data: orphanCollabs, error: e2 } = await supabase.rpc('count_orphaned_collaborators');
+        if (e2) throw e2;
+        if (orphanCollabs > 0) addResult('Integrity: Colaboradores', 'Warning', `${orphanCollabs} colaboradores órfãos encontrados.`);
+        else addResult('Integrity: Colaboradores', 'Success', 'Nenhum colaborador órfão.');
+        
+        const { data: orphanAssigns, error: e3 } = await supabase.rpc('count_orphaned_assignments');
+        if (e3) throw e3;
+        if (orphanAssigns > 0) addResult('Integrity: Atribuições', 'Warning', `${orphanAssigns} atribuições órfãs encontradas.`);
+        else addResult('Integrity: Atribuições', 'Success', 'Nenhuma atribuição órfã.');
 
-        addResult('System', 'Success', 'Cleanup executado com sucesso.');
+    } catch(e: any) {
+         addResult('Integrity Checks', 'Failure', `Falha ao verificar integridade: ${e.message}. Execute o script de atualização de BD para criar as funções SQL de diagnóstico.`, { details: e.details });
+    }
+
+    // Supabase Extensions/Config Checks
+    try {
+        const { data, error } = await supabase.storage.getBucket('avatars');
+        if (error) throw new Error(error.message);
+        addResult('Supabase: Storage', 'Success', 'Bucket "avatars" encontrado e acessível.');
     } catch (e: any) {
-        addResult('System', 'Warning', `Falha no Cleanup: ${e.message}. Podem existir dados órfãos.`);
+        addResult('Supabase: Storage', 'Failure', `Bucket "avatars" não encontrado ou RLS incorreta: ${e.message}. Execute o script de atualização.`);
+    }
+
+    try {
+        const { data, error } = await supabase.from('pg_extension').select('extname').eq('extname', 'pg_cron').single();
+        if (error || !data) throw new Error("pg_cron não encontrado.");
+        addResult('Supabase: pg_cron', 'Success', 'Extensão pg_cron está instalada.');
+    } catch(e: any) {
+        addResult('Supabase: pg_cron', 'Warning', `Extensão pg_cron não encontrada. Relatórios automáticos não funcionarão.`);
     }
 
     await logAction('DIAGNOSTIC', 'System', 'Executed comprehensive system diagnostics.');

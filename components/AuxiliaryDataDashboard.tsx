@@ -108,14 +108,71 @@ serve(async (req) => {
     
     const recipients = recipientsStr ? recipientsStr.split(',').map(e => e.trim()) : []
 
-    if (!resendKey) throw new Error("Resend API Key não configurada na tabela global_settings.")
-    if (!resendFrom) throw new Error("Email do remetente (Resend From) não configurado na tabela global_settings.")
-    
-    if (recipients.length === 0) {
-        return new Response(JSON.stringify({ message: "Sem destinatários configurados para envio." }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    // 2. Proactive License Renewal Tickets
+    const today = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+    const { data: expiringLicenses, error: licenseError } = await supabase
+      .from('software_licenses')
+      .select('id, productName, expiryDate')
+      .eq('status', 'Ativo')
+      .lte('expiryDate', thirtyDaysFromNow.toISOString().split('T')[0])
+      .gte('expiryDate', today.toISOString().split('T')[0]);
+
+    if (licenseError) {
+      console.error('Error fetching expiring licenses:', licenseError);
+    } else if (expiringLicenses && expiringLicenses.length > 0) {
+      for (const license of expiringLicenses) {
+        const ticketTitle = \`Renovação Licença: \${license.productName}\`;
+
+        // Check for existing open ticket to avoid duplicates
+        const { data: existingTickets, error: ticketCheckError } = await supabase
+          .from('tickets')
+          .select('id')
+          .eq('title', ticketTitle)
+          .in('status', ['Pedido', 'Em progresso']);
+
+        if (ticketCheckError) {
+          console.error(\`Error checking for existing ticket for license \${license.id}:\`, ticketCheckError);
+          continue; // Skip to next license
+        }
+        
+        // If no open ticket exists, create one
+        if (!existingTickets || existingTickets.length === 0) {
+          const { data: adminUser } = await supabase
+            .from('collaborators')
+            .select('id, entidadeId')
+            .in('role', ['Admin', 'SuperAdmin'])
+            .limit(1)
+            .single();
+          
+          const { error: insertError } = await supabase.from('tickets').insert({
+            title: ticketTitle,
+            description: \`A licença para "\${license.productName}" expira em \${license.expiryDate}. Por favor, inicie o processo de renovação.\`,
+            status: 'Pedido',
+            category: 'Manutenção',
+            impactCriticality: 'Média',
+            requestDate: new Date().toISOString(),
+            collaboratorId: adminUser?.id,
+            entidadeId: adminUser?.entidadeId,
+          });
+
+          if (insertError) {
+            console.error(\`Failed to create ticket for license \${license.id}:\`, insertError);
+          } else {
+            console.log(\`Created renewal ticket for license: \${license.productName}\`);
+          }
+        }
+      }
     }
 
-    // 2. Fetch Data
+    // 3. Send Weekly Report Email (if configured)
+    if (!resendKey || !resendFrom || recipients.length === 0) {
+        return new Response(JSON.stringify({ message: "Task completed. Email report skipped due to missing configuration." }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    // Fetch Data for Report
     const { count: ticketCount } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('status', 'Pedido')
     const { count: vulnCount } = await supabase.from('vulnerabilities').select('*', { count: 'exact', head: true }).eq('status', 'Aberto')
     
@@ -128,7 +185,6 @@ serve(async (req) => {
       <p>Aceda ao dashboard para mais detalhes.</p>
     \`
 
-    // 3. Send Email
     const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -143,7 +199,6 @@ serve(async (req) => {
         })
     })
     
-    // Parse Resend response safely
     const resultText = await res.text()
     let resultJson = {}
     try {

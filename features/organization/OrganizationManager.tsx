@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
     Collaborator, Instituicao, Entidade, Team, Supplier, 
@@ -227,7 +226,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                         if (instituicaoToEdit) await dataService.updateInstituicao(instituicaoToEdit.id, inst);
                         else await dataService.addInstituicao(inst);
                         refreshData();
-                        return { id: 'temp', ...inst };
                     }}
                     instituicaoToEdit={instituicaoToEdit}
                 />
@@ -239,7 +237,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                         if (entidadeToEdit && entidadeToEdit.id) await dataService.updateEntidade(entidadeToEdit.id, ent);
                         else await dataService.addEntidade(ent);
                         refreshData();
-                        return { id: 'temp', ...ent };
                     }}
                     entidadeToEdit={entidadeToEdit}
                     instituicoes={appData.instituicoes}

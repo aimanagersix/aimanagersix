@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaSeedling } from 'react-icons/fa';
@@ -25,6 +24,34 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 -- 1. EXTENSÕES E FUNÇÕES
 -- ==========================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Funções de Diagnóstico para Contagem de Órfãos
+CREATE OR REPLACE FUNCTION count_orphaned_entities()
+RETURNS integer AS $$
+BEGIN
+    RETURN (SELECT COUNT(*) FROM entidades WHERE instituicaoId NOT IN (SELECT id FROM instituicoes));
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION count_orphaned_collaborators()
+RETURNS integer AS $$
+BEGIN
+    RETURN (SELECT COUNT(*) FROM collaborators WHERE entidadeId IS NOT NULL AND entidadeId NOT IN (SELECT id FROM entidades));
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION count_orphaned_assignments()
+RETURNS integer AS $$
+BEGIN
+    RETURN (
+        SELECT COUNT(*) FROM assignments 
+        WHERE equipmentId NOT IN (SELECT id FROM equipment)
+        OR (collaboratorId IS NOT NULL AND collaboratorId NOT IN (SELECT id FROM collaborators))
+        OR (entidadeId IS NOT NULL AND entidadeId NOT IN (SELECT id FROM entidades))
+    );
+END;
+$$ LANGUAGE plpgsql;
+
 
 -- ==========================================
 -- 2. STORAGE (IMAGENS DE PERFIL)
