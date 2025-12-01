@@ -21,7 +21,8 @@ import ManageTeamMembersModal from '../../components/ManageTeamMembersModal';
 import AddSupplierModal from '../../components/AddSupplierModal';
 import ImportModal from '../../components/ImportModal';
 import CollaboratorHistoryModal from '../../components/CollaboratorHistoryModal';
-import CollaboratorDetailModal from '../../components/CollaboratorDetailModal';
+// FIX: Changed to named import for CollaboratorDetailModal
+import { CollaboratorDetailModal } from '../../components/CollaboratorDetailModal';
 import CredentialsModal from '../../components/CredentialsModal';
 
 interface OrganizationManagerProps {

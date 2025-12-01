@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, CollaboratorStatus, TicketStatus, SecurityTrainingRecord, TrainingType, TooltipConfig, defaultTooltipConfig, EquipmentStatus } from '../types';
@@ -55,7 +57,8 @@ const KpiCard: React.FC<{ title: string; value: string | number; icon: React.Rea
     </div>
 );
 
-const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
+// FIX: Changed to named export
+export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
     collaborator,
     assignments,
     equipment,
@@ -654,11 +657,11 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                 <div className="text-sm text-gray-300 grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <p className="text-gray-500 text-xs uppercase">Endereço</p>
-                                        <p>{collaborator.address_line || 'Não definido'}</p>
+                                        <p>{collaborator.address_line || '-'}, {collaborator.postal_code || ''} {collaborator.city || ''}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-500 text-xs uppercase">Localidade</p>
-                                        <p>{collaborator.postal_code} {collaborator.locality}</p>
+                                        <p>{collaborator.postal_code || ''} {collaborator.locality}</p>
                                         <p>{collaborator.city}</p>
                                     </div>
                                 </div>
@@ -902,83 +905,74 @@ const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({
                                     Escolha quais informações aparecem quando passa o rato sobre os equipamentos nas listagens.
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {Object.keys(defaultTooltipConfig).map(key => {
+                                    {Object.keys(defaultTooltipConfig).filter(k => !k.startsWith('showCollab')).map(key => {
                                         const field = key as keyof TooltipConfig;
                                         const labels: Record<string, string> = {
                                             showNomeNaRede: "Nome na Rede",
                                             showAssignedTo: "Atribuído a",
                                             showOsVersion: "Versão do SO",
                                             showLastPatch: "Último Patch",
+                                            showFirmwareVersion: "Versão do Firmware",
                                             showSerialNumber: "Número de Série",
                                             showBrand: "Marca / Tipo",
                                             showWarranty: "Garantia",
-                                            showLocation: "Localização Física",
-                                            showIpAddress: "Endereço IP",
-                                            showCollabName: "Nome do Colaborador",
-                                            showCollabJob: "Função / Cargo",
-                                            showCollabEntity: "Entidade Associada",
-                                            showCollabContact: "Email / Telefone"
+                                            showLocation: "Localização",
                                         };
-                                        
-                                        if (!key.startsWith('showCollab')) {
-                                            return (
-                                                <label key={key} className="flex items-center space-x-2 cursor-pointer">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={userTooltipConfig[field]} 
-                                                        onChange={() => toggleTooltipField(field)} 
-                                                        className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" 
-                                                    />
-                                                    <span className="text-sm text-gray-300">{labels[key] || key}</span>
-                                                </label>
-                                            );
-                                        }
-                                        return null;
+                                        // FIX: Added return statement with JSX to render the element
+                                        return (
+                                            <label key={field} className="flex items-center justify-between p-2 bg-gray-800 rounded border border-gray-700">
+                                                <span className="text-sm text-gray-300">{labels[field]}</span>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!userTooltipConfig[field]}
+                                                    onChange={() => toggleTooltipField(field)}
+                                                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
+                                                />
+                                            </label>
+                                        );
                                     })}
                                 </div>
                                 
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <h4 className="text-sm font-bold text-white mb-2">Tooltips de Colaboradores</h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        {Object.keys(defaultTooltipConfig).map(key => {
-                                            const field = key as keyof TooltipConfig;
-                                            const labels: Record<string, string> = {
-                                                showCollabName: "Nome Completo",
-                                                showCollabJob: "Função / Cargo",
-                                                showCollabEntity: "Entidade Associada",
-                                                showCollabContact: "Email / Telefone"
-                                            };
-
-                                            if (key.startsWith('showCollab')) {
-                                                return (
-                                                    <label key={key} className="flex items-center space-x-2 cursor-pointer">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={userTooltipConfig[field]} 
-                                                            onChange={() => toggleTooltipField(field)} 
-                                                            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-secondary" 
-                                                        />
-                                                        <span className="text-sm text-gray-300">{labels[key] || key}</span>
-                                                    </label>
-                                                );
-                                            }
-                                            return null;
-                                        })}
-                                    </div>
+                                <h4 className="font-bold text-white mb-3 mt-6">Tooltips de Colaboradores</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {Object.keys(defaultTooltipConfig).filter(k => k.startsWith('showCollab')).map(key => {
+                                        const field = key as keyof TooltipConfig;
+                                        const labels: Record<string, string> = {
+                                            showCollabName: "Nome do Colaborador",
+                                            showCollabJob: "Função",
+                                            showCollabContact: "Contacto (Email/Tel)",
+                                            showCollabEntity: "Entidade/Associação"
+                                        };
+                                        // FIX: Added return statement with JSX to render the element
+                                        return (
+                                            <label key={field} className="flex items-center justify-between p-2 bg-gray-800 rounded border border-gray-700">
+                                                <span className="text-sm text-gray-300">{labels[field]}</span>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!userTooltipConfig[field]}
+                                                    onChange={() => toggleTooltipField(field)}
+                                                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
+                                                />
+                                            </label>
+                                        );
+                                    })}
                                 </div>
-
-                                <div className="mt-6">
-                                    <button onClick={handleSavePreferences} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary transition-colors flex items-center gap-2">
-                                        <FaSave /> Guardar Preferências Pessoais
+                                <div className="mt-6 border-t border-gray-700 pt-4 flex justify-end">
+                                    <button onClick={handleSavePreferences} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2">
+                                        <FaSave /> Guardar Preferências
                                     </button>
                                 </div>
                             </div>
                         </div>
                     )}
                 </div>
+
+                <div className="flex justify-end pt-4 border-t border-gray-700 mt-auto">
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">
+                        Fechar
+                    </button>
+                </div>
             </div>
         </Modal>
     );
 };
-
-export default CollaboratorDetailModal;

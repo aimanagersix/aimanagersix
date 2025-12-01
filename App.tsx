@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense
@@ -40,7 +41,8 @@ import MagicCommandBar from './components/MagicCommandBar';
 import { ChatWidget } from './components/ChatWidget';
 import NotificationsModal from './components/NotificationsModal';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
-import CollaboratorDetailModal from './components/CollaboratorDetailModal';
+// FIX: Changed to named import for CollaboratorDetailModal
+import { CollaboratorDetailModal } from './components/CollaboratorDetailModal';
 
 
 export const App: React.FC = () => {

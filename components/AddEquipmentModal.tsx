@@ -188,7 +188,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         embedded_license_key: '',
         installationLocation: '',
         isLoan: false,
-        parent_equipment_id: ''
+        parent_equipment_id: '',
+        os_version: '',
+        last_security_update: '',
+        firmware_version: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -426,7 +429,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 const nullableFields = [
                     'inventoryNumber', 'invoiceNumber', 'requisitionNumber',
                     'nomeNaRede', 'macAddressWIFI', 'macAddressCabo',
-                    'warrantyEndDate', 'supplier_id', 'embedded_license_key', 'installationLocation', 'parent_equipment_id'
+                    'warrantyEndDate', 'supplier_id', 'embedded_license_key', 'installationLocation', 'parent_equipment_id',
+                    'os_version', 'last_security_update', 'firmware_version'
                 ];
                 if (nullableFields.includes(typedKey)) {
                     dataToSubmit[typedKey] = null;
@@ -681,6 +685,28 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             <option value="">-- Selecione Fornecedor --</option>
                             {suppliers.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
                         </select>
+                    </div>
+                </div>
+
+                {/* --- NEW: Detalhes de Sistema & Segurança --- */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaShieldAlt className="text-green-400" />
+                        Detalhes de Sistema & Segurança
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label htmlFor="os_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do SO</label>
+                            <input type="text" name="os_version" id="os_version" value={formData.os_version} onChange={handleChange} placeholder="Ex: Windows 11 Pro 23H2" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                        <div>
+                            <label htmlFor="last_security_update" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Último Patch de Segurança</label>
+                            <input type="date" name="last_security_update" id="last_security_update" value={formData.last_security_update} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                        <div>
+                            <label htmlFor="firmware_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do Firmware</label>
+                            <input type="text" name="firmware_version" id="firmware_version" value={formData.firmware_version} onChange={handleChange} placeholder="Ex: 1.2.3" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
                     </div>
                 </div>
 

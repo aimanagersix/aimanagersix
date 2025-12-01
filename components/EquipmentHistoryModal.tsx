@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
@@ -183,6 +184,10 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                             <div className="flex justify-between">
                                 <span className="text-gray-400">Versão do SO:</span>
                                 <span className="text-white font-mono">{equipment.os_version || 'Não especificada'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-400">Versão do Firmware:</span>
+                                <span className="text-white font-mono">{equipment.firmware_version || 'Não especificada'}</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-400">Último Patch:</span>

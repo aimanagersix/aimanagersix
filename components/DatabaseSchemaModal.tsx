@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaSeedling } from 'react-icons/fa';
@@ -30,7 +31,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE OR REPLACE FUNCTION count_orphaned_entities()
 RETURNS integer AS $$
 BEGIN
-    RETURN (SELECT COUNT(*) FROM entidades WHERE "instituicaoId" NOT IN (SELECT id FROM instituicoes));
+    RETURN (SELECT COUNT(*) FROM entidades WHERE "instituicao_id" NOT IN (SELECT id FROM instituicoes));
 END;
 $$ LANGUAGE plpgsql;
 
@@ -347,6 +348,9 @@ BEGIN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "requisitionNumber" text;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "installationLocation" text;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "parent_equipment_id" uuid REFERENCES equipment(id) ON DELETE SET NULL;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "os_version" text;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "last_security_update" date;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "firmware_version" text;
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'security_training_records') THEN
         ALTER TABLE security_training_records ADD COLUMN IF NOT EXISTS duration_hours numeric;

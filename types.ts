@@ -1,4 +1,5 @@
 
+
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
@@ -19,6 +20,7 @@ export interface TooltipConfig {
     showIpAddress: boolean; // Future use
     showWarranty: boolean;
     showLocation: boolean; // New: Physical Location
+    showFirmwareVersion: boolean;
     
     // Collaborator Tooltips
     showCollabName: boolean;
@@ -38,6 +40,7 @@ export const defaultTooltipConfig: TooltipConfig = {
     showIpAddress: false,
     showWarranty: false,
     showLocation: false,
+    showFirmwareVersion: false,
 
     // Collaborator Defaults
     showCollabName: true,
@@ -208,6 +211,7 @@ export interface Equipment {
   // Security & Patching
   os_version?: string;
   last_security_update?: string;
+  firmware_version?: string;
   // Vendor Link
   supplier_id?: string;
   

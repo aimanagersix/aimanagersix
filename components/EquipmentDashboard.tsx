@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -342,6 +343,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 {cfg.showAssignedTo && <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{item.assignedTo || 'Stock'}</span></p>}
                 {cfg.showOsVersion && <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
                 {cfg.showLastPatch && <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
+                {cfg.showFirmwareVersion && <p><strong className="text-on-surface-dark-secondary">Firmware:</strong> <span className="text-white">{item.firmware_version || 'N/A'}</span></p>}
                 {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
                 {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</span></p>}
                 {cfg.showWarranty && <p><strong className="text-on-surface-dark-secondary">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
@@ -565,7 +567,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                             </button>
                         )}
                         {onEdit && (
-                            <button onClick={(e) => { e.stopPropagation(); setDetailEquipment(item); }} className="text-blue-400 hover:text-blue-300" title="Ver Detalhe / Editar">
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar">
                                 <EditIcon />
                             </button>
                         )}
