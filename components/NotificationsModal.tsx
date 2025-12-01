@@ -84,7 +84,10 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button 
-                                                onClick={() => onViewItem('tickets', { status: ticket.status })}
+                                                onClick={() => {
+                                                    onViewItem('tickets', { status: ticket.status });
+                                                    onClose();
+                                                }}
                                                 className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
                                             >
                                                 <FaEye /> Ver
@@ -133,7 +136,10 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => onViewItem('licensing', { licenseKey: license.licenseKey })}
+                                                onClick={() => {
+                                                    onViewItem('licensing', { licenseKey: license.licenseKey });
+                                                    onClose();
+                                                }}
                                                 className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
                                             >
                                                <FaEye /> Ver
@@ -169,7 +175,10 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button 
-                                                onClick={() => onViewItem('equipment.inventory', { serialNumber: item.serialNumber })}
+                                                onClick={() => {
+                                                    onViewItem('equipment.inventory', { serialNumber: item.serialNumber });
+                                                    onClose();
+                                                }}
                                                 className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
                                             >
                                                 <FaEye /> Ver

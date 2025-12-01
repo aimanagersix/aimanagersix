@@ -69,10 +69,19 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true) 
 ON CONFLICT (id) DO NOTHING;
 
+-- Add RLS policy on BUCKETS table for public read access (solves diagnostic issue)
 DO $$
 BEGIN
     BEGIN
-        CREATE POLICY "Avatar Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'avatars' );
+        CREATE POLICY "Public read access for buckets" ON storage.buckets FOR SELECT USING (true);
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+END $$;
+
+-- Add/Confirm RLS policies on OBJECTS in the 'avatars' bucket
+DO $$
+BEGIN
+    BEGIN
+        CREATE POLICY "Avatar Public Read Access" ON storage.objects FOR SELECT USING ( bucket_id = 'avatars' );
     EXCEPTION WHEN OTHERS THEN NULL; END;
     BEGIN
         CREATE POLICY "Avatar Upload Access" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'avatars' );
@@ -409,7 +418,7 @@ COMMIT;
 `;
 
     const seedScript = `
--- SCRIPT DE SEED COMPLETO (TODOS OS MÓDULOS)
+-- SCRIPT DE SEED COMPLETO (TODOS OS MÓDulos)
 -- Execute este script para popular a aplicação com dados de exemplo.
 -- Utiliza WHERE NOT EXISTS para evitar erros de chave duplicada em bases existentes.
 
