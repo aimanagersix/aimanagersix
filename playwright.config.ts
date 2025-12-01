@@ -1,6 +1,5 @@
 
-import { devices } from '@playwright/test';
-import { defineConfig } from '@playwright/test';
+const { defineConfig, devices } = require('@playwright/test');
 
 export default defineConfig({
   testDir: './tests',

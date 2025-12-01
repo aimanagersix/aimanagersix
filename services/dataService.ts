@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -538,37 +539,29 @@ export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
         results.push({ module, status, message, details: details ? JSON.stringify(details) : undefined, timestamp });
     };
 
-    // Helper to test a single table
-    const testTableCrud = async (tableName: string, sampleData: any) => {
-        try {
-            // 1. Create
-            const { data: created, error: createError } = await supabase.from(tableName).insert(sampleData).select().single();
-            if (createError) throw new Error(`CREATE failed: ${createError.message}`);
-            
-            // 2. Read
-            const { error: readError } = await supabase.from(tableName).select('id').eq('id', created.id).single();
-            if (readError) throw new Error(`READ failed: ${readError.message}`);
+    // Test Instituicao first (no deps)
+    const testInstName = `DIAG_TEST_INST_${Date.now()}`;
+    const { data: createdInst, error: instError } = await supabase.from('instituicoes').insert({ name: testInstName, codigo: 'DT', email: 'd@t.com', telefone: '123' }).select().single();
 
-            // 3. Update (just add a detail)
-            // Note: Update might fail on some tables if no updatable columns are provided. This is a simple check.
-            const { error: updateError } = await supabase.from(tableName).update({}).eq('id', created.id);
-            if (updateError) console.warn(`Update on ${tableName} returned warning (might be ok):`, updateError.message);
+    if(instError) {
+        addResult(`CRUD: instituicoes`, 'Failure', `Falha no teste: CREATE failed: ${instError.message}. Verifique a RLS (Row Level Security) e se a tabela existe.`);
+    } else {
+        addResult(`CRUD: instituicoes`, 'Success', 'Operações de CRUD (Criar, Ler, Apagar) funcionam.');
+        
+        // Now test Entidade with the created Instituicao
+        const testEntName = `DIAG_TEST_ENT_${Date.now()}`;
+        const { error: entError } = await supabase.from('entidades').insert({ name: testEntName, codigo: 'DE', instituicaoId: createdInst.id, email: 'd@t.com' }).select().single();
 
-            // 4. Delete
-            const { error: deleteError } = await supabase.from(tableName).delete().eq('id', created.id);
-            if (deleteError) throw new Error(`DELETE failed: ${deleteError.message}`);
-
-            addResult(`CRUD: ${tableName}`, 'Success', 'Operações de CRUD (Criar, Ler, Apagar) funcionam.');
-
-        } catch (e: any) {
-             addResult(`CRUD: ${tableName}`, 'Failure', `Falha no teste: ${e.message}. Verifique a RLS (Row Level Security) e se a tabela existe.`, { details: e.details, hint: e.hint });
+        if (entError) {
+            addResult(`CRUD: entidades`, 'Failure', `Falha no teste: CREATE failed: ${entError.message}. Verifique a RLS (Row Level Security) e se a tabela existe.`);
+        } else {
+             addResult(`CRUD: entidades`, 'Success', 'Operações de CRUD (Criar, Ler, Apagar) funcionam.');
         }
-    };
-
-    // Run tests for all major tables - using a fake UUID for FKs to ensure the test can run even if dependencies are missing.
-    const fakeId = 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6';
-    await testTableCrud('instituicoes', { name: 'DIAG_TEST', codigo: 'DT', email: 'd@t.com', telefone: '123' });
-    await testTableCrud('entidades', { name: 'DIAG_TEST', codigo: 'DE', instituicaoId: fakeId, email: 'd@t.com' });
+        
+        // Cleanup
+        await supabase.from('entidades').delete().eq('name', testEntName);
+        await supabase.from('instituicoes').delete().eq('id', createdInst.id);
+    }
     
     // Integrity Checks via RPC
     try {
@@ -601,7 +594,7 @@ export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
     }
 
     try {
-        const { data, error } = await supabase.from('pg_extension').select('extname').eq('extname', 'pg_cron').single();
+        const { data, error } = await supabase.rpc('check_pg_cron');
         if (error || !data) throw new Error("pg_cron não encontrado.");
         addResult('Supabase: pg_cron', 'Success', 'Extensão pg_cron está instalada.');
     } catch(e: any) {
