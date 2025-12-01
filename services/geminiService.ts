@@ -487,10 +487,8 @@ export const analyzeBackupScreenshot = async (base64Image: string, mimeType: str
 
         const response = await ai.models.generateContent({
             model: flashModel,
-            contents: {
-                role: 'user',
-                parts: [imagePart, { text: prompt }]
-            },
+// FIX: The 'contents' field for a multi-part request should be an object with a 'parts' array, not a direct object with role and parts.
+            contents: { parts: [imagePart, { text: prompt }] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -756,10 +754,8 @@ export const extractFindingsFromReport = async (base64File: string, mimeType: st
 
         const response = await ai.models.generateContent({
             model: flashModel, // Keep vision tasks on Flash unless Pro vision is required for complex reasoning
-            contents: {
-                role: 'user',
-                parts: [filePart, { text: prompt }]
-            },
+// FIX: The 'contents' field for a multi-part request should be an object with a 'parts' array, not a direct object with role and parts.
+            contents: { parts: [filePart, { text: prompt }] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {

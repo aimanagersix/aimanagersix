@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao } from '../types';
 // FIX: Replaced non-existent DeleteIcon with an alias for FaTrash

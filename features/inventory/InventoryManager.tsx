@@ -141,6 +141,11 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onGenerateReport={() => setReportType('licensing')}
                     initialFilter={dashboardFilter}
                     onClearInitialFilter={() => setDashboardFilter(null)}
+                    onToggleStatus={checkPermission('licensing', 'edit') ? async (id) => {
+                        const lic = appData.softwareLicenses.find((l: SoftwareLicense) => l.id === id);
+                        if (lic) await dataService.updateLicense(id, { status: lic.status === 'Ativo' ? 'Inativo' : 'Ativo' });
+                        refreshData();
+                    } : undefined}
                     businessServices={appData.businessServices}
                     serviceDependencies={appData.serviceDependencies}
                     softwareCategories={appData.softwareCategories}

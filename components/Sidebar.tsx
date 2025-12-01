@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 // FIX: Replaced non-existent icon imports with aliased exports from ./common/Icons.
@@ -228,6 +229,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 
                 {hasReportsTabs && (
                     <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>
+                )}
+
+                {hasAutomationTab && (
+                    <TabButton tab="automation" label={t('common.automation')} icon={<FaRobot />} activeTab={activeTab} setActiveTab={setActiveTab}/>
                 )}
 
                 {hasToolsTabs && (
