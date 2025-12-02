@@ -84,11 +84,11 @@ serve(async (req) => {
 });
 `;
 
-const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave }) => {
+const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
     const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | null>(null);
 
     const handleCopy = (text: string, type: 'cron_fn' | 'cron_sql') => {
-        navigator.clipboard.writeText(text);
+        onCopy(text);
         setCopiedCode(type);
         setTimeout(() => setCopiedCode(null), 2000);
     };

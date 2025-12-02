@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaSeedling } from 'react-icons/fa';
-import { generateSqlHelper, isAiConfigured } from '../services/geminiService';
+import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 
 interface DatabaseSchemaModalProps {
     onClose: () => void;
@@ -9,12 +9,14 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'reset' | 'cleanup' | 'sql_ai' | 'seed'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'reset' | 'cleanup' | 'playwright_ai' | 'seed'>('update');
     
-    // SQL AI State
-    const [sqlRequest, setSqlRequest] = useState('');
-    const [generatedSql, setGeneratedSql] = useState('');
-    const [isGeneratingSql, setIsGeneratingSql] = useState(false);
+    // Playwright AI State
+    const [testRequest, setTestRequest] = useState('');
+    const [generatedTest, setGeneratedTest] = useState('');
+    const [isGeneratingTest, setIsGeneratingTest] = useState(false);
+    const [testEmail, setTestEmail] = useState('josefsmoreira@outlook.com');
+    const [testPassword, setTestPassword] = useState('QSQmZf62!');
     const aiConfigured = isAiConfigured();
 
     const updateScript = `
@@ -684,18 +686,18 @@ COMMIT;
         setTimeout(() => setCopied(false), 2000);
     };
     
-    const handleGenerateSql = async () => {
-        if (!sqlRequest.trim() || !aiConfigured) return;
-        setIsGeneratingSql(true);
-        setGeneratedSql('');
+    const handleGenerateTest = async () => {
+        if (!testRequest.trim() || !aiConfigured || !testEmail.trim() || !testPassword.trim()) return;
+        setIsGeneratingTest(true);
+        setGeneratedTest('');
         try {
-            const result = await generateSqlHelper(sqlRequest);
-            setGeneratedSql(result);
+            const result = await generatePlaywrightTest(testRequest, { email: testEmail, pass: testPassword });
+            setGeneratedTest(result);
         } catch (e) {
             console.error(e);
-            setGeneratedSql("-- Erro ao gerar SQL. Tente novamente.");
+            setGeneratedTest("// Erro ao gerar o código de teste.");
         } finally {
-            setIsGeneratingSql(false);
+            setIsGeneratingTest(false);
         }
     };
 
@@ -706,7 +708,7 @@ COMMIT;
                 <div className="flex border-b border-gray-700 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('update')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}><FaDatabase className="inline mr-2"/> Atualização (Schema)</button>
                     <button onClick={() => setActiveTab('seed')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'seed' ? 'border-green-500 text-green-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSeedling className="inline mr-2"/> Dados de Teste (Seed)</button>
-                    <button onClick={() => setActiveTab('sql_ai')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'sql_ai' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot className="inline mr-2"/> SQL AI</button>
+                    <button onClick={() => setActiveTab('playwright_ai')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'playwright_ai' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot className="inline mr-2"/> Playwright AI</button>
                     <button onClick={() => setActiveTab('cleanup')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'cleanup' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBroom className="inline mr-2"/> Limpar Lixo</button>
                     <button onClick={() => setActiveTab('reset')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'reset' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaTrash className="inline mr-2"/> Reset Total</button>
                 </div>
@@ -736,15 +738,25 @@ COMMIT;
                     </div>
                 )}
                 
-                {activeTab === 'sql_ai' && (
+                {activeTab === 'playwright_ai' && (
                     <div className="animate-fade-in flex flex-col h-[500px]">
+                        <div className="bg-purple-900/20 border border-purple-500/50 p-3 rounded-lg text-sm text-purple-200 mb-4">
+                            <p className="font-bold mb-1 flex items-center gap-2"><FaRobot/> Gerador de Testes E2E com IA</p>
+                            <p className="text-xs">Descreva um cenário de teste em linguagem natural (ex: "fazer login, ir para o inventário e criar um novo equipamento") e a IA irá gerar o código Playwright correspondente.</p>
+                        </div>
+                        <div className="flex flex-col md:flex-row gap-2 mb-2">
+                            <input type="email" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="Email de teste" className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                            <input type="password" value={testPassword} onChange={(e) => setTestPassword(e.target.value)} placeholder="Password de teste" className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                        </div>
                         <div className="flex gap-2 mb-4">
-                            <input type="text" value={sqlRequest} onChange={(e) => setSqlRequest(e.target.value)} placeholder="Ex: Mostra todos os computadores HP..." className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-3 text-sm" onKeyDown={(e) => e.key === 'Enter' && handleGenerateSql()} />
-                            <button onClick={handleGenerateSql} disabled={isGeneratingSql || !aiConfigured || !sqlRequest.trim()} className="bg-purple-600 hover:bg-purple-500 text-white px-6 rounded-md font-bold disabled:opacity-50 flex items-center gap-2">{isGeneratingSql ? <FaSpinner className="animate-spin"/> : <FaPlay/>} Gerar</button>
+                            <input type="text" value={testRequest} onChange={(e) => setTestRequest(e.target.value)} placeholder="Cenário de teste..." className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" onKeyDown={(e) => e.key === 'Enter' && handleGenerateTest()} />
+                            <button onClick={handleGenerateTest} disabled={isGeneratingTest || !aiConfigured || !testRequest.trim() || !testEmail.trim() || !testPassword.trim()} className="bg-purple-600 hover:bg-purple-500 text-white px-4 rounded-md font-bold disabled:opacity-50 flex items-center gap-2">
+                                {isGeneratingTest ? <FaSpinner className="animate-spin"/> : <FaPlay/>} Gerar Teste
+                            </button>
                         </div>
                         <div className="relative flex-grow">
-                             <textarea value={generatedSql} readOnly className="w-full h-full bg-black text-green-400 p-4 rounded-lg text-xs font-mono border border-gray-700 resize-none" placeholder="SQL gerado..."/>
-                            {generatedSql && <button onClick={() => handleCopy(generatedSql)} className="absolute top-4 right-4 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md shadow-lg"><FaCopy /></button>}
+                             <textarea value={generatedTest} readOnly className="w-full h-full bg-black text-green-400 p-4 rounded-lg text-xs font-mono border border-gray-700 resize-none" placeholder="Código Playwright gerado..."/>
+                            {generatedTest && <button onClick={() => handleCopy(generatedTest)} className="absolute top-4 right-4 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md shadow-lg"><FaCopy /></button>}
                         </div>
                     </div>
                 )}
