@@ -339,7 +339,8 @@ export type ModuleKey =
     | 'config_backup_types'
     | 'config_training_types'
     | 'config_resilience_test_types'
-    | 'config_decommission_reasons';
+    | 'config_decommission_reasons'
+    | 'config_collaborator_deactivation_reasons';
 
 export interface PermissionMatrix {
     [module: string]: {
@@ -391,6 +392,7 @@ export interface Collaborator {
   receivesNotifications: boolean;
   role: string; // Now string to support custom role names
   status: CollaboratorStatus;
+  deactivation_reason_id?: string; // NEW
   password?: string;
   allowedModules?: AppModule[];
   preferences?: UserPreferences; // New: Stores Tooltip Config etc

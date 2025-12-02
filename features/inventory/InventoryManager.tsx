@@ -32,11 +32,13 @@ interface InventoryManagerProps {
     setDashboardFilter: (filter: any) => void;
     setReportType: (type: string) => void;
     currentUser: Collaborator | null;
+    onViewItem: (tab: string, filter: any) => void;
 }
 
 const InventoryManager: React.FC<InventoryManagerProps> = ({ 
     activeTab, appData, checkPermission, refreshData, 
-    dashboardFilter, setDashboardFilter, setReportType, currentUser 
+    dashboardFilter, setDashboardFilter, setReportType, currentUser,
+    onViewItem
 }) => {
     
     // Local State for Inventory Modals
@@ -101,8 +103,10 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onAssign={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); } : undefined}
                     onAssignMultiple={checkPermission('equipment', 'edit') ? (eqs) => { setEquipmentListToAssign(eqs); setShowAssignMultipleModal(true); } : undefined}
                     onUnassign={checkPermission('equipment', 'edit') ? async (id) => {
-                        await dataService.addAssignment({ equipmentId: id, returnDate: new Date().toISOString().split('T')[0] });
-                        refreshData();
+                        if(window.confirm("Deseja desassociar este equipamento? O estado passará para 'Stock'.")) {
+                            await dataService.addAssignment({ equipmentId: id, returnDate: new Date().toISOString().split('T')[0] });
+                            refreshData();
+                        }
                     } : undefined}
                     onUpdateStatus={checkPermission('equipment', 'edit') ? async (id, status) => {
                         await dataService.updateEquipment(id, { status });
@@ -123,6 +127,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     suppliers={appData.suppliers}
                     procurementRequests={appData.procurementRequests}
                     tooltipConfig={userTooltipConfig}
+                    onViewItem={onViewItem}
                 />
             )}
 
@@ -154,7 +159,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             
             {activeTab === 'equipment.procurement' && (
                 <ProcurementDashboard 
-                    requests={appData.procurementRequests}
+                    requests={appData.procurementRequests.filter((r: any) => !dashboardFilter || (dashboardFilter.title && r.title === dashboardFilter.title))}
                     collaborators={appData.collaborators}
                     suppliers={appData.suppliers}
                     currentUser={currentUser}
@@ -218,6 +223,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     vulnerabilities={appData.vulnerabilities}
                     suppliers={appData.suppliers}
                     procurementRequests={appData.procurementRequests}
+                    onViewItem={onViewItem}
                  />
             )}
 

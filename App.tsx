@@ -409,6 +409,7 @@ export const App: React.FC = () => {
                             setDashboardFilter={setDashboardFilter}
                             setReportType={(t) => { setReportType(t as any); setShowReportModal(true); }}
                             currentUser={currentUser}
+                            onViewItem={handleViewItem}
                         />
                     )}
                     

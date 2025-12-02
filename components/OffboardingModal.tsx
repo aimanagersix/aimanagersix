@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Equipment, SoftwareLicense, Assignment, LicenseAssignment, Brand, EquipmentType } from '../types';
+// FIX: Add ConfigItem to imports
+import { Collaborator, Equipment, SoftwareLicense, Assignment, LicenseAssignment, Brand, EquipmentType, ConfigItem } from '../types';
 import { FaUserSlash, FaLaptop, FaKey, FaCheck, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 
 interface OffboardingModalProps {
     onClose: () => void;
-    onConfirm: (collaboratorId: string) => Promise<void>;
+    // FIX: Update onConfirm signature to accept reasonId
+    onConfirm: (collaboratorId: string, reasonId?: string) => Promise<void>;
     collaborator: Collaborator;
     assignments: Assignment[];
     licenseAssignments: LicenseAssignment[];
@@ -13,10 +15,14 @@ interface OffboardingModalProps {
     softwareLicenses: SoftwareLicense[];
     brandMap: Map<string, string>;
     equipmentTypeMap: Map<string, string>;
+    // FIX: Add deactivationReasons prop
+    deactivationReasons?: ConfigItem[];
 }
 
-const OffboardingModal: React.FC<OffboardingModalProps> = ({ onClose, onConfirm, collaborator, assignments, licenseAssignments, equipment, softwareLicenses, brandMap, equipmentTypeMap }) => {
+const OffboardingModal: React.FC<OffboardingModalProps> = ({ onClose, onConfirm, collaborator, assignments, licenseAssignments, equipment, softwareLicenses, brandMap, equipmentTypeMap, deactivationReasons = [] }) => {
     const [isProcessing, setIsProcessing] = useState(false);
+    // FIX: Add state to hold the selected deactivation reason ID.
+    const [reasonId, setReasonId] = useState<string>('');
 
     const assets = useMemo(() => {
         const assignedEquipmentIds = new Set(
@@ -37,7 +43,8 @@ const OffboardingModal: React.FC<OffboardingModalProps> = ({ onClose, onConfirm,
     const handleConfirm = async () => {
         setIsProcessing(true);
         try {
-            await onConfirm(collaborator.id);
+            // FIX: Pass the selected reasonId to the onConfirm handler.
+            await onConfirm(collaborator.id, reasonId || undefined);
             onClose();
         } catch (e) {
             console.error(e);
@@ -83,8 +90,24 @@ const OffboardingModal: React.FC<OffboardingModalProps> = ({ onClose, onConfirm,
                     ) : <p className="text-sm text-gray-500 italic">Nenhuma licença a revogar.</p>}
                 </div>
 
+                {/* FIX: Add dropdown to select deactivation reason */}
+                <div>
+                    <label htmlFor="deactivationReason" className="font-bold text-white mb-2 block">Motivo da Saída (Opcional)</label>
+                    <select
+                        id="deactivationReason"
+                        value={reasonId}
+                        onChange={(e) => setReasonId(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm text-white"
+                    >
+                        <option value="">-- Selecionar motivo --</option>
+                        {deactivationReasons.map(reason => (
+                            <option key={reason.id} value={reason.id}>{reason.name}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500" disabled={isProcessing}>Cancelar</button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isProcessing}>Cancelar</button>
                     <button 
                         type="button" 
                         onClick={handleConfirm}

@@ -22,6 +22,7 @@ interface EquipmentHistoryModalProps {
     suppliers?: Supplier[];
     procurementRequests?: ProcurementRequest[];
     onEdit?: (equipment: Equipment) => void;
+    onViewItem?: (tab: string, filter: any) => void;
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -35,7 +36,7 @@ const getCriticalityClass = (level: CriticalityLevel) => {
 
 const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({ 
     equipment, assignments, collaborators, escolasDepartamentos: entidades, onClose, tickets, ticketActivities,
-    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit, procurementRequests = []
+    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit, procurementRequests = [], onViewItem
 }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'licenses' | 'security' | 'acquisition'>('details');
     const [showManageLicenses, setShowManageLicenses] = useState(false);
@@ -206,6 +207,16 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                         <div className="flex justify-between"><span className="text-gray-500">Data Compra:</span> <span className="text-white">{equipment.purchaseDate}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Fim Garantia:</span> <span className="text-white">{equipment.warrantyEndDate || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Nº Fatura:</span> <span className="text-white">{equipment.invoiceNumber || '-'}</span></div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">Nº Requisição:</span> 
+                                            {linkedRequest && onViewItem ? (
+                                                <button onClick={() => onViewItem('equipment.procurement', { title: linkedRequest.title })} className="text-brand-secondary hover:underline font-bold">
+                                                    {equipment.requisitionNumber || 'Ver Pedido'}
+                                                </button>
+                                            ) : (
+                                                <span className="text-white">{equipment.requisitionNumber || '-'}</span>
+                                            )}
+                                        </div>
                                         <div className="flex justify-between"><span className="text-gray-500">Custo Aquisição:</span> <span className="text-white font-bold">€ {equipment.acquisitionCost || 0}</span></div>
                                     </div>
                                 </div>

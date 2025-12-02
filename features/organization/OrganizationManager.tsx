@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
     Collaborator, Instituicao, Entidade, Team, Supplier, 
-    ModuleKey, PermissionAction, defaultTooltipConfig, Brand, Assignment, SoftwareLicense, LicenseAssignment, TicketStatus
+    ModuleKey, PermissionAction, defaultTooltipConfig, Brand, Assignment, SoftwareLicense, LicenseAssignment, TicketStatus, ConfigItem
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -119,13 +119,13 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
             setShowOffboardingModal(true);
         } else {
             if(confirm(`Tem a certeza que deseja inativar ${collaborator.fullName}?`)) {
-                await dataService.updateCollaborator(collaborator.id, { status: 'Inativo' });
-                refreshData();
+                setCollaboratorToOffboard(collaborator);
+                setShowOffboardingModal(true); // Open even with no equipment to select reason
             }
         }
     };
     
-    const handleConfirmOffboarding = async (collaboratorId: string) => {
+    const handleConfirmOffboarding = async (collaboratorId: string, reasonId?: string) => {
         const collaborator = appData.collaborators.find((c: Collaborator) => c.id === collaboratorId);
         if (!collaborator) return;
 
@@ -138,8 +138,11 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
             await handleUnassignEquipment(eqId);
         }
         
-        // 2. Inactivate collaborator
-        await dataService.updateCollaborator(collaboratorId, { status: 'Inativo' });
+        // 2. Inactivate collaborator and set reason
+        await dataService.updateCollaborator(collaboratorId, { 
+            status: 'Inativo',
+            deactivation_reason_id: reasonId || null
+        });
         
         // 3. Create ticket for IT
         await dataService.addTicket({
@@ -409,6 +412,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     softwareLicenses={appData.softwareLicenses}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
                     equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))}
+                    deactivationReasons={appData.configCollaboratorDeactivationReasons}
                 />
             )}
         </>

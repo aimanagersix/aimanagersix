@@ -1,8 +1,9 @@
 
 
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Assignment, Equipment, Ticket, SoftwareLicense, LicenseAssignment, Brand, EquipmentType } from '../types';
+import { Collaborator, Assignment, Equipment, Ticket, SoftwareLicense, LicenseAssignment, Brand, EquipmentType, ConfigItem } from '../types';
 import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaEdit, FaKey, FaUserSlash } from './common/Icons';
 import OffboardingModal from './OffboardingModal';
 
@@ -21,12 +22,14 @@ interface CollaboratorDetailModalProps {
     onEdit: (collaborator: Collaborator) => void;
     onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
     onUnassignEquipment?: (equipmentId: string) => Promise<void>;
-    onConfirmOffboarding?: (collaboratorId: string) => Promise<void>;
+    // FIX: Update onConfirmOffboarding to accept reasonId.
+    onConfirmOffboarding?: (collaboratorId: string, reasonId?: string) => Promise<void>;
+    deactivationReasons?: ConfigItem[];
 }
 
 export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({ 
     collaborator, assignments, equipment, tickets, brandMap, equipmentTypeMap, licenseAssignments, softwareLicenses, 
-    onClose, onShowHistory, onStartChat, onEdit, onConfirmOffboarding 
+    onClose, onShowHistory, onStartChat, onEdit, onConfirmOffboarding, deactivationReasons = []
 }) => {
     const [activeTab, setActiveTab] = useState('equipment');
     const [showOffboardingModal, setShowOffboardingModal] = useState(false);
@@ -169,9 +172,10 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                     softwareLicenses={softwareLicenses}
                     brandMap={brandMap}
                     equipmentTypeMap={equipmentTypeMap}
+                    deactivationReasons={deactivationReasons}
                     onClose={() => setShowOffboardingModal(false)}
-                    onConfirm={async (id) => {
-                        await onConfirmOffboarding(id);
+                    onConfirm={async (id, reasonId) => {
+                        await onConfirmOffboarding(id, reasonId);
                         setShowOffboardingModal(false);
                         onClose(); // Close parent modal too
                     }}

@@ -66,6 +66,7 @@ export const fetchAllData = async () => {
         configCiaRatings, configServiceStatuses, configBackupTypes, 
         configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles,
         configDecommissionReasons,
+        configCollaboratorDeactivationReasons,
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
@@ -107,6 +108,8 @@ export const fetchAllData = async () => {
         supabase.from('config_software_categories').select('*'),
         supabase.from('config_custom_roles').select('*'),
         supabase.from('config_decommission_reasons').select('*'),
+        // FIX: Add fetch for collaborator deactivation reasons.
+        supabase.from('config_collaborator_deactivation_reasons').select('*'),
         supabase.from('policies').select('*'),
         supabase.from('policy_acceptances').select('*'),
         supabase.from('procurement_requests').select('*'),
@@ -160,6 +163,7 @@ export const fetchAllData = async () => {
         configSoftwareCategories: configSoftwareCategories.data || [],
         configCustomRoles: configCustomRoles.data || [],
         configDecommissionReasons: configDecommissionReasons.data || [],
+        configCollaboratorDeactivationReasons: configCollaboratorDeactivationReasons.data || [],
         policies: policies.data || [],
         policyAcceptances: policyAcceptances.data || [],
         procurementRequests: procurementRequests.data || [],

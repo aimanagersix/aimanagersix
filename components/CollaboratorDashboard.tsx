@@ -1,7 +1,7 @@
 
 
 import React, { useState, useMemo } from 'react';
-import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao } from '../types';
+import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao, ConfigItem } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -30,6 +30,7 @@ interface CollaboratorDashboardProps {
   // New Handlers passed to Detail Modal
   onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
   onUnassignEquipment?: (equipmentId: string) => Promise<void>;
+  deactivationReasons?: ConfigItem[];
 }
 
 interface TooltipState {
@@ -72,7 +73,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     onCreate,
     tooltipConfig = defaultTooltipConfig,
     onAssignEquipment,
-    onUnassignEquipment
+    onUnassignEquipment,
+    deactivationReasons
 }) => {
     
     const [searchQuery, setSearchQuery] = useState('');

@@ -5,12 +5,13 @@ interface WebhooksTabProps {
     settings: any;
     onSettingsChange: (key: string, value: any) => void;
     onSimulate: () => void;
+    onCreateSimulatedTicket?: () => void;
 }
 
-const WebhooksTab: React.FC<WebhooksTabProps> = ({ settings, onSettingsChange, onSimulate }) => {
+const WebhooksTab: React.FC<WebhooksTabProps> = ({ settings, onSettingsChange, onSimulate, onCreateSimulatedTicket }) => {
     
     return (
-        <div className="animate-fade-in">
+        <div className="animate-fade-in p-6">
             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-6">
                 <div className="flex items-center gap-2 font-bold mb-2"><FaNetworkWired /> Webhooks de Ingestão</div>
                 <p>
@@ -47,12 +48,14 @@ const WebhooksTab: React.FC<WebhooksTabProps> = ({ settings, onSettingsChange, o
                             <p><strong className="text-gray-400">Título:</strong> {settings.simulatedTicket.title}</p>
                             <p><strong className="text-gray-400">Severidade:</strong> <span className="text-red-400">{settings.simulatedTicket.severity}</span></p>
                             <p><strong className="text-gray-400">Descrição:</strong> {settings.simulatedTicket.description}</p>
-                            <button 
-                                onClick={settings.onCreateSimulatedTicket}
-                                className="mt-2 bg-green-600 hover:bg-green-500 text-white px-3 py-1 text-xs rounded flex items-center gap-2"
-                            >
-                                <FaTicketAlt/> Criar Ticket Real
-                            </button>
+                            {onCreateSimulatedTicket && (
+                                <button 
+                                    onClick={onCreateSimulatedTicket}
+                                    className="mt-2 bg-green-600 hover:bg-green-500 text-white px-3 py-1 text-xs rounded flex items-center gap-2"
+                                >
+                                    <FaTicketAlt/> Criar Ticket Real
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}

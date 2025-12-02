@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
@@ -42,6 +44,7 @@ interface EquipmentDashboardProps {
   procurementRequests?: ProcurementRequest[];
   // Tooltip Config
   tooltipConfig?: TooltipConfig;
+  onViewItem?: (tab: string, filter: any) => void;
 }
 
 interface TooltipState {
@@ -119,7 +122,7 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
-    businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests
+    businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests, onViewItem
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -615,7 +618,8 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 tickets={tickets}
                 ticketActivities={ticketActivities}
                 onClose={() => setDetailEquipment(null)}
-                onEdit={(eq) => { setDetailEquipment(null); onEdit && onEdit(eq); }}
+                // FIX: Use the onEdit prop from EquipmentDashboardProps to open the edit modal
+                onEdit={(eq) => { setDetailEquipment(null); if (onEdit) { onEdit(eq); } }}
                 businessServices={businessServices}
                 serviceDependencies={serviceDependencies}
                 softwareLicenses={softwareLicenses}
@@ -623,6 +627,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 vulnerabilities={vulnerabilities}
                 suppliers={suppliers}
                 procurementRequests={procurementRequests}
+                onViewItem={onViewItem}
             />
         )}
     </div>
