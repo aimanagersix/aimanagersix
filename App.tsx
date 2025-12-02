@@ -69,8 +69,19 @@ export const App: React.FC = () => {
     }, [appData.teamMembers, currentUser]);
 
     const teamTickets = useMemo(() => {
-        return appData.tickets.filter((t: Ticket) => t.status === 'Pedido' && t.team_id && myTeamIds.has(t.team_id));
-    }, [appData.tickets, myTeamIds]);
+        if (!currentUser) return [];
+        return appData.tickets.filter((t: Ticket) => {
+            const isPending = t.status === 'Pedido' || t.status === 'Em progresso';
+            if (!isPending) return false;
+            
+            const isForMyTeam = t.team_id && myTeamIds.has(t.team_id);
+            const isAssignedToMe = t.technicianId === currentUser.id;
+
+            // Include if it's for my team AND unassigned, OR if it's directly assigned to me.
+            return (isForMyTeam && !t.technicianId) || isAssignedToMe;
+        });
+    }, [appData.tickets, myTeamIds, currentUser]);
+
 
     const expiringWarranties = useMemo(() => {
         return appData.equipment.filter((eq: Equipment) => {

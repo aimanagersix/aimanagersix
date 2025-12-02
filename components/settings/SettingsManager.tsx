@@ -131,19 +131,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
     
-    // State for Automation Tabs
-    const [settings, setSettings] = useState<any>({});
-    
-    // State for Webhooks tab
-    const [webhookJson, setWebhookJson] = useState(JSON.stringify({ alert: "Possible ransomware detected", host: "PC-FIN-01", severity: "high", source: "SentinelOne" }, null, 2));
-    const [isSimulating, setIsSimulating] = useState(false);
-    const [simulatedTicket, setSimulatedTicket] = useState<any>(null);
+    // State for Automation Tabs (migrated from AuxiliaryDataDashboard)
+     const [settings, setSettings] = useState<any>({});
 
-    // State for Cron Jobs tab
-    const [isTestingCron, setIsTestingCron] = useState(false);
-    const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | null>(null);
-
-    useEffect(() => {
+     useEffect(() => {
         const loadSettings = async () => {
             const keysToFetch = [
                 'scan_frequency_days', 'scan_start_time', 'last_auto_scan', 
@@ -163,9 +154,16 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
             setSettings({
                 scan_frequency_days: fetchedSettings.scan_frequency_days || '0',
+                scan_start_time: fetchedSettings.scan_start_time || '02:00',
                 last_auto_scan: fetchedSettings.last_auto_scan ? new Date(fetchedSettings.last_auto_scan).toLocaleString() : '-',
+                scan_include_eol: fetchedSettings.scan_include_eol ? fetchedSettings.scan_include_eol === 'true' : true,
+                scan_lookback_years: fetchedSettings.scan_lookback_years ? parseInt(fetchedSettings.scan_lookback_years) : 2,
+                scan_custom_prompt: fetchedSettings.scan_custom_prompt || '',
                 equipment_naming_prefix: fetchedSettings.equipment_naming_prefix || 'PC-',
                 equipment_naming_digits: fetchedSettings.equipment_naming_digits || '4',
+                weekly_report_recipients: fetchedSettings.weekly_report_recipients || '',
+                resendApiKey: fetchedSettings.resend_api_key || '',
+                resendFromEmail: fetchedSettings.resend_from_email || '',
                 sbUrl: localStorage.getItem('SUPABASE_URL') || '',
                 sbKey: localStorage.getItem('SUPABASE_ANON_KEY') || '',
                 sbServiceKey: localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '',
@@ -175,13 +173,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 app_logo_size: parseInt(fetchedSettings.app_logo_size || '80'),
                 app_logo_alignment: fetchedSettings.app_logo_alignment || 'center',
                 report_footer_institution_id: fetchedSettings.report_footer_institution_id || '',
-                reportRecipients: fetchedSettings.weekly_report_recipients || '',
-                cronFunctionCode: `// Supabase Edge Function: /supabase/functions/weekly-report/index.ts ...`,
-                cronSqlCode: `SELECT cron.schedule('weekly-report-job', '0 9 * * 1', 'SELECT net.http_post(url:=''https://${projectRef}.supabase.co/functions/v1/weekly-report'', headers:=''{"Authorization": "Bearer [SERVICE_ROLE_KEY]"}'')');`,
             });
         };
         loadSettings();
-    }, [selectedMenuId]);
+    }, [selectedMenuId]); // Reload when menu changes to fetch fresh data for specific tabs
 
     const menuStructure: { group: string; items: { id: string; label: string; icon: React.ReactNode }[] }[] = [
         {
@@ -270,8 +265,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
                 {/* Content Area */}
                 <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4" key={selectedMenuId}>
+                    {/* Automation Tabs */}
                     {selectedMenuId === 'agents' && <AgentsTab />}
-                    {selectedMenuId === 'cronjobs' && <CronJobsTab settings={settings} onSettingsChange={(k, v) => setSettings((p:any) => ({ ...p, [k]: v }))} onSave={() => {dataService.updateGlobalSetting('weekly_report_recipients', settings.reportRecipients); alert('Guardado!')}} onTest={() => {}} onCopy={(text, type) => { navigator.clipboard.writeText(text); setCopiedCode(type); setTimeout(() => setCopiedCode(null), 2000); }} />}
+                    {/* FIX: Corrected the props passed to CronJobsTab */}
+                    {selectedMenuId === 'cronjobs' && <CronJobsTab settings={settings} onSettingsChange={(k, v) => setSettings((p:any) => ({ ...p, [k]: v }))} onSave={() => {dataService.updateGlobalSetting('weekly_report_recipients', settings.reportRecipients); alert('Guardado!')}} />}
                     {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings((p:any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
                     {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings((p:any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
                     {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p:any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
