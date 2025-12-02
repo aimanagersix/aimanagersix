@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaCog } from 'react-icons/fa';
 
@@ -22,7 +21,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
     } = settings;
 
     return (
-        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in">
+        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in p-6">
             <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg space-y-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaClock className="text-yellow-400"/> Guia de Configuração: Relatórios Automáticos</h3>
                 

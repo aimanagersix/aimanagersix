@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { EquipmentType, Team } from '../types';

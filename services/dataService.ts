@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 import { 
     Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
@@ -66,6 +65,7 @@ export const fetchAllData = async () => {
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
         configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles,
+        configDecommissionReasons, // NEW
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
@@ -106,6 +106,7 @@ export const fetchAllData = async () => {
         supabase.from('config_resilience_test_types').select('*'),
         supabase.from('config_software_categories').select('*'),
         supabase.from('config_custom_roles').select('*'),
+        supabase.from('config_decommission_reasons').select('*'), // NEW
         supabase.from('policies').select('*'),
         supabase.from('policy_acceptances').select('*'),
         supabase.from('procurement_requests').select('*'),
@@ -158,6 +159,7 @@ export const fetchAllData = async () => {
         configResilienceTestTypes: configResilienceTestTypes.data || [],
         configSoftwareCategories: configSoftwareCategories.data || [],
         configCustomRoles: configCustomRoles.data || [],
+        configDecommissionReasons: configDecommissionReasons.data || [], // NEW
         policies: policies.data || [],
         policyAcceptances: policyAcceptances.data || [],
         procurementRequests: procurementRequests.data || [],

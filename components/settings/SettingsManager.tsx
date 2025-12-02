@@ -4,7 +4,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -17,7 +17,7 @@ import RoleManager from '../RoleManager';
 import BrandingTab from './BrandingTab';
 import GeneralScansTab from './GeneralScansTab';
 import ConnectionsTab from './ConnectionsTab';
-import AgentsTab from '../AutomationModal'; // Re-using for now
+import AgentsTab from './AgentsTab';
 import WebhooksTab from './WebhooksTab';
 import CronJobsTab from './CronJobsTab';
 
@@ -131,10 +131,19 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
     
-    // State for Automation Tabs (migrated from AuxiliaryDataDashboard)
-     const [settings, setSettings] = useState<any>({});
+    // State for Automation Tabs
+    const [settings, setSettings] = useState<any>({});
+    
+    // State for Webhooks tab
+    const [webhookJson, setWebhookJson] = useState(JSON.stringify({ alert: "Possible ransomware detected", host: "PC-FIN-01", severity: "high", source: "SentinelOne" }, null, 2));
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [simulatedTicket, setSimulatedTicket] = useState<any>(null);
 
-     useEffect(() => {
+    // State for Cron Jobs tab
+    const [isTestingCron, setIsTestingCron] = useState(false);
+    const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | null>(null);
+
+    useEffect(() => {
         const loadSettings = async () => {
             const keysToFetch = [
                 'scan_frequency_days', 'scan_start_time', 'last_auto_scan', 
@@ -150,19 +159,13 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             }
 
             const projectUrl = localStorage.getItem('SUPABASE_URL');
+            const projectRef = projectUrl ? new URL(projectUrl).hostname.split('.')[0] : '[PROJECT-REF]';
 
             setSettings({
                 scan_frequency_days: fetchedSettings.scan_frequency_days || '0',
-                scan_start_time: fetchedSettings.scan_start_time || '02:00',
                 last_auto_scan: fetchedSettings.last_auto_scan ? new Date(fetchedSettings.last_auto_scan).toLocaleString() : '-',
-                scan_include_eol: fetchedSettings.scan_include_eol ? fetchedSettings.scan_include_eol === 'true' : true,
-                scan_lookback_years: fetchedSettings.scan_lookback_years ? parseInt(fetchedSettings.scan_lookback_years) : 2,
-                scan_custom_prompt: fetchedSettings.scan_custom_prompt || '',
                 equipment_naming_prefix: fetchedSettings.equipment_naming_prefix || 'PC-',
                 equipment_naming_digits: fetchedSettings.equipment_naming_digits || '4',
-                weekly_report_recipients: fetchedSettings.weekly_report_recipients || '',
-                resendApiKey: fetchedSettings.resend_api_key || '',
-                resendFromEmail: fetchedSettings.resend_from_email || '',
                 sbUrl: localStorage.getItem('SUPABASE_URL') || '',
                 sbKey: localStorage.getItem('SUPABASE_ANON_KEY') || '',
                 sbServiceKey: localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '',
@@ -172,10 +175,13 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 app_logo_size: parseInt(fetchedSettings.app_logo_size || '80'),
                 app_logo_alignment: fetchedSettings.app_logo_alignment || 'center',
                 report_footer_institution_id: fetchedSettings.report_footer_institution_id || '',
+                reportRecipients: fetchedSettings.weekly_report_recipients || '',
+                cronFunctionCode: `// Supabase Edge Function: /supabase/functions/weekly-report/index.ts ...`,
+                cronSqlCode: `SELECT cron.schedule('weekly-report-job', '0 9 * * 1', 'SELECT net.http_post(url:=''https://${projectRef}.supabase.co/functions/v1/weekly-report'', headers:=''{"Authorization": "Bearer [SERVICE_ROLE_KEY]"}'')');`,
             });
         };
         loadSettings();
-    }, [selectedMenuId]); // Reload when menu changes to fetch fresh data for specific tabs
+    }, [selectedMenuId]);
 
     const menuStructure: { group: string; items: { id: string; label: string; icon: React.ReactNode }[] }[] = [
         {
@@ -183,6 +189,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             items: [
                 { id: 'general', label: 'Geral & Scans', icon: <FaRobot /> },
                 { id: 'connections', label: 'Conexões & APIs', icon: <FaKey /> },
+                { id: 'agents', label: 'Agentes (PowerShell)', icon: <FaRobot /> },
+                { id: 'webhooks', label: 'Webhooks (SIEM)', icon: <FaNetworkWired /> },
+                { id: 'cronjobs', label: 'Tarefas Agendadas (Cron)', icon: <FaClock /> },
                 { id: 'branding', label: 'Branding (Relatórios)', icon: <FaPalette /> },
                 { id: 'diagnostics', label: 'Diagnóstico de Sistema', icon: <FaHeartbeat /> },
             ]
@@ -199,6 +208,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'brands', label: 'Marcas', icon: <FaTags /> },
                 { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes /> },
                 { id: 'config_equipment_statuses', label: 'Estados de Equipamento', icon: <FaList /> },
+                { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
                 { id: 'config_software_categories', label: 'Categorias de Software', icon: <FaList /> },
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
@@ -216,6 +226,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     const simpleConfigTables: Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }> = {
         'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: appData.configEquipmentStatuses, colorField: true },
+        'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
@@ -258,21 +269,18 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col" key={selectedMenuId}>
-                    
-                    {/* Automation Tabs */}
-                    {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
-                    {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
-                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
-                    
-                    {/* Complex Dashboards */}
+                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4" key={selectedMenuId}>
+                    {selectedMenuId === 'agents' && <AgentsTab />}
+                    {selectedMenuId === 'cronjobs' && <CronJobsTab settings={settings} onSettingsChange={(k, v) => setSettings((p:any) => ({ ...p, [k]: v }))} onSave={() => {dataService.updateGlobalSetting('weekly_report_recipients', settings.reportRecipients); alert('Guardado!')}} onTest={() => {}} onCopy={(text, type) => { navigator.clipboard.writeText(text); setCopiedCode(type); setTimeout(() => setCopiedCode(null), 2000); }} />}
+                    {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings((p:any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
+                    {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings((p:any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
+                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p:any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
                     {selectedMenuId === 'roles' && <RoleManager roles={appData.customRoles} onRefresh={refreshData} />}
                     {selectedMenuId === 'brands' && <BrandDashboard brands={appData.brands} equipment={appData.equipment} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />}
                     {selectedMenuId === 'equipment_types' && <EquipmentTypeDashboard equipmentTypes={appData.equipmentTypes} equipment={appData.equipment} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />}
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
-                    {/* Simple Generic Dashboards */}
                     {simpleConfigTables[selectedMenuId] && (
                         <GenericConfigDashboard 
                             title={simpleConfigTables[selectedMenuId].label}

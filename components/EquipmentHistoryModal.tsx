@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest } from '../types';
@@ -85,7 +84,43 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
             .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     }, [tickets, equipment.id]);
     
-    // ... (rest of the component is the same)
+    // Split licenses into Active and History
+    const { activeLicenses, historyLicenses } = useMemo(() => {
+        const allAssignments = licenseAssignments.filter(la => la.equipmentId === equipment.id);
+        const activeMap = new Map<string, { license: SoftwareLicense, assignedDate: string }>();
+        const history: { license: SoftwareLicense, assignedDate: string, returnDate: string }[] = [];
+
+        allAssignments.forEach(la => {
+            const lic = softwareLicenses.find(l => l.id === la.softwareLicenseId);
+            if (lic) {
+                if (!la.returnDate) {
+                    if (!activeMap.has(lic.id)) activeMap.set(lic.id, { license: lic, assignedDate: la.assignedDate });
+                } else {
+                    history.push({ license: lic, assignedDate: la.assignedDate, returnDate: la.returnDate });
+                }
+            }
+        });
+        
+        history.sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime());
+        return { activeLicenses: Array.from(activeMap.values()), historyLicenses: history };
+    }, [licenseAssignments, softwareLicenses, equipment.id]);
+
+    const equipmentSupplier = useMemo(() => {
+        if (!equipment.supplier_id) return null;
+        return suppliers.find(s => s.id === equipment.supplier_id);
+    }, [equipment.supplier_id, suppliers]);
+
+    const isPatchOutdated = useMemo(() => {
+        if (!equipment.last_security_update) return false;
+        const lastUpdate = new Date(equipment.last_security_update);
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        return lastUpdate < ninetyDaysAgo;
+    }, [equipment.last_security_update]);
+
+    const maintenanceCost = useMemo(() => childEquipment.reduce((sum, part) => sum + (part.acquisitionCost || 0), 0), [childEquipment]);
+    const totalTCO = (equipment.acquisitionCost || 0) + maintenanceCost;
+
     const handleSaveLicenses = async (eqId: string, licenseIds: string[]) => {
         await dataService.syncLicenseAssignments(eqId, licenseIds);
     };
@@ -155,7 +190,65 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                     
                     {activeTab === 'details' && (
                        <div className="space-y-6">
-                            {/* ... (conteúdo existente) ... */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-bold text-gray-400 uppercase border-b border-gray-700 pb-1">Informação Técnica</h3>
+                                    <div className="text-sm space-y-2">
+                                        <div className="flex justify-between"><span className="text-gray-500">Nome na Rede:</span> <span className="text-white">{equipment.nomeNaRede || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">MAC (WiFi):</span> <span className="text-white font-mono">{equipment.macAddressWIFI || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">MAC (Cabo):</span> <span className="text-white font-mono">{equipment.macAddressCabo || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Sistema Operativo:</span> <span className="text-white">{equipment.os_version || '-'}</span></div>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-bold text-gray-400 uppercase border-b border-gray-700 pb-1">Compra & Garantia</h3>
+                                    <div className="text-sm space-y-2">
+                                        <div className="flex justify-between"><span className="text-gray-500">Data Compra:</span> <span className="text-white">{equipment.purchaseDate}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Fim Garantia:</span> <span className="text-white">{equipment.warrantyEndDate || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Nº Fatura:</span> <span className="text-white">{equipment.invoiceNumber || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Custo Aquisição:</span> <span className="text-white font-bold">€ {equipment.acquisitionCost || 0}</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-gray-800/30 p-4 rounded border border-gray-700">
+                                <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
+                                    <FaEuroSign className="text-green-400"/> FinOps: TCO & Manutenção
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                    <div className="bg-gray-900 p-3 rounded"><span className="block text-xs text-gray-500 uppercase">Compra</span><span className="text-lg font-bold text-white">€ {equipment.acquisitionCost || 0}</span></div>
+                                    <div className="bg-gray-900 p-3 rounded"><span className="block text-xs text-gray-500 uppercase">Manutenção</span><span className="text-lg font-bold text-yellow-400">€ {maintenanceCost}</span></div>
+                                    <div className="bg-gray-900 p-3 rounded border border-green-900"><span className="block text-xs text-green-500 uppercase font-bold">TCO</span><span className="text-xl font-bold text-green-400">€ {totalTCO}</span></div>
+                                </div>
+                                
+                                {childEquipment.length > 0 && (
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-2"><FaTools/> Peças Instaladas</h4>
+                                        <table className="w-full text-xs text-left"><thead className="bg-gray-900 text-gray-500 uppercase"><tr><th className="p-2">Descrição</th><th className="p-2">Data</th><th className="p-2 text-right">Custo</th></tr></thead><tbody className="divide-y divide-gray-700">{childEquipment.map(c => <tr key={c.id}><td className="p-2 text-gray-300">{c.description}</td><td className="p-2">{c.purchaseDate}</td><td className="p-2 text-right font-mono text-white">€ {c.acquisitionCost || 0}</td></tr>)}</tbody></table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {activeTab === 'history' && (
+                        <div className="space-y-6">
+                            <div><h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><FaHistory/> Histórico de Atribuições</h3> {equipmentAssignments.length > 0 ? <table className="w-full text-xs text-left"><thead className="bg-gray-800 text-gray-400 uppercase"><tr><th className="p-2">Quem/Onde</th><th className="p-2">Início</th><th className="p-2">Fim</th></tr></thead><tbody className="divide-y divide-gray-700">{equipmentAssignments.map(a => <tr key={a.id}><td className="p-2 text-white">{a.collaboratorId ? collaboratorMap.get(a.collaboratorId) : entidadeMap.get(a.entidadeId || '')}</td><td className="p-2 text-gray-300">{a.assignedDate}</td><td className="p-2 text-gray-300">{a.returnDate || <span className="text-green-400">Atual</span>}</td></tr>)}</tbody></table> : <p className="text-sm text-gray-500 italic">Sem histórico.</p>}</div>
+                            <div><h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><FaTicketAlt/> Histórico de Tickets</h3> {equipmentTickets.length > 0 ? <div className="space-y-2">{equipmentTickets.map(t => <div key={t.id} className="bg-gray-800 p-2 rounded border border-gray-700 text-xs"><div className="flex justify-between mb-1"><span className="text-brand-secondary font-bold">{t.requestDate}</span><span className="text-gray-400">{t.status}</span></div><p className="text-white">{t.description}</p></div>)}</div> : <p className="text-sm text-gray-500 italic">Sem tickets registados.</p>}</div>
+                        </div>
+                    )}
+                    
+                    {activeTab === 'licenses' && (
+                        <div className="space-y-6">
+                            <div><div className="flex justify-between items-center mb-2"><h3 className="text-sm font-bold text-white flex items-center gap-2"><FaKey className="text-yellow-500"/> Software Instalado (Ativo)</h3><button onClick={() => setShowManageLicenses(true)} className="text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded flex items-center gap-2"><FaPlus/> Gerir</button></div>{activeLicenses.length > 0 ? <div className="space-y-2">{activeLicenses.map(({ license: sw, assignedDate }) => <div key={sw.id} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center"><div><p className="font-bold text-white text-sm">{sw.productName}</p><p className="text-xs text-gray-400 font-mono">{sw.licenseKey}</p></div><div className="text-right"><span className={`text-xs px-2 py-1 rounded block mb-1 ${sw.status === 'Ativo' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>{sw.status}</span><span className="text-xs text-gray-500">Desde: {assignedDate}</span></div></div>)}</div> : <p className="text-center py-4 bg-gray-900/20 rounded border border-dashed border-gray-700 text-gray-500 text-sm">Nenhuma licença associada.</p>}</div>
+                            <div><h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><FaHistory/> Histórico de Software (Removido)</h3> {historyLicenses.length > 0 ? <table className="w-full text-xs text-left bg-gray-900/30 rounded border border-gray-700"><thead className="bg-gray-800 text-gray-400 uppercase"><tr><th className="p-2">Produto</th><th className="p-2">Instalação</th><th className="p-2">Remoção</th></tr></thead><tbody className="divide-y divide-gray-700">{historyLicenses.map(({ license, assignedDate, returnDate }, idx) => <tr key={idx}><td className="p-2 text-gray-300">{license.productName}</td><td className="p-2">{assignedDate}</td><td className="p-2">{returnDate}</td></tr>)}</tbody></table> : <p className="text-sm text-gray-500 italic">Sem histórico de licenças.</p>}</div>
+                        </div>
+                    )}
+
+                    {activeTab === 'security' && (
+                        <div className="space-y-6">
+                            <div className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg"><h3 className="font-bold text-white mb-3 flex items-center gap-2"><FaShieldAlt className="text-red-400"/> Postura de Segurança</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"><div><span className="text-gray-500 block mb-1">Versão do SO</span><span className="text-white bg-gray-900 px-2 py-1 rounded border border-gray-600">{equipment.os_version || 'N/A'}</span></div><div><span className="text-gray-500 block mb-1">Último Patch</span><span className={`bg-gray-900 px-2 py-1 rounded border border-gray-600 ${isPatchOutdated ? 'text-red-400 font-bold' : 'text-green-400'}`}>{equipment.last_security_update || 'N/A'}</span></div></div>{isPatchOutdated && <div className="mt-3 p-2 bg-red-900/20 border border-red-500/30 rounded text-xs text-red-200 flex items-center gap-2"><FaExclamationTriangle/> Sistema desatualizado.</div>}</div>
+                            <div className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg"><h3 className="font-bold text-white mb-3 flex items-center gap-2"><FaBug className="text-orange-400"/> Análise de Risco (C-I-A)</h3><div className="grid grid-cols-2 gap-4 text-center"><div className="bg-gray-900 p-2 rounded border border-gray-600"><span className="block text-xs text-gray-500 uppercase">Criticidade</span><span className={`font-bold text-sm ${getCriticalityClass(equipment.criticality || CriticalityLevel.Low).split(' ')[0]}`}>{equipment.criticality || 'Baixa'}</span></div><div className="bg-gray-900 p-2 rounded border border-gray-600"><span className="block text-xs text-gray-500 uppercase">Confidencialidade</span><span className="text-white font-bold text-sm">{equipment.confidentiality || 'Baixa'}</span></div></div></div>
                         </div>
                     )}
 
@@ -174,8 +267,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                             </div>
                         </div>
                     )}
-                    
-                    {/* ... (restante do conteúdo das outras abas) ... */}
+
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-gray-700 mt-auto">

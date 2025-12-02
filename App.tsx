@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense
+    Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember
 } from './types';
 import * as dataService from './services/dataService';
 import { useAppData } from './hooks/useAppData';
@@ -59,6 +59,19 @@ export const App: React.FC = () => {
     }, []);
     const today = useMemo(() => new Date(), []);
 
+    const myTeamIds = useMemo(() => {
+        if (!currentUser) return new Set<string>();
+        return new Set(
+            appData.teamMembers
+                .filter((tm: TeamMember) => tm.collaborator_id === currentUser.id)
+                .map((tm: TeamMember) => tm.team_id)
+        );
+    }, [appData.teamMembers, currentUser]);
+
+    const teamTickets = useMemo(() => {
+        return appData.tickets.filter((t: Ticket) => t.status === 'Pedido' && t.team_id && myTeamIds.has(t.team_id));
+    }, [appData.tickets, myTeamIds]);
+
     const expiringWarranties = useMemo(() => {
         return appData.equipment.filter((eq: Equipment) => {
             if (!eq.warrantyEndDate) return false;
@@ -82,6 +95,10 @@ export const App: React.FC = () => {
             }
         });
     }, [appData.softwareLicenses, today, thirtyDaysFromNow]);
+    
+    const notificationCount = useMemo(() => {
+        return expiringWarranties.length + expiringLicenses.length + teamTickets.length;
+    }, [expiringWarranties, expiringLicenses, teamTickets]);
     
     // --- Routing Logic (Hash Based) ---
     const [activeTab, setActiveTabState] = useState(() => {
@@ -310,7 +327,7 @@ export const App: React.FC = () => {
                     setActiveTab={setActiveTab} 
                     onLogout={handleLogout}
                     tabConfig={tabConfig}
-                    notificationCount={expiringWarranties.length + expiringLicenses.length + appData.tickets.filter((t: Ticket) => t.status === 'Pedido').length}
+                    notificationCount={notificationCount}
                     onNotificationClick={() => setShowNotificationsModal(true)}
                     isExpanded={isSidebarExpanded}
                     onHover={setIsSidebarExpanded}
@@ -325,7 +342,7 @@ export const App: React.FC = () => {
                     setActiveTab={setActiveTab} 
                     onLogout={handleLogout} 
                     tabConfig={tabConfig}
-                    notificationCount={expiringWarranties.length + expiringLicenses.length + appData.tickets.filter((t: Ticket) => t.status === 'Pedido').length}
+                    notificationCount={notificationCount}
                     onNotificationClick={() => setShowNotificationsModal(true)}
                     onOpenProfile={handleOpenProfile}
                     onOpenCalendar={() => setShowCalendarModal(true)}
@@ -493,7 +510,7 @@ export const App: React.FC = () => {
                     onClose={() => setShowNotificationsModal(false)}
                     expiringWarranties={expiringWarranties} 
                     expiringLicenses={expiringLicenses}
-                    teamTickets={appData.tickets.filter((t: Ticket) => t.status === 'Pedido')}
+                    teamTickets={teamTickets}
                     collaborators={appData.collaborators}
                     teams={appData.teams}
                     onViewItem={handleViewItem}

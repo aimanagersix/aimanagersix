@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import * as dataService from '../services/dataService';
 import { getSupabase, SUPABASE_CONFIG } from '../services/supabaseClient';
@@ -47,6 +46,7 @@ export interface AppData {
     configBackupTypes: ConfigItem[];
     configTrainingTypes: ConfigItem[];
     configResilienceTestTypes: ConfigItem[];
+    configDecommissionReasons: ConfigItem[]; // NEW
     policies: Policy[];
     policyAcceptances: PolicyAcceptance[];
     procurementRequests: ProcurementRequest[];
@@ -64,6 +64,7 @@ const initialData: AppData = {
     softwareCategories: [], configEquipmentStatuses: [], contactRoles: [], contactTitles: [], 
     configCriticalityLevels: [], configCiaRatings: [], configServiceStatuses: [], 
     configBackupTypes: [], configTrainingTypes: [], configResilienceTestTypes: [],
+    configDecommissionReasons: [], // NEW
     policies: [], policyAcceptances: [], procurementRequests: [], calendarEvents: [],
     continuityPlans: [] // NEW
 };
@@ -122,6 +123,7 @@ export const useAppData = () => {
                 configBackupTypes: data.configBackupTypes,
                 configTrainingTypes: data.configTrainingTypes,
                 configResilienceTestTypes: data.configResilienceTestTypes,
+                configDecommissionReasons: data.configDecommissionReasons, // NEW
                 policies: data.policies,
                 policyAcceptances: data.policyAcceptances,
                 procurementRequests: data.procurementRequests,
