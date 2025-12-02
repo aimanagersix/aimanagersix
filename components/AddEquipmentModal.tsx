@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -143,7 +145,8 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
 
 interface AddEquipmentModalProps {
     onClose: () => void;
-    onSave: (equipment: Omit<Equipment, 'id' | 'modifiedDate' | 'status' | 'creationDate'> | Equipment, assignment?: any, licenseIds?: string[]) => Promise<any>;
+    // FIX: The onSave prop type was too restrictive for a form payload. Changed to Partial<Equipment> for better type compatibility.
+    onSave: (equipment: Partial<Equipment>, assignment?: any, licenseIds?: string[]) => Promise<any>;
     brands: Brand[];
     equipmentTypes: EquipmentType[];
     equipmentToEdit?: Equipment | null;
@@ -416,43 +419,16 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         e.preventDefault();
         if (!validate()) return;
         
-        const dataToSubmit: any = {};
-        // Only include fields that are part of the form to avoid sending stale data
-        // Also sanitize: remove view-only fields
-        const excludeFields = ['assignedTo', 'assignment', 'contacts', 'id', 'creationDate', 'modifiedDate'];
+        // Simplified and safer payload creation
+        const dataToSubmit = { ...formData };
         
-        Object.keys(formData).forEach(key => {
-            if (excludeFields.includes(key)) return;
+        // Remove helper/read-only fields that should not be sent to the DB
+        const fieldsToRemove = ['id', 'creationDate', 'modifiedDate', 'assignedTo', 'assignment', 'contacts'];
+        fieldsToRemove.forEach(field => delete (dataToSubmit as any)[field]);
 
-            const typedKey = key as keyof Equipment;
-            const value = formData[typedKey];
-            
-            // Convert empty strings for optional text fields to null
-            if (typeof value === 'string' && value.trim() === '') {
-                const nullableFields = [
-                    'inventoryNumber', 'invoiceNumber', 'requisitionNumber',
-                    'nomeNaRede', 'macAddressWIFI', 'macAddressCabo',
-                    'warrantyEndDate', 'supplier_id', 'embedded_license_key', 'installationLocation', 'parent_equipment_id',
-                    'os_version', 'last_security_update', 'firmware_version',
-                    'wwan_address', 'bluetooth_address', 'usb_thunderbolt_address'
-                ];
-                if (nullableFields.includes(typedKey)) {
-                    dataToSubmit[typedKey] = null;
-                } else {
-                    dataToSubmit[typedKey] = value; // Keep required strings
-                }
-            } else if (value !== undefined) {
-                 dataToSubmit[typedKey] = value;
-            }
-        });
-        
-        // Ensure numbers are numbers and not NaN
-        dataToSubmit.acquisitionCost = isNaN(parseFloat(String(formData.acquisitionCost))) ? 0 : parseFloat(String(formData.acquisitionCost));
-        dataToSubmit.expectedLifespanYears = isNaN(parseInt(String(formData.expectedLifespanYears))) ? 4 : parseInt(String(formData.expectedLifespanYears));
-
-        // Prepare auxiliary data
+        // Prepare auxiliary data for new equipment
         let assignment = null;
-        if (assignToEntityId) {
+        if (!equipmentToEdit && assignToEntityId) {
             assignment = {
                 entidadeId: assignToEntityId,
                 collaboratorId: assignToCollaboratorId || undefined,

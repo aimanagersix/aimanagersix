@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
 import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint } from 'react-icons/fa';
@@ -51,6 +52,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'equipment_types', label: 'Tipos de Equipamento' },
             { key: 'config_equipment_statuses', label: 'Estados de Equipamento' },
             { key: 'config_software_categories', label: 'Categorias de Software' },
+            { key: 'config_decommission_reasons', label: 'Motivos de Abate' },
         ]
     },
     {
@@ -66,6 +68,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'contact_roles', label: 'Funções de Contacto' },
             { key: 'contact_titles', label: 'Tratos (Honoríficos)' },
             { key: 'config_custom_roles', label: 'Perfis de Acesso (RBAC)' },
+            { key: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação' },
         ]
     },
     {

@@ -231,6 +231,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     tooltipConfig={userTooltipConfig}
                     onAssignEquipment={checkPermission('equipment', 'edit') ? handleAssignEquipment : undefined}
                     onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
+                    deactivationReasons={appData.configCollaboratorDeactivationReasons}
                 />
             )}
 
@@ -390,6 +391,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onAssignEquipment={checkPermission('equipment', 'edit') ? handleAssignEquipment : undefined}
                     onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
                     onConfirmOffboarding={checkPermission('organization', 'edit') ? handleConfirmOffboarding : undefined}
+                    deactivationReasons={appData.configCollaboratorDeactivationReasons}
                 />
             )}
             

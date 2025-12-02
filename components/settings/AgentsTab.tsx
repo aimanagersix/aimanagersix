@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows } from 'react-icons/fa';
 
 const agentScript = `
-# AIManager Windows Inventory Agent v1.0
+# AIManager Windows Inventory Agent v1.1
 #
 # COMO USAR:
 # 1. Copie o seu Supabase URL e Anon Key para as variáveis abaixo.
 # 2. Execute este script como Administrador no computador alvo.
 #
-# NOTA: Este script recolhe informação e envia-a para a sua base de dados AIManager.
-#       Revise o código para garantir que está confortável com os dados recolhidos.
+# MELHORIAS v1.1:
+# - Adiciona mais feedback de progresso no terminal.
+# - Recolhe endereços MAC de interfaces de Rede (WiFi e Cabo).
+# - Melhora a deteção de tipos de equipamento existentes (ex: Laptop vs. Portátil).
 
 # --- CONFIGURAÇÃO (PREENCHER) ---
 $supabaseUrl = "COLE_AQUI_O_SEU_SUPABASE_URL"
@@ -28,10 +30,21 @@ function Get-HardwareInfo {
             Size = [Math]::Round($_.Size / 1GB)
         }
     }
+    
+    # Get Network Adapters
+    $macWifi = $null
+    $macCabo = $null
+    Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | ForEach-Object {
+        if ($_.InterfaceDescription -like "*Wireless*" -or $_.InterfaceDescription -like "*Wi-Fi*") {
+            $macWifi = $_.MacAddress
+        }
+        if ($_.InterfaceDescription -like "*Ethernet*" -or $_.InterfaceDescription -like "*Gigabit*") {
+            $macCabo = $_.MacAddress
+        }
+    }
 
     $serialNumber = $bios.SerialNumber
     
-    # Heurística para portáteis (Chassis Type)
     $chassisType = (Get-CimInstance -ClassName Win32_SystemEnclosure).ChassisTypes
     $isLaptop = $chassisType -contains 8 -or $chassisType -contains 9 -or $chassisType -contains 10 -or $chassisType -contains 14
 
@@ -47,10 +60,13 @@ function Get-HardwareInfo {
         ram_size = "$([Math]::Round($memory.Sum / 1GB)) GB"
         disk_info = $disks | ConvertTo-Json -Compress
         nomeNaRede = $env:COMPUTERNAME
+        macAddressWIFI = $macWifi
+        macAddressCabo = $macCabo
     }
 }
 
 try {
+    Write-Host "AIManager Agent v1.1" -ForegroundColor Cyan
     Write-Host "A recolher informação do sistema..."
     $info = Get-HardwareInfo
     
@@ -59,7 +75,9 @@ try {
         return
     }
 
-    Write-Host "A contactar o AIManager..."
+    Write-Host "Informação recolhida para S/N: $($info.serialNumber)"
+    Write-Host "A contactar o AIManager em $supabaseUrl..."
+
     $headers = @{
         "apikey" = $supabaseAnonKey
         "Authorization" = "Bearer $supabaseAnonKey"
@@ -79,6 +97,8 @@ try {
         ram_size = $info.ram_size
         disk_info = $info.disk_info
         nomeNaRede = $info.nomeNaRede
+        macAddressWIFI = $info.macAddressWIFI
+        macAddressCabo = $info.macAddressCabo
         modifiedDate = (Get-Date).ToUniversalTime().ToString("o")
     } | ConvertTo-Json -Depth 5
 
@@ -87,25 +107,39 @@ try {
         $id = $existing[0].id
         Write-Host "Equipamento encontrado (ID: $id). A atualizar..."
         Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment?id=eq.$id" -Method Patch -Headers $headers -Body $body
+        Write-Host "Equipamento atualizado com sucesso."
     } else {
         # Create
         Write-Host "Equipamento novo. A registar no inventário..."
+        
         # Tenta encontrar Brand/Type pelo nome
         $brandId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/brands?select=id&name=ilike.$($info.brandName)" -Method Get -Headers $headers)[0].id
         $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.$($info.typeName)" -Method Get -Headers $headers)[0].id
+
+        # Fallback for Laptop vs Portátil
+        if (-not $typeId -and $info.typeName -eq "Laptop") {
+            $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.Portátil" -Method Get -Headers $headers)[0].id
+        }
         
         $createBody = $body | ConvertFrom-Json
-        if($brandId) { $createBody.brandId = $brandId }
-        if($typeId) { $createBody.typeId = $typeId }
+        if($brandId) { $createBody.brandId = $brandId; Write-Host "Marca encontrada: $($info.brandName)" }
+        if($typeId) { $createBody.typeId = $typeId; Write-Host "Tipo encontrado: $($info.typeName)" }
         
         Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment" -Method Post -Headers $headers -Body ($createBody | ConvertTo-Json -Depth 5)
+        Write-Host "Equipamento criado com sucesso."
     }
 
+    Write-Host ""
+    Write-Host "------------------------------------"
     Write-Host "Operação concluída com sucesso!" -ForegroundColor Green
+    Write-Host "------------------------------------"
 
 } catch {
     Write-Error "Ocorreu um erro: $($_.Exception.Message)"
 }
+
+# Manter a janela aberta por 5 segundos para ler a saída
+Start-Sleep -Seconds 5
 `;
 
 

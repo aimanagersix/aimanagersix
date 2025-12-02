@@ -17,15 +17,30 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
     const [newItemName, setNewItemName] = useState('');
     const [newItemColor, setNewItemColor] = useState('#3B82F6');
     const [editingItem, setEditingItem] = useState<ConfigItem | null>(null);
+    const [error, setError] = useState('');
 
     const handleSave = async () => {
+        const name = (editingItem ? editingItem.name : newItemName).trim();
+        if (!name) {
+            setError('O nome não pode ser vazio.');
+            return;
+        }
+
+        const isDuplicate = (items || []).some(
+            (item) => item.name.toLowerCase() === name.toLowerCase() && item.id !== editingItem?.id
+        );
+
+        if (isDuplicate) {
+            setError('Já existe um item com este nome.');
+            return;
+        }
+        
+        setError('');
+
         if (editingItem) {
-            // Update
             await dataService.updateConfigItem(tableName, editingItem.id, { name: editingItem.name, color: editingItem.color });
             setEditingItem(null);
         } else {
-            // Create
-            if (!newItemName.trim()) return;
             await dataService.addConfigItem(tableName, { name: newItemName, color: colorField ? newItemColor : undefined });
             setNewItemName('');
         }
@@ -34,8 +49,12 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
 
     const handleDelete = async (id: string) => {
         if(confirm("Tem a certeza?")) {
-            await dataService.deleteConfigItem(tableName, id);
-            onRefresh();
+            try {
+                await dataService.deleteConfigItem(tableName, id);
+                onRefresh();
+            } catch (e: any) {
+                alert(`Erro ao apagar: ${e.message}. Verifique se este item está a ser utilizado.`);
+            }
         }
     };
 
@@ -47,9 +66,12 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
                 <input
                     type="text"
                     value={editingItem ? editingItem.name : newItemName}
-                    onChange={(e) => editingItem ? setEditingItem({ ...editingItem, name: e.target.value }) : setNewItemName(e.target.value)}
+                    onChange={(e) => {
+                        editingItem ? setEditingItem({ ...editingItem, name: e.target.value }) : setNewItemName(e.target.value);
+                        if (error) setError('');
+                    }}
                     placeholder="Nome do novo item..."
-                    className="flex-grow bg-gray-700 border border-gray-600 rounded-md p-2 text-sm text-white"
+                    className={`flex-grow bg-gray-700 border rounded-md p-2 text-sm text-white ${error ? 'border-red-500' : 'border-gray-600'}`}
                 />
                 {colorField && (
                      <input
@@ -64,6 +86,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
                 </button>
                 {editingItem && <button onClick={() => setEditingItem(null)} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500"><FaTimes /></button>}
             </div>
+            {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
 
             <div className="flex-grow overflow-y-auto custom-scrollbar border border-gray-700 rounded-lg">
                 <table className="w-full text-sm">
