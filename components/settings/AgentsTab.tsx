@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows } from 'react-icons/fa';
 
 const agentScript = `
-# AIManager Windows Inventory Agent v1.1
+# AIManager Windows Inventory Agent v1.2
 #
 # COMO USAR:
 # 1. Copie o seu Supabase URL e Anon Key para as variáveis abaixo.
 # 2. Execute este script como Administrador no computador alvo.
 #
-# MELHORIAS v1.1:
+# MELHORIAS v1.2:
 # - Adiciona mais feedback de progresso no terminal.
-# - Recolhe endereços MAC de interfaces de Rede (WiFi e Cabo).
+# - Recolhe endereços MAC de interfaces de Rede (WiFi e Cabo) ativas.
 # - Melhora a deteção de tipos de equipamento existentes (ex: Laptop vs. Portátil).
 
 # --- CONFIGURAÇÃO (PREENCHER) ---
@@ -19,6 +19,7 @@ $supabaseAnonKey = "COLE_AQUI_A_SUA_SUPABASE_ANON_KEY"
 # -----------------------------------
 
 function Get-HardwareInfo {
+    Write-Host "A recolher dados de Hardware e SO..."
     $os = Get-CimInstance -ClassName Win32_OperatingSystem
     $cs = Get-CimInstance -ClassName Win32_ComputerSystem
     $bios = Get-CimInstance -ClassName Win32_BIOS
@@ -31,15 +32,18 @@ function Get-HardwareInfo {
         }
     }
     
-    # Get Network Adapters
+    # Get Network Adapters (Active only)
+    Write-Host "A recolher endereços MAC de placas ativas..."
     $macWifi = $null
     $macCabo = $null
     Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | ForEach-Object {
         if ($_.InterfaceDescription -like "*Wireless*" -or $_.InterfaceDescription -like "*Wi-Fi*") {
             $macWifi = $_.MacAddress
+            Write-Host "  - MAC WiFi encontrado: $($macWifi)"
         }
         if ($_.InterfaceDescription -like "*Ethernet*" -or $_.InterfaceDescription -like "*Gigabit*") {
             $macCabo = $_.MacAddress
+            Write-Host "  - MAC Cabo encontrado: $($macCabo)"
         }
     }
 
@@ -49,6 +53,7 @@ function Get-HardwareInfo {
     $isLaptop = $chassisType -contains 8 -or $chassisType -contains 9 -or $chassisType -contains 10 -or $chassisType -contains 14
 
     $typeGuess = if ($isLaptop) { "Laptop" } else { "Desktop" }
+    Write-Host "Tipo de equipamento detetado: $($typeGuess)"
 
     return @{
         serialNumber = $serialNumber
@@ -66,8 +71,7 @@ function Get-HardwareInfo {
 }
 
 try {
-    Write-Host "AIManager Agent v1.1" -ForegroundColor Cyan
-    Write-Host "A recolher informação do sistema..."
+    Write-Host "AIManager Agent v1.2" -ForegroundColor Cyan
     $info = Get-HardwareInfo
     
     if (-not $info.serialNumber) {
@@ -107,31 +111,33 @@ try {
         $id = $existing[0].id
         Write-Host "Equipamento encontrado (ID: $id). A atualizar..."
         Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment?id=eq.$id" -Method Patch -Headers $headers -Body $body
-        Write-Host "Equipamento atualizado com sucesso."
+        Write-Host "Equipamento atualizado com sucesso." -ForegroundColor Green
     } else {
         # Create
         Write-Host "Equipamento novo. A registar no inventário..."
         
         # Tenta encontrar Brand/Type pelo nome
+        Write-Host "A procurar por Marca '$($info.brandName)' e Tipo '$($info.typeName)' existentes..."
         $brandId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/brands?select=id&name=ilike.$($info.brandName)" -Method Get -Headers $headers)[0].id
         $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.$($info.typeName)" -Method Get -Headers $headers)[0].id
 
-        # Fallback for Laptop vs Portátil
+        # Fallback for Laptop vs Portátil (case insensitive)
         if (-not $typeId -and $info.typeName -eq "Laptop") {
+            Write-Host "Tipo 'Laptop' não encontrado. A tentar 'Portátil'..."
             $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.Portátil" -Method Get -Headers $headers)[0].id
         }
         
         $createBody = $body | ConvertFrom-Json
-        if($brandId) { $createBody.brandId = $brandId; Write-Host "Marca encontrada: $($info.brandName)" }
-        if($typeId) { $createBody.typeId = $typeId; Write-Host "Tipo encontrado: $($info.typeName)" }
+        if($brandId) { $createBody.brandId = $brandId; Write-Host "  - Marca encontrada: $($info.brandName)" -ForegroundColor Yellow }
+        if($typeId) { $createBody.typeId = $typeId; Write-Host "  - Tipo encontrado: $($info.typeName)" -ForegroundColor Yellow }
         
         Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment" -Method Post -Headers $headers -Body ($createBody | ConvertTo-Json -Depth 5)
-        Write-Host "Equipamento criado com sucesso."
+        Write-Host "Equipamento criado com sucesso." -ForegroundColor Green
     }
 
     Write-Host ""
     Write-Host "------------------------------------"
-    Write-Host "Operação concluída com sucesso!" -ForegroundColor Green
+    Write-Host "Operação concluída!" -ForegroundColor Green
     Write-Host "------------------------------------"
 
 } catch {

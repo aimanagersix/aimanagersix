@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -145,7 +141,6 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => 
 
 interface AddEquipmentModalProps {
     onClose: () => void;
-    // FIX: The onSave prop type was too restrictive for a form payload. Changed to Partial<Equipment> for better type compatibility.
     onSave: (equipment: Partial<Equipment>, assignment?: any, licenseIds?: string[]) => Promise<any>;
     brands: Brand[];
     equipmentTypes: EquipmentType[];
@@ -419,14 +414,41 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         e.preventDefault();
         if (!validate()) return;
         
-        // Simplified and safer payload creation
-        const dataToSubmit = { ...formData };
-        
-        // Remove helper/read-only fields that should not be sent to the DB
-        const fieldsToRemove = ['id', 'creationDate', 'modifiedDate', 'assignedTo', 'assignment', 'contacts'];
-        fieldsToRemove.forEach(field => delete (dataToSubmit as any)[field]);
+        const dataToSubmit: Partial<Equipment> = {
+            brandId: formData.brandId,
+            typeId: formData.typeId,
+            description: formData.description,
+            serialNumber: formData.serialNumber,
+            inventoryNumber: formData.inventoryNumber,
+            invoiceNumber: formData.invoiceNumber,
+            requisitionNumber: formData.requisitionNumber,
+            nomeNaRede: formData.nomeNaRede,
+            macAddressWIFI: formData.macAddressWIFI,
+            macAddressCabo: formData.macAddressCabo,
+            installationLocation: formData.installationLocation,
+            purchaseDate: formData.purchaseDate,
+            warrantyEndDate: formData.warrantyEndDate,
+            status: formData.status,
+            isLoan: formData.isLoan,
+            criticality: formData.criticality,
+            confidentiality: formData.confidentiality,
+            integrity: formData.integrity,
+            availability: formData.availability,
+            os_version: formData.os_version,
+            last_security_update: formData.last_security_update,
+            firmware_version: formData.firmware_version,
+            wwan_address: formData.wwan_address,
+            bluetooth_address: formData.bluetooth_address,
+            usb_thunderbolt_address: formData.usb_thunderbolt_address,
+            supplier_id: formData.supplier_id,
+            acquisitionCost: formData.acquisitionCost,
+            expectedLifespanYears: formData.expectedLifespanYears,
+            embedded_license_key: formData.embedded_license_key,
+            parent_equipment_id: formData.parent_equipment_id,
+            procurement_request_id: formData.procurement_request_id,
+            decommission_reason_id: formData.decommission_reason_id,
+        };
 
-        // Prepare auxiliary data for new equipment
         let assignment = null;
         if (!equipmentToEdit && assignToEntityId) {
             assignment = {

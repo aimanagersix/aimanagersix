@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
 import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint } from 'react-icons/fa';

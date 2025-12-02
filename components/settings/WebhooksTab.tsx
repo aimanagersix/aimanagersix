@@ -35,7 +35,7 @@ const WebhooksTab: React.FC<WebhooksTabProps> = ({ settings, onSettingsChange, o
                 <button 
                     onClick={onSimulate}
                     disabled={settings.isSimulating}
-                    className="mt-2 bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50"
+                    className="mt-2 bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50 self-start"
                 >
                     {settings.isSimulating ? <FaSpinner className="animate-spin"/> : <FaPlay />}
                     Simular e Analisar com IA
@@ -45,11 +45,11 @@ const WebhooksTab: React.FC<WebhooksTabProps> = ({ settings, onSettingsChange, o
                     <div className="mt-4 p-4 bg-gray-800 border border-gray-700 rounded animate-fade-in flex-grow">
                         <h4 className="text-white font-bold mb-2">Ticket Simulado:</h4>
                         <div className="text-sm space-y-2">
-                            <p><strong className="text-gray-400">Título:</strong> {settings.simulatedTicket.title}</p>
-                            <p><strong className="text-gray-400">Severidade:</strong> <span className="text-red-400">{settings.simulatedTicket.severity}</span></p>
-                            <p><strong className="text-gray-400">Descrição:</strong> {settings.simulatedTicket.description}</p>
-                            <p><strong className="text-gray-400">Ativo Afetado:</strong> <span className="font-mono">{settings.simulatedTicket.affectedAsset}</span></p>
-                             <p><strong className="text-gray-400">Tipo de Incidente:</strong> {settings.simulatedTicket.incidentType}</p>
+                            <p><strong className="text-gray-400 w-32 inline-block">Título:</strong> {settings.simulatedTicket.title}</p>
+                            <p><strong className="text-gray-400 w-32 inline-block">Severidade:</strong> <span className="text-red-400">{settings.simulatedTicket.severity}</span></p>
+                            <p><strong className="text-gray-400 w-32 inline-block">Descrição:</strong> {settings.simulatedTicket.description}</p>
+                            <p><strong className="text-gray-400 w-32 inline-block">Ativo Afetado:</strong> <span className="font-mono">{settings.simulatedTicket.affectedAsset}</span></p>
+                             <p><strong className="text-gray-400 w-32 inline-block">Tipo de Incidente:</strong> {settings.simulatedTicket.incidentType}</p>
                             {onCreateSimulatedTicket && (
                                 <button 
                                     onClick={onCreateSimulatedTicket}

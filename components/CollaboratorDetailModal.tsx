@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, SoftwareLicense, LicenseAssignment, Brand, EquipmentType, ConfigItem } from '../types';
@@ -22,7 +19,6 @@ interface CollaboratorDetailModalProps {
     onEdit: (collaborator: Collaborator) => void;
     onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
     onUnassignEquipment?: (equipmentId: string) => Promise<void>;
-    // FIX: Update onConfirmOffboarding to accept reasonId.
     onConfirmOffboarding?: (collaboratorId: string, reasonId?: string) => Promise<void>;
     deactivationReasons?: ConfigItem[];
 }
