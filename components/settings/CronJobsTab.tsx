@@ -6,6 +6,8 @@ interface CronJobsTabProps {
     settings: any;
     onSettingsChange: (key: string, value: any) => void;
     onSave: () => void;
+    onTest: () => void;
+    onCopy: (text: string) => void;
 }
 
 const cronFunctionCode = `import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -83,7 +85,6 @@ serve(async (req) => {
 `;
 
 const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave }) => {
-    const [isTestingCron, setIsTestingCron] = useState(false);
     const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | null>(null);
 
     const handleCopy = (text: string, type: 'cron_fn' | 'cron_sql') => {
@@ -91,6 +92,23 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
         setCopiedCode(type);
         setTimeout(() => setCopiedCode(null), 2000);
     };
+
+    const cronSqlCode = `
+-- Agendar a execução todas as Segundas-feiras às 08:00
+SELECT cron.schedule(
+    'weekly-asset-report',
+    '0 8 * * 1',
+    $$
+    SELECT net.http_post(
+        url:='${settings.cronFunctionUrl}',
+        headers:='{"Content-Type": "application/json", "Authorization": "Bearer [SERVICE_ROLE_KEY]"}'::jsonb
+    )
+    $$
+);
+
+-- Para cancelar:
+-- SELECT cron.unschedule('weekly-asset-report');
+`;
 
     return (
         <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in p-6">
@@ -120,9 +138,9 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                         </p>
                         <div className="relative">
                             <pre className="text-xs font-mono text-orange-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
-                                {settings.cronSqlCode}
+                                {cronSqlCode}
                             </pre>
-                            <button onClick={() => handleCopy(settings.cronSqlCode, 'cron_sql')} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                            <button onClick={() => handleCopy(cronSqlCode, 'cron_sql')} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
                                      {copiedCode === 'cron_sql' ? <FaCheck className="text-green-400"/> : <FaCopy />}
                             </button>
                         </div>
@@ -135,7 +153,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                             <div>
                                 <label className="block text-xs text-gray-500 uppercase mb-1">Emails Destinatários (separados por vírgula)</label>
                                 <div className="flex gap-2">
-                                    <input type="text" value={settings.reportRecipients} onChange={(e) => onSettingsChange('reportRecipients', e.target.value)} className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="admin@empresa.com, gestor@empresa.com" />
+                                    <input type="text" value={settings.weekly_report_recipients} onChange={(e) => onSettingsChange('weekly_report_recipients', e.target.value)} className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="admin@empresa.com, gestor@empresa.com" />
                                     <button onClick={onSave} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2"><FaSave /> Guardar</button>
                                 </div>
                             </div>

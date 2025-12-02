@@ -77,8 +77,8 @@ export const App: React.FC = () => {
             const isForMyTeam = t.team_id && myTeamIds.has(t.team_id);
             const isAssignedToMe = t.technicianId === currentUser.id;
 
-            // Include if it's for my team AND unassigned, OR if it's directly assigned to me.
-            return (isForMyTeam && !t.technicianId) || isAssignedToMe;
+            // CORRECTED: Show all tickets for my team, OR tickets directly assigned to me.
+            return isForMyTeam || isAssignedToMe;
         });
     }, [appData.tickets, myTeamIds, currentUser]);
 

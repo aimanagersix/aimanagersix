@@ -65,7 +65,7 @@ export const fetchAllData = async () => {
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
         configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles,
-        configDecommissionReasons, // NEW
+        configDecommissionReasons,
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
@@ -106,7 +106,7 @@ export const fetchAllData = async () => {
         supabase.from('config_resilience_test_types').select('*'),
         supabase.from('config_software_categories').select('*'),
         supabase.from('config_custom_roles').select('*'),
-        supabase.from('config_decommission_reasons').select('*'), // NEW
+        supabase.from('config_decommission_reasons').select('*'),
         supabase.from('policies').select('*'),
         supabase.from('policy_acceptances').select('*'),
         supabase.from('procurement_requests').select('*'),
@@ -159,7 +159,7 @@ export const fetchAllData = async () => {
         configResilienceTestTypes: configResilienceTestTypes.data || [],
         configSoftwareCategories: configSoftwareCategories.data || [],
         configCustomRoles: configCustomRoles.data || [],
-        configDecommissionReasons: configDecommissionReasons.data || [], // NEW
+        configDecommissionReasons: configDecommissionReasons.data || [],
         policies: policies.data || [],
         policyAcceptances: policyAcceptances.data || [],
         procurementRequests: procurementRequests.data || [],
@@ -320,7 +320,8 @@ export const addCollaborator = async (data: any, password?: string) => {
         try {
             // Initialize admin client
             const { createClient } = await import('@supabase/supabase-js');
-            const adminClient = createClient(process.env.SUPABASE_URL!, serviceKey);
+            const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL || '';
+            const adminClient = createClient(supabaseUrl, serviceKey);
             
             const { data: authUser, error: authError } = await adminClient.auth.admin.createUser({
                 email: data.email,

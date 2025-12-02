@@ -236,7 +236,7 @@ export interface Equipment {
   // Maintenance Link
   parent_equipment_id?: string; // NEW: Link to main equipment if this is a part
   procurement_request_id?: string;
-  decommission_reason_id?: string; // NEW: Link to config_decommission_reasons
+  decommission_reason_id?: string;
 }
 
 export interface Instituicao {
@@ -339,7 +339,7 @@ export type ModuleKey =
     | 'config_backup_types'
     | 'config_training_types'
     | 'config_resilience_test_types'
-    | 'config_decommission_reasons'; // NEW
+    | 'config_decommission_reasons';
 
 export interface PermissionMatrix {
     [module: string]: {
