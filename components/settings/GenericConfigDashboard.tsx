@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ConfigItem } from '../../types';
 import * as dataService from '../../services/dataService';
@@ -26,6 +27,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
             return;
         }
 
+        // Validate duplicate name (case insensitive)
         const isDuplicate = (items || []).some(
             (item) => item.name.toLowerCase() === name.toLowerCase() && item.id !== editingItem?.id
         );

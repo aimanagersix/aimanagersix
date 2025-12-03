@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaKey, FaSave } from 'react-icons/fa';
+import { FaKey, FaSave, FaSlack } from 'react-icons/fa';
 
 interface ConnectionsTabProps {
     settings: any;
@@ -11,6 +11,29 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
 
     return (
         <div className="space-y-6 animate-fade-in">
+            {/* Slack Integration */}
+            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaSlack className="text-purple-400"/> Notificações Slack</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                    Configure um Webhook para receber alertas imediatos de incidentes críticos e novos pedidos de aprovação.
+                </p>
+                <div className="space-y-3">
+                    <div>
+                        <label className="block text-xs text-gray-500 uppercase mb-1">Slack Webhook URL</label>
+                        <input 
+                            type="password" 
+                            value={settings.slackWebhookUrl || ''} 
+                            onChange={(e) => onSettingsChange('slackWebhookUrl', e.target.value)} 
+                            className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono"
+                            placeholder="https://hooks.slack.com/services/..."
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Crie uma "Incoming Webhook" na sua gestão de Apps do Slack e cole o URL aqui.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* Supabase Connection */}
             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
                 <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaKey className="text-green-400"/> Conexão Supabase</h3>

@@ -3,16 +3,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows } from 'react-icons/fa';
 
 const agentScriptTemplate = `
-# AIManager Windows Inventory Agent v1.5
+# AIManager Windows Inventory Agent v1.6
 #
 # COMO USAR:
 # 1. Execute este script como Administrador no computador alvo.
 #    (As credenciais Supabase são injetadas automaticamente)
 #
-# MELHORIAS v1.5:
-# - Adicionada captura de Data de Fabrico (via Data da BIOS).
-# - Melhorado o feedback visual na consola.
-# - Corrigido erro de criação de novos equipamentos.
+# MELHORIAS v1.6:
+# - Payload corrigido para evitar erro "brandId cannot be found" (Hashtable instead of PSObject).
+# - Deteção de Data de Fabrico (BIOS).
+# - Deteção de Todos os MAC Addresses ativos.
 
 # --- CONFIGURAÇÃO (PREENCHIDA AUTOMATICAMENTE) ---
 $supabaseUrl = "COLE_AQUI_O_SEU_SUPABASE_URL"
@@ -42,7 +42,7 @@ function Get-HardwareInfo {
             $macWifi = $_.MacAddress
             Write-Host "  - MAC WiFi encontrado: $($macWifi)"
         }
-        if ($_.InterfaceDescription -like "*Ethernet*" -or $_.InterfaceDescription -like "*Gigabit*") {
+        if ($_.InterfaceDescription -like "*Ethernet*" -or $_.InterfaceDescription -like "*Gigabit*" -or $_.InterfaceDescription -like "*GbE*") {
             $macCabo = $_.MacAddress
             Write-Host "  - MAC Cabo encontrado: $($macCabo)"
         }
@@ -51,31 +51,36 @@ function Get-HardwareInfo {
     # Parse BIOS Release Date (Proxy for Manufacture Date)
     $biosDate = $null
     try {
-        if ($bios.ReleaseDate -is [DateTime]) {
+        if ($bios.ReleaseDate -match "(\d{4})(\d{2})(\d{2})") {
+            $biosDate = "$($matches[1])-$($matches[2])-$($matches[3])"
+        } elseif ($bios.ReleaseDate -is [DateTime]) {
             $biosDate = $bios.ReleaseDate.ToString("yyyy-MM-dd")
-        } elseif ($bios.ReleaseDate.Length -ge 8) {
-            # Legacy format YYYYMMDD...
-            $str = $bios.ReleaseDate
-            $biosDate = $str.Substring(0, 4) + "-" + $str.Substring(4, 2) + "-" + $str.Substring(6, 2)
         }
-        Write-Host "  - Data BIOS: $biosDate"
+        Write-Host "  - Data BIOS (Fabrico): $biosDate"
     } catch {
         Write-Host "  - Aviso: Não foi possível obter data da BIOS" -ForegroundColor Yellow
     }
 
-    $serialNumber = $bios.SerialNumber
+    $serialNumber = $bios.SerialNumber.Trim()
     
     $chassisType = (Get-CimInstance -ClassName Win32_SystemEnclosure).ChassisTypes
     $isLaptop = $chassisType -contains 8 -or $chassisType -contains 9 -or $chassisType -contains 10 -or $chassisType -contains 14
 
     $typeGuess = if ($isLaptop) { "Laptop" } else { "Desktop" }
-    Write-Host "Tipo de equipamento detetado: $($typeGuess)"
+    
+    # Normalize brand name (e.g. "Dell Inc." -> "Dell")
+    $brand = $cs.Manufacturer
+    if($brand -match "Dell") { $brand = "Dell" }
+    if($brand -match "HP") { $brand = "HP" }
+    if($brand -match "Lenovo") { $brand = "Lenovo" }
+
+    Write-Host "Tipo detetado: $($typeGuess) ($($brand))"
     Write-Host "Processador: $($cpu.Name)" -ForegroundColor Gray
 
     return @{
         serialNumber = $serialNumber
         description = "$($cs.Manufacturer) $($cs.Model)"
-        brandName = $cs.Manufacturer
+        brandName = $brand
         typeName = $typeGuess
         os_version = $os.Caption
         cpu_info = $cpu.Name
@@ -89,7 +94,7 @@ function Get-HardwareInfo {
 }
 
 try {
-    Write-Host "AIManager Agent v1.5" -ForegroundColor Cyan
+    Write-Host "AIManager Agent v1.6" -ForegroundColor Cyan
     $info = Get-HardwareInfo
     
     if (-not $info.serialNumber) {
@@ -111,7 +116,7 @@ try {
     $query = "equipment?select=id&serialNumber=eq.$($info.serialNumber)"
     $existing = Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/$query" -Method Get -Headers $headers
     
-    # Construir payload base como uma Hashtable
+    # IMPORTANTE: Usar Hashtable puro para o payload para evitar erros de propriedade
     $payload = @{
         serialNumber = $info.serialNumber
         description = $info.description
@@ -128,44 +133,50 @@ try {
     if ($existing.Count -gt 0) {
         # Update (PATCH)
         $id = $existing[0].id
-        $payload.Add("modifiedDate", (Get-Date).ToUniversalTime().ToString("o"))
+        $payload["modifiedDate"] = (Get-Date).ToUniversalTime().ToString("o")
+        
         Write-Host "Equipamento encontrado (ID: $id). A atualizar..."
-        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment?id=eq.$id" -Method Patch -Headers $headers -Body ($payload | ConvertTo-Json -Depth 5)
+        $jsonPayload = $payload | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment?id=eq.$id" -Method Patch -Headers $headers -Body $jsonPayload
         Write-Host "Equipamento atualizado com sucesso." -ForegroundColor Green
     } else {
         # Create (POST)
         Write-Host "Equipamento novo. A registar no inventário..."
         
-        # Tenta encontrar Brand/Type pelo nome para obter os IDs
-        Write-Host "A procurar por Marca '$($info.brandName)' e Tipo '$($info.typeName)' existentes..."
-        $brandId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/brands?select=id&name=ilike.$($info.brandName)" -Method Get -Headers $headers)[0].id
-        $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.$($info.typeName)" -Method Get -Headers $headers)[0].id
+        # Lookup IDs for Brand and Type
+        $brandId = $null
+        $typeId = $null
 
-        # Fallback para nomes comuns (Laptop vs Portátil)
-        if (-not $typeId -and ($info.typeName -eq "Laptop" -or $info.typeName -eq "Portátil")) {
-            Write-Host "Tipo '$($info.typeName)' não encontrado. A tentar nomes alternativos..."
-            $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.Laptop" -Method Get -Headers $headers)[0].id
-            if (-not $typeId) {
-                $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.Portátil" -Method Get -Headers $headers)[0].id
+        try {
+            $bResp = Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/brands?select=id&name=ilike.$($info.brandName)" -Method Get -Headers $headers
+            if($bResp.Count -gt 0) { $brandId = $bResp[0].id }
+            
+            $tResp = Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.$($info.typeName)" -Method Get -Headers $headers
+            if($tResp.Count -gt 0) { $typeId = $tResp[0].id }
+             # Fallback portuguese types
+            if(-not $typeId -and $info.typeName -eq "Laptop") {
+                 $tResp = Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.Portátil" -Method Get -Headers $headers
+                 if($tResp.Count -gt 0) { $typeId = $tResp[0].id }
             }
+        } catch {
+            Write-Host "Erro ao procurar metadados: $_" -ForegroundColor Red
         }
         
-        # Adiciona os IDs ao payload se encontrados
         if($brandId) { 
-            $payload.Add("brandId", $brandId)
-            Write-Host "  - Marca encontrada: $($info.brandName)" -ForegroundColor Yellow 
-        } else {
-            Write-Host "  - AVISO: Marca '$($info.brandName)' não encontrada. Será necessário adicionar manualmente." -ForegroundColor Yellow
-        }
+            $payload["brandId"] = $brandId 
+            Write-Host "  - Marca vinculada: $($info.brandName)" 
+        } else { Write-Host "  - AVISO: Marca não encontrada." -ForegroundColor Yellow }
 
         if($typeId) { 
-            $payload.Add("typeId", $typeId)
-            Write-Host "  - Tipo encontrado: $($info.typeName)" -ForegroundColor Yellow
-        } else {
-            Write-Host "  - AVISO: Tipo '$($info.typeName)' não encontrado. Será necessário adicionar manualmente." -ForegroundColor Yellow
-        }
+            $payload["typeId"] = $typeId
+            Write-Host "  - Tipo vinculado: $($info.typeName)" 
+        } else { Write-Host "  - AVISO: Tipo não encontrado." -ForegroundColor Yellow }
         
-        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment" -Method Post -Headers $headers -Body ($payload | ConvertTo-Json -Depth 5)
+        $payload["status"] = "Stock"
+        $payload["purchaseDate"] = (Get-Date).ToString("yyyy-MM-dd")
+
+        $jsonPayload = $payload | ConvertTo-Json -Depth 5
+        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment" -Method Post -Headers $headers -Body $jsonPayload
         Write-Host "Equipamento criado com sucesso." -ForegroundColor Green
     }
 
@@ -175,11 +186,11 @@ try {
     Write-Host "------------------------------------"
 
 } catch {
-    Write-Error "Ocorreu um erro: $($_.Exception.Message)"
+    Write-Error "Ocorreu um erro fatal: $($_.Exception.Message)"
 }
 
-# Manter a janela aberta por 5 segundos para ler a saída
-Start-Sleep -Seconds 5
+# Manter a janela aberta
+Start-Sleep -Seconds 10
 `;
 
 

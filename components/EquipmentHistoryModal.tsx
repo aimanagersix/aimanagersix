@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest } from '../types';
@@ -210,8 +211,8 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                         <div className="flex justify-between">
                                             <span className="text-gray-500">Nº Requisição:</span> 
                                             {linkedRequest && onViewItem ? (
-                                                <button onClick={() => onViewItem('equipment.procurement', { title: linkedRequest.title })} className="text-brand-secondary hover:underline font-bold">
-                                                    {equipment.requisitionNumber || 'Ver Pedido'}
+                                                <button onClick={() => { onClose(); onViewItem('equipment.procurement', { title: linkedRequest.title }); }} className="text-brand-secondary hover:underline font-bold flex items-center gap-1">
+                                                    {equipment.requisitionNumber || 'Ver Pedido'} <FaShoppingCart className="text-xs"/>
                                                 </button>
                                             ) : (
                                                 <span className="text-white">{equipment.requisitionNumber || '-'}</span>

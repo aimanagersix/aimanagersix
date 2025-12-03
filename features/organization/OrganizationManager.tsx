@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
     Collaborator, Instituicao, Entidade, Team, Supplier, 
@@ -114,15 +115,9 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         }
 
         const assignedEquipment = appData.assignments.filter((a: Assignment) => a.collaboratorId === collaborator.id && !a.returnDate);
-        if (assignedEquipment.length > 0) {
-            setCollaboratorToOffboard(collaborator);
-            setShowOffboardingModal(true);
-        } else {
-            if(confirm(`Tem a certeza que deseja inativar ${collaborator.fullName}?`)) {
-                setCollaboratorToOffboard(collaborator);
-                setShowOffboardingModal(true); // Open even with no equipment to select reason
-            }
-        }
+        // Now we open the modal even if no equipment, to capture the deactivation reason
+        setCollaboratorToOffboard(collaborator);
+        setShowOffboardingModal(true);
     };
     
     const handleConfirmOffboarding = async (collaboratorId: string, reasonId?: string) => {
@@ -147,7 +142,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         // 3. Create ticket for IT
         await dataService.addTicket({
             title: `Offboarding: ${collaborator.fullName}`,
-            description: `Processo de saída iniciado para ${collaborator.fullName}. Por favor, revogar todos os acessos (Email, VPN, sistemas internos).`,
+            description: `Processo de saída iniciado para ${collaborator.fullName}. Motivo: ${reasonId ? appData.configCollaboratorDeactivationReasons.find((r: ConfigItem) => r.id === reasonId)?.name : 'N/A'}. Por favor, revogar todos os acessos.`,
             status: TicketStatus.Requested,
             category: 'Manutenção',
             requestDate: new Date().toISOString(),

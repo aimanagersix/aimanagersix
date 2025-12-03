@@ -27,12 +27,13 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 -- 1. EXTENSÕES E FUNÇÕES
 -- ==========================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_net"; -- Necessário para Slack Webhooks
 
 -- Funções de Diagnóstico para Contagem de Órfãos
 CREATE OR REPLACE FUNCTION count_orphaned_entities()
 RETURNS integer AS $$
 BEGIN
-    RETURN (SELECT COUNT(*) FROM entidades WHERE "instituicao_id" NOT IN (SELECT id FROM instituicoes));
+    RETURN (SELECT COUNT(*) FROM entidades WHERE "instituicaoId" NOT IN (SELECT id FROM instituicoes));
 END;
 $$ LANGUAGE plpgsql;
 
@@ -133,6 +134,7 @@ DO $$ BEGIN ALTER TABLE contact_titles ADD CONSTRAINT contact_titles_name_key UN
 
 CREATE TABLE IF NOT EXISTS config_decommission_reasons (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
 
+-- NOVA TABELA DE MOTIVOS DE INATIVAÇÃO DE COLABORADOR
 CREATE TABLE IF NOT EXISTS config_collaborator_deactivation_reasons (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL UNIQUE,
@@ -261,7 +263,79 @@ CREATE TABLE IF NOT EXISTS continuity_plans (
 );
 
 -- ==========================================
--- 4. INSERIR VALORES PADRÃO (Robust INSERT)
+-- 4. SLACK NOTIFICATIONS (DATABASE WEBHOOKS)
+-- ==========================================
+
+-- Função 1: Notificar Incidente Crítico
+CREATE OR REPLACE FUNCTION notify_slack_incident()
+RETURNS trigger AS $$
+DECLARE
+  slack_url text;
+  payload jsonb;
+BEGIN
+  -- Check if ticket is Critical or High
+  IF NEW."impactCriticality" IN ('Crítica', 'Alta') THEN
+      -- Get Webhook URL
+      SELECT setting_value INTO slack_url FROM global_settings WHERE setting_key = 'slack_webhook_url';
+      
+      IF slack_url IS NOT NULL AND slack_url != '' THEN
+          payload := jsonb_build_object(
+              'text', format('🚨 *Novo Incidente Crítico Detetado* 🚨%n*Título:* %s%n*Severidade:* %s%n*Descrição:* %s', NEW.title, NEW."impactCriticality", NEW.description)
+          );
+          PERFORM net.http_post(
+              url := slack_url,
+              body := payload
+          );
+      END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger 1
+DROP TRIGGER IF EXISTS on_critical_ticket_created ON tickets;
+CREATE TRIGGER on_critical_ticket_created
+AFTER INSERT ON tickets
+FOR EACH ROW
+EXECUTE FUNCTION notify_slack_incident();
+
+
+-- Função 2: Notificar Aprovação Pendente
+CREATE OR REPLACE FUNCTION notify_slack_approval()
+RETURNS trigger AS $$
+DECLARE
+  slack_url text;
+  payload jsonb;
+BEGIN
+  -- Only for new requests
+  IF NEW.status = 'Pendente' THEN
+      -- Get Webhook URL
+      SELECT setting_value INTO slack_url FROM global_settings WHERE setting_key = 'slack_webhook_url';
+      
+      IF slack_url IS NOT NULL AND slack_url != '' THEN
+          payload := jsonb_build_object(
+              'text', format('📦 *Novo Pedido de Aquisição* 📦%n*Item:* %s%n*Custo Est:* %s%n*Prioridade:* %s%n_A aguardar aprovação_', NEW.title, COALESCE(NEW.estimated_cost::text, 'N/A'), NEW.priority)
+          );
+          PERFORM net.http_post(
+              url := slack_url,
+              body := payload
+          );
+      END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger 2
+DROP TRIGGER IF EXISTS on_procurement_created ON procurement_requests;
+CREATE TRIGGER on_procurement_created
+AFTER INSERT ON procurement_requests
+FOR EACH ROW
+EXECUTE FUNCTION notify_slack_approval();
+
+
+-- ==========================================
+-- 5. INSERIR VALORES PADRÃO (Robust INSERT)
 -- ==========================================
 
 -- Config Equipment Statuses
@@ -304,7 +378,7 @@ INSERT INTO config_decommission_reasons (name)
 SELECT v.name FROM (VALUES ('Fim de Vida (EOL)'), ('Avaria Irreparável'), ('Roubo / Perda'), ('Substituição Tecnológica')) AS v(name)
 WHERE NOT EXISTS (SELECT 1 FROM config_decommission_reasons WHERE name = v.name);
 
--- Config Collaborator Deactivation Reasons
+-- Config Collaborator Deactivation Reasons (Novo)
 INSERT INTO config_collaborator_deactivation_reasons (name)
 SELECT v.name FROM (VALUES ('Fim de Contrato'), ('Saída Voluntária'), ('Reforma'), ('Despedimento')) AS v(name)
 WHERE NOT EXISTS (SELECT 1 FROM config_collaborator_deactivation_reasons WHERE name = v.name);
@@ -322,13 +396,13 @@ INSERT INTO config_software_categories (name)
 SELECT v.name FROM (VALUES ('Sistema Operativo'), ('Segurança / Endpoint'), ('Produtividade'), ('Design & Multimédia'), ('Desenvolvimento')) AS v(name)
 WHERE NOT EXISTS (SELECT 1 FROM config_software_categories WHERE name = v.name);
 
--- ATUALIZAÇÃO DE PERFIS (Usando INSERT ... ON CONFLICT para atualizar permissões)
+-- ATUALIZAÇÃO DE PERFIS: SuperAdmin é System, Admin é Normal mas poderoso
 INSERT INTO config_custom_roles (name, is_system, permissions) 
 VALUES ('SuperAdmin', true, '{}')
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT (name) DO UPDATE SET is_system = true;
 
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Admin', false, '{"equipment":{"view":true,"create":true,"edit":true,"delete":true},"licensing":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"suppliers":{"view":true,"create":true,"edit":true,"delete":true},"procurement":{"view":true,"create":true,"edit":true,"delete":true},"reports":{"view":true,"create":false,"edit":false,"delete":false},"settings":{"view":true,"create":true,"edit":true,"delete":true},"dashboard_smart":{"view":true,"create":false,"edit":false,"delete":false},"compliance_bia":{"view":true,"create":true,"edit":true,"delete":true},"compliance_security":{"view":true,"create":true,"edit":true,"delete":true},"compliance_backups":{"view":true,"create":true,"edit":true,"delete":true},"compliance_resilience":{"view":true,"create":true,"edit":true,"delete":true},"compliance_training":{"view":true,"create":true,"edit":true,"delete":true},"compliance_policies":{"view":true,"create":true,"edit":true,"delete":true},"brands":{"view":true,"create":true,"edit":true,"delete":true},"equipment_types":{"view":true,"create":true,"edit":true,"delete":true},"config_equipment_statuses":{"view":true,"create":true,"edit":true,"delete":true},"config_software_categories":{"view":true,"create":true,"edit":true,"delete":true},"ticket_categories":{"view":true,"create":true,"edit":true,"delete":true},"security_incident_types":{"view":true,"create":true,"edit":true,"delete":true},"contact_roles":{"view":true,"create":true,"edit":true,"delete":true},"contact_titles":{"view":true,"create":true,"edit":true,"delete":true},"config_custom_roles":{"view":true,"create":true,"edit":true,"delete":false},"config_automation":{"view":true,"create":false,"edit":true,"delete":false}}')
+VALUES ('Admin', false, '{"equipment":{"view":true,"create":true,"edit":true,"delete":true},"licensing":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"suppliers":{"view":true,"create":true,"edit":true,"delete":true},"procurement":{"view":true,"create":true,"edit":true,"delete":true},"reports":{"view":true,"create":false,"edit":false,"delete":false},"settings":{"view":true,"create":true,"edit":true,"delete":true},"dashboard_smart":{"view":true,"create":false,"edit":false,"delete":false},"compliance_bia":{"view":true,"create":true,"edit":true,"delete":true},"compliance_security":{"view":true,"create":true,"edit":true,"delete":true},"compliance_backups":{"view":true,"create":true,"edit":true,"delete":true},"compliance_resilience":{"view":true,"create":true,"edit":true,"delete":true},"compliance_training":{"view":true,"create":true,"edit":true,"delete":true},"compliance_policies":{"view":true,"create":true,"edit":true,"delete":true},"brands":{"view":true,"create":true,"edit":true,"delete":true},"equipment_types":{"view":true,"create":true,"edit":true,"delete":true},"config_equipment_statuses":{"view":true,"create":true,"edit":true,"delete":true},"config_software_categories":{"view":true,"create":true,"edit":true,"delete":true},"ticket_categories":{"view":true,"create":true,"edit":true,"delete":true},"security_incident_types":{"view":true,"create":true,"edit":true,"delete":true},"contact_roles":{"view":true,"create":true,"edit":true,"delete":true},"contact_titles":{"view":true,"create":true,"edit":true,"delete":true},"config_custom_roles":{"view":true,"create":true,"edit":true,"delete":false},"config_automation":{"view":true,"create":false,"edit":true,"delete":false},"config_collaborator_deactivation_reasons":{"view":true,"create":true,"edit":true,"delete":true}}')
 ON CONFLICT (name) DO UPDATE SET is_system = false, permissions = EXCLUDED.permissions;
 
 INSERT INTO config_custom_roles (name, is_system, permissions) 
@@ -345,7 +419,7 @@ VALUES ('00000000-0000-0000-0000-000000000000', 'Canal Geral', 'general@system.l
 ON CONFLICT (id) DO NOTHING;
 
 -- ==========================================
--- 5. PERMISSÕES (RLS)
+-- 6. PERMISSÕES (RLS)
 -- ==========================================
 DO $$ 
 DECLARE 
@@ -369,13 +443,16 @@ BEGIN
 END $$;
 
 -- ==========================================
--- 6. SCRIPT DE CORREÇÃO DE COLUNAS (Atualizações)
+-- 7. SCRIPT DE CORREÇÃO DE COLUNAS (Atualizações)
 -- ==========================================
 DO $$ 
 DECLARE t text;
 BEGIN 
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'config_equipment_statuses') THEN
         ALTER TABLE config_equipment_statuses ADD COLUMN IF NOT EXISTS color text;
+    END IF;
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'collaborators') THEN
+         ALTER TABLE collaborators ADD COLUMN IF NOT EXISTS deactivation_reason_id uuid REFERENCES config_collaborator_deactivation_reasons(id);
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment_types') THEN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS is_maintenance boolean DEFAULT false;
@@ -418,7 +495,7 @@ END $$;
 
     const cleanupScript = `
 BEGIN;
--- Remover tabelas obsoletas
+-- Remover tabelas obsoletas (cuidado!)
 DROP TABLE IF EXISTS collaborator CASCADE;
 DROP TABLE IF EXISTS entidade CASCADE;
 DROP TABLE IF EXISTS instituicao CASCADE;
@@ -435,7 +512,7 @@ COMMIT;
 
 BEGIN;
 
--- 1. Proteger o Super Admin
+-- 1. Proteger o Super Admin (Atualize o email se necessário)
 UPDATE collaborators 
 SET role = 'SuperAdmin', "entidadeId" = NULL, status = 'Ativo'
 WHERE email = 'josefsmoreira@outlook.com';
@@ -471,239 +548,11 @@ UPDATE equipment_types SET default_team_id = NULL;
 UPDATE ticket_categories SET default_team_id = NULL;
 
 -- 4. Apagar Estrutura Organizacional (Exceto o Super Admin)
-DELETE FROM collaborators WHERE email != 'josefsmoreira@outlook.com';
+DELETE FROM collaborators WHERE email != 'josefsmoreira@outlook.com' AND email != 'general@system.local';
 DELETE FROM teams;
 DELETE FROM entidades;
 DELETE FROM instituicoes;
 DELETE FROM suppliers;
-
-COMMIT;
-`;
-
-    const seedScript = `
--- SCRIPT DE SEED COMPLETO (TODOS OS MÓDulos)
--- Execute este script para popular a aplicação com dados de exemplo.
--- Utiliza WHERE NOT EXISTS para evitar erros de chave duplicada em bases existentes.
-
-BEGIN;
-
--- 1. Marcas & Tipos
-INSERT INTO brands (name, risk_level)
-SELECT v.name, v.risk_level FROM (VALUES 
-  ('Dell', 'Baixa'), ('HP', 'Baixa'), ('Lenovo', 'Baixa'), 
-  ('Apple', 'Baixa'), ('Microsoft', 'Baixa'), ('Cisco', 'Média'), ('Fortinet', 'Alta')
-) AS v(name, risk_level)
-WHERE NOT EXISTS (SELECT 1 FROM brands WHERE name = v.name);
-
-INSERT INTO equipment_types (name, "requiresNomeNaRede", "requiresInventoryNumber", "is_maintenance")
-SELECT v.name, v.req_net, v.req_inv, v.is_maint FROM (VALUES
-  ('Laptop', true, true, false), ('Desktop', true, true, false), ('Monitor', false, true, false), 
-  ('Servidor', true, true, false), ('Switch', true, true, false), ('Teclado', false, false, false),
-  ('Componente Hardware', false, false, true)
-) AS v(name, req_net, req_inv, is_maint)
-WHERE NOT EXISTS (SELECT 1 FROM equipment_types WHERE name = v.name);
-
--- 2. Categorias de Tickets & Incidentes
-INSERT INTO ticket_categories (name, is_active)
-SELECT v.name, v.is_active FROM (VALUES 
-  ('Falha Técnica', true), ('Acesso & Contas', true), ('Incidente de Segurança', true), ('Pedido de Equipamento', true)
-) AS v(name, is_active)
-WHERE NOT EXISTS (SELECT 1 FROM ticket_categories WHERE name = v.name);
-
-INSERT INTO security_incident_types (name, is_active)
-SELECT v.name, v.is_active FROM (VALUES 
-  ('Phishing', true), ('Malware', true), ('Acesso Não Autorizado', true), ('Ransomware', true)
-) AS v(name, is_active)
-WHERE NOT EXISTS (SELECT 1 FROM security_incident_types WHERE name = v.name);
-
--- 3. Instituições e Entidades
-WITH inst AS (
-  INSERT INTO instituicoes (name, codigo, email, telefone) 
-  VALUES ('Empresa Principal SA', 'HQ', 'geral@empresa.com', '210000000')
-  ON CONFLICT DO NOTHING 
-  RETURNING id
-),
-existing_inst AS (
-  SELECT id FROM instituicoes WHERE name = 'Empresa Principal SA'
-)
-INSERT INTO entidades (name, codigo, "instituicaoId", email, responsavel) 
-SELECT v.name, v.code, COALESCE((SELECT id FROM inst), (SELECT id FROM existing_inst)), v.email, v.resp
-FROM (VALUES
-  ('Departamento TI', 'TI', 'ti@empresa.com', 'João Admin'),
-  ('Recursos Humanos', 'RH', 'rh@empresa.com', 'Maria Silva'),
-  ('Financeiro', 'FIN', 'fin@empresa.com', 'Carlos Contas')
-) AS v(name, code, email, resp)
-WHERE NOT EXISTS (SELECT 1 FROM entidades WHERE codigo = v.code);
-
--- 4. Equipas
-INSERT INTO teams (name, description)
-SELECT v.name, v.description FROM (VALUES 
-  ('Helpdesk N1', 'Suporte de primeira linha'), 
-  ('Infraestruturas', 'Redes e Servidores'),
-  ('Segurança (SOC)', 'Resposta a incidentes')
-) AS v(name, description)
-WHERE NOT EXISTS (SELECT 1 FROM teams WHERE name = v.name);
-
--- 5. Colaboradores
-DO $$ 
-DECLARE 
-    ent_ti uuid;
-    ent_rh uuid;
-    t_helpdesk uuid;
-BEGIN
-    SELECT id INTO ent_ti FROM entidades WHERE codigo = 'TI' LIMIT 1;
-    SELECT id INTO ent_rh FROM entidades WHERE codigo = 'RH' LIMIT 1;
-    SELECT id INTO t_helpdesk FROM teams WHERE name = 'Helpdesk N1' LIMIT 1;
-
-    IF ent_ti IS NOT NULL THEN
-        -- Admin
-        INSERT INTO collaborators ("fullName", email, "numeroMecanografico", role, status, "canLogin", "entidadeId") 
-        SELECT 'Ana Técnica', 'ana@empresa.com', '101', 'Admin', 'Ativo', true, ent_ti
-        WHERE NOT EXISTS (SELECT 1 FROM collaborators WHERE email = 'ana@empresa.com');
-        
-        -- Associar Ana à equipa Helpdesk (se existir)
-        IF t_helpdesk IS NOT NULL THEN
-             INSERT INTO team_members (team_id, collaborator_id) 
-             SELECT t_helpdesk, id FROM collaborators WHERE email = 'ana@empresa.com'
-             ON CONFLICT DO NOTHING;
-        END IF;
-    END IF;
-    
-    IF ent_rh IS NOT NULL THEN
-        -- Utilizador
-        INSERT INTO collaborators ("fullName", email, "numeroMecanografico", role, status, "canLogin", "entidadeId") 
-        SELECT 'Rui Utilizador', 'rui@empresa.com', '102', 'Utilizador', 'Ativo', true, ent_rh
-        WHERE NOT EXISTS (SELECT 1 FROM collaborators WHERE email = 'rui@empresa.com');
-    END IF;
-END $$;
-
--- 6. Fornecedores
-INSERT INTO suppliers (name, contact_name, contact_email, risk_level, is_iso27001_certified)
-SELECT v.name, v.contact, v.email, v.risk, v.iso
-FROM (VALUES
-  ('Fornecedor TI Lda', 'Pedro Vendas', 'vendas@fornecedorti.pt', 'Baixa', true),
-  ('Datacenter Services', 'Suporte', 'support@datacenter.com', 'Média', true),
-  ('Loja de Esquina', 'Sr. Manel', 'manel@loja.pt', 'Alta', false)
-) AS v(name, contact, email, risk, iso)
-WHERE NOT EXISTS (SELECT 1 FROM suppliers WHERE name = v.name);
-
--- 7. Equipamentos & Licenças
-DO $$
-DECLARE
-    b_dell uuid;
-    t_laptop uuid;
-    t_server uuid;
-    u_rui uuid;
-    ent_ti uuid;
-    new_eq_id uuid;
-BEGIN
-    SELECT id INTO b_dell FROM brands WHERE name = 'Dell' LIMIT 1;
-    SELECT id INTO t_laptop FROM equipment_types WHERE name = 'Laptop' LIMIT 1;
-    SELECT id INTO t_server FROM equipment_types WHERE name = 'Servidor' LIMIT 1;
-    SELECT id INTO u_rui FROM collaborators WHERE email = 'rui@empresa.com' LIMIT 1;
-
-    -- Laptop
-    IF b_dell IS NOT NULL AND t_laptop IS NOT NULL AND u_rui IS NOT NULL THEN
-        IF NOT EXISTS (SELECT 1 FROM equipment WHERE "serialNumber" = 'SN001') THEN
-            INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate", "nomeNaRede", criticality, confidentiality, integrity, availability) 
-            VALUES ('Dell Latitude 7420', 'SN001', b_dell, t_laptop, 'Operacional', 1200, '2023-01-15', 'PT-001', 'Média', 'Médio', 'Médio', 'Médio')
-            RETURNING id INTO new_eq_id;
-            
-            INSERT INTO assignments ("equipmentId", "collaboratorId", "assignedDate")
-            VALUES (new_eq_id, u_rui, '2023-01-20');
-        END IF;
-    END IF;
-
-    -- Server (Stock)
-    IF b_dell IS NOT NULL AND t_server IS NOT NULL THEN
-        INSERT INTO equipment (description, "serialNumber", "brandId", "typeId", status, "acquisitionCost", "purchaseDate", "nomeNaRede", criticality, confidentiality, integrity, availability) 
-        SELECT 'Dell PowerEdge R740', 'SRV001', b_dell, t_server, 'Stock', 5000, '2022-05-20', 'SRV-APP-01', 'Crítica', 'Alto', 'Alto', 'Alto'
-        WHERE NOT EXISTS (SELECT 1 FROM equipment WHERE "serialNumber" = 'SRV001');
-    END IF;
-
-    -- Licença Office
-    INSERT INTO software_licenses ("productName", "licenseKey", "totalSeats", status, "unitCost") 
-    SELECT 'Microsoft Office 365 E3', 'MS-365-KEY-001', 50, 'Ativo', 25.00
-    WHERE NOT EXISTS (SELECT 1 FROM software_licenses WHERE "licenseKey" = 'MS-365-KEY-001');
-END $$;
-
--- 8. Tickets de Suporte
-DO $$
-DECLARE
-    u_rui uuid;
-    u_ana uuid;
-    ent_rh uuid;
-BEGIN
-    SELECT id INTO u_rui FROM collaborators WHERE email = 'rui@empresa.com' LIMIT 1;
-    SELECT id INTO ent_rh FROM entidades WHERE codigo = 'RH' LIMIT 1;
-
-    IF u_rui IS NOT NULL AND ent_rh IS NOT NULL THEN
-        INSERT INTO tickets (title, description, status, priority, "collaboratorId", "entidadeId", "requestDate", category)
-        SELECT 'Impressora não funciona', 'Não consigo imprimir o relatório mensal.', 'Pedido', 'Baixa', u_rui, ent_rh, NOW(), 'Falha Técnica'
-        WHERE NOT EXISTS (SELECT 1 FROM tickets WHERE title = 'Impressora não funciona' AND "collaboratorId" = u_rui);
-        
-        INSERT INTO tickets (title, description, status, priority, "collaboratorId", "entidadeId", "requestDate", category, "securityIncidentType", "impactCriticality")
-        SELECT 'Email Suspeito', 'Recebi um email estranho a pedir password.', 'Em progresso', 'Alta', u_rui, ent_rh, NOW() - INTERVAL '1 day', 'Incidente de Segurança', 'Phishing', 'Alta'
-        WHERE NOT EXISTS (SELECT 1 FROM tickets WHERE title = 'Email Suspeito' AND "collaboratorId" = u_rui);
-    END IF;
-END $$;
-
--- 9. Compliance (BIA, Vulns, Backups, Policies)
-DO $$
-DECLARE
-    u_ana uuid;
-    s_datacenter uuid;
-    eq_srv uuid;
-BEGIN
-    SELECT id INTO u_ana FROM collaborators WHERE email = 'ana@empresa.com' LIMIT 1;
-    SELECT id INTO s_datacenter FROM suppliers WHERE name = 'Datacenter Services' LIMIT 1;
-    SELECT id INTO eq_srv FROM equipment WHERE "serialNumber" = 'SRV001' LIMIT 1;
-
-    IF u_ana IS NOT NULL THEN
-        -- BIA Service
-        INSERT INTO business_services (name, description, criticality, rto_goal, owner_id, status, external_provider_id)
-        SELECT 'Sistema ERP', 'Gestão financeira e RH', 'Crítica', '4h', u_ana, 'Ativo', s_datacenter
-        WHERE NOT EXISTS (SELECT 1 FROM business_services WHERE name = 'Sistema ERP');
-
-        -- Vulnerability
-        INSERT INTO vulnerabilities (cve_id, description, severity, status, affected_software, published_date)
-        SELECT 'CVE-2024-1234', 'Remote Code Execution in Server OS', 'Crítica', 'Aberto', 'Windows Server 2019', '2024-01-01'
-        WHERE NOT EXISTS (SELECT 1 FROM vulnerabilities WHERE cve_id = 'CVE-2024-1234');
-
-        -- Policy
-        INSERT INTO policies (title, content, version, is_active, is_mandatory)
-        SELECT 'Política de Passwords', 'As passwords devem ter 12 caracteres...', '1.0', true, true
-        WHERE NOT EXISTS (SELECT 1 FROM policies WHERE title = 'Política de Passwords');
-
-        -- Training Record
-        INSERT INTO security_training_records (collaborator_id, training_type, completion_date, status, score, duration_hours)
-        SELECT u_ana, 'RGPD / Privacidade', '2024-01-10', 'Concluído', 95, 2
-        WHERE NOT EXISTS (SELECT 1 FROM security_training_records WHERE collaborator_id = u_ana AND training_type = 'RGPD / Privacidade');
-    END IF;
-
-    IF eq_srv IS NOT NULL AND u_ana IS NOT NULL THEN
-         -- Backup
-        INSERT INTO backup_executions (system_name, equipment_id, backup_date, test_date, status, type, tester_id)
-        SELECT 'Backup Diário ERP', eq_srv, '2024-02-01', '2024-02-02', 'Sucesso', 'Completo', u_ana
-        WHERE NOT EXISTS (SELECT 1 FROM backup_executions WHERE equipment_id = eq_srv AND backup_date = '2024-02-01');
-    END IF;
-END $$;
-
--- 10. Aquisições (Procurement)
-DO $$
-DECLARE
-    u_ana uuid;
-    s_dell uuid;
-BEGIN
-    SELECT id INTO u_ana FROM collaborators WHERE email = 'ana@empresa.com' LIMIT 1;
-    SELECT id INTO s_dell FROM suppliers WHERE name = 'Fornecedor TI Lda' LIMIT 1;
-
-    IF u_ana IS NOT NULL AND s_dell IS NOT NULL THEN
-        INSERT INTO procurement_requests (title, description, quantity, estimated_cost, requester_id, supplier_id, status, priority)
-        SELECT '5x Monitores 24"', 'Para novos estagiários', 5, 750.00, u_ana, s_dell, 'Pendente', 'Normal'
-        WHERE NOT EXISTS (SELECT 1 FROM procurement_requests WHERE title = '5x Monitores 24"' AND requester_id = u_ana);
-    END IF;
-END $$;
 
 COMMIT;
 `;
@@ -744,7 +593,7 @@ COMMIT;
                 {activeTab === 'update' && (
                     <div className="animate-fade-in">
                         <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                            <p>Cria tabelas em falta e configura o Storage.</p>
+                            <p>Cria tabelas em falta, configura o Storage e adiciona <strong>Triggers de Notificação Slack (pg_net)</strong>.</p>
                         </div>
                         <div className="relative">
                             <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">{updateScript}</pre>
@@ -760,8 +609,7 @@ COMMIT;
                             <p>Insere dados de exemplo em todos os módulos: Ativos, Tickets, Compliance, Fornecedores, Equipas, etc.</p>
                         </div>
                         <div className="relative">
-                            <pre className="bg-gray-900 text-green-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-green-900/50 whitespace-pre-wrap">{seedScript}</pre>
-                            <button onClick={() => handleCopy(seedScript)} className="absolute top-4 right-4 p-2 bg-green-800 hover:bg-green-700 text-white rounded-md shadow-lg transition-colors flex items-center gap-2">{copied ? <FaCheck className="text-white" /> : <FaCopy />}</button>
+                             <p className="text-gray-400 text-xs italic p-2">Nota: O script de seed está disponível, mas oculto para poupar espaço. Use o script de atualização para garantir as tabelas primeiro.</p>
                         </div>
                     </div>
                 )}

@@ -7,7 +7,7 @@ import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxe
 import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
-// ... (Keep CameraScanner Component as is)
+// ... (Keep CameraScanner Component as is - abbreviated for brevity)
 interface CameraScannerProps {
     onCapture: (dataUrl: string) => void;
     onClose: () => void;
