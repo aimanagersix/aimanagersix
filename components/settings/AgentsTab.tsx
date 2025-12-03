@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows } from 'react-icons/fa';
 
-const agentScript = `
+const agentScriptTemplate = `
 # AIManager Windows Inventory Agent v1.2
 #
 # COMO USAR:
@@ -151,6 +151,26 @@ Start-Sleep -Seconds 5
 
 const AgentsTab: React.FC = () => {
     const [copied, setCopied] = useState(false);
+    const [supabaseUrl, setSupabaseUrl] = useState('');
+    const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
+
+    useEffect(() => {
+        // As credenciais são guardadas no localStorage durante o setup inicial.
+        const url = localStorage.getItem('SUPABASE_URL');
+        const key = localStorage.getItem('SUPABASE_ANON_KEY');
+        if (url) setSupabaseUrl(url);
+        if (key) setSupabaseAnonKey(key);
+    }, []);
+
+    const agentScript = useMemo(() => {
+        if (!supabaseUrl || !supabaseAnonKey) {
+            return agentScriptTemplate; // Mostra o template se as chaves não forem encontradas
+        }
+        // Injeta as credenciais corretas no script
+        return agentScriptTemplate
+            .replace('"COLE_AQUI_O_SEU_SUPABASE_URL"', `"${supabaseUrl}"`)
+            .replace('"COLE_AQUI_A_SUA_SUPABASE_ANON_KEY"', `"${supabaseAnonKey}"`);
+    }, [supabaseUrl, supabaseAnonKey]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(agentScript);
@@ -178,6 +198,9 @@ const AgentsTab: React.FC = () => {
                 </div>
                 <p>
                     Execute este script nos computadores Windows para os registar ou atualizar automaticamente no inventário. O script recolhe detalhes de hardware, software e configuração de rede.
+                </p>
+                <p className="mt-2 text-green-300 font-semibold bg-green-900/30 p-2 rounded border border-green-500/30">
+                    O script abaixo já está configurado com as suas credenciais. Não é necessário editar.
                 </p>
             </div>
             
