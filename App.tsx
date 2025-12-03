@@ -166,8 +166,6 @@ export const App: React.FC = () => {
         if (role) {
             return role.permissions[module]?.[action] ?? false;
         }
-
-        if (currentUser.role === UserRole.Admin) return true;
         
         if (currentUser.role === 'Técnico' || currentUser.role === 'Normal') {
              if (module === 'settings' || module === 'organization' || module === 'config_custom_roles') return false;
