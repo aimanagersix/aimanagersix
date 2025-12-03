@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, Brand, EquipmentType, Equipment, EquipmentStatus, CriticalityLevel } from '../types';
@@ -18,15 +19,24 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        // Initialize items based on quantity
+        // Initialize items based on quantity and prefill from request if possible
         const initialItems = Array.from({ length: request.quantity }).map((_, idx) => ({
             serialNumber: '',
             brandId: '',
-            typeId: '',
+            typeId: request.equipment_type_id || '',
             description: request.title || '', // Default description from request title
-            status: EquipmentStatus.Stock
+            status: EquipmentStatus.Stock,
+            // Prefill specs from request JSON
+            ram_size: request.specifications?.ram_size || '',
+            cpu_info: request.specifications?.cpu_info || '',
+            disk_info: request.specifications?.disk_info || '',
         }));
         setItems(initialItems);
+        
+        // If type was in request, set it as common type
+        if (request.equipment_type_id) {
+            setCommonTypeId(request.equipment_type_id);
+        }
     }, [request]);
 
     // Apply common brand/type to all
@@ -71,7 +81,11 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                 procurement_request_id: request.id,
                 criticality: CriticalityLevel.Low, // Default
                 creationDate: new Date().toISOString(),
-                modifiedDate: new Date().toISOString()
+                modifiedDate: new Date().toISOString(),
+                // Map dynamic specs
+                ram_size: item.ram_size,
+                cpu_info: item.cpu_info,
+                disk_info: item.disk_info
             }));
 
             await onSave(assetsToCreate);
@@ -94,6 +108,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                         <p className="text-sm text-gray-300">
                             Está a receber <strong>{request.quantity}</strong> itens do pedido "{request.title}". 
                             Preencha os detalhes abaixo para criar automaticamente os registos no inventário.
+                            {request.specifications && <span className="block text-xs mt-1 text-green-300 font-bold">Especificações pré-carregadas do pedido.</span>}
                         </p>
                     </div>
                 </div>

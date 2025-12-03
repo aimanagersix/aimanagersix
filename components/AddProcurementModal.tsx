@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole } from '../types';
-import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart } from 'react-icons/fa';
+import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType } from '../types';
+import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip } from 'react-icons/fa';
 
 interface AddProcurementModalProps {
     onClose: () => void;
@@ -11,9 +11,10 @@ interface AddProcurementModalProps {
     currentUser: Collaborator | null;
     collaborators: Collaborator[];
     suppliers: Supplier[];
+    equipmentTypes?: EquipmentType[];
 }
 
-const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSave, procurementToEdit, currentUser, collaborators, suppliers }) => {
+const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSave, procurementToEdit, currentUser, collaborators, suppliers, equipmentTypes = [] }) => {
     
     const [formData, setFormData] = useState<Partial<ProcurementRequest>>({
         title: '',
@@ -23,20 +24,35 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
         requester_id: currentUser?.id || '',
         status: ProcurementStatus.Pending,
         request_date: new Date().toISOString().split('T')[0],
-        priority: 'Normal' as 'Normal' | 'Urgente'
+        priority: 'Normal' as 'Normal' | 'Urgente',
+        resource_type: 'Hardware', // Default
+        specifications: {}
     });
 
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
 
     useEffect(() => {
         if (procurementToEdit) {
-            setFormData(procurementToEdit);
+            setFormData({
+                ...procurementToEdit,
+                specifications: procurementToEdit.specifications || {}
+            });
         }
     }, [procurementToEdit]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleSpecChange = (key: string, value: any) => {
+        setFormData(prev => ({
+            ...prev,
+            specifications: {
+                ...(prev.specifications || {}),
+                [key]: value
+            }
+        }));
     };
 
     // State Transition Handlers
@@ -79,9 +95,6 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
         e.preventDefault();
         if (!formData.title || !formData.quantity) return;
         
-        // Logic to prevent changing status manually backwards without clearing dates if needed, 
-        // but for simplicity we trust the form or the buttons above.
-
         const dataToSave = {
             ...formData,
             quantity: Number(formData.quantity),
@@ -91,6 +104,7 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
         // Cleanup empty strings for UUIDs
         if (!dataToSave.supplier_id) delete dataToSave.supplier_id;
         if (!dataToSave.approver_id) delete dataToSave.approver_id;
+        if (!dataToSave.equipment_type_id) delete dataToSave.equipment_type_id;
 
         await onSave(procurementToEdit ? { ...procurementToEdit, ...dataToSave } as ProcurementRequest : dataToSave as any);
         onClose();
@@ -100,6 +114,8 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
     const steps: ProcurementStatus[] = [ProcurementStatus.Pending, ProcurementStatus.Approved, ProcurementStatus.Ordered, ProcurementStatus.Received, ProcurementStatus.Completed];
     const currentStepIdx = steps.indexOf(formData.status || ProcurementStatus.Pending);
     const isRejected = formData.status === ProcurementStatus.Rejected;
+
+    const selectedType = equipmentTypes.find(t => t.id === formData.equipment_type_id);
 
     return (
         <Modal title={procurementToEdit ? "Gerir Pedido de Aquisição" : "Novo Pedido de Aquisição"} onClose={onClose} maxWidth="max-w-4xl">
@@ -130,6 +146,36 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
                     <div className="space-y-4">
                         <h3 className="text-white font-bold border-b border-gray-700 pb-2">Detalhes do Pedido</h3>
                         
+                        <div className="bg-gray-800 p-3 rounded border border-gray-600 mb-4">
+                             <label className="block text-xs text-gray-400 mb-2 uppercase">Tipo de Recurso</label>
+                             <div className="flex gap-4">
+                                <label className={`flex-1 cursor-pointer border p-2 rounded text-center text-sm ${formData.resource_type === 'Hardware' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}`}>
+                                    <input 
+                                        type="radio" 
+                                        name="resource_type" 
+                                        value="Hardware" 
+                                        checked={formData.resource_type === 'Hardware'} 
+                                        onChange={handleChange} 
+                                        className="hidden"
+                                        disabled={!!procurementToEdit} // Lock type on edit
+                                    />
+                                    Hardware
+                                </label>
+                                <label className={`flex-1 cursor-pointer border p-2 rounded text-center text-sm ${formData.resource_type === 'Software' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}`}>
+                                    <input 
+                                        type="radio" 
+                                        name="resource_type" 
+                                        value="Software" 
+                                        checked={formData.resource_type === 'Software'} 
+                                        onChange={handleChange} 
+                                        className="hidden"
+                                        disabled={!!procurementToEdit}
+                                    />
+                                    Software / Licenças
+                                </label>
+                            </div>
+                        </div>
+
                         <div>
                             <label className="block text-sm text-gray-400 mb-1">O que é necessário? (Título)</label>
                             <input 
@@ -139,8 +185,68 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
                                 onChange={handleChange} 
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2"
                                 required
+                                placeholder="Ex: Portátil Dell Latitude 5420"
                             />
                         </div>
+                        
+                        {/* Dynamic Fields for Hardware */}
+                        {formData.resource_type === 'Hardware' && (
+                            <div className="bg-blue-900/20 p-3 rounded border border-blue-500/30 animate-fade-in">
+                                <div className="mb-3">
+                                    <label className="block text-xs text-blue-200 mb-1 flex items-center gap-1"><FaMicrochip/> Tipo de Equipamento (Para pré-configuração)</label>
+                                    <select 
+                                        name="equipment_type_id" 
+                                        value={formData.equipment_type_id || ''} 
+                                        onChange={handleChange} 
+                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                                    >
+                                        <option value="">-- Selecione Tipo --</option>
+                                        {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+
+                                {selectedType && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {selectedType.requires_ram_size && (
+                                            <div>
+                                                <label className="block text-[10px] text-gray-400 uppercase">RAM</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={formData.specifications?.ram_size || ''} 
+                                                    onChange={(e) => handleSpecChange('ram_size', e.target.value)}
+                                                    placeholder="Ex: 16GB"
+                                                    className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs"
+                                                />
+                                            </div>
+                                        )}
+                                        {selectedType.requires_cpu_info && (
+                                            <div>
+                                                <label className="block text-[10px] text-gray-400 uppercase">Processador</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={formData.specifications?.cpu_info || ''} 
+                                                    onChange={(e) => handleSpecChange('cpu_info', e.target.value)}
+                                                    placeholder="Ex: i7-1185G7"
+                                                    className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs"
+                                                />
+                                            </div>
+                                        )}
+                                        {selectedType.requires_disk_info && (
+                                            <div className="col-span-2">
+                                                <label className="block text-[10px] text-gray-400 uppercase">Disco</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={formData.specifications?.disk_info || ''} 
+                                                    onChange={(e) => handleSpecChange('disk_info', e.target.value)}
+                                                    placeholder="Ex: 512GB SSD"
+                                                    className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         
                         <div className="grid grid-cols-2 gap-4">
                             <div>

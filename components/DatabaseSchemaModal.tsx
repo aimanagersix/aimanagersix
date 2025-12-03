@@ -229,6 +229,9 @@ CREATE TABLE IF NOT EXISTS procurement_requests (
     invoice_number text,
     priority text DEFAULT 'Normal',
     attachments jsonb DEFAULT '[]'::jsonb,
+    resource_type text,
+    equipment_type_id uuid REFERENCES equipment_types(id),
+    specifications jsonb,
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
 );
@@ -489,6 +492,11 @@ BEGIN
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'config_custom_roles') THEN
         ALTER TABLE config_custom_roles ADD COLUMN IF NOT EXISTS requires_mfa boolean DEFAULT false;
+    END IF;
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'procurement_requests') THEN
+        ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS resource_type text;
+        ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS equipment_type_id uuid REFERENCES equipment_types(id);
+        ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS specifications jsonb;
     END IF;
 END $$;
 `;

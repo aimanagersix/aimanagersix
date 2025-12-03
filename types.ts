@@ -802,6 +802,11 @@ export interface ProcurementRequest {
     
     priority: 'Normal' | 'Urgente';
     
+    // New fields for improved workflow
+    resource_type?: 'Hardware' | 'Software';
+    equipment_type_id?: string;
+    specifications?: any; // JSONB to store specs like RAM, CPU etc.
+
     attachments?: { name: string; dataUrl: string }[]; // Quotes, Invoices
 }
 

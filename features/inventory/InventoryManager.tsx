@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
@@ -82,6 +81,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
         refreshData();
         setShowAddEquipmentModal(false);
     };
+    
+    const canApproveProcurement = checkPermission('procurement', 'delete');
 
     return (
         <>
@@ -167,6 +168,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onEdit={checkPermission('procurement', 'edit') ? (req) => { setProcurementToEdit(req); setShowAddProcurementModal(true); } : undefined}
                     onReceive={checkPermission('equipment', 'create') ? (req) => { setProcurementToReceive(req); setShowReceiveAssetsModal(true); } : undefined}
                     onDelete={checkPermission('procurement', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteProcurement(id); refreshData(); } } : undefined}
+                    canApprove={canApproveProcurement}
                 />
             )}
 
@@ -285,6 +287,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     currentUser={currentUser}
                     collaborators={appData.collaborators}
                     suppliers={appData.suppliers}
+                    equipmentTypes={appData.equipmentTypes}
                 />
             )}
             

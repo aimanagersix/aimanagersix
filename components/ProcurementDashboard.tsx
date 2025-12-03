@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole } from '../types';
-import { FaShoppingCart, FaPlus, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaBoxOpen, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaShoppingCart, FaPlus, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaBoxOpen, FaEdit, FaTrash, FaMicrochip, FaKey } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
 interface ProcurementDashboardProps {
@@ -13,6 +13,7 @@ interface ProcurementDashboardProps {
     onEdit?: (request: ProcurementRequest) => void;
     onDelete?: (id: string) => void;
     onReceive?: (request: ProcurementRequest) => void;
+    canApprove?: boolean;
 }
 
 const getStatusClass = (status: string) => {
@@ -27,7 +28,7 @@ const getStatusClass = (status: string) => {
     }
 };
 
-const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = [], collaborators, suppliers, currentUser, onCreate, onEdit, onDelete, onReceive }) => {
+const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = [], collaborators, suppliers, currentUser, onCreate, onEdit, onDelete, onReceive, canApprove = false }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -104,6 +105,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
                             <th className="px-6 py-3">Data</th>
+                            <th className="px-6 py-3">Tipo</th>
                             <th className="px-6 py-3">Pedido</th>
                             <th className="px-6 py-3">Requerente</th>
                             <th className="px-6 py-3">Fornecedor</th>
@@ -117,6 +119,9 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                         {paginatedRequests.length > 0 ? paginatedRequests.map(req => (
                             <tr key={req.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                                 <td className="px-6 py-4 text-white">{new Date(req.request_date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 text-center">
+                                    {req.resource_type === 'Hardware' ? <FaMicrochip title="Hardware" className="text-blue-400"/> : <FaKey title="Software" className="text-yellow-400"/>}
+                                </td>
                                 <td className="px-6 py-4 font-medium text-on-surface-dark">
                                     {req.title}
                                     {req.priority === 'Urgente' && <span className="ml-2 text-xs bg-red-900 text-red-200 px-1 rounded font-bold">!</span>}
@@ -142,8 +147,8 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                                                 <FaBoxOpen />
                                             </button>
                                         )}
-                                        {onEdit && (
-                                            <button onClick={() => onEdit(req)} className="text-blue-400 hover:text-blue-300" title="Editar / Gerir">
+                                        {onEdit && (canApprove || req.status === ProcurementStatus.Pending) && (
+                                            <button onClick={() => onEdit(req)} className="text-blue-400 hover:text-blue-300" title={canApprove ? "Gerir / Aprovar" : "Editar"}>
                                                 <FaEdit />
                                             </button>
                                         )}
@@ -157,7 +162,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={8} className="text-center py-8 text-gray-500">Nenhum pedido de aquisição encontrado.</td>
+                                <td colSpan={9} className="text-center py-8 text-gray-500">Nenhum pedido de aquisição encontrado.</td>
                             </tr>
                         )}
                     </tbody>
