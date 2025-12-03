@@ -3,7 +3,7 @@ import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // ... (Keep CameraScanner Component as is)
@@ -193,6 +193,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         wwan_address: '',
         bluetooth_address: '',
         usb_thunderbolt_address: '',
+        ram_size: '',
+        disk_info: '',
+        cpu_info: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -562,6 +565,36 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             ))}
                         </select>
                         {errors.parent_equipment_id && <p className="text-red-400 text-xs italic mt-1">{errors.parent_equipment_id}</p>}
+                    </div>
+                )}
+                
+                {/* --- HARDWARE SPECIFICATIONS SECTION --- */}
+                {(selectedType?.requires_cpu_info || selectedType?.requires_ram_size || selectedType?.requires_disk_info) && (
+                    <div className="border-t border-gray-600 pt-4 mt-4 animate-fade-in">
+                        <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                            <FaMicrochip className="text-purple-400" />
+                            Especificações de Hardware
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {selectedType?.requires_cpu_info && (
+                                <div>
+                                    <label htmlFor="cpu_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Processador (CPU)</label>
+                                    <input type="text" name="cpu_info" id="cpu_info" value={formData.cpu_info || ''} onChange={handleChange} placeholder="Ex: Intel Core i7-1185G7" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                </div>
+                            )}
+                            {selectedType?.requires_ram_size && (
+                                <div>
+                                    <label htmlFor="ram_size" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Memória RAM</label>
+                                    <input type="text" name="ram_size" id="ram_size" value={formData.ram_size || ''} onChange={handleChange} placeholder="Ex: 16 GB" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                </div>
+                            )}
+                            {selectedType?.requires_disk_info && (
+                                <div>
+                                    <label htmlFor="disk_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disco / Armazenamento</label>
+                                    <input type="text" name="disk_info" id="disk_info" value={formData.disk_info || ''} onChange={handleChange} placeholder="Ex: 512 GB SSD NVMe" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 

@@ -26,6 +26,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requires_usb_thunderbolt_address: false,
         requires_ram_size: false,
         requires_disk_info: false,
+        requires_cpu_info: false,
     });
     const [error, setError] = useState('');
 
@@ -46,6 +47,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requires_usb_thunderbolt_address: typeToEdit.requires_usb_thunderbolt_address || false,
                 requires_ram_size: typeToEdit.requires_ram_size || false,
                 requires_disk_info: typeToEdit.requires_disk_info || false,
+                requires_cpu_info: typeToEdit.requires_cpu_info || false,
             });
         }
     }, [typeToEdit]);
@@ -163,6 +165,10 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requires_usb_thunderbolt_address" checked={formData.requires_usb_thunderbolt_address} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Endereço USB/Thunderbolt</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer">
+                            <input type="checkbox" name="requires_cpu_info" checked={formData.requires_cpu_info} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Processador (CPU)</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requires_ram_size" checked={formData.requires_ram_size} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />

@@ -2,16 +2,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows } from 'react-icons/fa';
 
 const agentScriptTemplate = `
-# AIManager Windows Inventory Agent v1.3
+# AIManager Windows Inventory Agent v1.4
 #
 # COMO USAR:
 # 1. Execute este script como Administrador no computador alvo.
 #    (As credenciais Supabase são injetadas automaticamente)
 #
-# MELHORIAS v1.3:
-# - Corrigido erro de criação de novos equipamentos (erro 'brandId').
-# - Refatorada a lógica de construção de payload para maior robustez.
-# - Mantida a recolha automática de RAM, Disco, MACs e outras informações.
+# MELHORIAS v1.4:
+# - Adicionada captura explícita de informação do CPU.
+# - Melhorado o feedback visual na consola.
+# - Corrigido erro de criação de novos equipamentos.
 
 # --- CONFIGURAÇÃO (PREENCHIDA AUTOMATICAMENTE) ---
 $supabaseUrl = "COLE_AQUI_O_SEU_SUPABASE_URL"
@@ -19,7 +19,7 @@ $supabaseAnonKey = "COLE_AQUI_A_SUA_SUPABASE_ANON_KEY"
 # --------------------------------------------------
 
 function Get-HardwareInfo {
-    Write-Host "A recolher dados de Hardware e SO..."
+    Write-Host "A recolher dados de Hardware e SO..." -ForegroundColor Cyan
     $os = Get-CimInstance -ClassName Win32_OperatingSystem
     $cs = Get-CimInstance -ClassName Win32_ComputerSystem
     $bios = Get-CimInstance -ClassName Win32_BIOS
@@ -33,7 +33,7 @@ function Get-HardwareInfo {
     }
     
     # Get Network Adapters (Active only)
-    Write-Host "A recolher endereços MAC de placas ativas..."
+    Write-Host "A recolher endereços MAC de placas ativas..." -ForegroundColor Cyan
     $macWifi = $null
     $macCabo = $null
     Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | ForEach-Object {
@@ -54,6 +54,7 @@ function Get-HardwareInfo {
 
     $typeGuess = if ($isLaptop) { "Laptop" } else { "Desktop" }
     Write-Host "Tipo de equipamento detetado: $($typeGuess)"
+    Write-Host "Processador: $($cpu.Name)" -ForegroundColor Gray
 
     return @{
         serialNumber = $serialNumber
@@ -71,7 +72,7 @@ function Get-HardwareInfo {
 }
 
 try {
-    Write-Host "AIManager Agent v1.3" -ForegroundColor Cyan
+    Write-Host "AIManager Agent v1.4" -ForegroundColor Cyan
     $info = Get-HardwareInfo
     
     if (-not $info.serialNumber) {
