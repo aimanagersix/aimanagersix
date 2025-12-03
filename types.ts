@@ -183,6 +183,8 @@ export interface EquipmentType {
   requires_wwan_address?: boolean;
   requires_bluetooth_address?: boolean;
   requires_usb_thunderbolt_address?: boolean;
+  requires_ram_size?: boolean;
+  requires_disk_info?: boolean;
 }
 
 export interface Equipment {

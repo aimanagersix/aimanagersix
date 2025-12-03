@@ -381,6 +381,8 @@ BEGIN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_wwan_address boolean DEFAULT false;
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_bluetooth_address boolean DEFAULT false;
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_usb_thunderbolt_address boolean DEFAULT false;
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_ram_size boolean DEFAULT false;
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_disk_info boolean DEFAULT false;
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "isLoan" boolean DEFAULT false;

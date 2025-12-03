@@ -24,6 +24,8 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requires_wwan_address: false,
         requires_bluetooth_address: false,
         requires_usb_thunderbolt_address: false,
+        requires_ram_size: false,
+        requires_disk_info: false,
     });
     const [error, setError] = useState('');
 
@@ -42,6 +44,8 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requires_wwan_address: typeToEdit.requires_wwan_address || false,
                 requires_bluetooth_address: typeToEdit.requires_bluetooth_address || false,
                 requires_usb_thunderbolt_address: typeToEdit.requires_usb_thunderbolt_address || false,
+                requires_ram_size: typeToEdit.requires_ram_size || false,
+                requires_disk_info: typeToEdit.requires_disk_info || false,
             });
         }
     }, [typeToEdit]);
@@ -159,6 +163,14 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requires_usb_thunderbolt_address" checked={formData.requires_usb_thunderbolt_address} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Endereço USB/Thunderbolt</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer">
+                            <input type="checkbox" name="requires_ram_size" checked={formData.requires_ram_size} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Tamanho RAM</span>
+                        </label>
+                         <label className="flex items-center cursor-pointer">
+                            <input type="checkbox" name="requires_disk_info" checked={formData.requires_disk_info} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Info Disco</span>
                         </label>
                         <label className="flex items-center cursor-pointer sm:col-span-2 mt-2 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">
                             <input type="checkbox" name="requiresBackupTest" checked={formData.requiresBackupTest} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
