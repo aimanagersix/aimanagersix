@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -195,7 +196,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         usb_thunderbolt_address: '',
         ram_size: '',
         disk_info: '',
-        cpu_info: ''
+        cpu_info: '',
+        manufacture_date: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -569,7 +571,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 )}
                 
                 {/* --- HARDWARE SPECIFICATIONS SECTION --- */}
-                {(selectedType?.requires_cpu_info || selectedType?.requires_ram_size || selectedType?.requires_disk_info) && (
+                {(selectedType?.requires_cpu_info || selectedType?.requires_ram_size || selectedType?.requires_disk_info || selectedType?.requires_manufacture_date) && (
                     <div className="border-t border-gray-600 pt-4 mt-4 animate-fade-in">
                         <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
                             <FaMicrochip className="text-purple-400" />
@@ -592,6 +594,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 <div>
                                     <label htmlFor="disk_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disco / Armazenamento</label>
                                     <input type="text" name="disk_info" id="disk_info" value={formData.disk_info || ''} onChange={handleChange} placeholder="Ex: 512 GB SSD NVMe" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                </div>
+                            )}
+                             {selectedType?.requires_manufacture_date && (
+                                <div>
+                                    <label htmlFor="manufacture_date" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Fabrico (BIOS Date)</label>
+                                    <input type="date" name="manufacture_date" id="manufacture_date" value={formData.manufacture_date || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                                 </div>
                             )}
                         </div>

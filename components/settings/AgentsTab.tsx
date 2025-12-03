@@ -1,15 +1,16 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows } from 'react-icons/fa';
 
 const agentScriptTemplate = `
-# AIManager Windows Inventory Agent v1.4
+# AIManager Windows Inventory Agent v1.5
 #
 # COMO USAR:
 # 1. Execute este script como Administrador no computador alvo.
 #    (As credenciais Supabase são injetadas automaticamente)
 #
-# MELHORIAS v1.4:
-# - Adicionada captura explícita de informação do CPU.
+# MELHORIAS v1.5:
+# - Adicionada captura de Data de Fabrico (via Data da BIOS).
 # - Melhorado o feedback visual na consola.
 # - Corrigido erro de criação de novos equipamentos.
 
@@ -46,6 +47,21 @@ function Get-HardwareInfo {
             Write-Host "  - MAC Cabo encontrado: $($macCabo)"
         }
     }
+    
+    # Parse BIOS Release Date (Proxy for Manufacture Date)
+    $biosDate = $null
+    try {
+        if ($bios.ReleaseDate -is [DateTime]) {
+            $biosDate = $bios.ReleaseDate.ToString("yyyy-MM-dd")
+        } elseif ($bios.ReleaseDate.Length -ge 8) {
+            # Legacy format YYYYMMDD...
+            $str = $bios.ReleaseDate
+            $biosDate = $str.Substring(0, 4) + "-" + $str.Substring(4, 2) + "-" + $str.Substring(6, 2)
+        }
+        Write-Host "  - Data BIOS: $biosDate"
+    } catch {
+        Write-Host "  - Aviso: Não foi possível obter data da BIOS" -ForegroundColor Yellow
+    }
 
     $serialNumber = $bios.SerialNumber
     
@@ -68,11 +84,12 @@ function Get-HardwareInfo {
         nomeNaRede = $env:COMPUTERNAME
         macAddressWIFI = $macWifi
         macAddressCabo = $macCabo
+        manufacture_date = $biosDate
     }
 }
 
 try {
-    Write-Host "AIManager Agent v1.4" -ForegroundColor Cyan
+    Write-Host "AIManager Agent v1.5" -ForegroundColor Cyan
     $info = Get-HardwareInfo
     
     if (-not $info.serialNumber) {
@@ -105,6 +122,7 @@ try {
         nomeNaRede = $info.nomeNaRede
         macAddressWIFI = $info.macAddressWIFI
         macAddressCabo = $info.macAddressCabo
+        manufacture_date = $info.manufacture_date
     }
 
     if ($existing.Count -gt 0) {
@@ -213,7 +231,7 @@ const AgentsTab: React.FC = () => {
                     <FaRobot /> Agente de Inventário (PowerShell)
                 </div>
                 <p>
-                    Execute este script nos computadores Windows para os registar ou atualizar automaticamente no inventário. O script recolhe detalhes de hardware, software e configuração de rede.
+                    Execute este script nos computadores Windows para os registar ou atualizar automaticamente no inventário. O script recolhe detalhes de hardware, software, data de fabrico e configuração de rede.
                 </p>
                 <p className="mt-2 text-green-300 font-semibold bg-green-900/30 p-2 rounded border border-green-500/30">
                     O script abaixo já está configurado com as suas credenciais. Não é necessário editar.

@@ -1,3 +1,4 @@
+
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
@@ -186,6 +187,7 @@ export interface EquipmentType {
   requires_ram_size?: boolean;
   requires_disk_info?: boolean;
   requires_cpu_info?: boolean;
+  requires_manufacture_date?: boolean; // NEW: Data de Fabrico
 }
 
 export interface Equipment {
@@ -226,6 +228,7 @@ export interface Equipment {
   cpu_info?: string;
   disk_info?: string;
   monitor_info?: string;
+  manufacture_date?: string; // NEW: Data de Fabrico
   // Vendor Link
   supplier_id?: string;
   

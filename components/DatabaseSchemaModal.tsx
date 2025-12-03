@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaSeedling } from 'react-icons/fa';
@@ -384,6 +385,7 @@ BEGIN
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_ram_size boolean DEFAULT false;
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_disk_info boolean DEFAULT false;
         ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_cpu_info boolean DEFAULT false;
+        ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS requires_manufacture_date boolean DEFAULT false;
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'equipment') THEN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "isLoan" boolean DEFAULT false;
@@ -403,6 +405,7 @@ BEGIN
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "disk_info" jsonb;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "monitor_info" jsonb;
          ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "procurement_request_id" uuid REFERENCES procurement_requests(id) ON DELETE SET NULL;
+         ALTER TABLE equipment ADD COLUMN IF NOT EXISTS "manufacture_date" date;
     END IF;
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'security_training_records') THEN
         ALTER TABLE security_training_records ADD COLUMN IF NOT EXISTS duration_hours numeric;

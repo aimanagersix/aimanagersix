@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { EquipmentType, Team } from '../types';
@@ -27,6 +28,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requires_ram_size: false,
         requires_disk_info: false,
         requires_cpu_info: false,
+        requires_manufacture_date: false,
     });
     const [error, setError] = useState('');
 
@@ -48,6 +50,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requires_ram_size: typeToEdit.requires_ram_size || false,
                 requires_disk_info: typeToEdit.requires_disk_info || false,
                 requires_cpu_info: typeToEdit.requires_cpu_info || false,
+                requires_manufacture_date: typeToEdit.requires_manufacture_date || false,
             });
         }
     }, [typeToEdit]);
@@ -177,6 +180,10 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                          <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requires_disk_info" checked={formData.requires_disk_info} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Info Disco</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer">
+                            <input type="checkbox" name="requires_manufacture_date" checked={formData.requires_manufacture_date} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Data de Fabrico</span>
                         </label>
                         <label className="flex items-center cursor-pointer sm:col-span-2 mt-2 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">
                             <input type="checkbox" name="requiresBackupTest" checked={formData.requiresBackupTest} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
