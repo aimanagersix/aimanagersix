@@ -414,41 +414,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         e.preventDefault();
         if (!validate()) return;
         
-        const dataToSubmit: Partial<Equipment> = {
-            brandId: formData.brandId,
-            typeId: formData.typeId,
-            description: formData.description,
-            serialNumber: formData.serialNumber,
-            inventoryNumber: formData.inventoryNumber,
-            invoiceNumber: formData.invoiceNumber,
-            requisitionNumber: formData.requisitionNumber,
-            nomeNaRede: formData.nomeNaRede,
-            macAddressWIFI: formData.macAddressWIFI,
-            macAddressCabo: formData.macAddressCabo,
-            installationLocation: formData.installationLocation,
-            purchaseDate: formData.purchaseDate,
-            warrantyEndDate: formData.warrantyEndDate,
-            status: formData.status,
-            isLoan: formData.isLoan,
-            criticality: formData.criticality,
-            confidentiality: formData.confidentiality,
-            integrity: formData.integrity,
-            availability: formData.availability,
-            os_version: formData.os_version,
-            last_security_update: formData.last_security_update,
-            firmware_version: formData.firmware_version,
-            wwan_address: formData.wwan_address,
-            bluetooth_address: formData.bluetooth_address,
-            usb_thunderbolt_address: formData.usb_thunderbolt_address,
-            supplier_id: formData.supplier_id,
-            acquisitionCost: formData.acquisitionCost,
-            expectedLifespanYears: formData.expectedLifespanYears,
-            embedded_license_key: formData.embedded_license_key,
-            parent_equipment_id: formData.parent_equipment_id,
-            procurement_request_id: formData.procurement_request_id,
-            decommission_reason_id: formData.decommission_reason_id,
-        };
-
+        // FIX: Pass the entire formData object. Supabase update handles partial objects
+        // and ignores fields not in the table, preventing data loss on edit.
+        const dataToSubmit: Partial<Equipment> = { ...formData };
+        
         let assignment = null;
         if (!equipmentToEdit && assignToEntityId) {
             assignment = {

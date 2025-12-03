@@ -141,7 +141,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         // 2. Inactivate collaborator and set reason
         await dataService.updateCollaborator(collaboratorId, { 
             status: 'Inativo',
-            deactivation_reason_id: reasonId || null
+            deactivation_reason_id: reasonId || undefined
         });
         
         // 3. Create ticket for IT
