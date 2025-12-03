@@ -806,6 +806,7 @@ export interface ProcurementRequest {
     resource_type?: 'Hardware' | 'Software';
     equipment_type_id?: string;
     specifications?: any; // JSONB to store specs like RAM, CPU etc.
+    software_category_id?: string; // Link to ConfigItem for Software Category
 
     attachments?: { name: string; dataUrl: string }[]; // Quotes, Invoices
 }

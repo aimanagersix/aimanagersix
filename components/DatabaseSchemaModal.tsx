@@ -232,6 +232,7 @@ CREATE TABLE IF NOT EXISTS procurement_requests (
     resource_type text,
     equipment_type_id uuid REFERENCES equipment_types(id),
     specifications jsonb,
+    software_category_id uuid REFERENCES config_software_categories(id),
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
 );
@@ -497,178 +498,136 @@ BEGIN
         ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS resource_type text;
         ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS equipment_type_id uuid REFERENCES equipment_types(id);
         ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS specifications jsonb;
+        ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS software_category_id uuid REFERENCES config_software_categories(id);
     END IF;
-END $$;
-`;
+END $$;`;
 
-    const cleanupScript = `
-BEGIN;
--- Remover tabelas obsoletas (cuidado!)
-DROP TABLE IF EXISTS collaborator CASCADE;
-DROP TABLE IF EXISTS entidade CASCADE;
-DROP TABLE IF EXISTS instituicao CASCADE;
-DROP TABLE IF EXISTS supplier CASCADE;
-DROP TABLE IF EXISTS team CASCADE;
-DROP TABLE IF EXISTS supplier_contacts CASCADE;
-DROP TABLE IF EXISTS license_assignment CASCADE;
-COMMIT;
-`;
-
-    const resetScript = `
--- SCRIPT DE LIMPEZA PROFUNDA (RESET)
--- ATENÇÃO: ISTO APAGA TODOS OS DADOS OPERACIONAIS!
-
-BEGIN;
-
--- 1. Proteger o Super Admin (Atualize o email se necessário)
-UPDATE collaborators 
-SET role = 'SuperAdmin', "entidadeId" = NULL, status = 'Ativo'
-WHERE email = 'josefsmoreira@outlook.com';
-
--- 2. Apagar Dados Operacionais
-DELETE FROM service_dependencies;
-DELETE FROM business_services;
-DELETE FROM ticket_activities;
-DELETE FROM tickets;
-DELETE FROM vulnerabilities;
-DELETE FROM license_assignments;
-DELETE FROM assignments;
-DELETE FROM backup_executions;
-DELETE FROM resilience_tests;
-DELETE FROM security_training_records;
-DELETE FROM messages;
-DELETE FROM audit_logs;
-DELETE FROM resource_contacts;
-DELETE FROM team_members;
-DELETE FROM software_licenses;
-DELETE FROM integration_logs;
-DELETE FROM policy_acceptances;
-DELETE FROM policies;
-DELETE FROM procurement_requests;
-DELETE FROM calendar_events;
-DELETE FROM continuity_plans;
-
--- 3. Apagar Ativos e Configurações Vinculadas
-UPDATE equipment SET parent_equipment_id = NULL; -- Break self-ref
-DELETE FROM equipment;
-
-UPDATE equipment_types SET default_team_id = NULL;
-UPDATE ticket_categories SET default_team_id = NULL;
-
--- 4. Apagar Estrutura Organizacional (Exceto o Super Admin)
-DELETE FROM collaborators WHERE email != 'josefsmoreira@outlook.com' AND email != 'general@system.local';
-DELETE FROM teams;
-DELETE FROM entidades;
-DELETE FROM instituicoes;
-DELETE FROM suppliers;
-
-COMMIT;
-`;
-
-    const handleCopy = (script: string) => {
-        navigator.clipboard.writeText(script);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(updateScript);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
-    
+
     const handleGenerateTest = async () => {
-        if (!testRequest.trim() || !aiConfigured || !testEmail.trim() || !testPassword.trim()) return;
+        if (!testRequest) return;
         setIsGeneratingTest(true);
-        setGeneratedTest('');
         try {
-            const result = await generatePlaywrightTest(testRequest, { email: testEmail, pass: testPassword });
-            setGeneratedTest(result);
-        } catch (e) {
-            console.error(e);
-            setGeneratedTest("// Erro ao gerar o código de teste.");
+            const code = await generatePlaywrightTest(testRequest, { email: testEmail, pass: testPassword });
+            setGeneratedTest(code);
+        } catch (error) {
+            console.error(error);
+            setGeneratedTest("// Erro ao gerar teste.");
         } finally {
             setIsGeneratingTest(false);
         }
     };
 
     return (
-        <Modal title="SQL de Configuração e Manutenção" onClose={onClose} maxWidth="max-w-4xl">
-            <div className="space-y-4">
+        <Modal title="Configuração de Base de Dados & Ferramentas" onClose={onClose} maxWidth="max-w-4xl">
+            <div className="flex flex-col h-[70vh]">
                 {/* Tabs */}
-                <div className="flex border-b border-gray-700 mb-4 overflow-x-auto">
-                    <button onClick={() => setActiveTab('update')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}><FaDatabase className="inline mr-2"/> Atualização (Schema)</button>
-                    <button onClick={() => setActiveTab('seed')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'seed' ? 'border-green-500 text-green-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSeedling className="inline mr-2"/> Dados de Teste (Seed)</button>
-                    <button onClick={() => setActiveTab('playwright_ai')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'playwright_ai' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot className="inline mr-2"/> Playwright AI</button>
-                    <button onClick={() => setActiveTab('cleanup')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'cleanup' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBroom className="inline mr-2"/> Limpar Lixo</button>
-                    <button onClick={() => setActiveTab('reset')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'reset' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-400 hover:text-white'}`}><FaTrash className="inline mr-2"/> Reset Total</button>
+                <div className="flex border-b border-gray-700 mb-4">
+                     <button 
+                        onClick={() => setActiveTab('update')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaDatabase className="inline mr-2"/> Atualizar BD
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('playwright_ai')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'playwright_ai' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaRobot className="inline mr-2"/> Gerador de Testes E2E
+                    </button>
                 </div>
 
-                {activeTab === 'update' && (
-                    <div className="animate-fade-in">
-                        <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                            <p>Cria tabelas em falta, configura o Storage e adiciona <strong>Triggers de Notificação Slack (pg_net)</strong>.</p>
+                {/* Content */}
+                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2">
+                    {activeTab === 'update' && (
+                        <div className="space-y-4">
+                            <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
+                                <p>
+                                    <strong>Instruções:</strong> Copie o script SQL abaixo e execute-o no <strong>SQL Editor</strong> do seu projeto Supabase.
+                                    Este script cria/atualiza todas as tabelas, funções e permissões necessárias.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto max-h-96 custom-scrollbar border border-gray-700">
+                                    {updateScript}
+                                </pre>
+                                <button 
+                                    onClick={handleCopy} 
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors"
+                                    title="Copiar SQL"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                </button>
+                            </div>
                         </div>
-                        <div className="relative">
-                            <pre className="bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-gray-700 whitespace-pre-wrap">{updateScript}</pre>
-                            <button onClick={() => handleCopy(updateScript)} className="absolute top-4 right-4 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md shadow-lg transition-colors flex items-center gap-2">{copied ? <FaCheck className="text-green-400" /> : <FaCopy />}</button>
-                        </div>
-                    </div>
-                )}
+                    )}
 
-                {activeTab === 'seed' && (
-                    <div className="animate-fade-in">
-                         <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-4">
-                            <p className="font-bold mb-2"><FaSeedling className="inline mr-2"/> POPULAR BASE DE DADOS (Completo)</p>
-                            <p>Insere dados de exemplo em todos os módulos: Ativos, Tickets, Compliance, Fornecedores, Equipas, etc.</p>
-                        </div>
-                        <div className="relative">
-                             <p className="text-gray-400 text-xs italic p-2">Nota: O script de seed está disponível, mas oculto para poupar espaço. Use o script de atualização para garantir as tabelas primeiro.</p>
-                        </div>
-                    </div>
-                )}
-                
-                {activeTab === 'playwright_ai' && (
-                    <div className="animate-fade-in flex flex-col h-[500px]">
-                        <div className="bg-purple-900/20 border border-purple-500/50 p-3 rounded-lg text-sm text-purple-200 mb-4">
-                            <p className="font-bold mb-1 flex items-center gap-2"><FaRobot/> Gerador de Testes E2E com IA</p>
-                            <p className="text-xs">Descreva um cenário de teste em linguagem natural (ex: "fazer login, ir para o inventário e criar um novo equipamento") e a IA irá gerar o código Playwright correspondente.</p>
-                        </div>
-                        <div className="flex flex-col md:flex-row gap-2 mb-2">
-                            <input type="email" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="Email de teste" className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" />
-                            <input type="password" value={testPassword} onChange={(e) => setTestPassword(e.target.value)} placeholder="Password de teste" className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" />
-                        </div>
-                        <div className="flex gap-2 mb-4">
-                            <input type="text" value={testRequest} onChange={(e) => setTestRequest(e.target.value)} placeholder="Cenário de teste..." className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" onKeyDown={(e) => e.key === 'Enter' && handleGenerateTest()} />
-                            <button onClick={handleGenerateTest} disabled={isGeneratingTest || !aiConfigured || !testRequest.trim() || !testEmail.trim() || !testPassword.trim()} className="bg-purple-600 hover:bg-purple-500 text-white px-4 rounded-md font-bold disabled:opacity-50 flex items-center gap-2">
-                                {isGeneratingTest ? <FaSpinner className="animate-spin"/> : <FaPlay/>} Gerar Teste
-                            </button>
-                        </div>
-                        <div className="relative flex-grow">
-                             <textarea value={generatedTest} readOnly className="w-full h-full bg-black text-green-400 p-4 rounded-lg text-xs font-mono border border-gray-700 resize-none" placeholder="Código Playwright gerado..."/>
-                            {generatedTest && <button onClick={() => handleCopy(generatedTest)} className="absolute top-4 right-4 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md shadow-lg"><FaCopy /></button>}
-                        </div>
-                    </div>
-                )}
+                    {activeTab === 'playwright_ai' && (
+                        <div className="space-y-4 p-1">
+                            <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaRobot /> QA Automation Assistant</div>
+                                <p>
+                                    Descreva o cenário de teste que pretende (ex: "Login com sucesso e criar um equipamento") e a IA irá gerar o código Playwright pronto a usar.
+                                </p>
+                            </div>
 
-                {activeTab === 'cleanup' && (
-                    <div className="animate-fade-in">
-                        <div className="relative">
-                            <pre className="bg-gray-900 text-orange-300 p-4 rounded-lg text-xs font-mono h-64 overflow-y-auto border border-orange-900/50 whitespace-pre-wrap">{cleanupScript}</pre>
-                            <button onClick={() => handleCopy(cleanupScript)} className="absolute top-4 right-4 p-2 bg-orange-800 hover:bg-orange-700 text-white rounded-md shadow-lg">{copied ? <FaCheck /> : <FaCopy />}</button>
-                        </div>
-                    </div>
-                )}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Email de Teste</label>
+                                    <input type="text" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Password de Teste</label>
+                                    <input type="password" value={testPassword} onChange={(e) => setTestPassword(e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" />
+                                </div>
+                            </div>
 
-                {activeTab === 'reset' && (
-                    <div className="animate-fade-in">
-                        <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
-                            <p className="font-bold mb-2"><FaTrash className="inline mr-2"/> ATENÇÃO: AÇÃO DESTRUTIVA</p>
-                            <p>Apaga TODOS os dados operacionais, mantendo apenas o SuperAdmin.</p>
-                        </div>
-                        <div className="relative">
-                            <pre className="bg-gray-900 text-red-300 p-4 rounded-lg text-xs font-mono h-96 overflow-y-auto border border-red-900/50 whitespace-pre-wrap">{resetScript}</pre>
-                            <button onClick={() => handleCopy(resetScript)} className="absolute top-4 right-4 p-2 bg-red-800 hover:bg-red-700 text-white rounded-md shadow-lg">{copied ? <FaCheck /> : <FaCopy />}</button>
-                        </div>
-                    </div>
-                )}
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={testRequest} 
+                                    onChange={(e) => setTestRequest(e.target.value)} 
+                                    placeholder="Descreva o teste (ex: Criar um ticket de incidente crítico)..." 
+                                    className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
+                                    onKeyDown={(e) => e.key === 'Enter' && handleGenerateTest()}
+                                />
+                                <button 
+                                    onClick={handleGenerateTest} 
+                                    disabled={isGeneratingTest || !aiConfigured}
+                                    className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isGeneratingTest ? <FaSpinner className="animate-spin" /> : <FaPlay />} Gerar Código
+                                </button>
+                            </div>
 
-                <div className="flex justify-end mt-4">
-                    <button onClick={onClose} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Fechar</button>
+                            {generatedTest && (
+                                <div className="relative mt-4">
+                                    <div className="flex justify-between items-center bg-gray-800 p-2 rounded-t-lg border border-gray-700 border-b-0">
+                                        <span className="text-xs text-gray-400 font-bold ml-2">tests/generated.spec.ts</span>
+                                        <button 
+                                            onClick={() => { navigator.clipboard.writeText(generatedTest); alert("Código copiado!"); }} 
+                                            className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded"
+                                        >
+                                            <FaCopy /> Copiar
+                                        </button>
+                                    </div>
+                                    <pre className="bg-gray-900 p-4 rounded-b-lg text-xs font-mono text-blue-300 overflow-auto max-h-64 custom-scrollbar border border-gray-700">
+                                        {generatedTest}
+                                    </pre>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-gray-700 mt-auto">
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">
+                        Fechar
+                    </button>
                 </div>
             </div>
         </Modal>

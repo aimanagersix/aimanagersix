@@ -288,6 +288,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     collaborators={appData.collaborators}
                     suppliers={appData.suppliers}
                     equipmentTypes={appData.equipmentTypes}
+                    softwareCategories={appData.softwareCategories}
                 />
             )}
             
