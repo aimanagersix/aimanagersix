@@ -130,6 +130,14 @@ DO $$ BEGIN ALTER TABLE contact_roles ADD CONSTRAINT contact_roles_name_key UNIQ
 CREATE TABLE IF NOT EXISTS contact_titles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
 DO $$ BEGIN ALTER TABLE contact_titles ADD CONSTRAINT contact_titles_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
+CREATE TABLE IF NOT EXISTS config_decommission_reasons (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
+
+CREATE TABLE IF NOT EXISTS config_collaborator_deactivation_reasons (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    created_at timestamptz DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS config_custom_roles (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL,
@@ -289,6 +297,16 @@ WHERE NOT EXISTS (SELECT 1 FROM config_training_types WHERE name = v.name);
 INSERT INTO config_resilience_test_types (name)
 SELECT v.name FROM (VALUES ('Scan Vulnerabilidades'), ('Penetration Test (Pentest)'), ('TLPT (Red Teaming)'), ('Exercício de Mesa (DRP)'), ('Recuperação de Desastres (Full)')) AS v(name)
 WHERE NOT EXISTS (SELECT 1 FROM config_resilience_test_types WHERE name = v.name);
+
+-- Config Decommission Reasons
+INSERT INTO config_decommission_reasons (name)
+SELECT v.name FROM (VALUES ('Fim de Vida (EOL)'), ('Avaria Irreparável'), ('Roubo / Perda'), ('Substituição Tecnológica')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_decommission_reasons WHERE name = v.name);
+
+-- Config Collaborator Deactivation Reasons
+INSERT INTO config_collaborator_deactivation_reasons (name)
+SELECT v.name FROM (VALUES ('Fim de Contrato'), ('Saída Voluntária'), ('Reforma'), ('Despedimento')) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM config_collaborator_deactivation_reasons WHERE name = v.name);
 
 -- Config Contacts
 INSERT INTO contact_roles (name)

@@ -4,7 +4,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -27,94 +27,13 @@ import AddEquipmentTypeModal from '../../components/AddEquipmentTypeModal';
 import AddCategoryModal from '../../components/AddCategoryModal';
 import AddSecurityIncidentTypeModal from '../../components/AddSecurityIncidentTypeModal';
 import SystemDiagnosticsModal from '../../components/SystemDiagnosticsModal';
+import GenericConfigDashboard from '../../components/settings/GenericConfigDashboard';
 
 interface SettingsManagerProps {
     appData: any;
     refreshData: () => void;
 }
 
-// Generic Dashboard for simple ConfigItem tables
-const GenericConfigDashboard: React.FC<{
-    title: string;
-    icon: React.ReactNode;
-    items: ConfigItem[];
-    tableName: string;
-    onRefresh: () => void;
-    colorField?: boolean;
-}> = ({ title, icon, items, tableName, onRefresh, colorField = false }) => {
-    
-    const [newItemName, setNewItemName] = useState('');
-    const [newItemColor, setNewItemColor] = useState('#3B82F6');
-    const [editingItem, setEditingItem] = useState<ConfigItem | null>(null);
-
-    const handleSave = async () => {
-        if (editingItem) {
-            // Update
-            await dataService.updateConfigItem(tableName, editingItem.id, { name: editingItem.name, color: editingItem.color });
-            setEditingItem(null);
-        } else {
-            // Create
-            if (!newItemName.trim()) return;
-            await dataService.addConfigItem(tableName, { name: newItemName, color: colorField ? newItemColor : undefined });
-            setNewItemName('');
-        }
-        onRefresh();
-    };
-
-    const handleDelete = async (id: string) => {
-        if(confirm("Tem a certeza?")) {
-            await dataService.deleteConfigItem(tableName, id);
-            onRefresh();
-        }
-    };
-
-    return (
-        <div className="p-6 h-full flex flex-col">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">{icon} {title}</h2>
-            
-            <div className="flex gap-2 mb-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                <input
-                    type="text"
-                    value={editingItem ? editingItem.name : newItemName}
-                    onChange={(e) => editingItem ? setEditingItem({ ...editingItem, name: e.target.value }) : setNewItemName(e.target.value)}
-                    placeholder="Nome do novo item..."
-                    className="flex-grow bg-gray-700 border border-gray-600 rounded-md p-2 text-sm text-white"
-                />
-                {colorField && (
-                     <input
-                        type="color"
-                        value={editingItem ? (editingItem.color || '#3B82F6') : newItemColor}
-                        onChange={(e) => editingItem ? setEditingItem({ ...editingItem, color: e.target.value }) : setNewItemColor(e.target.value)}
-                        className="bg-transparent border-none w-10 h-10 p-0 cursor-pointer"
-                    />
-                )}
-                <button onClick={handleSave} className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-brand-secondary">
-                    {editingItem ? <FaSave /> : <FaPlus />}
-                </button>
-                {editingItem && <button onClick={() => setEditingItem(null)} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500"><FaTimes /></button>}
-            </div>
-
-            <div className="flex-grow overflow-y-auto custom-scrollbar border border-gray-700 rounded-lg">
-                <table className="w-full text-sm">
-                    <tbody>
-                        {items.map(item => (
-                            <tr key={item.id} className="border-b border-gray-800 last:border-0 hover:bg-gray-800/50">
-                                <td className="p-3 flex items-center gap-3">
-                                    {colorField && <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: item.color || 'transparent', border: '1px solid #4B5563' }}></div>}
-                                    <span className="text-white">{item.name}</span>
-                                </td>
-                                <td className="p-3 w-32 text-right">
-                                    <button onClick={() => setEditingItem(item)} className="text-blue-400 hover:text-blue-300 mr-4"><FaEdit /></button>
-                                    <button onClick={() => handleDelete(item.id)} className="text-red-400 hover:text-red-300"><FaTrash /></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
 
 // Main Component
 const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData }) => {
@@ -131,8 +50,12 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
     
-    // State for Automation Tabs (migrated from AuxiliaryDataDashboard)
-     const [settings, setSettings] = useState<any>({});
+    // State for Automation Tabs
+    const [settings, setSettings] = useState<any>({
+        webhookJson: '{\n  "alert_name": "Possible Ransomware Detected",\n  "hostname": "PC-FIN-01",\n  "severity": "critical",\n  "source": "SentinelOne",\n  "timestamp": "2024-05-20T10:00:00Z"\n}',
+        simulatedTicket: null,
+        isSimulating: false,
+    });
 
     const handleCopyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -141,6 +64,38 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     const handleTestCron = () => {
         alert('Funcionalidade de teste ainda não implementada.');
+    };
+
+    const handleSimulateWebhook = async () => {
+        setSettings((p:any) => ({...p, isSimulating: true, simulatedTicket: null}));
+        try {
+            const result = await parseSecurityAlert(settings.webhookJson);
+            setSettings((p:any) => ({...p, simulatedTicket: result}));
+        } catch (e) {
+            alert("Erro ao simular alerta.");
+        } finally {
+            setSettings((p:any) => ({...p, isSimulating: false}));
+        }
+    };
+
+    const handleCreateSimulatedTicket = async () => {
+        if (!settings.simulatedTicket) return;
+        try {
+            await dataService.addTicket({
+                title: settings.simulatedTicket.title,
+                description: `Alerta Automático de: ${settings.simulatedTicket.sourceSystem}\n\n${settings.simulatedTicket.description}`,
+                category: 'Incidente de Segurança',
+                securityIncidentType: settings.simulatedTicket.incidentType,
+                impactCriticality: settings.simulatedTicket.severity,
+                // These need a default or logic to determine
+                entidadeId: appData.entidades[0]?.id,
+                collaboratorId: appData.collaborators[0]?.id,
+            });
+            alert("Ticket criado com sucesso!");
+            setSettings((p:any) => ({...p, simulatedTicket: null}));
+        } catch(e) {
+            alert("Erro ao criar ticket.");
+        }
     };
 
      useEffect(() => {
@@ -159,9 +114,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             }
 
             const projectUrl = localStorage.getItem('SUPABASE_URL');
-            const projectRef = projectUrl ? new URL(projectUrl).hostname.split('.')[0] : '[PROJECT-REF]';
-
-            setSettings({
+            
+            setSettings((prev: any) => ({
+                ...prev,
                 scan_frequency_days: fetchedSettings.scan_frequency_days || '0',
                 scan_start_time: fetchedSettings.scan_start_time || '02:00',
                 last_auto_scan: fetchedSettings.last_auto_scan ? new Date(fetchedSettings.last_auto_scan).toLocaleString() : '-',
@@ -182,10 +137,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 app_logo_size: parseInt(fetchedSettings.app_logo_size || '80'),
                 app_logo_alignment: fetchedSettings.app_logo_alignment || 'center',
                 report_footer_institution_id: fetchedSettings.report_footer_institution_id || '',
-            });
+            }));
         };
         loadSettings();
-    }, [selectedMenuId]); // Reload when menu changes to fetch fresh data for specific tabs
+    }, [selectedMenuId]);
 
     const menuStructure: { group: string; items: { id: string; label: string; icon: React.ReactNode }[] }[] = [
         {
@@ -213,6 +168,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes /> },
                 { id: 'config_equipment_statuses', label: 'Estados de Equipamento', icon: <FaList /> },
                 { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
+                { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação', icon: <FaUserSlash /> },
                 { id: 'config_software_categories', label: 'Categorias de Software', icon: <FaList /> },
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
@@ -231,6 +187,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const simpleConfigTables: Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }> = {
         'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: appData.configEquipmentStatuses, colorField: true },
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
+        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
@@ -274,9 +231,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
                 {/* Content Area */}
                 <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4" key={selectedMenuId}>
-                    {/* Automation Tabs */}
                     {selectedMenuId === 'agents' && <AgentsTab />}
-                    {/* FIX: Corrected the props passed to CronJobsTab */}
                     {selectedMenuId === 'cronjobs' && <CronJobsTab 
                         settings={settings} 
                         onSettingsChange={(k, v) => setSettings((p:any) => ({ ...p, [k]: v }))} 
@@ -286,6 +241,12 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                         }}
                         onTest={handleTestCron}
                         onCopy={handleCopyToClipboard}
+                    />}
+                    {selectedMenuId === 'webhooks' && <WebhooksTab 
+                        settings={settings} 
+                        onSettingsChange={(k,v) => setSettings((p:any) => ({...p, [k]:v}))}
+                        onSimulate={handleSimulateWebhook}
+                        onCreateSimulatedTicket={handleCreateSimulatedTicket}
                     />}
                     {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
                     {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
