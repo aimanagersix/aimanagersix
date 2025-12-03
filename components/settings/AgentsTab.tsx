@@ -2,21 +2,21 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows } from 'react-icons/fa';
 
 const agentScriptTemplate = `
-# AIManager Windows Inventory Agent v1.2
+# AIManager Windows Inventory Agent v1.3
 #
 # COMO USAR:
-# 1. Copie o seu Supabase URL e Anon Key para as variáveis abaixo.
-# 2. Execute este script como Administrador no computador alvo.
+# 1. Execute este script como Administrador no computador alvo.
+#    (As credenciais Supabase são injetadas automaticamente)
 #
-# MELHORIAS v1.2:
-# - Adiciona mais feedback de progresso no terminal.
-# - Recolhe endereços MAC de interfaces de Rede (WiFi e Cabo) ativas.
-# - Melhora a deteção de tipos de equipamento existentes (ex: Laptop vs. Portátil).
+# MELHORIAS v1.3:
+# - Corrigido erro de criação de novos equipamentos (erro 'brandId').
+# - Refatorada a lógica de construção de payload para maior robustez.
+# - Mantida a recolha automática de RAM, Disco, MACs e outras informações.
 
-# --- CONFIGURAÇÃO (PREENCHER) ---
+# --- CONFIGURAÇÃO (PREENCHIDA AUTOMATICAMENTE) ---
 $supabaseUrl = "COLE_AQUI_O_SEU_SUPABASE_URL"
 $supabaseAnonKey = "COLE_AQUI_A_SUA_SUPABASE_ANON_KEY"
-# -----------------------------------
+# --------------------------------------------------
 
 function Get-HardwareInfo {
     Write-Host "A recolher dados de Hardware e SO..."
@@ -71,7 +71,7 @@ function Get-HardwareInfo {
 }
 
 try {
-    Write-Host "AIManager Agent v1.2" -ForegroundColor Cyan
+    Write-Host "AIManager Agent v1.3" -ForegroundColor Cyan
     $info = Get-HardwareInfo
     
     if (-not $info.serialNumber) {
@@ -93,7 +93,8 @@ try {
     $query = "equipment?select=id&serialNumber=eq.$($info.serialNumber)"
     $existing = Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/$query" -Method Get -Headers $headers
     
-    $body = @{
+    # Construir payload base como uma Hashtable
+    $payload = @{
         serialNumber = $info.serialNumber
         description = $info.description
         os_version = $info.os_version
@@ -103,35 +104,49 @@ try {
         nomeNaRede = $info.nomeNaRede
         macAddressWIFI = $info.macAddressWIFI
         macAddressCabo = $info.macAddressCabo
-        modifiedDate = (Get-Date).ToUniversalTime().ToString("o")
-    } | ConvertTo-Json -Depth 5
+    }
 
     if ($existing.Count -gt 0) {
-        # Update
+        # Update (PATCH)
         $id = $existing[0].id
+        $payload.Add("modifiedDate", (Get-Date).ToUniversalTime().ToString("o"))
         Write-Host "Equipamento encontrado (ID: $id). A atualizar..."
-        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment?id=eq.$id" -Method Patch -Headers $headers -Body $body
+        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment?id=eq.$id" -Method Patch -Headers $headers -Body ($payload | ConvertTo-Json -Depth 5)
         Write-Host "Equipamento atualizado com sucesso." -ForegroundColor Green
     } else {
-        # Create
+        # Create (POST)
         Write-Host "Equipamento novo. A registar no inventário..."
         
-        # Tenta encontrar Brand/Type pelo nome
+        # Tenta encontrar Brand/Type pelo nome para obter os IDs
         Write-Host "A procurar por Marca '$($info.brandName)' e Tipo '$($info.typeName)' existentes..."
         $brandId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/brands?select=id&name=ilike.$($info.brandName)" -Method Get -Headers $headers)[0].id
         $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.$($info.typeName)" -Method Get -Headers $headers)[0].id
 
-        # Fallback for Laptop vs Portátil (case insensitive)
-        if (-not $typeId -and $info.typeName -eq "Laptop") {
-            Write-Host "Tipo 'Laptop' não encontrado. A tentar 'Portátil'..."
-            $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.Portátil" -Method Get -Headers $headers)[0].id
+        # Fallback para nomes comuns (Laptop vs Portátil)
+        if (-not $typeId -and ($info.typeName -eq "Laptop" -or $info.typeName -eq "Portátil")) {
+            Write-Host "Tipo '$($info.typeName)' não encontrado. A tentar nomes alternativos..."
+            $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.Laptop" -Method Get -Headers $headers)[0].id
+            if (-not $typeId) {
+                $typeId = (Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment_types?select=id&name=ilike.Portátil" -Method Get -Headers $headers)[0].id
+            }
         }
         
-        $createBody = $body | ConvertFrom-Json
-        if($brandId) { $createBody.brandId = $brandId; Write-Host "  - Marca encontrada: $($info.brandName)" -ForegroundColor Yellow }
-        if($typeId) { $createBody.typeId = $typeId; Write-Host "  - Tipo encontrado: $($info.typeName)" -ForegroundColor Yellow }
+        # Adiciona os IDs ao payload se encontrados
+        if($brandId) { 
+            $payload.Add("brandId", $brandId)
+            Write-Host "  - Marca encontrada: $($info.brandName)" -ForegroundColor Yellow 
+        } else {
+            Write-Host "  - AVISO: Marca '$($info.brandName)' não encontrada. Será necessário adicionar manualmente." -ForegroundColor Yellow
+        }
+
+        if($typeId) { 
+            $payload.Add("typeId", $typeId)
+            Write-Host "  - Tipo encontrado: $($info.typeName)" -ForegroundColor Yellow
+        } else {
+            Write-Host "  - AVISO: Tipo '$($info.typeName)' não encontrado. Será necessário adicionar manualmente." -ForegroundColor Yellow
+        }
         
-        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment" -Method Post -Headers $headers -Body ($createBody | ConvertTo-Json -Depth 5)
+        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment" -Method Post -Headers $headers -Body ($payload | ConvertTo-Json -Depth 5)
         Write-Host "Equipamento criado com sucesso." -ForegroundColor Green
     }
 
