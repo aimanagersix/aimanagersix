@@ -286,7 +286,10 @@ DECLARE t text;
 BEGIN 
     FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'config_%' OR table_name LIKE 'contact_%' OR table_name = 'brands' OR table_name = 'equipment_types' OR table_name = 'ticket_categories' OR table_name = 'security_incident_types'
     LOOP 
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Public Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
         BEGIN EXECUTE format('CREATE POLICY "Public Read" ON %I FOR SELECT USING (auth.role() = ''authenticated'');', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Admin Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
         BEGIN EXECUTE format('CREATE POLICY "Admin Write" ON %I FOR ALL USING (is_admin_or_tech());', t); EXCEPTION WHEN OTHERS THEN NULL; END;
     END LOOP;
 END $$;
@@ -294,22 +297,37 @@ END $$;
 -- 4.2 Políticas para Tabelas Operacionais (Equipment, Tickets, etc.)
 
 -- Equipment: Leitura Todos, Escrita Admin/Tech
+DROP POLICY IF EXISTS "Equipment Read" ON equipment;
 CREATE POLICY "Equipment Read" ON equipment FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Equipment Write" ON equipment;
 CREATE POLICY "Equipment Write" ON equipment FOR ALL USING (is_admin_or_tech());
 
 -- Collaborators: Leitura Todos, Edição Apenas Próprio ou Admin
+DROP POLICY IF EXISTS "Collab Read" ON collaborators;
 CREATE POLICY "Collab Read" ON collaborators FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Collab Update Self" ON collaborators;
 CREATE POLICY "Collab Update Self" ON collaborators FOR UPDATE USING (id = auth.uid() OR is_admin());
+
+DROP POLICY IF EXISTS "Collab Insert/Delete" ON collaborators;
 CREATE POLICY "Collab Insert/Delete" ON collaborators FOR INSERT WITH CHECK (is_admin()); 
+
+DROP POLICY IF EXISTS "Collab Delete" ON collaborators;
 CREATE POLICY "Collab Delete" ON collaborators FOR DELETE USING (is_admin());
 
 -- Tickets: Leitura (Requerente, Técnico ou Admin), Escrita (Requerente, Técnico ou Admin)
+DROP POLICY IF EXISTS "Ticket Read" ON tickets;
 CREATE POLICY "Ticket Read" ON tickets FOR SELECT USING (
     auth.uid() = "collaboratorId" OR 
     auth.uid() = "technicianId" OR 
     is_admin_or_tech()
 );
+
+DROP POLICY IF EXISTS "Ticket Create" ON tickets;
 CREATE POLICY "Ticket Create" ON tickets FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Ticket Update" ON tickets;
 CREATE POLICY "Ticket Update" ON tickets FOR UPDATE USING (
     auth.uid() = "collaboratorId" OR 
     auth.uid() = "technicianId" OR 
@@ -317,24 +335,32 @@ CREATE POLICY "Ticket Update" ON tickets FOR UPDATE USING (
 );
 
 -- Procurement: Leitura (Requerente, Aprovador ou Admin)
+DROP POLICY IF EXISTS "Procurement Read" ON procurement_requests;
 CREATE POLICY "Procurement Read" ON procurement_requests FOR SELECT USING (
     auth.uid() = requester_id OR 
     auth.uid() = approver_id OR 
     is_admin_or_tech()
 );
+
+DROP POLICY IF EXISTS "Procurement Create" ON procurement_requests;
 CREATE POLICY "Procurement Create" ON procurement_requests FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Procurement Update" ON procurement_requests;
 CREATE POLICY "Procurement Update" ON procurement_requests FOR UPDATE USING (
     auth.uid() = requester_id OR 
     is_admin_or_tech()
 );
 
 -- Audit Logs: Apenas leitura para Admin, Escrita via Trigger (System)
+DROP POLICY IF EXISTS "Audit Read Admin" ON audit_logs;
 CREATE POLICY "Audit Read Admin" ON audit_logs FOR SELECT USING (is_admin());
 -- (Insert is handled by system or Trigger)
 
 -- Global Settings: Apenas Admin pode ver keys sensíveis (API keys), mas app precisa de algumas
--- Simplificação: Admin Full, Outros Read Only (cuidado com API keys no frontend)
+DROP POLICY IF EXISTS "Settings Read" ON global_settings;
 CREATE POLICY "Settings Read" ON global_settings FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Settings Write" ON global_settings;
 CREATE POLICY "Settings Write" ON global_settings FOR ALL USING (is_admin());
 
 
@@ -404,6 +430,53 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS on_critical_ticket_created ON tickets;
 CREATE TRIGGER on_critical_ticket_created AFTER INSERT ON tickets FOR EACH ROW EXECUTE FUNCTION notify_slack_incident();
 
+-- CORREÇÃO DE FOREIGN KEYS (ON UPDATE CASCADE)
+-- Necessário para permitir a sincronização de IDs de colaboradores (Auth <-> Tabela)
+DO $$
+BEGIN
+    -- assignments
+    BEGIN
+        ALTER TABLE assignments DROP CONSTRAINT "assignments_collaboratorId_fkey";
+        ALTER TABLE assignments ADD CONSTRAINT "assignments_collaboratorId_fkey" FOREIGN KEY ("collaboratorId") REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- tickets (collaboratorId)
+    BEGIN
+        ALTER TABLE tickets DROP CONSTRAINT "tickets_collaboratorId_fkey";
+        ALTER TABLE tickets ADD CONSTRAINT "tickets_collaboratorId_fkey" FOREIGN KEY ("collaboratorId") REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- tickets (technicianId)
+    BEGIN
+        ALTER TABLE tickets DROP CONSTRAINT "tickets_technicianId_fkey";
+        ALTER TABLE tickets ADD CONSTRAINT "tickets_technicianId_fkey" FOREIGN KEY ("technicianId") REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- ticket_activities (technicianId)
+    BEGIN
+        ALTER TABLE ticket_activities DROP CONSTRAINT "ticket_activities_technicianId_fkey";
+        ALTER TABLE ticket_activities ADD CONSTRAINT "ticket_activities_technicianId_fkey" FOREIGN KEY ("technicianId") REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- team_members
+    BEGIN
+        ALTER TABLE team_members DROP CONSTRAINT "team_members_collaborator_id_fkey";
+        ALTER TABLE team_members ADD CONSTRAINT "team_members_collaborator_id_fkey" FOREIGN KEY (collaborator_id) REFERENCES collaborators(id) ON DELETE CASCADE ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+    
+    -- procurement_requests (requester)
+    BEGIN
+        ALTER TABLE procurement_requests DROP CONSTRAINT "procurement_requests_requester_id_fkey";
+        ALTER TABLE procurement_requests ADD CONSTRAINT "procurement_requests_requester_id_fkey" FOREIGN KEY (requester_id) REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- procurement_requests (approver)
+    BEGIN
+        ALTER TABLE procurement_requests DROP CONSTRAINT "procurement_requests_approver_id_fkey";
+        ALTER TABLE procurement_requests ADD CONSTRAINT "procurement_requests_approver_id_fkey" FOREIGN KEY (approver_id) REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+END $$;
 `;
 
     const cleanupScript = `
