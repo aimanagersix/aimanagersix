@@ -1,5 +1,6 @@
 
 import { getSupabase } from './supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { 
     AuditAction, DiagnosticResult
 } from '../types';
@@ -202,20 +203,53 @@ export const updateGlobalSetting = async (key: string, value: string) => {
 
 // --- COLLABORATORS & AUTH ---
 export const addCollaborator = async (collaborator: any, password?: string) => {
-    const supabase = getSupabase();
-    // Create auth user if password provided
-    if (password && collaborator.email) {
-        // This usually requires service_role key on backend or admin privileges
-        // For demo purposes we assume standard sign up or manual creation
-        // Here we just create DB record for simplicity or if using admin API
-        // If using admin api:
-        // const { data, error } = await supabase.auth.admin.createUser({ email: collaborator.email, password: password, email_confirm: true });
-        // if (data.user) collaborator.id = data.user.id;
+    // To create user in Auth, we need Admin privileges (Service Role).
+    // In client-side, we usually can't, but if we have the key in storage we can try.
+    const serviceKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseUrl = localStorage.getItem('SUPABASE_URL');
+
+    if (serviceKey && supabaseUrl && password && collaborator.email) {
+         try {
+            const adminClient = createClient(supabaseUrl, serviceKey);
+            const { data, error } = await adminClient.auth.admin.createUser({
+                email: collaborator.email,
+                password: password,
+                email_confirm: true
+            });
+            if (error) {
+                console.error("Auth creation error", error);
+                // Continue to create DB record anyway, user can be linked later
+            } else if (data.user) {
+                collaborator.id = data.user.id; // Link ID
+            }
+        } catch (e) {
+            console.error("Admin client error", e);
+        }
     }
+
     return create('collaborators', collaborator);
 };
+
 export const updateCollaborator = (id: string, data: any) => update('collaborators', id, data);
 export const deleteCollaborator = (id: string) => remove('collaborators', id);
+
+export const adminResetPassword = async (userId: string, newPassword: string) => {
+    const serviceKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseUrl = localStorage.getItem('SUPABASE_URL');
+
+    if (!serviceKey || !supabaseUrl) {
+        throw new Error("Service Role Key não configurada. Aceda a Configurações > Conexões para configurar.");
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceKey);
+    const { error } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword });
+    
+    if (error) throw error;
+    
+    await logAction('UPDATE', 'Auth', `Admin reset password for user ${userId}`);
+    return true;
+};
+
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {
     const supabase = getSupabase();
     const filePath = `avatars/${id}-${Date.now()}`;

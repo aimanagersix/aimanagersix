@@ -91,6 +91,18 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
     const handleSaveCollaborator = async (col: any, pass?: string) => {
         if (collaboratorToEdit) {
             const updatedCollaborator = await dataService.updateCollaborator(collaboratorToEdit.id, col);
+            
+            // Handle Manual Password Reset
+            if (pass) {
+                try {
+                    await dataService.adminResetPassword(collaboratorToEdit.id, pass);
+                    setNewCredentials({ email: updatedCollaborator.email, password: pass });
+                    setShowCredentialsModal(true);
+                } catch (e: any) {
+                    alert(`Erro ao redefinir password: ${e.message}`);
+                }
+            }
+            
             refreshData();
             return updatedCollaborator;
         } else {

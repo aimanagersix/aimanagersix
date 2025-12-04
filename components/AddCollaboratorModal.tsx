@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
-import { FaGlobe, FaMagic, FaCamera, FaTrash } from 'react-icons/fa';
+import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 const isValidEmail = (email: string) => {
@@ -72,6 +72,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [successMessage, setSuccessMessage] = useState('');
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const [availableRoles, setAvailableRoles] = useState<CustomRole[]>([]);
+    
+    // Manual Password Reset
+    const [showPasswordReset, setShowPasswordReset] = useState(false);
 
     // Photo Upload State
     const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -166,6 +169,11 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         
         if (!isGlobalAdmin) {
             if (!selectedInstituicao) newErrors.instituicaoId = "A Instituição é obrigatória.";
+        }
+        
+        // Validate password reset
+        if (showPasswordReset && !password) {
+             newErrors.general = "Se selecionou 'Redefinir Password', deve preencher o campo.";
         }
 
         setErrors(newErrors);
@@ -282,7 +290,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             
             // 1. Save Collab Data First
             if (collaboratorToEdit) {
-                savedCollaborator = await onSave({ ...collaboratorToEdit, ...dataToSave });
+                // Pass password if reset was requested
+                const passToUpdate = showPasswordReset ? password : undefined;
+                savedCollaborator = await onSave({ ...collaboratorToEdit, ...dataToSave }, passToUpdate);
             } else {
                 savedCollaborator = await onSave(dataToSave, password || undefined);
             }
@@ -517,17 +527,20 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         </div>
                     </div>
                 </div>
-
-                {!collaboratorToEdit && formData.canLogin && (
-                    <div className="border-t border-gray-600 pt-4">
-                        <label className="block text-xs font-medium text-gray-400 mb-1">Password Inicial</label>
+                
+                {/* Password Management */}
+                {(formData.canLogin && (!collaboratorToEdit || showPasswordReset)) && (
+                    <div className="border-t border-gray-600 pt-4 bg-blue-900/10 p-3 rounded mt-2">
+                        <label className="block text-xs font-bold text-white mb-1 flex items-center gap-2">
+                            <FaKey /> Password Inicial / Reset
+                        </label>
                         <div className="flex gap-2">
                             <input 
                                 type="text" 
                                 value={password} 
                                 onChange={(e) => setPassword(e.target.value)} 
-                                placeholder="Opcional (será gerada se vazio)" 
-                                className="flex-grow bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" 
+                                placeholder={collaboratorToEdit ? "Nova Password..." : "Opcional (será gerada se vazio)"} 
+                                className="flex-grow bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm font-mono" 
                             />
                              <button 
                                 type="button" 
@@ -538,8 +551,23 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                                 <FaMagic />
                             </button>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Se deixar em branco, o utilizador terá de fazer "Esqueci-me da password". Use o botão mágico para gerar uma.</p>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                            {collaboratorToEdit 
+                                ? "Atenção: Isto irá alterar imediatamente a password do utilizador." 
+                                : "Se deixar em branco, será gerada uma password automática."
+                            }
+                        </p>
                     </div>
+                )}
+                
+                {collaboratorToEdit && formData.canLogin && !showPasswordReset && (
+                     <button 
+                        type="button" 
+                        onClick={() => setShowPasswordReset(true)}
+                        className="text-xs text-blue-400 hover:text-blue-300 underline mt-2 flex items-center gap-1"
+                    >
+                        <FaKey /> Redefinir Password Manualmente
+                    </button>
                 )}
 
                 {errors.general && <p className="text-red-400 text-xs border border-red-500/50 bg-red-500/10 p-2 rounded">{errors.general}</p>}
