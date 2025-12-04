@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaSeedling, FaExclamationTriangle } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
+import * as dataService from '../services/dataService';
 
 interface DatabaseSchemaModalProps {
     onClose: () => void;
@@ -10,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'playwright_ai'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'triggers' | 'playwright_ai'>('update');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -18,6 +19,11 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const [isGeneratingTest, setIsGeneratingTest] = useState(false);
     const [testEmail, setTestEmail] = useState('josefsmoreira@outlook.com');
     const [testPassword, setTestPassword] = useState('QSQmZf62!');
+    
+    // Triggers State
+    const [triggers, setTriggers] = useState<any[]>([]);
+    const [isLoadingTriggers, setIsLoadingTriggers] = useState(false);
+
     const aiConfigured = isAiConfigured();
 
     const updateScript = `
@@ -50,6 +56,29 @@ CREATE OR REPLACE FUNCTION is_admin_or_tech()
 RETURNS boolean AS $$
 BEGIN
   RETURN (SELECT role IN ('Admin', 'SuperAdmin', 'Técnico') FROM public.collaborators WHERE id = auth.uid());
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- NOVA FUNÇÃO: Obter Triggers (Para o Dashboard)
+CREATE OR REPLACE FUNCTION get_database_triggers()
+RETURNS TABLE (
+    table_name text,
+    trigger_name text,
+    events text,
+    timing text,
+    definition text
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        event_object_table::text,
+        trigger_name::text,
+        event_manipulation::text,
+        action_timing::text,
+        action_statement::text
+    FROM information_schema.triggers
+    WHERE trigger_schema = 'public'
+    ORDER BY event_object_table, trigger_name;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -429,6 +458,24 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
+    
+    const loadTriggers = async () => {
+        setIsLoadingTriggers(true);
+        try {
+            const data = await dataService.fetchDatabaseTriggers();
+            setTriggers(data);
+        } catch (error) {
+            console.error("Failed to fetch triggers", error);
+        } finally {
+            setIsLoadingTriggers(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'triggers') {
+            loadTriggers();
+        }
+    }, [activeTab]);
 
     const handleGenerateTest = async () => {
         if (!testRequest) return;
@@ -445,15 +492,21 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
     };
 
     return (
-        <Modal title="Configuração de Base de Dados & Ferramentas" onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title="Configuração de Base de Dados & Ferramentas" onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[70vh]">
                 {/* Tabs */}
-                <div className="flex border-b border-gray-700 mb-4 gap-2">
+                <div className="flex border-b border-gray-700 mb-4 gap-2 flex-wrap">
                      <button 
                         onClick={() => setActiveTab('update')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         <FaDatabase className="inline mr-2"/> Atualizar BD (Schema)
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('triggers')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'triggers' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaBolt className="inline mr-2"/> Triggers Ativos
                     </button>
                     <button 
                         onClick={() => setActiveTab('cleanup')} 
@@ -476,7 +529,7 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
                                 <p>
                                     <strong>Instruções:</strong> Copie o script SQL abaixo e execute-o no <strong>SQL Editor</strong> do seu projeto Supabase.
-                                    Este script implementa <strong>RLS (Row Level Security)</strong> rigoroso e Triggers de Auditoria.
+                                    Este script implementa <strong>RLS (Row Level Security)</strong> rigoroso, Triggers de Auditoria e Slack, e Funções de Sistema.
                                 </p>
                             </div>
                             <div className="relative">
@@ -492,6 +545,51 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
                                 </button>
                             </div>
                         </div>
+                    )}
+                    
+                    {activeTab === 'triggers' && (
+                         <div className="space-y-4">
+                             <div className="flex justify-between items-center mb-2">
+                                <div className="text-sm text-gray-400">Lista de automações ativas na base de dados.</div>
+                                <button onClick={loadTriggers} className="flex items-center gap-2 text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">
+                                    <FaSync className={isLoadingTriggers ? "animate-spin" : ""} /> Atualizar
+                                </button>
+                             </div>
+                             
+                             {isLoadingTriggers ? (
+                                 <div className="text-center py-10 text-gray-500">A carregar triggers...</div>
+                             ) : triggers.length > 0 ? (
+                                 <div className="overflow-x-auto border border-gray-700 rounded-lg">
+                                     <table className="w-full text-sm text-left text-on-surface-dark-secondary">
+                                         <thead className="bg-gray-800 text-gray-300 uppercase text-xs">
+                                             <tr>
+                                                 <th className="px-4 py-2">Tabela</th>
+                                                 <th className="px-4 py-2">Nome do Trigger</th>
+                                                 <th className="px-4 py-2">Evento</th>
+                                                 <th className="px-4 py-2">Timing</th>
+                                             </tr>
+                                         </thead>
+                                         <tbody className="divide-y divide-gray-700 bg-gray-900">
+                                             {triggers.map((t, idx) => (
+                                                 <tr key={idx} className="hover:bg-gray-800/50">
+                                                     <td className="px-4 py-2 font-bold text-white">{t.table_name}</td>
+                                                     <td className="px-4 py-2 font-mono text-xs text-brand-secondary">{t.trigger_name}</td>
+                                                     <td className="px-4 py-2">{t.events}</td>
+                                                     <td className="px-4 py-2">{t.timing}</td>
+                                                 </tr>
+                                             ))}
+                                         </tbody>
+                                     </table>
+                                 </div>
+                             ) : (
+                                 <div className="p-8 text-center bg-gray-900/50 rounded border border-dashed border-gray-700">
+                                     <p className="text-gray-400 mb-2">Não foi possível carregar os triggers.</p>
+                                     <p className="text-xs text-gray-500">
+                                         Se é a primeira vez, certifique-se de que executou o script de "Atualizar BD" para criar a função de sistema necessária (<code>get_database_triggers</code>).
+                                     </p>
+                                 </div>
+                             )}
+                         </div>
                     )}
                     
                     {activeTab === 'cleanup' && (

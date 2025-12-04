@@ -525,6 +525,19 @@ export const fetchAuditLogs = async () => {
     return data || [];
 };
 
+// NEW: Fetch System Triggers
+export const fetchDatabaseTriggers = async () => {
+    const supabase = getSupabase();
+    // Requires RPC function 'get_database_triggers' to be created via DatabaseSchemaModal SQL script
+    const { data, error } = await supabase.rpc('get_database_triggers');
+    if (error) {
+        // Fail gracefully if function doesn't exist
+        console.warn("Could not fetch triggers. Missing RPC function?", error);
+        return [];
+    }
+    return data || [];
+};
+
 export const snoozeNotification = (id: string) => {
     const snoozedStr = localStorage.getItem('snoozed_notifications');
     let snoozed = snoozedStr ? JSON.parse(snoozedStr) : [];
