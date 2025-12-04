@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaKey, FaSave, FaSlack } from 'react-icons/fa';
+import { FaKey, FaSave, FaSlack, FaExternalLinkAlt } from 'react-icons/fa';
 
 interface ConnectionsTabProps {
     settings: any;
@@ -46,13 +46,30 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                         <input type="text" value={settings.sbUrl} onChange={(e) => onSettingsChange('sbUrl', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono"/>
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 uppercase mb-1">Supabase Anon Key</label>
+                        <label className="block text-xs text-gray-500 uppercase mb-1">Supabase Anon Key (Pública)</label>
                         <input type="password" value={settings.sbKey} onChange={(e) => onSettingsChange('sbKey', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono"/>
                     </div>
-                     <div>
-                        <label className="block text-xs text-gray-500 uppercase mb-1">Service Role Key (Opcional)</label>
-                        <input type="password" value={settings.sbServiceKey} onChange={(e) => onSettingsChange('sbServiceKey', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono"/>
-                        <p className="text-xs text-gray-500 mt-1">Necessária para automações avançadas como a criação de utilizadores de login.</p>
+                     <div className="border-t border-gray-700 pt-3 mt-3">
+                        <label className="block text-xs text-orange-400 font-bold uppercase mb-1 flex items-center gap-1">
+                            Supabase Service Role Key (Secreta) 
+                            <span className="text-[10px] font-normal text-gray-500 ml-auto">Necessária para gestão de passwords</span>
+                        </label>
+                        <input 
+                            type="password" 
+                            value={settings.sbServiceKey} 
+                            onChange={(e) => onSettingsChange('sbServiceKey', e.target.value)} 
+                            className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono"
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        />
+                        <div className="text-xs text-gray-500 mt-2">
+                            <p>Esta chave é necessária para que o Admin possa redefinir passwords de outros utilizadores.</p>
+                            <p className="mt-1">
+                                Pode encontrá-la no seu projeto Supabase em: 
+                                <a href="https://supabase.com/dashboard/project/_/settings/api" target="_blank" rel="noopener noreferrer" className="text-brand-secondary hover:underline ml-1 inline-flex items-center">
+                                    Project Settings &gt; API &gt; service_role (secret) <FaExternalLinkAlt className="ml-1 text-[10px]"/>
+                                </a>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
