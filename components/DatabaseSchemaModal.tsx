@@ -521,7 +521,98 @@ BEGIN
         ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS software_category_id uuid REFERENCES config_software_categories(id);
         ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES brands(id);
     END IF;
-END $$;`;
+END $$;
+
+-- ==========================================
+-- 8. CORREÇÃO DE FOREIGN KEYS (ON UPDATE CASCADE)
+-- ==========================================
+-- Permite atualizar o ID do colaborador (Sync com Auth) sem partir relações
+DO $$
+BEGIN
+    -- Assignments
+    BEGIN
+        ALTER TABLE assignments DROP CONSTRAINT IF EXISTS "assignments_collaboratorId_fkey";
+        ALTER TABLE assignments ADD CONSTRAINT "assignments_collaboratorId_fkey" FOREIGN KEY ("collaboratorId") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Tickets (Collaborator)
+    BEGIN
+        ALTER TABLE tickets DROP CONSTRAINT IF EXISTS "tickets_collaboratorId_fkey";
+        ALTER TABLE tickets ADD CONSTRAINT "tickets_collaboratorId_fkey" FOREIGN KEY ("collaboratorId") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Tickets (Technician)
+    BEGIN
+        ALTER TABLE tickets DROP CONSTRAINT IF EXISTS "tickets_technicianId_fkey";
+        ALTER TABLE tickets ADD CONSTRAINT "tickets_technicianId_fkey" FOREIGN KEY ("technicianId") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Tickets (Requester Supplier) - just safety check, not needed for collab fix but good practice
+    BEGIN
+        ALTER TABLE tickets DROP CONSTRAINT IF EXISTS "tickets_requester_supplier_id_fkey";
+        ALTER TABLE tickets ADD CONSTRAINT "tickets_requester_supplier_id_fkey" FOREIGN KEY ("requester_supplier_id") REFERENCES suppliers(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Team Members
+    BEGIN
+        ALTER TABLE team_members DROP CONSTRAINT IF EXISTS "team_members_collaborator_id_fkey";
+        ALTER TABLE team_members ADD CONSTRAINT "team_members_collaborator_id_fkey" FOREIGN KEY ("collaborator_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Collaborator History
+    BEGIN
+        ALTER TABLE collaborator_history DROP CONSTRAINT IF EXISTS "collaborator_history_collaboratorId_fkey";
+        ALTER TABLE collaborator_history ADD CONSTRAINT "collaborator_history_collaboratorId_fkey" FOREIGN KEY ("collaboratorId") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Procurement Requests (Requester)
+    BEGIN
+        ALTER TABLE procurement_requests DROP CONSTRAINT IF EXISTS "procurement_requests_requester_id_fkey";
+        ALTER TABLE procurement_requests ADD CONSTRAINT "procurement_requests_requester_id_fkey" FOREIGN KEY ("requester_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Procurement Requests (Approver)
+    BEGIN
+        ALTER TABLE procurement_requests DROP CONSTRAINT IF EXISTS "procurement_requests_approver_id_fkey";
+        ALTER TABLE procurement_requests ADD CONSTRAINT "procurement_requests_approver_id_fkey" FOREIGN KEY ("approver_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Security Training
+    BEGIN
+        ALTER TABLE security_training_records DROP CONSTRAINT IF EXISTS "security_training_records_collaborator_id_fkey";
+        ALTER TABLE security_training_records ADD CONSTRAINT "security_training_records_collaborator_id_fkey" FOREIGN KEY ("collaborator_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Policy Acceptances
+    BEGIN
+        ALTER TABLE policy_acceptances DROP CONSTRAINT IF EXISTS "policy_acceptances_user_id_fkey";
+        ALTER TABLE policy_acceptances ADD CONSTRAINT "policy_acceptances_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Calendar Events
+    BEGIN
+        ALTER TABLE calendar_events DROP CONSTRAINT IF EXISTS "calendar_events_created_by_fkey";
+        ALTER TABLE calendar_events ADD CONSTRAINT "calendar_events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Continuity Plans
+    BEGIN
+        ALTER TABLE continuity_plans DROP CONSTRAINT IF EXISTS "continuity_plans_owner_id_fkey";
+        ALTER TABLE continuity_plans ADD CONSTRAINT "continuity_plans_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+    
+     -- Messages (Sender) - Check if table exists first as it was basic
+    BEGIN
+        IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'messages') THEN
+             -- Assuming generic foreign keys or no foreign keys were strictly enforced in previous simple versions, 
+             -- we try to add them if they exist.
+             NULL; -- Messages often don't have strict FK in this simple implementation, or use uuid without FK constraint. 
+                   -- If they do, add here. Skipping to avoid errors if constraint names differ.
+        END IF;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+END $$;
+`;
 
     const handleCopy = () => {
         navigator.clipboard.writeText(updateScript);
