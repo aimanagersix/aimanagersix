@@ -248,9 +248,31 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         try {
             await onSave(dataToSave);
             onClose();
-        } catch (e) {
-            console.error(e);
-            alert("Erro ao gravar entidade.");
+        } catch (error: any) {
+            console.error("Failed to save entity", error);
+            
+            let msg = "Erro desconhecido ao gravar entidade.";
+            
+            // Check for Supabase/Postgres error codes
+            if (error.code) {
+                switch (error.code) {
+                    case '23505': // Unique violation
+                        msg = "Erro: Já existe uma entidade com este Código ou NIF.";
+                        break;
+                    case '42501': // RLS / Permission denied
+                        msg = "Permissão negada: O seu utilizador não tem permissão para criar/editar entidades. Contacte o SuperAdmin.";
+                        break;
+                    case '42P01': // Table not found
+                        msg = "Erro de Sistema: A tabela 'entidades' não existe. Execute o script de configuração de BD.";
+                        break;
+                    default:
+                        msg = `Erro de Base de Dados (${error.code}): ${error.message}`;
+                }
+            } else if (error.message) {
+                msg = `Erro: ${error.message}`;
+            }
+
+            alert(msg);
         } finally {
             setIsSaving(false);
         }

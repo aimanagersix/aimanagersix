@@ -31,19 +31,18 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE SEGURANÇA E ESTRUTURA (v2.2 - REFRESH CACHE)
--- Força atualização da cache de API (NOTIFY pgrst)
+-- SCRIPT DE CORREÇÃO DE SEGURANÇA (RLS) v3.0
+-- Executar este script resolve erros de "Permissão Negada"
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_net"; 
 
--- Função auxiliar: Verifica se é Admin ou SuperAdmin SEM RECURSIVIDADE
+-- Função auxiliar: Verifica se é Admin ou SuperAdmin
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS boolean AS $$
 BEGIN
-  -- Verifica diretamente se existe um registo com o ID do user atual e role admin
   RETURN EXISTS (
     SELECT 1 FROM public.collaborators 
     WHERE id = auth.uid() 
@@ -97,7 +96,7 @@ GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 -- 2. RLS - POLÍTICAS DE SEGURANÇA
 -- ==========================================
 
--- Habilitar RLS em tudo
+-- Habilitar RLS em todas as tabelas públicas
 DO $$ 
 DECLARE t text;
 BEGIN 
@@ -108,23 +107,45 @@ BEGIN
 END $$;
 
 -- *** Tabela Collaborators ***
--- Limpar políticas antigas para evitar conflitos
 DROP POLICY IF EXISTS "Collab Base Read" ON collaborators;
 DROP POLICY IF EXISTS "Collab Admin Write" ON collaborators;
 DROP POLICY IF EXISTS "Collab Admin Update" ON collaborators;
 DROP POLICY IF EXISTS "Collab Admin Delete" ON collaborators;
+-- Limpar políticas legadas
 DROP POLICY IF EXISTS "Enable read access for authenticated users" ON collaborators;
 DROP POLICY IF EXISTS "Allow all" ON collaborators;
-DROP POLICY IF EXISTS "Public Read" ON collaborators;
-DROP POLICY IF EXISTS "Admin Write" ON collaborators;
-DROP POLICY IF EXISTS "Collab Read" ON collaborators;
-DROP POLICY IF EXISTS "Collab Update Self" ON collaborators;
 
--- Criar novas
 CREATE POLICY "Collab Base Read" ON collaborators FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Collab Admin Write" ON collaborators FOR INSERT WITH CHECK (is_admin());
 CREATE POLICY "Collab Admin Update" ON collaborators FOR UPDATE USING (is_admin() OR id = auth.uid());
 CREATE POLICY "Collab Admin Delete" ON collaborators FOR DELETE USING (is_admin());
+
+-- *** Organização (Instituições, Entidades) ***
+-- Isto corrige o erro ao criar Instituições
+DROP POLICY IF EXISTS "Org Instituicoes Read" ON instituicoes;
+DROP POLICY IF EXISTS "Org Instituicoes Write" ON instituicoes;
+
+CREATE POLICY "Org Instituicoes Read" ON instituicoes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Org Instituicoes Write" ON instituicoes FOR ALL TO authenticated USING (is_admin());
+
+DROP POLICY IF EXISTS "Org Entidades Read" ON entidades;
+DROP POLICY IF EXISTS "Org Entidades Write" ON entidades;
+
+CREATE POLICY "Org Entidades Read" ON entidades FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Org Entidades Write" ON entidades FOR ALL TO authenticated USING (is_admin_or_tech());
+
+-- *** Tabelas Auxiliares (Teams, Suppliers, Contacts) ***
+DO $$ 
+DECLARE t text;
+BEGIN 
+    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name IN ('teams', 'team_members', 'suppliers', 'resource_contacts')
+    LOOP 
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Aux Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Aux Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('CREATE POLICY "Aux Read" ON %I FOR SELECT TO authenticated USING (true);', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('CREATE POLICY "Aux Write" ON %I FOR ALL TO authenticated USING (is_admin_or_tech());', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+    END LOOP;
+END $$;
 
 -- *** Tabelas de Configuração ***
 DO $$ 
@@ -139,32 +160,41 @@ BEGIN
     END LOOP;
 END $$;
 
--- *** Tabelas Operacionais (Equipment, Tickets) ***
-DROP POLICY IF EXISTS "Ops Equipment Read" ON equipment;
-DROP POLICY IF EXISTS "Ops Equipment Write" ON equipment;
-DROP POLICY IF EXISTS "Equipment Read" ON equipment;
-DROP POLICY IF EXISTS "Equipment Write" ON equipment;
+-- *** Tabelas Operacionais (Equipment, Tickets, Licenses) ***
+DO $$ 
+DECLARE t text;
+BEGIN 
+    -- Lista de tabelas operacionais
+    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name IN ('equipment', 'assignments', 'software_licenses', 'license_assignments', 'procurement_requests', 'backup_executions', 'resilience_tests', 'vulnerabilities')
+    LOOP
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Ops Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Ops Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('CREATE POLICY "Ops Read" ON %I FOR SELECT TO authenticated USING (true);', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        -- Permitir escrita para Admins e Técnicos
+        BEGIN EXECUTE format('CREATE POLICY "Ops Write" ON %I FOR ALL TO authenticated USING (is_admin_or_tech());', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+    END LOOP;
+END $$;
 
-CREATE POLICY "Ops Equipment Read" ON equipment FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Ops Equipment Write" ON equipment FOR ALL TO authenticated USING (is_admin_or_tech());
+-- Tickets e Atividades (Regras especiais: Todos podem criar/editar os seus)
+DROP POLICY IF EXISTS "Tickets Read" ON tickets;
+DROP POLICY IF EXISTS "Tickets Write" ON tickets;
+CREATE POLICY "Tickets Read" ON tickets FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Tickets Write" ON tickets FOR ALL TO authenticated USING (true); -- Todos podem abrir tickets
 
-DROP POLICY IF EXISTS "Ops Tickets Read" ON tickets;
-DROP POLICY IF EXISTS "Ops Tickets Write" ON tickets;
-
-CREATE POLICY "Ops Tickets Read" ON tickets FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Ops Tickets Write" ON tickets FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Ticket Activities Read" ON ticket_activities;
+DROP POLICY IF EXISTS "Ticket Activities Write" ON ticket_activities;
+CREATE POLICY "Ticket Activities Read" ON ticket_activities FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Ticket Activities Write" ON ticket_activities FOR ALL TO authenticated USING (true);
 
 -- *** Audit Logs ***
 DROP POLICY IF EXISTS "Audit Read Admin" ON audit_logs;
 DROP POLICY IF EXISTS "Audit System Insert" ON audit_logs;
-
 CREATE POLICY "Audit Read Admin" ON audit_logs FOR SELECT TO authenticated USING (is_admin());
 CREATE POLICY "Audit System Insert" ON audit_logs FOR INSERT TO authenticated WITH CHECK (true);
 
 -- *** Global Settings ***
 DROP POLICY IF EXISTS "Settings Read" ON global_settings;
 DROP POLICY IF EXISTS "Settings Write" ON global_settings;
-
 CREATE POLICY "Settings Read" ON global_settings FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Settings Write" ON global_settings FOR ALL TO authenticated USING (is_admin());
 

@@ -254,13 +254,13 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                         msg = "Erro: Já existe uma instituição com este Código ou NIF.";
                         break;
                     case '42501': // RLS / Permission denied
-                        msg = "Permissão negada: O seu utilizador não tem permissão para criar/editar instituições.";
+                        msg = "Permissão negada: O seu utilizador não tem permissão para criar/editar instituições. Contacte o SuperAdmin.";
                         break;
                     case '42P01': // Table not found
-                        msg = "Erro de Sistema: A tabela 'instituicoes' não existe. Execute o script de configuração de BD.";
+                        msg = "Erro de Sistema: A tabela 'instituicoes' não existe. Por favor, execute o script de configuração em 'Configurações > Base de Dados'.";
                         break;
                     default:
-                        msg = `Erro de Base de Dados: ${error.message || error.code}`;
+                        msg = `Erro de Base de Dados (${error.code}): ${error.message || 'Detalhes não disponíveis.'}`;
                 }
             } else if (error.message) {
                 msg = `Erro: ${error.message}`;
