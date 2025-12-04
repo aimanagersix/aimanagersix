@@ -31,15 +31,34 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE SEGURANÇA (RLS) v3.0
--- Executar este script resolve erros de "Permissão Negada"
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.1
+-- Resolve erro: column "user_email" of relation "audit_logs" does not exist
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_net"; 
 
--- Função auxiliar: Verifica se é Admin ou SuperAdmin
+-- 2. CORREÇÃO DA ESTRUTURA DA TABELA AUDIT_LOGS
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id),
+    action text,
+    resource_type text,
+    resource_id text,
+    details text,
+    timestamp timestamptz DEFAULT now()
+);
+
+-- Adicionar coluna user_email se não existir (Migração)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='audit_logs' AND column_name='user_email') THEN
+        ALTER TABLE public.audit_logs ADD COLUMN user_email text;
+    END IF;
+END $$;
+
+-- 3. FUNÇÕES DE PERMISSÕES
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS boolean AS $$
 BEGIN
@@ -51,7 +70,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Função auxiliar: Verifica Admin ou Técnico
 CREATE OR REPLACE FUNCTION is_admin_or_tech()
 RETURNS boolean AS $$
 BEGIN
@@ -63,7 +81,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Função RPC para ler Triggers
+-- Função RPC para ler Triggers (Frontend)
 CREATE OR REPLACE FUNCTION get_database_triggers()
 RETURNS TABLE (
     table_name text,
@@ -89,11 +107,10 @@ BEGIN
     ORDER BY event_object_table, trigger_name;
 END;
 $$;
-
 GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 
 -- ==========================================
--- 2. RLS - POLÍTICAS DE SEGURANÇA
+-- 4. RLS - POLÍTICAS DE SEGURANÇA
 -- ==========================================
 
 -- Habilitar RLS em todas as tabelas públicas
@@ -121,20 +138,17 @@ CREATE POLICY "Collab Admin Update" ON collaborators FOR UPDATE USING (is_admin(
 CREATE POLICY "Collab Admin Delete" ON collaborators FOR DELETE USING (is_admin());
 
 -- *** Organização (Instituições, Entidades) ***
--- Isto corrige o erro ao criar Instituições
 DROP POLICY IF EXISTS "Org Instituicoes Read" ON instituicoes;
 DROP POLICY IF EXISTS "Org Instituicoes Write" ON instituicoes;
-
 CREATE POLICY "Org Instituicoes Read" ON instituicoes FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Org Instituicoes Write" ON instituicoes FOR ALL TO authenticated USING (is_admin());
 
 DROP POLICY IF EXISTS "Org Entidades Read" ON entidades;
 DROP POLICY IF EXISTS "Org Entidades Write" ON entidades;
-
 CREATE POLICY "Org Entidades Read" ON entidades FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Org Entidades Write" ON entidades FOR ALL TO authenticated USING (is_admin_or_tech());
 
--- *** Tabelas Auxiliares (Teams, Suppliers, Contacts) ***
+-- *** Tabelas Auxiliares ***
 DO $$ 
 DECLARE t text;
 BEGIN 
@@ -160,26 +174,24 @@ BEGIN
     END LOOP;
 END $$;
 
--- *** Tabelas Operacionais (Equipment, Tickets, Licenses) ***
+-- *** Tabelas Operacionais ***
 DO $$ 
 DECLARE t text;
 BEGIN 
-    -- Lista de tabelas operacionais
     FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name IN ('equipment', 'assignments', 'software_licenses', 'license_assignments', 'procurement_requests', 'backup_executions', 'resilience_tests', 'vulnerabilities')
     LOOP
         BEGIN EXECUTE format('DROP POLICY IF EXISTS "Ops Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
         BEGIN EXECUTE format('DROP POLICY IF EXISTS "Ops Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
         BEGIN EXECUTE format('CREATE POLICY "Ops Read" ON %I FOR SELECT TO authenticated USING (true);', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        -- Permitir escrita para Admins e Técnicos
         BEGIN EXECUTE format('CREATE POLICY "Ops Write" ON %I FOR ALL TO authenticated USING (is_admin_or_tech());', t); EXCEPTION WHEN OTHERS THEN NULL; END;
     END LOOP;
 END $$;
 
--- Tickets e Atividades (Regras especiais: Todos podem criar/editar os seus)
+-- Tickets (Permissões especiais)
 DROP POLICY IF EXISTS "Tickets Read" ON tickets;
 DROP POLICY IF EXISTS "Tickets Write" ON tickets;
 CREATE POLICY "Tickets Read" ON tickets FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Tickets Write" ON tickets FOR ALL TO authenticated USING (true); -- Todos podem abrir tickets
+CREATE POLICY "Tickets Write" ON tickets FOR ALL TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Ticket Activities Read" ON ticket_activities;
 DROP POLICY IF EXISTS "Ticket Activities Write" ON ticket_activities;
@@ -199,7 +211,7 @@ CREATE POLICY "Settings Read" ON global_settings FOR SELECT TO authenticated USI
 CREATE POLICY "Settings Write" ON global_settings FOR ALL TO authenticated USING (is_admin());
 
 -- ==========================================
--- 3. AUDIT LOG TRIGGER
+-- 5. AUDIT LOG TRIGGER (ATUALIZADO)
 -- ==========================================
 CREATE OR REPLACE FUNCTION log_audit_event()
 RETURNS trigger AS $$
@@ -209,15 +221,21 @@ DECLARE
 BEGIN
   uid := auth.uid();
   BEGIN
+    -- Tenta buscar o email na tabela collaborators
     SELECT email INTO uemail FROM public.collaborators WHERE id = uid;
   EXCEPTION WHEN OTHERS THEN
     uemail := 'unknown';
   END;
   
+  -- Tenta fallback se collaborators estiver vazio mas auth.uid existir (ex: admin console)
+  IF uemail IS NULL AND uid IS NOT NULL THEN
+     uemail := 'System/Admin';
+  END IF;
+
   INSERT INTO public.audit_logs (user_id, user_email, action, resource_type, resource_id, details)
   VALUES (
     uid,
-    COALESCE(uemail, 'System'),
+    uemail,
     TG_OP,
     TG_TABLE_NAME,
     COALESCE(NEW.id::text, OLD.id::text),
