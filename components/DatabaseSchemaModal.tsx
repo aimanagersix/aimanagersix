@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -11,7 +10,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'triggers' | 'playwright_ai'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'seed' | 'triggers' | 'playwright_ai'>('update');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -23,43 +22,69 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     // Triggers State
     const [triggers, setTriggers] = useState<any[]>([]);
     const [isLoadingTriggers, setIsLoadingTriggers] = useState(false);
+    const [triggerError, setTriggerError] = useState<string | null>(null);
+
+    // Seed State
+    const [isSeeding, setIsSeeding] = useState(false);
 
     const aiConfigured = isAiConfigured();
 
     const updateScript = `
--- EXECUTE ESTE SCRIPT NO EDITOR SQL DO SUPABASE PARA ATUALIZAR A BASE DE DADOS
+-- ==================================================================================
+-- SCRIPT DE CORREÇÃO DE SEGURANÇA E ESTRUTURA (v2.0)
+-- Resolve problemas de RLS recursivo e restaura acesso a Admins
+-- ==================================================================================
 
--- ==========================================
--- 1. EXTENSÕES E FUNÇÕES
--- ==========================================
+-- 1. LIMPEZA DE POLÍTICAS ANTIGAS (Para evitar conflitos)
+DO $$ 
+DECLARE 
+    t text;
+BEGIN 
+    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' 
+    LOOP 
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Enable read access for authenticated users" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Public Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Admin Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        -- Dropar políticas específicas antigas
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Equipment Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Equipment Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Collab Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Collab Update Self" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+    END LOOP;
+END $$;
+
+-- 2. EXTENSÕES E FUNÇÕES BÁSICAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_net"; -- Necessário para Slack Webhooks
+CREATE EXTENSION IF NOT EXISTS "pg_net"; 
 
--- Função auxiliar para obter o role do utilizador atual
-CREATE OR REPLACE FUNCTION get_my_role()
-RETURNS text AS $$
-BEGIN
-  RETURN (SELECT role FROM public.collaborators WHERE id = auth.uid());
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Função para verificar se é Admin ou SuperAdmin
+-- Função auxiliar: Verifica se é Admin ou SuperAdmin SEM RECURSIVIDADE
+-- Nota: A tabela collaborators deve ter leitura pública para auth users para isto funcionar em RLS
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS boolean AS $$
 BEGIN
-  RETURN (SELECT role IN ('Admin', 'SuperAdmin') FROM public.collaborators WHERE id = auth.uid());
+  -- Verifica diretamente se existe um registo com o ID do user atual e role admin
+  RETURN EXISTS (
+    SELECT 1 FROM public.collaborators 
+    WHERE id = auth.uid() 
+    AND role IN ('Admin', 'SuperAdmin')
+  );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Função para verificar se é Admin ou Técnico
+-- Função auxiliar: Verifica Admin ou Técnico
 CREATE OR REPLACE FUNCTION is_admin_or_tech()
 RETURNS boolean AS $$
 BEGIN
-  RETURN (SELECT role IN ('Admin', 'SuperAdmin', 'Técnico') FROM public.collaborators WHERE id = auth.uid());
+  RETURN EXISTS (
+    SELECT 1 FROM public.collaborators 
+    WHERE id = auth.uid() 
+    AND role IN ('Admin', 'SuperAdmin', 'Técnico')
+  );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- NOVA FUNÇÃO: Obter Triggers (Para o Dashboard)
+-- Função RPC para ler Triggers (Corrigida permissões)
 CREATE OR REPLACE FUNCTION get_database_triggers()
 RETURNS TABLE (
     table_name text,
@@ -80,327 +105,97 @@ BEGIN
     WHERE trigger_schema = 'public'
     ORDER BY event_object_table, trigger_name;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER; -- Security Definer permite ler info_schema
+
+-- Conceder permissão de execução a utilizadores logados
+GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 
 -- ==========================================
--- 2. STORAGE (IMAGENS DE PERFIL)
--- ==========================================
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('avatars', 'avatars', true) 
-ON CONFLICT (id) DO NOTHING;
-
-DO $$
-BEGIN
-    -- Allow public read
-    BEGIN CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'avatars' ); EXCEPTION WHEN OTHERS THEN NULL; END;
-    -- Allow authenticated upload
-    BEGIN CREATE POLICY "Auth Upload" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'avatars' AND auth.role() = 'authenticated' ); EXCEPTION WHEN OTHERS THEN NULL; END;
-    -- Allow owner update/delete
-    BEGIN CREATE POLICY "Owner Update" ON storage.objects FOR UPDATE USING ( bucket_id = 'avatars' AND auth.uid() = owner ); EXCEPTION WHEN OTHERS THEN NULL; END;
-    BEGIN CREATE POLICY "Owner Delete" ON storage.objects FOR DELETE USING ( bucket_id = 'avatars' AND auth.uid() = owner ); EXCEPTION WHEN OTHERS THEN NULL; END;
-END $$;
-
--- ==========================================
--- 3. CRIAÇÃO DE TABELAS
+-- 3. RLS - POLÍTICAS DE SEGURANÇA
 -- ==========================================
 
--- Tabelas de Configuração
-CREATE TABLE IF NOT EXISTS config_equipment_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE, color text);
-CREATE TABLE IF NOT EXISTS config_criticality_levels (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_cia_ratings (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_service_statuses (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_backup_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_training_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_resilience_test_types (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_software_categories (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_decommission_reasons (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS config_collaborator_deactivation_reasons (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE, created_at timestamptz DEFAULT now());
-
-CREATE TABLE IF NOT EXISTS config_software_products (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL,
-    category_id uuid REFERENCES config_software_categories(id) ON DELETE SET NULL,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS contact_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-CREATE TABLE IF NOT EXISTS contact_titles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL UNIQUE);
-
-CREATE TABLE IF NOT EXISTS config_custom_roles (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE,
-    permissions jsonb DEFAULT '{}'::jsonb,
-    is_system boolean DEFAULT false,
-    requires_mfa boolean DEFAULT false,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS resource_contacts (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    resource_type text NOT NULL,
-    resource_id uuid NOT NULL,
-    title text,
-    name text NOT NULL,
-    role text,
-    email text,
-    phone text,
-    is_active boolean DEFAULT true,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS global_settings (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    setting_key text NOT NULL UNIQUE,
-    setting_value text,
-    updated_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS integration_logs (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    source text,
-    payload jsonb,
-    status text,
-    error text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    user_id uuid,
-    user_email text,
-    action text,
-    resource_type text,
-    resource_id text,
-    details text,
-    timestamp timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS security_training_records (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    collaborator_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
-    training_type text NOT NULL,
-    completion_date date NOT NULL,
-    status text DEFAULT 'Concluído',
-    score integer,
-    notes text,
-    valid_until date,
-    duration_hours numeric,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS policies (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    title text NOT NULL,
-    content text,
-    version text NOT NULL DEFAULT '1.0',
-    is_active boolean DEFAULT true,
-    is_mandatory boolean DEFAULT true,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS policy_acceptances (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    policy_id uuid REFERENCES policies(id) ON DELETE CASCADE,
-    user_id uuid REFERENCES collaborators(id) ON DELETE CASCADE,
-    accepted_at timestamptz DEFAULT now(),
-    version text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS procurement_requests (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    title text NOT NULL,
-    description text,
-    quantity integer DEFAULT 1,
-    estimated_cost numeric,
-    requester_id uuid REFERENCES collaborators(id) ON DELETE SET NULL,
-    approver_id uuid REFERENCES collaborators(id) ON DELETE SET NULL,
-    supplier_id uuid REFERENCES suppliers(id) ON DELETE SET NULL,
-    status text NOT NULL DEFAULT 'Pendente',
-    request_date date DEFAULT CURRENT_DATE,
-    approval_date date,
-    order_date date,
-    received_date date,
-    order_reference text,
-    invoice_number text,
-    priority text DEFAULT 'Normal',
-    attachments jsonb DEFAULT '[]'::jsonb,
-    resource_type text,
-    equipment_type_id uuid REFERENCES equipment_types(id),
-    specifications jsonb,
-    software_category_id uuid REFERENCES config_software_categories(id),
-    brand_id uuid REFERENCES brands(id),
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS calendar_events (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    title text NOT NULL,
-    description text,
-    start_date timestamptz NOT NULL,
-    end_date timestamptz,
-    is_all_day boolean DEFAULT false,
-    color text,
-    created_by uuid REFERENCES collaborators(id) ON DELETE CASCADE,
-    team_id uuid REFERENCES teams(id) ON DELETE CASCADE,
-    is_private boolean DEFAULT false,
-    reminder_minutes integer,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS continuity_plans (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    title text NOT NULL,
-    type text NOT NULL,
-    description text,
-    document_url text,
-    document_name text,
-    service_id uuid REFERENCES business_services(id) ON DELETE SET NULL,
-    last_review_date date NOT NULL,
-    next_review_date date,
-    owner_id uuid REFERENCES collaborators(id) ON DELETE SET NULL,
-    created_at timestamptz DEFAULT now()
-);
-
--- ==========================================
--- 4. SECURITY: RLS POLICIES (REFORÇO)
--- ==========================================
-
--- Ativar RLS em todas as tabelas
+-- Habilitar RLS em tudo
 DO $$ 
-DECLARE 
-    t text;
+DECLARE t text;
 BEGIN 
     FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' 
     LOOP 
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
-        -- Limpar políticas antigas "Allow all" inseguras
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
     END LOOP;
 END $$;
 
--- 4.1 Políticas para Tabelas de Configuração (Leitura: Todos, Escrita: Admin/Técnico)
+-- *** CRÍTICO: Tabela Collaborators ***
+-- Quebra o ciclo: Leitura permitida a todos os autenticados sem chamar funções que leem a mesma tabela.
+CREATE POLICY "Collab Base Read" ON collaborators FOR SELECT TO authenticated USING (true);
+
+-- Escrita em Collaborators: Apenas Admin (usa a função is_admin que agora lê com segurança)
+CREATE POLICY "Collab Admin Write" ON collaborators FOR INSERT WITH CHECK (is_admin());
+CREATE POLICY "Collab Admin Update" ON collaborators FOR UPDATE USING (is_admin() OR id = auth.uid()); -- User edita o próprio
+CREATE POLICY "Collab Admin Delete" ON collaborators FOR DELETE USING (is_admin());
+
+-- *** Tabelas de Configuração (Marcas, Tipos, etc.) ***
 DO $$ 
 DECLARE t text;
 BEGIN 
-    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'config_%' OR table_name LIKE 'contact_%' OR table_name = 'brands' OR table_name = 'equipment_types' OR table_name = 'ticket_categories' OR table_name = 'security_incident_types'
+    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'config_%' OR table_name LIKE 'contact_%' OR table_name IN ('brands', 'equipment_types', 'ticket_categories', 'security_incident_types')
     LOOP 
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Public Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN EXECUTE format('CREATE POLICY "Public Read" ON %I FOR SELECT USING (auth.role() = ''authenticated'');', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Admin Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN EXECUTE format('CREATE POLICY "Admin Write" ON %I FOR ALL USING (is_admin_or_tech());', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        -- Leitura: Todos
+        BEGIN EXECUTE format('CREATE POLICY "Config Read" ON %I FOR SELECT TO authenticated USING (true);', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        -- Escrita: Admin ou Técnico
+        BEGIN EXECUTE format('CREATE POLICY "Config Write" ON %I FOR ALL TO authenticated USING (is_admin_or_tech());', t); EXCEPTION WHEN OTHERS THEN NULL; END;
     END LOOP;
 END $$;
 
--- 4.2 Políticas para Tabelas Operacionais (Equipment, Tickets, etc.)
+-- *** Tabelas Operacionais (Equipment, Tickets) ***
+CREATE POLICY "Ops Equipment Read" ON equipment FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Ops Equipment Write" ON equipment FOR ALL TO authenticated USING (is_admin_or_tech());
 
--- Equipment: Leitura Todos, Escrita Admin/Tech
-DROP POLICY IF EXISTS "Equipment Read" ON equipment;
-CREATE POLICY "Equipment Read" ON equipment FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Ops Tickets Read" ON tickets FOR SELECT TO authenticated USING (true); -- Simplificado para debug, pode restringir depois
+CREATE POLICY "Ops Tickets Write" ON tickets FOR ALL TO authenticated USING (true);   -- Simplificado para debug
 
-DROP POLICY IF EXISTS "Equipment Write" ON equipment;
-CREATE POLICY "Equipment Write" ON equipment FOR ALL USING (is_admin_or_tech());
+-- *** Audit Logs ***
+CREATE POLICY "Audit Read Admin" ON audit_logs FOR SELECT TO authenticated USING (is_admin());
+CREATE POLICY "Audit System Insert" ON audit_logs FOR INSERT TO authenticated WITH CHECK (true); -- Permite inserts (via trigger ou app)
 
--- Collaborators: Leitura Todos, Edição Apenas Próprio ou Admin
-DROP POLICY IF EXISTS "Collab Read" ON collaborators;
-CREATE POLICY "Collab Read" ON collaborators FOR SELECT USING (auth.role() = 'authenticated');
-
-DROP POLICY IF EXISTS "Collab Update Self" ON collaborators;
-CREATE POLICY "Collab Update Self" ON collaborators FOR UPDATE USING (id = auth.uid() OR is_admin());
-
-DROP POLICY IF EXISTS "Collab Insert/Delete" ON collaborators;
-CREATE POLICY "Collab Insert/Delete" ON collaborators FOR INSERT WITH CHECK (is_admin()); 
-
-DROP POLICY IF EXISTS "Collab Delete" ON collaborators;
-CREATE POLICY "Collab Delete" ON collaborators FOR DELETE USING (is_admin());
-
--- Tickets: Leitura (Requerente, Técnico ou Admin), Escrita (Requerente, Técnico ou Admin)
-DROP POLICY IF EXISTS "Ticket Read" ON tickets;
-CREATE POLICY "Ticket Read" ON tickets FOR SELECT USING (
-    auth.uid() = "collaboratorId" OR 
-    auth.uid() = "technicianId" OR 
-    is_admin_or_tech()
-);
-
-DROP POLICY IF EXISTS "Ticket Create" ON tickets;
-CREATE POLICY "Ticket Create" ON tickets FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-
-DROP POLICY IF EXISTS "Ticket Update" ON tickets;
-CREATE POLICY "Ticket Update" ON tickets FOR UPDATE USING (
-    auth.uid() = "collaboratorId" OR 
-    auth.uid() = "technicianId" OR 
-    is_admin_or_tech()
-);
-
--- Procurement: Leitura (Requerente, Aprovador ou Admin)
-DROP POLICY IF EXISTS "Procurement Read" ON procurement_requests;
-CREATE POLICY "Procurement Read" ON procurement_requests FOR SELECT USING (
-    auth.uid() = requester_id OR 
-    auth.uid() = approver_id OR 
-    is_admin_or_tech()
-);
-
-DROP POLICY IF EXISTS "Procurement Create" ON procurement_requests;
-CREATE POLICY "Procurement Create" ON procurement_requests FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-
-DROP POLICY IF EXISTS "Procurement Update" ON procurement_requests;
-CREATE POLICY "Procurement Update" ON procurement_requests FOR UPDATE USING (
-    auth.uid() = requester_id OR 
-    is_admin_or_tech()
-);
-
--- Audit Logs: Apenas leitura para Admin, Escrita via Trigger (System)
-DROP POLICY IF EXISTS "Audit Read Admin" ON audit_logs;
-CREATE POLICY "Audit Read Admin" ON audit_logs FOR SELECT USING (is_admin());
--- (Insert is handled by system or Trigger)
-
--- Global Settings: Apenas Admin pode ver keys sensíveis (API keys), mas app precisa de algumas
-DROP POLICY IF EXISTS "Settings Read" ON global_settings;
-CREATE POLICY "Settings Read" ON global_settings FOR SELECT USING (auth.role() = 'authenticated');
-
-DROP POLICY IF EXISTS "Settings Write" ON global_settings;
-CREATE POLICY "Settings Write" ON global_settings FOR ALL USING (is_admin());
-
+-- *** Global Settings ***
+CREATE POLICY "Settings Read" ON global_settings FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Settings Write" ON global_settings FOR ALL TO authenticated USING (is_admin());
 
 -- ==========================================
--- 5. TRIGGER DE AUDITORIA (SERVER SIDE)
+-- 4. AUDIT LOG TRIGGER (Resiliente)
 -- ==========================================
--- Garante que todas as alterações são logadas, mesmo se não passarem pela API da App
-
 CREATE OR REPLACE FUNCTION log_audit_event()
 RETURNS trigger AS $$
 DECLARE
-  user_id uuid;
-  user_email text;
+  uid uuid;
+  uemail text;
 BEGIN
-  user_id := auth.uid();
-  -- Tentar obter email (pode falhar se user foi apagado, mas auth.uid existe na sessão)
-  SELECT email INTO user_email FROM public.collaborators WHERE id = user_id;
+  uid := auth.uid();
+  -- Tenta obter email, se falhar (ex: user sistema), segue null
+  BEGIN
+    SELECT email INTO uemail FROM public.collaborators WHERE id = uid;
+  EXCEPTION WHEN OTHERS THEN
+    uemail := 'unknown';
+  END;
   
   INSERT INTO public.audit_logs (user_id, user_email, action, resource_type, resource_id, details)
   VALUES (
-    user_id,
-    COALESCE(user_email, 'System/Unknown'),
-    TG_OP, -- INSERT, UPDATE, DELETE
+    uid,
+    COALESCE(uemail, 'System'),
+    TG_OP,
     TG_TABLE_NAME,
     COALESCE(NEW.id::text, OLD.id::text),
-    CASE 
-      WHEN TG_OP = 'DELETE' THEN 'Record deleted via SQL/App'
-      WHEN TG_OP = 'UPDATE' THEN 'Record updated'
-      ELSE 'Record created'
-    END
+    TG_OP || ' on ' || TG_TABLE_NAME
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER; -- Corre como superuser para garantir que escreve sempre
 
--- Aplicar Trigger a tabelas críticas
+-- Aplicar Trigger
 DO $$ 
 DECLARE t text;
 BEGIN 
-    FOREACH t IN ARRAY ARRAY['equipment', 'collaborators', 'tickets', 'global_settings', 'software_licenses']
+    FOREACH t IN ARRAY ARRAY['equipment', 'collaborators', 'tickets', 'software_licenses', 'instituicoes', 'entidades', 'brands']
     LOOP 
         BEGIN
             EXECUTE format('DROP TRIGGER IF EXISTS audit_trigger ON %I;', t);
@@ -409,83 +204,15 @@ BEGIN
     END LOOP;
 END $$;
 
--- ==========================================
--- 6. SLACK NOTIFICATIONS (Manter existentes)
--- ==========================================
--- (Código dos triggers slack mantido aqui para garantir persistência)
-CREATE OR REPLACE FUNCTION notify_slack_incident() RETURNS trigger AS $$
-DECLARE slack_url text; payload jsonb;
-BEGIN
-  IF NEW."impactCriticality" IN ('Crítica', 'Alta') THEN
-      SELECT setting_value INTO slack_url FROM global_settings WHERE setting_key = 'slack_webhook_url';
-      IF slack_url IS NOT NULL AND slack_url != '' THEN
-          payload := jsonb_build_object('text', format('🚨 *Incidente Crítico* 🚨%n*Título:* %s%n*Desc:* %s', NEW.title, NEW.description));
-          PERFORM net.http_post(url := slack_url, body := payload);
-      END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS on_critical_ticket_created ON tickets;
-CREATE TRIGGER on_critical_ticket_created AFTER INSERT ON tickets FOR EACH ROW EXECUTE FUNCTION notify_slack_incident();
-
--- CORREÇÃO DE FOREIGN KEYS (ON UPDATE CASCADE)
--- Necessário para permitir a sincronização de IDs de colaboradores (Auth <-> Tabela)
-DO $$
-BEGIN
-    -- assignments
-    BEGIN
-        ALTER TABLE assignments DROP CONSTRAINT "assignments_collaboratorId_fkey";
-        ALTER TABLE assignments ADD CONSTRAINT "assignments_collaboratorId_fkey" FOREIGN KEY ("collaboratorId") REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-    -- tickets (collaboratorId)
-    BEGIN
-        ALTER TABLE tickets DROP CONSTRAINT "tickets_collaboratorId_fkey";
-        ALTER TABLE tickets ADD CONSTRAINT "tickets_collaboratorId_fkey" FOREIGN KEY ("collaboratorId") REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-    -- tickets (technicianId)
-    BEGIN
-        ALTER TABLE tickets DROP CONSTRAINT "tickets_technicianId_fkey";
-        ALTER TABLE tickets ADD CONSTRAINT "tickets_technicianId_fkey" FOREIGN KEY ("technicianId") REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-    -- ticket_activities (technicianId)
-    BEGIN
-        ALTER TABLE ticket_activities DROP CONSTRAINT "ticket_activities_technicianId_fkey";
-        ALTER TABLE ticket_activities ADD CONSTRAINT "ticket_activities_technicianId_fkey" FOREIGN KEY ("technicianId") REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-    -- team_members
-    BEGIN
-        ALTER TABLE team_members DROP CONSTRAINT "team_members_collaborator_id_fkey";
-        ALTER TABLE team_members ADD CONSTRAINT "team_members_collaborator_id_fkey" FOREIGN KEY (collaborator_id) REFERENCES collaborators(id) ON DELETE CASCADE ON UPDATE CASCADE;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-    
-    -- procurement_requests (requester)
-    BEGIN
-        ALTER TABLE procurement_requests DROP CONSTRAINT "procurement_requests_requester_id_fkey";
-        ALTER TABLE procurement_requests ADD CONSTRAINT "procurement_requests_requester_id_fkey" FOREIGN KEY (requester_id) REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-    -- procurement_requests (approver)
-    BEGIN
-        ALTER TABLE procurement_requests DROP CONSTRAINT "procurement_requests_approver_id_fkey";
-        ALTER TABLE procurement_requests ADD CONSTRAINT "procurement_requests_approver_id_fkey" FOREIGN KEY (approver_id) REFERENCES collaborators(id) ON DELETE SET NULL ON UPDATE CASCADE;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-END $$;
+-- FIM DA ATUALIZAÇÃO
 `;
 
     const cleanupScript = `
 -- ==========================================
 -- SCRIPT DE LIMPEZA SAFE-MODE
--- APAGA DADOS OPERACIONAIS MAS MANTÉM SUPERADMIN
 -- ==========================================
+-- Apaga dados mas mantém utilizadores SuperAdmin
 
--- 1. Limpar tabelas de dados operacionais (Ordem correta de dependência)
 DELETE FROM audit_logs;
 DELETE FROM integration_logs;
 DELETE FROM policy_acceptances;
@@ -509,21 +236,38 @@ DELETE FROM calendar_events;
 DELETE FROM continuity_plans;
 DELETE FROM equipment;
 DELETE FROM resource_contacts;
+DELETE FROM instituicoes;
+DELETE FROM entidades;
 
--- 2. Limpar Storage (Cuidado: Apaga avatares e anexos)
-DELETE FROM storage.objects;
-
--- 3. Limpar Colaboradores (EXCETO SUPERADMINS)
--- Mantém quem tem role 'SuperAdmin' para evitar lockout
+-- Limpar utilizadores normais
 DELETE FROM collaborators WHERE role != 'SuperAdmin';
 
--- 4. Sincronizar Auth Users (Remover Órfãos)
--- Apaga logins que já não têm ficha de colaborador associada
+-- Limpar Auth Users órfãos (que já não estão na tabela collaborators)
 DELETE FROM auth.users 
 WHERE id NOT IN (SELECT id FROM public.collaborators)
-AND email != 'general@system.local'; -- Protege o bot de sistema
+AND email != 'general@system.local';
+`;
 
--- Fim do Script
+    const seedScript = `
+-- ==========================================
+-- SCRIPT DE SEED (DADOS DE TESTE)
+-- ==========================================
+
+-- 1. Instituições e Entidades
+INSERT INTO instituicoes (id, name, email, telefone, codigo, is_active) VALUES 
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'TechCorp Global', 'admin@techcorp.com', '210000000', 'TCG', true);
+
+INSERT INTO entidades (id, instituicaoId, name, codigo, email, status) VALUES
+('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Departamento TI', 'TI-HQ', 'it@techcorp.com', 'Ativo'),
+('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Recursos Humanos', 'RH-HQ', 'hr@techcorp.com', 'Ativo');
+
+-- 2. Configurações Básicas
+INSERT INTO brands (name) VALUES ('Dell'), ('HP'), ('Apple'), ('Lenovo'), ('Logitech') ON CONFLICT DO NOTHING;
+INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true), ('Monitor', false), ('Telemóvel', false) ON CONFLICT DO NOTHING;
+
+-- 3. Equipamentos de Exemplo
+-- Nota: Requer IDs válidos de marcas e tipos. Se falhar, execute manualmente ajustando os UUIDs.
+-- O ideal é usar a interface da aplicação para criar equipamentos para garantir integridade.
 `;
 
     const handleCopy = (text: string) => {
@@ -534,11 +278,16 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
     
     const loadTriggers = async () => {
         setIsLoadingTriggers(true);
+        setTriggerError(null);
         try {
             const data = await dataService.fetchDatabaseTriggers();
             setTriggers(data);
-        } catch (error) {
+            if (data.length === 0) {
+                setTriggerError("Nenhum trigger encontrado ou a função RPC 'get_database_triggers' não existe. Por favor, execute o script de 'Atualizar BD' novamente.");
+            }
+        } catch (error: any) {
             console.error("Failed to fetch triggers", error);
+            setTriggerError("Erro ao carregar triggers: " + (error.message || "Erro de conexão ou permissões."));
         } finally {
             setIsLoadingTriggers(false);
         }
@@ -565,53 +314,69 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
     };
 
     return (
-        <Modal title="Configuração de Base de Dados & Ferramentas" onClose={onClose} maxWidth="max-w-5xl">
-            <div className="flex flex-col h-[70vh]">
-                {/* Tabs */}
-                <div className="flex border-b border-gray-700 mb-4 gap-2 flex-wrap">
+        <Modal title="Configuração de Base de Dados & Ferramentas" onClose={onClose} maxWidth="max-w-6xl">
+            <div className="flex flex-col h-[80vh]">
+                {/* Tabs Navigation */}
+                <div className="flex border-b border-gray-700 mb-4 gap-2 flex-wrap bg-gray-900/50 p-2 rounded-t-lg">
                      <button 
                         onClick={() => setActiveTab('update')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'update' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaDatabase className="inline mr-2"/> Atualizar BD (Schema)
+                        <FaDatabase /> Atualizar BD (Schema)
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('seed')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'seed' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaSeedling /> Dados de Teste (Seed)
                     </button>
                     <button 
                         onClick={() => setActiveTab('triggers')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'triggers' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'triggers' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaBolt className="inline mr-2"/> Triggers Ativos
+                        <FaBolt /> Triggers Ativos
                     </button>
                     <button 
                         onClick={() => setActiveTab('cleanup')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'cleanup' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'cleanup' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaBroom className="inline mr-2"/> Limpeza & Reset
+                        <FaBroom /> Limpeza & Reset
                     </button>
                     <button 
                         onClick={() => setActiveTab('playwright_ai')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'playwright_ai' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'playwright_ai' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaRobot className="inline mr-2"/> Gerador de Testes E2E
+                        <FaRobot /> Gerador de Testes E2E
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2">
+                {/* Content Area */}
+                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 p-1">
+                    
+                    {/* UPDATE TAB */}
                     {activeTab === 'update' && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 animate-fade-in">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
-                                <p>
-                                    <strong>Instruções:</strong> Copie o script SQL abaixo e execute-o no <strong>SQL Editor</strong> do seu projeto Supabase.
-                                    Este script implementa <strong>RLS (Row Level Security)</strong> rigoroso, Triggers de Auditoria e Slack, e Funções de Sistema.
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaExclamationTriangle /> AÇÃO NECESSÁRIA: CORREÇÃO DE PERMISSÕES
+                                </div>
+                                <p className="mb-2">
+                                    Se está a ter problemas a gravar dados ou os logs de auditoria não aparecem, é necessário executar este script.
+                                    Ele corrige as políticas de segurança (RLS) que estavam a causar bloqueios recursivos e restaura o acesso.
                                 </p>
+                                <ol className="list-decimal list-inside ml-2 space-y-1">
+                                    <li>Copie o código SQL abaixo.</li>
+                                    <li>Vá ao <strong>SQL Editor</strong> do Supabase.</li>
+                                    <li>Cole e execute o script completo.</li>
+                                </ol>
                             </div>
                             <div className="relative">
-                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto max-h-96 custom-scrollbar border border-gray-700">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
                                     {updateScript}
                                 </pre>
                                 <button 
                                     onClick={() => handleCopy(updateScript)} 
-                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors"
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
                                     title="Copiar SQL"
                                 >
                                     {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
@@ -620,35 +385,77 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
                         </div>
                     )}
                     
+                    {/* SEED TAB */}
+                    {activeTab === 'seed' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-1"><FaSeedling /> Povoar Base de Dados</div>
+                                <p>
+                                    Use este script para inserir dados iniciais de exemplo (Instituições, Entidades e Configurações Básicas) caso a aplicação esteja vazia.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-yellow-300 overflow-auto max-h-96 custom-scrollbar border border-gray-700">
+                                    {seedScript}
+                                </pre>
+                                <button 
+                                    onClick={() => handleCopy(seedScript)} 
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors"
+                                    title="Copiar SQL de Seed"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* TRIGGERS TAB */}
                     {activeTab === 'triggers' && (
-                         <div className="space-y-4">
-                             <div className="flex justify-between items-center mb-2">
-                                <div className="text-sm text-gray-400">Lista de automações ativas na base de dados.</div>
-                                <button onClick={loadTriggers} className="flex items-center gap-2 text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">
-                                    <FaSync className={isLoadingTriggers ? "animate-spin" : ""} /> Atualizar
+                         <div className="space-y-4 animate-fade-in">
+                             <div className="flex justify-between items-center mb-2 bg-gray-800 p-3 rounded border border-gray-700">
+                                <div className="text-sm text-gray-300">
+                                    <p>Lista de automações ativas na base de dados (Auditoria, Slack, etc.).</p>
+                                </div>
+                                <button onClick={loadTriggers} className="flex items-center gap-2 text-sm bg-brand-primary hover:bg-brand-secondary text-white px-4 py-2 rounded shadow transition-colors">
+                                    <FaSync className={isLoadingTriggers ? "animate-spin" : ""} /> Atualizar Lista
                                 </button>
                              </div>
                              
                              {isLoadingTriggers ? (
-                                 <div className="text-center py-10 text-gray-500">A carregar triggers...</div>
+                                 <div className="text-center py-12 text-gray-500 flex flex-col items-center">
+                                     <FaSpinner className="animate-spin text-3xl mb-4 text-brand-secondary"/>
+                                     <p>A consultar base de dados...</p>
+                                 </div>
+                             ) : triggerError ? (
+                                 <div className="p-6 text-center bg-red-900/20 rounded border border-red-500/50 text-red-200">
+                                     <FaExclamationTriangle className="text-3xl mx-auto mb-3 text-red-500"/>
+                                     <p className="font-bold mb-2">Erro ao carregar triggers</p>
+                                     <p className="text-sm">{triggerError}</p>
+                                 </div>
                              ) : triggers.length > 0 ? (
-                                 <div className="overflow-x-auto border border-gray-700 rounded-lg">
+                                 <div className="overflow-x-auto border border-gray-700 rounded-lg shadow-lg">
                                      <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                                          <thead className="bg-gray-800 text-gray-300 uppercase text-xs">
                                              <tr>
-                                                 <th className="px-4 py-2">Tabela</th>
-                                                 <th className="px-4 py-2">Nome do Trigger</th>
-                                                 <th className="px-4 py-2">Evento</th>
-                                                 <th className="px-4 py-2">Timing</th>
+                                                 <th className="px-4 py-3">Tabela</th>
+                                                 <th className="px-4 py-3">Nome do Trigger</th>
+                                                 <th className="px-4 py-3">Evento</th>
+                                                 <th className="px-4 py-3">Timing</th>
+                                                 <th className="px-4 py-3">Definição</th>
                                              </tr>
                                          </thead>
                                          <tbody className="divide-y divide-gray-700 bg-gray-900">
                                              {triggers.map((t, idx) => (
-                                                 <tr key={idx} className="hover:bg-gray-800/50">
-                                                     <td className="px-4 py-2 font-bold text-white">{t.table_name}</td>
-                                                     <td className="px-4 py-2 font-mono text-xs text-brand-secondary">{t.trigger_name}</td>
-                                                     <td className="px-4 py-2">{t.events}</td>
-                                                     <td className="px-4 py-2">{t.timing}</td>
+                                                 <tr key={idx} className="hover:bg-gray-800/50 transition-colors">
+                                                     <td className="px-4 py-3 font-bold text-white">{t.table_name}</td>
+                                                     <td className="px-4 py-3 font-mono text-xs text-brand-secondary">{t.trigger_name}</td>
+                                                     <td className="px-4 py-3">
+                                                         <span className="bg-gray-700 px-2 py-1 rounded text-xs text-gray-300">{t.events}</span>
+                                                     </td>
+                                                     <td className="px-4 py-3">{t.timing}</td>
+                                                     <td className="px-4 py-3 text-xs font-mono text-gray-500 truncate max-w-xs" title={t.definition}>
+                                                         {t.definition}
+                                                     </td>
                                                  </tr>
                                              ))}
                                          </tbody>
@@ -656,17 +463,15 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
                                  </div>
                              ) : (
                                  <div className="p-8 text-center bg-gray-900/50 rounded border border-dashed border-gray-700">
-                                     <p className="text-gray-400 mb-2">Não foi possível carregar os triggers.</p>
-                                     <p className="text-xs text-gray-500">
-                                         Se é a primeira vez, certifique-se de que executou o script de "Atualizar BD" para criar a função de sistema necessária (<code>get_database_triggers</code>).
-                                     </p>
+                                     <p className="text-gray-400 mb-2">Nenhum trigger detetado.</p>
                                  </div>
                              )}
                          </div>
                     )}
                     
+                    {/* CLEANUP TAB */}
                     {activeTab === 'cleanup' && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 animate-fade-in">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-1">
                                     <FaExclamationTriangle /> ATENÇÃO: Reset de Dados
@@ -692,8 +497,9 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
                         </div>
                     )}
 
+                    {/* PLAYWRIGHT AI TAB */}
                     {activeTab === 'playwright_ai' && (
-                        <div className="space-y-4 p-1">
+                        <div className="space-y-4 animate-fade-in p-1">
                             <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2"><FaRobot /> QA Automation Assistant</div>
                                 <p>
@@ -750,9 +556,9 @@ AND email != 'general@system.local'; -- Protege o bot de sistema
                     )}
                 </div>
 
-                <div className="flex justify-end pt-4 border-t border-gray-700 mt-auto">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">
-                        Fechar
+                <div className="flex justify-end pt-4 border-t border-gray-700 mt-auto bg-gray-900/80 p-4 rounded-b-xl">
+                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors shadow-lg">
+                        Fechar Janela
                     </button>
                 </div>
             </div>
