@@ -159,7 +159,11 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         });
 
         try {
-            const response = await fetch(`https://corsproxy.io/?https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`);
+            // Use AllOrigins as a more stable proxy than corsproxy.io
+            const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            
+            const response = await fetch(proxyUrl);
             
             if (response.ok) {
                 const data = await response.json();
@@ -188,7 +192,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
 
         } catch (e) {
             console.error("Erro NIF.pt:", e);
-            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF." }));
+            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF. Tente preencher manualmente." }));
         } finally {
             setIsFetchingNif(false);
         }

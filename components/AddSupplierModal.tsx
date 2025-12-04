@@ -1,11 +1,4 @@
 
-
-
-
-
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, SupplierContact } from '../types';
@@ -251,7 +244,12 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         });
 
         try {
-            const response = await fetch(`https://corsproxy.io/?https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`);
+            // Use AllOrigins as a more stable proxy
+            const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            
+            const response = await fetch(proxyUrl);
+
             if (response.ok) {
                 const data = await response.json();
                 if (data.result === 'success' && data.records && data.records[nif]) {
@@ -276,7 +274,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             }
         } catch (e) {
             console.error("Erro NIF.pt:", e);
-            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF." }));
+            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF. Tente preencher manualmente." }));
         } finally {
             setIsFetchingNif(false);
         }

@@ -31,7 +31,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.1
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.2
 -- Resolve erro: column "user_email" of relation "audit_logs" does not exist
 -- ==================================================================================
 
@@ -39,7 +39,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_net"; 
 
--- 2. CORREÇÃO DA ESTRUTURA DA TABELA AUDIT_LOGS
+-- 2. CORREÇÃO DA ESTRUTURA DA TABELA AUDIT_LOGS (CRÍTICO)
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id uuid REFERENCES auth.users(id),
@@ -432,7 +432,7 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                                 </div>
                                 <p className="mb-2">
                                     Se está a ter problemas a gravar dados ou a carregar triggers, execute este script.
-                                    Ele inclui um comando <strong>NOTIFY pgrst</strong> que força o Supabase a atualizar a cache da API.
+                                    Ele inclui um comando <strong>NOTIFY pgrst</strong> que força o Supabase a atualizar a cache da API e cria a coluna <strong>user_email</strong> na tabela de auditoria.
                                 </p>
                                 <ol className="list-decimal list-inside ml-2 space-y-1">
                                     <li>Copie o código SQL abaixo.</li>

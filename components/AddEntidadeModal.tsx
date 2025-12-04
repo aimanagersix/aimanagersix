@@ -171,7 +171,12 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         });
 
         try {
-            const response = await fetch(`https://corsproxy.io/?https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`);
+            // Use AllOrigins as a more stable proxy
+            const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            
+            const response = await fetch(proxyUrl);
+
             if (response.ok) {
                 const data = await response.json();
                 if (data.result === 'success' && data.records && data.records[nif]) {
@@ -194,7 +199,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
             }
         } catch (e) {
             console.error("Erro NIF:", e);
-            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF." }));
+            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF. Tente preencher manualmente." }));
         } finally {
             setIsFetchingNif(false);
         }
@@ -264,6 +269,9 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         break;
                     case '42P01': // Table not found
                         msg = "Erro de Sistema: A tabela 'entidades' não existe. Execute o script de configuração de BD.";
+                        break;
+                    case '42703': // Column not found (e.g., audit trigger issue)
+                        msg = "Erro de Estrutura de BD: Uma coluna necessária (ex: user_email) está em falta. Execute o script de Atualização de BD.";
                         break;
                     default:
                         msg = `Erro de Base de Dados (${error.code}): ${error.message}`;
