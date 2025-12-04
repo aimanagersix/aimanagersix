@@ -8,6 +8,12 @@ export interface ConfigItem {
 
 export type SoftwareCategory = ConfigItem; // Reuse ConfigItem as it fits (id, name)
 
+export interface SoftwareProduct {
+    id: string;
+    name: string;
+    category_id: string;
+}
+
 export interface TooltipConfig {
     // Equipment Tooltips
     showNomeNaRede: boolean;
@@ -333,6 +339,7 @@ export type ModuleKey =
     | 'equipment_types'
     | 'config_equipment_statuses'
     | 'config_software_categories'
+    | 'config_software_products' // NEW
     | 'ticket_categories'
     | 'security_incident_types'
     | 'contact_roles'
@@ -807,6 +814,7 @@ export interface ProcurementRequest {
     equipment_type_id?: string;
     specifications?: any; // JSONB to store specs like RAM, CPU etc.
     software_category_id?: string; // Link to ConfigItem for Software Category
+    brand_id?: string; // NEW: Brand Link
 
     attachments?: { name: string; dataUrl: string }[]; // Quotes, Invoices
 }

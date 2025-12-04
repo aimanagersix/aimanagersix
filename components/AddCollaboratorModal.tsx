@@ -96,8 +96,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const defaultRoles = ['Admin', 'Técnico', 'Utilizador'];
     const displayRoles = availableRoles.length > 0 ? availableRoles.map(r => r.name) : defaultRoles;
     
-    // Filter 'SuperAdmin' from dropdown if current user is not SuperAdmin
-    const filteredRoles = displayRoles.filter(role => isSuperAdmin || role !== UserRole.SuperAdmin);
+    // Filter 'SuperAdmin' from dropdown - it is a system role and should not be selectable
+    const filteredRoles = displayRoles.filter(role => role !== UserRole.SuperAdmin);
     const titles = titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª'];
 
     // Filter entities based on selected institution

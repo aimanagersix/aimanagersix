@@ -126,6 +126,14 @@ DO $$ BEGIN ALTER TABLE config_resilience_test_types ADD CONSTRAINT config_resil
 CREATE TABLE IF NOT EXISTS config_software_categories (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
 DO $$ BEGIN ALTER TABLE config_software_categories ADD CONSTRAINT config_software_categories_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
+-- NEW: Software Products Table (linked to categories)
+CREATE TABLE IF NOT EXISTS config_software_products (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL,
+    category_id uuid REFERENCES config_software_categories(id) ON DELETE SET NULL,
+    created_at timestamptz DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS contact_roles (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL);
 DO $$ BEGIN ALTER TABLE contact_roles ADD CONSTRAINT contact_roles_name_key UNIQUE (name); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
@@ -177,6 +185,17 @@ CREATE TABLE IF NOT EXISTS integration_logs (
     status text,
     error text,
     created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id uuid,
+    user_email text,
+    action text,
+    resource_type text,
+    resource_id text,
+    details text,
+    timestamp timestamptz DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS security_training_records (
@@ -233,6 +252,7 @@ CREATE TABLE IF NOT EXISTS procurement_requests (
     equipment_type_id uuid REFERENCES equipment_types(id),
     specifications jsonb,
     software_category_id uuid REFERENCES config_software_categories(id),
+    brand_id uuid REFERENCES brands(id),
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
 );
@@ -406,7 +426,7 @@ VALUES ('SuperAdmin', true, '{}')
 ON CONFLICT (name) DO UPDATE SET is_system = true;
 
 INSERT INTO config_custom_roles (name, is_system, permissions) 
-VALUES ('Admin', false, '{"equipment":{"view":true,"create":true,"edit":true,"delete":true},"licensing":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"suppliers":{"view":true,"create":true,"edit":true,"delete":true},"procurement":{"view":true,"create":true,"edit":true,"delete":true},"reports":{"view":true,"create":false,"edit":false,"delete":false},"settings":{"view":true,"create":true,"edit":true,"delete":true},"dashboard_smart":{"view":true,"create":false,"edit":false,"delete":false},"compliance_bia":{"view":true,"create":true,"edit":true,"delete":true},"compliance_security":{"view":true,"create":true,"edit":true,"delete":true},"compliance_backups":{"view":true,"create":true,"edit":true,"delete":true},"compliance_resilience":{"view":true,"create":true,"edit":true,"delete":true},"compliance_training":{"view":true,"create":true,"edit":true,"delete":true},"compliance_policies":{"view":true,"create":true,"edit":true,"delete":true},"brands":{"view":true,"create":true,"edit":true,"delete":true},"equipment_types":{"view":true,"create":true,"edit":true,"delete":true},"config_equipment_statuses":{"view":true,"create":true,"edit":true,"delete":true},"config_software_categories":{"view":true,"create":true,"edit":true,"delete":true},"ticket_categories":{"view":true,"create":true,"edit":true,"delete":true},"security_incident_types":{"view":true,"create":true,"edit":true,"delete":true},"contact_roles":{"view":true,"create":true,"edit":true,"delete":true},"contact_titles":{"view":true,"create":true,"edit":true,"delete":true},"config_custom_roles":{"view":true,"create":true,"edit":true,"delete":false},"config_automation":{"view":true,"create":false,"edit":true,"delete":false},"config_collaborator_deactivation_reasons":{"view":true,"create":true,"edit":true,"delete":true}}')
+VALUES ('Admin', false, '{"equipment":{"view":true,"create":true,"edit":true,"delete":true},"licensing":{"view":true,"create":true,"edit":true,"delete":true},"tickets":{"view":true,"create":true,"edit":true,"delete":true},"organization":{"view":true,"create":true,"edit":true,"delete":true},"suppliers":{"view":true,"create":true,"edit":true,"delete":true},"procurement":{"view":true,"create":true,"edit":true,"delete":true},"reports":{"view":true,"create":false,"edit":false,"delete":false},"settings":{"view":true,"create":true,"edit":true,"delete":true},"dashboard_smart":{"view":true,"create":false,"edit":false,"delete":false},"compliance_bia":{"view":true,"create":true,"edit":true,"delete":true},"compliance_security":{"view":true,"create":true,"edit":true,"delete":true},"compliance_backups":{"view":true,"create":true,"edit":true,"delete":true},"compliance_resilience":{"view":true,"create":true,"edit":true,"delete":true},"compliance_training":{"view":true,"create":true,"edit":true,"delete":true},"compliance_policies":{"view":true,"create":true,"edit":true,"delete":true},"brands":{"view":true,"create":true,"edit":true,"delete":true},"equipment_types":{"view":true,"create":true,"edit":true,"delete":true},"config_equipment_statuses":{"view":true,"create":true,"edit":true,"delete":true},"config_software_categories":{"view":true,"create":true,"edit":true,"delete":true},"config_software_products":{"view":true,"create":true,"edit":true,"delete":true},"ticket_categories":{"view":true,"create":true,"edit":true,"delete":true},"security_incident_types":{"view":true,"create":true,"edit":true,"delete":true},"contact_roles":{"view":true,"create":true,"edit":true,"delete":true},"contact_titles":{"view":true,"create":true,"edit":true,"delete":true},"config_custom_roles":{"view":true,"create":true,"edit":true,"delete":false},"config_automation":{"view":true,"create":false,"edit":true,"delete":false},"config_collaborator_deactivation_reasons":{"view":true,"create":true,"edit":true,"delete":true}}')
 ON CONFLICT (name) DO UPDATE SET is_system = false, permissions = EXCLUDED.permissions;
 
 INSERT INTO config_custom_roles (name, is_system, permissions) 
@@ -438,7 +458,7 @@ BEGIN
         EXECUTE format('CREATE POLICY "Allow all" ON %I FOR ALL USING (true) WITH CHECK (true);', t); 
     END LOOP;
     
-    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'security_training_records', 'policies', 'policy_acceptances', 'procurement_requests', 'calendar_events', 'continuity_plans']
+    FOREACH t IN ARRAY ARRAY['contact_roles', 'contact_titles', 'resource_contacts', 'global_settings', 'integration_logs', 'audit_logs', 'security_training_records', 'policies', 'policy_acceptances', 'procurement_requests', 'calendar_events', 'continuity_plans']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -499,6 +519,7 @@ BEGIN
         ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS equipment_type_id uuid REFERENCES equipment_types(id);
         ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS specifications jsonb;
         ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS software_category_id uuid REFERENCES config_software_categories(id);
+        ALTER TABLE procurement_requests ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES brands(id);
     END IF;
 END $$;`;
 

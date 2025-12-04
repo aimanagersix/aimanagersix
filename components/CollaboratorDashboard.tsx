@@ -355,10 +355,19 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
                  const equipmentCount = assignedEquipment.length;
                  const dependencies = dependencyMap.get(col.id) || [];
-                 const isDeleteDisabled = dependencies.length > 0;
+                 
+                 const isSuperAdmin = col.role === UserRole.SuperAdmin;
+                 const isCurrentUser = currentUser?.id === col.id;
+                 
+                 // Disable delete for SuperAdmin OR self
+                 const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || isCurrentUser;
                  
                  let deleteTooltip = `Excluir ${col.fullName}`;
-                 if (isDeleteDisabled) {
+                 if (isSuperAdmin) {
+                     deleteTooltip = "Impossível excluir perfil SuperAdmin";
+                 } else if (isCurrentUser) {
+                     deleteTooltip = "Não pode apagar o seu próprio utilizador";
+                 } else if (dependencies.length > 0) {
                      const uniqueDependencies = Array.from(new Set(dependencies));
                      const displayedReasons = uniqueDependencies.slice(0, 3);
                      if (uniqueDependencies.length > 3) {
@@ -366,7 +375,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                      }
                      deleteTooltip = `Impossível excluir: Associado a ${displayedReasons.join(", ")}`;
                  }
-
 
                 return (
               <tr 
@@ -422,7 +430,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 </td>
                 <td className="px-6 py-4 text-center">
                      <div className="flex justify-center items-center gap-4">
-                        {onToggleStatus && (
+                        {onToggleStatus && !isSuperAdmin && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onToggleStatus(col); }}
                                 className={`text-xl ${col.status === CollaboratorStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
@@ -446,7 +454,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                                 <EditIcon />
                             </button>
                         )}
-                        {onDelete && (
+                        {onDelete && !isSuperAdmin && (
                             <button 
                                 onClick={(e) => { 
                                     e.stopPropagation(); 

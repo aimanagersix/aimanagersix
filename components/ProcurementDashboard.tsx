@@ -1,8 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole } from '../types';
 import { FaShoppingCart, FaPlus, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaBoxOpen, FaEdit, FaTrash, FaMicrochip, FaKey } from 'react-icons/fa';
 import Pagination from './common/Pagination';
+import * as dataService from '../services/dataService'; // For brand fetching if not passed via props, but assume props passed usually
 
 interface ProcurementDashboardProps {
     requests: ProcurementRequest[];
@@ -33,6 +34,16 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
     const [filterStatus, setFilterStatus] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [brandMap, setBrandMap] = useState<Map<string, string>>(new Map());
+
+    useEffect(() => {
+        const loadBrands = async () => {
+            const data = await dataService.fetchAllData();
+            const map = new Map<string, string>(data.brands.map((b: any) => [b.id, b.name]));
+            setBrandMap(map);
+        };
+        loadBrands();
+    }, []);
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
@@ -42,17 +53,19 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
         return requests.filter(r => {
             const requesterName = collaboratorMap.get(r.requester_id)?.toLowerCase() || '';
             const supplierName = r.supplier_id ? (supplierMap.get(r.supplier_id)?.toLowerCase() || '') : '';
+            const brandName = r.brand_id ? (brandMap.get(r.brand_id)?.toLowerCase() || '') : '';
             
             const searchMatch = 
                 r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 requesterName.includes(searchQuery.toLowerCase()) ||
-                supplierName.includes(searchQuery.toLowerCase());
+                supplierName.includes(searchQuery.toLowerCase()) ||
+                brandName.includes(searchQuery.toLowerCase());
             
             const statusMatch = filterStatus === '' || r.status === filterStatus;
             
             return searchMatch && statusMatch;
         }).sort((a, b) => new Date(b.request_date).getTime() - new Date(a.request_date).getTime());
-    }, [requests, searchQuery, filterStatus, collaboratorMap, supplierMap]);
+    }, [requests, searchQuery, filterStatus, collaboratorMap, supplierMap, brandMap]);
 
     const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
     const paginatedRequests = useMemo(() => {
@@ -86,7 +99,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Procurar pedido, requerente, fornecedor..."
+                        placeholder="Procurar pedido, requerente, fornecedor, marca..."
                         className="w-full bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm"
                     />
                 </div>
@@ -107,8 +120,8 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                             <th className="px-6 py-3">Data</th>
                             <th className="px-6 py-3">Tipo</th>
                             <th className="px-6 py-3">Pedido</th>
+                            <th className="px-6 py-3">Marca/Fornecedor</th>
                             <th className="px-6 py-3">Requerente</th>
-                            <th className="px-6 py-3">Fornecedor</th>
                             <th className="px-6 py-3 text-center">Qtd</th>
                             <th className="px-6 py-3 text-right">Valor Est.</th>
                             <th className="px-6 py-3 text-center">Estado</th>
@@ -116,7 +129,11 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedRequests.length > 0 ? paginatedRequests.map(req => (
+                        {paginatedRequests.length > 0 ? paginatedRequests.map(req => {
+                            const brandName = req.brand_id ? brandMap.get(req.brand_id) : null;
+                            const supplierName = req.supplier_id ? supplierMap.get(req.supplier_id) : '-';
+                            
+                            return (
                             <tr key={req.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
                                 <td className="px-6 py-4 text-white">{new Date(req.request_date).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 text-center">
@@ -126,8 +143,11 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                                     {req.title}
                                     {req.priority === 'Urgente' && <span className="ml-2 text-xs bg-red-900 text-red-200 px-1 rounded font-bold">!</span>}
                                 </td>
+                                <td className="px-6 py-4 text-xs">
+                                    {brandName && <div className="text-white font-bold">{brandName}</div>}
+                                    <div className="text-gray-400">{supplierName}</div>
+                                </td>
                                 <td className="px-6 py-4">{collaboratorMap.get(req.requester_id)}</td>
-                                <td className="px-6 py-4">{req.supplier_id ? supplierMap.get(req.supplier_id) : '-'}</td>
                                 <td className="px-6 py-4 text-center">{req.quantity}</td>
                                 <td className="px-6 py-4 text-right font-mono">{req.estimated_cost ? `€ ${req.estimated_cost}` : '-'}</td>
                                 <td className="px-6 py-4 text-center">
@@ -160,7 +180,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                                     </div>
                                 </td>
                             </tr>
-                        )) : (
+                        )}) : (
                             <tr>
                                 <td colSpan={9} className="text-center py-8 text-gray-500">Nenhum pedido de aquisição encontrado.</td>
                             </tr>

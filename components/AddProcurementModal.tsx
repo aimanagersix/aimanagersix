@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem } from '../types';
+import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand } from '../types';
 import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags } from 'react-icons/fa';
 import { SpinnerIcon, FaTrash as DeleteIcon } from './common/Icons';
+import * as dataService from '../services/dataService';
 
 interface AddProcurementModalProps {
     onClose: () => void;
@@ -32,21 +33,33 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
         priority: 'Normal' as 'Normal' | 'Urgente',
         resource_type: 'Hardware', // Default
         specifications: {},
-        attachments: []
+        attachments: [],
+        brand_id: ''
     });
 
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
+    const [brands, setBrands] = useState<Brand[]>([]); // State to load brands
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSaving, setIsSaving] = useState(false);
 
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
+
+    // Load brands
+    useEffect(() => {
+        const loadBrands = async () => {
+            const data = await dataService.fetchAllData();
+            setBrands(data.brands);
+        };
+        loadBrands();
+    }, []);
 
     useEffect(() => {
         if (procurementToEdit) {
             setFormData({
                 ...procurementToEdit,
                 specifications: procurementToEdit.specifications || {},
-                software_category_id: procurementToEdit.software_category_id || ''
+                software_category_id: procurementToEdit.software_category_id || '',
+                brand_id: procurementToEdit.brand_id || ''
             });
             if (procurementToEdit.attachments) {
                 setAttachments(procurementToEdit.attachments.map(a => ({ ...a, size: 0 })));
@@ -153,6 +166,7 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
         if (!dataToSave.approver_id) delete dataToSave.approver_id;
         if (!dataToSave.equipment_type_id) delete dataToSave.equipment_type_id;
         if (!dataToSave.software_category_id) delete dataToSave.software_category_id;
+        if (!dataToSave.brand_id) delete dataToSave.brand_id;
 
         try {
             await onSave(procurementToEdit ? { ...procurementToEdit, ...dataToSave } as ProcurementRequest : dataToSave as any);
@@ -246,22 +260,36 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
                         
                         {/* Dynamic Fields for Hardware */}
                         {formData.resource_type === 'Hardware' && (
-                            <div className="bg-blue-900/20 p-3 rounded border border-blue-500/30 animate-fade-in">
-                                <div className="mb-3">
-                                    <label className="block text-xs text-blue-200 mb-1 flex items-center gap-1"><FaMicrochip/> Tipo de Equipamento (Para pré-configuração)</label>
-                                    <select 
-                                        name="equipment_type_id" 
-                                        value={formData.equipment_type_id || ''} 
-                                        onChange={handleChange} 
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                    >
-                                        <option value="">-- Selecione Tipo --</option>
-                                        {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                    </select>
+                            <div className="bg-blue-900/20 p-3 rounded border border-blue-500/30 animate-fade-in space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs text-blue-200 mb-1 flex items-center gap-1"><FaMicrochip/> Tipo de Equipamento</label>
+                                        <select 
+                                            name="equipment_type_id" 
+                                            value={formData.equipment_type_id || ''} 
+                                            onChange={handleChange} 
+                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                                        >
+                                            <option value="">-- Selecione Tipo --</option>
+                                            {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-blue-200 mb-1">Marca Preferencial</label>
+                                        <select 
+                                            name="brand_id" 
+                                            value={formData.brand_id || ''} 
+                                            onChange={handleChange} 
+                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                                        >
+                                            <option value="">-- Selecione Marca --</option>
+                                            {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
 
                                 {selectedType && (
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-blue-500/20">
                                         {selectedType.requires_ram_size && (
                                             <div>
                                                 <label className="block text-[10px] text-gray-400 uppercase">RAM</label>

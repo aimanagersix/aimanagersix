@@ -22,7 +22,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
         // Initialize items based on quantity and prefill from request if possible
         const initialItems = Array.from({ length: request.quantity }).map((_, idx) => ({
             serialNumber: '',
-            brandId: '',
+            brandId: request.brand_id || '', // Prefill Brand
             typeId: request.equipment_type_id || '',
             description: request.title || '', // Default description from request title
             status: EquipmentStatus.Stock,
@@ -34,9 +34,9 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
         setItems(initialItems);
         
         // If type was in request, set it as common type
-        if (request.equipment_type_id) {
-            setCommonTypeId(request.equipment_type_id);
-        }
+        if (request.equipment_type_id) setCommonTypeId(request.equipment_type_id);
+        if (request.brand_id) setCommonBrandId(request.brand_id);
+
     }, [request]);
 
     // Apply common brand/type to all

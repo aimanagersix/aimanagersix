@@ -1,15 +1,16 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating, Supplier, SoftwareCategory } from '../types';
-import { FaShieldAlt, FaEuroSign, FaTags } from 'react-icons/fa';
+import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating, Supplier, SoftwareCategory, SoftwareProduct } from '../types';
+import { FaShieldAlt, FaEuroSign, FaTags, FaCompactDisc } from 'react-icons/fa';
+import { getSupabase } from '../services/supabaseClient';
 
 interface AddLicenseModalProps {
     onClose: () => void;
     onSave: (license: Omit<SoftwareLicense, 'id'> | SoftwareLicense) => Promise<any>;
     licenseToEdit?: SoftwareLicense | null;
     suppliers?: Supplier[];
-    categories?: SoftwareCategory[]; // NEW
+    categories?: SoftwareCategory[];
 }
 
 const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, licenseToEdit, suppliers = [], categories = [] }) => {
@@ -32,6 +33,19 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         category_id: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
+    
+    // Software Products from DB
+    const [products, setProducts] = useState<SoftwareProduct[]>([]);
+    const [selectedProduct, setSelectedProduct] = useState<string>('');
+
+    useEffect(() => {
+        const loadProducts = async () => {
+            const supabase = getSupabase();
+            const { data } = await supabase.from('config_software_products').select('*');
+            if (data) setProducts(data);
+        };
+        loadProducts();
+    }, []);
 
     useEffect(() => {
         if (licenseToEdit) {
@@ -82,6 +96,19 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
             [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : value) 
         }));
     };
+    
+    const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const prodId = e.target.value;
+        setSelectedProduct(prodId);
+        const prod = products.find(p => p.id === prodId);
+        if (prod) {
+            setFormData(prev => ({
+                ...prev,
+                productName: prod.name,
+                category_id: prod.category_id
+            }));
+        }
+    };
 
     const handleSetExpiry = (years: number) => {
         if (!formData.purchaseDate) return;
@@ -130,6 +157,20 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
     return (
         <Modal title={modalTitle} onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="bg-gray-900/30 p-3 rounded border border-gray-700 mb-2">
+                     <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2">
+                        <FaCompactDisc/> Produto Standard (Opcional)
+                    </label>
+                    <select 
+                        value={selectedProduct} 
+                        onChange={handleProductChange} 
+                        className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
+                    >
+                        <option value="">-- Selecione da lista ou digite abaixo --</option>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+
                 <div>
                     <label htmlFor="productName" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome do Produto</label>
                     <input type="text" name="productName" id="productName" value={formData.productName} onChange={handleChange} placeholder="Ex: Windows 11 Pro OEM, Adobe CC..." className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.productName ? 'border-red-500' : 'border-gray-600'}`} />

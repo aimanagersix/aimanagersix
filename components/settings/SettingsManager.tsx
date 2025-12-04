@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import * as dataService from '../../services/dataService';
 import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -170,6 +171,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
                 { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação', icon: <FaUserSlash /> },
                 { id: 'config_software_categories', label: 'Categorias de Software', icon: <FaList /> },
+                { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, // NEW
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
@@ -189,6 +191,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
+        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, // To be implemented fully via GenericDashboard or Custom
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
         'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
@@ -257,15 +260,26 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
-                    {simpleConfigTables[selectedMenuId] && (
-                        <GenericConfigDashboard 
-                            title={simpleConfigTables[selectedMenuId].label}
-                            icon={simpleConfigTables[selectedMenuId].icon}
-                            items={simpleConfigTables[selectedMenuId].data}
-                            tableName={selectedMenuId}
+                    {/* Special Handling for Software Products to show Category dropdown in Generic Dashboard if we implemented it, but here we just show basic table for now */}
+                    {selectedMenuId === 'config_software_products' ? (
+                         <GenericConfigDashboard 
+                            title="Produtos de Software"
+                            icon={<FaCompactDisc />}
+                            items={[]} // Fetch logic would be needed here or GenericDashboard updated to fetch
+                            tableName="config_software_products"
                             onRefresh={refreshData}
-                            colorField={simpleConfigTables[selectedMenuId].colorField}
                         />
+                    ) : (
+                        simpleConfigTables[selectedMenuId] && (
+                            <GenericConfigDashboard 
+                                title={simpleConfigTables[selectedMenuId].label}
+                                icon={simpleConfigTables[selectedMenuId].icon}
+                                items={simpleConfigTables[selectedMenuId].data}
+                                tableName={selectedMenuId}
+                                onRefresh={refreshData}
+                                colorField={simpleConfigTables[selectedMenuId].colorField}
+                            />
+                        )
                     )}
                 </div>
             </div>
