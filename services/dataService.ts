@@ -240,75 +240,91 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("Service Role Key não configurada. Aceda a Configurações > Conexões para configurar.");
     }
 
-    const adminClient = createClient(supabaseUrl, serviceKey);
+    const adminClient = createClient(supabaseUrl, serviceKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
     
     // 1. Tentar atualizar diretamente
-    const { error } = await (adminClient.auth as any).admin.updateUserById(userId, { password: newPassword });
+    const { error: updateError } = await (adminClient.auth as any).admin.updateUserById(userId, { password: newPassword });
     
-    if (error) {
-        // Se o utilizador não for encontrado no Auth (ex: criado sem password inicialmente na tabela)
-        if (error.message.includes("User not found") || (error as any).status === 404) {
-            
-            // A. Buscar o email original na tabela
-            const supabase = getSupabase();
-            const { data: collaborator } = await supabase.from('collaborators').select('email').eq('id', userId).single();
-            
-            if (!collaborator || !collaborator.email) {
-                throw new Error("Colaborador não encontrado na base de dados ou sem email.");
-            }
+    if (!updateError) {
+        await logAction('UPDATE', 'Auth', `Admin reset password for user ${userId}`);
+        return true;
+    }
 
-            console.log("Utilizador não encontrado no Auth. A tentar criar/sincronizar para:", collaborator.email);
+    // 2. Se falhar, tentar recuperar
+    // Se o utilizador não for encontrado no Auth (ex: criado sem password inicialmente na tabela ou ID errado)
+    if (updateError.message.includes("User not found") || (updateError as any).status === 404) {
+        
+        // A. Buscar o email original na tabela
+        const supabase = getSupabase();
+        const { data: collaborator } = await supabase.from('collaborators').select('email, fullName').eq('id', userId).single();
+        
+        if (!collaborator || !collaborator.email) {
+            throw new Error("Colaborador não encontrado na base de dados ou sem email.");
+        }
 
-            // B. Tentar criar o utilizador no Auth
-            const { data: newUser, error: createError } = await (adminClient.auth as any).admin.createUser({
-                email: collaborator.email,
-                password: newPassword,
-                email_confirm: true
-            });
+        console.log("Utilizador não encontrado no Auth (ID Mismatch). A tentar criar/sincronizar para:", collaborator.email);
 
-            let realAuthId = newUser?.user?.id;
+        let targetAuthId: string | undefined;
 
+        // B. Tentar criar o utilizador no Auth
+        const { data: newUser, error: createError } = await (adminClient.auth as any).admin.createUser({
+            email: collaborator.email,
+            password: newPassword,
+            email_confirm: true,
+            user_metadata: { full_name: collaborator.fullName }
+        });
+
+        if (!createError && newUser?.user) {
+            targetAuthId = newUser.user.id;
+        } else if (createError) {
             // C. Se der erro "Email already registered", significa que o user existe no Auth mas com OUTRO ID
-            if (createError) {
-                 if (createError.message.includes("already_registered") || createError.message.includes("already registered")) {
-                     // Temos de encontrar o ID real desse email no Auth
-                     const { data: usersList } = await (adminClient.auth as any).admin.listUsers();
-                     const existingUser = usersList.users.find((u: any) => u.email === collaborator.email);
-                     
-                     if (existingUser) {
-                         realAuthId = existingUser.id;
-                         // Atualizar a password desse utilizador encontrado
-                         await (adminClient.auth as any).admin.updateUserById(realAuthId, { password: newPassword });
-                     }
-                 } else {
-                     throw createError;
-                 }
-            }
-
-            // D. Passo Crítico: Sincronizar o ID na tabela collaborators
-            // O ID na tabela (userId) é provavelmente um UUID aleatório e deve passar a ser o ID do Auth (realAuthId)
-            if (realAuthId && realAuthId !== userId) {
-                const { error: updateDbError } = await supabase
-                    .from('collaborators')
-                    .update({ id: realAuthId }) // Atualiza a PK para bater certo com o Auth
-                    .eq('id', userId); // Onde estava o ID antigo
-
-                if (updateDbError) {
-                    console.error("Erro DB Sync:", updateDbError);
-                    // Nota: Se existirem chaves estrangeiras (tickets, assignments) sem CASCADE, isto pode falhar.
-                    throw new Error(`Utilizador de login criado, mas falha ao vincular dados (Erro: ${updateDbError.message}). Se este utilizador já tiver equipamentos ou tickets, contacte o suporte.`);
+            if (createError.message.includes("already_registered") || createError.message.includes("already been registered")) {
+                console.log("Email já registado no Auth. A procurar ID correto...");
+                
+                // Temos de encontrar o ID real desse email no Auth.
+                // Nota: listUsers retorna paginado. Vamos tentar encontrar.
+                const { data: usersList } = await (adminClient.auth as any).admin.listUsers({ perPage: 1000 });
+                const existingUser = usersList.users.find((u: any) => u.email?.toLowerCase() === collaborator.email.toLowerCase());
+                
+                if (existingUser) {
+                    targetAuthId = existingUser.id;
+                    console.log("Utilizador encontrado no Auth com ID:", targetAuthId);
+                    
+                    // Atualizar a password desse utilizador encontrado
+                    const { error: updateExistingError } = await (adminClient.auth as any).admin.updateUserById(targetAuthId, { password: newPassword });
+                    if (updateExistingError) throw updateExistingError;
+                } else {
+                    throw new Error("O email está registado no Auth, mas não foi possível localizar o utilizador na lista. Contacte o suporte.");
                 }
+            } else {
+                throw createError;
             }
-            
-            await logAction('UPDATE', 'Auth', `Admin fixed and reset password for user ${collaborator.email}`);
-            return true;
+        }
+
+        // D. Passo Crítico: Sincronizar o ID na tabela collaborators
+        // O ID na tabela (userId) é provavelmente um UUID aleatório e deve passar a ser o ID do Auth (targetAuthId)
+        if (targetAuthId && targetAuthId !== userId) {
+            const { error: updateDbError } = await supabase
+                .from('collaborators')
+                .update({ id: targetAuthId }) 
+                .eq('id', userId); 
+
+            if (updateDbError) {
+                console.error("Erro DB Sync:", updateDbError);
+                throw new Error(`Password definida, mas falha ao vincular dados (Erro: ${updateDbError.message}). Se este utilizador já tiver equipamentos ou tickets, contacte o suporte.`);
+            }
         }
         
-        throw error;
+        await logAction('UPDATE', 'Auth', `Admin fixed and reset password for user ${collaborator.email}`);
+        return true;
     }
     
-    await logAction('UPDATE', 'Auth', `Admin reset password for user ${userId}`);
-    return true;
+    throw updateError;
 };
 
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {
