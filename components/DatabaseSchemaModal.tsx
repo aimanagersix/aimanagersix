@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaSeedling } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaSeedling, FaExclamationTriangle } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 
 interface DatabaseSchemaModalProps {
@@ -10,7 +10,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'reset' | 'cleanup' | 'playwright_ai' | 'seed'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'playwright_ai'>('update');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -526,7 +526,6 @@ END $$;
 -- ==========================================
 -- 8. CORREÇÃO DE FOREIGN KEYS (ON UPDATE CASCADE)
 -- ==========================================
--- Permite atualizar o ID do colaborador (Sync com Auth) sem partir relações
 DO $$
 BEGIN
     -- Assignments
@@ -547,7 +546,7 @@ BEGIN
         ALTER TABLE tickets ADD CONSTRAINT "tickets_technicianId_fkey" FOREIGN KEY ("technicianId") REFERENCES collaborators(id) ON UPDATE CASCADE;
     EXCEPTION WHEN OTHERS THEN NULL; END;
 
-    -- Tickets (Requester Supplier) - just safety check, not needed for collab fix but good practice
+    -- Tickets (Requester Supplier)
     BEGIN
         ALTER TABLE tickets DROP CONSTRAINT IF EXISTS "tickets_requester_supplier_id_fkey";
         ALTER TABLE tickets ADD CONSTRAINT "tickets_requester_supplier_id_fkey" FOREIGN KEY ("requester_supplier_id") REFERENCES suppliers(id) ON UPDATE CASCADE;
@@ -565,14 +564,10 @@ BEGIN
         ALTER TABLE collaborator_history ADD CONSTRAINT "collaborator_history_collaboratorId_fkey" FOREIGN KEY ("collaboratorId") REFERENCES collaborators(id) ON UPDATE CASCADE;
     EXCEPTION WHEN OTHERS THEN NULL; END;
 
-    -- Procurement Requests (Requester)
+    -- Procurement Requests
     BEGIN
         ALTER TABLE procurement_requests DROP CONSTRAINT IF EXISTS "procurement_requests_requester_id_fkey";
         ALTER TABLE procurement_requests ADD CONSTRAINT "procurement_requests_requester_id_fkey" FOREIGN KEY ("requester_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-    -- Procurement Requests (Approver)
-    BEGIN
         ALTER TABLE procurement_requests DROP CONSTRAINT IF EXISTS "procurement_requests_approver_id_fkey";
         ALTER TABLE procurement_requests ADD CONSTRAINT "procurement_requests_approver_id_fkey" FOREIGN KEY ("approver_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
     EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -600,22 +595,59 @@ BEGIN
         ALTER TABLE continuity_plans DROP CONSTRAINT IF EXISTS "continuity_plans_owner_id_fkey";
         ALTER TABLE continuity_plans ADD CONSTRAINT "continuity_plans_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES collaborators(id) ON UPDATE CASCADE;
     EXCEPTION WHEN OTHERS THEN NULL; END;
-    
-     -- Messages (Sender) - Check if table exists first as it was basic
-    BEGIN
-        IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'messages') THEN
-             -- Assuming generic foreign keys or no foreign keys were strictly enforced in previous simple versions, 
-             -- we try to add them if they exist.
-             NULL; -- Messages often don't have strict FK in this simple implementation, or use uuid without FK constraint. 
-                   -- If they do, add here. Skipping to avoid errors if constraint names differ.
-        END IF;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-
 END $$;
 `;
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(updateScript);
+    const cleanupScript = `
+-- ==========================================
+-- SCRIPT DE LIMPEZA TOTAL (DATA WIPE + AUTH SYNC)
+-- AVISO: ISTO APAGA TUDO! USE COM CUIDADO.
+-- ==========================================
+
+-- 1. Limpar tabelas de dados operacionais (manter configurações base se desejar)
+TRUNCATE TABLE 
+  audit_logs, 
+  integration_logs,
+  policy_acceptances,
+  security_training_records,
+  resilience_tests,
+  backup_executions,
+  service_dependencies,
+  vulnerabilities,
+  business_services,
+  messages,
+  team_members,
+  teams,
+  license_assignments,
+  software_licenses,
+  ticket_activities,
+  tickets,
+  assignments,
+  collaborator_history,
+  procurement_requests,
+  calendar_events,
+  continuity_plans,
+  equipment,
+  resource_contacts,
+  collaborators
+CASCADE;
+
+-- 2. Limpar Utilizadores Órfãos no Auth (CRÍTICO)
+-- Remove utilizadores do sistema de autenticação que não têm correspondência na tabela 'collaborators'.
+-- Isto resolve o problema de "User already registered" ao tentar recriar utilizadores apagados.
+DELETE FROM auth.users 
+WHERE id NOT IN (SELECT id FROM public.collaborators)
+-- Proteção: Não apagar o próprio admin que está a executar se coincidir, ou users de sistema
+AND email != 'general@system.local';
+
+-- 3. Reiniciar sequências (se aplicável)
+-- (UUIDs não precisam de reset, mas se tiver SERIAL, use ALTER SEQUENCE)
+
+-- Fim do Script
+`;
+
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -638,12 +670,18 @@ END $$;
         <Modal title="Configuração de Base de Dados & Ferramentas" onClose={onClose} maxWidth="max-w-4xl">
             <div className="flex flex-col h-[70vh]">
                 {/* Tabs */}
-                <div className="flex border-b border-gray-700 mb-4">
+                <div className="flex border-b border-gray-700 mb-4 gap-2">
                      <button 
                         onClick={() => setActiveTab('update')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'update' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaDatabase className="inline mr-2"/> Atualizar BD
+                        <FaDatabase className="inline mr-2"/> Atualizar BD (Schema)
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('cleanup')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'cleanup' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaBroom className="inline mr-2"/> Limpeza & Reset
                     </button>
                     <button 
                         onClick={() => setActiveTab('playwright_ai')} 
@@ -668,9 +706,36 @@ END $$;
                                     {updateScript}
                                 </pre>
                                 <button 
-                                    onClick={handleCopy} 
+                                    onClick={() => handleCopy(updateScript)} 
                                     className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors"
                                     title="Copiar SQL"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {activeTab === 'cleanup' && (
+                        <div className="space-y-4">
+                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-1">
+                                    <FaExclamationTriangle /> ATENÇÃO: Zona de Perigo
+                                </div>
+                                <p>
+                                    Este script apaga <strong>TODOS</strong> os dados da aplicação (colaboradores, equipamentos, tickets, etc.) e sincroniza a tabela de autenticação, removendo utilizadores que já não existem.
+                                    <br/><br/>
+                                    <strong>Problema de "User already registered"?</strong> Execute este script para limpar os utilizadores órfãos no Supabase Auth.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-red-400 overflow-auto max-h-96 custom-scrollbar border border-gray-700">
+                                    {cleanupScript}
+                                </pre>
+                                <button 
+                                    onClick={() => handleCopy(cleanupScript)} 
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors"
+                                    title="Copiar SQL de Limpeza"
                                 >
                                     {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
                                 </button>
