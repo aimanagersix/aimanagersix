@@ -31,8 +31,8 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE SEGURANÇA E ESTRUTURA (v2.1 - IDEMPOTENTE)
--- Executa correções de RLS e cria estruturas de forma segura.
+-- SCRIPT DE CORREÇÃO DE SEGURANÇA E ESTRUTURA (v2.2 - REFRESH CACHE)
+-- Força atualização da cache de API (NOTIFY pgrst)
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
@@ -72,7 +72,11 @@ RETURNS TABLE (
     events text,
     timing text,
     definition text
-) AS $$
+) 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+SET search_path = public, information_schema
+AS $$
 BEGIN
     RETURN QUERY
     SELECT
@@ -85,7 +89,7 @@ BEGIN
     WHERE trigger_schema = 'public'
     ORDER BY event_object_table, trigger_name;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 
@@ -165,7 +169,7 @@ CREATE POLICY "Settings Read" ON global_settings FOR SELECT TO authenticated USI
 CREATE POLICY "Settings Write" ON global_settings FOR ALL TO authenticated USING (is_admin());
 
 -- ==========================================
--- 3. AUDIT LOG TRIGGER (Resiliente)
+-- 3. AUDIT LOG TRIGGER
 -- ==========================================
 CREATE OR REPLACE FUNCTION log_audit_event()
 RETURNS trigger AS $$
@@ -206,7 +210,8 @@ BEGIN
     END LOOP;
 END $$;
 
--- FIM DA ATUALIZAÇÃO
+-- CRÍTICO: FORÇAR RECARREGAMENTO DA CACHE DO POSTGREST
+NOTIFY pgrst, 'reload config';
 `;
 
     const cleanupScript = `
@@ -282,14 +287,29 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
         setIsLoadingTriggers(true);
         setTriggerError(null);
         try {
-            const data = await dataService.fetchDatabaseTriggers();
-            setTriggers(data);
-            if (data.length === 0) {
-                setTriggerError("Nenhum trigger encontrado ou a função RPC 'get_database_triggers' não existe. Por favor, execute o script de 'Atualizar BD' novamente.");
+            // dataService.fetchDatabaseTriggers now returns { data, error }
+            const { data, error } = await dataService.fetchDatabaseTriggers();
+            
+            if (error) {
+                console.error("Error fetching triggers RPC:", error);
+                if (error.code === '42883' || error.message?.includes('does not exist') || error.message?.includes('not found')) {
+                     setTriggerError("A função 'get_database_triggers' não foi encontrada. A cache da API pode estar desatualizada. Execute o script 'Atualizar BD' novamente, que inclui o comando 'NOTIFY pgrst' para forçar a atualização.");
+                } else if (error.code === '42501' || error.message?.includes('permission denied')) {
+                     setTriggerError("Permissão negada. Verifique se o utilizador tem permissão para executar a função (GRANT EXECUTE).");
+                } else {
+                     setTriggerError(`Erro desconhecido: ${error.message || JSON.stringify(error)}`);
+                }
+                setTriggers([]);
+            } else {
+                setTriggers(data || []);
+                if (!data || data.length === 0) {
+                    // Not an error, just empty
+                    setTriggerError(null); 
+                }
             }
         } catch (error: any) {
-            console.error("Failed to fetch triggers", error);
-            setTriggerError("Erro ao carregar triggers: " + (error.message || "Erro de conexão ou permissões."));
+            console.error("Failed to fetch triggers (exception)", error);
+            setTriggerError("Erro de rede ou exceção ao contactar base de dados: " + (error.message));
         } finally {
             setIsLoadingTriggers(false);
         }
@@ -360,11 +380,11 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaExclamationTriangle /> AÇÃO NECESSÁRIA: CORREÇÃO DE PERMISSÕES
+                                    <FaExclamationTriangle /> AÇÃO NECESSÁRIA: CORREÇÃO DE PERMISSÕES & CACHE
                                 </div>
                                 <p className="mb-2">
-                                    Se está a ter problemas a gravar dados ou os logs de auditoria não aparecem, é necessário executar este script.
-                                    Ele corrige as políticas de segurança (RLS) que estavam a causar bloqueios recursivos e restaura o acesso.
+                                    Se está a ter problemas a gravar dados ou a carregar triggers, execute este script.
+                                    Ele inclui um comando <strong>NOTIFY pgrst</strong> que força o Supabase a atualizar a cache da API.
                                 </p>
                                 <ol className="list-decimal list-inside ml-2 space-y-1">
                                     <li>Copie o código SQL abaixo.</li>
@@ -465,7 +485,8 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                                  </div>
                              ) : (
                                  <div className="p-8 text-center bg-gray-900/50 rounded border border-dashed border-gray-700">
-                                     <p className="text-gray-400 mb-2">Nenhum trigger detetado.</p>
+                                     <p className="text-gray-400 mb-2">Nenhum trigger detetado (Array vazio).</p>
+                                     <p className="text-xs text-gray-500">Isto é normal se a base de dados estiver vazia ou se o trigger de auditoria não tiver sido criado.</p>
                                  </div>
                              )}
                          </div>
