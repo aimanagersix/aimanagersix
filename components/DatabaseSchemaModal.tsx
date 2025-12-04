@@ -31,35 +31,15 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE SEGURANÇA E ESTRUTURA (v2.0)
--- Resolve problemas de RLS recursivo e restaura acesso a Admins
+-- SCRIPT DE CORREÇÃO DE SEGURANÇA E ESTRUTURA (v2.1 - IDEMPOTENTE)
+-- Executa correções de RLS e cria estruturas de forma segura.
 -- ==================================================================================
 
--- 1. LIMPEZA DE POLÍTICAS ANTIGAS (Para evitar conflitos)
-DO $$ 
-DECLARE 
-    t text;
-BEGIN 
-    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' 
-    LOOP 
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Enable read access for authenticated users" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Allow all" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Public Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Admin Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        -- Dropar políticas específicas antigas
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Equipment Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Equipment Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Collab Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Collab Update Self" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-    END LOOP;
-END $$;
-
--- 2. EXTENSÕES E FUNÇÕES BÁSICAS
+-- 1. EXTENSÕES E FUNÇÕES BÁSICAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_net"; 
 
 -- Função auxiliar: Verifica se é Admin ou SuperAdmin SEM RECURSIVIDADE
--- Nota: A tabela collaborators deve ter leitura pública para auth users para isto funcionar em RLS
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS boolean AS $$
 BEGIN
@@ -84,7 +64,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Função RPC para ler Triggers (Corrigida permissões)
+-- Função RPC para ler Triggers
 CREATE OR REPLACE FUNCTION get_database_triggers()
 RETURNS TABLE (
     table_name text,
@@ -105,13 +85,12 @@ BEGIN
     WHERE trigger_schema = 'public'
     ORDER BY event_object_table, trigger_name;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; -- Security Definer permite ler info_schema
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Conceder permissão de execução a utilizadores logados
 GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 
 -- ==========================================
--- 3. RLS - POLÍTICAS DE SEGURANÇA
+-- 2. RLS - POLÍTICAS DE SEGURANÇA
 -- ==========================================
 
 -- Habilitar RLS em tudo
@@ -124,45 +103,69 @@ BEGIN
     END LOOP;
 END $$;
 
--- *** CRÍTICO: Tabela Collaborators ***
--- Quebra o ciclo: Leitura permitida a todos os autenticados sem chamar funções que leem a mesma tabela.
-CREATE POLICY "Collab Base Read" ON collaborators FOR SELECT TO authenticated USING (true);
+-- *** Tabela Collaborators ***
+-- Limpar políticas antigas para evitar conflitos
+DROP POLICY IF EXISTS "Collab Base Read" ON collaborators;
+DROP POLICY IF EXISTS "Collab Admin Write" ON collaborators;
+DROP POLICY IF EXISTS "Collab Admin Update" ON collaborators;
+DROP POLICY IF EXISTS "Collab Admin Delete" ON collaborators;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON collaborators;
+DROP POLICY IF EXISTS "Allow all" ON collaborators;
+DROP POLICY IF EXISTS "Public Read" ON collaborators;
+DROP POLICY IF EXISTS "Admin Write" ON collaborators;
+DROP POLICY IF EXISTS "Collab Read" ON collaborators;
+DROP POLICY IF EXISTS "Collab Update Self" ON collaborators;
 
--- Escrita em Collaborators: Apenas Admin (usa a função is_admin que agora lê com segurança)
+-- Criar novas
+CREATE POLICY "Collab Base Read" ON collaborators FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Collab Admin Write" ON collaborators FOR INSERT WITH CHECK (is_admin());
-CREATE POLICY "Collab Admin Update" ON collaborators FOR UPDATE USING (is_admin() OR id = auth.uid()); -- User edita o próprio
+CREATE POLICY "Collab Admin Update" ON collaborators FOR UPDATE USING (is_admin() OR id = auth.uid());
 CREATE POLICY "Collab Admin Delete" ON collaborators FOR DELETE USING (is_admin());
 
--- *** Tabelas de Configuração (Marcas, Tipos, etc.) ***
+-- *** Tabelas de Configuração ***
 DO $$ 
 DECLARE t text;
 BEGIN 
     FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'config_%' OR table_name LIKE 'contact_%' OR table_name IN ('brands', 'equipment_types', 'ticket_categories', 'security_incident_types')
     LOOP 
-        -- Leitura: Todos
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Config Read" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE format('DROP POLICY IF EXISTS "Config Write" ON %I;', t); EXCEPTION WHEN OTHERS THEN NULL; END;
         BEGIN EXECUTE format('CREATE POLICY "Config Read" ON %I FOR SELECT TO authenticated USING (true);', t); EXCEPTION WHEN OTHERS THEN NULL; END;
-        -- Escrita: Admin ou Técnico
         BEGIN EXECUTE format('CREATE POLICY "Config Write" ON %I FOR ALL TO authenticated USING (is_admin_or_tech());', t); EXCEPTION WHEN OTHERS THEN NULL; END;
     END LOOP;
 END $$;
 
 -- *** Tabelas Operacionais (Equipment, Tickets) ***
+DROP POLICY IF EXISTS "Ops Equipment Read" ON equipment;
+DROP POLICY IF EXISTS "Ops Equipment Write" ON equipment;
+DROP POLICY IF EXISTS "Equipment Read" ON equipment;
+DROP POLICY IF EXISTS "Equipment Write" ON equipment;
+
 CREATE POLICY "Ops Equipment Read" ON equipment FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Ops Equipment Write" ON equipment FOR ALL TO authenticated USING (is_admin_or_tech());
 
-CREATE POLICY "Ops Tickets Read" ON tickets FOR SELECT TO authenticated USING (true); -- Simplificado para debug, pode restringir depois
-CREATE POLICY "Ops Tickets Write" ON tickets FOR ALL TO authenticated USING (true);   -- Simplificado para debug
+DROP POLICY IF EXISTS "Ops Tickets Read" ON tickets;
+DROP POLICY IF EXISTS "Ops Tickets Write" ON tickets;
+
+CREATE POLICY "Ops Tickets Read" ON tickets FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Ops Tickets Write" ON tickets FOR ALL TO authenticated USING (true);
 
 -- *** Audit Logs ***
+DROP POLICY IF EXISTS "Audit Read Admin" ON audit_logs;
+DROP POLICY IF EXISTS "Audit System Insert" ON audit_logs;
+
 CREATE POLICY "Audit Read Admin" ON audit_logs FOR SELECT TO authenticated USING (is_admin());
-CREATE POLICY "Audit System Insert" ON audit_logs FOR INSERT TO authenticated WITH CHECK (true); -- Permite inserts (via trigger ou app)
+CREATE POLICY "Audit System Insert" ON audit_logs FOR INSERT TO authenticated WITH CHECK (true);
 
 -- *** Global Settings ***
+DROP POLICY IF EXISTS "Settings Read" ON global_settings;
+DROP POLICY IF EXISTS "Settings Write" ON global_settings;
+
 CREATE POLICY "Settings Read" ON global_settings FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Settings Write" ON global_settings FOR ALL TO authenticated USING (is_admin());
 
 -- ==========================================
--- 4. AUDIT LOG TRIGGER (Resiliente)
+-- 3. AUDIT LOG TRIGGER (Resiliente)
 -- ==========================================
 CREATE OR REPLACE FUNCTION log_audit_event()
 RETURNS trigger AS $$
@@ -171,7 +174,6 @@ DECLARE
   uemail text;
 BEGIN
   uid := auth.uid();
-  -- Tenta obter email, se falhar (ex: user sistema), segue null
   BEGIN
     SELECT email INTO uemail FROM public.collaborators WHERE id = uid;
   EXCEPTION WHEN OTHERS THEN
@@ -189,7 +191,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; -- Corre como superuser para garantir que escreve sempre
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Aplicar Trigger
 DO $$ 
