@@ -147,7 +147,7 @@ export const useAppData = () => {
              try {
                 if (isConfigured) {
                     const supabase = getSupabase();
-                    const { data: { session } } = await supabase.auth.getSession();
+                    const { data: { session } } = await (supabase.auth as any).getSession();
                     
                     if (session) {
                         // Fetch data first to ensure we have the collaborator list to match the user

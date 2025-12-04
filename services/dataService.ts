@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 import { 
@@ -9,7 +8,7 @@ import {
 
 export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
     const supabase = getSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await (supabase.auth as any).getUser();
     if (!user) return; 
 
     await supabase.from('audit_logs').insert({
@@ -211,7 +210,7 @@ export const addCollaborator = async (collaborator: any, password?: string) => {
     if (serviceKey && supabaseUrl && password && collaborator.email) {
          try {
             const adminClient = createClient(supabaseUrl, serviceKey);
-            const { data, error } = await adminClient.auth.admin.createUser({
+            const { data, error } = await (adminClient.auth as any).admin.createUser({
                 email: collaborator.email,
                 password: password,
                 email_confirm: true
@@ -242,9 +241,71 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
     }
 
     const adminClient = createClient(supabaseUrl, serviceKey);
-    const { error } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword });
     
-    if (error) throw error;
+    // 1. Tentar atualizar diretamente
+    const { error } = await (adminClient.auth as any).admin.updateUserById(userId, { password: newPassword });
+    
+    if (error) {
+        // Se o utilizador não for encontrado no Auth (ex: criado sem password inicialmente na tabela)
+        if (error.message.includes("User not found") || (error as any).status === 404) {
+            
+            // A. Buscar o email original na tabela
+            const supabase = getSupabase();
+            const { data: collaborator } = await supabase.from('collaborators').select('email').eq('id', userId).single();
+            
+            if (!collaborator || !collaborator.email) {
+                throw new Error("Colaborador não encontrado na base de dados ou sem email.");
+            }
+
+            console.log("Utilizador não encontrado no Auth. A tentar criar/sincronizar para:", collaborator.email);
+
+            // B. Tentar criar o utilizador no Auth
+            const { data: newUser, error: createError } = await (adminClient.auth as any).admin.createUser({
+                email: collaborator.email,
+                password: newPassword,
+                email_confirm: true
+            });
+
+            let realAuthId = newUser?.user?.id;
+
+            // C. Se der erro "Email already registered", significa que o user existe no Auth mas com OUTRO ID
+            if (createError) {
+                 if (createError.message.includes("already_registered") || createError.message.includes("already registered")) {
+                     // Temos de encontrar o ID real desse email no Auth
+                     const { data: usersList } = await (adminClient.auth as any).admin.listUsers();
+                     const existingUser = usersList.users.find((u: any) => u.email === collaborator.email);
+                     
+                     if (existingUser) {
+                         realAuthId = existingUser.id;
+                         // Atualizar a password desse utilizador encontrado
+                         await (adminClient.auth as any).admin.updateUserById(realAuthId, { password: newPassword });
+                     }
+                 } else {
+                     throw createError;
+                 }
+            }
+
+            // D. Passo Crítico: Sincronizar o ID na tabela collaborators
+            // O ID na tabela (userId) é provavelmente um UUID aleatório e deve passar a ser o ID do Auth (realAuthId)
+            if (realAuthId && realAuthId !== userId) {
+                const { error: updateDbError } = await supabase
+                    .from('collaborators')
+                    .update({ id: realAuthId }) // Atualiza a PK para bater certo com o Auth
+                    .eq('id', userId); // Onde estava o ID antigo
+
+                if (updateDbError) {
+                    console.error("Erro DB Sync:", updateDbError);
+                    // Nota: Se existirem chaves estrangeiras (tickets, assignments) sem CASCADE, isto pode falhar.
+                    throw new Error(`Utilizador de login criado, mas falha ao vincular dados (Erro: ${updateDbError.message}). Se este utilizador já tiver equipamentos ou tickets, contacte o suporte.`);
+                }
+            }
+            
+            await logAction('UPDATE', 'Auth', `Admin fixed and reset password for user ${collaborator.email}`);
+            return true;
+        }
+        
+        throw error;
+    }
     
     await logAction('UPDATE', 'Auth', `Admin reset password for user ${userId}`);
     return true;
@@ -413,7 +474,7 @@ export const deleteCalendarEvent = (id: string) => remove('calendar_events', id)
 export const addMessage = (data: any) => create('messages', data);
 export const markMessagesAsRead = async (senderId: string) => {
     const supabase = getSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await (supabase.auth as any).getUser();
     if (user) {
         await supabase.from('messages').update({ read: true }).eq('senderId', senderId).eq('receiverId', user.id);
     }
