@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 // FIX: Replaced non-existent icon imports with aliased exports from ./common/Icons
 import { FaUserCircle as UserIcon, FaLock as LockClosedIcon, FaFingerprint } from './common/Icons';
@@ -62,19 +60,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
         }
 
         if (data.user) {
-            const factors = await (supabase.auth as any).mfa.listFactors();
-            if (error) {
+            // Check for MFA factors
+            // Note: We must check the return object of listFactors, NOT the state 'error' variable
+            const { data: factorsData, error: mfaError } = await (supabase.auth as any).mfa.listFactors();
+            
+            if (mfaError) {
                  setIsLoading(false);
-                 setError("Erro ao verificar MFA.");
+                 setError("Erro ao verificar estado MFA: " + mfaError.message);
                  return;
             }
 
-            const totpFactor = factors.data?.totp.find((f: any) => f.status === 'verified');
+            const totpFactor = factorsData?.totp.find((f: any) => f.status === 'verified');
             
             if (totpFactor) {
                 setStep('mfa');
                 setIsLoading(false);
             } else {
+                // No MFA, proceed to app
                 window.location.reload();
             }
         }
