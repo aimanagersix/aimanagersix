@@ -600,48 +600,47 @@ END $$;
 
     const cleanupScript = `
 -- ==========================================
--- SCRIPT DE LIMPEZA TOTAL (DATA WIPE + AUTH SYNC)
--- AVISO: ISTO APAGA TUDO! USE COM CUIDADO.
+-- SCRIPT DE LIMPEZA SAFE-MODE
+-- APAGA DADOS OPERACIONAIS MAS MANTÉM SUPERADMIN
 -- ==========================================
 
--- 1. Limpar tabelas de dados operacionais (manter configurações base se desejar)
-TRUNCATE TABLE 
-  audit_logs, 
-  integration_logs,
-  policy_acceptances,
-  security_training_records,
-  resilience_tests,
-  backup_executions,
-  service_dependencies,
-  vulnerabilities,
-  business_services,
-  messages,
-  team_members,
-  teams,
-  license_assignments,
-  software_licenses,
-  ticket_activities,
-  tickets,
-  assignments,
-  collaborator_history,
-  procurement_requests,
-  calendar_events,
-  continuity_plans,
-  equipment,
-  resource_contacts,
-  collaborators
-CASCADE;
+-- 1. Limpar tabelas de dados operacionais (Ordem correta de dependência)
+DELETE FROM audit_logs;
+DELETE FROM integration_logs;
+DELETE FROM policy_acceptances;
+DELETE FROM security_training_records;
+DELETE FROM resilience_tests;
+DELETE FROM backup_executions;
+DELETE FROM service_dependencies;
+DELETE FROM vulnerabilities;
+DELETE FROM business_services;
+DELETE FROM messages;
+DELETE FROM team_members;
+DELETE FROM teams;
+DELETE FROM license_assignments;
+DELETE FROM software_licenses;
+DELETE FROM ticket_activities;
+DELETE FROM tickets;
+DELETE FROM assignments;
+DELETE FROM collaborator_history;
+DELETE FROM procurement_requests;
+DELETE FROM calendar_events;
+DELETE FROM continuity_plans;
+DELETE FROM equipment;
+DELETE FROM resource_contacts;
 
--- 2. Limpar Utilizadores Órfãos no Auth (CRÍTICO)
--- Remove utilizadores do sistema de autenticação que não têm correspondência na tabela 'collaborators'.
--- Isto resolve o problema de "User already registered" ao tentar recriar utilizadores apagados.
+-- 2. Limpar Storage (Cuidado: Apaga avatares e anexos)
+DELETE FROM storage.objects;
+
+-- 3. Limpar Colaboradores (EXCETO SUPERADMINS)
+-- Mantém quem tem role 'SuperAdmin' para evitar lockout
+DELETE FROM collaborators WHERE role != 'SuperAdmin';
+
+-- 4. Sincronizar Auth Users (Remover Órfãos)
+-- Apaga logins que já não têm ficha de colaborador associada
 DELETE FROM auth.users 
 WHERE id NOT IN (SELECT id FROM public.collaborators)
--- Proteção: Não apagar o próprio admin que está a executar se coincidir, ou users de sistema
-AND email != 'general@system.local';
-
--- 3. Reiniciar sequências (se aplicável)
--- (UUIDs não precisam de reset, mas se tiver SERIAL, use ALTER SEQUENCE)
+AND email != 'general@system.local'; -- Protege o bot de sistema
 
 -- Fim do Script
 `;
@@ -720,12 +719,12 @@ AND email != 'general@system.local';
                         <div className="space-y-4">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-1">
-                                    <FaExclamationTriangle /> ATENÇÃO: Zona de Perigo
+                                    <FaExclamationTriangle /> ATENÇÃO: Reset de Dados
                                 </div>
                                 <p>
-                                    Este script apaga <strong>TODOS</strong> os dados da aplicação (colaboradores, equipamentos, tickets, etc.) e sincroniza a tabela de autenticação, removendo utilizadores que já não existem.
-                                    <br/><br/>
-                                    <strong>Problema de "User already registered"?</strong> Execute este script para limpar os utilizadores órfãos no Supabase Auth.
+                                    Este script apaga todos os dados operacionais (tickets, equipamentos, etc.) mas <strong>mantém</strong> os utilizadores com perfil <strong>SuperAdmin</strong> e a sua configuração de login.
+                                    <br/>
+                                    Utilize isto para limpar dados de teste antes de entrar em produção, sem perder o seu acesso de administrador.
                                 </p>
                             </div>
                             <div className="relative">
