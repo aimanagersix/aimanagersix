@@ -242,9 +242,31 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         try {
             await onSave(dataToSave);
             onClose();
-        } catch (e) {
-            console.error("Failed to save institution", e);
-            alert("Erro ao gravar instituição.");
+        } catch (error: any) {
+            console.error("Failed to save institution", error);
+            
+            let msg = "Erro desconhecido ao gravar instituição.";
+            
+            // Check for Supabase/Postgres error codes
+            if (error.code) {
+                switch (error.code) {
+                    case '23505': // Unique violation
+                        msg = "Erro: Já existe uma instituição com este Código ou NIF.";
+                        break;
+                    case '42501': // RLS / Permission denied
+                        msg = "Permissão negada: O seu utilizador não tem permissão para criar/editar instituições.";
+                        break;
+                    case '42P01': // Table not found
+                        msg = "Erro de Sistema: A tabela 'instituicoes' não existe. Execute o script de configuração de BD.";
+                        break;
+                    default:
+                        msg = `Erro de Base de Dados: ${error.message || error.code}`;
+                }
+            } else if (error.message) {
+                msg = `Erro: ${error.message}`;
+            }
+
+            alert(msg);
         } finally {
             setIsSaving(false);
         }
@@ -289,7 +311,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 </div>
                 
                 <div>
-                    <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código</label>
+                    <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código (Identificador único)</label>
                     <input type="text" name="codigo" id="codigo" value={formData.codigo} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.codigo ? 'border-red-500' : 'border-gray-600'}`} />
                         {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
                 </div>
