@@ -5,7 +5,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -21,6 +21,7 @@ import ConnectionsTab from '../../components/settings/ConnectionsTab';
 import AgentsTab from '../../components/settings/AgentsTab';
 import WebhooksTab from '../../components/settings/WebhooksTab';
 import CronJobsTab from '../../components/settings/CronJobsTab';
+import SoftwareProductDashboard from '../../components/settings/SoftwareProductDashboard';
 
 // Modals for Child Dashboards
 import AddBrandModal from '../../components/AddBrandModal';
@@ -53,7 +54,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     
     // State for Automation Tabs
     const [settings, setSettings] = useState<any>({
-        webhookJson: '{\n  "alert_name": "Possible Ransomware Detected",\n  "hostname": "PC-FIN-01",\n  "severity": "Critical",\n  "source": "SentinelOne",\n  "timestamp": "2024-05-20T10:00:00Z"\n}',
+        webhookJson: '{\n  "alert_name": "Possible Ransomware Detected",\n  "hostname": "PC-FIN-01",\n  "severity": "critical",\n  "source": "SentinelOne",\n  "timestamp": "2024-05-20T10:00:00Z"\n}',
         simulatedTicket: null,
         isSimulating: false,
     });
@@ -73,7 +74,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             const result = await parseSecurityAlert(settings.webhookJson);
             setSettings((p:any) => ({...p, simulatedTicket: result}));
         } catch (e) {
-            alert("Erro ao simular alerta. Verifique se a API Key está configurada.");
+            alert("Erro ao simular alerta.");
         } finally {
             setSettings((p:any) => ({...p, isSimulating: false}));
         }
@@ -88,17 +89,13 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 category: 'Incidente de Segurança',
                 securityIncidentType: settings.simulatedTicket.incidentType,
                 impactCriticality: settings.simulatedTicket.severity,
-                // Assign to first available admin or system user if possible, using defaults here
+                // These need a default or logic to determine
                 entidadeId: appData.entidades[0]?.id,
                 collaboratorId: appData.collaborators[0]?.id,
-                requestDate: new Date().toISOString(),
-                status: 'Pedido'
             });
             alert("Ticket criado com sucesso!");
             setSettings((p:any) => ({...p, simulatedTicket: null}));
-            refreshData();
         } catch(e) {
-            console.error(e);
             alert("Erro ao criar ticket.");
         }
     };
@@ -110,8 +107,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt',
                 'equipment_naming_prefix', 'equipment_naming_digits',
                 'weekly_report_recipients', 'resend_api_key', 'resend_from_email',
-                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id',
-                'slack_webhook_url'
+                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id'
             ];
             
             const fetchedSettings: any = {};
@@ -134,7 +130,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 weekly_report_recipients: fetchedSettings.weekly_report_recipients || '',
                 resendApiKey: fetchedSettings.resend_api_key || '',
                 resendFromEmail: fetchedSettings.resend_from_email || '',
-                slackWebhookUrl: fetchedSettings.slack_webhook_url || '',
                 sbUrl: localStorage.getItem('SUPABASE_URL') || '',
                 sbKey: localStorage.getItem('SUPABASE_ANON_KEY') || '',
                 sbServiceKey: localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '',
@@ -177,6 +172,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
                 { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação', icon: <FaUserSlash /> },
                 { id: 'config_software_categories', label: 'Categorias de Software', icon: <FaList /> },
+                { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, // NEW
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
@@ -196,6 +192,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
+        // Products removed from simple tables as they use custom dashboard
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
         'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
@@ -257,22 +254,30 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     />}
                     {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
                     {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
-                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('slack_webhook_url', settings.slackWebhookUrl); await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
+                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
                     {selectedMenuId === 'roles' && <RoleManager roles={appData.customRoles} onRefresh={refreshData} />}
                     {selectedMenuId === 'brands' && <BrandDashboard brands={appData.brands} equipment={appData.equipment} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />}
                     {selectedMenuId === 'equipment_types' && <EquipmentTypeDashboard equipmentTypes={appData.equipmentTypes} equipment={appData.equipment} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />}
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
-                    {simpleConfigTables[selectedMenuId] && (
-                        <GenericConfigDashboard 
-                            title={simpleConfigTables[selectedMenuId].label}
-                            icon={simpleConfigTables[selectedMenuId].icon}
-                            items={simpleConfigTables[selectedMenuId].data}
-                            tableName={selectedMenuId}
+                    {selectedMenuId === 'config_software_products' ? (
+                         <SoftwareProductDashboard 
+                            products={appData.softwareProducts}
+                            categories={appData.softwareCategories}
                             onRefresh={refreshData}
-                            colorField={simpleConfigTables[selectedMenuId].colorField}
                         />
+                    ) : (
+                        simpleConfigTables[selectedMenuId] && (
+                            <GenericConfigDashboard 
+                                title={simpleConfigTables[selectedMenuId].label}
+                                icon={simpleConfigTables[selectedMenuId].icon}
+                                items={simpleConfigTables[selectedMenuId].data}
+                                tableName={selectedMenuId}
+                                onRefresh={refreshData}
+                                colorField={simpleConfigTables[selectedMenuId].colorField}
+                            />
+                        )
                     )}
                 </div>
             </div>

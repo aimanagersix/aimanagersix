@@ -8,7 +8,7 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, 
     Vulnerability, BackupExecution, ResilienceTest, SecurityTrainingRecord,
-    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest, CalendarEvent, ContinuityPlan
+    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest, CalendarEvent, ContinuityPlan, SoftwareProduct
 } from '../types';
 
 export interface AppData {
@@ -38,6 +38,7 @@ export interface AppData {
     securityTrainings: SecurityTrainingRecord[];
     customRoles: CustomRole[];
     softwareCategories: ConfigItem[];
+    softwareProducts: SoftwareProduct[]; // NEW
     configEquipmentStatuses: ConfigItem[];
     contactRoles: ConfigItem[];
     contactTitles: ConfigItem[];
@@ -48,12 +49,12 @@ export interface AppData {
     configTrainingTypes: ConfigItem[];
     configResilienceTestTypes: ConfigItem[];
     configDecommissionReasons: ConfigItem[];
-    configCollaboratorDeactivationReasons: ConfigItem[]; // NEW
+    configCollaboratorDeactivationReasons: ConfigItem[];
     policies: Policy[];
     policyAcceptances: PolicyAcceptance[];
     procurementRequests: ProcurementRequest[];
     calendarEvents: CalendarEvent[];
-    continuityPlans: ContinuityPlan[]; // NEW
+    continuityPlans: ContinuityPlan[];
 }
 
 const initialData: AppData = {
@@ -63,12 +64,12 @@ const initialData: AppData = {
     messages: [], collaboratorHistory: [], ticketCategories: [], securityIncidentTypes: [], 
     businessServices: [], serviceDependencies: [], vulnerabilities: [], suppliers: [], 
     backupExecutions: [], resilienceTests: [], securityTrainings: [], customRoles: [], 
-    softwareCategories: [], configEquipmentStatuses: [], contactRoles: [], contactTitles: [], 
+    softwareCategories: [], softwareProducts: [], configEquipmentStatuses: [], contactRoles: [], contactTitles: [], 
     configCriticalityLevels: [], configCiaRatings: [], configServiceStatuses: [], 
     configBackupTypes: [], configTrainingTypes: [], configResilienceTestTypes: [],
     configDecommissionReasons: [], configCollaboratorDeactivationReasons: [],
     policies: [], policyAcceptances: [], procurementRequests: [], calendarEvents: [],
-    continuityPlans: [] // NEW
+    continuityPlans: []
 };
 
 export const useAppData = () => {
@@ -116,6 +117,7 @@ export const useAppData = () => {
                 securityTrainings: data.securityTrainings,
                 customRoles: data.configCustomRoles,
                 softwareCategories: data.configSoftwareCategories,
+                softwareProducts: data.configSoftwareProducts, // NEW
                 configEquipmentStatuses: data.configEquipmentStatuses,
                 contactRoles: data.contactRoles,
                 contactTitles: data.contactTitles,
@@ -126,12 +128,12 @@ export const useAppData = () => {
                 configTrainingTypes: data.configTrainingTypes,
                 configResilienceTestTypes: data.configResilienceTestTypes,
                 configDecommissionReasons: data.configDecommissionReasons,
-                configCollaboratorDeactivationReasons: data.configCollaboratorDeactivationReasons, // NEW
+                configCollaboratorDeactivationReasons: data.configCollaboratorDeactivationReasons,
                 policies: data.policies,
                 policyAcceptances: data.policyAcceptances,
                 procurementRequests: data.procurementRequests,
                 calendarEvents: data.calendarEvents,
-                continuityPlans: data.continuityPlans // NEW
+                continuityPlans: data.continuityPlans
             });
         } catch (error) {
             console.error("Failed to fetch data", error);

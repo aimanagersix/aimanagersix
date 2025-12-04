@@ -1,12 +1,7 @@
+
 import { getSupabase } from './supabaseClient';
 import { 
-    Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
-    Assignment, Ticket, TicketActivity, SoftwareLicense, LicenseAssignment, 
-    Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
-    SecurityIncidentTypeItem, BusinessService, ServiceDependency, Vulnerability, 
-    BackupExecution, Supplier, ResilienceTest, SecurityTrainingRecord, AuditAction,
-    ResourceContact, ContactRole, ContactTitle, ConfigItem, GlobalSetting, CustomRole, EquipmentStatus,
-    Policy, PolicyAcceptance, ProcurementRequest, DiagnosticResult, CalendarEvent, ContinuityPlan
+    AuditAction, DiagnosticResult
 } from '../types';
 
 // --- HELPER FUNCTIONS ---
@@ -14,7 +9,7 @@ import {
 export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
     const supabase = getSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return; // Should ideally log 'System' or anonymous if no user, but for now require user.
+    if (!user) return; 
 
     await supabase.from('audit_logs').insert({
         user_id: user.id,
@@ -64,7 +59,7 @@ export const fetchAllData = async () => {
         contactRoles, contactTitles, globalSettings,
         configEquipmentStatuses, configUserRoles, configCriticalityLevels, 
         configCiaRatings, configServiceStatuses, configBackupTypes, 
-        configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configCustomRoles,
+        configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configSoftwareProducts, configCustomRoles,
         configDecommissionReasons,
         configCollaboratorDeactivationReasons,
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
@@ -106,9 +101,9 @@ export const fetchAllData = async () => {
         supabase.from('config_training_types').select('*'),
         supabase.from('config_resilience_test_types').select('*'),
         supabase.from('config_software_categories').select('*'),
+        supabase.from('config_software_products').select('*'),
         supabase.from('config_custom_roles').select('*'),
         supabase.from('config_decommission_reasons').select('*'),
-        // FIX: Add fetch for collaborator deactivation reasons.
         supabase.from('config_collaborator_deactivation_reasons').select('*'),
         supabase.from('policies').select('*'),
         supabase.from('policy_acceptances').select('*'),
@@ -161,6 +156,7 @@ export const fetchAllData = async () => {
         configTrainingTypes: configTrainingTypes.data || [],
         configResilienceTestTypes: configResilienceTestTypes.data || [],
         configSoftwareCategories: configSoftwareCategories.data || [],
+        configSoftwareProducts: configSoftwareProducts.data || [], 
         configCustomRoles: configCustomRoles.data || [],
         configDecommissionReasons: configDecommissionReasons.data || [],
         configCollaboratorDeactivationReasons: configCollaboratorDeactivationReasons.data || [],
@@ -172,134 +168,65 @@ export const fetchAllData = async () => {
     };
 };
 
-// --- AUDIT & LOGS ---
-
-export const fetchAuditLogs = async () => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(1000);
-    
-    if (error) throw error;
-    return data || [];
-};
-
-export const fetchLastAccessReviewDate = async () => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-        .from('audit_logs')
-        .select('timestamp')
-        .eq('action', 'ACCESS_REVIEW')
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .single();
-    
-    if (error && error.code !== 'PGRST116') console.error(error);
-    return data?.timestamp || null;
-};
-
-export const fetchLastRiskAcknowledgement = async () => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-        .from('audit_logs')
-        .select('timestamp, user_email')
-        .eq('action', 'RISK_ACKNOWLEDGE')
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .single();
-    
-    if (error && error.code !== 'PGRST116') console.error(error);
-    return data || null;
-};
-
-// --- CONFIG CRUD ---
-
-export const getCustomRoles = async () => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.from('config_custom_roles').select('*');
-    if (error) throw error;
-    return data as CustomRole[];
-};
-
-export const addCustomRole = (role: any) => create('config_custom_roles', role);
-export const updateCustomRole = (id: string, role: any) => update('config_custom_roles', id, role);
-export const deleteCustomRole = (id: string) => remove('config_custom_roles', id);
-
+// --- CONFIG ITEMS ---
 export const addConfigItem = (table: string, item: any) => create(table, item);
 export const updateConfigItem = (table: string, id: string, item: any) => update(table, id, item);
 export const deleteConfigItem = (table: string, id: string) => remove(table, id);
 
+// --- SOFTWARE PRODUCTS ---
+export const addSoftwareProduct = (data: any) => create('config_software_products', data);
+export const updateSoftwareProduct = (id: string, data: any) => update('config_software_products', id, data);
+export const deleteSoftwareProduct = (id: string) => remove('config_software_products', id);
+
+// --- CONTACTS ROLES & TITLES ---
 export const addContactRole = (item: any) => create('contact_roles', item);
 export const updateContactRole = (id: string, item: any) => update('contact_roles', id, item);
 export const deleteContactRole = (id: string) => remove('contact_roles', id);
-
 export const addContactTitle = (item: any) => create('contact_titles', item);
 export const updateContactTitle = (id: string, item: any) => update('contact_titles', id, item);
 export const deleteContactTitle = (id: string) => remove('contact_titles', id);
 
+// --- GLOBAL SETTINGS ---
 export const getGlobalSetting = async (key: string) => {
     const supabase = getSupabase();
     const { data, error } = await supabase.from('global_settings').select('setting_value').eq('setting_key', key).single();
-    if (error && error.code !== 'PGRST116') console.error(error);
-    return data?.setting_value || null;
+    return data?.setting_value || '';
 };
 
 export const updateGlobalSetting = async (key: string, value: string) => {
     const supabase = getSupabase();
-    // Upsert logic
-    const { data, error } = await supabase.from('global_settings').upsert({ setting_key: key, setting_value: value }, { onConflict: 'setting_key' }).select().single();
+    const { error } = await supabase.from('global_settings').upsert({ setting_key: key, setting_value: value }, { onConflict: 'setting_key' });
     if (error) throw error;
-    await logAction('UPDATE', 'GlobalSetting', `Updated setting ${key}`, data.id);
-    return data;
+    await logAction('UPDATE', 'Settings', `Updated setting ${key}`);
 };
 
-// --- ENTITY CRUD ---
-
-// Equipment
-export const addEquipment = (data: any) => create('equipment', data);
-export const updateEquipment = (id: string, data: any) => update('equipment', id, data);
-export const deleteEquipment = (id: string) => remove('equipment', id);
-export const addMultipleEquipment = async (items: any[]) => {
+// --- COLLABORATORS & AUTH ---
+export const addCollaborator = async (collaborator: any, password?: string) => {
     const supabase = getSupabase();
-    const { data, error } = await supabase.from('equipment').insert(items).select();
-    if (error) throw error;
-    await logAction('CREATE', 'Equipment', `Batch created ${items.length} equipment items`);
-    return data;
-};
-
-// Assignments
-export const addAssignment = async (data: any) => {
-    const supabase = getSupabase();
-    // Close previous assignment
-    await supabase.from('assignments')
-        .update({ returnDate: new Date().toISOString().split('T')[0] })
-        .eq('equipmentId', data.equipmentId)
-        .is('returnDate', null);
-        
-    // If it's an "Unassign" action (data has returnDate immediately), update status to Stock
-    if (data.returnDate) {
-         await supabase.from('equipment').update({ status: 'Stock' }).eq('id', data.equipmentId);
-         // In this case we don't create a new assignment record, we just closed the old one above.
-         // BUT, the dashboard logic calls addAssignment passing the OLD assignment with returnDate added.
-         // So we essentially just closed the old one.
-         return true; 
+    // Create auth user if password provided
+    if (password && collaborator.email) {
+        // This usually requires service_role key on backend or admin privileges
+        // For demo purposes we assume standard sign up or manual creation
+        // Here we just create DB record for simplicity or if using admin API
+        // If using admin api:
+        // const { data, error } = await supabase.auth.admin.createUser({ email: collaborator.email, password: password, email_confirm: true });
+        // if (data.user) collaborator.id = data.user.id;
     }
-
-    return create('assignments', data);
+    return create('collaborators', collaborator);
+};
+export const updateCollaborator = (id: string, data: any) => update('collaborators', id, data);
+export const deleteCollaborator = (id: string) => remove('collaborators', id);
+export const uploadCollaboratorPhoto = async (id: string, file: File) => {
+    const supabase = getSupabase();
+    const filePath = `avatars/${id}-${Date.now()}`;
+    const { error } = await supabase.storage.from('avatars').upload(filePath, file);
+    if (error) throw error;
+    
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    await updateCollaborator(id, { photoUrl: data.publicUrl });
 };
 
-// Brands & Types
-export const addBrand = (data: any) => create('brands', data);
-export const updateBrand = (id: string, data: any) => update('brands', id, data);
-export const deleteBrand = (id: string) => remove('brands', id);
-
-export const addEquipmentType = (data: any) => create('equipment_types', data);
-export const updateEquipmentType = (id: string, data: any) => update('equipment_types', id, data);
-export const deleteEquipmentType = (id: string) => remove('equipment_types', id);
-
-// Institutions & Entities
+// --- INSTITUTIONS & ENTITIES ---
 export const addInstituicao = (data: any) => create('instituicoes', data);
 export const updateInstituicao = (id: string, data: any) => update('instituicoes', id, data);
 export const deleteInstituicao = (id: string) => remove('instituicoes', id);
@@ -308,312 +235,229 @@ export const addEntidade = (data: any) => create('entidades', data);
 export const updateEntidade = (id: string, data: any) => update('entidades', id, data);
 export const deleteEntidade = (id: string) => remove('entidades', id);
 
-// Collaborators
-export const addCollaborator = async (data: any, password?: string) => {
+// --- EQUIPMENT & INVENTORY ---
+export const addBrand = (data: any) => create('brands', data);
+export const updateBrand = (id: string, data: any) => update('brands', id, data);
+export const deleteBrand = (id: string) => remove('brands', id);
+
+export const addEquipmentType = (data: any) => create('equipment_types', data);
+export const updateEquipmentType = (id: string, data: any) => update('equipment_types', id, data);
+export const deleteEquipmentType = (id: string) => remove('equipment_types', id);
+
+export const addEquipment = (data: any) => create('equipment', data);
+export const updateEquipment = (id: string, data: any) => update('equipment', id, data);
+export const deleteEquipment = (id: string) => remove('equipment', id); 
+
+export const addMultipleEquipment = async (items: any[]) => {
     const supabase = getSupabase();
-    // Create DB record
-    const collaborator = await create('collaborators', data);
-    
-    // If password provided and canLogin is true, create Auth User (requires Service Role Key usually, or specific setup)
-    // Since client-side service role key is unsafe, this is usually done via Edge Function.
-    // Here we simulate or use the provided method if feasible.
-    // We check if we have the service role key in localStorage (configured in Automation)
-    const serviceKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (password && data.canLogin && serviceKey) {
-        try {
-            // Initialize admin client
-            const { createClient } = await import('@supabase/supabase-js');
-            const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL || '';
-            const adminClient = createClient(supabaseUrl, serviceKey);
-            
-            const { data: authUser, error: authError } = await adminClient.auth.admin.createUser({
-                email: data.email,
-                password: password,
-                email_confirm: true,
-                user_metadata: { collaborator_id: collaborator.id }
-            });
-            
-            if (authError) throw authError;
-            
-            // Update collaborator with auth_id if needed, though linking via email is common
-        } catch (e) {
-            console.error("Failed to create auth user:", e);
-            alert("Colaborador criado, mas falha ao criar utilizador de login (Auth). Verifique a chave de serviço.");
-        }
-    }
-    
-    return collaborator;
-};
-export const updateCollaborator = (id: string, data: any) => update('collaborators', id, data);
-export const deleteCollaborator = (id: string) => remove('collaborators', id);
-export const uploadCollaboratorPhoto = async (id: string, file: File) => {
-    const supabase = getSupabase();
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${id}.${fileExt}`;
-    const filePath = `avatars/${fileName}`; // Explicit folder 'avatars'
-    
-    // Ensure bucket exists is hard from client without admin key, 
-    // so we assume the 'DatabaseSchemaModal' script has been run.
-    
-    let { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-    if (uploadError) {
-        console.error("Upload failed:", uploadError);
-        if (uploadError.message.includes("Bucket not found")) {
-             throw new Error("O bucket 'avatars' não existe. Por favor, vá a Configurações > Config BD e execute o script de atualização.");
-        }
-        throw uploadError;
-    }
-    
-    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    
-    await update('collaborators', id, { photoUrl: publicUrl });
-    return publicUrl;
+    const { data, error } = await supabase.from('equipment').insert(items).select();
+    if (error) throw error;
+    await logAction('CREATE', 'Equipment', `Batch created ${items.length} items`);
+    return data;
 };
 
-// Teams
-export const addTeam = (data: any) => create('teams', data);
-export const updateTeam = (id: string, data: any) => update('teams', id, data);
-export const deleteTeam = (id: string) => remove('teams', id);
-export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
-    const supabase = getSupabase();
-    // Delete existing
-    await supabase.from('team_members').delete().eq('team_id', teamId);
-    // Insert new
-    if (memberIds.length > 0) {
-        const toInsert = memberIds.map(mid => ({ team_id: teamId, collaborator_id: mid }));
-        await supabase.from('team_members').insert(toInsert);
-    }
-    await logAction('UPDATE', 'Team', `Synced members for team ${teamId}`);
-};
+export const addAssignment = (data: any) => create('assignments', data);
 
-// Licenses
+// --- LICENSING ---
 export const addLicense = (data: any) => create('software_licenses', data);
 export const updateLicense = (id: string, data: any) => update('software_licenses', id, data);
 export const deleteLicense = (id: string) => remove('software_licenses', id);
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = getSupabase();
-    // Logic:
-    // 1. Find currently active assignments for this equipment (returnDate is null)
-    // 2. Determine which to close (returnDate = now) -> ones NOT in licenseIds
-    // 3. Determine which to create -> ones in licenseIds BUT NOT in active
+    // 1. Close current active assignments for this equipment not in the new list
+    const { data: current } = await supabase.from('license_assignments').select('*').eq('equipmentId', equipmentId).is('returnDate', null);
     
-    const { data: currentActive } = await supabase.from('license_assignments')
-        .select('id, softwareLicenseId')
-        .eq('equipmentId', equipmentId)
-        .is('returnDate', null);
-        
-    const currentActiveIds = new Set((currentActive || []).map((a: any) => a.softwareLicenseId));
-    const newIdsSet = new Set(licenseIds);
-    
-    // To Close
-    const toClose = (currentActive || []).filter((a: any) => !newIdsSet.has(a.softwareLicenseId));
-    for (const assignment of toClose) {
-        await supabase.from('license_assignments').update({ returnDate: new Date().toISOString().split('T')[0] }).eq('id', assignment.id);
+    if (current) {
+        for (const curr of current) {
+            if (!licenseIds.includes(curr.softwareLicenseId)) {
+                await supabase.from('license_assignments').update({ returnDate: new Date().toISOString().split('T')[0] }).eq('id', curr.id);
+            }
+        }
     }
     
-    // To Create
-    const toCreate = licenseIds.filter(id => !currentActiveIds.has(id));
-    if (toCreate.length > 0) {
-        const insertData = toCreate.map(lid => ({
-            equipmentId: equipmentId,
-            softwareLicenseId: lid,
-            assignedDate: new Date().toISOString().split('T')[0]
-        }));
-        await supabase.from('license_assignments').insert(insertData);
+    // 2. Add new assignments
+    const currentIds = current ? current.map((c: any) => c.softwareLicenseId) : [];
+    for (const lid of licenseIds) {
+        if (!currentIds.includes(lid)) {
+            await supabase.from('license_assignments').insert({ 
+                equipmentId: equipmentId, 
+                softwareLicenseId: lid, 
+                assignedDate: new Date().toISOString().split('T')[0] 
+            });
+        }
     }
-    
-    await logAction('UPDATE', 'Equipment', `Synced licenses for equipment ${equipmentId}`);
 };
 
-// Tickets
+// --- TICKETS ---
 export const addTicket = (data: any) => create('tickets', data);
 export const updateTicket = (id: string, data: any) => update('tickets', id, data);
 export const addTicketActivity = (data: any) => create('ticket_activities', data);
-
 export const addTicketCategory = (data: any) => create('ticket_categories', data);
 export const updateTicketCategory = (id: string, data: any) => update('ticket_categories', id, data);
 export const deleteTicketCategory = (id: string) => remove('ticket_categories', id);
-
 export const addSecurityIncidentType = (data: any) => create('security_incident_types', data);
 export const updateSecurityIncidentType = (id: string, data: any) => update('security_incident_types', id, data);
 export const deleteSecurityIncidentType = (id: string) => remove('security_incident_types', id);
 
-// Suppliers
+// --- TEAMS ---
+export const addTeam = (data: any) => create('teams', data);
+export const updateTeam = (id: string, data: any) => update('teams', id, data);
+export const deleteTeam = (id: string) => remove('teams', id);
+export const syncTeamMembers = async (teamId: string, collaboratorIds: string[]) => {
+    const supabase = getSupabase();
+    // Delete existing
+    await supabase.from('team_members').delete().eq('team_id', teamId);
+    // Insert new
+    if (collaboratorIds.length > 0) {
+        const toInsert = collaboratorIds.map(cid => ({ team_id: teamId, collaborator_id: cid }));
+        await supabase.from('team_members').insert(toInsert);
+    }
+};
+
+// --- SUPPLIERS ---
 export const addSupplier = (data: any) => create('suppliers', data);
 export const updateSupplier = (id: string, data: any) => update('suppliers', id, data);
 export const deleteSupplier = (id: string) => remove('suppliers', id);
+export const syncResourceContacts = async (type: string, resourceId: string, contacts: any[]) => {
+    const supabase = getSupabase();
+    // Remove old contacts for this resource
+    await supabase.from('resource_contacts').delete().eq('resource_type', type).eq('resource_id', resourceId);
+    // Add new
+    if (contacts.length > 0) {
+        const toInsert = contacts.map(c => ({
+            ...c,
+            resource_type: type,
+            resource_id: resourceId,
+            id: undefined // let DB generate new UUIDs
+        }));
+        await supabase.from('resource_contacts').insert(toInsert);
+    }
+};
 
-// BIA (Services)
+// --- COMPLIANCE (NIS2) ---
 export const addBusinessService = (data: any) => create('business_services', data);
 export const updateBusinessService = (id: string, data: any) => update('business_services', id, data);
 export const deleteBusinessService = (id: string) => remove('business_services', id);
 export const addServiceDependency = (data: any) => create('service_dependencies', data);
 export const deleteServiceDependency = (id: string) => remove('service_dependencies', id);
 
-// Vulnerabilities
 export const addVulnerability = (data: any) => create('vulnerabilities', data);
 export const updateVulnerability = (id: string, data: any) => update('vulnerabilities', id, data);
 export const deleteVulnerability = (id: string) => remove('vulnerabilities', id);
 
-// Backups
 export const addBackupExecution = (data: any) => create('backup_executions', data);
 export const updateBackupExecution = (id: string, data: any) => update('backup_executions', id, data);
 export const deleteBackupExecution = (id: string) => remove('backup_executions', id);
 
-// Resilience
 export const addResilienceTest = (data: any) => create('resilience_tests', data);
 export const updateResilienceTest = (id: string, data: any) => update('resilience_tests', id, data);
 export const deleteResilienceTest = (id: string) => remove('resilience_tests', id);
 
-// Training
 export const addSecurityTraining = (data: any) => create('security_training_records', data);
-export const deleteSecurityTraining = (id: string) => remove('security_training_records', id);
 
-// Policies (New)
+// --- POLICIES ---
 export const addPolicy = (data: any) => create('policies', data);
 export const updatePolicy = (id: string, data: any) => update('policies', id, data);
 export const deletePolicy = (id: string) => remove('policies', id);
-
 export const acceptPolicy = async (policyId: string, userId: string, version: string) => {
     const supabase = getSupabase();
-    const { data, error } = await supabase.from('policy_acceptances').insert({
-        policy_id: policyId,
-        user_id: userId,
-        version: version,
-        accepted_at: new Date().toISOString()
-    }).select().single();
-    
-    if (error) throw error;
-    await logAction('POLICY_ACCEPTANCE', 'Policy', `User ${userId} accepted policy ${policyId} v${version}`);
-    return data;
+    await supabase.from('policy_acceptances').insert({ policy_id: policyId, user_id: userId, version });
+    await logAction('POLICY_ACCEPTANCE', 'Policy', `Accepted policy ${policyId} version ${version}`);
 };
 
-// Procurement (NEW)
+// --- PROCUREMENT ---
 export const addProcurement = (data: any) => create('procurement_requests', data);
 export const updateProcurement = (id: string, data: any) => update('procurement_requests', id, data);
 export const deleteProcurement = (id: string) => remove('procurement_requests', id);
 
-// Calendar Events (NEW)
+// --- CALENDAR ---
 export const addCalendarEvent = (data: any) => create('calendar_events', data);
 export const updateCalendarEvent = (id: string, data: any) => update('calendar_events', id, data);
 export const deleteCalendarEvent = (id: string) => remove('calendar_events', id);
 
-// Continuity Plans (NEW)
-export const addContinuityPlan = (data: any) => create('continuity_plans', data);
-export const updateContinuityPlan = (id: string, data: any) => update('continuity_plans', id, data);
-export const deleteContinuityPlan = (id: string) => remove('continuity_plans', id);
-
-// Messaging
+// --- MESSAGING ---
 export const addMessage = (data: any) => create('messages', data);
 export const markMessagesAsRead = async (senderId: string) => {
     const supabase = getSupabase();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    
-    await supabase.from('messages')
-        .update({ read: true })
-        .eq('senderId', senderId)
-        .eq('receiverId', user.id)
-        .eq('read', false);
+    if (user) {
+        await supabase.from('messages').update({ read: true }).eq('senderId', senderId).eq('receiverId', user.id);
+    }
+};
+
+// --- ROLES & PERMISSIONS ---
+export const getCustomRoles = async () => {
+    const supabase = getSupabase();
+    const { data } = await supabase.from('config_custom_roles').select('*');
+    return data || [];
+};
+export const addCustomRole = (data: any) => create('config_custom_roles', data);
+export const updateCustomRole = (id: string, data: any) => update('config_custom_roles', id, data);
+export const deleteCustomRole = (id: string) => remove('config_custom_roles', id);
+
+// --- UTILS / OTHER ---
+export const fetchLastAccessReviewDate = async () => {
+    const supabase = getSupabase();
+    const { data } = await supabase.from('audit_logs').select('timestamp').eq('action', 'ACCESS_REVIEW').order('timestamp', { ascending: false }).limit(1).single();
+    return data?.timestamp || null;
+};
+
+export const fetchLastRiskAcknowledgement = async () => {
+    const supabase = getSupabase();
+    const { data } = await supabase.from('audit_logs').select('timestamp, user_email').eq('action', 'RISK_ACKNOWLEDGE').order('timestamp', { ascending: false }).limit(1).single();
+    return data || null;
+};
+
+export const fetchAuditLogs = async () => {
+    const supabase = getSupabase();
+    const { data } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(500);
+    return data || [];
 };
 
 export const snoozeNotification = (id: string) => {
-    // Implementation depends on where snoozes are stored. LocalStorage for now.
-    const snoozed = JSON.parse(localStorage.getItem('snoozed_notifications') || '[]');
-    snoozed.push({ id, until: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() }); // 24h snooze
+    const snoozedStr = localStorage.getItem('snoozed_notifications');
+    let snoozed = snoozedStr ? JSON.parse(snoozedStr) : [];
+    const until = new Date();
+    until.setDate(until.getDate() + 3); // Snooze for 3 days
+    snoozed.push({ id, until: until.toISOString() });
     localStorage.setItem('snoozed_notifications', JSON.stringify(snoozed));
 };
 
-// Contacts (Polyimorphic)
-export const syncResourceContacts = async (resourceType: string, resourceId: string, contacts: any[]) => {
-    const supabase = getSupabase();
-    // Delete existing for this resource
-    await supabase.from('resource_contacts').delete().eq('resource_type', resourceType).eq('resource_id', resourceId);
-    
-    if (contacts.length > 0) {
-        const toInsert = contacts.map(c => ({
-            ...c,
-            resource_type: resourceType,
-            resource_id: resourceId,
-            id: undefined // let DB generate ID
-        }));
-        await supabase.from('resource_contacts').insert(toInsert);
-    }
-};
-
-// --- SYSTEM DIAGNOSTICS ---
 export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
-    const supabase = getSupabase();
     const results: DiagnosticResult[] = [];
-    const timestamp = new Date().toISOString();
-    
-    const addResult = (module: string, status: 'Success' | 'Failure' | 'Warning', message: string, details?: any) => {
-        results.push({ module, status, message, details: details ? JSON.stringify(details) : undefined, timestamp });
+    const supabase = getSupabase();
+
+    const addResult = (module: string, status: 'Success' | 'Failure' | 'Warning', message: string) => {
+        results.push({ module, status, message, timestamp: new Date().toISOString() });
     };
 
-    // Test Instituicao first (no deps)
-    const testInstName = `DIAG_TEST_INST_${Date.now()}`;
-    const { data: createdInst, error: instError } = await supabase.from('instituicoes').insert({ name: testInstName, codigo: 'DT', email: 'd@t.com', telefone: '123' }).select().single();
-
-    if(instError) {
-        addResult(`CRUD: instituicoes`, 'Failure', `Falha no teste: CREATE failed: ${instError.message}. Verifique a RLS (Row Level Security) e se a tabela existe.`);
-    } else {
-        addResult(`CRUD: instituicoes`, 'Success', 'Operações de CRUD (Criar, Ler, Apagar) funcionam.');
-        
-        // Now test Entidade with the created Instituicao
-        const testEntName = `DIAG_TEST_ENT_${Date.now()}`;
-        const { error: entError } = await supabase.from('entidades').insert({ name: testEntName, codigo: 'DE', instituicaoId: createdInst.id, email: 'd@t.com' }).select().single();
-
-        if (entError) {
-            addResult(`CRUD: entidades`, 'Failure', `Falha no teste: CREATE failed: ${entError.message}. Verifique a RLS (Row Level Security) e se a tabela existe.`);
-        } else {
-             addResult(`CRUD: entidades`, 'Success', 'Operações de CRUD (Criar, Ler, Apagar) funcionam.');
-        }
-        
-        // Cleanup
-        await supabase.from('entidades').delete().eq('name', testEntName);
-        await supabase.from('instituicoes').delete().eq('id', createdInst.id);
-    }
-    
-    // Integrity Checks via RPC
+    // 1. Database Connection
     try {
-        const { data: orphanEntities, error: e1 } = await supabase.rpc('count_orphaned_entities');
-        if (e1) throw e1;
-        if (orphanEntities > 0) addResult('Integrity: Entidades', 'Warning', `${orphanEntities} entidades órfãs encontradas (ligadas a instituições inexistentes).`);
-        else addResult('Integrity: Entidades', 'Success', 'Nenhuma entidade órfã.');
-
-        const { data: orphanCollabs, error: e2 } = await supabase.rpc('count_orphaned_collaborators');
-        if (e2) throw e2;
-        if (orphanCollabs > 0) addResult('Integrity: Colaboradores', 'Warning', `${orphanCollabs} colaboradores órfãos encontrados.`);
-        else addResult('Integrity: Colaboradores', 'Success', 'Nenhum colaborador órfão.');
-        
-        const { data: orphanAssigns, error: e3 } = await supabase.rpc('count_orphaned_assignments');
-        if (e3) throw e3;
-        if (orphanAssigns > 0) addResult('Integrity: Atribuições', 'Warning', `${orphanAssigns} atribuições órfãs encontradas.`);
-        else addResult('Integrity: Atribuições', 'Success', 'Nenhuma atribuição órfã.');
-
-    } catch(e: any) {
-         addResult('Integrity Checks', 'Failure', `Falha ao verificar integridade: ${e.message}. Execute o script de atualização de BD para criar as funções SQL de diagnóstico.`, { details: e.details });
+        const { error } = await supabase.from('global_settings').select('count').limit(1);
+        if (error) throw error;
+        addResult('Database', 'Success', 'Connected to Supabase successfully.');
+    } catch (e: any) {
+        addResult('Database', 'Failure', `Connection failed: ${e.message}`);
+        return results; // Abort if DB is down
     }
 
-    // Supabase Extensions/Config Checks
+    // 2. Storage Buckets
     try {
         const { data, error } = await supabase.storage.getBucket('avatars');
-        if (error) throw new Error(error.message);
-        addResult('Supabase: Storage', 'Success', 'Bucket "avatars" encontrado e acessível.');
+        if (error) throw error;
+        addResult('Storage', 'Success', 'Bucket "avatars" accessible.');
     } catch (e: any) {
-        addResult('Supabase: Storage', 'Failure', `Bucket "avatars" não encontrado ou RLS incorreta: ${e.message}. Execute o script de atualização.`);
+        addResult('Storage', 'Failure', `Bucket "avatars" check failed: ${e.message}`);
     }
 
+    // 3. Extensions Check (pg_net, pg_cron)
     try {
         const { data, error } = await supabase.rpc('check_pg_cron');
-        if (error || !data) throw new Error("pg_cron não encontrado.");
-        addResult('Supabase: pg_cron', 'Success', 'Extensão pg_cron está instalada.');
-    } catch(e: any) {
-        addResult('Supabase: pg_cron', 'Warning', `Extensão pg_cron não encontrada. Relatórios automáticos não funcionarão.`);
+        if (error || !data) addResult('Extensions', 'Warning', 'pg_cron not detected. Scheduled tasks may fail.');
+        else addResult('Extensions', 'Success', 'pg_cron enabled.');
+    } catch (e) {
+        addResult('Extensions', 'Warning', 'Could not verify extensions.');
     }
 
-    await logAction('DIAGNOSTIC', 'System', 'Executed comprehensive system diagnostics.');
     return results;
 };
