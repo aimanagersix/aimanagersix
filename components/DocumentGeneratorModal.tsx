@@ -62,7 +62,7 @@ const DocumentGeneratorModal: React.FC<DocumentGeneratorModalProps> = ({ onClose
                  });
 
                 const pdf = await generate({ template: template.template_json, inputs });
-                const blob = new Blob([pdf.buffer], { type: 'application/pdf' });
+                const blob = new Blob([pdf], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
                 setPdfUrl(url);
 
