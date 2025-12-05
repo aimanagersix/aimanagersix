@@ -32,7 +32,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.5 (CIBE & Conservation)
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.6 (Fix RLS)
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
@@ -142,6 +142,18 @@ GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 -- 6. RLS - POLÍTICAS DE SEGURANÇA
 -- ==========================================
 
+-- Políticas Explícitas para Novas Tabelas (Garantia de Acesso)
+DROP POLICY IF EXISTS "Accounting Read" ON public.config_accounting_categories;
+DROP POLICY IF EXISTS "Accounting Write" ON public.config_accounting_categories;
+CREATE POLICY "Accounting Read" ON public.config_accounting_categories FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Accounting Write" ON public.config_accounting_categories FOR ALL TO authenticated USING (is_admin_or_tech());
+
+DROP POLICY IF EXISTS "Conservation Read" ON public.config_conservation_states;
+DROP POLICY IF EXISTS "Conservation Write" ON public.config_conservation_states;
+CREATE POLICY "Conservation Read" ON public.config_conservation_states FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Conservation Write" ON public.config_conservation_states FOR ALL TO authenticated USING (is_admin_or_tech());
+
+
 -- Habilitar RLS em todas as tabelas públicas
 DO $$ 
 DECLARE t text;
@@ -190,7 +202,7 @@ BEGIN
     END LOOP;
 END $$;
 
--- *** Tabelas de Configuração ***
+-- *** Tabelas de Configuração (Loop Genérico) ***
 DO $$ 
 DECLARE t text;
 BEGIN 
