@@ -518,7 +518,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             <div className="flex items-center gap-2">
                                 <select name="brandId" id="brandId" value={formData.brandId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.brandId ? 'border-red-500' : 'border-gray-600'}`}>
                                     <option value="" disabled>Selecione uma marca</option>
-                                    {brands.map(brand => (<option key={brand.id} value={brand.id}>{brand.name}</option>)}
+                                    {brands.map(brand => (<option key={brand.id} value={brand.id}>{brand.name}</option>))}
                                 </select>
                                 <button type="button" onClick={() => setIsAddingBrand(true)} className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"><PlusIcon className="h-5 w-5"/></button>
                             </div>
