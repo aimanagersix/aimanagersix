@@ -1,10 +1,8 @@
 
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
-import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon } from './common/Icons';
-import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon, FaFileImport } from './common/Icons';
+import { FaHistory, FaSort, FaSortUp, FaSortDown, FaRobot } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
@@ -32,6 +30,7 @@ interface EquipmentDashboardProps {
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
   onCreate?: () => void;
+  onImportAgent?: (e: React.ChangeEvent<HTMLInputElement>) => void; // NEW PROP
   // BIA Props
   businessServices?: BusinessService[];
   serviceDependencies?: ServiceDependency[];
@@ -121,7 +120,7 @@ const SortableHeader: React.FC<{
 
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
-    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate,
+    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate, onImportAgent,
     businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests, onViewItem
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
@@ -384,13 +383,27 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
             <h2 className="text-xl font-semibold text-white">Inventário de Equipamentos</h2>
              <div className="flex items-center gap-2">
+                {/* Agent Import Button */}
+                {onImportAgent && onCreate && (
+                     <label className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer shadow-lg">
+                        <FaRobot /> Importar JSON Agente
+                        <input 
+                            type="file" 
+                            accept=".json" 
+                            className="hidden" 
+                            onChange={onImportAgent} 
+                            onClick={(e) => (e.target as HTMLInputElement).value = ''} // reset to allow re-upload same file
+                        />
+                    </label>
+                )}
+                
                 {onGenerateReport && (
                     <button
                         onClick={onGenerateReport}
                         className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
                     >
                         <ReportIcon />
-                        Gerar Relatório
+                        Relatório
                     </button>
                 )}
                 {onAssignMultiple && selectedIds.size > 0 && (

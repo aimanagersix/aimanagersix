@@ -1,15 +1,12 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows, FaPython, FaLinux, FaApple } from 'react-icons/fa';
+import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows, FaPython, FaFileCode } from 'react-icons/fa';
 
 const agentScriptTemplatePowerShell = `
-# AIManager Windows Inventory Agent v1.6
+# AIManager Windows Inventory Agent v2.0 (Offline Mode)
 #
-# COMO USAR:
-# 1. Execute este script como Administrador no computador alvo.
-#    (As credenciais Supabase são injetadas automaticamente)
-
-$supabaseUrl = "COLE_AQUI_O_SEU_SUPABASE_URL"
-$supabaseAnonKey = "COLE_AQUI_A_SUA_SUPABASE_ANON_KEY"
+# ESTE SCRIPT É SEGURO: NÃO CONTÉM CHAVES DE API.
+# Gera um ficheiro JSON local para ser carregado manualmente na aplicação web.
 
 function Get-HardwareInfo {
     Write-Host "A recolher dados de Hardware e SO..." -ForegroundColor Cyan
@@ -48,7 +45,7 @@ function Get-HardwareInfo {
         os_version = $os.Caption
         cpu_info = $cpu.Name
         ram_size = "$([Math]::Round($memory.Sum / 1GB)) GB"
-        disk_info = $disks | ConvertTo-Json -Compress
+        disk_info = $disks
         nomeNaRede = $env:COMPUTERNAME
         macAddressWIFI = $macWifi
         macAddressCabo = $macCabo
@@ -56,46 +53,18 @@ function Get-HardwareInfo {
 }
 
 try {
-    Write-Host "AIManager Agent (PowerShell)" -ForegroundColor Cyan
     $info = Get-HardwareInfo
     
     if (-not $info.serialNumber) { Write-Error "Sem S/N. Abortar."; return }
 
-    $headers = @{ "apikey" = $supabaseAnonKey; "Authorization" = "Bearer $supabaseAnonKey"; "Content-Type" = "application/json"; "Prefer" = "return=representation" }
+    $fileName = "inventario_$($info.nomeNaRede).json"
+    $filePath = Join-Path $PWD $fileName
     
-    # Check Existing
-    $existing = Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment?select=id&serialNumber=eq.$($info.serialNumber)" -Method Get -Headers $headers
+    $info | ConvertTo-Json -Depth 5 | Out-File -FilePath $filePath -Encoding utf8
     
-    $payload = @{
-        serialNumber = $info.serialNumber
-        description = $info.description
-        os_version = $info.os_version
-        cpu_info = $info.cpu_info
-        ram_size = $info.ram_size
-        disk_info = $info.disk_info
-        nomeNaRede = $info.nomeNaRede
-        macAddressWIFI = $info.macAddressWIFI
-        macAddressCabo = $info.macAddressCabo
-    }
-
-    if ($existing.Count -gt 0) {
-        $id = $existing[0].id
-        $payload["modifiedDate"] = (Get-Date).ToUniversalTime().ToString("o")
-        $jsonPayload = $payload | ConvertTo-Json -Depth 5
-        Invoke-RestMethod -Uri "$supabaseUrl/rest/v1/equipment?id=eq.$id" -Method Patch -Headers $headers -Body $jsonPayload
-        Write-Host "Atualizado: $($info.serialNumber)" -ForegroundColor Green
-    } else {
-        # Create Logic (simplified for brevity)
-        # Brand/Type lookup logic would go here similar to v1.5
-        $payload["status"] = "Stock"
-        $payload["purchaseDate"] = (Get-Date).ToString("yyyy-MM-dd")
-        
-        # Dummy IDs for create (Agent relies on DB having a default 'Unknown' or doing lookup)
-        # Ideally the API handles lookup, but here we simplify
-        $jsonPayload = $payload | ConvertTo-Json -Depth 5
-        # Note: Create might fail if Brand/Type not resolved. Use full script logic for Create.
-        Write-Host "Para criar novos, o script completo (v1.5) faz lookup de IDs." -ForegroundColor Yellow
-    }
+    Write-Host "Sucesso! Ficheiro gerado:" -ForegroundColor Green
+    Write-Host $filePath -ForegroundColor Yellow
+    Write-Host "Agora faça upload deste ficheiro no menu 'Inventário' da aplicação." -ForegroundColor White
 } catch {
     Write-Error "Erro: $($_.Exception.Message)"
 }
@@ -109,21 +78,12 @@ import uuid
 import json
 import sys
 import os
-from datetime import datetime
 
-# --- CONFIGURAÇÃO ---
-SUPABASE_URL = "COLE_AQUI_O_SEU_SUPABASE_URL"
-SUPABASE_KEY = "COLE_AQUI_A_SUA_SUPABASE_ANON_KEY"
-# --------------------
-
-try:
-    import requests
-except ImportError:
-    print("Erro: A biblioteca 'requests' é necessária. Instale com: pip install requests")
-    sys.exit(1)
+# AIManager Inventory Agent v2.0 (Offline Mode)
+# Gera um ficheiro JSON local.
 
 def get_system_info():
-    print("A recolher informação do sistema (Python)...")
+    print("A recolher informação do sistema...")
     
     info = {}
     
@@ -133,91 +93,43 @@ def get_system_info():
     
     # Hardware (Generic)
     info['cpu_info'] = platform.processor()
-    info['ram_size'] = "N/A (Requer psutil)" # psutil recommended for full hardware specs
+    info['ram_size'] = "N/A (Requer psutil)" 
     
     # Network (MAC)
     mac_num = uuid.getnode()
     mac = ':'.join(('%012X' % mac_num)[i:i+2] for i in range(0, 12, 2))
-    info['macAddressCabo'] = mac # Primary Interface
+    info['macAddressCabo'] = mac 
     
-    # Serial Number (Cross-Platform logic is complex without sudo/admin)
-    # Using Hostname as fallback description
+    # Serial & Brand (Mock for Python script without root/admin access to BIOS)
+    # In a real deployment, you would use 'dmidecode' or system specific commands here
     info['description'] = f"{platform.node()} ({platform.system()})"
-    info['serialNumber'] = f"PY-{uuid.getnode()}" # Fallback ID if real serial not accessible
+    info['serialNumber'] = f"PY-{uuid.getnode()}" 
+    info['brandName'] = "Generic"
+    info['typeName'] = "Server" if platform.system() == "Linux" else "Workstation"
 
     return info
 
-def send_to_supabase(info):
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation"
-    }
-    
-    # Check if exists
-    query_url = f"{SUPABASE_URL}/rest/v1/equipment?select=id&serialNumber=eq.{info['serialNumber']}"
-    try:
-        r = requests.get(query_url, headers=headers)
-        r.raise_for_status()
-        existing = r.json()
-        
-        payload = {
-            "serialNumber": info['serialNumber'],
-            "description": info['description'],
-            "os_version": info['os_version'],
-            "cpu_info": info['cpu_info'],
-            "nomeNaRede": info['nomeNaRede'],
-            "macAddressCabo": info['macAddressCabo']
-        }
-
-        if len(existing) > 0:
-            # Update
-            eq_id = existing[0]['id']
-            payload["modifiedDate"] = datetime.utcnow().isoformat()
-            update_url = f"{SUPABASE_URL}/rest/v1/equipment?id=eq.{eq_id}"
-            requests.patch(update_url, headers=headers, json=payload)
-            print(f"Equipamento {info['serialNumber']} atualizado com sucesso.")
-        else:
-            # Create (Basic)
-            print("Equipamento não encontrado. Criação requer Brand/Type ID válidos.")
-            # To implement create, we need to fetch BrandID and TypeID first.
-            # Skipping for brevity in this template.
-            
-    except Exception as e:
-        print(f"Erro de conexão: {e}")
-
 if __name__ == "__main__":
-    data = get_system_info()
-    print(json.dumps(data, indent=2))
-    if SUPABASE_URL.startswith("http"):
-        send_to_supabase(data)
-    else:
-        print("Configure o URL do Supabase no script para enviar dados.")
+    try:
+        data = get_system_info()
+        filename = f"inventario_{data['nomeNaRede']}.json"
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            
+        print(f"Sucesso! Ficheiro gerado: {filename}")
+        print("Faça upload deste ficheiro na aplicação web.")
+    except Exception as e:
+        print(f"Erro: {e}")
 `;
 
 const AgentsTab: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'powershell' | 'python'>('powershell');
     const [copied, setCopied] = useState(false);
-    const [supabaseUrl, setSupabaseUrl] = useState('');
-    const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
-
-    useEffect(() => {
-        const url = localStorage.getItem('SUPABASE_URL');
-        const key = localStorage.getItem('SUPABASE_ANON_KEY');
-        if (url) setSupabaseUrl(url);
-        if (key) setSupabaseAnonKey(key);
-    }, []);
 
     const currentScript = useMemo(() => {
-        const template = activeTab === 'powershell' ? agentScriptTemplatePowerShell : agentScriptTemplatePython;
-        
-        if (!supabaseUrl || !supabaseAnonKey) return template;
-
-        return template
-            .replace('"COLE_AQUI_O_SEU_SUPABASE_URL"', `"${supabaseUrl}"`)
-            .replace('"COLE_AQUI_A_SUA_SUPABASE_ANON_KEY"', `"${supabaseAnonKey}"`);
-    }, [supabaseUrl, supabaseAnonKey, activeTab]);
+        return activeTab === 'powershell' ? agentScriptTemplatePowerShell : agentScriptTemplatePython;
+    }, [activeTab]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(currentScript);
@@ -242,12 +154,16 @@ const AgentsTab: React.FC = () => {
         <div className="flex flex-col h-full space-y-4 animate-fade-in p-6">
             <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
                 <div className="flex items-center gap-2 font-bold mb-2">
-                    <FaRobot /> Agentes de Inventário Automático
+                    <FaRobot /> Agentes de Inventário Offline (Seguro)
                 </div>
                 <p className="mb-2">
-                    Utilize estes scripts para recolher automaticamente dados de hardware e software dos equipamentos da sua rede.
-                    Os dados são enviados diretamente para a API do sistema.
+                    Esta abordagem <strong>Air-Gapped</strong> garante segurança máxima. Os scripts não contêm credenciais.
                 </p>
+                <ol className="list-decimal list-inside space-y-1 ml-2 text-gray-300">
+                    <li>Descarregue o script e execute no computador alvo.</li>
+                    <li>O script irá gerar um ficheiro <code>.json</code> com os dados do equipamento.</li>
+                    <li>Vá ao menu <strong>Ativos &gt; Equipamentos</strong> e clique em <strong>"Importar JSON Agente"</strong> para carregar o ficheiro.</li>
+                </ol>
                 <div className="flex gap-2 mt-3">
                     <button 
                         onClick={() => setActiveTab('powershell')}
@@ -267,16 +183,16 @@ const AgentsTab: React.FC = () => {
             <div className="relative flex-grow border border-gray-700 rounded-lg overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 bg-gray-800 px-4 py-2 text-xs font-mono text-gray-400 border-b border-gray-700 flex justify-between items-center">
                     <span>{activeTab === 'powershell' ? 'aimanager_agent.ps1' : 'aimanager_agent.py'}</span>
-                    <span className="text-[10px] uppercase tracking-widest text-gray-600">READ ONLY</span>
+                    <span className="text-[10px] uppercase tracking-widest text-green-400 border border-green-500/30 px-2 rounded bg-green-900/20">SECURE MODE</span>
                 </div>
                 <pre className="p-4 pt-10 text-xs font-mono text-green-400 overflow-auto h-full custom-scrollbar bg-gray-900">
                     {currentScript}
                 </pre>
                  <div className="absolute top-2 right-2 flex gap-2 z-10">
-                    <button onClick={handleCopy} className="p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600" title="Copiar">
+                    <button onClick={handleCopy} className="p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600" title="Copiar Código">
                         {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
                     </button>
-                    <button onClick={handleDownload} className="p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600" title="Download">
+                    <button onClick={handleDownload} className="p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600" title="Download Script">
                         <FaDownload />
                     </button>
                 </div>

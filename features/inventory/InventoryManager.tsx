@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
     SoftwareLicense, Assignment, 
-    defaultTooltipConfig, ModuleKey, PermissionAction, LicenseAssignment, ConfigItem, ProcurementRequest
+    defaultTooltipConfig, ModuleKey, PermissionAction, LicenseAssignment, ConfigItem, ProcurementRequest, EquipmentStatus
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -82,6 +82,81 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
         setShowAddEquipmentModal(false);
     };
     
+    // Handler for Importing Agent JSON
+    const handleAgentImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const json = JSON.parse(event.target?.result as string);
+                if (!json.serialNumber) throw new Error("JSON inválido: falta serialNumber.");
+                
+                // 1. Resolve Brand
+                let brandId = '';
+                const brandName = (json.brandName || 'Genérico').trim();
+                const existingBrand = appData.brands.find((b: Brand) => b.name.toLowerCase() === brandName.toLowerCase());
+                if (existingBrand) {
+                    brandId = existingBrand.id;
+                } else {
+                    const newBrand = await dataService.addBrand({ name: brandName });
+                    brandId = newBrand.id;
+                }
+
+                // 2. Resolve Type
+                let typeId = '';
+                const typeName = (json.typeName || 'Desktop').trim();
+                const existingType = appData.equipmentTypes.find((t: EquipmentType) => t.name.toLowerCase() === typeName.toLowerCase());
+                if (existingType) {
+                    typeId = existingType.id;
+                } else {
+                    const newType = await dataService.addEquipmentType({ name: typeName });
+                    typeId = newType.id;
+                }
+
+                // 3. Check if Equipment Exists
+                const existingEq = appData.equipment.find((eq: Equipment) => eq.serialNumber === json.serialNumber);
+                
+                const payload = {
+                    serialNumber: json.serialNumber,
+                    brandId: brandId,
+                    typeId: typeId,
+                    description: json.description || `${brandName} ${typeName}`,
+                    nomeNaRede: json.nomeNaRede,
+                    os_version: json.os_version,
+                    cpu_info: json.cpu_info,
+                    ram_size: json.ram_size,
+                    // Add other fields from agent if available
+                    macAddressWIFI: json.macAddressWIFI,
+                    macAddressCabo: json.macAddressCabo,
+                    disk_info: json.disk_info ? JSON.stringify(json.disk_info) : undefined
+                };
+
+                if (existingEq) {
+                     await dataService.updateEquipment(existingEq.id, payload);
+                     alert(`Equipamento atualizado: ${json.serialNumber}`);
+                } else {
+                     await dataService.addEquipment({
+                         ...payload,
+                         status: EquipmentStatus.Stock,
+                         purchaseDate: new Date().toISOString().split('T')[0], // Default to today if new
+                         criticality: 'Baixa',
+                         creationDate: new Date().toISOString(),
+                         modifiedDate: new Date().toISOString()
+                     });
+                     alert(`Novo equipamento criado: ${json.serialNumber}`);
+                }
+                refreshData();
+
+            } catch (error: any) {
+                console.error(error);
+                alert(`Erro ao importar: ${error.message}`);
+            }
+        };
+        reader.readAsText(file);
+    };
+    
     const canApproveProcurement = checkPermission('procurement', 'delete');
 
     return (
@@ -116,6 +191,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onShowHistory={(eq) => { setDetailEquipment(eq); }} 
                     onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setShowAddEquipmentModal(true); } : undefined}
                     onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setShowAddEquipmentModal(true); } : undefined}
+                    onImportAgent={checkPermission('equipment', 'create') ? handleAgentImport : undefined} // Pass handler
                     onGenerateReport={checkPermission('reports', 'view') ? () => setReportType('equipment') : undefined}
                     onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); } : undefined}
                     businessServices={appData.businessServices}
