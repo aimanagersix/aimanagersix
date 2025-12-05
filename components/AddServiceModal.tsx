@@ -1,9 +1,8 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus, Supplier } from '../types';
+import { SpinnerIcon } from './common/Icons'; // Added import
 
 interface AddServiceModalProps {
     onClose: () => void;
@@ -24,6 +23,7 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
         external_provider_id: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isSaving, setIsSaving] = useState(false); // New state
 
     useEffect(() => {
         if (serviceToEdit) {
@@ -43,22 +43,31 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         
-        const dataToSave: any = { ...formData };
-        // Clean up optional fields
-        if (!dataToSave.owner_id) delete dataToSave.owner_id;
-        if (!dataToSave.rto_goal) delete dataToSave.rto_goal;
-        if (!dataToSave.external_provider_id) delete dataToSave.external_provider_id;
+        setIsSaving(true); // Start loading
 
-        if (serviceToEdit) {
-            onSave({ ...serviceToEdit, ...dataToSave });
-        } else {
-            onSave(dataToSave);
+        try {
+            const dataToSave: any = { ...formData };
+            // Clean up optional fields
+            if (!dataToSave.owner_id) delete dataToSave.owner_id;
+            if (!dataToSave.rto_goal) delete dataToSave.rto_goal;
+            if (!dataToSave.external_provider_id) delete dataToSave.external_provider_id;
+
+            if (serviceToEdit) {
+                await onSave({ ...serviceToEdit, ...dataToSave });
+            } else {
+                await onSave(dataToSave);
+            }
+            onClose();
+        } catch (error: any) {
+            console.error("Error saving service:", error);
+            alert(`Erro ao gravar serviço: ${error.message || "Erro desconhecido na base de dados."}`);
+        } finally {
+            setIsSaving(false); // Stop loading
         }
-        onClose();
     };
     
     const modalTitle = serviceToEdit ? "Editar Serviço de Negócio" : "Novo Serviço de Negócio";
@@ -125,8 +134,15 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
                 </div>
 
                 <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
+                    <button 
+                        type="submit" 
+                        className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50"
+                        disabled={isSaving}
+                    >
+                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : null}
+                        {isSaving ? 'A Gravar...' : 'Salvar'}
+                    </button>
                 </div>
             </form>
         </Modal>
