@@ -62,7 +62,8 @@ const DocumentGeneratorModal: React.FC<DocumentGeneratorModalProps> = ({ onClose
                  });
 
                 const pdf = await generate({ template: template.template_json, inputs });
-                const blob = new Blob([pdf], { type: 'application/pdf' });
+                // Cast to any to avoid TS error about SharedArrayBuffer not being assignable to BlobPart
+                const blob = new Blob([pdf as any], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
                 setPdfUrl(url);
 
