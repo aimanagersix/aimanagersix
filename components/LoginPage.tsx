@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 // FIX: Replaced non-existent icon imports with aliased exports from ./common/Icons
-import { FaUserCircle as UserIcon, FaLock as LockClosedIcon, FaFingerprint } from './common/Icons';
+import { FaUserCircle as UserIcon, FaLock as LockClosedIcon, FaFingerprint, FaCog, FaExclamationTriangle } from './common/Icons';
 import { getSupabase } from '../services/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -43,6 +43,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
         return isEmailValid && isPasswordValid;
     };
 
+    const handleResetConnection = () => {
+        if (confirm("Tem a certeza? Isto irá limpar as configurações de conexão ao Supabase e recarregar a página para que possa inserir os dados corretos.")) {
+            localStorage.removeItem('SUPABASE_URL');
+            localStorage.removeItem('SUPABASE_ANON_KEY');
+            localStorage.removeItem('SUPABASE_SERVICE_ROLE_KEY');
+            window.location.reload();
+        }
+    };
+
     const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -50,35 +59,44 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
 
         setIsLoading(true);
         
-        const supabase = getSupabase();
-        const { data, error: loginError } = await (supabase.auth as any).signInWithPassword({ email, password });
+        try {
+            const supabase = getSupabase();
+            const { data, error: loginError } = await (supabase.auth as any).signInWithPassword({ email, password });
 
-        if (loginError) {
+            if (loginError) {
+                throw loginError;
+            }
+
+            if (data.user) {
+                // Check for MFA factors
+                const { data: factorsData, error: mfaError } = await (supabase.auth as any).mfa.listFactors();
+                
+                if (mfaError) {
+                    throw mfaError;
+                }
+
+                const totpFactor = factorsData?.totp.find((f: any) => f.status === 'verified');
+                
+                if (totpFactor) {
+                    setStep('mfa');
+                    setIsLoading(false);
+                } else {
+                    // No MFA, proceed to app
+                    window.location.reload();
+                }
+            }
+        } catch (err: any) {
             setIsLoading(false);
-            setError(loginError.message);
-            return;
-        }
-
-        if (data.user) {
-            // Check for MFA factors
-            // Note: We must check the return object of listFactors, NOT the state 'error' variable
-            const { data: factorsData, error: mfaError } = await (supabase.auth as any).mfa.listFactors();
+            console.error("Login error:", err);
             
-            if (mfaError) {
-                 setIsLoading(false);
-                 setError("Erro ao verificar estado MFA: " + mfaError.message);
-                 return;
+            let msg = err.message;
+            if (err.message === "Failed to fetch" || err.message.includes("NetworkError")) {
+                msg = "Erro de Conexão: Não foi possível contactar o servidor. Verifique a sua internet ou as configurações da base de dados.";
+            } else if (err.message.includes("Invalid login credentials")) {
+                msg = "Email ou password incorretos.";
             }
-
-            const totpFactor = factorsData?.totp.find((f: any) => f.status === 'verified');
             
-            if (totpFactor) {
-                setStep('mfa');
-                setIsLoading(false);
-            } else {
-                // No MFA, proceed to app
-                window.location.reload();
-            }
+            setError(msg);
         }
     };
 
@@ -117,7 +135,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
     };
 
     return (
-        <div className="min-h-screen bg-background-dark flex flex-col justify-center items-center p-4">
+        <div className="min-h-screen bg-background-dark flex flex-col justify-center items-center p-4 relative">
             <div className="w-full max-w-md">
                 <div className="flex flex-col items-center mb-8">
                     <h1 className="font-bold text-4xl text-white">
@@ -125,7 +143,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                     </h1>
                     <p className="text-on-surface-dark-secondary mt-2">{t('login.subtitle')}</p>
                 </div>
-                <div className="bg-surface-dark shadow-2xl rounded-xl px-8 pt-6 pb-8 mb-4">
+                <div className="bg-surface-dark shadow-2xl rounded-xl px-8 pt-6 pb-8 mb-4 border border-gray-800 relative">
                     
                     {step === 'credentials' ? (
                         <form onSubmit={handleLoginSubmit} noValidate>
@@ -185,7 +203,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                                     </button>
                                 </div>
                             </div>
-                            {error && <p className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs italic p-3 rounded mb-4 text-center">{error}</p>}
+                            
+                            {error && (
+                                <div className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs p-3 rounded mb-4 text-center">
+                                    <p className="flex items-center justify-center gap-2 font-bold mb-1"><FaExclamationTriangle /> Erro</p>
+                                    <p>{error}</p>
+                                    {(error.includes("Conexão") || error.includes("fetch")) && (
+                                        <button 
+                                            type="button"
+                                            onClick={handleResetConnection}
+                                            className="mt-2 underline hover:text-white"
+                                        >
+                                            Redefinir configurações de conexão
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="flex items-center justify-between">
                                 <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 disabled:opacity-50" type="submit" disabled={isLoading}>
                                     {isLoading ? t('login.verifying') : t('login.login_button')}
@@ -220,6 +254,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                             </button>
                         </form>
                     )}
+                    
+                    {/* Settings Safety Hatch */}
+                    <div className="absolute top-4 right-4">
+                        <button 
+                            onClick={handleResetConnection}
+                            className="text-gray-600 hover:text-gray-400 transition-colors p-1"
+                            title="Configurar Conexão BD"
+                        >
+                            <FaCog />
+                        </button>
+                    </div>
 
                 </div>
                 <p className="text-center text-gray-500 text-xs">
