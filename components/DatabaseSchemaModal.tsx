@@ -32,40 +32,40 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v4.0 (Hardware Tables)
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v4.1 (Full Update)
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_net"; 
+CREATE EXTENSION IF NOT EXISTS "pg_cron";
 
 -- 2. NOVAS TABELAS DE CONFIGURAÇÃO (LEGAL & HARDWARE)
 CREATE TABLE IF NOT EXISTS public.config_accounting_categories (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE, -- Ex: "30102 - Equipamento de Informática"
+    name text NOT NULL UNIQUE, 
     color text
 );
 
 CREATE TABLE IF NOT EXISTS public.config_conservation_states (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE, -- Ex: "Novo", "Bom"
+    name text NOT NULL UNIQUE, 
     color text
 );
 
--- NEW: Hardware Dropdowns
 CREATE TABLE IF NOT EXISTS public.config_cpus (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE -- Ex: "Intel Core i7", "Apple M1"
+    name text NOT NULL UNIQUE 
 );
 
 CREATE TABLE IF NOT EXISTS public.config_ram_sizes (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE -- Ex: "8 GB", "16 GB"
+    name text NOT NULL UNIQUE 
 );
 
 CREATE TABLE IF NOT EXISTS public.config_storage_types (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name text NOT NULL UNIQUE -- Ex: "256GB SSD", "1TB HDD"
+    name text NOT NULL UNIQUE 
 );
 
 -- 3. ESTRUTURA DE TABELAS (ATUALIZAÇÕES)
@@ -73,6 +73,8 @@ ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS accounting_category_id uui
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS conservation_state_id uuid REFERENCES public.config_conservation_states(id);
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS residual_value numeric;
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS last_inventory_scan date;
+ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS is_loan boolean DEFAULT false;
+ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS parent_equipment_id uuid REFERENCES public.equipment(id);
 
 -- Adicionar coluna user_email se não existir em audit_logs
 DO $$
@@ -82,7 +84,7 @@ BEGIN
     END IF;
 END $$;
 
--- 4. SEED DE DADOS LEGAIS & HARDWARE (Preenchimento Inicial)
+-- 4. SEED DE DADOS LEGAIS & HARDWARE
 INSERT INTO public.config_conservation_states (name, color) VALUES
 ('Novo', '#10B981'), ('Bom', '#3B82F6'), ('Razoável', '#F59E0B'), ('Mau', '#EF4444'), ('Obsoleto/Sucata', '#6B7280')
 ON CONFLICT (name) DO NOTHING;
@@ -91,7 +93,6 @@ INSERT INTO public.config_accounting_categories (name) VALUES
 ('30102 - Equipamento Básico'), ('30103 - Software Informático'), ('30104 - Equipamento Administrativo')
 ON CONFLICT (name) DO NOTHING;
 
--- Hardware Seeds
 INSERT INTO public.config_cpus (name) VALUES 
 ('Intel Core i3'), ('Intel Core i5'), ('Intel Core i7'), ('Intel Core i9'),
 ('AMD Ryzen 3'), ('AMD Ryzen 5'), ('AMD Ryzen 7'), ('Apple M1'), ('Apple M2'), ('Apple M3')
@@ -151,7 +152,6 @@ END $$;
 NOTIFY pgrst, 'reload config';
 `;
 
-// ... rest of the file logic remains same, just updating the view
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
         setCopied(true);
@@ -190,6 +190,10 @@ NOTIFY pgrst, 'reload config';
         } finally {
             setIsGeneratingTest(false);
         }
+    };
+    
+    const handleSeed = async () => {
+        alert("Execute o script SQL na aba 'Atualizar BD' para inserir os dados iniciais.");
     };
 
     return (
@@ -230,11 +234,10 @@ NOTIFY pgrst, 'reload config';
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaExclamationTriangle /> ATUALIZAÇÃO v4.0: TABELAS DE HARDWARE
+                                    <FaExclamationTriangle /> SCRIPT DE ATUALIZAÇÃO GLOBAL
                                 </div>
                                 <p className="mb-2">
-                                    Execute este script para criar as tabelas <code>config_cpus</code>, <code>config_ram_sizes</code> e <code>config_storage_types</code>, e popular com valores padrão.
-                                    Isto permite usar dropdowns no registo de equipamento.
+                                    Este script contém todas as estruturas de tabelas, RLS e dados de configuração necessários. Execute-o no <strong>SQL Editor do Supabase</strong> para garantir que a base de dados está sincronizada com a aplicação.
                                 </p>
                             </div>
                             <div className="relative">
@@ -252,18 +255,118 @@ NOTIFY pgrst, 'reload config';
                         </div>
                     )}
                     
-                    {/* Other tabs truncated for brevity, keeping structure */}
-                    {activeTab === 'playwright_ai' && (
-                        <div className="space-y-4 animate-fade-in p-1">
-                             {/* ... Playwright UI ... */}
-                             <p className="text-gray-400">Interface de geração de testes disponível.</p>
+                     {/* STORAGE TAB */}
+                    {activeTab === 'storage' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                <h3 className="font-bold text-white mb-2">Configuração de Armazenamento (Buckets)</h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Crie um bucket chamado <strong>'avatars'</strong> no menu Storage do Supabase e defina-o como "Public".
+                                    Isto é necessário para fotos de perfil e anexos.
+                                </p>
+                                <div className="bg-gray-900 p-3 rounded text-xs font-mono text-gray-300 border border-gray-600">
+                                    -- SQL para criar bucket (se a extensão pg_net estiver ativa) ou faça manualmente no dashboard<br/>
+                                    insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true);
+                                </div>
+                            </div>
                         </div>
                     )}
+
+                     {/* PLAYWRIGHT AI TAB */}
+                    {activeTab === 'playwright_ai' && (
+                        <div className="space-y-4 animate-fade-in p-1">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                                <div className="flex flex-col gap-3">
+                                    <label className="text-sm font-bold text-white">Descreva o Teste E2E</label>
+                                    <textarea 
+                                        className="w-full h-32 bg-gray-800 border border-gray-600 rounded p-2 text-sm text-white"
+                                        placeholder="Ex: Fazer login, ir ao menu de ativos, clicar em adicionar equipamento, preencher o serial number..."
+                                        value={testRequest}
+                                        onChange={(e) => setTestRequest(e.target.value)}
+                                    ></textarea>
+                                    
+                                    <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                                        <p className="text-xs text-gray-400 mb-2 font-bold uppercase">Credenciais de Teste (para o script)</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <input type="text" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} className="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white" placeholder="Email Teste" />
+                                            <input type="text" value={testPassword} onChange={(e) => setTestPassword(e.target.value)} className="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white" placeholder="Password Teste" />
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={handleGenerateTest}
+                                        disabled={isGeneratingTest || !aiConfigured}
+                                        className="bg-purple-600 hover:bg-purple-500 text-white py-2 rounded flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isGeneratingTest ? <FaSpinner className="animate-spin" /> : <FaRobot />}
+                                        Gerar Código Playwright
+                                    </button>
+                                </div>
+                                <div className="relative flex flex-col">
+                                    <label className="text-sm font-bold text-white mb-1">Código Gerado</label>
+                                    <div className="relative flex-grow">
+                                        <textarea 
+                                            readOnly
+                                            className="w-full h-full min-h-[300px] bg-gray-900 border border-gray-700 rounded p-3 text-xs font-mono text-green-400"
+                                            value={generatedTest}
+                                        ></textarea>
+                                        <button 
+                                            onClick={() => handleCopy(generatedTest)}
+                                            className="absolute top-2 right-2 p-2 bg-gray-800 hover:bg-gray-700 rounded text-white border border-gray-600"
+                                        >
+                                            {copied ? <FaCheck /> : <FaCopy />}
+                                        </button>
+                                    </div>
+                                </div>
+                             </div>
+                        </div>
+                    )}
+                    
+                    {/* TRIGGERS TAB */}
                     {activeTab === 'triggers' && (
                         <div className="space-y-4 animate-fade-in">
-                           {/* ... Triggers UI ... */}
-                            <button onClick={loadTriggers} className="bg-gray-700 px-3 py-1 rounded text-white text-sm">Atualizar</button>
-                            <pre className="bg-gray-900 p-4 rounded text-xs text-gray-300">{JSON.stringify(triggers, null, 2)}</pre>
+                             <div className="flex justify-between items-center mb-2">
+                                <h3 className="font-bold text-white">Triggers de Base de Dados</h3>
+                                <button onClick={loadTriggers} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
+                                    {isLoadingTriggers ? <FaSpinner className="animate-spin"/> : <FaSync />} Atualizar
+                                </button>
+                             </div>
+                             
+                             {triggerError && (
+                                 <div className="p-3 bg-red-900/20 border border-red-500/50 rounded text-red-200 text-sm">
+                                     {triggerError}
+                                     <p className="mt-1 text-xs text-gray-400">Dica: Execute o script da aba "Atualizar BD" para criar a função 'get_database_triggers'.</p>
+                                 </div>
+                             )}
+
+                             <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
+                                <table className="w-full text-sm text-left text-gray-300">
+                                    <thead className="bg-gray-800 text-xs uppercase">
+                                        <tr>
+                                            <th className="px-4 py-2">Tabela</th>
+                                            <th className="px-4 py-2">Trigger</th>
+                                            <th className="px-4 py-2">Eventos</th>
+                                            <th className="px-4 py-2">Timing</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-800">
+                                        {triggers.length > 0 ? triggers.map((t: any, idx) => (
+                                            <tr key={idx} className="hover:bg-gray-800/50">
+                                                <td className="px-4 py-2 font-bold text-white">{t.table_name}</td>
+                                                <td className="px-4 py-2 font-mono text-xs">{t.trigger_name}</td>
+                                                <td className="px-4 py-2 text-xs">
+                                                    {t.events.map((e:any) => <span key={e} className="bg-blue-900/50 text-blue-200 px-1 rounded mr-1">{e}</span>)}
+                                                </td>
+                                                <td className="px-4 py-2 text-xs">{t.action_timing}</td>
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan={4} className="p-4 text-center text-gray-500">Nenhum trigger encontrado ou função não disponível.</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                             </div>
                         </div>
                     )}
                 </div>

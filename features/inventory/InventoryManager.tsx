@@ -43,6 +43,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     // Local State for Inventory Modals
     const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
+    const [equipmentInitialData, setEquipmentInitialData] = useState<Partial<Equipment> | null>(null); // NEW: For cloning or pre-filling
+    
     const [showKitModal, setShowKitModal] = useState(false);
     const [kitInitialData, setKitInitialData] = useState<Partial<Equipment> | null>(null);
     const [showAssignModal, setShowAssignModal] = useState(false);
@@ -65,6 +67,29 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     const handleAssign = async (assignment: any) => {
         await dataService.addAssignment(assignment);
         refreshData();
+    };
+    
+    // CLONE LOGIC
+    const handleCloneEquipment = (sourceEq: Equipment) => {
+        // Create a copy of the source equipment, removing unique identifiers
+        const cloneData: Partial<Equipment> = {
+            ...sourceEq,
+            id: undefined, // New ID
+            serialNumber: '', // Must be new
+            inventoryNumber: '', // Must be new
+            nomeNaRede: '', // Must be new or generated
+            macAddressWIFI: '',
+            macAddressCabo: '',
+            ip_address: '',
+            status: EquipmentStatus.Stock, // Reset to stock
+            creationDate: undefined,
+            modifiedDate: undefined,
+            // Keep: Brand, Type, Description, Specs, Purchase Info, Supplier, Cost, etc.
+        };
+        
+        setEquipmentToEdit(null); // Ensure we are in "Create" mode not "Edit"
+        setEquipmentInitialData(cloneData);
+        setShowAddEquipmentModal(true);
     };
 
     const handleSaveEquipment = async (data: any, assignment: any, licenseIds: any) => {
@@ -199,8 +224,9 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                         refreshData();
                     } : undefined}
                     onShowHistory={(eq) => { setDetailEquipment(eq); }} 
-                    onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setShowAddEquipmentModal(true); } : undefined}
-                    onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setShowAddEquipmentModal(true); } : undefined}
+                    onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
+                    onClone={checkPermission('equipment', 'create') ? handleCloneEquipment : undefined}
+                    onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
                     onImportAgent={checkPermission('equipment', 'create') ? handleAgentImport : undefined} // Pass handler
                     onGenerateReport={checkPermission('reports', 'view') ? () => setReportType('equipment') : undefined}
                     onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); } : undefined}
@@ -266,6 +292,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     brands={appData.brands}
                     equipmentTypes={appData.equipmentTypes}
                     equipmentToEdit={equipmentToEdit}
+                    initialData={equipmentInitialData} // Pass cloned data here
                     onSaveBrand={dataService.addBrand}
                     onSaveEquipmentType={dataService.addEquipmentType}
                     onOpenKitModal={(data) => { setKitInitialData(data); setShowAddEquipmentModal(false); setShowKitModal(true); }}
@@ -382,6 +409,10 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     suppliers={appData.suppliers}
                     equipmentTypes={appData.equipmentTypes}
                     softwareCategories={appData.softwareCategories}
+                    // Pass config arrays
+                    cpuOptions={appData.configCpus}
+                    ramOptions={appData.configRamSizes}
+                    storageOptions={appData.configStorageTypes}
                 />
             )}
             

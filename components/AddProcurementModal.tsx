@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand } from '../types';
-import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags } from 'react-icons/fa';
+import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags, FaMemory, FaHdd } from 'react-icons/fa';
 import { SpinnerIcon, FaTrash as DeleteIcon } from './common/Icons';
 import * as dataService from '../services/dataService';
 
@@ -15,12 +15,16 @@ interface AddProcurementModalProps {
     suppliers: Supplier[];
     equipmentTypes?: EquipmentType[];
     softwareCategories?: ConfigItem[];
+    // NEW CONFIG PROPS
+    cpuOptions?: ConfigItem[];
+    ramOptions?: ConfigItem[];
+    storageOptions?: ConfigItem[];
 }
 
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSave, procurementToEdit, currentUser, collaborators, suppliers, equipmentTypes = [], softwareCategories = [] }) => {
+const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSave, procurementToEdit, currentUser, collaborators, suppliers, equipmentTypes = [], softwareCategories = [], cpuOptions = [], ramOptions = [], storageOptions = [] }) => {
     
     const [formData, setFormData] = useState<Partial<ProcurementRequest>>({
         title: '',
@@ -289,41 +293,44 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
                                 </div>
 
                                 {selectedType && (
-                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-blue-500/20">
+                                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-blue-500/20">
                                         {selectedType.requires_ram_size && (
                                             <div>
-                                                <label className="block text-[10px] text-gray-400 uppercase">RAM</label>
-                                                <input 
-                                                    type="text" 
+                                                <label className="block text-[10px] text-gray-400 uppercase flex items-center gap-1"><FaMemory/> RAM</label>
+                                                <select 
                                                     value={formData.specifications?.ram_size || ''} 
                                                     onChange={(e) => handleSpecChange('ram_size', e.target.value)}
-                                                    placeholder="Ex: 16GB"
                                                     className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs"
-                                                />
+                                                >
+                                                    <option value="">--</option>
+                                                    {ramOptions.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                                                </select>
                                             </div>
                                         )}
                                         {selectedType.requires_cpu_info && (
                                             <div>
-                                                <label className="block text-[10px] text-gray-400 uppercase">Processador</label>
-                                                <input 
-                                                    type="text" 
+                                                <label className="block text-[10px] text-gray-400 uppercase flex items-center gap-1"><FaMicrochip/> CPU</label>
+                                                <select 
                                                     value={formData.specifications?.cpu_info || ''} 
                                                     onChange={(e) => handleSpecChange('cpu_info', e.target.value)}
-                                                    placeholder="Ex: i7-1185G7"
                                                     className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs"
-                                                />
+                                                >
+                                                    <option value="">--</option>
+                                                    {cpuOptions.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                                                </select>
                                             </div>
                                         )}
                                         {selectedType.requires_disk_info && (
-                                            <div className="col-span-2">
-                                                <label className="block text-[10px] text-gray-400 uppercase">Disco</label>
-                                                <input 
-                                                    type="text" 
+                                            <div>
+                                                <label className="block text-[10px] text-gray-400 uppercase flex items-center gap-1"><FaHdd/> Disco</label>
+                                                <select 
                                                     value={formData.specifications?.disk_info || ''} 
                                                     onChange={(e) => handleSpecChange('disk_info', e.target.value)}
-                                                    placeholder="Ex: 512GB SSD"
                                                     className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs"
-                                                />
+                                                >
+                                                    <option value="">--</option>
+                                                    {storageOptions.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                                                </select>
                                             </div>
                                         )}
                                     </div>

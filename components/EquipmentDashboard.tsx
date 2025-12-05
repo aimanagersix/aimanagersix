@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon, FaFileImport } from './common/Icons';
-import { FaHistory, FaSort, FaSortUp, FaSortDown, FaRobot } from 'react-icons/fa';
+import { FaHistory, FaSort, FaSortUp, FaSortDown, FaRobot, FaCopy } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
@@ -27,10 +27,11 @@ interface EquipmentDashboardProps {
   onUpdateStatus?: (id: string, status: EquipmentStatus) => void;
   onShowHistory: (equipment: Equipment) => void; // Kept for compatibility but redirects to detail
   onEdit?: (equipment: Equipment) => void;
+  onClone?: (equipment: Equipment) => void; // NEW PROP
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
   onCreate?: () => void;
-  onImportAgent?: (e: React.ChangeEvent<HTMLInputElement>) => void; // NEW PROP
+  onImportAgent?: (e: React.ChangeEvent<HTMLInputElement>) => void; 
   // BIA Props
   businessServices?: BusinessService[];
   serviceDependencies?: ServiceDependency[];
@@ -120,7 +121,7 @@ const SortableHeader: React.FC<{
 
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
-    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate, onImportAgent,
+    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onClone, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate, onImportAgent,
     businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests, onViewItem
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
@@ -593,6 +594,15 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                 <AssignIcon />
                             </button>
                         )}
+                        {onClone && (
+                             <button 
+                                onClick={(e) => { e.stopPropagation(); onClone(item); }} 
+                                className="text-purple-400 hover:text-purple-300"
+                                title="Clonar Equipamento"
+                            >
+                                <FaCopy />
+                            </button>
+                        )}
                         <button onClick={(e) => { e.stopPropagation(); setDetailEquipment(item); }} className="text-gray-400 hover:text-white" title="Detalhes e Histórico">
                             <FaHistory />
                         </button>
@@ -650,7 +660,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 tickets={tickets}
                 ticketActivities={ticketActivities}
                 onClose={() => setDetailEquipment(null)}
-                // FIX: Use the onEdit prop from EquipmentDashboardProps to open the edit modal
                 onEdit={(eq) => { setDetailEquipment(null); if (onEdit) { onEdit(eq); } }}
                 businessServices={businessServices}
                 serviceDependencies={serviceDependencies}
