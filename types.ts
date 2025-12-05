@@ -77,6 +77,16 @@ export const EquipmentStatus = {
 } as const;
 export type EquipmentStatus = string;
 
+// LEGAL / ACCOUNTING STATUS (Conservation)
+export const ConservationState = {
+    Novo: 'Novo',
+    Bom: 'Bom',
+    Razoavel: 'Razoável',
+    Mau: 'Mau',
+    Obsoleto: 'Obsoleto/Sucata'
+} as const;
+export type ConservationState = string;
+
 export const CriticalityLevel = {
     Low: 'Baixa',
     Medium: 'Média',
@@ -242,7 +252,12 @@ export interface Equipment {
   // FinOps Fields
   acquisitionCost?: number; // Cost in EUR
   expectedLifespanYears?: number; // e.g. 4 years
-
+  
+  // Legal / Accounting Fields (New for Compliance with Law)
+  accounting_code?: string; // Classificador CIBE / SNC-AP (ex: 30102)
+  conservation_state?: ConservationState; // Estado de Conservação Legal
+  residual_value?: number; // Valor residual no fim de vida
+  
   // OEM / Embedded License
   embedded_license_key?: string; // Unique key for this machine
   

@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop, FaTools, FaTicketAlt, FaHistory, FaRobot } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop, FaTools, FaTicketAlt, FaHistory, FaRobot, FaLandmark } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -227,6 +227,29 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                         </div>
                                         <div className="flex justify-between"><span className="text-gray-500">Custo Aquisição:</span> <span className="text-white font-bold">€ {equipment.acquisitionCost || 0}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Inserido Em:</span> <span className="text-white text-xs">{new Date(equipment.creationDate).toLocaleDateString()}</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Legal/Accounting Data */}
+                            <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
+                                 <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
+                                    <FaLandmark className="text-yellow-500"/> Contabilidade & Inventário Legal
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                                    <div>
+                                        <span className="block text-xs text-gray-500 uppercase">Classificador (CIBE)</span>
+                                        <span className="font-mono text-white">{equipment.accounting_code || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs text-gray-500 uppercase">Estado de Conservação</span>
+                                        <span className={`font-bold ${equipment.conservation_state === 'Novo' ? 'text-green-400' : equipment.conservation_state === 'Obsoleto' ? 'text-red-400' : 'text-white'}`}>
+                                            {equipment.conservation_state || 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs text-gray-500 uppercase">Valor Residual</span>
+                                        <span className="font-mono text-white">€ {equipment.residual_value || 0}</span>
                                     </div>
                                 </div>
                             </div>

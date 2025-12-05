@@ -1,10 +1,10 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
+import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment, ConservationState } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // ... (Keep CameraScanner Component as is - abbreviated for brevity)
@@ -197,7 +197,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         ram_size: '',
         disk_info: '',
         cpu_info: '',
-        manufacture_date: ''
+        manufacture_date: '',
+        accounting_code: '',
+        conservation_state: 'Novo',
+        residual_value: 0
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
@@ -233,8 +236,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             setFormData({
                 ...equipmentToEdit,
                 purchaseDate: equipmentToEdit.purchaseDate || new Date().toISOString().split('T')[0],
-                parent_equipment_id: equipmentToEdit.parent_equipment_id || ''
-                // Keep other fields
+                parent_equipment_id: equipmentToEdit.parent_equipment_id || '',
+                accounting_code: equipmentToEdit.accounting_code || '',
+                conservation_state: equipmentToEdit.conservation_state || 'Novo',
+                residual_value: equipmentToEdit.residual_value || 0
             });
         } else if (initialData) {
              setFormData(prev => ({ ...prev, ...initialData }));
@@ -616,12 +621,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      {selectedType?.requiresInventoryNumber && (
                         <div>
-                            <label htmlFor="inventoryNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Inventário</label>
-                            <input type="text" name="inventoryNumber" id="inventoryNumber" value={formData.inventoryNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                            <label htmlFor="inventoryNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Inventário / Etiqueta</label>
+                            <input type="text" name="inventoryNumber" id="inventoryNumber" value={formData.inventoryNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" placeholder="Etiqueta física (se diferente de contabilidade)" />
                         </div>
                     )}
                     <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado</label>
+                        <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado Operacional</label>
                         <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
                             {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
@@ -719,6 +724,34 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             <option value="">-- Selecione Fornecedor --</option>
                             {suppliers.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
                         </select>
+                    </div>
+                </div>
+                
+                {/* --- NEW: Contabilidade & Património --- */}
+                <div className="border-t border-gray-600 pt-4 mt-4 bg-gray-900/30 p-3 rounded">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaLandmark className="text-yellow-500" />
+                        Contabilidade & Património (Legal)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label htmlFor="accounting_code" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código CIBE / SNC-AP</label>
+                            <input type="text" name="accounting_code" id="accounting_code" value={formData.accounting_code} onChange={handleChange} placeholder="Ex: 30102" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                        <div>
+                            <label htmlFor="conservation_state" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado de Conservação</label>
+                            <select name="conservation_state" id="conservation_state" value={formData.conservation_state} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                <option value="Novo">Novo</option>
+                                <option value="Bom">Bom</option>
+                                <option value="Razoável">Razoável</option>
+                                <option value="Mau">Mau</option>
+                                <option value="Obsoleto">Obsoleto/Sucata</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="residual_value" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Valor Residual Estimado (€)</label>
+                            <input type="number" name="residual_value" id="residual_value" value={formData.residual_value} onChange={handleChange} min="0" step="0.01" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
                     </div>
                 </div>
 
