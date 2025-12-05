@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus, Supplier } from '../types';
-import { SpinnerIcon } from './common/Icons'; // Added import
+import { SpinnerIcon } from './common/Icons';
 
 interface AddServiceModalProps {
     onClose: () => void;
@@ -23,7 +23,7 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
         external_provider_id: ''
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [isSaving, setIsSaving] = useState(false); // New state
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (serviceToEdit) {
@@ -47,11 +47,10 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
         e.preventDefault();
         if (!validate()) return;
         
-        setIsSaving(true); // Start loading
+        setIsSaving(true);
 
         try {
             const dataToSave: any = { ...formData };
-            // Clean up optional fields
             if (!dataToSave.owner_id) delete dataToSave.owner_id;
             if (!dataToSave.rto_goal) delete dataToSave.rto_goal;
             if (!dataToSave.external_provider_id) delete dataToSave.external_provider_id;
@@ -64,9 +63,9 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
             onClose();
         } catch (error: any) {
             console.error("Error saving service:", error);
-            alert(`Erro ao gravar serviço: ${error.message || "Erro desconhecido na base de dados."}`);
+            alert(`Erro ao gravar serviço: ${error.message || "Verifique os campos."}`);
         } finally {
-            setIsSaving(false); // Stop loading
+            setIsSaving(false);
         }
     };
     

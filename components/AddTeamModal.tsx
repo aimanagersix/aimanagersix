@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Team } from '../types';
-import { CheckIcon } from './common/Icons';
+import { CheckIcon, SpinnerIcon } from './common/Icons';
 
 interface AddTeamModalProps {
     onClose: () => void;
-    onSave: (team: Omit<Team, 'id'> | Team) => void;
+    onSave: (team: Omit<Team, 'id'> | Team) => Promise<void>;
     teamToEdit?: Team | null;
 }
 
@@ -16,7 +16,7 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
         description: '',
     });
     const [error, setError] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (teamToEdit) {
@@ -27,28 +27,33 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
         }
     }, [teamToEdit]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.name.trim() === '') {
             setError('O nome da equipa é obrigatório.');
             return;
         }
         setError('');
-        setSuccessMessage('');
+        setIsSaving(true);
         
-        const dataToSave = {
-            name: formData.name,
-            description: formData.description || undefined
-        };
+        try {
+            const dataToSave = {
+                name: formData.name,
+                description: formData.description || undefined
+            };
 
-        if (teamToEdit) {
-            onSave({ ...teamToEdit, ...dataToSave });
-        } else {
-            onSave(dataToSave);
+            if (teamToEdit) {
+                await onSave({ ...teamToEdit, ...dataToSave });
+            } else {
+                await onSave(dataToSave);
+            }
+            onClose();
+        } catch (err: any) {
+            console.error("Failed to save team", err);
+            setError(err.message || "Erro ao gravar equipa.");
+        } finally {
+            setIsSaving(false);
         }
-        setSuccessMessage("Equipa gravada com sucesso!");
-        setTimeout(() => setSuccessMessage(''), 3000);
-        // onClose(); // Removed auto-close
     };
     
     const modalTitle = teamToEdit ? "Editar Equipa" : "Adicionar Nova Equipa";
@@ -80,17 +85,11 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
                     />
                 </div>
 
-                {successMessage && (
-                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">
-                        {successMessage}
-                    </div>
-                )}
-
                 <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar / Fechar</button>
-                    <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
-                        {successMessage ? <CheckIcon className="h-4 w-4"/> : null}
-                        Salvar
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
+                        {isSaving ? <SpinnerIcon className="h-4 w-4"/> : <CheckIcon className="h-4 w-4"/>}
+                        {isSaving ? 'A Gravar...' : 'Salvar'}
                     </button>
                 </div>
             </form>
