@@ -1,16 +1,11 @@
 
-import React, { useMemo, useState, useEffect, Suspense } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, DocumentTemplate } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory, FaTools, FaPrint, FaFileContract, FaSpinner } from 'react-icons/fa';
+import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory, FaTools, FaPrint } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
-// import DocumentGeneratorModal from './DocumentGeneratorModal'; // REMOVE static import
-import PrintPreviewModal from './PrintPreviewModal';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
-
-// Lazy Load
-const DocumentGeneratorModal = React.lazy(() => import('./DocumentGeneratorModal'));
 
 interface EquipmentDetailModalProps {
     equipment: Equipment;
@@ -46,25 +41,16 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
     const [showManageLicenses, setShowManageLicenses] = useState(false);
     const [childEquipment, setChildEquipment] = useState<Equipment[]>([]);
 
-    // Print & Doc Gen State
-    const [showDocGenerator, setShowDocGenerator] = useState(false);
-    const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
-
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
 
-    // Fetch child equipment and Templates
+    // Fetch child equipment
     useEffect(() => {
         const loadData = async () => {
             const supabase = getSupabase();
-            
             // Children
             const { data: children } = await supabase.from('equipment').select('*').eq('parent_equipment_id', equipment.id);
             if (children) setChildEquipment(children);
-
-            // Templates
-            const tpls = await dataService.getDocumentTemplates();
-            setTemplates(tpls);
         };
         loadData();
     }, [equipment.id]);
@@ -161,17 +147,6 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
         printWindow.document.close();
     };
 
-    // Data Context for Template Generator
-    const dataContext = useMemo(() => {
-        return {
-            ...equipment,
-            currentAssignmentDate: currentAssignment?.assignedDate || '',
-            collaborator: currentAssignment?.collaboratorId ? collaborators.find(c => c.id === currentAssignment.collaboratorId) : null,
-            entity: currentAssignment?.entidadeId ? entidades.find(e => e.id === currentAssignment.entidadeId) : null,
-            supplier: equipmentSupplier
-        };
-    }, [equipment, currentAssignment, collaborators, entidades, equipmentSupplier]);
-
     return (
         <Modal title={`Detalhes: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[80vh]">
@@ -211,13 +186,9 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-2">
-                        {/* Hybrid Print Options */}
                         <div className="flex gap-2">
                              <button onClick={handleStandardPrint} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm flex items-center gap-2" title="Impressão Padrão">
                                 <FaPrint /> Ficha
-                            </button>
-                            <button onClick={() => setShowDocGenerator(true)} className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded text-sm flex items-center gap-2" title="Gerar Termo de Entrega / Devolução">
-                                <FaFileContract /> Modelo
                             </button>
                         </div>
                         
@@ -367,17 +338,6 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                     }}
                     onSave={handleSaveLicenses}
                 />
-            )}
-            
-            {showDocGenerator && (
-                <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-white"><FaSpinner className="animate-spin mr-2"/> A carregar gerador...</div>}>
-                    <DocumentGeneratorModal 
-                        onClose={() => setShowDocGenerator(false)}
-                        templates={templates}
-                        dataContext={dataContext}
-                        contextType="equipment"
-                    />
-                </Suspense>
             )}
         </Modal>
     );

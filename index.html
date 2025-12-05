@@ -11,24 +11,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="AIManager">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <!-- Valid Browser Polyfill for Buffer (Required by PDF libraries) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
     <script>
-      // Robust Polyfills for Node.js globals in browser
-      window.global = window;
-      // Ensure Buffer is available on window (cdn script usually attaches to window.buffer.Buffer or just window.Buffer)
-      if (typeof window.Buffer === 'undefined' && typeof window.buffer !== 'undefined') {
-          window.Buffer = window.buffer.Buffer;
-      }
-      
-      if (!window.process) {
-        window.process = { 
-          env: { NODE_ENV: 'production' },
-          version: '',
-          nextTick: function(fn) { setTimeout(fn, 0); },
-          platform: 'browser'
-        };
-      }
+      // Basic Process Polyfill for general compatibility
+      window.process = { 
+        env: { NODE_ENV: 'production' },
+        version: '',
+        nextTick: function(fn) { setTimeout(fn, 0); }
+      };
       
       // Register Service Worker for PWA installation and offline capabilities
       if ('serviceWorker' in navigator) {
@@ -58,10 +47,10 @@
     "leaflet": "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js",
     "leaflet/": "https://aistudiocdn.com/leaflet@^1.9.4/",
     "@playwright/test": "https://aistudiocdn.com/@playwright/test@^1.57.0",
-    "@pdfme/common": "https://esm.sh/@pdfme/common@4.1.0",
-    "@pdfme/generator": "https://esm.sh/@pdfme/generator@4.1.0",
-    "@pdfme/ui": "https://esm.sh/@pdfme/ui@4.1.0",
-    "@pdfme/schemas": "https://esm.sh/@pdfme/schemas@4.1.0"
+    "@pdfme/schemas": "https://aistudiocdn.com/@pdfme/schemas@^5.5.7",
+    "@pdfme/ui": "https://aistudiocdn.com/@pdfme/ui@^5.5.7",
+    "@pdfme/common": "https://aistudiocdn.com/@pdfme/common@^5.5.7",
+    "@pdfme/generator": "https://aistudiocdn.com/@pdfme/generator@^5.5.7"
   }
 }
 </script>

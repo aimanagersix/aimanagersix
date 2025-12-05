@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as dataService from '../../services/dataService';
 import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark, FaFileAlt, FaSpinner
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark
 } from 'react-icons/fa';
-import { ConfigItem, DocumentTemplate } from '../../types';
+import { ConfigItem } from '../../types';
 
 // Child Dashboards/Components
 import BrandDashboard from '../../components/BrandDashboard';
@@ -22,8 +22,6 @@ import AgentsTab from '../../components/settings/AgentsTab';
 import WebhooksTab from '../../components/settings/WebhooksTab';
 import CronJobsTab from '../../components/settings/CronJobsTab';
 import SoftwareProductDashboard from '../../components/settings/SoftwareProductDashboard';
-// Lazy Load TemplateDesigner to prevent @pdfme from crashing the app on load
-const TemplateDesigner = React.lazy(() => import('../../components/TemplateDesigner'));
 
 // Modals for Child Dashboards
 import AddBrandModal from '../../components/AddBrandModal';
@@ -54,11 +52,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
     
-    // Template Designer State
-    const [showTemplateDesigner, setShowTemplateDesigner] = useState(false);
-    const [templateToEdit, setTemplateToEdit] = useState<DocumentTemplate | null>(null);
-    const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
-
     // State for Automation Tabs
     const [settings, setSettings] = useState<any>({
         webhookJson: '{\n  "alert_name": "Possible Ransomware Detected",\n  "hostname": "PC-FIN-01",\n  "severity": "critical",\n  "source": "SentinelOne",\n  "timestamp": "2024-05-20T10:00:00Z"\n}',
@@ -74,13 +67,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const handleTestCron = () => {
         alert('Funcionalidade de teste ainda não implementada.');
     };
-
-    // Load Templates
-    useEffect(() => {
-        if (selectedMenuId === 'document_templates') {
-            dataService.getDocumentTemplates().then(setTemplates);
-        }
-    }, [selectedMenuId]);
 
     const handleSimulateWebhook = async () => {
         setSettings((p:any) => ({...p, isSimulating: true, simulatedTicket: null}));
@@ -172,7 +158,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'webhooks', label: 'Webhooks (SIEM)', icon: <FaNetworkWired /> },
                 { id: 'cronjobs', label: 'Tarefas Agendadas (Cron)', icon: <FaClock /> },
                 { id: 'branding', label: 'Branding (Relatórios)', icon: <FaPalette /> },
-                { id: 'document_templates', label: 'Modelos de Documentos', icon: <FaFileAlt /> }, // NEW
                 { id: 'diagnostics', label: 'Diagnóstico de Sistema', icon: <FaHeartbeat /> },
             ]
         },
@@ -231,18 +216,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
         'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
     };
-    
-    // Template deletion handler
-    const handleDeleteTemplate = async (id: string) => {
-        if(confirm("Tem a certeza?")) {
-            await dataService.deleteDocumentTemplate(id);
-            const data = await dataService.getDocumentTemplates();
-            setTemplates(data);
-        }
-    };
 
     const handleSaveConnections = async () => {
-        // ... (existing save logic)
         await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey);
         await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail);
         await dataService.updateGlobalSetting('slack_webhook_url', settings.slackWebhookUrl);
@@ -321,41 +296,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
-                    {/* Template Management */}
-                    {selectedMenuId === 'document_templates' && (
-                        <div className="p-6 h-full flex flex-col">
-                            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2"><FaFileAlt /> Modelos de Documentos (PDF)</h2>
-                            <div className="mb-4 flex justify-end">
-                                <button onClick={() => { setTemplateToEdit(null); setShowTemplateDesigner(true); }} className="bg-brand-primary text-white px-4 py-2 rounded flex items-center gap-2">
-                                    <FaPlus /> Novo Modelo
-                                </button>
-                            </div>
-                            <div className="flex-grow bg-gray-900/30 border border-gray-700 rounded-lg overflow-hidden custom-scrollbar overflow-y-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
-                                        <tr>
-                                            <th className="px-4 py-3">Nome</th>
-                                            <th className="px-4 py-3">Tipo / Contexto</th>
-                                            <th className="px-4 py-3 text-right">Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-700">
-                                        {templates.map(t => (
-                                            <tr key={t.id} className="hover:bg-gray-800/50">
-                                                <td className="px-4 py-3 text-white font-medium">{t.name}</td>
-                                                <td className="px-4 py-3 text-gray-400">{t.type}</td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <button onClick={() => { setTemplateToEdit(t); setShowTemplateDesigner(true); }} className="text-blue-400 hover:text-blue-300 mr-3"><FaEdit /></button>
-                                                    <button onClick={() => handleDeleteTemplate(t.id)} className="text-red-400 hover:text-red-300"><FaTrash /></button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
                     {selectedMenuId === 'config_software_products' ? (
                          <SoftwareProductDashboard 
                             products={appData.softwareProducts}
@@ -383,22 +323,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} existingTypes={appData.equipmentTypes} />}
             {showAddCategoryModal && <AddCategoryModal onClose={() => setShowAddCategoryModal(false)} onSave={async (c) => { if(categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, c); else await dataService.addTicketCategory(c); refreshData(); }} categoryToEdit={categoryToEdit} teams={appData.teams} />}
             {showAddIncidentTypeModal && <AddSecurityIncidentTypeModal onClose={() => setShowAddIncidentTypeModal(false)} onSave={async (i) => { if(incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, i); else await dataService.addSecurityIncidentType(i); refreshData(); }} typeToEdit={incidentTypeToEdit} />}
-            
-            {/* Template Designer Modal - LAZY LOADED */}
-            {showTemplateDesigner && (
-                <React.Suspense fallback={<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 text-white"><div className="text-center"><FaSpinner className="animate-spin text-4xl mx-auto mb-2"/>A carregar editor...</div></div>}>
-                    <TemplateDesigner 
-                        onClose={() => setShowTemplateDesigner(false)}
-                        templateToEdit={templateToEdit}
-                        onSave={async (t) => {
-                             if (templateToEdit) await dataService.updateDocumentTemplate(templateToEdit.id, t);
-                             else await dataService.addDocumentTemplate(t);
-                             // Reload templates
-                             dataService.getDocumentTemplates().then(setTemplates);
-                        }}
-                    />
-                </React.Suspense>
-            )}
         </>
     );
 };
