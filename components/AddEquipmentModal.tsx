@@ -4,10 +4,9 @@ import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
-// ... (Keep CameraScanner Component as is - abbreviated for brevity)
 interface CameraScannerProps {
     onCapture: (dataUrl: string) => void;
     onClose: () => void;
@@ -209,7 +208,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
     const [isLoading, setIsLoading] = useState({ serial: false, info: false });
-    const [isSaving, setIsSaving] = useState(false); // FIX: Added Saving State
+    const [isSaving, setIsSaving] = useState(false);
     const [isAddingBrand, setIsAddingBrand] = useState(false);
     const [newBrandName, setNewBrandName] = useState('');
     const [isAddingType, setIsAddingType] = useState(false);
@@ -223,11 +222,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     
     const aiConfigured = isAiConfigured();
 
+    // Fetch all equipment to populate parent dropdown
     useEffect(() => {
         const loadEq = async () => {
             try {
                 const data = await dataService.fetchAllData();
-                setAllEquipment(data.equipment.filter((e: Equipment) => !equipmentToEdit || e.id !== equipmentToEdit.id)); 
+                setAllEquipment(data.equipment.filter((e: Equipment) => !equipmentToEdit || e.id !== equipmentToEdit.id)); // exclude self
             } catch (e) {
                 console.error("Failed to load equipment for dropdown", e);
             }
@@ -309,6 +309,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         if (!formData.purchaseDate) newErrors.purchaseDate = "A data de compra é obrigatória.";
         
         const type = equipmentTypes.find(t => t.id === formData.typeId);
+        // Only validate location if strictly required by type
         if (type?.requiresLocation && !formData.installationLocation?.trim()) {
             newErrors.installationLocation = "O local de instalação é obrigatório para este tipo de equipamento.";
         }
@@ -425,7 +426,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         e.preventDefault();
         if (!validate()) return;
         
-        setIsSaving(true); // FIX: Lock button
+        setIsSaving(true);
         
         try {
             const dataToSubmit: Partial<Equipment> = { ...formData };
@@ -443,7 +444,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 };
             }
 
-            await onSave(dataToSubmit, assignment, undefined); // FIX: Await promise
+            await onSave(dataToSubmit, assignment, undefined); 
             onClose();
         } catch (error: any) {
             console.error("Error saving equipment:", error);
@@ -461,8 +462,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
             {isScanning && <CameraScanner onCapture={handleScanComplete} onClose={() => setIsScanning(false)} />}
             <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[80vh] pr-2 custom-scrollbar">
-                 {/* ... existing fields ... */}
-                 {/* NOTE: Content abbreviated for brevity, keeping the logic fix in handleSubmit */}
                  
                  {/* --- ACTION BAR (Only in Edit Mode) --- */}
                  {isEditMode && equipmentToEdit && (
@@ -589,9 +588,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     </div>
                 )}
                 
-                {/* ... (Rest of the form fields: Specs, Location, Status, Dates, Cost, Compliance, etc.) ... */}
-                {/* Simplified to focus on the fix requested. Keeping rest of structure implied. */}
-                
                 {/* --- HARDWARE SPECIFICATIONS SECTION --- */}
                 {(selectedType?.requires_cpu_info || selectedType?.requires_ram_size || selectedType?.requires_disk_info || selectedType?.requires_manufacture_date) && (
                     <div className="border-t border-gray-600 pt-4 mt-4 animate-fade-in">
@@ -600,12 +596,35 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             Especificações de Hardware
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                             {/* ... spec inputs ... */}
+                            {selectedType?.requires_cpu_info && (
+                                <div>
+                                    <label htmlFor="cpu_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Processador (CPU)</label>
+                                    <input type="text" name="cpu_info" id="cpu_info" value={formData.cpu_info || ''} onChange={handleChange} placeholder="Ex: Intel Core i7-1185G7" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                </div>
+                            )}
+                            {selectedType?.requires_ram_size && (
+                                <div>
+                                    <label htmlFor="ram_size" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Memória RAM</label>
+                                    <input type="text" name="ram_size" id="ram_size" value={formData.ram_size || ''} onChange={handleChange} placeholder="Ex: 16 GB" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                </div>
+                            )}
+                            {selectedType?.requires_disk_info && (
+                                <div>
+                                    <label htmlFor="disk_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disco / Armazenamento</label>
+                                    <input type="text" name="disk_info" id="disk_info" value={formData.disk_info || ''} onChange={handleChange} placeholder="Ex: 512 GB SSD NVMe" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                </div>
+                            )}
+                             {selectedType?.requires_manufacture_date && (
+                                <div>
+                                    <label htmlFor="manufacture_date" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Fabrico (BIOS Date)</label>
+                                    <input type="date" name="manufacture_date" id="manufacture_date" value={formData.manufacture_date || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
-
-                 {/* Only show Location field if the selected type requires it OR if it's already filled (legacy data) */}
+                
+                {/* Only show Location field if the selected type requires it OR if it's already filled (legacy data) */}
                 {(selectedType?.requiresLocation || formData.installationLocation) && (
                     <div>
                         <label htmlFor="installationLocation" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
@@ -623,9 +642,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                          {errors.installationLocation && <p className="text-red-400 text-xs italic mt-1">{errors.installationLocation}</p>}
                     </div>
                 )}
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedType?.requiresInventoryNumber && (
+                     {selectedType?.requiresInventoryNumber && (
                         <div>
                             <label htmlFor="inventoryNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Inventário / Etiqueta</label>
                             <input type="text" name="inventoryNumber" id="inventoryNumber" value={formData.inventoryNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" placeholder="Etiqueta física (se diferente de contabilidade)" />
@@ -639,13 +658,252 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     </div>
                 </div>
 
-                 <div>
+                {/* Loan Checkbox */}
+                <div className="bg-purple-900/20 p-3 rounded border border-purple-500/30">
+                     <label className="flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            name="isLoan" 
+                            checked={formData.isLoan} 
+                            onChange={handleChange} 
+                            className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" 
+                        />
+                        <span className="ml-2 text-sm font-bold text-purple-200 flex items-center gap-2">
+                             <FaHandHoldingHeart /> Equipamento de Empréstimo / Pool
+                        </span>
+                    </label>
+                    <p className="text-xs text-gray-400 ml-6 mt-1">
+                        Se marcado, ao ser atribuído, o estado ficará "Empréstimo" em vez de "Operacional".
+                    </p>
+                </div>
+
+                <div>
                     <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição</label>
                     <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={3} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`}></textarea>
                 </div>
 
-                {/* ... Other fields (network, dates, supplier, accounting, security, initial assignment, finops, compliance) ... */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     {selectedType?.requiresMacWIFI && (
+                        <div>
+                            <label htmlFor="macAddressWIFI" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC WIFI (Opcional)</label>
+                            <input type="text" name="macAddressWIFI" id="macAddressWIFI" value={formData.macAddressWIFI} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5E" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.macAddressWIFI ? 'border-red-500' : 'border-gray-600'}`} />
+                        </div>
+                     )}
+                     {selectedType?.requiresMacCabo && (
+                        <div>
+                            <label htmlFor="macAddressCabo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC Cabo (Opcional)</label>
+                            <input type="text" name="macAddressCabo" id="macAddressCabo" value={formData.macAddressCabo} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5F" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.macAddressCabo ? 'border-red-500' : 'border-gray-600'}`} />
+                        </div>
+                    )}
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                     {selectedType?.requires_wwan_address && (
+                        <div>
+                            <label htmlFor="wwan_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço WWAN (LTE/5G)</label>
+                            <input type="text" name="wwan_address" id="wwan_address" value={formData.wwan_address} onChange={handleChange} placeholder="Ex: IMEI ou MAC" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${(errors as any).wwan_address ? 'border-red-500' : 'border-gray-600'}`} />
+                        </div>
+                     )}
+                     {selectedType?.requires_bluetooth_address && (
+                        <div>
+                            <label htmlFor="bluetooth_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço Bluetooth</label>
+                            <input type="text" name="bluetooth_address" id="bluetooth_address" value={formData.bluetooth_address} onChange={handleChange} placeholder="MAC Address" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${(errors as any).bluetooth_address ? 'border-red-500' : 'border-gray-600'}`} />
+                        </div>
+                    )}
+                     {selectedType?.requires_usb_thunderbolt_address && (
+                        <div>
+                            <label htmlFor="usb_thunderbolt_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço USB/Thunderbolt</label>
+                            <input type="text" name="usb_thunderbolt_address" id="usb_thunderbolt_address" value={formData.usb_thunderbolt_address} onChange={handleChange} placeholder="MAC Address (se aplicável)" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${(errors as any).usb_thunderbolt_address ? 'border-red-500' : 'border-gray-600'}`} />
+                        </div>
+                    )}
+                </div>
+
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="purchaseDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Compra</label>
+                        <input type="date" name="purchaseDate" id="purchaseDate" value={formData.purchaseDate} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.purchaseDate ? 'border-red-500' : 'border-gray-600'}`} />
+                    </div>
+                     <div>
+                        <label htmlFor="invoiceNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura (Opcional)</label>
+                        <input type="text" name="invoiceNumber" id="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                    </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="requisitionNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Requisição (Opcional)</label>
+                        <input type="text" name="requisitionNumber" id="requisitionNumber" value={formData.requisitionNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" placeholder="Nº Requisição Interna" />
+                    </div>
+                    <div>
+                        <label htmlFor="warrantyEndDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fim da Garantia (Opcional)</label>
+                        <div className="flex items-center gap-2">
+                            <input type="date" name="warrantyEndDate" id="warrantyEndDate" value={formData.warrantyEndDate} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded-md p-2" />
+                            <button type="button" onClick={() => handleSetWarranty(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
+                            <button type="button" onClick={() => handleSetWarranty(3)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">3 Anos</button>
+                        </div>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label htmlFor="supplier_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fornecedor</label>
+                        <select name="supplier_id" id="supplier_id" value={formData.supplier_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                            <option value="">-- Selecione Fornecedor --</option>
+                            {suppliers.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
+                        </select>
+                    </div>
+                </div>
+                
+                {/* --- NEW: Contabilidade & Património --- */}
+                <div className="border-t border-gray-600 pt-4 mt-4 bg-gray-900/30 p-3 rounded">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaLandmark className="text-yellow-500" />
+                        Contabilidade & Património (Legal)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label htmlFor="accounting_category_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Classificador CIBE / SNC-AP</label>
+                            <select 
+                                name="accounting_category_id" 
+                                id="accounting_category_id" 
+                                value={formData.accounting_category_id} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                <option value="">-- Selecione Classificador --</option>
+                                {accountingCategories.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="conservation_state_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado de Conservação</label>
+                            <select 
+                                name="conservation_state_id" 
+                                id="conservation_state_id" 
+                                value={formData.conservation_state_id} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                <option value="">-- Selecione Estado --</option>
+                                {conservationStates.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="residual_value" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Valor Residual Estimado (€)</label>
+                            <input type="number" name="residual_value" id="residual_value" value={formData.residual_value} onChange={handleChange} min="0" step="0.01" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* --- NEW: Detalhes de Sistema & Segurança --- */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaShieldAlt className="text-green-400" />
+                        Detalhes de Sistema & Segurança
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label htmlFor="os_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do SO</label>
+                            <input type="text" name="os_version" id="os_version" value={formData.os_version} onChange={handleChange} placeholder="Ex: Windows 11 Pro 23H2" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                        <div>
+                            <label htmlFor="last_security_update" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Último Patch de Segurança</label>
+                            <input type="date" name="last_security_update" id="last_security_update" value={formData.last_security_update} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                        <div>
+                            <label htmlFor="firmware_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do Firmware</label>
+                            <input type="text" name="firmware_version" id="firmware_version" value={formData.firmware_version} onChange={handleChange} placeholder="Ex: 1.2.3" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* --- NEW: INITIAL ASSIGNMENT SECTION --- */}
+                {!isEditMode && isComputingDevice && !isMaintenanceType && (
+                    <div className="border-t border-gray-600 pt-4 mt-4">
+                        <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                            <FaUserTag className="text-blue-400" />
+                            Atribuição Inicial (Opcional)
+                        </h3>
+                        <div className="bg-gray-800/50 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
+                                <select value={assignToEntityId} onChange={(e) => { setAssignToEntityId(e.target.value); setAssignToCollaboratorId(''); }} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                                    <option value="">-- Em Stock (Sem Atribuição) --</option>
+                                    {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Colaborador</label>
+                                <select value={assignToCollaboratorId} onChange={(e) => setAssignToCollaboratorId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm disabled:bg-gray-800 disabled:cursor-not-allowed" disabled={!assignToEntityId}>
+                                    <option value="">-- Atribuir apenas à Localização --</option>
+                                    {filteredCollaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* FinOps Section */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaEuroSign className="text-green-400" />
+                        Gestão Financeira (FinOps)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="acquisitionCost" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Custo de Aquisição (€)</label>
+                            <input type="number" name="acquisitionCost" id="acquisitionCost" value={formData.acquisitionCost} onChange={handleChange} placeholder="0.00" min="0" step="0.01" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                        <div>
+                            <label htmlFor="expectedLifespanYears" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Vida Útil Esperada (Anos)</label>
+                            <input type="number" name="expectedLifespanYears" id="expectedLifespanYears" value={formData.expectedLifespanYears} onChange={handleChange} min="1" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* NIS2 Compliance Section */}
+                <div className="border-t border-gray-600 pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
+                        <FaShieldAlt className="text-yellow-400" />
+                        Classificação de Risco & Conformidade (NIS2)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label htmlFor="criticality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nível de Criticidade</label>
+                            <select name="criticality" id="criticality" value={formData.criticality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {criticalities.map(level => (<option key={level} value={level}>{level}</option>))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="confidentiality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Confidencialidade</label>
+                            <select name="confidentiality" id="confidentiality" value={formData.confidentiality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="integrity" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Integridade</label>
+                            <select name="integrity" id="integrity" value={formData.integrity} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="availability" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disponibilidade</label>
+                            <select name="availability" id="availability" value={formData.availability} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                {showKitButton && !isEditMode && (
+                    <div className="pt-4 mt-4 border-t border-gray-600">
+                        <button type="button" onClick={() => onOpenKitModal(formData)} className="w-full flex items-center justify-center gap-3 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
+                            <FaBoxes />
+                            Criar um Posto de Trabalho a partir deste item
+                        </button>
+                    </div>
+                )}
 
                 <div className="flex justify-end gap-4 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
