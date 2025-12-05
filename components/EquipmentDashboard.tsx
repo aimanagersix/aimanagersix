@@ -62,7 +62,7 @@ const getStatusClass = (status: string) => {
         case 'Garantia': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
         case 'Abate': return 'bg-red-500/20 text-red-400 border-red-500/30';
         case 'Empréstimo': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-        default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+        default: return 'bg-gray-700 text-gray-300 border-gray-600';
     }
 };
 
@@ -131,19 +131,30 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
     
-    // Dynamic Status Colors
+    // Dynamic Status Colors & Options
     const [statusColors, setStatusColors] = useState<Record<string, string>>({});
+    const [statusOptions, setStatusOptions] = useState<string[]>(Object.values(EquipmentStatus));
 
     useEffect(() => {
-        const loadColors = async () => {
+        const loadConfig = async () => {
             const data = await dataService.fetchAllData();
             const colors: Record<string, string> = {};
+            const dynamicStatuses: string[] = [];
+
             data.configEquipmentStatuses.forEach((s: ConfigItem) => {
                 if (s.color) colors[s.name] = s.color;
+                dynamicStatuses.push(s.name);
             });
+            
             setStatusColors(colors);
+            
+            // Merge dynamic statuses with default/static ones, removing duplicates
+            if (dynamicStatuses.length > 0) {
+                const merged = Array.from(new Set([...Object.values(EquipmentStatus), ...dynamicStatuses]));
+                setStatusOptions(merged);
+            }
         };
-        loadColors();
+        loadConfig();
     }, []);
     
     useEffect(() => {
@@ -449,7 +460,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 </select>
                 <select id="statusFilter" name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" >
                     <option value="">Todos os Estados</option>
-                    {Object.values(EquipmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                    {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <select name="collaboratorId" value={filters.collaboratorId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
                     <option value="">Todos os Colaboradores</option>
@@ -547,11 +558,19 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                   <select
                     value={item.status}
                     onChange={(e) => handleStatusChange(item, e.target.value as EquipmentStatus)}
-                    className={`px-2 py-1 rounded-md text-xs border bg-transparent focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70 ${!customColor ? getStatusClass(item.status) : ''}`}
-                    style={statusStyle}
+                    className={`px-2 py-1 rounded-md text-xs font-bold border focus:outline-none focus:ring-2 focus:ring-brand-secondary cursor-pointer ${
+                        customColor 
+                            ? 'border-transparent' 
+                            : getStatusClass(item.status)
+                    }`}
+                    style={statusStyle ? statusStyle : (customColor ? {} : { backgroundColor: '#1f2937', color: '#e5e7eb', borderColor: '#4b5563' })} 
                     disabled={!onUpdateStatus}
                   >
-                    {Object.values(EquipmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                    {statusOptions.map(s => (
+                        <option key={s} value={s} className="bg-gray-800 text-white">
+                            {s}
+                        </option>
+                    ))}
                   </select>
                 </td>
                 <td className="px-6 py-4 text-center">
