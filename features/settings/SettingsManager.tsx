@@ -5,7 +5,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -177,7 +177,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
                 { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação', icon: <FaUserSlash /> },
                 { id: 'config_software_categories', label: 'Categorias de Software', icon: <FaList /> },
-                { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, // NEW
+                { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, 
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
@@ -188,6 +188,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_backup_types', label: 'Tipos de Backup', icon: <FaServer /> },
                 { id: 'config_training_types', label: 'Tipos de Formação', icon: <FaGraduationCap /> },
                 { id: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt /> },
+                // NEW LEGAL TABLES
+                { id: 'config_accounting_categories', label: 'Classificador CIBE', icon: <FaLandmark /> },
+                { id: 'config_conservation_states', label: 'Estados Conservação', icon: <FaLeaf /> },
             ]
         }
     ];
@@ -206,6 +209,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: appData.configBackupTypes },
         'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: appData.configTrainingTypes },
         'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes },
+        // NEW LEGAL TABLES
+        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories },
+        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates, colorField: true },
     };
     
     const handleSaveConnections = async () => {
@@ -281,7 +287,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     />}
                     {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
                     {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
-                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={handleSaveConnections} />}
+                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
                     {selectedMenuId === 'roles' && <RoleManager roles={appData.customRoles} onRefresh={refreshData} />}
                     {selectedMenuId === 'brands' && <BrandDashboard brands={appData.brands} equipment={appData.equipment} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />}
                     {selectedMenuId === 'equipment_types' && <EquipmentTypeDashboard equipmentTypes={appData.equipmentTypes} equipment={appData.equipment} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />}

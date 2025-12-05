@@ -161,6 +161,14 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     
     const canApproveProcurement = checkPermission('procurement', 'delete');
 
+    // Resolve Name for History Modal (since Equipment stores ID now)
+    const resolvedDetailEquipment = detailEquipment ? {
+        ...detailEquipment,
+        accounting_code: appData.configAccountingCategories.find((c:any) => c.id === detailEquipment.accounting_category_id)?.name,
+        conservation_state: appData.configConservationStates.find((c:any) => c.id === detailEquipment.conservation_state_id)?.name
+    } : null;
+
+
     return (
         <>
             {/* --- DASHBOARDS --- */}
@@ -270,6 +278,9 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onOpenHistory={(eq) => { setDetailEquipment(eq); }}
                     onManageLicenses={(eq) => { setDetailEquipment(eq); }} 
                     onOpenAssign={(eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
+                    // NEW PROPS
+                    accountingCategories={appData.configAccountingCategories}
+                    conservationStates={appData.configConservationStates}
                 />
             )}
 
@@ -288,7 +299,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
 
             {detailEquipment && (
                  <EquipmentHistoryModal 
-                    equipment={detailEquipment}
+                    equipment={resolvedDetailEquipment || detailEquipment}
                     assignments={appData.assignments}
                     collaborators={appData.collaborators}
                     escolasDepartamentos={appData.entidades}

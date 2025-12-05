@@ -77,16 +77,6 @@ export const EquipmentStatus = {
 } as const;
 export type EquipmentStatus = string;
 
-// LEGAL / ACCOUNTING STATUS (Conservation)
-export const ConservationState = {
-    Novo: 'Novo',
-    Bom: 'Bom',
-    Razoavel: 'Razoável',
-    Mau: 'Mau',
-    Obsoleto: 'Obsoleto/Sucata'
-} as const;
-export type ConservationState = string;
-
 export const CriticalityLevel = {
     Low: 'Baixa',
     Medium: 'Média',
@@ -253,9 +243,9 @@ export interface Equipment {
   acquisitionCost?: number; // Cost in EUR
   expectedLifespanYears?: number; // e.g. 4 years
   
-  // Legal / Accounting Fields (New for Compliance with Law)
-  accounting_code?: string; // Classificador CIBE / SNC-AP (ex: 30102)
-  conservation_state?: ConservationState; // Estado de Conservação Legal
+  // Legal / Accounting Fields (Linked to Config Tables)
+  accounting_category_id?: string; // Link to config_accounting_categories (CIBE)
+  conservation_state_id?: string; // Link to config_conservation_states
   residual_value?: number; // Valor residual no fim de vida
   
   // OEM / Embedded License
@@ -355,7 +345,7 @@ export type ModuleKey =
     | 'equipment_types'
     | 'config_equipment_statuses'
     | 'config_software_categories'
-    | 'config_software_products' // NEW
+    | 'config_software_products' 
     | 'ticket_categories'
     | 'security_incident_types'
     | 'contact_roles'
@@ -369,7 +359,9 @@ export type ModuleKey =
     | 'config_training_types'
     | 'config_resilience_test_types'
     | 'config_decommission_reasons'
-    | 'config_collaborator_deactivation_reasons';
+    | 'config_collaborator_deactivation_reasons'
+    | 'config_accounting_categories' // NEW: CIBE
+    | 'config_conservation_states'; // NEW: States
 
 export interface PermissionMatrix {
     [module: string]: {

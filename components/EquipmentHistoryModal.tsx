@@ -8,7 +8,7 @@ import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
 
 interface EquipmentHistoryModalProps {
-    equipment: Equipment;
+    equipment: Equipment; // Note: For display purposes, accounting_code/conservation_state might be passed as strings (names) if pre-processed by parent, OR we handle raw IDs here if parent passes raw obj. Ideally pass names.
     assignments: Assignment[];
     collaborators: Collaborator[];
     escolasDepartamentos: Entidade[];
@@ -239,12 +239,13 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                                     <div>
                                         <span className="block text-xs text-gray-500 uppercase">Classificador (CIBE)</span>
-                                        <span className="font-mono text-white">{equipment.accounting_code || 'N/A'}</span>
+                                        {/* Note: The parent component (InventoryManager) should pass resolved names if they are IDs, or the Equipment object should have them populated. Assuming IDs for now, but if resolved, 'accounting_code' prop. */}
+                                        <span className="font-mono text-white">{(equipment as any).accounting_code || equipment.accounting_category_id || 'N/A'}</span>
                                     </div>
                                     <div>
                                         <span className="block text-xs text-gray-500 uppercase">Estado de Conservação</span>
-                                        <span className={`font-bold ${equipment.conservation_state === 'Novo' ? 'text-green-400' : equipment.conservation_state === 'Obsoleto' ? 'text-red-400' : 'text-white'}`}>
-                                            {equipment.conservation_state || 'N/A'}
+                                        <span className={`font-bold text-white`}>
+                                            {(equipment as any).conservation_state || equipment.conservation_state_id || 'N/A'}
                                         </span>
                                     </div>
                                     <div>

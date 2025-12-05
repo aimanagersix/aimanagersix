@@ -32,15 +32,35 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.4
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.5 (CIBE & Conservation)
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_net"; 
 
--- 2. ESTRUTURA DE TABELAS (ATUALIZAÇÕES)
--- Adicionar coluna de data de leitura de inventário (Agent Scan)
+-- 2. NOVAS TABELAS DE CONFIGURAÇÃO (LEGAL)
+CREATE TABLE IF NOT EXISTS public.config_accounting_categories (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE, -- Ex: "30102 - Equipamento de Informática"
+    color text
+);
+ALTER TABLE public.config_accounting_categories ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.config_conservation_states (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE, -- Ex: "Novo", "Bom"
+    color text
+);
+ALTER TABLE public.config_conservation_states ENABLE ROW LEVEL SECURITY;
+
+-- 3. ESTRUTURA DE TABELAS (ATUALIZAÇÕES)
+-- Adicionar colunas de link legal na tabela de equipamentos
+ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS accounting_category_id uuid REFERENCES public.config_accounting_categories(id);
+ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS conservation_state_id uuid REFERENCES public.config_conservation_states(id);
+ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS residual_value numeric;
+
+-- Garantir last_inventory_scan
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS last_inventory_scan date;
 
 -- Adicionar coluna user_email se não existir em audit_logs
@@ -51,7 +71,23 @@ BEGIN
     END IF;
 END $$;
 
--- 3. FUNÇÕES DE PERMISSÕES
+-- 4. SEED DE DADOS LEGAIS (PORTUGAL)
+INSERT INTO public.config_conservation_states (name, color) VALUES
+('Novo', '#10B981'),
+('Bom', '#3B82F6'),
+('Razoável', '#F59E0B'),
+('Mau', '#EF4444'),
+('Obsoleto/Sucata', '#6B7280')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO public.config_accounting_categories (name) VALUES
+('30102 - Equipamento Básico'),
+('30103 - Software Informático'),
+('30104 - Equipamento Administrativo'),
+('30105 - Outros Bens de Investimento')
+ON CONFLICT (name) DO NOTHING;
+
+-- 5. FUNÇÕES DE PERMISSÕES
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS boolean AS $$
 BEGIN
@@ -103,7 +139,7 @@ $$;
 GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 
 -- ==========================================
--- 4. RLS - POLÍTICAS DE SEGURANÇA
+-- 6. RLS - POLÍTICAS DE SEGURANÇA
 -- ==========================================
 
 -- Habilitar RLS em todas as tabelas públicas
@@ -204,7 +240,7 @@ CREATE POLICY "Settings Read" ON global_settings FOR SELECT TO authenticated USI
 CREATE POLICY "Settings Write" ON global_settings FOR ALL TO authenticated USING (is_admin());
 
 -- ==========================================
--- 5. AUDIT LOG TRIGGER (ATUALIZADO)
+-- 7. AUDIT LOG TRIGGER (ATUALIZADO)
 -- ==========================================
 CREATE OR REPLACE FUNCTION log_audit_event()
 RETURNS trigger AS $$
@@ -534,7 +570,7 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                                 </div>
                                 <p className="mb-2">
                                     Se está a ter problemas a gravar dados ou a carregar triggers, execute este script.
-                                    Ele inclui um comando <strong>NOTIFY pgrst</strong> que força o Supabase a atualizar a cache da API e cria a coluna <strong>user_email</strong> na tabela de auditoria.
+                                    Ele inclui um comando <strong>NOTIFY pgrst</strong> que força o Supabase a atualizar a cache da API e cria as novas tabelas legais (CIBE/Estados).
                                 </p>
                                 <ol className="list-decimal list-inside ml-2 space-y-1">
                                     <li>Copie o código SQL abaixo.</li>
@@ -557,6 +593,7 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                         </div>
                     )}
 
+                    {/* ... existing tabs ... */}
                     {/* STORAGE TAB */}
                     {activeTab === 'storage' && (
                         <div className="space-y-4 animate-fade-in">

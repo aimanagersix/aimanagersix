@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment, ConservationState } from '../types';
+import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
 import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark } from 'react-icons/fa';
@@ -161,13 +161,17 @@ interface AddEquipmentModalProps {
     onOpenHistory?: (equipment: Equipment) => void;
     onManageLicenses?: (equipment: Equipment) => void;
     onOpenAssign?: (equipment: Equipment) => void;
+    // NEW
+    accountingCategories?: ConfigItem[];
+    conservationStates?: ConfigItem[];
 }
 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ 
     onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, 
     suppliers = [], entidades = [], collaborators = [], 
     statusOptions, criticalityOptions, ciaOptions, initialData,
-    onOpenHistory, onManageLicenses, onOpenAssign
+    onOpenHistory, onManageLicenses, onOpenAssign,
+    accountingCategories = [], conservationStates = []
 }) => {
     // Use dynamic options if available, else fallback to enum values
     const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(o => o.name) : Object.values(EquipmentStatus);
@@ -198,8 +202,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         disk_info: '',
         cpu_info: '',
         manufacture_date: '',
-        accounting_code: '',
-        conservation_state: 'Novo',
+        accounting_category_id: '',
+        conservation_state_id: '',
         residual_value: 0
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -237,8 +241,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 ...equipmentToEdit,
                 purchaseDate: equipmentToEdit.purchaseDate || new Date().toISOString().split('T')[0],
                 parent_equipment_id: equipmentToEdit.parent_equipment_id || '',
-                accounting_code: equipmentToEdit.accounting_code || '',
-                conservation_state: equipmentToEdit.conservation_state || 'Novo',
+                accounting_category_id: equipmentToEdit.accounting_category_id || '',
+                conservation_state_id: equipmentToEdit.conservation_state_id || '',
                 residual_value: equipmentToEdit.residual_value || 0
             });
         } else if (initialData) {
@@ -428,6 +432,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         // and ignores fields not in the table, preventing data loss on edit.
         const dataToSubmit: Partial<Equipment> = { ...formData };
         
+        // Clean up optional foreign keys
+        if (!dataToSubmit.accounting_category_id) delete dataToSubmit.accounting_category_id;
+        if (!dataToSubmit.conservation_state_id) delete dataToSubmit.conservation_state_id;
+
         let assignment = null;
         if (!equipmentToEdit && assignToEntityId) {
             assignment = {
@@ -510,7 +518,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             <div className="flex items-center gap-2">
                                 <select name="brandId" id="brandId" value={formData.brandId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.brandId ? 'border-red-500' : 'border-gray-600'}`}>
                                     <option value="" disabled>Selecione uma marca</option>
-                                    {brands.map(brand => (<option key={brand.id} value={brand.id}>{brand.name}</option>))}
+                                    {brands.map(brand => (<option key={brand.id} value={brand.id}>{brand.name}</option>)}
                                 </select>
                                 <button type="button" onClick={() => setIsAddingBrand(true)} className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"><PlusIcon className="h-5 w-5"/></button>
                             </div>
@@ -735,17 +743,33 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label htmlFor="accounting_code" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código CIBE / SNC-AP</label>
-                            <input type="text" name="accounting_code" id="accounting_code" value={formData.accounting_code} onChange={handleChange} placeholder="Ex: 30102" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                            <label htmlFor="accounting_category_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Classificador CIBE / SNC-AP</label>
+                            <select 
+                                name="accounting_category_id" 
+                                id="accounting_category_id" 
+                                value={formData.accounting_category_id} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                <option value="">-- Selecione Classificador --</option>
+                                {accountingCategories.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
-                            <label htmlFor="conservation_state" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado de Conservação</label>
-                            <select name="conservation_state" id="conservation_state" value={formData.conservation_state} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                <option value="Novo">Novo</option>
-                                <option value="Bom">Bom</option>
-                                <option value="Razoável">Razoável</option>
-                                <option value="Mau">Mau</option>
-                                <option value="Obsoleto">Obsoleto/Sucata</option>
+                            <label htmlFor="conservation_state_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado de Conservação</label>
+                            <select 
+                                name="conservation_state_id" 
+                                id="conservation_state_id" 
+                                value={formData.conservation_state_id} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                <option value="">-- Selecione Estado --</option>
+                                {conservationStates.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
                             </select>
                         </div>
                         <div>

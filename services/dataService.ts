@@ -80,6 +80,8 @@ export const fetchAllData = async () => {
         configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configSoftwareProducts, configCustomRoles,
         configDecommissionReasons,
         configCollaboratorDeactivationReasons,
+        configAccountingCategories, // CIBE
+        configConservationStates,   // States
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
@@ -123,6 +125,8 @@ export const fetchAllData = async () => {
         supabase.from('config_custom_roles').select('*'),
         supabase.from('config_decommission_reasons').select('*'),
         supabase.from('config_collaborator_deactivation_reasons').select('*'),
+        supabase.from('config_accounting_categories').select('*'), // New
+        supabase.from('config_conservation_states').select('*'),   // New
         supabase.from('policies').select('*'),
         supabase.from('policy_acceptances').select('*'),
         supabase.from('procurement_requests').select('*'),
@@ -178,6 +182,8 @@ export const fetchAllData = async () => {
         configCustomRoles: configCustomRoles.data || [],
         configDecommissionReasons: configDecommissionReasons.data || [],
         configCollaboratorDeactivationReasons: configCollaboratorDeactivationReasons.data || [],
+        configAccountingCategories: configAccountingCategories.data || [], // New
+        configConservationStates: configConservationStates.data || [],     // New
         policies: policies.data || [],
         policyAcceptances: policyAcceptances.data || [],
         procurementRequests: procurementRequests.data || [],
