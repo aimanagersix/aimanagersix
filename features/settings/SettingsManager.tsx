@@ -5,7 +5,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark, FaSync
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -243,6 +243,15 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-150px)]">
                 {/* Sidebar Menu */}
                 <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden flex-shrink-0">
+                    {/* Reload Button */}
+                    <div className="p-2 border-b border-gray-700">
+                         <button 
+                            onClick={refreshData}
+                            className="w-full flex items-center justify-center gap-2 bg-green-700 hover:bg-green-600 text-white p-2 rounded text-sm transition-colors font-bold"
+                        >
+                            <FaSync /> Recarregar Dados
+                        </button>
+                    </div>
                     <div className="overflow-y-auto flex-grow p-2 space-y-4 custom-scrollbar">
                         {menuStructure.map((group, gIdx) => (
                             <div key={gIdx}>

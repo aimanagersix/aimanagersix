@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -11,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'seed' | 'triggers' | 'storage' | 'playwright_ai' | 'chat_repair'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'fix_types' | 'seed' | 'triggers' | 'storage' | 'playwright_ai'>('update');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -24,9 +24,6 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const [triggers, setTriggers] = useState<any[]>([]);
     const [isLoadingTriggers, setIsLoadingTriggers] = useState(false);
     const [triggerError, setTriggerError] = useState<string | null>(null);
-
-    // Seed State
-    const [isSeeding, setIsSeeding] = useState(false);
 
     const aiConfigured = isAiConfigured();
 
@@ -190,6 +187,37 @@ GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 NOTIFY pgrst, 'reload config';
 `;
 
+    const fixTypesScript = `
+-- ============================================================
+-- SCRIPT: ATUALIZAÇÃO RÁPIDA DE TIPOS DE EQUIPAMENTO
+-- Ativa os campos de Hardware (CPU, RAM, Disco) para tipos comuns
+-- ============================================================
+
+UPDATE equipment_types 
+SET 
+    requires_cpu_info = true, 
+    requires_ram_size = true, 
+    requires_disk_info = true,
+    requires_manufacture_date = true
+WHERE 
+    LOWER(name) LIKE '%desktop%' OR 
+    LOWER(name) LIKE '%laptop%' OR 
+    LOWER(name) LIKE '%portátil%' OR 
+    LOWER(name) LIKE '%computador%' OR
+    LOWER(name) LIKE '%server%' OR
+    LOWER(name) LIKE '%servidor%';
+
+-- Opcional: Ativar apenas Data de Fabrico para Monitores
+UPDATE equipment_types 
+SET 
+    requires_manufacture_date = true
+WHERE 
+    LOWER(name) LIKE '%monitor%' OR 
+    LOWER(name) LIKE '%ecrã%';
+
+NOTIFY pgrst, 'reload config';
+`;
+
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
         setCopied(true);
@@ -239,7 +267,13 @@ NOTIFY pgrst, 'reload config';
                         onClick={() => setActiveTab('update')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'update' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaDatabase /> Atualizar BD (Hardware & Legal)
+                        <FaDatabase /> 1. Atualizar BD
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('fix_types')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'fix_types' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaMagic /> 2. Ativar Campos (Hardware)
                     </button>
                      <button 
                         onClick={() => setActiveTab('storage')} 
@@ -273,7 +307,7 @@ NOTIFY pgrst, 'reload config';
                                 <p className="mb-2">
                                     Este script popula as tabelas de <strong>CPUs, RAM e Discos</strong> com componentes modernos (últimos 3 anos) e cria as tabelas de configuração legal (CIBE, Estados de Conservação).
                                     <br/>
-                                    Copie e execute no <strong>SQL Editor do Supabase</strong>.
+                                    <strong>Instruções:</strong> Copie e execute no <strong>SQL Editor do Supabase</strong>. Depois, recarregue a página (F5).
                                 </p>
                             </div>
                             <div className="relative">
@@ -282,6 +316,34 @@ NOTIFY pgrst, 'reload config';
                                 </pre>
                                 <button 
                                     onClick={() => handleCopy(updateScript)} 
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
+                                    title="Copiar SQL"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* FIX TYPES TAB */}
+                    {activeTab === 'fix_types' && (
+                         <div className="space-y-4 animate-fade-in">
+                            <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaMagic /> ATIVAR CAMPOS EM TIPOS EXISTENTES
+                                </div>
+                                <p className="mb-2">
+                                    Se não vê os campos "Processador", "RAM" e "Disco" ao criar um equipamento, é porque o <strong>Tipo de Equipamento</strong> (ex: "Portátil") ainda não está configurado para pedir esses dados.
+                                    <br/>
+                                    Este script atualiza automaticamente todos os tipos com nomes como "Desktop", "Laptop", "Servidor" para mostrar os novos campos.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                    {fixTypesScript}
+                                </pre>
+                                <button 
+                                    onClick={() => handleCopy(fixTypesScript)} 
                                     className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
                                     title="Copiar SQL"
                                 >
