@@ -278,9 +278,13 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onOpenHistory={(eq) => { setDetailEquipment(eq); }}
                     onManageLicenses={(eq) => { setDetailEquipment(eq); }} 
                     onOpenAssign={(eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
-                    // NEW PROPS
+                    
+                    // NEW PROPS FOR CONFIG TABLES
                     accountingCategories={appData.configAccountingCategories}
                     conservationStates={appData.configConservationStates}
+                    cpuOptions={appData.configCpus}
+                    ramOptions={appData.configRamSizes}
+                    storageOptions={appData.configStorageTypes}
                 />
             )}
 

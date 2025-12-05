@@ -5,7 +5,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -191,6 +191,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 // NEW LEGAL TABLES
                 { id: 'config_accounting_categories', label: 'Classificador CIBE', icon: <FaLandmark /> },
                 { id: 'config_conservation_states', label: 'Estados Conservação', icon: <FaLeaf /> },
+                // NEW HARDWARE TABLES
+                { id: 'config_cpus', label: 'Processadores (CPU)', icon: <FaMicrochip /> },
+                { id: 'config_ram_sizes', label: 'Tamanhos de RAM', icon: <FaMemory /> },
+                { id: 'config_storage_types', label: 'Tipos de Disco', icon: <FaHdd /> },
             ]
         }
     ];
@@ -200,7 +204,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
-        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, // To be implemented fully via GenericDashboard or Custom
+        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, 
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
         'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
@@ -209,17 +213,20 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: appData.configBackupTypes },
         'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: appData.configTrainingTypes },
         'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes },
-        // NEW LEGAL TABLES
         'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories },
         'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates, colorField: true },
+        // NEW HARDWARE
+        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
+        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
+        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
     };
     
     const handleSaveConnections = async () => {
+        // ... (existing save logic)
         await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey);
         await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail);
         await dataService.updateGlobalSetting('slack_webhook_url', settings.slackWebhookUrl);
         
-        // LocalStorage Settings
         if (settings.sbUrl && settings.sbKey) {
             localStorage.setItem('SUPABASE_URL', settings.sbUrl);
             localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);
@@ -294,7 +301,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
-                    {/* Special Handling for Software Products to show Category dropdown in Generic Dashboard if we implemented it, but here we just show basic table for now */}
                     {selectedMenuId === 'config_software_products' ? (
                          <SoftwareProductDashboard 
                             products={appData.softwareProducts}
