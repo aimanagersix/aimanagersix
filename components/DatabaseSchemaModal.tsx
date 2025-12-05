@@ -32,25 +32,18 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.3
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.4
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_net"; 
 
--- 2. CORREÇÃO DA ESTRUTURA DA TABELA AUDIT_LOGS (CRÍTICO)
-CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    user_id uuid REFERENCES auth.users(id),
-    action text,
-    resource_type text,
-    resource_id text,
-    details text,
-    timestamp timestamptz DEFAULT now()
-);
+-- 2. ESTRUTURA DE TABELAS (ATUALIZAÇÕES)
+-- Adicionar coluna de data de leitura de inventário (Agent Scan)
+ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS last_inventory_scan date;
 
--- Adicionar coluna user_email se não existir (Migração)
+-- Adicionar coluna user_email se não existir em audit_logs
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='audit_logs' AND column_name='user_email') THEN

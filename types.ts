@@ -235,6 +235,7 @@ export interface Equipment {
   disk_info?: string;
   monitor_info?: string;
   manufacture_date?: string; // NEW: Data de Fabrico
+  last_inventory_scan?: string; // NEW: Date when the agent ran
   // Vendor Link
   supplier_id?: string;
   

@@ -130,7 +130,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     // Add other fields from agent if available
                     macAddressWIFI: json.macAddressWIFI,
                     macAddressCabo: json.macAddressCabo,
-                    disk_info: json.disk_info ? JSON.stringify(json.disk_info) : undefined
+                    disk_info: json.disk_info ? JSON.stringify(json.disk_info) : undefined,
+                    last_inventory_scan: json.scan_date || new Date().toISOString().split('T')[0] // Capture Agent Scan Date
                 };
 
                 if (existingEq) {
@@ -140,7 +141,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                      await dataService.addEquipment({
                          ...payload,
                          status: EquipmentStatus.Stock,
-                         purchaseDate: new Date().toISOString().split('T')[0], // Default to today if new
+                         // Note: Do NOT default purchaseDate to today, leave it null/empty to distinguish between insertion and purchase
+                         purchaseDate: undefined, 
                          criticality: 'Baixa',
                          creationDate: new Date().toISOString(),
                          modifiedDate: new Date().toISOString()

@@ -49,6 +49,7 @@ function Get-HardwareInfo {
         nomeNaRede = $env:COMPUTERNAME
         macAddressWIFI = $macWifi
         macAddressCabo = $macCabo
+        scan_date = (Get-Date).ToString("yyyy-MM-dd")
     }
 }
 
@@ -78,6 +79,7 @@ import uuid
 import json
 import sys
 import os
+from datetime import datetime
 
 # AIManager Inventory Agent v2.0 (Offline Mode)
 # Gera um ficheiro JSON local.
@@ -106,6 +108,8 @@ def get_system_info():
     info['serialNumber'] = f"PY-{uuid.getnode()}" 
     info['brandName'] = "Generic"
     info['typeName'] = "Server" if platform.system() == "Linux" else "Workstation"
+    
+    info['scan_date'] = datetime.now().strftime("%Y-%m-%d")
 
     return info
 

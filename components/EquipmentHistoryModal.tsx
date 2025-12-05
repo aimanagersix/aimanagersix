@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop, FaTools, FaTicketAlt, FaHistory } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop, FaTools, FaTicketAlt, FaHistory, FaRobot } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -200,12 +200,19 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                         <div className="flex justify-between"><span className="text-gray-500">MAC (WiFi):</span> <span className="text-white font-mono">{equipment.macAddressWIFI || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">MAC (Cabo):</span> <span className="text-white font-mono">{equipment.macAddressCabo || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Sistema Operativo:</span> <span className="text-white">{equipment.os_version || '-'}</span></div>
+                                        
+                                        {equipment.last_inventory_scan && (
+                                            <div className="flex justify-between mt-2 pt-2 border-t border-gray-700">
+                                                <span className="text-brand-secondary flex items-center gap-1"><FaRobot/> Último Inventário (Agente):</span> 
+                                                <span className="text-white font-bold">{equipment.last_inventory_scan}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="space-y-4">
                                     <h3 className="text-sm font-bold text-gray-400 uppercase border-b border-gray-700 pb-1">Compra & Garantia</h3>
                                     <div className="text-sm space-y-2">
-                                        <div className="flex justify-between"><span className="text-gray-500">Data Compra:</span> <span className="text-white">{equipment.purchaseDate}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Data Compra:</span> <span className="text-white">{equipment.purchaseDate || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Fim Garantia:</span> <span className="text-white">{equipment.warrantyEndDate || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Nº Fatura:</span> <span className="text-white">{equipment.invoiceNumber || '-'}</span></div>
                                         <div className="flex justify-between">
@@ -219,6 +226,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                             )}
                                         </div>
                                         <div className="flex justify-between"><span className="text-gray-500">Custo Aquisição:</span> <span className="text-white font-bold">€ {equipment.acquisitionCost || 0}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Inserido Em:</span> <span className="text-white text-xs">{new Date(equipment.creationDate).toLocaleDateString()}</span></div>
                                     </div>
                                 </div>
                             </div>
