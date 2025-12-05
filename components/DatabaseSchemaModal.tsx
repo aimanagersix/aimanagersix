@@ -32,7 +32,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v4.2 (Document Templates)
+-- SCRIPT DE CORREÇÃO E POPULAÇÃO DE DADOS HARDWARE (2021-2024)
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.document_templates (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL,
     type text NOT NULL, -- 'equipment', 'collaborator', 'generic'
-    template_json jsonb NOT NULL, -- @pdfme/common Template Schema
+    template_json jsonb NOT NULL,
     is_active boolean DEFAULT true,
     created_at timestamptz DEFAULT now()
 );
@@ -86,7 +86,6 @@ ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS last_inventory_scan date;
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS is_loan boolean DEFAULT false;
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS parent_equipment_id uuid REFERENCES public.equipment(id);
 
--- Adicionar coluna user_email se não existir em audit_logs
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='audit_logs' AND column_name='user_email') THEN
@@ -94,29 +93,62 @@ BEGIN
     END IF;
 END $$;
 
--- 5. SEED DE DADOS LEGAIS & HARDWARE
+-- 5. SEED DE DADOS (POPULAÇÃO DE TABELAS)
+
+-- Estados de Conservação
 INSERT INTO public.config_conservation_states (name, color) VALUES
 ('Novo', '#10B981'), ('Bom', '#3B82F6'), ('Razoável', '#F59E0B'), ('Mau', '#EF4444'), ('Obsoleto/Sucata', '#6B7280')
 ON CONFLICT (name) DO NOTHING;
 
+-- Categorias CIBE
 INSERT INTO public.config_accounting_categories (name) VALUES
 ('30102 - Equipamento Básico'), ('30103 - Software Informático'), ('30104 - Equipamento Administrativo')
 ON CONFLICT (name) DO NOTHING;
 
+-- Processadores (2021-2024)
 INSERT INTO public.config_cpus (name) VALUES 
-('Intel Core i3'), ('Intel Core i5'), ('Intel Core i7'), ('Intel Core i9'),
-('AMD Ryzen 3'), ('AMD Ryzen 5'), ('AMD Ryzen 7'), ('Apple M1'), ('Apple M2'), ('Apple M3')
+-- Apple Silicon
+('Apple M1'), ('Apple M1 Pro'), ('Apple M1 Max'), ('Apple M1 Ultra'),
+('Apple M2'), ('Apple M2 Pro'), ('Apple M2 Max'), ('Apple M2 Ultra'),
+('Apple M3'), ('Apple M3 Pro'), ('Apple M3 Max'),
+('Apple M4'), ('Apple M4 Pro'),
+-- Intel 12th Gen (Alder Lake)
+('Intel Core i3-12100'), ('Intel Core i5-12400'), ('Intel Core i5-12500'), ('Intel Core i5-12600K'), 
+('Intel Core i7-12700'), ('Intel Core i7-12700K'), ('Intel Core i9-12900K'),
+-- Intel 13th Gen (Raptor Lake)
+('Intel Core i3-13100'), ('Intel Core i5-13400'), ('Intel Core i5-13500'), ('Intel Core i5-13600K'), 
+('Intel Core i7-13700'), ('Intel Core i7-13700K'), ('Intel Core i9-13900K'),
+-- Intel 14th Gen (Raptor Lake Refresh)
+('Intel Core i5-14600K'), ('Intel Core i7-14700K'), ('Intel Core i9-14900K'),
+-- Intel Core Ultra (Meteor Lake)
+('Intel Core Ultra 5 125H'), ('Intel Core Ultra 7 155H'), ('Intel Core Ultra 9 185H'),
+-- AMD Ryzen 5000
+('AMD Ryzen 5 5600X'), ('AMD Ryzen 7 5800X'), ('AMD Ryzen 9 5900X'), ('AMD Ryzen 9 5950X'),
+-- AMD Ryzen 7000
+('AMD Ryzen 5 7600X'), ('AMD Ryzen 7 7700X'), ('AMD Ryzen 7 7800X3D'), ('AMD Ryzen 9 7900X'), ('AMD Ryzen 9 7950X'),
+-- AMD Ryzen 8000/9000
+('AMD Ryzen 5 8600G'), ('AMD Ryzen 7 8700G'), ('AMD Ryzen 5 9600X'), ('AMD Ryzen 7 9700X'), ('AMD Ryzen 9 9900X'),
+-- Server
+('Intel Xeon Scalable (Gen3)'), ('Intel Xeon Scalable (Gen4)'), ('AMD EPYC (Milan)'), ('AMD EPYC (Genoa)')
 ON CONFLICT (name) DO NOTHING;
 
+-- Memória RAM (DDR4/DDR5 Standard & Non-Binary)
 INSERT INTO public.config_ram_sizes (name) VALUES 
-('4 GB'), ('8 GB'), ('16 GB'), ('32 GB'), ('64 GB')
+('4 GB'), ('8 GB'), ('12 GB'), ('16 GB'), 
+('24 GB (DDR5)'), ('32 GB'), ('48 GB (DDR5)'), 
+('64 GB'), ('96 GB (DDR5)'), ('128 GB'), ('256 GB')
 ON CONFLICT (name) DO NOTHING;
 
+-- Armazenamento (NVMe/SATA)
 INSERT INTO public.config_storage_types (name) VALUES 
-('256GB SSD'), ('512GB SSD'), ('1TB SSD'), ('500GB HDD'), ('1TB HDD')
+('128GB SSD'), ('250GB SSD'), ('256GB SSD'), 
+('500GB SSD'), ('512GB SSD'), 
+('1TB SSD (NVMe)'), ('1TB SSD (SATA)'), 
+('2TB SSD (NVMe)'), ('4TB SSD (NVMe)'),
+('1TB HDD'), ('2TB HDD'), ('4TB HDD'), ('8TB HDD (NAS)'), ('12TB HDD (NAS)'), ('16TB HDD (NAS)')
 ON CONFLICT (name) DO NOTHING;
 
--- 6. FUNÇÕES DE PERMISSÕES
+-- 6. FUNÇÕES DE PERMISSÕES E RLS
 CREATE OR REPLACE FUNCTION is_admin() RETURNS boolean AS $$
 BEGIN
   RETURN EXISTS (SELECT 1 FROM public.collaborators WHERE id = auth.uid() AND role IN ('Admin', 'SuperAdmin'));
@@ -129,22 +161,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION get_database_triggers()
-RETURNS TABLE (table_name text, trigger_name text, events text, timing text, definition text) 
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, information_schema
-AS $$
-BEGIN
-    RETURN QUERY SELECT event_object_table::text, trigger_name::text, event_manipulation::text, action_timing::text, action_statement::text
-    FROM information_schema.triggers WHERE trigger_schema = 'public' ORDER BY event_object_table, trigger_name;
-END;
-$$;
-GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
-
--- ==========================================
--- 7. RLS - POLÍTICAS DE SEGURANÇA
--- ==========================================
-
--- Habilitar RLS para novas tabelas
+-- Habilitar RLS e Políticas
 DO $$ 
 DECLARE t text;
 BEGIN 
@@ -158,7 +175,18 @@ BEGIN
     END LOOP;
 END $$;
 
--- CRÍTICO: FORÇAR RECARREGAMENTO DA CACHE DO POSTGREST
+-- Função para listar triggers (Dashboard de Diagnóstico)
+CREATE OR REPLACE FUNCTION get_database_triggers()
+RETURNS TABLE (table_name text, trigger_name text, events text, timing text, definition text) 
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, information_schema
+AS $$
+BEGIN
+    RETURN QUERY SELECT event_object_table::text, trigger_name::text, event_manipulation::text, action_timing::text, action_statement::text
+    FROM information_schema.triggers WHERE trigger_schema = 'public' ORDER BY event_object_table, trigger_name;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
+
 NOTIFY pgrst, 'reload config';
 `;
 
@@ -202,10 +230,6 @@ NOTIFY pgrst, 'reload config';
         }
     };
     
-    const handleSeed = async () => {
-        alert("Execute o script SQL na aba 'Atualizar BD' para inserir os dados iniciais.");
-    };
-
     return (
         <Modal title="Configuração de Base de Dados & Ferramentas" onClose={onClose} maxWidth="max-w-6xl">
             <div className="flex flex-col h-[80vh]">
@@ -215,7 +239,7 @@ NOTIFY pgrst, 'reload config';
                         onClick={() => setActiveTab('update')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'update' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaDatabase /> Atualizar BD (Schema)
+                        <FaDatabase /> Atualizar BD (Hardware & Legal)
                     </button>
                      <button 
                         onClick={() => setActiveTab('storage')} 
@@ -244,11 +268,12 @@ NOTIFY pgrst, 'reload config';
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaExclamationTriangle /> SCRIPT DE ATUALIZAÇÃO GLOBAL v4.2
+                                    <FaExclamationTriangle /> SCRIPT DE POPULAÇÃO (2021-2024)
                                 </div>
                                 <p className="mb-2">
-                                    Este script contém todas as estruturas de tabelas, RLS e dados de configuração necessários, incluindo a nova tabela <code>document_templates</code> para o editor visual.
-                                    Execute-o no <strong>SQL Editor do Supabase</strong> para garantir que a base de dados está sincronizada.
+                                    Este script popula as tabelas de <strong>CPUs, RAM e Discos</strong> com componentes modernos (últimos 3 anos) e cria as tabelas de configuração legal (CIBE, Estados de Conservação).
+                                    <br/>
+                                    Copie e execute no <strong>SQL Editor do Supabase</strong>.
                                 </p>
                             </div>
                             <div className="relative">
