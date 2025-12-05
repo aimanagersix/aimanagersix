@@ -50,6 +50,8 @@ export interface AppData {
     configResilienceTestTypes: ConfigItem[];
     configDecommissionReasons: ConfigItem[];
     configCollaboratorDeactivationReasons: ConfigItem[];
+    configAccountingCategories: ConfigItem[]; // NEW: CIBE
+    configConservationStates: ConfigItem[];   // NEW: States
     policies: Policy[];
     policyAcceptances: PolicyAcceptance[];
     procurementRequests: ProcurementRequest[];
@@ -68,6 +70,7 @@ const initialData: AppData = {
     configCriticalityLevels: [], configCiaRatings: [], configServiceStatuses: [], 
     configBackupTypes: [], configTrainingTypes: [], configResilienceTestTypes: [],
     configDecommissionReasons: [], configCollaboratorDeactivationReasons: [],
+    configAccountingCategories: [], configConservationStates: [],
     policies: [], policyAcceptances: [], procurementRequests: [], calendarEvents: [],
     continuityPlans: []
 };
@@ -129,6 +132,8 @@ export const useAppData = () => {
                 configResilienceTestTypes: data.configResilienceTestTypes,
                 configDecommissionReasons: data.configDecommissionReasons,
                 configCollaboratorDeactivationReasons: data.configCollaboratorDeactivationReasons,
+                configAccountingCategories: data.configAccountingCategories, // New
+                configConservationStates: data.configConservationStates,     // New
                 policies: data.policies,
                 policyAcceptances: data.policyAcceptances,
                 procurementRequests: data.procurementRequests,

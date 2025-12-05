@@ -201,6 +201,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         ram_size: '',
         disk_info: '',
         cpu_info: '',
+        monitor_info: '',
         manufacture_date: '',
         accounting_category_id: '',
         conservation_state_id: '',
