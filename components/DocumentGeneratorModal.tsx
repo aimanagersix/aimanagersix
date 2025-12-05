@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { DocumentTemplate } from '../types';
-import { generate } from '@pdfme/generator';
+// Dynamic import used inside useEffect to avoid bundle initialization errors
+// import { generate } from '@pdfme/generator'; 
 import { FaPrint, FaSpinner } from 'react-icons/fa';
 
 interface DocumentGeneratorModalProps {
@@ -27,6 +28,8 @@ const DocumentGeneratorModal: React.FC<DocumentGeneratorModalProps> = ({ onClose
     }, [templates, contextType]);
 
     useEffect(() => {
+        let isMounted = true;
+
         const generatePdf = async () => {
             if (!selectedTemplateId) return;
             setIsGenerating(true);
@@ -34,6 +37,9 @@ const DocumentGeneratorModal: React.FC<DocumentGeneratorModalProps> = ({ onClose
             try {
                 const template = templates.find(t => t.id === selectedTemplateId);
                 if (!template) return;
+
+                // Dynamically import generator to ensure it loads only when needed and after main app init
+                const { generate } = await import('@pdfme/generator');
 
                 // Flatten data context for easier mapping
                 // e.g. equipment.serialNumber -> input "serialNumber"
@@ -46,9 +52,6 @@ const DocumentGeneratorModal: React.FC<DocumentGeneratorModalProps> = ({ onClose
                         inputs[0][key] = String(val);
                     } else if (val && typeof val === 'object' && !Array.isArray(val)) {
                          // Flatten one level deep (e.g. brand.name -> brandName)
-                         // This depends on how the user named fields in the designer. 
-                         // Ideally, we provide a list of available keys.
-                         // For now, we just put the object stringified or specific keys if known
                          if(key === 'brand') inputs[0]['brandName'] = val.name || '';
                          if(key === 'type') inputs[0]['typeName'] = val.name || '';
                     }
@@ -65,20 +68,27 @@ const DocumentGeneratorModal: React.FC<DocumentGeneratorModalProps> = ({ onClose
                 // Cast to any to avoid TS error about SharedArrayBuffer not being assignable to BlobPart
                 const blob = new Blob([pdf as any], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
-                setPdfUrl(url);
+                
+                if (isMounted) {
+                    setPdfUrl(url);
+                }
 
             } catch (e) {
                 console.error("Generation failed:", e);
-                alert("Erro ao gerar documento.");
+                if (isMounted) alert("Erro ao gerar documento. Verifique a consola para detalhes.");
             } finally {
-                setIsGenerating(false);
+                if (isMounted) setIsGenerating(false);
             }
         };
 
         if (selectedTemplateId) {
             const timeout = setTimeout(generatePdf, 500); // Debounce slightly
-            return () => clearTimeout(timeout);
+            return () => { 
+                isMounted = false;
+                clearTimeout(timeout); 
+            };
         }
+        return () => { isMounted = false; };
     }, [selectedTemplateId, dataContext, templates]);
 
     return (
