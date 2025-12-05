@@ -1,13 +1,16 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, DocumentTemplate } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory, FaTools, FaPrint, FaFileContract } from 'react-icons/fa';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory, FaTools, FaPrint, FaFileContract, FaSpinner } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
-import DocumentGeneratorModal from './DocumentGeneratorModal';
+// import DocumentGeneratorModal from './DocumentGeneratorModal'; // REMOVE static import
 import PrintPreviewModal from './PrintPreviewModal';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
+
+// Lazy Load
+const DocumentGeneratorModal = React.lazy(() => import('./DocumentGeneratorModal'));
 
 interface EquipmentDetailModalProps {
     equipment: Equipment;
@@ -367,12 +370,14 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
             )}
             
             {showDocGenerator && (
-                <DocumentGeneratorModal 
-                    onClose={() => setShowDocGenerator(false)}
-                    templates={templates}
-                    dataContext={dataContext}
-                    contextType="equipment"
-                />
+                <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-white"><FaSpinner className="animate-spin mr-2"/> A carregar gerador...</div>}>
+                    <DocumentGeneratorModal 
+                        onClose={() => setShowDocGenerator(false)}
+                        templates={templates}
+                        dataContext={dataContext}
+                        contextType="equipment"
+                    />
+                </Suspense>
             )}
         </Modal>
     );

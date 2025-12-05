@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import * as dataService from '../../services/dataService';
 import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaFileAlt
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark, FaFileAlt, FaSpinner
 } from 'react-icons/fa';
 import { ConfigItem, DocumentTemplate } from '../../types';
 
@@ -22,7 +22,8 @@ import AgentsTab from '../../components/settings/AgentsTab';
 import WebhooksTab from '../../components/settings/WebhooksTab';
 import CronJobsTab from '../../components/settings/CronJobsTab';
 import SoftwareProductDashboard from '../../components/settings/SoftwareProductDashboard';
-import TemplateDesigner from '../../components/TemplateDesigner'; // NEW
+// Lazy Load TemplateDesigner to prevent @pdfme from crashing the app on load
+const TemplateDesigner = React.lazy(() => import('../../components/TemplateDesigner'));
 
 // Modals for Child Dashboards
 import AddBrandModal from '../../components/AddBrandModal';
@@ -155,7 +156,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 slackWebhookUrl: '',
             }));
             
-            // Load slack separately since it's a new field in later turns
             const slackUrl = await dataService.getGlobalSetting('slack_webhook_url');
             setSettings((prev: any) => ({ ...prev, slackWebhookUrl: slackUrl || '' }));
         };
@@ -202,10 +202,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_backup_types', label: 'Tipos de Backup', icon: <FaServer /> },
                 { id: 'config_training_types', label: 'Tipos de Formação', icon: <FaGraduationCap /> },
                 { id: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt /> },
-                // NEW LEGAL TABLES
                 { id: 'config_accounting_categories', label: 'Classificador CIBE', icon: <FaLandmark /> },
                 { id: 'config_conservation_states', label: 'Estados Conservação', icon: <FaLeaf /> },
-                // NEW HARDWARE TABLES
                 { id: 'config_cpus', label: 'Processadores (CPU)', icon: <FaMicrochip /> },
                 { id: 'config_ram_sizes', label: 'Tamanhos de RAM', icon: <FaMemory /> },
                 { id: 'config_storage_types', label: 'Tipos de Disco', icon: <FaHdd /> },
@@ -229,7 +227,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes },
         'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories },
         'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates, colorField: true },
-        // NEW HARDWARE
         'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
         'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
         'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
@@ -387,18 +384,20 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             {showAddCategoryModal && <AddCategoryModal onClose={() => setShowAddCategoryModal(false)} onSave={async (c) => { if(categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, c); else await dataService.addTicketCategory(c); refreshData(); }} categoryToEdit={categoryToEdit} teams={appData.teams} />}
             {showAddIncidentTypeModal && <AddSecurityIncidentTypeModal onClose={() => setShowAddIncidentTypeModal(false)} onSave={async (i) => { if(incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, i); else await dataService.addSecurityIncidentType(i); refreshData(); }} typeToEdit={incidentTypeToEdit} />}
             
-            {/* Template Designer Modal */}
+            {/* Template Designer Modal - LAZY LOADED */}
             {showTemplateDesigner && (
-                <TemplateDesigner 
-                    onClose={() => setShowTemplateDesigner(false)}
-                    templateToEdit={templateToEdit}
-                    onSave={async (t) => {
-                         if (templateToEdit) await dataService.updateDocumentTemplate(templateToEdit.id, t);
-                         else await dataService.addDocumentTemplate(t);
-                         // Reload templates
-                         dataService.getDocumentTemplates().then(setTemplates);
-                    }}
-                />
+                <React.Suspense fallback={<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 text-white"><div className="text-center"><FaSpinner className="animate-spin text-4xl mx-auto mb-2"/>A carregar editor...</div></div>}>
+                    <TemplateDesigner 
+                        onClose={() => setShowTemplateDesigner(false)}
+                        templateToEdit={templateToEdit}
+                        onSave={async (t) => {
+                             if (templateToEdit) await dataService.updateDocumentTemplate(templateToEdit.id, t);
+                             else await dataService.addDocumentTemplate(t);
+                             // Reload templates
+                             dataService.getDocumentTemplates().then(setTemplates);
+                        }}
+                    />
+                </React.Suspense>
             )}
         </>
     );
