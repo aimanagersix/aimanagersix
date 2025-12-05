@@ -7,6 +7,10 @@ import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxe
 import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired, FaMemory, FaHdd, FaListAlt } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
+// ... (CameraScanner component remains unchanged - skipping for brevity) ...
+// Assuming CameraScanner code is here or imported. 
+// For this output, I will focus on the AddEquipmentModal component changes.
+
 interface CameraScannerProps {
     onCapture: (dataUrl: string) => void;
     onClose: () => void;
@@ -162,7 +166,6 @@ interface AddEquipmentModalProps {
     onOpenAssign?: (equipment: Equipment) => void;
     accountingCategories?: ConfigItem[];
     conservationStates?: ConfigItem[];
-    // NEW PROPS FOR HARDWARE
     cpuOptions?: ConfigItem[];
     ramOptions?: ConfigItem[];
     storageOptions?: ConfigItem[];
@@ -176,10 +179,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     accountingCategories = [], conservationStates = [],
     cpuOptions = [], ramOptions = [], storageOptions = []
 }) => {
-    // State for Tabs
+    // ... (Keep existing state and logic)
     const [activeTab, setActiveTab] = useState<'general' | 'hardware' | 'security' | 'financial' | 'compliance'>('general');
 
-    // Use dynamic options if available, else fallback to enum values
     const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(o => o.name) : Object.values(EquipmentStatus);
     const criticalities = criticalityOptions && criticalityOptions.length > 0 ? criticalityOptions.map(o => o.name) : Object.values(CriticalityLevel);
     const ciaRatings = ciaOptions && ciaOptions.length > 0 ? ciaOptions.map(o => o.name) : Object.values(CIARating);
@@ -222,20 +224,19 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const [isAddingType, setIsAddingType] = useState(false);
     const [newTypeName, setNewTypeName] = useState('');
     const [showKitButton, setShowKitButton] = useState(false);
-    const [allEquipment, setAllEquipment] = useState<Equipment[]>([]); // To select parent
+    const [allEquipment, setAllEquipment] = useState<Equipment[]>([]);
     
-    // Assignment Logic
     const [assignToEntityId, setAssignToEntityId] = useState('');
     const [assignToCollaboratorId, setAssignToCollaboratorId] = useState('');
     
     const aiConfigured = isAiConfigured();
 
-    // Fetch all equipment to populate parent dropdown
+    // ... (Keep existing useEffects)
     useEffect(() => {
         const loadEq = async () => {
             try {
                 const data = await dataService.fetchAllData();
-                setAllEquipment(data.equipment.filter((e: Equipment) => !equipmentToEdit || e.id !== equipmentToEdit.id)); // exclude self
+                setAllEquipment(data.equipment.filter((e: Equipment) => !equipmentToEdit || e.id !== equipmentToEdit.id)); 
             } catch (e) {
                 console.error("Failed to load equipment for dropdown", e);
             }
@@ -252,10 +253,13 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 accounting_category_id: equipmentToEdit.accounting_category_id || '',
                 conservation_state_id: equipmentToEdit.conservation_state_id || '',
                 residual_value: equipmentToEdit.residual_value || 0,
-                // Handle potentially null date strings
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 last_security_update: equipmentToEdit.last_security_update || '',
-                manufacture_date: equipmentToEdit.manufacture_date || ''
+                manufacture_date: equipmentToEdit.manufacture_date || '',
+                // Load text fields even if they were not in options previously
+                cpu_info: equipmentToEdit.cpu_info || '',
+                ram_size: equipmentToEdit.ram_size || '',
+                disk_info: equipmentToEdit.disk_info || ''
             });
         } else if (initialData) {
              setFormData(prev => ({ ...prev, ...initialData }));
@@ -263,7 +267,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }
     }, [equipmentToEdit, initialData]);
 
-    // Auto-fill description based on brand and type for new equipment
+    // ... (Keep description auto-fill effect)
     useEffect(() => {
         if (equipmentToEdit?.id) return; 
 
@@ -318,8 +322,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         if (!formData.brandId) newErrors.brandId = "A marca é obrigatória.";
         if (!formData.typeId) newErrors.typeId = "O tipo é obrigatório.";
         if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
-        // Removed purchaseDate mandatory check for Stock items if desired, but kept for consistency
-        // if (!formData.purchaseDate) newErrors.purchaseDate = "A data de compra é obrigatória.";
         
         const type = equipmentTypes.find(t => t.id === formData.typeId);
         if (type?.requiresLocation && !formData.installationLocation?.trim()) {
@@ -443,7 +445,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         try {
             const dataToSubmit: any = { ...formData };
             
-            // Sanitize Date fields (empty string crashes Postgres date types)
+            // Sanitize Date fields
             const dateFields = ['warrantyEndDate', 'last_security_update', 'manufacture_date'];
             dateFields.forEach(field => {
                 if (dataToSubmit[field] === '') {
@@ -486,17 +488,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const isEditMode = equipmentToEdit && equipmentToEdit.id;
     const modalTitle = isEditMode ? "Editar Equipamento" : "Adicionar Novo Equipamento";
     const submitButtonText = isEditMode ? "Guardar Alterações" : "Adicionar Equipamento";
-
-    // Helper for Tab styling
-    const getTabClass = (tab: string) => 
-        `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`;
-
+    const getTabClass = (tab: string) => `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`;
 
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-4xl">
             {isScanning && <CameraScanner onCapture={handleScanComplete} onClose={() => setIsScanning(false)} />}
             
-            {/* Tab Navigation */}
             <div className="flex border-b border-gray-700 mb-4 flex-wrap">
                 <button onClick={() => setActiveTab('general')} className={getTabClass('general')}>Geral</button>
                 <button onClick={() => setActiveTab('hardware')} className={getTabClass('hardware')}>Hardware & Rede</button>
@@ -507,54 +504,29 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
 
             <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[75vh] pr-2 custom-scrollbar">
                  
-                 {/* --- ACTION BAR (Only in Edit Mode) --- */}
                  {isEditMode && equipmentToEdit && (
                     <div className="flex gap-3 mb-4 bg-gray-900/50 p-3 rounded border border-gray-700 overflow-x-auto">
                         {onOpenHistory && (
-                            <button 
-                                type="button" 
-                                onClick={() => onOpenHistory(equipmentToEdit)} 
-                                className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded whitespace-nowrap transition-colors"
-                            >
-                                <FaHistory /> Histórico & Impacto
-                            </button>
+                            <button type="button" onClick={() => onOpenHistory(equipmentToEdit)} className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded whitespace-nowrap transition-colors"><FaHistory /> Histórico & Impacto</button>
                         )}
                         {onManageLicenses && (
-                            <button 
-                                type="button" 
-                                onClick={() => onManageLicenses(equipmentToEdit)} 
-                                className="flex items-center gap-2 px-3 py-2 bg-yellow-700 hover:bg-yellow-600 text-white text-xs rounded whitespace-nowrap transition-colors"
-                            >
-                                <FaKey /> Gerir Licenças
-                            </button>
+                            <button type="button" onClick={() => onManageLicenses(equipmentToEdit)} className="flex items-center gap-2 px-3 py-2 bg-yellow-700 hover:bg-yellow-600 text-white text-xs rounded whitespace-nowrap transition-colors"><FaKey /> Gerir Licenças</button>
                         )}
                         {onOpenAssign && (
-                            <button 
-                                type="button" 
-                                onClick={() => onOpenAssign(equipmentToEdit)} 
-                                className="flex items-center gap-2 px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-xs rounded whitespace-nowrap transition-colors"
-                            >
-                                <FaUserCheck /> Atribuir/Desassociar
-                            </button>
+                            <button type="button" onClick={() => onOpenAssign(equipmentToEdit)} className="flex items-center gap-2 px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-xs rounded whitespace-nowrap transition-colors"><FaUserCheck /> Atribuir/Desassociar</button>
                         )}
                     </div>
                  )}
                 
-                {/* --- GENERAL TAB --- */}
                 {activeTab === 'general' && (
                     <div className="space-y-4 animate-fade-in">
-                        {/* Primary Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="relative">
                                 <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Série</label>
                                 <div className="flex">
                                     <input type="text" name="serialNumber" id="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} />
-                                    <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className={`p-2 bg-brand-primary text-white hover:bg-brand-secondary transition-colors ${!aiConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                        {isLoading.serial ? <SpinnerIcon /> : <CameraIcon />}
-                                    </button>
-                                    <button type="button" onClick={() => handleFetchInfo(formData.serialNumber!)} disabled={!formData.serialNumber || isLoading.info || !aiConfigured} className={`p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50 ${!aiConfigured ? 'cursor-not-allowed' : ''}`}>
-                                        {isLoading.info ? <SpinnerIcon /> : <SearchIcon />}
-                                    </button>
+                                    <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className={`p-2 bg-brand-primary text-white hover:bg-brand-secondary transition-colors ${!aiConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}>{isLoading.serial ? <SpinnerIcon /> : <CameraIcon />}</button>
+                                    <button type="button" onClick={() => handleFetchInfo(formData.serialNumber!)} disabled={!formData.serialNumber || isLoading.info || !aiConfigured} className={`p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50 ${!aiConfigured ? 'cursor-not-allowed' : ''}`}>{isLoading.info ? <SpinnerIcon /> : <SearchIcon />}</button>
                                 </div>
                                 {errors.serialNumber && <p className="text-red-400 text-xs italic mt-1">{errors.serialNumber}</p>}
                             </div>
@@ -578,7 +550,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             </div>
                         </div>
                         
-                        {/* Type & Name */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="typeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Tipo</label>
@@ -632,26 +603,15 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         {/* Loan Checkbox */}
                         <div className="bg-purple-900/20 p-3 rounded border border-purple-500/30">
                             <label className="flex items-center cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    name="isLoan" 
-                                    checked={formData.isLoan} 
-                                    onChange={handleChange} 
-                                    className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" 
-                                />
-                                <span className="ml-2 text-sm font-bold text-purple-200 flex items-center gap-2">
-                                    <FaHandHoldingHeart /> Equipamento de Empréstimo / Pool
-                                </span>
+                                <input type="checkbox" name="isLoan" checked={formData.isLoan} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                                <span className="ml-2 text-sm font-bold text-purple-200 flex items-center gap-2"><FaHandHoldingHeart /> Equipamento de Empréstimo / Pool</span>
                             </label>
                         </div>
 
-                        {/* Initial Assignment (only for new items) */}
+                        {/* Initial Assignment */}
                         {!isEditMode && isComputingDevice && !isMaintenanceType && (
                             <div className="border-t border-gray-600 pt-4 mt-4">
-                                <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2">
-                                    <FaUserTag className="text-blue-400" />
-                                    Atribuição Inicial (Opcional)
-                                </h3>
+                                <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2"><FaUserTag className="text-blue-400" /> Atribuição Inicial (Opcional)</h3>
                                 <div className="bg-gray-800/50 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
@@ -675,23 +635,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         {isMaintenanceType && (
                             <div className="bg-orange-900/20 p-4 rounded border border-orange-500/30 animate-fade-in">
                                 <h3 className="text-sm font-bold text-orange-200 mb-2 flex items-center gap-2"><FaTools /> Componente de Manutenção</h3>
-                                <p className="text-xs text-gray-400 mb-3">
-                                    Este item é identificado como um componente ou consumível. Deve ser associado a um equipamento principal para cálculo correto do Custo Total de Propriedade (TCO).
-                                </p>
+                                <p className="text-xs text-gray-400 mb-3">Este item é identificado como um componente ou consumível. Deve ser associado a um equipamento principal para cálculo correto do Custo Total de Propriedade (TCO).</p>
                                 <label htmlFor="parent_equipment_id" className="block text-xs font-medium text-white mb-1">Equipamento Principal (Pai)</label>
-                                <select 
-                                    name="parent_equipment_id" 
-                                    id="parent_equipment_id" 
-                                    value={formData.parent_equipment_id} 
-                                    onChange={handleChange} 
-                                    className={`w-full bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.parent_equipment_id ? 'border-red-500' : 'border-gray-600'}`}
-                                >
+                                <select name="parent_equipment_id" id="parent_equipment_id" value={formData.parent_equipment_id} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.parent_equipment_id ? 'border-red-500' : 'border-gray-600'}`}>
                                     <option value="">-- Selecione o equipamento onde será instalado --</option>
-                                    {allEquipment.map(eq => (
-                                        <option key={eq.id} value={eq.id}>
-                                            {eq.description} (S/N: {eq.serialNumber})
-                                        </option>
-                                    ))}
+                                    {allEquipment.map(eq => (<option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>))}
                                 </select>
                                 {errors.parent_equipment_id && <p className="text-red-400 text-xs italic mt-1">{errors.parent_equipment_id}</p>}
                             </div>
@@ -704,70 +652,49 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     <div className="space-y-6 animate-fade-in">
                          {(selectedType?.requires_cpu_info || selectedType?.requires_ram_size || selectedType?.requires_disk_info || selectedType?.requires_manufacture_date) && (
                             <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
-                                <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2">
-                                    <FaMicrochip className="text-purple-400" />
-                                    Especificações de Hardware
-                                </h3>
+                                <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2"><FaMicrochip className="text-purple-400" /> Especificações de Hardware</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {selectedType?.requires_cpu_info && (
                                         <div>
                                             <label htmlFor="cpu_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-1"><FaMicrochip/> Processador (CPU)</label>
-                                            <select 
-                                                name="cpu_info" 
-                                                id="cpu_info" 
-                                                value={formData.cpu_info || ''} 
-                                                onChange={handleChange} 
-                                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
-                                            >
-                                                <option value="">-- Selecione CPU --</option>
-                                                {cpuOptions.map(opt => (
-                                                    <option key={opt.id} value={opt.name}>{opt.name}</option>
-                                                ))}
-                                                {/* Allow legacy/custom values if not in list */}
-                                                {formData.cpu_info && !cpuOptions.some(o => o.name === formData.cpu_info) && (
-                                                    <option value={formData.cpu_info}>{formData.cpu_info}</option>
-                                                )}
-                                            </select>
+                                            {/* Fallback logic: Use select if options exist, otherwise use text input */}
+                                            {cpuOptions.length > 0 ? (
+                                                <select name="cpu_info" id="cpu_info" value={formData.cpu_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                                                    <option value="">-- Selecione CPU --</option>
+                                                    {cpuOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
+                                                    {formData.cpu_info && !cpuOptions.some(o => o.name === formData.cpu_info) && <option value={formData.cpu_info}>{formData.cpu_info}</option>}
+                                                </select>
+                                            ) : (
+                                                <input type="text" name="cpu_info" value={formData.cpu_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="Ex: Intel i5-12400" />
+                                            )}
                                         </div>
                                     )}
                                     {selectedType?.requires_ram_size && (
                                         <div>
                                             <label htmlFor="ram_size" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-1"><FaMemory/> Memória RAM</label>
-                                            <select 
-                                                name="ram_size" 
-                                                id="ram_size" 
-                                                value={formData.ram_size || ''} 
-                                                onChange={handleChange} 
-                                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
-                                            >
-                                                <option value="">-- Selecione RAM --</option>
-                                                {ramOptions.map(opt => (
-                                                    <option key={opt.id} value={opt.name}>{opt.name}</option>
-                                                ))}
-                                                 {formData.ram_size && !ramOptions.some(o => o.name === formData.ram_size) && (
-                                                    <option value={formData.ram_size}>{formData.ram_size}</option>
-                                                )}
-                                            </select>
+                                            {ramOptions.length > 0 ? (
+                                                <select name="ram_size" id="ram_size" value={formData.ram_size || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                                                    <option value="">-- Selecione RAM --</option>
+                                                    {ramOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
+                                                    {formData.ram_size && !ramOptions.some(o => o.name === formData.ram_size) && <option value={formData.ram_size}>{formData.ram_size}</option>}
+                                                </select>
+                                            ) : (
+                                                <input type="text" name="ram_size" value={formData.ram_size || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="Ex: 16GB" />
+                                            )}
                                         </div>
                                     )}
                                     {selectedType?.requires_disk_info && (
                                         <div>
                                             <label htmlFor="disk_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-1"><FaHdd/> Disco / Armazenamento</label>
-                                            <select 
-                                                name="disk_info" 
-                                                id="disk_info" 
-                                                value={formData.disk_info || ''} 
-                                                onChange={handleChange} 
-                                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
-                                            >
-                                                <option value="">-- Selecione Disco --</option>
-                                                {storageOptions.map(opt => (
-                                                    <option key={opt.id} value={opt.name}>{opt.name}</option>
-                                                ))}
-                                                 {formData.disk_info && !storageOptions.some(o => o.name === formData.disk_info) && (
-                                                    <option value={formData.disk_info}>{formData.disk_info}</option>
-                                                )}
-                                            </select>
+                                            {storageOptions.length > 0 ? (
+                                                <select name="disk_info" id="disk_info" value={formData.disk_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                                                    <option value="">-- Selecione Disco --</option>
+                                                    {storageOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
+                                                    {formData.disk_info && !storageOptions.some(o => o.name === formData.disk_info) && <option value={formData.disk_info}>{formData.disk_info}</option>}
+                                                </select>
+                                            ) : (
+                                                <input type="text" name="disk_info" value={formData.disk_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="Ex: 512GB NVMe" />
+                                            )}
                                         </div>
                                     )}
                                      {selectedType?.requires_manufacture_date && (
@@ -777,12 +704,13 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                         </div>
                                     )}
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2 italic">* Utilize o menu "Configurações" para adicionar novas opções de hardware.</p>
+                                <p className="text-xs text-gray-500 mt-2 italic">* Utilize o menu "Configurações" para adicionar novas opções de hardware se as listas estiverem vazias.</p>
                             </div>
                         )}
                         
                         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
                             <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2"><FaNetworkWired className="text-blue-400"/> Rede & Conectividade</h3>
+                            {/* ... rest of hardware tab unchanged ... */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                  {selectedType?.requiresMacWIFI && (
                                     <div>
@@ -797,7 +725,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     </div>
                                 )}
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                  {selectedType?.requires_wwan_address && (
                                     <div>
                                         <label htmlFor="wwan_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço WWAN (LTE/5G)</label>
@@ -824,22 +752,15 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 <label htmlFor="installationLocation" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
                                     Local de Instalação (Físico) {selectedType?.requiresLocation && <span className="text-red-400">*</span>}
                                 </label>
-                                <input 
-                                    type="text" 
-                                    name="installationLocation" 
-                                    id="installationLocation" 
-                                    value={formData.installationLocation} 
-                                    onChange={handleChange} 
-                                    placeholder="Ex: Sala 204, Rack 3" 
-                                    className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.installationLocation ? 'border-red-500' : 'border-gray-600'}`} 
-                                />
+                                <input type="text" name="installationLocation" id="installationLocation" value={formData.installationLocation} onChange={handleChange} placeholder="Ex: Sala 204, Rack 3" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.installationLocation ? 'border-red-500' : 'border-gray-600'}`} />
                                  {errors.installationLocation && <p className="text-red-400 text-xs italic mt-1">{errors.installationLocation}</p>}
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* --- SECURITY TAB --- */}
+                {/* ... (Other tabs (Security, Financial, Compliance) remain unchanged) ... */}
+                 {/* --- SECURITY TAB --- */}
                 {activeTab === 'security' && (
                     <div className="space-y-6 animate-fade-in">
                         <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
