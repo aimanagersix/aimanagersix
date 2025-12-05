@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -10,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'seed' | 'triggers' | 'playwright_ai' | 'chat_repair'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'seed' | 'triggers' | 'storage' | 'playwright_ai' | 'chat_repair'>('chat_repair');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -31,8 +32,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.2
--- Resolve erro: column "user_email" of relation "audit_logs" does not exist
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v3.3
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
@@ -262,6 +262,41 @@ END $$;
 NOTIFY pgrst, 'reload config';
 `;
 
+    const storageScript = `
+-- ==========================================
+-- CONFIGURAÇÃO DE STORAGE (AVATARS)
+-- ==========================================
+
+-- 1. Criar o bucket 'avatars' se não existir
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. Remover políticas antigas para evitar conflitos
+DROP POLICY IF EXISTS "Avatars Images are publicly accessible" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can upload an avatar" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can update an avatar" ON storage.objects;
+
+-- 3. Criar políticas de acesso
+-- Permitir leitura pública
+CREATE POLICY "Avatars Images are publicly accessible" 
+ON storage.objects FOR SELECT 
+USING ( bucket_id = 'avatars' );
+
+-- Permitir upload para utilizadores autenticados
+CREATE POLICY "Authenticated users can upload avatars" 
+ON storage.objects FOR INSERT 
+TO authenticated 
+WITH CHECK ( bucket_id = 'avatars' );
+
+-- Permitir atualização (substituição) da própria foto ou por admins
+-- Simplificado: permitir update se autenticado
+CREATE POLICY "Authenticated users can update avatars" 
+ON storage.objects FOR UPDATE
+TO authenticated
+USING ( bucket_id = 'avatars' );
+`;
+
     const cleanupScript = `
 -- ==========================================
 -- SCRIPT DE LIMPEZA SAFE-MODE
@@ -305,13 +340,11 @@ AND email != 'general@system.local';
 
     const chatRepairScript = `
 -- ==========================================
--- RESTAURAR CANAL GERAL (CHAT)
+-- RESTAURAR CANAL GERAL & CORRIGIR MENSAGENS
 -- ==========================================
 
--- Inserir o utilizador "Canal Geral" com um perfil válido.
--- Usamos 'SuperAdmin' ou 'Admin' para garantir que passa nas validações.
--- O ID zeros é essencial para o ChatWidget funcionar como broadcast.
-
+-- 1. Garantir que o utilizador de sistema existe (para integridade referencial)
+-- O ID '0000...' é fundamental para o canal geral funcionar.
 INSERT INTO public.collaborators (
     id, 
     "fullName", 
@@ -326,15 +359,45 @@ VALUES (
     '00000000-0000-0000-0000-000000000000', 
     'Canal Geral', 
     'general@system.local', 
-    'SuperAdmin', -- Alterado de 'System' para 'SuperAdmin' para evitar erros
+    'SuperAdmin',
     'Ativo', 
     false, 
     false, 
     'SYS'
 ) 
 ON CONFLICT (id) DO UPDATE 
-SET role = 'SuperAdmin', status = 'Ativo'; -- Forçar correção se já existir com dados errados
+SET role = 'SuperAdmin', status = 'Ativo';
 
+-- 2. Corrigir/Recriar tabela de mensagens
+-- Importante: Garantir que os nomes das colunas (Case Sensitive) batem certo com o Frontend.
+CREATE TABLE IF NOT EXISTS public.messages (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    "senderId" uuid REFERENCES public.collaborators(id),
+    "receiverId" uuid REFERENCES public.collaborators(id),
+    content text,
+    timestamp timestamptz DEFAULT now(),
+    read boolean DEFAULT false
+);
+
+-- 3. Políticas de Segurança (RLS) para Chat
+-- Permitir que qualquer utilizador autenticado leia e escreva mensagens.
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+-- Remover políticas antigas que possam estar a bloquear
+DROP POLICY IF EXISTS "Allow all messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can insert messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can view their messages" ON public.messages;
+
+-- Criar política permissiva para o Chat
+CREATE POLICY "Allow all messages" 
+ON public.messages 
+FOR ALL 
+TO authenticated 
+USING (true) 
+WITH CHECK (true);
+
+-- 4. Notificar o PostgREST para recarregar schema
+NOTIFY pgrst, 'reload config';
 `;
 
     const seedScript = `
@@ -428,6 +491,12 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                     >
                         <FaDatabase /> Atualizar BD (Schema)
                     </button>
+                     <button 
+                        onClick={() => setActiveTab('storage')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'storage' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaHdd /> Configurar Storage
+                    </button>
                     <button 
                         onClick={() => setActiveTab('seed')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'seed' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
@@ -438,7 +507,7 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                         onClick={() => setActiveTab('chat_repair')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'chat_repair' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaCommentDots /> Reparar Chat
+                        <FaCommentDots /> Reparar Chat (Reset)
                     </button>
                     <button 
                         onClick={() => setActiveTab('triggers')} 
@@ -494,15 +563,40 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                             </div>
                         </div>
                     )}
+
+                    {/* STORAGE TAB */}
+                    {activeTab === 'storage' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-1"><FaHdd /> Configuração de Armazenamento (Fotos)</div>
+                                <p>
+                                    Se está a receber erros ao carregar fotos de colaboradores (ex: "Cannot coerce result"), é provável que o Bucket 'avatars' não exista ou não tenha as políticas de acesso corretas.
+                                    Execute este script para corrigir.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-yellow-300 overflow-auto max-h-96 custom-scrollbar border border-gray-700">
+                                    {storageScript}
+                                </pre>
+                                <button 
+                                    onClick={() => handleCopy(storageScript)} 
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors"
+                                    title="Copiar SQL de Storage"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     
                     {/* CHAT REPAIR TAB */}
                     {activeTab === 'chat_repair' && (
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
-                                <div className="flex items-center gap-2 font-bold mb-1"><FaCommentDots /> Reparar Canal Geral</div>
+                                <div className="flex items-center gap-2 font-bold mb-1"><FaCommentDots /> Reparar Canal Geral e Mensagens</div>
                                 <p>
-                                    Se o "Canal Geral" do chat não funciona ou dá erro ao enviar mensagens, é porque o utilizador de sistema foi apagado.
-                                    Este script recria o utilizador com o perfil 'SuperAdmin' para garantir que funciona sem erros de Foreign Key.
+                                    Se as mensagens não são entregues (tabela vazia), execute este script.
+                                    Ele recria o utilizador de sistema, recria a tabela de mensagens com as permissões corretas (RLS permissivo) e garante que as colunas têm o nome exato que o Frontend espera.
                                 </p>
                             </div>
                             <div className="relative">

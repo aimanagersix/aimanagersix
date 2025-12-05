@@ -298,6 +298,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             }
 
             // 2. Upload Photo if selected
+            // Ensure we have a valid ID from the save operation before trying to upload photo
             const targetId = savedCollaborator?.id || collaboratorToEdit?.id;
 
             if (photoFile && targetId) {
@@ -305,11 +306,16 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     await dataService.uploadCollaboratorPhoto(targetId, photoFile);
                 } catch (uploadErr: any) {
                     console.error("Photo upload failed", uploadErr);
-                    alert(`Colaborador salvo, mas a foto falhou ao carregar: ${uploadErr.message}`);
+                    // Don't fail the whole process, just warn
+                    alert(`Colaborador salvo com sucesso, mas a foto falhou ao carregar. 
+Motivo: ${uploadErr.message || 'Erro de permissão ou bucket inexistente.'}
+Verifique as configurações de armazenamento.`);
                 }
             } else if (!photoPreview && collaboratorToEdit?.photoUrl && targetId) {
                  // Handle photo removal
-                 await dataService.updateCollaborator(targetId, { photoUrl: '' });
+                 try {
+                    await dataService.updateCollaborator(targetId, { photoUrl: '' });
+                 } catch(e) { console.warn("Failed to clear photo URL", e); }
             }
             
             setSuccessMessage("Colaborador gravado com sucesso!");

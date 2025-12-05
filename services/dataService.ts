@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 import { 
@@ -8,34 +9,51 @@ import {
 
 export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
     const supabase = getSupabase();
-    const { data: { user } } = await (supabase.auth as any).getUser();
-    if (!user) return; 
+    try {
+        const { data: { user } } = await (supabase.auth as any).getUser();
+        if (!user) return; 
 
-    await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        user_email: user.email,
-        action,
-        resource_type: resourceType,
-        resource_id: resourceId,
-        details,
-        timestamp: new Date().toISOString()
-    });
+        await supabase.from('audit_logs').insert({
+            user_id: user.id,
+            user_email: user.email,
+            action,
+            resource_type: resourceType,
+            resource_id: resourceId,
+            details,
+            timestamp: new Date().toISOString()
+        });
+    } catch (e) {
+        console.warn("Failed to log action:", e);
+    }
 };
 
 const create = async (table: string, data: any) => {
     const supabase = getSupabase();
-    const { data: res, error } = await supabase.from(table).insert(data).select().single();
+    // Use maybeSingle() instead of single() to avoid "Cannot coerce..." errors if RLS hides the return row
+    const { data: res, error } = await supabase.from(table).insert(data).select().maybeSingle();
+    
     if (error) throw error;
-    await logAction('CREATE', table, `Created record in ${table}`, res.id);
-    return res;
+    
+    // If creation succeeded but no data returned (RLS), we return the input data as fallback
+    // assuming the ID might have been generated or passed.
+    const result = res || data;
+    
+    await logAction('CREATE', table, `Created record in ${table}`, result.id);
+    return result;
 };
 
 const update = async (table: string, id: string, data: any) => {
     const supabase = getSupabase();
-    const { data: res, error } = await supabase.from(table).update(data).eq('id', id).select().single();
+    // Use maybeSingle() to be safe against RLS restrictions returning 0 rows
+    const { data: res, error } = await supabase.from(table).update(data).eq('id', id).select().maybeSingle();
+    
     if (error) throw error;
+    
+    // If update succeeded but RLS hid the result, return the data merged with ID
+    const result = res || { ...data, id };
+    
     await logAction('UPDATE', table, `Updated record in ${table}`, id);
-    return res;
+    return result;
 };
 
 const remove = async (table: string, id: string) => {
@@ -330,10 +348,22 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {
     const supabase = getSupabase();
     const filePath = `avatars/${id}-${Date.now()}`;
-    const { error } = await supabase.storage.from('avatars').upload(filePath, file);
-    if (error) throw error;
     
+    // 1. Check if bucket exists (try to upload)
+    const { error } = await supabase.storage.from('avatars').upload(filePath, file);
+    
+    if (error) {
+        // Handle specific bucket not found error or permission error
+        if (error.message.includes('Bucket not found') || (error as any).statusCode === '404') {
+             throw new Error("O bucket 'avatars' não existe no Supabase. Por favor, execute o script de configuração de armazenamento.");
+        }
+        throw error;
+    }
+    
+    // 2. Get URL
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    
+    // 3. Update record
     await updateCollaborator(id, { photoUrl: data.publicUrl });
 };
 

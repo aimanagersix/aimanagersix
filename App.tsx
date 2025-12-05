@@ -623,14 +623,19 @@ export const App: React.FC = () => {
                 collaborators={appData.collaborators}
                 messages={appData.messages}
                 onSendMessage={async (rxId, content) => {
-                    await dataService.addMessage({
-                        senderId: currentUser.id,
-                        receiverId: rxId,
-                        content,
-                        timestamp: new Date().toISOString(),
-                        read: false
-                    });
-                    refreshData();
+                    try {
+                        await dataService.addMessage({
+                            senderId: currentUser.id,
+                            receiverId: rxId,
+                            content,
+                            timestamp: new Date().toISOString(),
+                            read: false
+                        });
+                        refreshData();
+                    } catch (e: any) {
+                        console.error("Send Message Error:", e);
+                        alert("Erro ao enviar mensagem. Se o erro persistir, vá a 'Configuração BD -> Reparar Chat' para corrigir a base de dados.");
+                    }
                 }}
                 onMarkMessagesAsRead={(senderId) => dataService.markMessagesAsRead(senderId)}
                 isOpen={showChatWidget}
