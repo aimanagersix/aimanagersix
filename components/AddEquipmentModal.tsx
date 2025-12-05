@@ -243,7 +243,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 parent_equipment_id: equipmentToEdit.parent_equipment_id || '',
                 accounting_category_id: equipmentToEdit.accounting_category_id || '',
                 conservation_state_id: equipmentToEdit.conservation_state_id || '',
-                residual_value: equipmentToEdit.residual_value || 0
+                residual_value: equipmentToEdit.residual_value || 0,
+                // Handle potentially null date strings
+                warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
+                last_security_update: equipmentToEdit.last_security_update || '',
+                manufacture_date: equipmentToEdit.manufacture_date || ''
             });
         } else if (initialData) {
              setFormData(prev => ({ ...prev, ...initialData }));
@@ -429,11 +433,29 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         setIsSaving(true);
         
         try {
-            const dataToSubmit: Partial<Equipment> = { ...formData };
+            const dataToSubmit: any = { ...formData };
             
-            // Clean up optional foreign keys
-            if (!dataToSubmit.accounting_category_id) delete dataToSubmit.accounting_category_id;
-            if (!dataToSubmit.conservation_state_id) delete dataToSubmit.conservation_state_id;
+            // FIX: Sanitize Date fields (empty string crashes Postgres date types)
+            const dateFields = ['warrantyEndDate', 'last_security_update', 'manufacture_date'];
+            dateFields.forEach(field => {
+                if (dataToSubmit[field] === '') {
+                    dataToSubmit[field] = null;
+                }
+            });
+            
+            // FIX: Sanitize UUID fields (empty string crashes Postgres UUID types)
+            const uuidFields = ['accounting_category_id', 'conservation_state_id', 'parent_equipment_id', 'supplier_id'];
+            uuidFields.forEach(field => {
+                if (dataToSubmit[field] === '') {
+                    dataToSubmit[field] = null;
+                }
+            });
+
+            // Ensure creationDate is not manually set for new items (let DB default to NOW())
+            if (!equipmentToEdit) {
+                delete dataToSubmit.creationDate;
+                delete dataToSubmit.modifiedDate;
+            }
 
             let assignment = null;
             if (!equipmentToEdit && assignToEntityId) {
@@ -448,7 +470,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             onClose();
         } catch (error: any) {
             console.error("Error saving equipment:", error);
-            alert(`Erro ao gravar equipamento: ${error.message || "Verifique os campos."}`);
+            alert(`Erro ao gravar equipamento: ${error.message || "Verifique os campos (datas ou referências)."}`);
         } finally {
             setIsSaving(false);
         }
