@@ -361,7 +361,8 @@ export type ModuleKey =
     | 'config_decommission_reasons'
     | 'config_collaborator_deactivation_reasons'
     | 'config_accounting_categories' // NEW: CIBE
-    | 'config_conservation_states'; // NEW: States
+    | 'config_conservation_states' // NEW: States
+    | 'document_templates'; // NEW: PDF Templates
 
 export interface PermissionMatrix {
     [module: string]: {
@@ -599,7 +600,7 @@ export interface UserNotificationSnooze {
     snoozeUntil: string;
 }
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE' | 'DIAGNOSTIC' | 'OFFBOARDING';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE' | 'DIAGNOSTIC' | 'OFFBOARDING' | 'DOC_TEMPLATE_CHANGE';
 
 export interface AuditLogEntry {
     id: string;
@@ -849,5 +850,15 @@ export interface CalendarEvent {
     team_id?: string; // If set, visible to team
     is_private: boolean;
     reminder_minutes?: number; // Notification trigger
+    created_at?: string;
+}
+
+// --- DOCUMENT TEMPLATES (PDFME) ---
+export interface DocumentTemplate {
+    id: string;
+    name: string;
+    type: 'equipment' | 'collaborator' | 'generic'; // Context
+    template_json: any; // Stored as JSONB in DB
+    is_active: boolean;
     created_at?: string;
 }

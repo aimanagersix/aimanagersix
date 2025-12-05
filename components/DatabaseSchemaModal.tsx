@@ -32,7 +32,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const updateScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v4.1 (Full Update)
+-- SCRIPT DE CORREÇÃO DE ESTRUTURA E SEGURANÇA v4.2 (Document Templates)
 -- ==================================================================================
 
 -- 1. EXTENSÕES E FUNÇÕES BÁSICAS
@@ -40,7 +40,17 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_net"; 
 CREATE EXTENSION IF NOT EXISTS "pg_cron";
 
--- 2. NOVAS TABELAS DE CONFIGURAÇÃO (LEGAL & HARDWARE)
+-- 2. TABELA DE TEMPLATES DE DOCUMENTOS (PDFME)
+CREATE TABLE IF NOT EXISTS public.document_templates (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL,
+    type text NOT NULL, -- 'equipment', 'collaborator', 'generic'
+    template_json jsonb NOT NULL, -- @pdfme/common Template Schema
+    is_active boolean DEFAULT true,
+    created_at timestamptz DEFAULT now()
+);
+
+-- 3. NOVAS TABELAS DE CONFIGURAÇÃO (LEGAL & HARDWARE)
 CREATE TABLE IF NOT EXISTS public.config_accounting_categories (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     name text NOT NULL UNIQUE, 
@@ -68,7 +78,7 @@ CREATE TABLE IF NOT EXISTS public.config_storage_types (
     name text NOT NULL UNIQUE 
 );
 
--- 3. ESTRUTURA DE TABELAS (ATUALIZAÇÕES)
+-- 4. ESTRUTURA DE TABELAS (ATUALIZAÇÕES)
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS accounting_category_id uuid REFERENCES public.config_accounting_categories(id);
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS conservation_state_id uuid REFERENCES public.config_conservation_states(id);
 ALTER TABLE public.equipment ADD COLUMN IF NOT EXISTS residual_value numeric;
@@ -84,7 +94,7 @@ BEGIN
     END IF;
 END $$;
 
--- 4. SEED DE DADOS LEGAIS & HARDWARE
+-- 5. SEED DE DADOS LEGAIS & HARDWARE
 INSERT INTO public.config_conservation_states (name, color) VALUES
 ('Novo', '#10B981'), ('Bom', '#3B82F6'), ('Razoável', '#F59E0B'), ('Mau', '#EF4444'), ('Obsoleto/Sucata', '#6B7280')
 ON CONFLICT (name) DO NOTHING;
@@ -106,7 +116,7 @@ INSERT INTO public.config_storage_types (name) VALUES
 ('256GB SSD'), ('512GB SSD'), ('1TB SSD'), ('500GB HDD'), ('1TB HDD')
 ON CONFLICT (name) DO NOTHING;
 
--- 5. FUNÇÕES DE PERMISSÕES
+-- 6. FUNÇÕES DE PERMISSÕES
 CREATE OR REPLACE FUNCTION is_admin() RETURNS boolean AS $$
 BEGIN
   RETURN EXISTS (SELECT 1 FROM public.collaborators WHERE id = auth.uid() AND role IN ('Admin', 'SuperAdmin'));
@@ -131,14 +141,14 @@ $$;
 GRANT EXECUTE ON FUNCTION get_database_triggers() TO authenticated;
 
 -- ==========================================
--- 6. RLS - POLÍTICAS DE SEGURANÇA
+-- 7. RLS - POLÍTICAS DE SEGURANÇA
 -- ==========================================
 
 -- Habilitar RLS para novas tabelas
 DO $$ 
 DECLARE t text;
 BEGIN 
-    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name IN ('config_accounting_categories', 'config_conservation_states', 'config_cpus', 'config_ram_sizes', 'config_storage_types')
+    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_name IN ('config_accounting_categories', 'config_conservation_states', 'config_cpus', 'config_ram_sizes', 'config_storage_types', 'document_templates')
     LOOP 
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t); 
         BEGIN EXECUTE format('DROP POLICY IF EXISTS "Config Read %I" ON %I;', t, t); EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -234,10 +244,11 @@ NOTIFY pgrst, 'reload config';
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaExclamationTriangle /> SCRIPT DE ATUALIZAÇÃO GLOBAL
+                                    <FaExclamationTriangle /> SCRIPT DE ATUALIZAÇÃO GLOBAL v4.2
                                 </div>
                                 <p className="mb-2">
-                                    Este script contém todas as estruturas de tabelas, RLS e dados de configuração necessários. Execute-o no <strong>SQL Editor do Supabase</strong> para garantir que a base de dados está sincronizada com a aplicação.
+                                    Este script contém todas as estruturas de tabelas, RLS e dados de configuração necessários, incluindo a nova tabela <code>document_templates</code> para o editor visual.
+                                    Execute-o no <strong>SQL Editor do Supabase</strong> para garantir que a base de dados está sincronizada.
                                 </p>
                             </div>
                             <div className="relative">

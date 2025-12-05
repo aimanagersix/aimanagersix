@@ -199,6 +199,16 @@ export const fetchAllData = async () => {
     };
 };
 
+// --- TEMPLATES ---
+export const getDocumentTemplates = async () => {
+    const supabase = getSupabase();
+    const { data } = await supabase.from('document_templates').select('*');
+    return data || [];
+};
+export const addDocumentTemplate = (data: any) => create('document_templates', data);
+export const updateDocumentTemplate = (id: string, data: any) => update('document_templates', id, data);
+export const deleteDocumentTemplate = (id: string) => remove('document_templates', id);
+
 // ... (rest of the file remains unchanged)
 // --- CONFIG ITEMS ---
 export const addConfigItem = (table: string, item: any) => create(table, item);

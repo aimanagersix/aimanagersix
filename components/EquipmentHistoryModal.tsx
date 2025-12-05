@@ -1,14 +1,15 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop, FaTools, FaTicketAlt, FaHistory, FaRobot, FaLandmark } from 'react-icons/fa';
+import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest, DocumentTemplate } from '../types';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop, FaTools, FaTicketAlt, FaHistory, FaRobot, FaLandmark, FaFilePdf } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
+import DocumentGeneratorModal from './DocumentGeneratorModal';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
 
 interface EquipmentHistoryModalProps {
-    equipment: Equipment; // Note: For display purposes, accounting_code/conservation_state might be passed as strings (names) if pre-processed by parent, OR we handle raw IDs here if parent passes raw obj. Ideally pass names.
+    equipment: Equipment; 
     assignments: Assignment[];
     collaborators: Collaborator[];
     escolasDepartamentos: Entidade[];
@@ -42,6 +43,10 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'licenses' | 'security' | 'acquisition'>('details');
     const [showManageLicenses, setShowManageLicenses] = useState(false);
     const [childEquipment, setChildEquipment] = useState<Equipment[]>([]);
+    
+    // Document Generation State
+    const [showDocGenerator, setShowDocGenerator] = useState(false);
+    const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
@@ -52,7 +57,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
         return procurementRequests.find(pr => pr.id === equipment.procurement_request_id);
     }, [procurementRequests, equipment.procurement_request_id]);
 
-    // Fetch child equipment (maintenance parts)
+    // Fetch child equipment & templates
     useEffect(() => {
         const fetchChildren = async () => {
             const supabase = getSupabase();
@@ -65,7 +70,14 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                 setChildEquipment(data);
             }
         };
+        
+        const fetchTemplates = async () => {
+             const tpls = await dataService.getDocumentTemplates();
+             setTemplates(tpls);
+        };
+
         fetchChildren();
+        fetchTemplates();
     }, [equipment.id]);
 
     // Current Assignment
@@ -127,7 +139,19 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
         await dataService.syncLicenseAssignments(eqId, licenseIds);
     };
 
+    // Prepare Data Context for Document Generator
+    const dataContext = useMemo(() => {
+        return {
+            ...equipment,
+            currentAssignmentDate: currentAssignment?.assignedDate || '',
+            collaborator: currentAssignment?.collaboratorId ? collaborators.find(c => c.id === currentAssignment.collaboratorId) : null,
+            entity: currentAssignment?.entidadeId ? entidades.find(e => e.id === currentAssignment.entidadeId) : null,
+            supplier: equipmentSupplier
+        };
+    }, [equipment, currentAssignment, collaborators, entidades, equipmentSupplier]);
+
     return (
+        <>
         <Modal title={`Detalhes e Histórico: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[80vh]">
                 
@@ -170,8 +194,12 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-2">
+                         {/* Doc Generator Button */}
+                         <button onClick={() => setShowDocGenerator(true)} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded text-sm flex items-center gap-2 justify-center">
+                             <FaFilePdf /> Imprimir Termo
+                         </button>
                         {onEdit && (
-                            <button onClick={() => { onClose(); onEdit(equipment); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-2">
+                            <button onClick={() => { onClose(); onEdit(equipment); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-2 justify-center">
                                 <FaEdit /> Editar
                             </button>
                         )}
@@ -330,7 +358,17 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                     onSave={handleSaveLicenses}
                 />
             )}
+
+            {showDocGenerator && (
+                <DocumentGeneratorModal 
+                    onClose={() => setShowDocGenerator(false)}
+                    templates={templates}
+                    dataContext={dataContext}
+                    contextType="equipment"
+                />
+            )}
         </Modal>
+        </>
     );
 };
 
