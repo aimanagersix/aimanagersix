@@ -155,7 +155,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                         </label>
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requiresLocation" checked={formData.requiresLocation} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
-                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Local de Instalação"</span>
+                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Local de Instalação" (Obrigatório)</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requires_wwan_address" checked={formData.requires_wwan_address} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />

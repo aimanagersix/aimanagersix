@@ -312,6 +312,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         
         // Dynamic type validation
         const type = equipmentTypes.find(t => t.id === formData.typeId);
+        // FIX: Make installation location mandatory ONLY if the type requires it
         if (type?.requiresLocation && !formData.installationLocation?.trim()) {
             newErrors.installationLocation = "O local de instalação é obrigatório para este tipo de equipamento.";
         }
@@ -619,11 +620,23 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         </div>
                     </div>
                 )}
-
-                {selectedType?.requiresLocation && (
+                
+                {/* Only show Location field if the selected type requires it OR if it's already filled (legacy data) */}
+                {(selectedType?.requiresLocation || formData.installationLocation) && (
                     <div>
-                        <label htmlFor="installationLocation" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Local de Instalação (Físico)</label>
-                        <input type="text" name="installationLocation" id="installationLocation" value={formData.installationLocation} onChange={handleChange} placeholder="Ex: Sala 204, Rack 3" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.installationLocation ? 'border-red-500' : 'border-gray-600'}`} />
+                        <label htmlFor="installationLocation" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
+                            Local de Instalação (Físico) {selectedType?.requiresLocation && <span className="text-red-400">*</span>}
+                        </label>
+                        <input 
+                            type="text" 
+                            name="installationLocation" 
+                            id="installationLocation" 
+                            value={formData.installationLocation} 
+                            onChange={handleChange} 
+                            placeholder="Ex: Sala 204, Rack 3" 
+                            className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.installationLocation ? 'border-red-500' : 'border-gray-600'}`} 
+                        />
+                         {errors.installationLocation && <p className="text-red-400 text-xs italic mt-1">{errors.installationLocation}</p>}
                     </div>
                 )}
 
