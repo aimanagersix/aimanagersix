@@ -15,13 +15,14 @@ interface ChatWidgetProps {
     activeChatCollaboratorId: string | null;
     onSelectConversation: (id: string | null) => void;
     unreadMessagesCount: number;
+    onlineUserIds?: Set<string>; // NEW PROP
 }
 
 // Constants for the General Channel (Broadcast)
 // This UUID must match the one inserted via SQL in DatabaseSchemaModal
 const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';
 
-export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborators, messages, onSendMessage, onMarkMessagesAsRead, isOpen, onToggle, activeChatCollaboratorId, onSelectConversation, unreadMessagesCount }) => {
+export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborators, messages, onSendMessage, onMarkMessagesAsRead, isOpen, onToggle, activeChatCollaboratorId, onSelectConversation, unreadMessagesCount, onlineUserIds }) => {
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -85,6 +86,19 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
             }
         });
 
+        // Add any currently online users to the list even if no messages yet
+        if (onlineUserIds) {
+            onlineUserIds.forEach(id => {
+                if (id !== currentUser.id && !convos.has(id) && id !== GENERAL_CHANNEL_ID) {
+                    // Verify user exists in collabs list (might be new)
+                    const userExists = collaborators.some(c => c.id === id);
+                    if (userExists) {
+                        convos.set(id, { lastMessage: null, unreadCount: 0 });
+                    }
+                }
+            });
+        }
+
         return Array.from(convos.entries())
             .map(([collaboratorId, data]) => ({ collaboratorId, ...data }))
             .sort((a, b) => {
@@ -92,11 +106,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
                 if (a.isGeneral) return -1;
                 if (b.isGeneral) return 1;
                 
+                // Online users prioritize
+                const aOnline = onlineUserIds?.has(a.collaboratorId);
+                const bOnline = onlineUserIds?.has(b.collaboratorId);
+                if (aOnline && !bOnline) return -1;
+                if (!aOnline && bOnline) return 1;
+
                 const timeA = a.lastMessage ? new Date(a.lastMessage.timestamp).getTime() : 0;
                 const timeB = b.lastMessage ? new Date(b.lastMessage.timestamp).getTime() : 0;
                 return timeB - timeA;
             });
-    }, [messages, currentUser]);
+    }, [messages, currentUser, onlineUserIds, collaborators]);
     
     useEffect(() => {
         if (isOpen && activeChatCollaboratorId) {
@@ -140,6 +160,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
     const activeCollaborator = activeChatCollaboratorId === GENERAL_CHANNEL_ID 
         ? generalChannelUser 
         : collaboratorMap.get(activeChatCollaboratorId || '');
+        
+    const isActiveOnline = activeChatCollaboratorId && onlineUserIds?.has(activeChatCollaboratorId);
 
     if (!currentUser) return null;
 
@@ -177,9 +199,9 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
                         <div>
                             <h3 className="font-semibold truncate text-sm">{activeCollaborator.fullName}</h3>
                             {activeCollaborator.id !== GENERAL_CHANNEL_ID && (
-                                <span className={`text-xs flex items-center gap-1 ${activeCollaborator.status === 'Ativo' ? 'text-green-300' : 'text-gray-300'}`}>
-                                    <FaCircle className={`h-2 w-2 ${activeCollaborator.status === 'Ativo' ? 'text-green-400' : 'text-gray-400'}`} /> 
-                                    {activeCollaborator.status === 'Ativo' ? 'Online' : 'Offline'}
+                                <span className={`text-xs flex items-center gap-1 ${isActiveOnline ? 'text-green-300' : 'text-gray-300'}`}>
+                                    <FaCircle className={`h-2 w-2 ${isActiveOnline ? 'text-green-400' : 'text-gray-400'}`} /> 
+                                    {isActiveOnline ? 'Online' : 'Offline'}
                                 </span>
                             )}
                         </div>
@@ -228,7 +250,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
                         const collaborator = collaboratorId === GENERAL_CHANNEL_ID ? generalChannelUser : collaboratorMap.get(collaboratorId);
                         if (!collaborator) return null;
                         
-                        const isOnline = collaborator.status === 'Ativo';
+                        const isOnline = onlineUserIds ? onlineUserIds.has(collaboratorId) : false;
 
                         return (
                             <button key={collaboratorId} onClick={() => onSelectConversation(collaboratorId)} className={`w-full text-left p-3 flex items-center gap-3 hover:bg-gray-800/50 border-b border-gray-700 ${isGeneral ? 'bg-blue-900/10' : ''}`}>
@@ -241,7 +263,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
                                         <div className="w-10 h-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-sm">{collaborator.fullName.charAt(0)}</div>
                                     )}
                                     {!isGeneral && isOnline && (
-                                        <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-400 ring-2 ring-surface-dark" />
+                                        <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-400 ring-2 ring-surface-dark" title="Online"/>
                                     )}
                                 </div>
                                 <div className="flex-grow overflow-hidden">

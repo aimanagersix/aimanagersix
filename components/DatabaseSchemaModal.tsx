@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -10,7 +10,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'seed' | 'triggers' | 'playwright_ai'>('update');
+    const [activeTab, setActiveTab] = useState<'update' | 'cleanup' | 'seed' | 'triggers' | 'playwright_ai' | 'chat_repair'>('update');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -303,6 +303,40 @@ WHERE id NOT IN (SELECT id FROM public.collaborators)
 AND email != 'general@system.local';
 `;
 
+    const chatRepairScript = `
+-- ==========================================
+-- RESTAURAR CANAL GERAL (CHAT)
+-- ==========================================
+
+-- Inserir o utilizador "Canal Geral" com um perfil válido.
+-- Usamos 'SuperAdmin' ou 'Admin' para garantir que passa nas validações.
+-- O ID zeros é essencial para o ChatWidget funcionar como broadcast.
+
+INSERT INTO public.collaborators (
+    id, 
+    "fullName", 
+    email, 
+    role, 
+    status, 
+    "canLogin", 
+    "receivesNotifications", 
+    "numeroMecanografico"
+) 
+VALUES (
+    '00000000-0000-0000-0000-000000000000', 
+    'Canal Geral', 
+    'general@system.local', 
+    'SuperAdmin', -- Alterado de 'System' para 'SuperAdmin' para evitar erros
+    'Ativo', 
+    false, 
+    false, 
+    'SYS'
+) 
+ON CONFLICT (id) DO UPDATE 
+SET role = 'SuperAdmin', status = 'Ativo'; -- Forçar correção se já existir com dados errados
+
+`;
+
     const seedScript = `
 -- ==========================================
 -- SCRIPT DE SEED (DADOS DE TESTE)
@@ -401,6 +435,12 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                         <FaSeedling /> Dados de Teste (Seed)
                     </button>
                     <button 
+                        onClick={() => setActiveTab('chat_repair')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'chat_repair' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaCommentDots /> Reparar Chat
+                    </button>
+                    <button 
                         onClick={() => setActiveTab('triggers')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'triggers' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
@@ -448,6 +488,31 @@ INSERT INTO equipment_types (name, "requiresNomeNaRede") VALUES ('Laptop', true)
                                     onClick={() => handleCopy(updateScript)} 
                                     className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
                                     title="Copiar SQL"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* CHAT REPAIR TAB */}
+                    {activeTab === 'chat_repair' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-1"><FaCommentDots /> Reparar Canal Geral</div>
+                                <p>
+                                    Se o "Canal Geral" do chat não funciona ou dá erro ao enviar mensagens, é porque o utilizador de sistema foi apagado.
+                                    Este script recria o utilizador com o perfil 'SuperAdmin' para garantir que funciona sem erros de Foreign Key.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-yellow-300 overflow-auto max-h-96 custom-scrollbar border border-gray-700">
+                                    {chatRepairScript}
+                                </pre>
+                                <button 
+                                    onClick={() => handleCopy(chatRepairScript)} 
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors"
+                                    title="Copiar SQL de Reparação"
                                 >
                                     {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
                                 </button>

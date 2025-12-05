@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember
@@ -51,6 +52,52 @@ export const App: React.FC = () => {
     } = useAppData();
     
     const { layoutMode } = useLayout();
+    
+    // Real-time Presence State
+    const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+
+    // --- REALTIME PRESENCE TRACKING ---
+    useEffect(() => {
+        if (!isConfigured || !currentUser) return;
+
+        const supabase = getSupabase();
+        
+        // Create a presence channel
+        const channel = supabase.channel('global_presence', {
+            config: {
+                presence: {
+                    key: currentUser.id, // Track by User ID
+                },
+            },
+        });
+
+        channel
+            .on('presence', { event: 'sync' }, () => {
+                const newState = channel.presenceState();
+                const onlineIds = new Set<string>();
+                
+                // Extract user IDs from presence state
+                for (const key in newState) {
+                    onlineIds.add(key);
+                }
+                
+                setOnlineUserIds(onlineIds);
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    // Send tracking info
+                    await channel.track({
+                        user_id: currentUser.id,
+                        online_at: new Date().toISOString(),
+                    });
+                }
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [isConfigured, currentUser]);
+
 
     const thirtyDaysFromNow = useMemo(() => {
         const date = new Date();
@@ -591,6 +638,8 @@ export const App: React.FC = () => {
                 activeChatCollaboratorId={activeChatCollaboratorId}
                 onSelectConversation={setActiveChatCollaboratorId}
                 unreadMessagesCount={appData.messages.filter((m: any) => m.receiverId === currentUser.id && !m.read).length}
+                // NEW PROP for Real-time status
+                onlineUserIds={onlineUserIds}
             />
             
             {isConfigured && (
