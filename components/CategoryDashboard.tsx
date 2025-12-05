@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import { TicketCategoryItem, Ticket, Team } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
@@ -20,7 +15,7 @@ interface CategoryDashboardProps {
   onCreate: () => void;
 }
 
-const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories, tickets, teams, onEdit, onDelete, onToggleStatus, onCreate }) => {
+const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories = [], tickets = [], teams = [], onEdit, onDelete, onToggleStatus, onCreate }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -37,7 +32,7 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories, ticke
     }, [tickets]);
 
     const sortedCategories = useMemo(() => {
-        return [...categories].sort((a,b) => a.name.localeCompare(b.name));
+        return [...(categories || [])].sort((a,b) => a.name.localeCompare(b.name));
     }, [categories]);
     
     const handleItemsPerPageChange = (size: number) => {
