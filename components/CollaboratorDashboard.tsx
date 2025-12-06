@@ -198,11 +198,14 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
             : col.instituicaoId 
                 ? instituicaoMap.get(col.instituicaoId) 
                 : 'Global / N/A';
+                
+        // Prefer Job Title for display, fallback to Role if not set
+        const displayJob = col.job_title_name || col.role;
 
         const content = (
             <div className="text-xs leading-tight space-y-1">
                 {cfg.showCollabName && <p className="font-bold text-white">{col.fullName}</p>}
-                {cfg.showCollabJob && <p><strong className="text-gray-400">Função:</strong> <span className="text-white">{col.role}</span></p>}
+                {cfg.showCollabJob && <p><strong className="text-gray-400">Função:</strong> <span className="text-white">{displayJob}</span></p>}
                 {cfg.showCollabEntity && <p><strong className="text-gray-400">Associação:</strong> <span className="text-white">{entityName}</span></p>}
                 {cfg.showCollabContact && (
                     <div>
@@ -302,7 +305,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     </select>
                 </div>
                 <div>
-                    <label htmlFor="roleFilter" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Perfil</label>
+                    <label htmlFor="roleFilter" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Perfil de Acesso</label>
                     <select
                         id="roleFilter"
                         name="role"
@@ -345,9 +348,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
               <th scope="col" className="px-6 py-3">Nº Mec.</th>
               <th scope="col" className="px-6 py-3">Nome Completo / Equipamentos</th>
               <th scope="col" className="px-6 py-3">Contactos</th>
+              <th scope="col" className="px-6 py-3">Cargo / Perfil</th>
               <th scope="col" className="px-6 py-3">Associação (Entidade/Inst.)</th>
               <th scope="col" className="px-6 py-3">Status</th>
-              <th scope="col" className="px-6 py-3">Perfil</th>
               <th scope="col" className="px-6 py-3 text-center">Acesso</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>
@@ -413,6 +416,10 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     {col.telemovel && <div className="text-xs text-on-surface-dark-secondary">Móvel: {col.telemovel}</div>}
                 </td>
                 <td className="px-6 py-4">
+                    <div className="font-semibold text-white">{col.job_title_name || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}</div>
+                    <div className="text-xs text-gray-500">{col.role}</div>
+                </td>
+                <td className="px-6 py-4">
                     {getAssociationText(col)}
                 </td>
                 <td className="px-6 py-4">
@@ -420,7 +427,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         {col.status}
                     </span>
                 </td>
-                <td className="px-6 py-4">{col.role}</td>
                 <td className="px-6 py-4 text-center">
                     {col.canLogin ? (
                         <span className="inline-flex items-center justify-center p-1.5 bg-green-500/20 rounded-full" title="Acesso permitido">

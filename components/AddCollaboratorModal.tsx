@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao } from '../types';
+import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao, JobTitle } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
-import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey } from 'react-icons/fa';
+import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey, FaBriefcase, FaPlus } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 const isValidEmail = (email: string) => {
@@ -61,7 +61,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         locality: '',
         canLogin: false,
         receivesNotifications: false,
-        role: 'Utilizador',
+        role: 'Utilizador', // Access Profile
+        job_title_id: '', // Professional Title
         status: CollaboratorStatus.Ativo,
         photoUrl: ''
     });
@@ -73,6 +74,11 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const [availableRoles, setAvailableRoles] = useState<CustomRole[]>([]);
     
+    // New Job Titles State
+    const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+    const [showAddJobTitle, setShowAddJobTitle] = useState(false);
+    const [newJobTitleName, setNewJobTitleName] = useState('');
+
     // Manual Password Reset
     const [showPasswordReset, setShowPasswordReset] = useState(false);
 
@@ -86,13 +92,16 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
-    // Load Custom Roles
+    // Load Custom Roles and Job Titles
     useEffect(() => {
-        const loadRoles = async () => {
+        const loadConfig = async () => {
             const roles = await dataService.getCustomRoles();
             setAvailableRoles(roles);
+            
+            const data = await dataService.fetchAllData();
+            if (data.configJobTitles) setJobTitles(data.configJobTitles);
         };
-        loadRoles();
+        loadConfig();
     }, []);
 
     // Fallback roles if DB fetch fails or is empty
@@ -117,7 +126,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 nif: collaboratorToEdit.nif || '',
                 title: collaboratorToEdit.title || '',
                 entidadeId: collaboratorToEdit.entidadeId || '',
-                instituicaoId: collaboratorToEdit.instituicaoId || ''
+                instituicaoId: collaboratorToEdit.instituicaoId || '',
+                job_title_id: collaboratorToEdit.job_title_id || ''
             });
             setPhotoPreview(collaboratorToEdit.photoUrl || null);
             
@@ -257,6 +267,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         }
     };
 
+    const handleAddJobTitle = async () => {
+        if (!newJobTitleName.trim()) return;
+        try {
+            const newTitle = await dataService.addJobTitle({ name: newJobTitleName.trim() });
+            setJobTitles(prev => [...prev, newTitle]);
+            setFormData(prev => ({ ...prev, job_title_id: newTitle.id }));
+            setNewJobTitleName('');
+            setShowAddJobTitle(false);
+        } catch (e: any) {
+            alert("Erro ao adicionar cargo: " + e.message);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
@@ -279,11 +302,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             address,
             numeroMecanografico: formData.numeroMecanografico || 'N/A',
             entidadeId: finalEntidadeId,
-            instituicaoId: finalInstituicaoId
+            instituicaoId: finalInstituicaoId,
+            job_title_id: formData.job_title_id || null
         };
         
         delete dataToSave.contacts;
         delete dataToSave.preferences; 
+        delete dataToSave.job_title_name;
 
         try {
             let savedCollaborator;
@@ -396,6 +421,50 @@ Verifique as configurações de armazenamento.`);
                     </div>
                 </div>
 
+                {/* Job Title & Role Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-800/50 p-3 rounded border border-gray-700">
+                     <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2">
+                            <FaBriefcase /> Cargo / Função Profissional
+                        </label>
+                        {showAddJobTitle ? (
+                             <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={newJobTitleName} 
+                                    onChange={(e) => setNewJobTitleName(e.target.value)} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" 
+                                    placeholder="Novo cargo..."
+                                    autoFocus
+                                />
+                                <button type="button" onClick={handleAddJobTitle} className="bg-green-600 text-white p-2 rounded"><CheckIcon/></button>
+                                <button type="button" onClick={() => setShowAddJobTitle(false)} className="bg-red-600 text-white p-2 rounded"><FaTrash className="w-3 h-3"/></button>
+                             </div>
+                        ) : (
+                            <div className="flex gap-2">
+                                <select name="job_title_id" value={formData.job_title_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                                    <option value="">-- Selecione Cargo --</option>
+                                    {jobTitles.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
+                                </select>
+                                <button type="button" onClick={() => setShowAddJobTitle(true)} className="bg-gray-600 text-white p-2 rounded hover:bg-gray-500" title="Adicionar Novo Cargo"><FaPlus className="w-3 h-3"/></button>
+                            </div>
+                        )}
+                        <p className="text-[10px] text-gray-500 mt-1">Ex: Enfermeiro, Contabilista, Diretor.</p>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2">
+                            <FaKey /> Perfil de Acesso (Sistema)
+                        </label>
+                        <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                            {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                         <p className="text-[10px] text-gray-500 mt-1">Define permissões na aplicação (Admin, Utilizador...).</p>
+                        {formData.role === UserRole.SuperAdmin && !showGlobalToggle && (
+                             <p className="text-[10px] text-yellow-400 mt-1">Apenas o SuperAdmin atual pode conceder Acesso Global.</p>
+                        )}
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Email</label>
@@ -422,25 +491,6 @@ Verifique as configurações de armazenamento.`);
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Extensão</label>
                         <input type="text" name="telefoneInterno" value={formData.telefoneInterno} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">Perfil de Acesso</label>
-                        <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                            {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                        {formData.role === UserRole.SuperAdmin && !showGlobalToggle && (
-                             <p className="text-[10px] text-yellow-400 mt-1">Apenas o SuperAdmin atual pode conceder Acesso Global.</p>
-                        )}
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
-                        <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                            <option value="Ativo">Ativo</option>
-                            <option value="Inativo">Inativo</option>
-                        </select>
                     </div>
                 </div>
                 

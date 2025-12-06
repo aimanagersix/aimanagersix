@@ -83,6 +83,7 @@ export const fetchAllData = async () => {
         configAccountingCategories, // CIBE
         configConservationStates,   // States
         configCpus, configRamSizes, configStorageTypes, // NEW HARDWARE TABLES
+        configJobTitles, // NEW JOB TITLES
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
         supabase.from('equipment').select('*'),
@@ -128,9 +129,10 @@ export const fetchAllData = async () => {
         supabase.from('config_collaborator_deactivation_reasons').select('*'),
         supabase.from('config_accounting_categories').select('*'),
         supabase.from('config_conservation_states').select('*'),
-        supabase.from('config_cpus').select('*'),          // NEW
-        supabase.from('config_ram_sizes').select('*'),     // NEW
-        supabase.from('config_storage_types').select('*'), // NEW
+        supabase.from('config_cpus').select('*'),          
+        supabase.from('config_ram_sizes').select('*'),     
+        supabase.from('config_storage_types').select('*'), 
+        supabase.from('config_job_titles').select('*'), // NEW
         supabase.from('policies').select('*'),
         supabase.from('policy_acceptances').select('*'),
         supabase.from('procurement_requests').select('*'),
@@ -144,6 +146,15 @@ export const fetchAllData = async () => {
             contacts: (resourceContacts.data || []).filter((c: any) => c.resource_type === type && c.resource_id === item.id)
         }));
     };
+    
+    // Enrich collaborators with job_title_name if job_title_id is present
+    const enrichedCollaborators = (collaborators.data || []).map((col: any) => {
+        if (col.job_title_id) {
+            const jt = (configJobTitles.data || []).find((j: any) => j.id === col.job_title_id);
+            if (jt) col.job_title_name = jt.name;
+        }
+        return col;
+    });
 
     return {
         equipment: equipment.data || [],
@@ -151,7 +162,7 @@ export const fetchAllData = async () => {
         equipmentTypes: equipmentTypes.data || [],
         instituicoes: attachContacts(instituicoes.data || [], 'instituicao'),
         entidades: attachContacts(entidades.data || [], 'entidade'),
-        collaborators: collaborators.data || [],
+        collaborators: enrichedCollaborators,
         assignments: assignments.data || [],
         tickets: tickets.data || [],
         ticketActivities: ticketActivities.data || [],
@@ -188,9 +199,10 @@ export const fetchAllData = async () => {
         configCollaboratorDeactivationReasons: configCollaboratorDeactivationReasons.data || [],
         configAccountingCategories: configAccountingCategories.data || [],
         configConservationStates: configConservationStates.data || [],
-        configCpus: configCpus.data || [],                  // NEW
-        configRamSizes: configRamSizes.data || [],          // NEW
-        configStorageTypes: configStorageTypes.data || [],  // NEW
+        configCpus: configCpus.data || [],                  
+        configRamSizes: configRamSizes.data || [],          
+        configStorageTypes: configStorageTypes.data || [],
+        configJobTitles: configJobTitles.data || [], // NEW
         policies: policies.data || [],
         policyAcceptances: policyAcceptances.data || [],
         procurementRequests: procurementRequests.data || [],
@@ -224,6 +236,11 @@ export const deleteContactRole = (id: string) => remove('contact_roles', id);
 export const addContactTitle = (item: any) => create('contact_titles', item);
 export const updateContactTitle = (id: string, item: any) => update('contact_titles', id, item);
 export const deleteContactTitle = (id: string) => remove('contact_titles', id);
+
+// NEW: Job Titles
+export const addJobTitle = (item: any) => create('config_job_titles', item);
+export const updateJobTitle = (id: string, item: any) => update('config_job_titles', id, item);
+export const deleteJobTitle = (id: string) => remove('config_job_titles', id);
 
 export const getGlobalSetting = async (key: string) => {
     const supabase = getSupabase();

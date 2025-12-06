@@ -29,16 +29,17 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const unlockScript = `
 -- ==================================================================================
--- SCRIPT DE DESBLOQUEIO TOTAL (RLS FIX)
+-- SCRIPT DE DESBLOQUEIO TOTAL (RLS FIX) - v2.1 (Com Cargos)
 -- Execute isto para garantir que todas as tabelas de configuração aparecem na app.
 -- ==================================================================================
 
 BEGIN;
 
--- 1. Tabelas de Hardware
+-- 1. Tabelas de Hardware e Cargos
 ALTER TABLE IF EXISTS public.config_cpus DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_ram_sizes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_storage_types DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_job_titles DISABLE ROW LEVEL SECURITY; -- NOVA
 
 -- 2. Tabelas de Software e Tickets
 ALTER TABLE IF EXISTS public.config_software_categories DISABLE ROW LEVEL SECURITY;
@@ -55,6 +56,7 @@ ALTER TABLE IF EXISTS public.document_templates DISABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.config_cpus TO authenticated, anon;
 GRANT ALL ON public.config_ram_sizes TO authenticated, anon;
 GRANT ALL ON public.config_storage_types TO authenticated, anon;
+GRANT ALL ON public.config_job_titles TO authenticated, anon; -- NOVA
 GRANT ALL ON public.config_software_categories TO authenticated, anon;
 GRANT ALL ON public.config_software_products TO authenticated, anon;
 GRANT ALL ON public.ticket_categories TO authenticated, anon;
@@ -108,8 +110,15 @@ $$;
 -- 3. Garantir permissões
 GRANT EXECUTE ON FUNCTION get_database_triggers TO authenticated, anon;
 
--- 4. Reparação adicional (se necessário)
-COMMENT ON FUNCTION get_database_triggers IS 'Lista triggers do sistema (Versão Corrigida)';
+-- 4. Criar Tabela de Cargos (se não existir) - v2.1
+CREATE TABLE IF NOT EXISTS public.config_job_titles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Adicionar coluna aos colaboradores
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS job_title_id UUID REFERENCES public.config_job_titles(id);
 `;
 
     const fixTypesScript = `
@@ -186,7 +195,7 @@ WHERE
                         onClick={() => setActiveTab('repair')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'repair' ? 'border-yellow-500 text-white bg-yellow-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaTools /> 2. Reparação
+                        <FaTools /> 2. Reparação / Update
                     </button>
                      <button 
                         onClick={() => setActiveTab('fix_types')} 
@@ -225,7 +234,7 @@ WHERE
                                     <FaUnlock /> CORREÇÃO DE VISIBILIDADE (RLS)
                                 </div>
                                 <p className="mb-2">
-                                    Se as categorias de tickets, produtos de software ou hardware aparecem vazios, é porque a política de segurança (RLS) está a bloquear o acesso.
+                                    Se os Cargos (Job Titles) ou categorias aparecem vazios, é porque a política de segurança (RLS) está a bloquear o acesso.
                                     <br/>
                                     <strong>Execute este script para corrigir as permissões de visualização.</strong>
                                 </p>
@@ -250,11 +259,12 @@ WHERE
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaTools /> CORREÇÃO DE FUNÇÕES DE SISTEMA
+                                    <FaTools /> UPDATE V2.1 & REPARAÇÃO
                                 </div>
                                 <p className="mb-2">
-                                    Use este script se encontrar o erro <code>column reference "trigger_name" is ambiguous</code> ou erros ao atualizar a base de dados.
-                                    Isto recria as funções de sistema com a sintaxe correta.
+                                    Use este script para: 
+                                    1. Corrigir erro de triggers.
+                                    2. Criar tabela de Cargos (config_job_titles) e adicionar coluna aos colaboradores.
                                 </p>
                             </div>
                             <div className="relative">

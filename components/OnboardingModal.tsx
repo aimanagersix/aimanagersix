@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, EquipmentType, ConfigItem, Entidade, Instituicao, TicketStatus, CollaboratorStatus } from '../types';
-import { FaUserPlus, FaLaptop, FaKey, FaShieldAlt, FaCheck, FaSpinner, FaPlaneArrival } from 'react-icons/fa';
+import { Collaborator, EquipmentType, ConfigItem, Entidade, Instituicao, TicketStatus, CollaboratorStatus, JobTitle } from '../types';
+import { FaUserPlus, FaLaptop, FaKey, FaShieldAlt, FaCheck, FaSpinner, FaPlaneArrival, FaBriefcase } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 interface OnboardingModalProps {
@@ -18,13 +18,22 @@ interface OnboardingModalProps {
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equipmentTypes, softwareCategories, entidades, instituicoes, currentUser }) => {
     const [step, setStep] = useState(1);
     const [isSaving, setIsSaving] = useState(false);
+    const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+
+    useEffect(() => {
+        const loadJobs = async () => {
+             const data = await dataService.fetchAllData();
+             if (data.configJobTitles) setJobTitles(data.configJobTitles);
+        };
+        loadJobs();
+    }, []);
 
     // Form State
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
         role: 'Utilizador', // Default system role
-        jobTitle: '', // Functional role (e.g. Accountant)
+        jobTitleId: '', // Functional role from config
         startDate: '',
         entidadeId: '',
         instituicaoId: '',
@@ -83,7 +92,8 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
                 instituicaoId: formData.instituicaoId || null,
                 canLogin: false, // Ensure no auth user is created
                 receivesNotifications: false,
-                numeroMecanografico: 'N/A' // Placeholder
+                numeroMecanografico: 'N/A',
+                job_title_id: formData.jobTitleId || null
             };
 
             const newCollab = await dataService.addCollaborator(collabData);
@@ -95,9 +105,11 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
             // 2. Create Ticket
             const hardwareNames = formData.selectedHardwareTypes.map(id => equipmentTypes.find(t => t.id === id)?.name).join(', ');
             const softwareNames = formData.selectedSoftwareCategories.map(id => softwareCategories.find(c => c.id === id)?.name).join(', ');
+            const jobTitleName = jobTitles.find(j => j.id === formData.jobTitleId)?.name || 'N/A';
             
             const description = `
-**Novo Colaborador:** ${formData.fullName} (${formData.jobTitle})
+**Novo Colaborador:** ${formData.fullName}
+**Função:** ${jobTitleName}
 **Email:** ${formData.email}
 **Data de Início:** ${formData.startDate}
 **Localização:** ${entidades.find(e => e.id === formData.entidadeId)?.name || 'N/A'}
@@ -163,8 +175,15 @@ ${formData.notes}
                                     <input type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Função / Cargo</label>
-                                    <input type="text" value={formData.jobTitle} onChange={e => setFormData({...formData, jobTitle: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" placeholder="ex: Contabilista" />
+                                    <label className="block text-sm text-gray-400 mb-1 flex items-center gap-2"><FaBriefcase/> Função / Cargo</label>
+                                    <select 
+                                        value={formData.jobTitleId} 
+                                        onChange={e => setFormData({...formData, jobTitleId: e.target.value})} 
+                                        className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white"
+                                    >
+                                        <option value="">-- Selecione Cargo --</option>
+                                        {jobTitles.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm text-gray-400 mb-1">Email Pessoal / Proposto</label>
@@ -229,7 +248,7 @@ ${formData.notes}
                             
                             <div className="bg-gray-800 p-4 rounded border border-gray-700 text-sm space-y-2">
                                 <p><strong className="text-gray-400">Nome:</strong> {formData.fullName}</p>
-                                <p><strong className="text-gray-400">Cargo:</strong> {formData.jobTitle}</p>
+                                <p><strong className="text-gray-400">Cargo:</strong> {jobTitles.find(j => j.id === formData.jobTitleId)?.name || 'N/A'}</p>
                                 <p><strong className="text-gray-400">Início:</strong> {formData.startDate}</p>
                                 <p><strong className="text-gray-400">Entidade:</strong> {entidades.find(e => e.id === formData.entidadeId)?.name || 'N/A'}</p>
                                 <div className="border-t border-gray-700 pt-2 mt-2">

@@ -5,7 +5,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark, FaSync, FaExclamationCircle
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark, FaSync, FaExclamationCircle, FaUserTie
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -167,6 +167,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
         'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
         'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
+        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: appData.configJobTitles }, // NEW
     };
 
     const getCount = (id: string) => {
@@ -210,6 +211,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, 
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
+                { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> }, // NEW
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
                 { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag /> },
                 { id: 'config_criticality_levels', label: 'Níveis de Criticidade', icon: <FaServer /> },

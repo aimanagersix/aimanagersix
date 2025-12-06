@@ -1,11 +1,12 @@
 
-
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
     name: string;
     color?: string; // New: Hex Color code for Statuses
 }
+
+export type JobTitle = ConfigItem; // New Type for Cargos
 
 export type SoftwareCategory = ConfigItem; // Reuse ConfigItem as it fits (id, name)
 
@@ -352,6 +353,7 @@ export type ModuleKey =
     | 'contact_roles'
     | 'contact_titles'
     | 'config_custom_roles' // RBAC itself
+    | 'config_job_titles' // NEW: Job Titles
     | 'config_automation' // API Keys etc
     | 'config_criticality_levels'
     | 'config_cia_ratings'
@@ -418,6 +420,8 @@ export interface Collaborator {
   canLogin: boolean;
   receivesNotifications: boolean;
   role: string; // Now string to support custom role names
+  job_title_id?: string; // NEW: Link to config_job_titles
+  job_title_name?: string; // NEW: For display purposes (joined)
   status: CollaboratorStatus;
   deactivation_reason_id?: string; // NEW
   password?: string;
