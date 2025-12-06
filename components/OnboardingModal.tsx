@@ -66,21 +66,31 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
     };
 
     const handleSubmit = async () => {
+        if (!formData.fullName || !formData.email) {
+            alert("Nome e Email são obrigatórios.");
+            return;
+        }
+
         setIsSaving(true);
         try {
             // 1. Create Collaborator with 'Onboarding' status
-            const newCollab = await dataService.addCollaborator({
+            const collabData = {
                 fullName: formData.fullName,
                 email: formData.email,
                 role: formData.role,
                 status: CollaboratorStatus.Onboarding, 
-                entidadeId: formData.entidadeId,
-                instituicaoId: formData.instituicaoId,
-                canLogin: false,
+                entidadeId: formData.entidadeId || null,
+                instituicaoId: formData.instituicaoId || null,
+                canLogin: false, // Ensure no auth user is created
                 receivesNotifications: false,
-                // Assuming description/jobTitle field exists or using generic field
-                // If not, we skip. Standard Collaborator type does not enforce job title
-            });
+                numeroMecanografico: 'N/A' // Placeholder
+            };
+
+            const newCollab = await dataService.addCollaborator(collabData);
+
+            if (!newCollab || !newCollab.id) {
+                throw new Error("Falha ao criar registo de colaborador.");
+            }
 
             // 2. Create Ticket
             const hardwareNames = formData.selectedHardwareTypes.map(id => equipmentTypes.find(t => t.id === id)?.name).join(', ');
@@ -106,8 +116,6 @@ ${formData.needsMobile ? '- Telemóvel/Cartão SIM' : ''}
 ${formData.notes}
             `;
 
-            // Link ticket to new collaborator? Yes, as requester or just linked via text.
-            // Using collaboratorId of the new user allows tracking history on their profile immediately.
             await dataService.addTicket({
                 title: `Onboarding: ${formData.fullName}`,
                 description: description.trim(),
@@ -126,9 +134,9 @@ ${formData.notes}
             onClose();
             alert("Pedido de Onboarding criado com sucesso! O colaborador foi registado como 'Onboarding' e gerado um ticket.");
 
-        } catch (e) {
-            console.error(e);
-            alert("Erro ao criar pedido.");
+        } catch (e: any) {
+            console.error("Onboarding Error:", e);
+            alert(`Erro ao criar pedido: ${e.message || "Verifique a conexão."}`);
         } finally {
             setIsSaving(false);
         }

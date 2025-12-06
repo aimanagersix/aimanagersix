@@ -165,19 +165,19 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
         };
 
-        // Cleanup empty strings for UUIDs
-        if (!dataToSave.supplier_id) delete dataToSave.supplier_id;
-        if (!dataToSave.approver_id) delete dataToSave.approver_id;
-        if (!dataToSave.equipment_type_id) delete dataToSave.equipment_type_id;
-        if (!dataToSave.software_category_id) delete dataToSave.software_category_id;
-        if (!dataToSave.brand_id) delete dataToSave.brand_id;
+        // Explicitly set undefined/null for empty strings on UUID fields to avoid Postgres errors
+        if (!dataToSave.supplier_id) dataToSave.supplier_id = undefined;
+        if (!dataToSave.approver_id) dataToSave.approver_id = undefined;
+        if (!dataToSave.equipment_type_id) dataToSave.equipment_type_id = undefined;
+        if (!dataToSave.software_category_id) dataToSave.software_category_id = undefined;
+        if (!dataToSave.brand_id) dataToSave.brand_id = undefined;
 
         try {
             await onSave(procurementToEdit ? { ...procurementToEdit, ...dataToSave } as ProcurementRequest : dataToSave as any);
             onClose();
-        } catch(e) {
+        } catch(e: any) {
             console.error(e);
-            alert("Erro ao gravar pedido.");
+            alert(`Erro ao gravar pedido: ${e.message || 'Verifique os dados preenchidos.'}`);
         } finally {
             setIsSaving(false);
         }

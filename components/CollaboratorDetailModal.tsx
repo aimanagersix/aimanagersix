@@ -2,8 +2,9 @@
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, SoftwareLicense, LicenseAssignment, Brand, EquipmentType, ConfigItem } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaEdit, FaKey, FaUserSlash, FaBoxOpen } from './common/Icons';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaEdit, FaKey, FaUserSlash, FaBoxOpen, FaPrint } from './common/Icons';
 import OffboardingModal from './OffboardingModal';
+import * as dataService from '../services/dataService';
 
 interface CollaboratorDetailModalProps {
     collaborator: Collaborator;
@@ -82,6 +83,92 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
             setShowOffboardingModal(true);
         }
     };
+
+    const handlePrint = async () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const [logoBase64, sizeStr, align, footerId] = await Promise.all([
+            dataService.getGlobalSetting('app_logo_base64'),
+            dataService.getGlobalSetting('app_logo_size'),
+            dataService.getGlobalSetting('app_logo_alignment'),
+            dataService.getGlobalSetting('report_footer_institution_id')
+        ]);
+        const logoSize = sizeStr ? parseInt(sizeStr) : 80;
+        const logoHtml = logoBase64 ? `<div style="display: flex; justify-content: ${align || 'center'}; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px;" /></div>` : '';
+
+        let footerHtml = '';
+        if (footerId) {
+            const allData = await dataService.fetchAllData();
+            const inst = allData.instituicoes.find((i: any) => i.id === footerId);
+            if (inst) {
+                footerHtml = `<div class="footer"><p><strong>${inst.name}</strong> | ${[inst.address_line, inst.postal_code, inst.city].filter(Boolean).join(', ')} | NIF: ${inst.nif}</p></div>`;
+            }
+        }
+
+        const equipmentRows = assignedEquipment.map(eq => `
+            <tr>
+                <td>${eq.description}</td>
+                <td>${brandMap.get(eq.brandId) || ''} ${equipmentTypeMap.get(eq.typeId) || ''}</td>
+                <td>${eq.serialNumber}</td>
+                <td>${activeAssignments.find(a => a.equipmentId === eq.id)?.assignedDate}</td>
+            </tr>
+        `).join('');
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Ficha de Colaborador - ${collaborator.fullName}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; color: #333; }
+                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
+                    .section { margin-bottom: 20px; }
+                    .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
+                    .value { font-size: 16px; margin-bottom: 5px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+                    th { background-color: #f2f2f2; font-weight: bold; }
+                    h3 { margin-top: 0; color: #444; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                    .footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 9pt; color: #666; }
+                </style>
+            </head>
+            <body>
+                ${logoHtml}
+                <h1>${collaborator.fullName}</h1>
+                <div class="section">
+                    <div class="label">Nº Mecanográfico</div>
+                    <div class="value">${collaborator.numeroMecanografico}</div>
+                    <div class="label">Email</div>
+                    <div class="value">${collaborator.email}</div>
+                    <div class="label">Telefone</div>
+                    <div class="value">${collaborator.telemovel || collaborator.telefoneInterno || '-'}</div>
+                    <div class="label">Função</div>
+                    <div class="value">${collaborator.role}</div>
+                </div>
+                
+                ${assignedEquipment.length > 0 ? `
+                <div class="section">
+                    <h3>Equipamentos Atribuídos</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Descrição</th><th>Marca/Tipo</th><th>Nº Série</th><th>Data Atribuição</th></tr>
+                        </thead>
+                        <tbody>
+                            ${equipmentRows}
+                        </tbody>
+                    </table>
+                    <p style="font-size: 10px; margin-top: 10px;">Declaro que recebi os equipamentos acima listados em bom estado de conservação.</p>
+                    <br/><br/>
+                    <div style="border-top: 1px solid #000; width: 200px; text-align: center; font-size: 12px;">Assinatura do Colaborador</div>
+                </div>` : '<div class="section"><p>Sem equipamentos atribuídos.</p></div>'}
+
+                ${footerHtml}
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
     
     return (
         <>
@@ -109,6 +196,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                         </div>
                         <div className="flex flex-col items-end gap-2">
                             <div className="flex gap-2">
+                                <button onClick={handlePrint} className="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md flex items-center gap-2"><FaPrint/> Imprimir</button>
                                 <button onClick={() => { onClose(); onEdit(collaborator); }} className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md flex items-center gap-2"><FaEdit/> Editar</button>
                                 <button onClick={() => { onClose(); onStartChat(collaborator); }} className="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md flex items-center gap-2"><FaComment/> Chat</button>
                             </div>

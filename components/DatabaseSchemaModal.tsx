@@ -11,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'unlock' | 'repair' | 'update' | 'fix_types' | 'triggers'>('unlock');
+    const [activeTab, setActiveTab] = useState<'unlock' | 'repair' | 'update' | 'fix_types' | 'triggers' | 'playwright'>('unlock');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -151,6 +151,20 @@ WHERE
         }
     };
 
+    const handleGenerateTest = async () => {
+        if (!testRequest.trim()) return;
+        setIsGeneratingTest(true);
+        try {
+            const code = await generatePlaywrightTest(testRequest, {email: testEmail, pass: testPassword});
+            setGeneratedTest(code);
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao gerar teste.");
+        } finally {
+            setIsGeneratingTest(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'triggers') {
             loadTriggers();
@@ -185,6 +199,12 @@ WHERE
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'triggers' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         <FaBolt /> Triggers
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('playwright')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'playwright' ? 'border-pink-500 text-white bg-pink-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaRobot /> Testes E2E
                     </button>
                      <button 
                         onClick={() => setActiveTab('update')} 
@@ -336,6 +356,53 @@ WHERE
                                         </table>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* PLAYWRIGHT TAB */}
+                    {activeTab === 'playwright' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-pink-900/20 border border-pink-500/50 p-4 rounded-lg text-sm text-pink-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg"><FaRobot /> Gerador de Testes E2E (IA)</div>
+                                <p>Descreva um cenário de teste e a IA irá gerar o código Playwright (TypeScript) para automatizar o teste na aplicação.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Credenciais de Teste (Login)</label>
+                                    <input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)} className="w-full bg-gray-800 mb-2 p-2 rounded text-sm" placeholder="Email"/>
+                                    <input type="text" value={testPassword} onChange={e => setTestPassword(e.target.value)} className="w-full bg-gray-800 p-2 rounded text-sm" placeholder="Password"/>
+                                    
+                                    <label className="block text-sm text-gray-400 mt-4 mb-1">Cenário de Teste</label>
+                                    <textarea 
+                                        value={testRequest} 
+                                        onChange={e => setTestRequest(e.target.value)} 
+                                        rows={4} 
+                                        className="w-full bg-gray-800 p-2 rounded text-sm border border-gray-600"
+                                        placeholder="Ex: Fazer login, ir a Inventário, criar um equipamento 'Laptop Dell' e verificar se aparece na lista."
+                                    />
+                                    <button 
+                                        onClick={handleGenerateTest} 
+                                        disabled={isGeneratingTest || !aiConfigured}
+                                        className="mt-2 bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isGeneratingTest ? <FaSpinner className="animate-spin"/> : <FaPlay />} Gerar Teste
+                                    </button>
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Código Gerado</label>
+                                    <div className="relative h-64 md:h-auto">
+                                        <textarea 
+                                            value={generatedTest} 
+                                            readOnly 
+                                            className="w-full h-full bg-gray-900 font-mono text-xs text-green-400 p-4 rounded border border-gray-700"
+                                        />
+                                        {generatedTest && (
+                                            <button onClick={() => handleCopy(generatedTest)} className="absolute top-2 right-2 p-1 bg-gray-700 rounded hover:bg-gray-600"><FaCopy/></button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
