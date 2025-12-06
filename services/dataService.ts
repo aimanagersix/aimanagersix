@@ -209,22 +209,22 @@ export const addDocumentTemplate = (data: any) => create('document_templates', d
 export const updateDocumentTemplate = (id: string, data: any) => update('document_templates', id, data);
 export const deleteDocumentTemplate = (id: string) => remove('document_templates', id);
 
-// ... (rest of the file remains unchanged)
 // --- CONFIG ITEMS ---
 export const addConfigItem = (table: string, item: any) => create(table, item);
 export const updateConfigItem = (table: string, id: string, item: any) => update(table, id, item);
 export const deleteConfigItem = (table: string, id: string) => remove(table, id);
 
-// ... (keep existing exports)
 export const addSoftwareProduct = (data: any) => create('config_software_products', data);
 export const updateSoftwareProduct = (id: string, data: any) => update('config_software_products', id, data);
 export const deleteSoftwareProduct = (id: string) => remove('config_software_products', id);
+
 export const addContactRole = (item: any) => create('contact_roles', item);
 export const updateContactRole = (id: string, item: any) => update('contact_roles', id, item);
 export const deleteContactRole = (id: string) => remove('contact_roles', id);
 export const addContactTitle = (item: any) => create('contact_titles', item);
 export const updateContactTitle = (id: string, item: any) => update('contact_titles', id, item);
 export const deleteContactTitle = (id: string) => remove('contact_titles', id);
+
 export const getGlobalSetting = async (key: string) => {
     const supabase = getSupabase();
     const { data, error } = await supabase.from('global_settings').select('setting_value').eq('setting_key', key).single();
@@ -236,6 +236,7 @@ export const updateGlobalSetting = async (key: string, value: string) => {
     if (error) throw error;
     await logAction('UPDATE', 'Settings', `Updated setting ${key}`);
 };
+
 export const addCollaborator = async (collaborator: any, password?: string) => {
     const serviceKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
     const supabaseUrl = localStorage.getItem('SUPABASE_URL');
@@ -260,6 +261,7 @@ export const addCollaborator = async (collaborator: any, password?: string) => {
 };
 export const updateCollaborator = (id: string, data: any) => update('collaborators', id, data);
 export const deleteCollaborator = (id: string) => remove('collaborators', id);
+
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     const serviceKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
     const supabaseUrl = localStorage.getItem('SUPABASE_URL');
@@ -309,6 +311,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
     }
     throw updateError;
 };
+
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {
     const supabase = getSupabase();
     const filePath = `avatars/${id}-${Date.now()}`;
@@ -322,6 +325,7 @@ export const uploadCollaboratorPhoto = async (id: string, file: File) => {
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
     await updateCollaborator(id, { photoUrl: data.publicUrl });
 };
+
 export const addInstituicao = (data: any) => create('instituicoes', data);
 export const updateInstituicao = (id: string, data: any) => update('instituicoes', id, data);
 export const deleteInstituicao = (id: string) => remove('instituicoes', id);

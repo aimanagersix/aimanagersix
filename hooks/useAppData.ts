@@ -52,6 +52,9 @@ export interface AppData {
     configCollaboratorDeactivationReasons: ConfigItem[];
     configAccountingCategories: ConfigItem[]; // NEW: CIBE
     configConservationStates: ConfigItem[];   // NEW: States
+    configCpus: ConfigItem[];                 // NEW: CPUs
+    configRamSizes: ConfigItem[];             // NEW: RAM
+    configStorageTypes: ConfigItem[];         // NEW: Storage
     policies: Policy[];
     policyAcceptances: PolicyAcceptance[];
     procurementRequests: ProcurementRequest[];
@@ -71,6 +74,7 @@ const initialData: AppData = {
     configBackupTypes: [], configTrainingTypes: [], configResilienceTestTypes: [],
     configDecommissionReasons: [], configCollaboratorDeactivationReasons: [],
     configAccountingCategories: [], configConservationStates: [],
+    configCpus: [], configRamSizes: [], configStorageTypes: [],
     policies: [], policyAcceptances: [], procurementRequests: [], calendarEvents: [],
     continuityPlans: []
 };
@@ -134,6 +138,9 @@ export const useAppData = () => {
                 configCollaboratorDeactivationReasons: data.configCollaboratorDeactivationReasons,
                 configAccountingCategories: data.configAccountingCategories, // New
                 configConservationStates: data.configConservationStates,     // New
+                configCpus: data.configCpus,                                // NEW
+                configRamSizes: data.configRamSizes,                        // NEW
+                configStorageTypes: data.configStorageTypes,                // NEW
                 policies: data.policies,
                 policyAcceptances: data.policyAcceptances,
                 procurementRequests: data.procurementRequests,
