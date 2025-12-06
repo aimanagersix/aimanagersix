@@ -38,7 +38,7 @@ export interface AppData {
     securityTrainings: SecurityTrainingRecord[];
     customRoles: CustomRole[];
     softwareCategories: ConfigItem[];
-    softwareProducts: SoftwareProduct[]; // NEW
+    softwareProducts: SoftwareProduct[];
     configEquipmentStatuses: ConfigItem[];
     contactRoles: ConfigItem[];
     contactTitles: ConfigItem[];
@@ -50,11 +50,12 @@ export interface AppData {
     configResilienceTestTypes: ConfigItem[];
     configDecommissionReasons: ConfigItem[];
     configCollaboratorDeactivationReasons: ConfigItem[];
-    configAccountingCategories: ConfigItem[]; // NEW: CIBE
-    configConservationStates: ConfigItem[];   // NEW: States
-    configCpus: ConfigItem[];                 // NEW: CPUs
-    configRamSizes: ConfigItem[];             // NEW: RAM
-    configStorageTypes: ConfigItem[];         // NEW: Storage
+    configAccountingCategories: ConfigItem[];
+    configConservationStates: ConfigItem[];
+    configCpus: ConfigItem[];
+    configRamSizes: ConfigItem[];
+    configStorageTypes: ConfigItem[];
+    configJobTitles: ConfigItem[]; // NEW: Job Titles
     policies: Policy[];
     policyAcceptances: PolicyAcceptance[];
     procurementRequests: ProcurementRequest[];
@@ -74,7 +75,7 @@ const initialData: AppData = {
     configBackupTypes: [], configTrainingTypes: [], configResilienceTestTypes: [],
     configDecommissionReasons: [], configCollaboratorDeactivationReasons: [],
     configAccountingCategories: [], configConservationStates: [],
-    configCpus: [], configRamSizes: [], configStorageTypes: [],
+    configCpus: [], configRamSizes: [], configStorageTypes: [], configJobTitles: [],
     policies: [], policyAcceptances: [], procurementRequests: [], calendarEvents: [],
     continuityPlans: []
 };
@@ -82,7 +83,6 @@ const initialData: AppData = {
 export const useAppData = () => {
     // --- Authentication & Setup State ---
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
-        // Check LocalStorage (from setup screen) OR environment variables (from Vite).
         const url = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
         const key = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
         return !!(url && key);
@@ -90,7 +90,7 @@ export const useAppData = () => {
     
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [appData, setAppData] = useState<AppData>(initialData);
-    const [isLoading, setIsLoading] = useState(true); // Start true to block rendering until check is done
+    const [isLoading, setIsLoading] = useState(true);
 
     // --- Data Loading ---
     const loadData = useCallback(async () => {
@@ -124,7 +124,7 @@ export const useAppData = () => {
                 securityTrainings: data.securityTrainings,
                 customRoles: data.configCustomRoles,
                 softwareCategories: data.configSoftwareCategories,
-                softwareProducts: data.configSoftwareProducts, // NEW
+                softwareProducts: data.configSoftwareProducts,
                 configEquipmentStatuses: data.configEquipmentStatuses,
                 contactRoles: data.contactRoles,
                 contactTitles: data.contactTitles,
@@ -136,11 +136,12 @@ export const useAppData = () => {
                 configResilienceTestTypes: data.configResilienceTestTypes,
                 configDecommissionReasons: data.configDecommissionReasons,
                 configCollaboratorDeactivationReasons: data.configCollaboratorDeactivationReasons,
-                configAccountingCategories: data.configAccountingCategories, // New
-                configConservationStates: data.configConservationStates,     // New
-                configCpus: data.configCpus,                                // NEW
-                configRamSizes: data.configRamSizes,                        // NEW
-                configStorageTypes: data.configStorageTypes,                // NEW
+                configAccountingCategories: data.configAccountingCategories,
+                configConservationStates: data.configConservationStates,
+                configCpus: data.configCpus,
+                configRamSizes: data.configRamSizes,
+                configStorageTypes: data.configStorageTypes,
+                configJobTitles: data.configJobTitles, // Mapped correctly
                 policies: data.policies,
                 policyAcceptances: data.policyAcceptances,
                 procurementRequests: data.procurementRequests,
@@ -162,7 +163,6 @@ export const useAppData = () => {
                     const { data: { session } } = await (supabase.auth as any).getSession();
                     
                     if (session) {
-                        // Fetch data first to ensure we have the collaborator list to match the user
                         await loadData();
                         const freshData = await dataService.fetchAllData();
                         const user = freshData.collaborators.find((c: Collaborator) => c.email === session.user.email);
@@ -172,7 +172,6 @@ export const useAppData = () => {
                     }
                 }
             } catch (e) {
-                // Only set false if hardcoded fallback also failed
                 setIsConfigured(false);
                 console.error("Config check failed", e);
             } finally {
@@ -184,7 +183,6 @@ export const useAppData = () => {
 
     useEffect(() => {
         if (isConfigured && currentUser) {
-            // loadData(); // Already loaded in initial check
             const interval = setInterval(loadData, 30000); // Poll every 30s
             return () => clearInterval(interval);
         }

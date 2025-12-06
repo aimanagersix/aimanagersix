@@ -2,117 +2,93 @@
 # 📘 AIManager - Documentação Técnica & Funcional
 
 ## 1. Visão Geral
-Aplicação web para Gestão de Ativos de TI (ITAM), Service Desk e Compliance (NIS2/DORA), focada na automação via IA (Gemini) e integração com Supabase.
-Stack: React (Vite), TypeScript, Tailwind CSS, Supabase (Backend/Auth/DB), Google Gemini (AI).
+O **AIManager** é uma plataforma empresarial para Gestão de Ativos de TI (ITAM), Service Desk e Compliance (NIS2/DORA). A aplicação foca-se na automação de processos através de IA (Google Gemini) e na centralização de dados organizacionais.
 
-## 2. Changelog & Histórico de Versões
+**Tech Stack:**
+*   **Frontend:** React 19, Vite, TypeScript, Tailwind CSS.
+*   **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions).
+*   **AI:** Google Gemini API (Multimodal: Texto e Visão).
+*   **Relatórios:** PDFMe (Geração de PDF), Recharts/HTML (Dashboards).
 
-### **Versão 2.0 (Atual)**
-*   **Correção Crítica:** Scripts SQL de **reparação de Triggers** (`trigger_name ambiguous`) e **desbloqueio RLS** atualizados e integrados.
-*   **Novidade:** Novo estado de **'Onboarding'** para colaboradores, permitindo o pré-registo e atribuição de ativos antes da data de entrada.
-*   **Correção:** Contagens corrigidas no dashboard de configurações para tabelas como "Produtos de Software" e "Categorias de Tickets".
-*   **Melhoria:** Assistente de Onboarding cria automaticamente o colaborador e o ticket de aprovisionamento.
+---
+
+## 2. Histórico de Versões e Changelog
+
+### **Versão 2.0 (Atual - Stable)**
+*   **✨ Novo Módulo de Onboarding:** Implementação do `OnboardingModal.tsx` e lógica associada em `OrganizationManager.tsx`. Permite criar colaboradores com estado "Onboarding" e gerar automaticamente tickets de aprovisionamento de TI com requisitos de hardware/software.
+*   **🛡️ Correção Crítica de Base de Dados:** Atualização dos scripts em `DatabaseSchemaModal.tsx` para corrigir o erro `column reference "trigger_name" is ambiguous` nas funções RPC e reforço das políticas RLS (Row Level Security) para tabelas de configuração (Cargos, Hardware).
+*   **⚙️ Configuração Dinâmica:** Introdução da tabela `config_job_titles` e gestão de cargos via `RoleManager.tsx` e `SettingsManager.tsx`.
+*   **🔧 Refatorização de Tipos:** Atualização global de `types.ts` para suportar os novos estados e configurações.
 
 ### Versão 1.5
-*   Adicionado suporte a Contabilidade (CIBE) e Estados de Conservação.
-*   Adicionado suporte a Produtos de Software na configuração.
-*   Reforço de políticas RLS (Row Level Security).
+*   Módulo de Contabilidade (CIBE) e Estados de Conservação.
+*   Gestão de Produtos de Software.
+*   Dashboards de Compliance (NIS2) e BIA.
 
-## 3. Estrutura de Ficheiros e Responsabilidades
+---
 
-### 🧠 Núcleo (Core)
-*   **`App.tsx`**: O "cérebro" da aplicação. Gere o encaminhamento (navegação por abas/hash), verifica permissões (RBAC), gere o estado global de autenticação e decide qual "Manager" carregar.
-*   **`types.ts`**: A "verdade" dos dados. Define todas as interfaces (Equipamento, Ticket, Colaborador, Supplier, etc.) e Enums. Agora inclui tipos para **Contabilidade (CIBE)** e **Estados de Conservação**.
-*   **`index.tsx` / `index.html`**: Ponto de entrada, configuração de imports e Error Boundary global.
+## 3. Arquitetura do Projeto
 
-### 🗄️ Serviços (Backend & Lógica)
-*   **`services/dataService.ts`**: A ponte com o Supabase. Contém todas as funções CRUD, logs de auditoria e chamadas RPC. Atualizado para carregar as novas tabelas de configuração (`config_accounting_categories`, `config_conservation_states`).
-*   **`services/geminiService.ts`**: A inteligência. Contém lógica para OCR, categorização de tickets, relatórios executivos, scan de vulnerabilidades e comandos de voz.
-*   **`services/supabaseClient.ts`**: Singleton para a conexão à base de dados.
-*   **`services/automationService.ts`**: Lógica para correr scans automáticos de segurança.
-*   **`hooks/useAppData.ts`**: Hook principal que carrega TODOS os dados para a memória (Polling de 30s), incluindo as novas configurações legais.
+A aplicação segue uma arquitetura modular baseada em "Features" para separar a lógica de negócio da interface do utilizador.
 
-### 📦 Funcionalidades (Features/Modules)
-Estes componentes atuam como "controladores" de cada módulo principal:
-*   **`features/inventory/InventoryManager.tsx`**: Gere Equipamentos, Licenças e Aquisições. Passa os novos dados de contabilidade para os modais.
-*   **`features/organization/OrganizationManager.tsx`**: Gere Instituições, Entidades, Colaboradores, Equipas e Fornecedores.
-*   **`features/tickets/TicketManager.tsx`**: Gere a lista de Tickets e atividades.
-*   **`features/compliance/ComplianceManager.tsx`**: Gere BIA, Vulnerabilidades, Backups, Resiliência, Formação e Políticas.
-*   **`features/settings/SettingsManager.tsx`**: Painel de controlo Admin. Gere tabelas auxiliares, incluindo as novas tabelas de CIBE e Estados de Conservação.
+### 🧠 Core (Núcleo)
+*   **`App.tsx`**: O orquestrador principal. Gere o encaminhamento (baseado em hash `#`), estado de autenticação global, inicialização de serviços e renderização condicional dos "Feature Managers".
+*   **`index.tsx`**: Ponto de entrada React, contendo o `ErrorBoundary` global e os Providers de Contexto (`Layout`, `Language`).
+*   **`types.ts`**: Definição de tipos TypeScript (Interfaces e Enums). É a "fonte da verdade" para o modelo de dados.
 
-### 📊 Dashboards (Visualização)
-*   **`OverviewDashboard.tsx`**: Ecrã inicial operacional (KPIs, Alertas, Gráficos).
-*   **`SmartDashboard.tsx`**: Dashboard C-Level para a Administração (Score NIS2, Risco Financeiro).
-*   **`MapDashboard.tsx`**: Visualização geográfica de ativos e entidades.
-*   **`BIReportDashboard.tsx`**: Relatórios financeiros (FinOps).
-*   **`AgendaDashboard.tsx`**: Diretório global de contactos.
-*   **`CollaboratorDashboard.tsx`**: Listagem de colaboradores.
-*   **`EquipmentDashboard.tsx`**: Listagem principal de inventário com suporte a filtros avançados.
-*   **`TicketDashboard.tsx`**: Gestão de fila de espera de suporte.
-*   **`ServiceDashboard.tsx`**: Gestão de serviços de negócio (BIA).
-*   **`VulnerabilityDashboard.tsx`**: Gestão de CVEs.
-*   **`BackupDashboard.tsx`**: Registo de testes de restauro.
-*   **`SupplierDashboard.tsx`**: Gestão de risco de terceiros.
-*   **`TrainingDashboard.tsx`**: Registo de ações de formação.
-*   **`PolicyDashboard.tsx`**: Gestão de políticas de segurança.
-*   **`components/settings/SoftwareProductDashboard.tsx`**: Gestão específica de catálogo de software.
+### 🗄️ Camada de Dados e Serviços (`/services`)
+*   **`dataService.ts`**: Camada de abstração para o Supabase. Contém todas as operações CRUD, chamadas RPC e lógica de logs de auditoria.
+*   **`geminiService.ts`**: Integração com IA. Gere OCR (leitura de s/n), classificação de tickets, geração de relatórios executivos e comandos de voz (`MagicCommandBar`).
+*   **`supabaseClient.ts`**: Singleton para a conexão à base de dados.
+*   **`automationService.ts`**: Lógica para scans automáticos de vulnerabilidades (cruzamento de inventário com CVEs via IA).
 
-### 🧩 Modais (Formulários & Ações)
-*   **`AddEquipmentModal.tsx`**: Criação/Edição de equipamentos. **Atualizado:** Inclui secção de "Contabilidade & Património" (Classificador CIBE, Estado de Conservação, Valor Residual).
-*   **`AddEquipmentKitModal.tsx`**: Criação de múltiplos ativos (Kits).
-*   **`AssignEquipmentModal.tsx`**: Lógica de atribuição.
-*   **`AddTicketModal.tsx`**: Criação de tickets.
-*   **`CloseTicketModal.tsx`**: Finalização de tickets.
-*   **`TicketActivitiesModal.tsx`**: Registo de intervenções.
-*   **`RegulatoryNotificationModal.tsx`**: Geração de JSON para notificação CSIRT.
-*   **`AddCollaboratorModal.tsx`**: Gestão de utilizadores.
-*   **`OffboardingModal.tsx`**: Assistente de saída.
-*   **`OnboardingModal.tsx`**: Assistente de entrada. **Atualizado v2.0:** Cria colaborador e ticket simultaneamente.
-*   **`EquipmentHistoryModal.tsx`**: Ficha detalhada do ativo.
-*   **`CollaboratorDetailModal.tsx`**: Ficha 360º do colaborador.
-*   **`DatabaseSchemaModal.tsx`**: **(Crítico)** Scripts SQL atualizados com **correções de RLS** e **Reparação de Triggers**.
-*   **`AddProcurementModal.tsx`** & **`ReceiveAssetsModal.tsx`**: Fluxo de compras.
-*   **`SystemDiagnosticsModal.tsx`**: Testes E2E automáticos.
-*   **`ImportModal.tsx`**: Importação de Excel.
+### 🎣 Hooks e Estado (`/hooks`)
+*   **`useAppData.ts`**: Hook vital que carrega e armazena em cache *toda* a informação necessária para o funcionamento da app. Utiliza um padrão de *polling* (30s) para manter os dados frescos sem sobrecarregar a base de dados com subscrições realtime excessivas.
 
-### ⚙️ Configurações Específicas
-*   **`settings/AgentsTab.tsx`**: Script PowerShell.
-*   **`settings/WebhooksTab.tsx`**: Simulador de alertas SIEM.
-*   **`settings/CronJobsTab.tsx`**: Relatórios automáticos.
-*   **`settings/ConnectionsTab.tsx`**: Chaves de API.
-*   **`settings/GenericConfigDashboard.tsx`**: Gestão genérica de tabelas auxiliares (utilizado agora para CIBE e Estados de Conservação).
+### 📦 Feature Managers (Controladores)
+Localizados em `features/`, estes componentes atuam como controladores, ligando os dados (`appData`) aos componentes visuais (Modais e Dashboards) e gerindo a lógica de negócio específica:
+*   **`InventoryManager.tsx`**: Gere Equipamentos, Licenças, Kits e Aquisições.
+*   **`OrganizationManager.tsx`**: Gere a estrutura hierárquica (Instituições -> Entidades -> Colaboradores) e o novo fluxo de Onboarding.
+*   **`TicketManager.tsx`**: Gere o ciclo de vida dos pedidos de suporte e atividades.
+*   **`ComplianceManager.tsx`**: Gere os módulos de BIA, Vulnerabilidades, Backups, Resiliência e Políticas.
+*   **`SettingsManager.tsx`**: Painel de administração para configurações globais e tabelas auxiliares.
 
-## 4. Funcionalidades Chave Implementadas
+### 🧩 Componentes UI (`/components`)
+*   **Dashboards:** Componentes de visualização de dados (`OverviewDashboard`, `SmartDashboard`, `EquipmentDashboard`, etc.).
+*   **Modais de Ação:** Formulários para criação/edição (`AddEquipmentModal`, `AddTicketModal`, `OnboardingModal`, `OffboardingModal`).
+*   **Ferramentas de Sistema:**
+    *   **`DatabaseSchemaModal.tsx`**: **CRÍTICO**. Contém os scripts SQL para reparação automática da base de dados, criação de tabelas e correção de permissões.
+    *   **`SystemDiagnosticsModal.tsx`**: Executa testes E2E simulados para validar a integridade do sistema.
 
-### ✅ Inventário & Património (Atualizado)
-*   CRUD completo com suporte a fotos e anexos.
-*   **Novidade:** Gestão de dados contabilísticos (Classificador CIBE / SNC-AP).
-*   **Novidade:** Registo do Estado de Conservação e Valor Residual.
-*   Leitura de código de barras via câmara.
-*   IA para extrair dados e preencher especificações.
-*   Kits de Equipamento.
-*   Licenciamento de Software.
-*   Aquisições e aprovações.
+---
 
-### ✅ Organização & Pessoas
-*   Hierarquia: Instituição -> Entidade -> Colaborador.
-*   RBAC Granular.
-*   Autenticação (Login, MFA, Reset).
-*   Offboarding e **Onboarding (Novo)**.
+## 4. Fluxos de Trabalho Principais
 
-### ✅ Suporte (Helpdesk)
-*   Tickets com SLA e Triagem IA.
-*   Prazos legais NIS2 (24h/72h).
-*   Base de Conhecimento.
+### Gestão de Inventário
+1.  **Entrada:** Via compra (`AddProcurementModal` -> `ReceiveAssetsModal`) ou registo manual/IA (`AddEquipmentModal`, `ImportModal`).
+2.  **Ciclo de Vida:** O ativo passa de `Stock` para `Operacional` ao ser atribuído (`AssignEquipmentModal`).
+3.  **Manutenção:** Registo de peças e custos adicionais no TCO.
+4.  **Abate:** Processo final de vida com justificação legal.
 
-### ✅ Compliance (NIS2 & DORA)
-*   BIA (Serviços Críticos).
-*   Vulnerabilidades (Auto-Scan).
-*   Backups (Evidências).
-*   Supply Chain (Risco Fornecedores).
-*   Governança (Dashboard C-Level).
-*   Políticas e Continuidade.
+### Gestão de Pessoas (Onboarding/Offboarding)
+1.  **Onboarding:** O `OnboardingModal` cria o registo do colaborador (sem login) e abre automaticamente um ticket para a equipa de TI preparar os equipamentos.
+2.  **Gestão:** O colaborador recebe ativos e licenças.
+3.  **Offboarding:** O `OffboardingModal` automatiza a recolha de ativos, revogação de licenças e inativação da conta.
 
-### ✅ Segurança & Infraestrutura
-*   **RLS (Row Level Security):** Políticas de base de dados reforçadas.
-*   **Auditoria:** Logs imutáveis de todas as ações críticas.
+### Suporte Inteligente
+1.  **Criação:** O utilizador reporta um problema.
+2.  **Triagem IA:** O sistema analisa a descrição, sugere a categoria/prioridade e procura soluções em tickets passados similares.
+3.  **Resolução:** O técnico regista atividades (`TicketActivitiesModal`) e fecha o ticket, gerando base de conhecimento para a IA.
+
+### Compliance NIS2 & DORA
+1.  **Governance:** A Administração visualiza o risco no `SmartDashboard` e assina a "Tomada de Conhecimento".
+2.  **Supply Chain:** Gestão de risco de fornecedores e contratos (`SupplierDashboard`).
+3.  **Resiliência:** Registo de backups e testes de recuperação (`BackupDashboard`, `ResilienceDashboard`).
+4.  **Notificação:** Em caso de incidente grave, o sistema gera o JSON oficial para notificação ao CSIRT (`RegulatoryNotificationModal`).
+
+---
+
+## 5. Segurança e Auditoria
+*   **RBAC (Role-Based Access Control):** Gerido em `RoleManager.tsx` e aplicado em `App.tsx` e `SettingsManager.tsx`.
+*   **RLS (Row Level Security):** Políticas aplicadas ao nível da base de dados (Supabase) para garantir isolamento de dados.
+*   **Audit Logs:** Todas as ações críticas (Login, Criação, Edição, Apagar) são registadas imutavelmente na tabela `audit_logs` via `dataService.logAction`.
