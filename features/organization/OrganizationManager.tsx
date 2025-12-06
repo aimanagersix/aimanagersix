@@ -25,6 +25,7 @@ import CollaboratorHistoryModal from '../../components/CollaboratorHistoryModal'
 import { CollaboratorDetailModal } from '../../components/CollaboratorDetailModal';
 import CredentialsModal from '../../components/CredentialsModal';
 import OffboardingModal from '../../components/OffboardingModal';
+import OnboardingModal from '../../components/OnboardingModal'; // Import New Modal
 
 interface OrganizationManagerProps {
     activeTab: string;
@@ -73,6 +74,9 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
     // Offboarding State
     const [showOffboardingModal, setShowOffboardingModal] = useState(false);
     const [collaboratorToOffboard, setCollaboratorToOffboard] = useState<Collaborator | null>(null);
+    
+    // Onboarding State
+    const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
@@ -215,6 +219,17 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
             )}
 
             {activeTab === 'collaborators' && (
+                <>
+                <div className="flex justify-end px-6 pt-2 pb-0">
+                    {checkPermission('organization', 'create') && (
+                        <button 
+                            onClick={() => setShowOnboardingModal(true)}
+                            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 shadow-lg"
+                        >
+                            <span className="text-xl">+</span> Assistente de Onboarding
+                        </button>
+                    )}
+                </div>
                 <CollaboratorDashboard 
                     collaborators={appData.collaborators}
                     escolasDepartamentos={appData.entidades}
@@ -240,8 +255,10 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
                     deactivationReasons={appData.configCollaboratorDeactivationReasons}
                 />
+                </>
             )}
 
+            {/* ... (Team and Supplier Dashboards remain the same) ... */}
             {activeTab === 'organizacao.teams' && (
                 <TeamDashboard 
                     teams={appData.teams}
@@ -422,6 +439,19 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
                     equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))}
                     deactivationReasons={appData.configCollaboratorDeactivationReasons}
+                />
+            )}
+
+            {/* NEW ONBOARDING MODAL */}
+            {showOnboardingModal && (
+                <OnboardingModal
+                    onClose={() => setShowOnboardingModal(false)}
+                    onSave={refreshData}
+                    equipmentTypes={appData.equipmentTypes}
+                    softwareCategories={appData.softwareCategories} // Using categories for selection
+                    entidades={appData.entidades}
+                    instituicoes={appData.instituicoes}
+                    currentUser={currentUser}
                 />
             )}
         </>

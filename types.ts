@@ -1,4 +1,5 @@
 
+
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
@@ -600,7 +601,7 @@ export interface UserNotificationSnooze {
     snoozeUntil: string;
 }
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE' | 'DIAGNOSTIC' | 'OFFBOARDING' | 'DOC_TEMPLATE_CHANGE';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'ACCESS_REVIEW' | 'RISK_ACKNOWLEDGE' | 'AUTO_SCAN' | 'POLICY_ACCEPTANCE' | 'DIAGNOSTIC' | 'OFFBOARDING' | 'ONBOARDING' | 'DOC_TEMPLATE_CHANGE';
 
 export interface AuditLogEntry {
     id: string;

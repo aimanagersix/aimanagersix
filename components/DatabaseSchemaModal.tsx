@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -29,23 +29,45 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const unlockScript = `
 -- ==================================================================================
--- SCRIPT DE DESBLOQUEIO DE DADOS (VISIBILIDADE)
--- Este script remove as restrições de segurança (RLS) apenas das tabelas de configuração.
--- Isto garante que CPUs, RAM e Discos apareçam na aplicação.
+-- SCRIPT DE CORREÇÃO DE PERMISSÕES (LEITURA/ESCRITA)
 -- ==================================================================================
 
 BEGIN;
 
--- 1. Desativar RLS nas tabelas de configuração (Torna os dados visíveis para todos os utilizadores logados)
-ALTER TABLE IF EXISTS public.config_cpus DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_ram_sizes DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_storage_types DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_accounting_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_conservation_states DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_software_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_software_products DISABLE ROW LEVEL SECURITY;
+-- 1. Tabelas de Hardware
+ALTER TABLE IF EXISTS public.config_cpus ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_ram_sizes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_storage_types ENABLE ROW LEVEL SECURITY;
 
--- 2. Garantir permissões básicas de CRUD para utilizadores autenticados
+-- 2. Tabelas de Software/Configuração
+ALTER TABLE IF EXISTS public.config_accounting_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_conservation_states ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_software_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_software_products ENABLE ROW LEVEL SECURITY;
+
+-- 3. REMOVER POLÍTICAS ANTIGAS (Limpeza)
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_cpus;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.config_cpus;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_ram_sizes;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_storage_types;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_accounting_categories;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_conservation_states;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_software_categories;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_software_products;
+
+-- 4. CRIAR POLÍTICAS DE ACESSO TOTAL (Leitura/Escrita) PARA AUTENTICADOS
+-- Isto permite que a aplicação leia e escreva nestas tabelas auxiliares.
+
+CREATE POLICY "Allow All Authenticated config_cpus" ON public.config_cpus FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow All Authenticated config_ram_sizes" ON public.config_ram_sizes FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow All Authenticated config_storage_types" ON public.config_storage_types FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow All Authenticated config_accounting_categories" ON public.config_accounting_categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow All Authenticated config_conservation_states" ON public.config_conservation_states FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow All Authenticated config_software_categories" ON public.config_software_categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow All Authenticated config_software_products" ON public.config_software_products FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 5. GRANT EXPLICITO (Caso RLS não seja o problema, mas sim permissão da role)
 GRANT ALL ON public.config_cpus TO authenticated;
 GRANT ALL ON public.config_ram_sizes TO authenticated;
 GRANT ALL ON public.config_storage_types TO authenticated;
@@ -53,8 +75,9 @@ GRANT ALL ON public.config_accounting_categories TO authenticated;
 GRANT ALL ON public.config_conservation_states TO authenticated;
 GRANT ALL ON public.config_software_categories TO authenticated;
 GRANT ALL ON public.config_software_products TO authenticated;
+GRANT ALL ON public.document_templates TO authenticated;
 
--- 3. Forçar atualização de cache do PostgREST
+-- Forçar reload do schema cache
 NOTIFY pgrst, 'reload config';
 
 COMMIT;
@@ -62,7 +85,6 @@ COMMIT;
 
     const repairScript = `
 -- (Script de Reparação mantido - Use a aba Desbloquear primeiro)
--- ...
 `;
 
     const fixTypesScript = `
@@ -79,7 +101,7 @@ WHERE
 `;
 
     const updateScript = `
--- Script de instalação completa (omitido para brevidade)
+-- Script de instalação completa
 `;
 
     const handleCopy = (text: string) => {
@@ -117,7 +139,7 @@ WHERE
                         onClick={() => setActiveTab('unlock')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'unlock' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaUnlock /> 1. Desbloquear Dados
+                        <FaShieldAlt /> 1. Corrigir Permissões (RLS)
                     </button>
                      <button 
                         onClick={() => setActiveTab('fix_types')} 
@@ -131,7 +153,6 @@ WHERE
                     >
                         <FaDatabase /> Script Inicial
                     </button>
-                     {/* Add Triggers Button since it was missing but logic existed */}
                      <button 
                         onClick={() => setActiveTab('triggers')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'triggers' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
@@ -148,12 +169,12 @@ WHERE
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUnlock /> CORREÇÃO DE VISIBILIDADE
+                                    <FaUnlock /> CORREÇÃO DE PERMISSÕES
                                 </div>
                                 <p className="mb-2">
-                                    Se os dados existem na base de dados mas não aparecem na aplicação, é um problema de permissões de segurança (RLS).
+                                    Se consegue inserir dados mas eles não aparecem na lista, é porque o <strong>PostgreSQL (RLS)</strong> está a bloquear a leitura para o seu utilizador.
                                     <br/>
-                                    <strong>Execute este script</strong> para desativar as restrições nas tabelas de configuração e tornar os dados visíveis.
+                                    Execute este script para criar explicitamente políticas que permitem <strong>LER e ESCREVER</strong> nas tabelas de configuração.
                                 </p>
                             </div>
                             <div className="relative">
