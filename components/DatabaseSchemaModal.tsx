@@ -29,55 +29,45 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const unlockScript = `
 -- ==================================================================================
--- SCRIPT DE CORREÇÃO DE PERMISSÕES (LEITURA/ESCRITA)
+-- SCRIPT DE DESBLOQUEIO TOTAL (Solução Definitiva para Tabelas Vazias)
+-- Este script DESATIVA a segurança RLS nas tabelas de configuração técnica.
+-- Como são dados públicos do sistema (CPU, RAM, Discos), não requerem restrição por user.
 -- ==================================================================================
 
 BEGIN;
 
--- 1. Tabelas de Hardware
-ALTER TABLE IF EXISTS public.config_cpus ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_ram_sizes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_storage_types ENABLE ROW LEVEL SECURITY;
+-- 1. Desativar RLS (Permite acesso total a todos os utilizadores autenticados)
+ALTER TABLE IF EXISTS public.config_cpus DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_ram_sizes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_storage_types DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_accounting_categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_conservation_states DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_software_categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_software_products DISABLE ROW LEVEL SECURITY;
 
--- 2. Tabelas de Software/Configuração
-ALTER TABLE IF EXISTS public.config_accounting_categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_conservation_states ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_software_categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_software_products ENABLE ROW LEVEL SECURITY;
+-- 2. Garantir permissões de CRUD (Leitura/Escrita) para a role 'authenticated' e 'anon'
+GRANT ALL ON public.config_cpus TO authenticated, anon;
+GRANT ALL ON public.config_ram_sizes TO authenticated, anon;
+GRANT ALL ON public.config_storage_types TO authenticated, anon;
+GRANT ALL ON public.config_accounting_categories TO authenticated, anon;
+GRANT ALL ON public.config_conservation_states TO authenticated, anon;
+GRANT ALL ON public.config_software_categories TO authenticated, anon;
+GRANT ALL ON public.config_software_products TO authenticated, anon;
 
--- 3. REMOVER POLÍTICAS ANTIGAS (Limpeza)
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_cpus;
-DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.config_cpus;
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_ram_sizes;
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_storage_types;
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_accounting_categories;
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_conservation_states;
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_software_categories;
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.config_software_products;
+-- 3. (Opcional) Re-inserir dados padrão caso tenham sido apagados acidentalmente
+INSERT INTO public.config_cpus (name) VALUES 
+('Intel Core i5'), ('Intel Core i7'), ('AMD Ryzen 5'), ('Apple M1'), ('Apple M2')
+ON CONFLICT (name) DO NOTHING;
 
--- 4. CRIAR POLÍTICAS DE ACESSO TOTAL (Leitura/Escrita) PARA AUTENTICADOS
--- Isto permite que a aplicação leia e escreva nestas tabelas auxiliares.
+INSERT INTO public.config_ram_sizes (name) VALUES 
+('8 GB'), ('16 GB'), ('32 GB'), ('64 GB')
+ON CONFLICT (name) DO NOTHING;
 
-CREATE POLICY "Allow All Authenticated config_cpus" ON public.config_cpus FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All Authenticated config_ram_sizes" ON public.config_ram_sizes FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All Authenticated config_storage_types" ON public.config_storage_types FOR ALL TO authenticated USING (true) WITH CHECK (true);
+INSERT INTO public.config_storage_types (name) VALUES 
+('256GB SSD'), ('512GB SSD'), ('1TB SSD')
+ON CONFLICT (name) DO NOTHING;
 
-CREATE POLICY "Allow All Authenticated config_accounting_categories" ON public.config_accounting_categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All Authenticated config_conservation_states" ON public.config_conservation_states FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All Authenticated config_software_categories" ON public.config_software_categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All Authenticated config_software_products" ON public.config_software_products FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
--- 5. GRANT EXPLICITO (Caso RLS não seja o problema, mas sim permissão da role)
-GRANT ALL ON public.config_cpus TO authenticated;
-GRANT ALL ON public.config_ram_sizes TO authenticated;
-GRANT ALL ON public.config_storage_types TO authenticated;
-GRANT ALL ON public.config_accounting_categories TO authenticated;
-GRANT ALL ON public.config_conservation_states TO authenticated;
-GRANT ALL ON public.config_software_categories TO authenticated;
-GRANT ALL ON public.config_software_products TO authenticated;
-GRANT ALL ON public.document_templates TO authenticated;
-
--- Forçar reload do schema cache
+-- 4. Forçar atualização de cache do PostgREST
 NOTIFY pgrst, 'reload config';
 
 COMMIT;
@@ -139,7 +129,7 @@ WHERE
                         onClick={() => setActiveTab('unlock')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'unlock' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaShieldAlt /> 1. Corrigir Permissões (RLS)
+                        <FaUnlock /> 1. Desbloquear Dados
                     </button>
                      <button 
                         onClick={() => setActiveTab('fix_types')} 
@@ -169,12 +159,13 @@ WHERE
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUnlock /> CORREÇÃO DE PERMISSÕES
+                                    <FaUnlock /> CORREÇÃO DEFINITIVA DE VISIBILIDADE
                                 </div>
                                 <p className="mb-2">
-                                    Se consegue inserir dados mas eles não aparecem na lista, é porque o <strong>PostgreSQL (RLS)</strong> está a bloquear a leitura para o seu utilizador.
+                                    Se os dados existem na BD mas não aparecem, é o RLS (Segurança) a bloquear.
                                     <br/>
-                                    Execute este script para criar explicitamente políticas que permitem <strong>LER e ESCREVER</strong> nas tabelas de configuração.
+                                    <strong>Execute este script para DESATIVAR o RLS nas tabelas de configuração</strong> (CPUs, RAM, Discos).
+                                    Isto garante que a aplicação consegue ler os dados imediatamente.
                                 </p>
                             </div>
                             <div className="relative">

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ConfigItem } from '../../types';
 import * as dataService from '../../services/dataService';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaSync, FaExclamationCircle } from 'react-icons/fa';
 
 interface GenericConfigDashboardProps {
     title: string;
@@ -19,6 +19,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
     const [newItemColor, setNewItemColor] = useState('#3B82F6');
     const [editingItem, setEditingItem] = useState<ConfigItem | null>(null);
     const [error, setError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     const handleSave = async () => {
         const name = (editingItem ? editingItem.name : newItemName).trim();
@@ -38,15 +39,22 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
         }
         
         setError('');
-
-        if (editingItem) {
-            await dataService.updateConfigItem(tableName, editingItem.id, { name: editingItem.name, color: editingItem.color });
-            setEditingItem(null);
-        } else {
-            await dataService.addConfigItem(tableName, { name: newItemName, color: colorField ? newItemColor : undefined });
-            setNewItemName('');
+        setIsSaving(true);
+        try {
+            if (editingItem) {
+                await dataService.updateConfigItem(tableName, editingItem.id, { name: editingItem.name, color: editingItem.color });
+                setEditingItem(null);
+            } else {
+                await dataService.addConfigItem(tableName, { name: newItemName, color: colorField ? newItemColor : undefined });
+                setNewItemName('');
+            }
+            onRefresh();
+        } catch (e: any) {
+            console.error("Save error:", e);
+            setError("Erro ao gravar. Verifique as permissões (RLS) no menu Configuração BD.");
+        } finally {
+            setIsSaving(false);
         }
-        onRefresh();
     };
 
     const handleDelete = async (id: string) => {
@@ -62,7 +70,12 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
 
     return (
         <div className="p-6 h-full flex flex-col">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">{icon} {title}</h2>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">{icon} {title}</h2>
+                <button onClick={onRefresh} className="text-sm text-brand-secondary hover:text-white flex items-center gap-1">
+                    <FaSync className={isSaving ? "animate-spin" : ""} /> Atualizar Lista
+                </button>
+            </div>
             
             <div className="flex gap-2 mb-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                 <input
@@ -83,12 +96,12 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
                         className="bg-transparent border-none w-10 h-10 p-0 cursor-pointer"
                     />
                 )}
-                <button onClick={handleSave} className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-brand-secondary">
+                <button onClick={handleSave} disabled={isSaving} className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-brand-secondary disabled:opacity-50">
                     {editingItem ? <FaSave /> : <FaPlus />}
                 </button>
                 {editingItem && <button onClick={() => setEditingItem(null)} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500"><FaTimes /></button>}
             </div>
-            {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
+            {error && <p className="text-red-400 text-xs mb-2 bg-red-900/20 p-2 rounded flex items-center gap-2"><FaExclamationCircle/> {error}</p>}
 
             <div className="flex-grow overflow-y-auto custom-scrollbar border border-gray-700 rounded-lg">
                 <table className="w-full text-sm">
@@ -105,6 +118,14 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
                                 </td>
                             </tr>
                         ))}
+                         {(!items || items.length === 0) && (
+                            <tr>
+                                <td colSpan={2} className="p-8 text-center text-gray-500">
+                                    <p className="mb-2">A lista está vazia.</p>
+                                    <p className="text-xs">Se gravou dados mas não aparecem aqui, vá a <strong>Configurações &gt; Config BD</strong> e execute o script "Desbloquear Dados".</p>
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>
