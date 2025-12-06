@@ -71,7 +71,34 @@ COMMIT;
 `;
 
     const repairScript = `
--- (Script de Reparação mantido - Use a aba Desbloquear primeiro)
+-- ==================================================================================
+-- REPARAÇÃO DE ERRO DE AMBIGUIDADE EM 'get_database_triggers'
+-- Este script recria a função de sistema para listar triggers corretamente.
+-- ==================================================================================
+
+CREATE OR REPLACE FUNCTION get_database_triggers()
+RETURNS TABLE (
+    trigger_name text,
+    event_manipulation text,
+    event_object_table text,
+    action_statement text
+)
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+    SELECT 
+        t.trigger_name::text,
+        t.event_manipulation::text,
+        t.event_object_table::text,
+        t.action_statement::text
+    FROM 
+        information_schema.triggers t
+    WHERE 
+        t.trigger_schema = 'public';
+$$;
+
+-- Re-garantir permissões de execução
+GRANT EXECUTE ON FUNCTION get_database_triggers TO authenticated, anon;
 `;
 
     const fixTypesScript = `
@@ -88,7 +115,9 @@ WHERE
 `;
 
     const updateScript = `
--- Script de instalação completa
+-- Script de instalação completa (v2.0)
+-- Use apenas se estiver a instalar a BD de raiz.
+-- Consulte o repositório para o schema completo.
 `;
 
     const handleCopy = (text: string) => {
@@ -105,7 +134,7 @@ WHERE
             if (error) throw error;
             setTriggers(data || []);
         } catch (error: any) {
-            setTriggerError(error.message || "Erro ao carregar triggers.");
+            setTriggerError(error.message || "Erro ao carregar triggers. Vá à aba 'Reparação' e execute o script.");
         } finally {
             setIsLoadingTriggers(false);
         }
@@ -126,25 +155,31 @@ WHERE
                         onClick={() => setActiveTab('unlock')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'unlock' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaUnlock /> 1. Desbloquear Dados
+                        <FaUnlock /> 1. Desbloquear
+                    </button>
+                     <button 
+                        onClick={() => setActiveTab('repair')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'repair' ? 'border-yellow-500 text-white bg-yellow-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaTools /> 2. Reparação
                     </button>
                      <button 
                         onClick={() => setActiveTab('fix_types')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'fix_types' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaMagic /> 2. Ativar Campos
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('update')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'update' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        <FaDatabase /> Script Inicial
+                        <FaMagic /> Ativar Campos
                     </button>
                      <button 
                         onClick={() => setActiveTab('triggers')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'triggers' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         <FaBolt /> Triggers
+                    </button>
+                     <button 
+                        onClick={() => setActiveTab('update')} 
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'update' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaDatabase /> Script Inicial
                     </button>
                 </div>
 
@@ -156,13 +191,12 @@ WHERE
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUnlock /> CORREÇÃO DEFINITIVA DE VISIBILIDADE
+                                    <FaUnlock /> CORREÇÃO DEFINITIVA DE VISIBILIDADE (RLS)
                                 </div>
                                 <p className="mb-2">
-                                    Se os dados existem na BD mas não aparecem, é o RLS (Segurança) a bloquear.
+                                    Se os dados de configuração (ex: Software, Hardware) existem na BD mas não aparecem na app, é o RLS a bloquear.
                                     <br/>
-                                    <strong>Execute este script para DESATIVAR o RLS nas tabelas de configuração</strong> (CPUs, RAM, Discos, Software).
-                                    Isto garante que a aplicação consegue ler os dados imediatamente.
+                                    Execute este script para DESATIVAR o RLS nessas tabelas auxiliares.
                                 </p>
                             </div>
                             <div className="relative">
@@ -171,6 +205,33 @@ WHERE
                                 </pre>
                                 <button 
                                     onClick={() => handleCopy(unlockScript)} 
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
+                                    title="Copiar SQL"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                     {/* REPAIR TAB */}
+                     {activeTab === 'repair' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaTools /> CORREÇÃO DE FUNÇÕES DE SISTEMA
+                                </div>
+                                <p className="mb-2">
+                                    Use este script se encontrar o erro <code>column reference "trigger_name" is ambiguous</code>.
+                                    Isto recria a função de listagem de triggers corrigindo a ambiguidade na query SQL.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-yellow-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                    {repairScript}
+                                </pre>
+                                <button 
+                                    onClick={() => handleCopy(repairScript)} 
                                     className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
                                     title="Copiar SQL"
                                 >
@@ -192,7 +253,7 @@ WHERE
                                 </p>
                             </div>
                             <div className="relative">
-                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-purple-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
                                     {fixTypesScript}
                                 </pre>
                                 <button 
@@ -234,7 +295,9 @@ WHERE
                                 </div>
                                 {triggerError ? (
                                     <div className="text-red-400 text-sm p-2 border border-red-500/30 rounded bg-red-900/20">
-                                        {triggerError}
+                                        <p className="font-bold flex items-center gap-2"><FaExclamationTriangle/> Erro ao carregar triggers:</p>
+                                        <p className="mt-1">{triggerError}</p>
+                                        <p className="mt-2 text-xs text-gray-400">Dica: Copie o script da aba "2. Reparação" e execute-o no Supabase SQL Editor.</p>
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto">

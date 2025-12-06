@@ -1,5 +1,4 @@
 
-
 // Dynamic Configuration Types
 export interface ConfigItem {
     id: string;
@@ -389,6 +388,7 @@ export interface CustomRole {
 export const CollaboratorStatus = {
     Ativo: 'Ativo',
     Inativo: 'Inativo',
+    Onboarding: 'Onboarding', // NEW STATUS
 } as const;
 export type CollaboratorStatus = string;
 

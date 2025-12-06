@@ -5,7 +5,21 @@
 Aplicação web para Gestão de Ativos de TI (ITAM), Service Desk e Compliance (NIS2/DORA), focada na automação via IA (Gemini) e integração com Supabase.
 Stack: React (Vite), TypeScript, Tailwind CSS, Supabase (Backend/Auth/DB), Google Gemini (AI).
 
-## 2. Estrutura de Ficheiros e Responsabilidades
+## 2. Changelog & Histórico de Versões
+
+### **Versão 2.0 (Atual)**
+*   **Novidade:** **Assistente de Onboarding** melhorado - agora converte automaticamente o pedido num registo de Colaborador com estado `'Onboarding'`.
+*   **Correção:** **Dashboard de Configurações** - corrigida a contagem e visualização de tabelas como "Produtos de Software" e "Categorias de Tickets".
+*   **Correção Crítica:** **Database Config** - adicionado script de reparação SQL para resolver erro de ambiguidade em triggers (`column trigger_name is ambiguous`).
+*   **Correção Crítica:** Restauradas abas de desbloqueio e atualização na configuração de BD.
+*   **Melhoria:** Adicionado estado `Onboarding` ao ciclo de vida do colaborador.
+
+### Versão 1.5
+*   Adicionado suporte a Contabilidade (CIBE) e Estados de Conservação.
+*   Adicionado suporte a Produtos de Software na configuração.
+*   Reforço de políticas RLS (Row Level Security).
+
+## 3. Estrutura de Ficheiros e Responsabilidades
 
 ### 🧠 Núcleo (Core)
 *   **`App.tsx`**: O "cérebro" da aplicação. Gere o encaminhamento (navegação por abas/hash), verifica permissões (RBAC), gere o estado global de autenticação e decide qual "Manager" carregar.
@@ -54,9 +68,10 @@ Estes componentes atuam como "controladores" de cada módulo principal:
 *   **`RegulatoryNotificationModal.tsx`**: Geração de JSON para notificação CSIRT.
 *   **`AddCollaboratorModal.tsx`**: Gestão de utilizadores.
 *   **`OffboardingModal.tsx`**: Assistente de saída.
+*   **`OnboardingModal.tsx`**: Assistente de entrada. **Atualizado v2.0:** Cria colaborador e ticket simultaneamente.
 *   **`EquipmentHistoryModal.tsx`**: Ficha detalhada do ativo.
 *   **`CollaboratorDetailModal.tsx`**: Ficha 360º do colaborador.
-*   **`DatabaseSchemaModal.tsx`**: **(Crítico)** Scripts SQL atualizados com **correções de RLS (Row Level Security)** para garantir permissões de escrita nas novas tabelas.
+*   **`DatabaseSchemaModal.tsx`**: **(Crítico)** Scripts SQL atualizados com **correções de RLS** e **Reparação de Triggers**.
 *   **`AddProcurementModal.tsx`** & **`ReceiveAssetsModal.tsx`**: Fluxo de compras.
 *   **`SystemDiagnosticsModal.tsx`**: Testes E2E automáticos.
 *   **`ImportModal.tsx`**: Importação de Excel.
@@ -68,7 +83,7 @@ Estes componentes atuam como "controladores" de cada módulo principal:
 *   **`settings/ConnectionsTab.tsx`**: Chaves de API.
 *   **`settings/GenericConfigDashboard.tsx`**: Gestão genérica de tabelas auxiliares (utilizado agora para CIBE e Estados de Conservação).
 
-## 3. Funcionalidades Chave Implementadas
+## 4. Funcionalidades Chave Implementadas
 
 ### ✅ Inventário & Património (Atualizado)
 *   CRUD completo com suporte a fotos e anexos.
@@ -84,7 +99,7 @@ Estes componentes atuam como "controladores" de cada módulo principal:
 *   Hierarquia: Instituição -> Entidade -> Colaborador.
 *   RBAC Granular.
 *   Autenticação (Login, MFA, Reset).
-*   Offboarding.
+*   Offboarding e **Onboarding (Novo)**.
 
 ### ✅ Suporte (Helpdesk)
 *   Tickets com SLA e Triagem IA.
@@ -100,5 +115,5 @@ Estes componentes atuam como "controladores" de cada módulo principal:
 *   Políticas e Continuidade.
 
 ### ✅ Segurança & Infraestrutura
-*   **RLS (Row Level Security):** Políticas de base de dados reforçadas para garantir que apenas Admins/Técnicos podem editar tabelas de configuração sensíveis, enquanto utilizadores podem ler.
+*   **RLS (Row Level Security):** Políticas de base de dados reforçadas.
 *   **Auditoria:** Logs imutáveis de todas as ações críticas.

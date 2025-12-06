@@ -153,7 +153,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
-        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, 
+        // 'config_software_products' is handled separately now
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
         'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
@@ -173,6 +173,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         if (simpleConfigTables[id]) return simpleConfigTables[id].data?.length || 0;
         if (id === 'brands') return appData.brands?.length || 0;
         if (id === 'equipment_types') return appData.equipmentTypes?.length || 0;
+        if (id === 'config_software_products') return appData.softwareProducts?.length || 0;
+        if (id === 'ticket_categories') return appData.ticketCategories?.length || 0;
+        if (id === 'security_incident_types') return appData.securityIncidentTypes?.length || 0;
         return null;
     };
 
@@ -223,27 +226,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             ]
         }
     ];
-
-    const handleSaveConnections = async () => {
-        await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey);
-        await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail);
-        await dataService.updateGlobalSetting('slack_webhook_url', settings.slackWebhookUrl);
-        
-        if (settings.sbUrl && settings.sbKey) {
-            localStorage.setItem('SUPABASE_URL', settings.sbUrl);
-            localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);
-        }
-        
-        if (settings.sbServiceKey) {
-            localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);
-        } else {
-            localStorage.removeItem('SUPABASE_SERVICE_ROLE_KEY');
-        }
-
-        if(confirm("Configurações gravadas. Deseja recarregar a aplicação para aplicar as alterações?")){
-            window.location.reload();
-        }
-    };
 
     return (
         <>

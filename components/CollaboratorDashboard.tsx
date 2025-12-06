@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao, ConfigItem } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
-import { FaHistory, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaHistory, FaToggleOn, FaToggleOff, FaPlaneArrival } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
 interface CollaboratorDashboardProps {
@@ -45,6 +45,8 @@ const getStatusClass = (status: CollaboratorStatus) => {
             return 'bg-green-500/20 text-green-400';
         case CollaboratorStatus.Inativo:
             return 'bg-red-500/20 text-red-400';
+        case CollaboratorStatus.Onboarding:
+            return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
         default:
             return 'bg-gray-500/20 text-gray-400';
     }
@@ -358,6 +360,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  
                  const isSuperAdmin = col.role === UserRole.SuperAdmin;
                  const isCurrentUser = currentUser?.id === col.id;
+                 const isOnboarding = col.status === CollaboratorStatus.Onboarding;
                  
                  // Disable delete for SuperAdmin OR self
                  const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || isCurrentUser;
@@ -395,6 +398,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     )}
                     <div>
                         <span>{col.fullName}</span>
+                        {isOnboarding && <span className="ml-2 text-[10px] uppercase bg-blue-900/50 text-blue-300 px-1 rounded border border-blue-500/30 flex items-center w-fit gap-1 mt-0.5"><FaPlaneArrival/> Novo</span>}
                         {equipmentCount > 0 && (
                             <div className="text-xs text-brand-secondary mt-1">
                                 {equipmentCount} equipamento(s) atribuído(s)

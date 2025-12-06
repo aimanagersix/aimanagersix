@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, EquipmentType, ConfigItem, Entidade, Instituicao, TicketStatus } from '../types';
+import { Collaborator, EquipmentType, ConfigItem, Entidade, Instituicao, TicketStatus, CollaboratorStatus } from '../types';
 import { FaUserPlus, FaLaptop, FaKey, FaShieldAlt, FaCheck, FaSpinner, FaPlaneArrival } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
@@ -68,19 +68,19 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
     const handleSubmit = async () => {
         setIsSaving(true);
         try {
-            // 1. Create Inactive Collaborator (Optional, uncomment if desired workflow)
-            /* 
+            // 1. Create Collaborator with 'Onboarding' status
             const newCollab = await dataService.addCollaborator({
                 fullName: formData.fullName,
                 email: formData.email,
                 role: formData.role,
-                status: 'Inativo', // Inactive until start date
+                status: CollaboratorStatus.Onboarding, 
                 entidadeId: formData.entidadeId,
                 instituicaoId: formData.instituicaoId,
                 canLogin: false,
-                receivesNotifications: false
+                receivesNotifications: false,
+                // We store job title in title/notes field or generic one for now if schema restricted, 
+                // or leverage metadata. Assuming standard fields for now.
             });
-            */
 
             // 2. Create Ticket
             const hardwareNames = formData.selectedHardwareTypes.map(id => equipmentTypes.find(t => t.id === id)?.name).join(', ');
@@ -110,18 +110,20 @@ ${formData.notes}
                 title: `Onboarding: ${formData.fullName}`,
                 description: description.trim(),
                 status: TicketStatus.Requested,
-                category: 'Pedido de Acesso', // Or 'Onboarding' if category exists
+                category: 'Pedido de Acesso', 
                 requestDate: new Date().toISOString(),
                 collaboratorId: currentUser?.id, // Requested by HR/Manager
                 entidadeId: formData.entidadeId || currentUser?.entidadeId,
-                impactCriticality: 'Média'
+                impactCriticality: 'Média',
+                // Link ticket to the new collaborator for tracking
+                technicianId: undefined // Not assigned yet
             });
 
             await dataService.logAction('ONBOARDING', 'Collaborator', `Onboarding request created for ${formData.fullName}`);
             
             onSave();
             onClose();
-            alert("Pedido de Onboarding criado com sucesso! Foi gerado um ticket para a equipa de TI.");
+            alert("Pedido de Onboarding criado com sucesso! O colaborador foi registado como 'Onboarding' e gerado um ticket.");
 
         } catch (e) {
             console.error(e);
@@ -227,6 +229,12 @@ ${formData.notes}
                                 </div>
                             </div>
                             
+                            <div className="bg-blue-900/20 p-3 rounded border border-blue-500/30 text-xs text-blue-200">
+                                <p>
+                                    Ao confirmar, será criado um registo de colaborador com estado <strong>"Onboarding"</strong> e um Ticket para a equipa de TI iniciar o provisionamento.
+                                </p>
+                            </div>
+
                             <div>
                                 <label className="block text-sm text-gray-400 mb-1">Notas Adicionais para TI</label>
                                 <textarea 
