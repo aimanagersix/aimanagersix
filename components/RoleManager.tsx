@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
 import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint } from 'react-icons/fa';
@@ -44,12 +45,16 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
         ]
     },
     {
-        label: 'Configuração: Ativos',
+        label: 'Configuração: Ativos & Hardware',
         items: [
             { key: 'brands', label: 'Marcas (Fabricantes)' },
             { key: 'equipment_types', label: 'Tipos de Equipamento' },
             { key: 'config_equipment_statuses', label: 'Estados de Equipamento' },
+            { key: 'config_cpus', label: 'Processadores (CPU)' },
+            { key: 'config_ram_sizes', label: 'Memória RAM' },
+            { key: 'config_storage_types', label: 'Armazenamento (Discos)' },
             { key: 'config_software_categories', label: 'Categorias de Software' },
+            { key: 'config_software_products', label: 'Catálogo de Software' },
             { key: 'config_decommission_reasons', label: 'Motivos de Abate' },
         ]
     },
@@ -61,12 +66,14 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
         ]
     },
     {
-        label: 'Configuração: Pessoas',
+        label: 'Configuração: Pessoas & Entidades',
         items: [
             { key: 'contact_roles', label: 'Funções de Contacto' },
             { key: 'contact_titles', label: 'Tratos (Honoríficos)' },
             { key: 'config_custom_roles', label: 'Perfis de Acesso (RBAC)' },
             { key: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação' },
+            { key: 'config_accounting_categories', label: 'Classificador Contabilístico (CIBE)' },
+            { key: 'config_conservation_states', label: 'Estados de Conservação' },
         ]
     },
     {
@@ -79,6 +86,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'config_backup_types', label: 'Tipos de Backup' },
             { key: 'config_training_types', label: 'Tipos de Formação' },
             { key: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência' },
+            { key: 'document_templates', label: 'Modelos de Documentos (PDF)' },
         ]
     }
 ];

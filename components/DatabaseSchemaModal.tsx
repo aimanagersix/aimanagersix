@@ -29,45 +29,42 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const unlockScript = `
 -- ==================================================================================
--- SCRIPT DE DESBLOQUEIO TOTAL (Solução Definitiva para Tabelas Vazias)
--- Este script DESATIVA a segurança RLS nas tabelas de configuração técnica.
--- Como são dados públicos do sistema (CPU, RAM, Discos), não requerem restrição por user.
+-- SCRIPT DE DESBLOQUEIO TOTAL E REPARAÇÃO DE RLS
+-- Executar este script garante que todas as tabelas de configuração são visíveis.
 -- ==================================================================================
 
 BEGIN;
 
--- 1. Desativar RLS (Permite acesso total a todos os utilizadores autenticados)
+-- 1. Tabelas de Hardware
 ALTER TABLE IF EXISTS public.config_cpus DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_ram_sizes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_storage_types DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_accounting_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_conservation_states DISABLE ROW LEVEL SECURITY;
+
+-- 2. Tabelas de Software
 ALTER TABLE IF EXISTS public.config_software_categories DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_software_products DISABLE ROW LEVEL SECURITY;
 
--- 2. Garantir permissões de CRUD (Leitura/Escrita) para a role 'authenticated' e 'anon'
+-- 3. Outras Tabelas de Configuração
+ALTER TABLE IF EXISTS public.config_accounting_categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config_conservation_states DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.document_templates DISABLE ROW LEVEL SECURITY;
+
+-- 4. Garantir permissões de CRUD para 'authenticated' e 'anon'
 GRANT ALL ON public.config_cpus TO authenticated, anon;
 GRANT ALL ON public.config_ram_sizes TO authenticated, anon;
 GRANT ALL ON public.config_storage_types TO authenticated, anon;
-GRANT ALL ON public.config_accounting_categories TO authenticated, anon;
-GRANT ALL ON public.config_conservation_states TO authenticated, anon;
 GRANT ALL ON public.config_software_categories TO authenticated, anon;
 GRANT ALL ON public.config_software_products TO authenticated, anon;
+GRANT ALL ON public.config_accounting_categories TO authenticated, anon;
+GRANT ALL ON public.config_conservation_states TO authenticated, anon;
+GRANT ALL ON public.document_templates TO authenticated, anon;
 
--- 3. (Opcional) Re-inserir dados padrão caso tenham sido apagados acidentalmente
-INSERT INTO public.config_cpus (name) VALUES 
-('Intel Core i5'), ('Intel Core i7'), ('AMD Ryzen 5'), ('Apple M1'), ('Apple M2')
-ON CONFLICT (name) DO NOTHING;
+-- 5. Re-inserir dados padrão se faltarem (Hardware)
+INSERT INTO public.config_cpus (name) VALUES ('Intel Core i5'), ('Intel Core i7'), ('AMD Ryzen 5') ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.config_ram_sizes (name) VALUES ('8 GB'), ('16 GB'), ('32 GB') ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.config_storage_types (name) VALUES ('256GB SSD'), ('512GB SSD') ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO public.config_ram_sizes (name) VALUES 
-('8 GB'), ('16 GB'), ('32 GB'), ('64 GB')
-ON CONFLICT (name) DO NOTHING;
-
-INSERT INTO public.config_storage_types (name) VALUES 
-('256GB SSD'), ('512GB SSD'), ('1TB SSD')
-ON CONFLICT (name) DO NOTHING;
-
--- 4. Forçar atualização de cache do PostgREST
+-- 6. Forçar atualização de cache do PostgREST
 NOTIFY pgrst, 'reload config';
 
 COMMIT;
@@ -164,7 +161,7 @@ WHERE
                                 <p className="mb-2">
                                     Se os dados existem na BD mas não aparecem, é o RLS (Segurança) a bloquear.
                                     <br/>
-                                    <strong>Execute este script para DESATIVAR o RLS nas tabelas de configuração</strong> (CPUs, RAM, Discos).
+                                    <strong>Execute este script para DESATIVAR o RLS nas tabelas de configuração</strong> (CPUs, RAM, Discos, Software).
                                     Isto garante que a aplicação consegue ler os dados imediatamente.
                                 </p>
                             </div>

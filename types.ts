@@ -363,6 +363,9 @@ export type ModuleKey =
     | 'config_collaborator_deactivation_reasons'
     | 'config_accounting_categories' // NEW: CIBE
     | 'config_conservation_states' // NEW: States
+    | 'config_cpus' // NEW: CPUs
+    | 'config_ram_sizes' // NEW: RAM
+    | 'config_storage_types' // NEW: Storage
     | 'document_templates'; // NEW: PDF Templates
 
 export interface PermissionMatrix {
