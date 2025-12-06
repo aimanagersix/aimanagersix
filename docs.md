@@ -8,11 +8,10 @@ Stack: React (Vite), TypeScript, Tailwind CSS, Supabase (Backend/Auth/DB), Googl
 ## 2. Changelog & Histórico de Versões
 
 ### **Versão 2.0 (Atual)**
-*   **Novidade:** **Assistente de Onboarding** melhorado - agora converte automaticamente o pedido num registo de Colaborador com estado `'Onboarding'`.
-*   **Correção:** **Dashboard de Configurações** - corrigida a contagem e visualização de tabelas como "Produtos de Software" e "Categorias de Tickets".
-*   **Correção Crítica:** **Database Config** - adicionado script de reparação SQL para resolver erro de ambiguidade em triggers (`column trigger_name is ambiguous`).
-*   **Correção Crítica:** Restauradas abas de desbloqueio e atualização na configuração de BD.
-*   **Melhoria:** Adicionado estado `Onboarding` ao ciclo de vida do colaborador.
+*   **Correção Crítica:** Scripts SQL de **reparação de Triggers** (`trigger_name ambiguous`) e **desbloqueio RLS** atualizados e integrados.
+*   **Novidade:** Novo estado de **'Onboarding'** para colaboradores, permitindo o pré-registo e atribuição de ativos antes da data de entrada.
+*   **Correção:** Contagens corrigidas no dashboard de configurações para tabelas como "Produtos de Software" e "Categorias de Tickets".
+*   **Melhoria:** Assistente de Onboarding cria automaticamente o colaborador e o ticket de aprovisionamento.
 
 ### Versão 1.5
 *   Adicionado suporte a Contabilidade (CIBE) e Estados de Conservação.

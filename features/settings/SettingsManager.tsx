@@ -153,7 +153,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
-        // 'config_software_products' is handled separately now
+        // 'config_software_products' is handled separately
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
         'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
@@ -277,7 +277,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
                 {/* Content Area */}
                 <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4" key={selectedMenuId}>
-                    {/* ... rest of the content ... */}
                     {selectedMenuId === 'agents' && <AgentsTab />}
                     {selectedMenuId === 'cronjobs' && <CronJobsTab 
                         settings={settings} 

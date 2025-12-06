@@ -29,8 +29,8 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const unlockScript = `
 -- ==================================================================================
--- SCRIPT DE DESBLOQUEIO TOTAL E REPARAÇÃO DE RLS
--- Executar este script garante que todas as tabelas de configuração são visíveis.
+-- SCRIPT DE DESBLOQUEIO TOTAL (RLS FIX)
+-- Execute isto para garantir que todas as tabelas de configuração aparecem na app.
 -- ==================================================================================
 
 BEGIN;
@@ -40,21 +40,25 @@ ALTER TABLE IF EXISTS public.config_cpus DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_ram_sizes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_storage_types DISABLE ROW LEVEL SECURITY;
 
--- 2. Tabelas de Software
+-- 2. Tabelas de Software e Tickets
 ALTER TABLE IF EXISTS public.config_software_categories DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_software_products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.ticket_categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.security_incident_types DISABLE ROW LEVEL SECURITY;
 
 -- 3. Outras Tabelas de Configuração
 ALTER TABLE IF EXISTS public.config_accounting_categories DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_conservation_states DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.document_templates DISABLE ROW LEVEL SECURITY;
 
--- 4. Garantir permissões de CRUD para 'authenticated' e 'anon'
+-- 4. Garantir permissões de leitura/escrita para todos os utilizadores autenticados
 GRANT ALL ON public.config_cpus TO authenticated, anon;
 GRANT ALL ON public.config_ram_sizes TO authenticated, anon;
 GRANT ALL ON public.config_storage_types TO authenticated, anon;
 GRANT ALL ON public.config_software_categories TO authenticated, anon;
 GRANT ALL ON public.config_software_products TO authenticated, anon;
+GRANT ALL ON public.ticket_categories TO authenticated, anon;
+GRANT ALL ON public.security_incident_types TO authenticated, anon;
 GRANT ALL ON public.config_accounting_categories TO authenticated, anon;
 GRANT ALL ON public.config_conservation_states TO authenticated, anon;
 GRANT ALL ON public.document_templates TO authenticated, anon;
@@ -72,10 +76,14 @@ COMMIT;
 
     const repairScript = `
 -- ==================================================================================
--- REPARAÇÃO DE ERRO DE AMBIGUIDADE EM 'get_database_triggers'
--- Este script recria a função de sistema para listar triggers corretamente.
+-- REPARAÇÃO DE FUNÇÕES DE SISTEMA
+-- Corrige o erro "column reference trigger_name is ambiguous" e recria funções.
 -- ==================================================================================
 
+-- 1. Apagar função antiga (necessário para mudar tipo de retorno)
+DROP FUNCTION IF EXISTS get_database_triggers();
+
+-- 2. Recriar função corrigida
 CREATE OR REPLACE FUNCTION get_database_triggers()
 RETURNS TABLE (
     trigger_name text,
@@ -97,8 +105,11 @@ AS $$
         t.trigger_schema = 'public';
 $$;
 
--- Re-garantir permissões de execução
+-- 3. Garantir permissões
 GRANT EXECUTE ON FUNCTION get_database_triggers TO authenticated, anon;
+
+-- 4. Reparação adicional (se necessário)
+COMMENT ON FUNCTION get_database_triggers IS 'Lista triggers do sistema (Versão Corrigida)';
 `;
 
     const fixTypesScript = `
@@ -155,7 +166,7 @@ WHERE
                         onClick={() => setActiveTab('unlock')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'unlock' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaUnlock /> 1. Desbloquear
+                        <FaUnlock /> 1. Desbloquear (RLS)
                     </button>
                      <button 
                         onClick={() => setActiveTab('repair')} 
@@ -191,12 +202,12 @@ WHERE
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUnlock /> CORREÇÃO DEFINITIVA DE VISIBILIDADE (RLS)
+                                    <FaUnlock /> CORREÇÃO DE VISIBILIDADE (RLS)
                                 </div>
                                 <p className="mb-2">
-                                    Se os dados de configuração (ex: Software, Hardware) existem na BD mas não aparecem na app, é o RLS a bloquear.
+                                    Se as categorias de tickets, produtos de software ou hardware aparecem vazios, é porque a política de segurança (RLS) está a bloquear o acesso.
                                     <br/>
-                                    Execute este script para DESATIVAR o RLS nessas tabelas auxiliares.
+                                    <strong>Execute este script para corrigir as permissões de visualização.</strong>
                                 </p>
                             </div>
                             <div className="relative">
@@ -222,8 +233,8 @@ WHERE
                                     <FaTools /> CORREÇÃO DE FUNÇÕES DE SISTEMA
                                 </div>
                                 <p className="mb-2">
-                                    Use este script se encontrar o erro <code>column reference "trigger_name" is ambiguous</code>.
-                                    Isto recria a função de listagem de triggers corrigindo a ambiguidade na query SQL.
+                                    Use este script se encontrar o erro <code>column reference "trigger_name" is ambiguous</code> ou erros ao atualizar a base de dados.
+                                    Isto recria as funções de sistema com a sintaxe correta.
                                 </p>
                             </div>
                             <div className="relative">
@@ -267,7 +278,7 @@ WHERE
                         </div>
                     )}
                     
-                     {/* UPDATE TAB (Original) */}
+                     {/* UPDATE TAB */}
                     {activeTab === 'update' && (
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
@@ -297,7 +308,9 @@ WHERE
                                     <div className="text-red-400 text-sm p-2 border border-red-500/30 rounded bg-red-900/20">
                                         <p className="font-bold flex items-center gap-2"><FaExclamationTriangle/> Erro ao carregar triggers:</p>
                                         <p className="mt-1">{triggerError}</p>
-                                        <p className="mt-2 text-xs text-gray-400">Dica: Copie o script da aba "2. Reparação" e execute-o no Supabase SQL Editor.</p>
+                                        <p className="mt-2 text-xs text-gray-400">
+                                            <strong>Solução:</strong> Vá à aba "2. Reparação" neste modal, copie o script e execute-o no Supabase.
+                                        </p>
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto">

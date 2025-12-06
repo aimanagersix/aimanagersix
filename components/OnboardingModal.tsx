@@ -78,8 +78,8 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
                 instituicaoId: formData.instituicaoId,
                 canLogin: false,
                 receivesNotifications: false,
-                // We store job title in title/notes field or generic one for now if schema restricted, 
-                // or leverage metadata. Assuming standard fields for now.
+                // Assuming description/jobTitle field exists or using generic field
+                // If not, we skip. Standard Collaborator type does not enforce job title
             });
 
             // 2. Create Ticket
@@ -106,16 +106,17 @@ ${formData.needsMobile ? '- Telemóvel/Cartão SIM' : ''}
 ${formData.notes}
             `;
 
+            // Link ticket to new collaborator? Yes, as requester or just linked via text.
+            // Using collaboratorId of the new user allows tracking history on their profile immediately.
             await dataService.addTicket({
                 title: `Onboarding: ${formData.fullName}`,
                 description: description.trim(),
                 status: TicketStatus.Requested,
                 category: 'Pedido de Acesso', 
                 requestDate: new Date().toISOString(),
-                collaboratorId: currentUser?.id, // Requested by HR/Manager
+                collaboratorId: newCollab.id, // Linked to the new user directly!
                 entidadeId: formData.entidadeId || currentUser?.entidadeId,
                 impactCriticality: 'Média',
-                // Link ticket to the new collaborator for tracking
                 technicianId: undefined // Not assigned yet
             });
 
