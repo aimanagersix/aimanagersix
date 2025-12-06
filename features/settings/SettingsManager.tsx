@@ -5,7 +5,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark, FaSync
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark, FaSync, FaExclamationCircle
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -148,6 +148,34 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         loadSettings();
     }, [selectedMenuId]);
 
+    const simpleConfigTables: Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }> = {
+        'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: appData.configEquipmentStatuses, colorField: true },
+        'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
+        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
+        'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
+        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, 
+        'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
+        'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
+        'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
+        'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: appData.configCiaRatings },
+        'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: appData.configServiceStatuses },
+        'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: appData.configBackupTypes },
+        'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: appData.configTrainingTypes },
+        'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes },
+        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories },
+        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates, colorField: true },
+        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
+        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
+        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
+    };
+
+    const getCount = (id: string) => {
+        if (simpleConfigTables[id]) return simpleConfigTables[id].data?.length || 0;
+        if (id === 'brands') return appData.brands?.length || 0;
+        if (id === 'equipment_types') return appData.equipmentTypes?.length || 0;
+        return null;
+    };
+
     const menuStructure: { group: string; items: { id: string; label: string; icon: React.ReactNode }[] }[] = [
         {
             group: "Sistema & Automação",
@@ -196,27 +224,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         }
     ];
 
-    const simpleConfigTables: Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }> = {
-        'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: appData.configEquipmentStatuses, colorField: true },
-        'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
-        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
-        'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
-        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, 
-        'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
-        'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
-        'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
-        'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: appData.configCiaRatings },
-        'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: appData.configServiceStatuses },
-        'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: appData.configBackupTypes },
-        'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: appData.configTrainingTypes },
-        'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes },
-        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories },
-        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates, colorField: true },
-        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
-        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
-        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
-    };
-
     const handleSaveConnections = async () => {
         await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey);
         await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail);
@@ -246,10 +253,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     {/* Reload Button */}
                     <div className="p-2 border-b border-gray-700">
                          <button 
-                            onClick={refreshData}
+                            onClick={() => window.location.reload()}
                             className="w-full flex items-center justify-center gap-2 bg-green-700 hover:bg-green-600 text-white p-2 rounded text-sm transition-colors font-bold"
                         >
-                            <FaSync /> Recarregar Dados
+                            <FaSync /> Forçar Recarregamento
                         </button>
                     </div>
                     <div className="overflow-y-auto flex-grow p-2 space-y-4 custom-scrollbar">
@@ -257,20 +264,29 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                             <div key={gIdx}>
                                 <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{group.group}</h3>
                                 <div className="space-y-1">
-                                    {group.items.map(item => (
+                                    {group.items.map(item => {
+                                        const count = getCount(item.id);
+                                        return (
                                         <button
                                             key={item.id}
                                             onClick={() => item.id === 'diagnostics' ? setShowDiagnostics(true) : setSelectedMenuId(item.id)}
-                                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md flex items-center gap-3 transition-colors ${
+                                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md flex items-center justify-between gap-3 transition-colors ${
                                                 selectedMenuId === item.id && item.id !== 'diagnostics'
                                                 ? 'bg-brand-primary text-white shadow-md'
                                                 : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                                             }`}
                                         >
-                                            {item.icon}
-                                            {item.label}
+                                            <div className="flex items-center gap-3">
+                                                {item.icon}
+                                                {item.label}
+                                            </div>
+                                            {count !== null && (
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${count > 0 ? 'bg-gray-700 text-gray-300' : 'bg-red-900/50 text-red-200'}`}>
+                                                    {count}
+                                                </span>
+                                            )}
                                         </button>
-                                    ))}
+                                    )})}
                                 </div>
                             </div>
                         ))}
@@ -279,6 +295,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
                 {/* Content Area */}
                 <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4" key={selectedMenuId}>
+                    {/* ... rest of the content ... */}
                     {selectedMenuId === 'agents' && <AgentsTab />}
                     {selectedMenuId === 'cronjobs' && <CronJobsTab 
                         settings={settings} 
