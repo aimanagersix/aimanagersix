@@ -118,17 +118,17 @@ ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS job_title_id UUID REFE
 
     const fixProcurementScript = `
 -- ==================================================================================
--- CORREÇÃO DE AQUISIÇÕES (ERRO FORMAT)
--- Remove triggers problemáticos que causam o erro "unrecognized format() type specifier"
+-- CORREÇÃO DE AQUISIÇÕES & TICKET AUTOMÁTICO
+-- Recria o trigger que gera o ticket de aprovação corrigindo o erro de formatação.
 -- ==================================================================================
 
--- 1. Remover triggers conhecidos por causar erros de formatação
+-- 1. Remover triggers antigos/corrompidos
 DROP TRIGGER IF EXISTS on_procurement_created ON public.procurement_requests;
 DROP TRIGGER IF EXISTS tr_procurement_notification ON public.procurement_requests;
 DROP FUNCTION IF EXISTS notify_procurement_creation();
 DROP FUNCTION IF EXISTS process_procurement_logic();
 
--- 2. Garantir que a tabela existe com a estrutura correta
+-- 2. Garantir estrutura da tabela
 CREATE TABLE IF NOT EXISTS public.procurement_requests (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
@@ -156,18 +156,73 @@ CREATE TABLE IF NOT EXISTS public.procurement_requests (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 3. Corrigir permissões (RLS)
+-- 3. Criar Função de Automação Corrigida
+CREATE OR REPLACE FUNCTION process_procurement_logic()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  requester_name TEXT;
+  requester_entidade_id UUID;
+  ticket_description TEXT;
+  admin_id UUID;
+BEGIN
+  -- Buscar dados do requerente
+  SELECT "fullName", "entidadeId" INTO requester_name, requester_entidade_id 
+  FROM public.collaborators 
+  WHERE id = NEW.requester_id;
+  
+  IF requester_name IS NULL THEN requester_name := 'Utilizador Desconhecido'; END IF;
+
+  -- Formatar descrição (CORRIGIDO: Usar %s e não %n ou caracteres inválidos)
+  ticket_description := format('Novo Pedido de Aquisição: %s. Solicitado por: %s. Custo Est.: %s EUR.', NEW.title, requester_name, COALESCE(NEW.estimated_cost, 0));
+
+  -- Tentar encontrar um Admin para atribuir o ticket (opcional)
+  SELECT id INTO admin_id FROM public.collaborators WHERE role = 'SuperAdmin' LIMIT 1;
+
+  -- Criar Ticket de Aprovação na tabela tickets
+  -- Nota: Usa as colunas com aspas se foram criadas com camelCase pelo Prisma/ORM anteriormente
+  INSERT INTO public.tickets (
+    title,
+    description,
+    status,
+    category,
+    "entidadeId",
+    "collaboratorId",
+    "requestDate",
+    "technicianId"
+  ) VALUES (
+    format('Aprovação Necessária: %s', NEW.title),
+    ticket_description,
+    'Pedido',
+    'Pedido de Acesso', -- Categoria genérica para aprovações
+    requester_entidade_id,
+    NEW.requester_id,
+    NOW(),
+    admin_id
+  );
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- Em caso de erro no trigger (ex: tabela tickets não existe ou colunas diferentes), 
+  -- APENAS logar o aviso e permitir a gravação do pedido.
+  RAISE WARNING 'Erro ao criar ticket automático para aquisição: %', SQLERRM;
+  RETURN NEW;
+END;
+$$;
+
+-- 4. Ativar o Trigger
+CREATE TRIGGER on_procurement_created
+AFTER INSERT ON public.procurement_requests
+FOR EACH ROW
+EXECUTE FUNCTION process_procurement_logic();
+
+-- 5. Configurar Permissões RLS
 ALTER TABLE public.procurement_requests ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Procurement Access" ON public.procurement_requests;
 CREATE POLICY "Procurement Access" ON public.procurement_requests FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
 GRANT ALL ON public.procurement_requests TO authenticated, anon;
-
--- 4. Notificar sucesso
-DO $$
-BEGIN
-  RAISE NOTICE 'Módulo de Aquisições Reparado. Triggers removidos.';
-END $$;
 `;
 
     const fixTypesScript = `
@@ -334,13 +389,11 @@ WHERE
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaShoppingCart /> CORREÇÃO DE ERRO DE AQUISIÇÃO (FORMAT)
+                                    <FaShoppingCart /> CORREÇÃO DE TICKET AUTOMÁTICO
                                 </div>
                                 <p className="mb-2">
-                                    Se recebe o erro <code>unrecognized format() type specifier "n"</code> ao gravar um pedido, é porque existe um trigger corrompido na base de dados.
-                                </p>
-                                <p className="mb-2">
-                                    <strong>Solução:</strong> Copie este script e execute-o no Supabase (SQL Editor) para remover os triggers problemáticos e corrigir a tabela.
+                                    Se recebe o erro <code>unrecognized format() type specifier "n"</code> ao gravar, execute este script.
+                                    Ele recria a função que gera o ticket automático, corrigindo o erro de formatação de texto e reativando o trigger.
                                 </p>
                             </div>
                             <div className="relative">
