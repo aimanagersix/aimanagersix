@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -11,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'unlock' | 'repair' | 'update' | 'fix_types' | 'triggers' | 'playwright'>('unlock');
+    const [activeTab, setActiveTab] = useState<'unlock' | 'repair' | 'fix_procurement' | 'update' | 'fix_types' | 'triggers' | 'playwright'>('unlock');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -116,6 +116,60 @@ CREATE TABLE IF NOT EXISTS public.config_job_titles (
 ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS job_title_id UUID REFERENCES public.config_job_titles(id);
 `;
 
+    const fixProcurementScript = `
+-- ==================================================================================
+-- CORREÇÃO DE AQUISIÇÕES (ERRO FORMAT)
+-- Remove triggers problemáticos que causam o erro "unrecognized format() type specifier"
+-- ==================================================================================
+
+-- 1. Remover triggers conhecidos por causar erros de formatação
+DROP TRIGGER IF EXISTS on_procurement_created ON public.procurement_requests;
+DROP TRIGGER IF EXISTS tr_procurement_notification ON public.procurement_requests;
+DROP FUNCTION IF EXISTS notify_procurement_creation();
+DROP FUNCTION IF EXISTS process_procurement_logic();
+
+-- 2. Garantir que a tabela existe com a estrutura correta
+CREATE TABLE IF NOT EXISTS public.procurement_requests (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    quantity INTEGER DEFAULT 1,
+    estimated_cost NUMERIC,
+    requester_id UUID REFERENCES public.collaborators(id),
+    status TEXT DEFAULT 'Pendente',
+    request_date DATE DEFAULT CURRENT_DATE,
+    priority TEXT DEFAULT 'Normal',
+    resource_type TEXT DEFAULT 'Hardware',
+    specifications JSONB DEFAULT '{}'::jsonb,
+    attachments JSONB DEFAULT '[]'::jsonb,
+    brand_id UUID REFERENCES public.brands(id),
+    equipment_type_id UUID REFERENCES public.equipment_types(id),
+    software_category_id UUID REFERENCES public.config_software_categories(id),
+    supplier_id UUID REFERENCES public.suppliers(id),
+    approver_id UUID REFERENCES public.collaborators(id),
+    approval_date DATE,
+    order_date DATE,
+    received_date DATE,
+    order_reference TEXT,
+    invoice_number TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 3. Corrigir permissões (RLS)
+ALTER TABLE public.procurement_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Procurement Access" ON public.procurement_requests;
+CREATE POLICY "Procurement Access" ON public.procurement_requests FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+GRANT ALL ON public.procurement_requests TO authenticated, anon;
+
+-- 4. Notificar sucesso
+DO $$
+BEGIN
+  RAISE NOTICE 'Módulo de Aquisições Reparado. Triggers removidos.';
+END $$;
+`;
+
     const fixTypesScript = `
 UPDATE equipment_types 
 SET 
@@ -190,7 +244,13 @@ WHERE
                         onClick={() => setActiveTab('repair')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'repair' ? 'border-yellow-500 text-white bg-yellow-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaTools /> 2. Reparação / Update
+                        <FaTools /> 2. Reparação Geral
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('fix_procurement')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'fix_procurement' ? 'border-red-500 text-white bg-red-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaShoppingCart /> 3. Corrigir Aquisições
                     </button>
                      <button 
                         onClick={() => setActiveTab('fix_types')} 
@@ -209,12 +269,6 @@ WHERE
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'playwright' ? 'border-pink-500 text-white bg-pink-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         <FaRobot /> Testes E2E
-                    </button>
-                     <button 
-                        onClick={() => setActiveTab('update')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'update' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        <FaDatabase /> Script Inicial
                     </button>
                 </div>
 
@@ -266,6 +320,35 @@ WHERE
                                 </pre>
                                 <button 
                                     onClick={() => handleCopy(repairScript)} 
+                                    className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
+                                    title="Copiar SQL"
+                                >
+                                    {copied ? <FaCheck className="text-green-400" /> : <FaCopy />}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* FIX PROCUREMENT TAB */}
+                     {activeTab === 'fix_procurement' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaShoppingCart /> CORREÇÃO DE ERRO DE AQUISIÇÃO (FORMAT)
+                                </div>
+                                <p className="mb-2">
+                                    Se recebe o erro <code>unrecognized format() type specifier "n"</code> ao gravar um pedido, é porque existe um trigger corrompido na base de dados.
+                                </p>
+                                <p className="mb-2">
+                                    <strong>Solução:</strong> Copie este script e execute-o no Supabase (SQL Editor) para remover os triggers problemáticos e corrigir a tabela.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-red-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                    {fixProcurementScript}
+                                </pre>
+                                <button 
+                                    onClick={() => handleCopy(fixProcurementScript)} 
                                     className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
                                     title="Copiar SQL"
                                 >
