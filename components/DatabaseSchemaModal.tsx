@@ -29,7 +29,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const unlockScript = `
 -- ==================================================================================
--- SCRIPT DE DESBLOQUEIO TOTAL (RLS FIX) - v2.1 (Com Cargos)
+-- SCRIPT DE DESBLOQUEIO TOTAL (RLS FIX) - v2.2
 -- Execute isto para garantir que todas as tabelas de configuração aparecem na app.
 -- ==================================================================================
 
@@ -39,9 +39,9 @@ BEGIN;
 ALTER TABLE IF EXISTS public.config_cpus DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_ram_sizes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_storage_types DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_job_titles DISABLE ROW LEVEL SECURITY; -- NOVA
+ALTER TABLE IF EXISTS public.config_job_titles DISABLE ROW LEVEL SECURITY;
 
--- 2. Tabelas de Software e Tickets
+-- 2. Tabelas de Software e Tickets (REFORÇADO)
 ALTER TABLE IF EXISTS public.config_software_categories DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.config_software_products DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.ticket_categories DISABLE ROW LEVEL SECURITY;
@@ -56,7 +56,7 @@ ALTER TABLE IF EXISTS public.document_templates DISABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.config_cpus TO authenticated, anon;
 GRANT ALL ON public.config_ram_sizes TO authenticated, anon;
 GRANT ALL ON public.config_storage_types TO authenticated, anon;
-GRANT ALL ON public.config_job_titles TO authenticated, anon; -- NOVA
+GRANT ALL ON public.config_job_titles TO authenticated, anon;
 GRANT ALL ON public.config_software_categories TO authenticated, anon;
 GRANT ALL ON public.config_software_products TO authenticated, anon;
 GRANT ALL ON public.ticket_categories TO authenticated, anon;
@@ -65,12 +65,7 @@ GRANT ALL ON public.config_accounting_categories TO authenticated, anon;
 GRANT ALL ON public.config_conservation_states TO authenticated, anon;
 GRANT ALL ON public.document_templates TO authenticated, anon;
 
--- 5. Re-inserir dados padrão se faltarem (Hardware)
-INSERT INTO public.config_cpus (name) VALUES ('Intel Core i5'), ('Intel Core i7'), ('AMD Ryzen 5') ON CONFLICT (name) DO NOTHING;
-INSERT INTO public.config_ram_sizes (name) VALUES ('8 GB'), ('16 GB'), ('32 GB') ON CONFLICT (name) DO NOTHING;
-INSERT INTO public.config_storage_types (name) VALUES ('256GB SSD'), ('512GB SSD') ON CONFLICT (name) DO NOTHING;
-
--- 6. Forçar atualização de cache do PostgREST
+-- 5. Forçar atualização de cache do PostgREST
 NOTIFY pgrst, 'reload config';
 
 COMMIT;
@@ -234,9 +229,7 @@ WHERE
                                     <FaUnlock /> CORREÇÃO DE VISIBILIDADE (RLS)
                                 </div>
                                 <p className="mb-2">
-                                    Se os Cargos (Job Titles) ou categorias aparecem vazios, é porque a política de segurança (RLS) está a bloquear o acesso.
-                                    <br/>
-                                    <strong>Execute este script para corrigir as permissões de visualização.</strong>
+                                    Se as <strong>Categorias de Tickets</strong>, Tipos de Incidente ou Cargos aparecem vazios, execute este script para corrigir as permissões.
                                 </p>
                             </div>
                             <div className="relative">

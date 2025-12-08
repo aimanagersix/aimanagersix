@@ -27,8 +27,8 @@ export interface AppData {
     teamMembers: TeamMember[];
     messages: Message[];
     collaboratorHistory: CollaboratorHistory[];
-    ticketCategories: TicketCategoryItem[];
-    securityIncidentTypes: SecurityIncidentTypeItem[];
+    ticketCategories: TicketCategoryItem[]; // Garantir que está aqui
+    securityIncidentTypes: SecurityIncidentTypeItem[]; // Garantir que está aqui
     businessServices: BusinessService[];
     serviceDependencies: ServiceDependency[];
     vulnerabilities: Vulnerability[];
@@ -55,7 +55,7 @@ export interface AppData {
     configCpus: ConfigItem[];
     configRamSizes: ConfigItem[];
     configStorageTypes: ConfigItem[];
-    configJobTitles: ConfigItem[]; // NEW: Job Titles
+    configJobTitles: ConfigItem[]; 
     policies: Policy[];
     policyAcceptances: PolicyAcceptance[];
     procurementRequests: ProcurementRequest[];
@@ -113,8 +113,8 @@ export const useAppData = () => {
                 teamMembers: data.teamMembers,
                 messages: data.messages,
                 collaboratorHistory: data.collaboratorHistory,
-                ticketCategories: data.ticketCategories,
-                securityIncidentTypes: data.securityIncidentTypes,
+                ticketCategories: data.ticketCategories, // Mapeamento explícito
+                securityIncidentTypes: data.securityIncidentTypes, // Mapeamento explícito
                 businessServices: data.businessServices,
                 serviceDependencies: data.serviceDependencies,
                 vulnerabilities: data.vulnerabilities,
@@ -141,7 +141,7 @@ export const useAppData = () => {
                 configCpus: data.configCpus,
                 configRamSizes: data.configRamSizes,
                 configStorageTypes: data.configStorageTypes,
-                configJobTitles: data.configJobTitles, // Mapped correctly
+                configJobTitles: data.configJobTitles,
                 policies: data.policies,
                 policyAcceptances: data.policyAcceptances,
                 procurementRequests: data.procurementRequests,
