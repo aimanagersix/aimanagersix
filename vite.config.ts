@@ -10,11 +10,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Expõe as variáveis de ambiente essenciais.
-      'process.env.SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
-      'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
-      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
-      // Valores estáticos de segurança
+      // Expõe as variáveis de ambiente essenciais. 
+      // O uso de || '' garante que não passamos undefined para o JSON.stringify
+      'process.env.SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
+      'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ''),
+      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || ''),
       'process.env.NODE_ENV': JSON.stringify(mode),
     },
     build: {
