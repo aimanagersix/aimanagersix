@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -82,20 +83,17 @@ const initialData: AppData = {
 export const useAppData = () => {
     // --- Authentication & Setup State ---
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
-        // 1. Check Vite Env Vars first
-        // Cast to any to avoid TS errors if types are missing
-        let envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
-        let envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+        // 1. Check Vite Env Vars first (Direct Access for Bundle Replacement)
+        const viteUrl = (import.meta as any).env.VITE_SUPABASE_URL;
+        const viteKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+
+        if (viteUrl && viteKey) return true;
 
         // 2. Fallback to process.env (injected via vite.config.ts)
-        if (!envUrl && (process.env as any).SUPABASE_URL) {
-            envUrl = (process.env as any).SUPABASE_URL;
+        // @ts-ignore
+        if (typeof process !== 'undefined' && process.env?.SUPABASE_URL && process.env?.SUPABASE_ANON_KEY) {
+            return true;
         }
-        if (!envKey && (process.env as any).SUPABASE_ANON_KEY) {
-            envKey = (process.env as any).SUPABASE_ANON_KEY;
-        }
-
-        if (envUrl && envKey) return true;
 
         // 3. Fallback to LocalStorage
         const url = localStorage.getItem('SUPABASE_URL');
