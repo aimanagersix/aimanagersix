@@ -1,4 +1,3 @@
-
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseInstance: SupabaseClient | null = null;
@@ -15,7 +14,6 @@ export const getSupabase = (): SupabaseClient => {
 
     // O Vite define 'process.env' para a aplicação.
     // Priorizamos o localStorage para permitir que o ecrã de configuração inicial funcione.
-    // Caso contrário, usamos as variáveis de ambiente injetadas pelo Vite no momento da compilação.
     const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
     const supabaseAnonKey = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
 
@@ -24,5 +22,7 @@ export const getSupabase = (): SupabaseClient => {
         return supabaseInstance;
     }
 
-    throw new Error("As credenciais do Supabase não foram encontradas. Por favor, configure-as.");
+    // Se chegarmos aqui, a app deve estar a tentar aceder a dados sem configuração.
+    // Lançamos erro, mas o ErrorBoundary no index.tsx ou a verificação no App.tsx devem apanhar.
+    throw new Error("As credenciais do Supabase não foram encontradas. Por favor, recarregue a página para ver o ecrã de configuração.");
 };
