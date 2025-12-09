@@ -1,6 +1,6 @@
+
 import React, { useState } from 'react';
-import { FaLink, FaSave, FaDatabase, FaKey } from './common/Icons';
-import DatabaseSchemaModal from './DatabaseSchemaModal';
+import { FaLink, FaSave, FaKey } from './common/Icons';
 
 interface ConfigurationSetupProps {
     onConfigured: () => void;
@@ -15,7 +15,6 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
         supabaseUrl: '',
         supabaseAnonKey: '',
     });
-    const [showSqlModal, setShowSqlModal] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -112,13 +111,6 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
                                 <FaSave />
                                 Guardar e Iniciar
                             </button>
-                            <button
-                                onClick={() => setShowSqlModal(true)}
-                                className="w-full flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-on-surface-dark text-sm font-medium py-2 px-4 rounded-lg focus:outline-none transition-colors duration-300"
-                            >
-                                <FaDatabase className="text-brand-secondary" />
-                                Ver SQL de Configuração
-                            </button>
                         </div>
 
                     </div>
@@ -127,7 +119,6 @@ const ConfigurationSetup: React.FC<ConfigurationSetupProps> = ({ onConfigured })
                     &copy;{new Date().getFullYear()} AIManager. Todos os direitos reservados.
                 </p>
             </div>
-            {showSqlModal && <DatabaseSchemaModal onClose={() => setShowSqlModal(false)} />}
         </div>
     );
 };

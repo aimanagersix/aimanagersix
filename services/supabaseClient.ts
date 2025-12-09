@@ -5,20 +5,36 @@ let supabaseInstance: SupabaseClient | null = null;
 /**
  * Retrieves a singleton instance of the Supabase client.
  * Initializes the client on the first call.
- * @throws {Error} if Supabase credentials are not configured.
+ * Priority:
+ * 1. Vite Environment Variables (import.meta.env)
+ * 2. Injected Process Variables (process.env via vite.config.ts)
+ * 3. Local Storage (User manual entry fallback)
  */
 export const getSupabase = (): SupabaseClient => {
     if (supabaseInstance) {
         return supabaseInstance;
     }
 
-    // O Vite define 'process.env' para a aplicação durante o build.
-    // Usamos fallback seguro para evitar ReferenceError caso 'process' não esteja definido no browser.
-    const envUrl = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_URL : undefined;
-    const envKey = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_ANON_KEY : undefined;
+    // 1. Tentar ler do padrão Vite
+    // Cast to any to avoid TS errors if types are missing
+    let envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
+    let envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
 
-    const supabaseUrl = localStorage.getItem('SUPABASE_URL') || envUrl;
-    const supabaseAnonKey = localStorage.getItem('SUPABASE_ANON_KEY') || envKey;
+    // 2. Fallback para process.env (definido no vite.config.ts)
+    // Usamos 'as any' para evitar erros de TS se os tipos não estiverem estritos
+    if (!envUrl && (process.env as any).SUPABASE_URL) {
+        envUrl = (process.env as any).SUPABASE_URL;
+    }
+    if (!envKey && (process.env as any).SUPABASE_ANON_KEY) {
+        envKey = (process.env as any).SUPABASE_ANON_KEY;
+    }
+
+    // 3. Tentar ler do LocalStorage (Fallback manual)
+    const storageUrl = localStorage.getItem('SUPABASE_URL');
+    const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
+
+    const supabaseUrl = envUrl || storageUrl;
+    const supabaseAnonKey = envKey || storageKey;
 
     if (supabaseUrl && supabaseAnonKey) {
         try {
@@ -29,7 +45,6 @@ export const getSupabase = (): SupabaseClient => {
         }
     }
 
-    // Se chegarmos aqui, a app deve estar a tentar aceder a dados sem configuração.
-    // Lançamos erro, mas o ErrorBoundary no index.tsx ou a verificação no App.tsx devem apanhar.
-    throw new Error("As credenciais do Supabase não foram encontradas. Por favor, recarregue a página para ver o ecrã de configuração.");
+    // Se chegarmos aqui, a app não tem configuração.
+    throw new Error("As credenciais do Supabase não foram encontradas.");
 };

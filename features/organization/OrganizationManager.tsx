@@ -38,6 +38,8 @@ interface OrganizationManagerProps {
     setReportType: (type: string) => void;
 }
 
+const PROTECTED_EMAIL = 'josefsmoreira@outlook.com';
+
 const OrganizationManager: React.FC<OrganizationManagerProps> = ({ 
     activeTab, appData, checkPermission, refreshData, currentUser, setActiveTab, onStartChat, setReportType 
 }) => {
@@ -120,6 +122,19 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         }
     };
     
+    const handleDeleteCollaborator = async (id: string) => {
+        const collab = appData.collaborators.find((c: Collaborator) => c.id === id);
+        if (collab && collab.email === PROTECTED_EMAIL) {
+            alert("Ação Proibida: Este utilizador raiz não pode ser eliminado.");
+            return;
+        }
+        
+        if (window.confirm("Tem a certeza? Esta ação é irreversível.")) { 
+            await dataService.deleteCollaborator(id); 
+            refreshData(); 
+        }
+    };
+    
     const onToggleStatus = async (collaborator: Collaborator) => {
         if (!collaborator) return;
         
@@ -139,6 +154,11 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
     const handleConfirmOffboarding = async (collaboratorId: string, reasonId?: string) => {
         const collaborator = appData.collaborators.find((c: Collaborator) => c.id === collaboratorId);
         if (!collaborator) return;
+        
+        if (collaborator.email === PROTECTED_EMAIL) {
+            alert("Ação Proibida: Não é possível desativar o utilizador raiz.");
+            return;
+        }
 
         // 1. Unassign all equipment
         const assignedEquipmentIds = appData.assignments
@@ -243,7 +263,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     messages={appData.messages}
                     currentUser={currentUser}
                     onEdit={checkPermission('organization', 'edit') ? (c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); } : undefined}
-                    onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteCollaborator(id); refreshData(); } } : undefined}
+                    onDelete={checkPermission('organization', 'delete') ? handleDeleteCollaborator : undefined}
                     onCreate={checkPermission('organization', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaboratorModal(true); } : undefined}
                     onShowHistory={(c) => { setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }}
                     onShowDetails={(c) => { setDetailCollaborator(c); setShowCollaboratorDetailModal(true); }}

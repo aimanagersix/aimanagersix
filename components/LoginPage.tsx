@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 // FIX: Replaced non-existent icon imports with aliased exports from ./common/Icons
-import { FaUserCircle as UserIcon, FaLock as LockClosedIcon, FaFingerprint, FaCog, FaExclamationTriangle } from './common/Icons';
+import { FaUserCircle as UserIcon, FaLock as LockClosedIcon, FaFingerprint, FaExclamationTriangle } from './common/Icons';
 import { getSupabase } from '../services/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -41,15 +41,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
         const isEmailValid = validateField('email', email);
         const isPasswordValid = validateField('password', password);
         return isEmailValid && isPasswordValid;
-    };
-
-    const handleResetConnection = () => {
-        if (confirm("Tem a certeza? Isto irá limpar as configurações de conexão ao Supabase e recarregar a página para que possa inserir os dados corretos.")) {
-            localStorage.removeItem('SUPABASE_URL');
-            localStorage.removeItem('SUPABASE_ANON_KEY');
-            localStorage.removeItem('SUPABASE_SERVICE_ROLE_KEY');
-            window.location.reload();
-        }
     };
 
     const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -208,15 +199,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                                 <div className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs p-3 rounded mb-4 text-center">
                                     <p className="flex items-center justify-center gap-2 font-bold mb-1"><FaExclamationTriangle /> Erro</p>
                                     <p>{error}</p>
-                                    {(error.includes("Conexão") || error.includes("fetch")) && (
-                                        <button 
-                                            type="button"
-                                            onClick={handleResetConnection}
-                                            className="mt-2 underline hover:text-white"
-                                        >
-                                            Redefinir configurações de conexão
-                                        </button>
-                                    )}
                                 </div>
                             )}
 
@@ -254,18 +236,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
                             </button>
                         </form>
                     )}
-                    
-                    {/* Settings Safety Hatch */}
-                    <div className="absolute top-4 right-4">
-                        <button 
-                            onClick={handleResetConnection}
-                            className="text-gray-600 hover:text-gray-400 transition-colors p-1"
-                            title="Configurar Conexão BD"
-                        >
-                            <FaCog />
-                        </button>
-                    </div>
-
                 </div>
                 <p className="text-center text-gray-500 text-xs">
                     &copy;{new Date().getFullYear()} AIManager. {t('login.copyright')}

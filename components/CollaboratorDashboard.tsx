@@ -52,6 +52,8 @@ const getStatusClass = (status: CollaboratorStatus) => {
     }
 };
 
+const PROTECTED_EMAIL = 'josefsmoreira@outlook.com';
+
 const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({ 
     collaborators, 
     escolasDepartamentos: entidades, 
@@ -364,12 +366,15 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  const isSuperAdmin = col.role === UserRole.SuperAdmin;
                  const isCurrentUser = currentUser?.id === col.id;
                  const isOnboarding = col.status === CollaboratorStatus.Onboarding;
+                 const isProtectedUser = col.email === PROTECTED_EMAIL; // Hardcoded protection
                  
-                 // Disable delete for SuperAdmin OR self
-                 const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || isCurrentUser;
+                 // Disable delete for SuperAdmin OR self OR specific protected email
+                 const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || isCurrentUser || isProtectedUser;
                  
                  let deleteTooltip = `Excluir ${col.fullName}`;
-                 if (isSuperAdmin) {
+                 if (isProtectedUser) {
+                     deleteTooltip = "Utilizador Protegido pelo Sistema (Raiz)";
+                 } else if (isSuperAdmin) {
                      deleteTooltip = "Impossível excluir perfil SuperAdmin";
                  } else if (isCurrentUser) {
                      deleteTooltip = "Não pode apagar o seu próprio utilizador";
@@ -440,7 +445,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 </td>
                 <td className="px-6 py-4 text-center">
                      <div className="flex justify-center items-center gap-4">
-                        {onToggleStatus && !isSuperAdmin && (
+                        {onToggleStatus && !isSuperAdmin && !isProtectedUser && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onToggleStatus(col); }}
                                 className={`text-xl ${col.status === CollaboratorStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
