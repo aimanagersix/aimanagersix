@@ -14,17 +14,25 @@ export default defineConfig(({ mode }) => {
       'process.env.SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
       'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
+      // Valores estáticos de segurança
+      'process.env.NODE_ENV': JSON.stringify(mode),
     },
     build: {
-      chunkSizeWarningLimit: 1500,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
           manualChunks: (id) => {
-            if (id.includes('/components/')) {
-              return 'components';
-            }
-            if (id.includes('/services/')) {
-                return 'services';
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom')) {
+                return 'react-vendor';
+              }
+              if (id.includes('supabase')) {
+                return 'supabase-vendor';
+              }
+              if (id.includes('google')) {
+                return 'ai-vendor';
+              }
+              return 'vendor'; // outros pacotes
             }
           },
         },
