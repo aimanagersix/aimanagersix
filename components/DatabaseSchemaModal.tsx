@@ -118,8 +118,8 @@ ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS job_title_id UUID REFE
 
     const fixProcurementScript = `
 -- ==================================================================================
--- CORREÇÃO DE AQUISIÇÕES & TICKET AUTOMÁTICO
--- Recria o trigger que gera o ticket de aprovação corrigindo o erro de formatação.
+-- CORREÇÃO DE AQUISIÇÕES & TICKET AUTOMÁTICO (SAFE MODE)
+-- Substitui o uso de format() por concatenação simples para evitar erros de sintaxe.
 -- ==================================================================================
 
 -- 1. Remover triggers antigos/corrompidos
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS public.procurement_requests (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 3. Criar Função de Automação Corrigida
+-- 3. Criar Função de Automação (Safe Strings)
 CREATE OR REPLACE FUNCTION process_procurement_logic()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -175,14 +175,15 @@ BEGIN
   
   IF requester_name IS NULL THEN requester_name := 'Utilizador Desconhecido'; END IF;
 
-  -- Formatar descrição (CORRIGIDO: Usar %s e não %n ou caracteres inválidos)
-  ticket_description := format('Novo Pedido de Aquisição: %s. Solicitado por: %s. Custo Est.: %s EUR.', NEW.title, requester_name, COALESCE(NEW.estimated_cost, 0));
+  -- Formatar descrição usando concatenação para evitar erros de format()
+  ticket_description := 'Novo Pedido de Aquisição: ' || COALESCE(NEW.title, 'Sem Título') || 
+                        '. Solicitado por: ' || requester_name || 
+                        '. Custo Est.: ' || COALESCE(NEW.estimated_cost, 0)::text || ' EUR.';
 
   -- Tentar encontrar um Admin para atribuir o ticket (opcional)
   SELECT id INTO admin_id FROM public.collaborators WHERE role = 'SuperAdmin' LIMIT 1;
 
   -- Criar Ticket de Aprovação na tabela tickets
-  -- Nota: Usa as colunas com aspas se foram criadas com camelCase pelo Prisma/ORM anteriormente
   INSERT INTO public.tickets (
     title,
     description,
@@ -193,10 +194,10 @@ BEGIN
     "requestDate",
     "technicianId"
   ) VALUES (
-    format('Aprovação Necessária: %s', NEW.title),
+    'Aprovação Necessária: ' || COALESCE(NEW.title, ''),
     ticket_description,
     'Pedido',
-    'Pedido de Acesso', -- Categoria genérica para aprovações
+    'Pedido de Acesso',
     requester_entidade_id,
     NEW.requester_id,
     NOW(),
@@ -205,8 +206,7 @@ BEGIN
 
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- Em caso de erro no trigger (ex: tabela tickets não existe ou colunas diferentes), 
-  -- APENAS logar o aviso e permitir a gravação do pedido.
+  -- Logar erro mas não bloquear a inserção
   RAISE WARNING 'Erro ao criar ticket automático para aquisição: %', SQLERRM;
   RETURN NEW;
 END;
@@ -389,11 +389,12 @@ WHERE
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaShoppingCart /> CORREÇÃO DE TICKET AUTOMÁTICO
+                                    <FaShoppingCart /> CORREÇÃO DE TICKET AUTOMÁTICO (SAFE MODE)
                                 </div>
                                 <p className="mb-2">
-                                    Se recebe o erro <code>unrecognized format() type specifier "n"</code> ao gravar, execute este script.
-                                    Ele recria a função que gera o ticket automático, corrigindo o erro de formatação de texto e reativando o trigger.
+                                    Se ainda recebe o erro <code>unrecognized format()</code>, use este script.
+                                    <br/>
+                                    <strong>Alteração:</strong> Substitui a função `format()` por concatenação direta de texto, o que elimina qualquer erro de formatação.
                                 </p>
                             </div>
                             <div className="relative">
