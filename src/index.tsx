@@ -1,9 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { App } from './App';
-import './index.css';
-import { LayoutProvider } from './contexts/LayoutContext';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { App } from '../App';
+import '../index.css';
+import { LayoutProvider } from '../contexts/LayoutContext';
+import { LanguageProvider } from '../contexts/LanguageContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,12 +11,12 @@ if (!rootElement) {
 }
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode;
+    children: React.ReactNode;
 }
 
 interface ErrorBoundaryState {
-  hasError: boolean;
-  error: any;
+    hasError: boolean;
+    error: any;
 }
 
 // Simple Error Boundary to catch rendering errors
