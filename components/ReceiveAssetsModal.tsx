@@ -16,6 +16,9 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
     // General State
     const [isSaving, setIsSaving] = useState(false);
     const isSoftware = request.resource_type === 'Software';
+    
+    // New: Common Status for Hardware
+    const [commonStatus, setCommonStatus] = useState<string>(EquipmentStatus.Stock);
 
     // Hardware State
     const [items, setItems] = useState<any[]>([]);
@@ -47,7 +50,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                     brandId: request.brand_id || '', // Prefill Brand
                     typeId: request.equipment_type_id || '',
                     description: request.title || '', // Default description from request title
-                    status: EquipmentStatus.Stock,
+                    status: commonStatus, // Use the selected status
                     // Prefill specs from request JSON
                     ram_size: request.specifications?.ram_size || '',
                     cpu_info: request.specifications?.cpu_info || '',
@@ -64,6 +67,13 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
         }
 
     }, [request, isSoftware]);
+    
+    // Update items when common status changes
+    useEffect(() => {
+        if (!isSoftware) {
+            setItems(prev => prev.map(item => ({...item, status: commonStatus})));
+        }
+    }, [commonStatus, isSoftware]);
 
     // Apply common brand/type to all (Hardware Only)
     useEffect(() => {
@@ -99,10 +109,18 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                 }
             }
         } else {
-            if (items.some(i => !i.serialNumber || !i.brandId || !i.typeId)) {
-                alert("Por favor preencha o Nº de Série, Marca e Tipo para todos os itens.");
+             const statusNormalized = commonStatus.toLowerCase();
+             // Allow empty serial if status is 'Aquisição' (loosely checked)
+             const isAcquisition = statusNormalized.includes('aquisiç') || statusNormalized.includes('encomenda');
+             
+             if (!isAcquisition && items.some(i => !i.serialNumber)) {
+                alert("Por favor preencha o Nº de Série para todos os itens (ou mude o estado para 'Aquisição').");
                 return;
-            }
+             }
+             if (items.some(i => !i.brandId || !i.typeId)) {
+                alert("Por favor preencha a Marca e o Tipo para todos os itens.");
+                return;
+             }
         }
 
         setIsSaving(true);
@@ -152,7 +170,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                     brandId: item.brandId,
                     typeId: item.typeId,
                     description: item.description,
-                    status: EquipmentStatus.Stock,
+                    status: commonStatus, // Use selected status (Stock or Acquisition)
                     purchaseDate: request.received_date || new Date().toISOString().split('T')[0],
                     supplier_id: request.supplier_id,
                     invoiceNumber: request.invoice_number,
@@ -233,7 +251,19 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
 
                 {/* Bulk Actions (Hardware Only) */}
                 {!isSoftware && (
-                    <div className="bg-gray-800 p-3 rounded border border-gray-600 grid grid-cols-2 gap-4">
+                    <div className="bg-gray-800 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                             <label className="block text-xs text-gray-400 mb-1">Estado Inicial</label>
+                             <select 
+                                value={commonStatus} 
+                                onChange={(e) => setCommonStatus(e.target.value)} 
+                                className="w-full bg-gray-700 border border-gray-500 text-white rounded p-1 text-sm"
+                            >
+                                <option value={EquipmentStatus.Stock}>Stock (Padrão)</option>
+                                <option value={EquipmentStatus.Acquisition}>Aquisição (S/N Pendente)</option>
+                            </select>
+                            <p className="text-[10px] text-gray-500 mt-1">Se escolher 'Aquisição', o Nº de Série é opcional.</p>
+                        </div>
                         <div>
                             <label className="block text-xs text-gray-400 mb-1">Aplicar Marca a Todos</label>
                             <select 
@@ -311,7 +341,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                                         </>
                                     ) : (
                                         <>
-                                            <th className="px-4 py-2">Nº Série *</th>
+                                            <th className="px-4 py-2">Nº Série {commonStatus === EquipmentStatus.Acquisition ? '(Op.)' : '*'}</th>
                                             <th className="px-4 py-2">Marca *</th>
                                             <th className="px-4 py-2">Tipo *</th>
                                             <th className="px-4 py-2">Descrição</th>
@@ -362,7 +392,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                                                         value={item.serialNumber} 
                                                         onChange={(e) => handleItemChange(idx, 'serialNumber', e.target.value)}
                                                         className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
-                                                        placeholder="S/N..."
+                                                        placeholder={commonStatus === EquipmentStatus.Acquisition ? "Pendente" : "S/N..."}
                                                     />
                                                 </td>
                                                 <td className="px-4 py-2">
@@ -405,7 +435,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
                     <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
                     <button onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2">
-                        <FaCheck /> {isSoftware ? 'Registar Licenças' : 'Criar Ativos em Stock'}
+                        <FaCheck /> {isSoftware ? 'Registar Licenças' : 'Criar Ativos'}
                     </button>
                 </div>
             </div>

@@ -320,10 +320,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         
         // Serial Number Validation Rule:
         // 1. Mandatory if EDITING (regardless of status, to force completion of data)
-        // 2. Mandatory if CREATING and status is NOT 'Aquisição'
+        // 2. Mandatory if CREATING and status is NOT 'Aquisição' (check loose string match)
         // 3. Optional if CREATING and status IS 'Aquisição'
         
-        const isAcquisition = formData.status === EquipmentStatus.Acquisition;
+        const statusNormalized = formData.status?.toLowerCase() || '';
+        // Check loosely for "aquisiç", "encomenda", "compra" to cover manual DB entries
+        const isAcquisition = statusNormalized.includes('aquisiç') || statusNormalized.includes('encomenda') || statusNormalized.includes('compra');
         
         if (!formData.serialNumber?.trim()) {
             if (isEditMode) {
@@ -499,6 +501,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }
     };
     
+    const statusNormalized = formData.status?.toLowerCase() || '';
+    const isAcquisition = statusNormalized.includes('aquisiç') || statusNormalized.includes('encomenda') || statusNormalized.includes('compra');
+
     const modalTitle = isEditMode ? "Editar Equipamento" : "Adicionar Novo Equipamento";
     const submitButtonText = isEditMode ? "Guardar Alterações" : "Adicionar Equipamento";
     const getTabClass = (tab: string) => `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`;
@@ -536,10 +541,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="relative">
                                 <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
-                                    Número de Série {formData.status === EquipmentStatus.Acquisition ? '(Opcional em Aquisição)' : ''}
+                                    Número de Série {isAcquisition ? '(Opcional em Aquisição)' : ''}
                                 </label>
                                 <div className="flex">
-                                    <input type="text" name="serialNumber" id="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} placeholder={formData.status === EquipmentStatus.Acquisition ? "Pendente" : "S/N"} />
+                                    <input type="text" name="serialNumber" id="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} placeholder={isAcquisition ? "Pendente (Opcional)" : "S/N"} />
                                     <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className={`p-2 bg-brand-primary text-white hover:bg-brand-secondary transition-colors ${!aiConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}>{isLoading.serial ? <SpinnerIcon /> : <CameraIcon />}</button>
                                     <button type="button" onClick={() => handleFetchInfo(formData.serialNumber!)} disabled={!formData.serialNumber || isLoading.info || !aiConfigured} className={`p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50 ${!aiConfigured ? 'cursor-not-allowed' : ''}`}>{isLoading.info ? <SpinnerIcon /> : <SearchIcon />}</button>
                                 </div>
