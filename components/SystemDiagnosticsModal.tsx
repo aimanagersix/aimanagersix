@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { DiagnosticResult } from '../types';
 import { runSystemDiagnostics } from '../services/dataService';
@@ -96,7 +96,7 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
     };
 
     // Auto-run update check on open
-    React.useEffect(() => {
+    useEffect(() => {
         if (!checkingUpdates) {
              checkUpdates();
         }

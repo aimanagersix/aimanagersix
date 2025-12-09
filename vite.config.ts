@@ -8,6 +8,14 @@ export default defineConfig(({ mode }) => {
   // Carrega as variáveis de ambiente do ficheiro .env na pasta raiz.
   const env = loadEnv(mode, '.', '');
 
+  // Safe Node Version Check
+  let nodeVersion = 'Unknown';
+  try {
+    nodeVersion = process.version;
+  } catch (e) {
+    console.warn("Could not detect Node version", e);
+  }
+
   return {
     plugins: [react()],
     define: {
@@ -21,7 +29,7 @@ export default defineConfig(({ mode }) => {
       'process.env.REACT_VERSION': JSON.stringify(packageJson.dependencies['react']),
       'process.env.VITE_VERSION': JSON.stringify(packageJson.devDependencies['vite'] || 'Latest'),
       'process.env.GENAI_VERSION': JSON.stringify(packageJson.dependencies['@google/genai']),
-      'process.env.NODE_VERSION': JSON.stringify((process as any).version), // Versão do Node usada no Build
+      'process.env.NODE_VERSION': JSON.stringify(nodeVersion), 
     },
     build: {
       chunkSizeWarningLimit: 1500,
