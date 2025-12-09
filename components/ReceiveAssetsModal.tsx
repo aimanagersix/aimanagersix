@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, Brand, EquipmentType, EquipmentStatus, CriticalityLevel, LicenseStatus } from '../types';
-import { FaBoxOpen, FaCheck, FaKey, FaLaptop } from 'react-icons/fa';
+import { FaBoxOpen, FaCheck, FaKey, FaLaptop, FaListOl, FaTags } from 'react-icons/fa';
 
 interface ReceiveAssetsModalProps {
     onClose: () => void;
@@ -13,12 +13,23 @@ interface ReceiveAssetsModalProps {
 }
 
 const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, request, brands, types, onSave }) => {
+    // General State
+    const [isSaving, setIsSaving] = useState(false);
+    const isSoftware = request.resource_type === 'Software';
+
+    // Hardware State
     const [items, setItems] = useState<any[]>([]);
     const [commonBrandId, setCommonBrandId] = useState('');
     const [commonTypeId, setCommonTypeId] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-    
-    const isSoftware = request.resource_type === 'Software';
+
+    // Software Specific State
+    const [licenseMode, setLicenseMode] = useState<'individual' | 'single'>('individual');
+    const [bulkData, setBulkData] = useState({
+        productName: request.title || '',
+        licenseKey: '',
+        description: '',
+        isOem: false
+    });
 
     useEffect(() => {
         // Initialize items based on quantity and prefill from request if possible
@@ -76,9 +87,16 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
     const handleSubmit = async () => {
         // Validate
         if (isSoftware) {
-            if (items.some(i => !i.licenseKey || !i.productName)) {
-                alert("Por favor preencha o Nome do Produto e a Chave de Licença para todos os itens.");
-                return;
+            if (licenseMode === 'single') {
+                if (!bulkData.productName || !bulkData.licenseKey) {
+                    alert("Por favor preencha o Nome do Produto e a Chave de Licença.");
+                    return;
+                }
+            } else {
+                if (items.some(i => !i.licenseKey || !i.productName)) {
+                    alert("Por favor preencha o Nome do Produto e a Chave de Licença para todos os itens.");
+                    return;
+                }
             }
         } else {
             if (items.some(i => !i.serialNumber || !i.brandId || !i.typeId)) {
@@ -92,24 +110,43 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
             let assetsToCreate;
             
             if (isSoftware) {
-                 assetsToCreate = items.map(item => ({
-                    productName: item.productName,
-                    licenseKey: item.licenseKey,
-                    totalSeats: 1, // Individual keys usually have 1 seat
-                    status: LicenseStatus.Ativo,
+                // Common fields for software
+                const baseSoftwareData = {
                     purchaseDate: request.received_date || new Date().toISOString().split('T')[0],
                     supplier_id: request.supplier_id,
                     invoiceNumber: request.invoice_number,
-                    unitCost: request.estimated_cost ? (request.estimated_cost / request.quantity) : 0,
                     category_id: request.software_category_id,
                     criticality: CriticalityLevel.Low,
-                    // Generic default compliance fields
                     confidentiality: 'Baixo',
                     integrity: 'Baixo',
                     availability: 'Baixo',
-                    is_oem: false
-                 }));
+                };
+
+                if (licenseMode === 'single') {
+                     // Create 1 License Record with Total Seats = Quantity
+                     assetsToCreate = [{
+                        ...baseSoftwareData,
+                        productName: bulkData.productName,
+                        licenseKey: bulkData.licenseKey,
+                        totalSeats: request.quantity, // ALL seats in one record
+                        status: LicenseStatus.Ativo,
+                        unitCost: request.estimated_cost ? (request.estimated_cost / request.quantity) : 0,
+                        is_oem: bulkData.isOem
+                     }];
+                } else {
+                     // Create N License Records with Total Seats = 1
+                     assetsToCreate = items.map(item => ({
+                        ...baseSoftwareData,
+                        productName: item.productName,
+                        licenseKey: item.licenseKey,
+                        totalSeats: 1, 
+                        status: LicenseStatus.Ativo,
+                        unitCost: request.estimated_cost ? (request.estimated_cost / request.quantity) : 0,
+                        is_oem: false // Individual usually implies retail keys, but could be editable later
+                     }));
+                }
             } else {
+                // Hardware Logic (Unchanged)
                 assetsToCreate = items.map(item => ({
                     serialNumber: item.serialNumber,
                     brandId: item.brandId,
@@ -152,13 +189,47 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                         <p className="text-sm text-gray-300">
                             Está a receber <strong>{request.quantity}</strong> itens do pedido "{request.title}". 
                             {isSoftware 
-                                ? " Insira as chaves de licença para cada unidade adquirida." 
+                                ? " Escolha como deseja registar as chaves de licença." 
                                 : " Preencha os detalhes abaixo para criar automaticamente os registos no inventário."
                             }
                             {request.specifications && !isSoftware && <span className="block text-xs mt-1 text-green-300 font-bold">Especificações pré-carregadas do pedido.</span>}
                         </p>
                     </div>
                 </div>
+
+                {/* Software License Mode Switcher */}
+                {isSoftware && (
+                     <div className="flex gap-4 border-b border-gray-700 pb-4 mb-4">
+                        <label className={`flex-1 cursor-pointer border p-3 rounded flex flex-col items-center gap-2 transition-colors ${licenseMode === 'individual' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-600 text-gray-400'}`}>
+                            <input 
+                                type="radio" 
+                                name="licenseMode" 
+                                checked={licenseMode === 'individual'} 
+                                onChange={() => setLicenseMode('individual')} 
+                                className="hidden"
+                            />
+                            <FaListOl className="text-xl" />
+                            <div className="text-center">
+                                <span className="font-bold block text-sm">Chaves Individuais</span>
+                                <span className="text-xs opacity-80">Uma chave diferente para cada licença (Cria {request.quantity} registos)</span>
+                            </div>
+                        </label>
+                        <label className={`flex-1 cursor-pointer border p-3 rounded flex flex-col items-center gap-2 transition-colors ${licenseMode === 'single' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-800 border-gray-600 text-gray-400'}`}>
+                            <input 
+                                type="radio" 
+                                name="licenseMode" 
+                                checked={licenseMode === 'single'} 
+                                onChange={() => setLicenseMode('single')} 
+                                className="hidden"
+                            />
+                            <FaTags className="text-xl" />
+                            <div className="text-center">
+                                <span className="font-bold block text-sm">Chave Única / Volume (OEM)</span>
+                                <span className="text-xs opacity-80">A mesma chave para todas as {request.quantity} licenças (Cria 1 registo com {request.quantity} ativações)</span>
+                            </div>
+                        </label>
+                    </div>
+                )}
 
                 {/* Bulk Actions (Hardware Only) */}
                 {!isSoftware && (
@@ -188,108 +259,147 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                     </div>
                 )}
 
-                {/* Items Table */}
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs uppercase bg-gray-700 text-gray-300">
-                            <tr>
-                                <th className="px-4 py-2 w-10">#</th>
-                                {isSoftware ? (
-                                    <>
-                                        <th className="px-4 py-2">Nome do Produto *</th>
-                                        <th className="px-4 py-2">Chave de Licença *</th>
-                                        <th className="px-4 py-2">Notas (Opcional)</th>
-                                    </>
-                                ) : (
-                                    <>
-                                        <th className="px-4 py-2">Nº Série *</th>
-                                        <th className="px-4 py-2">Marca *</th>
-                                        <th className="px-4 py-2">Tipo *</th>
-                                        <th className="px-4 py-2">Descrição</th>
-                                    </>
-                                )}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-700">
-                            {items.map((item, idx) => (
-                                <tr key={idx} className="bg-surface-dark">
-                                    <td className="px-4 py-2 text-center text-gray-500">{idx + 1}</td>
-                                    
+                {/* Items Input Area */}
+                <div className="overflow-x-auto max-h-[50vh] custom-scrollbar">
+                    {isSoftware && licenseMode === 'single' ? (
+                         <div className="bg-gray-800/50 p-6 rounded border border-gray-700 space-y-4 animate-fade-in">
+                            <h4 className="text-white font-bold mb-2">Dados da Licença de Volume</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Nome do Produto</label>
+                                    <input 
+                                        type="text" 
+                                        value={bulkData.productName} 
+                                        onChange={(e) => setBulkData({...bulkData, productName: e.target.value})}
+                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2"
+                                        placeholder="Ex: Windows 11 Pro Volume License"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Chave de Licença (Comum)</label>
+                                    <input 
+                                        type="text" 
+                                        value={bulkData.licenseKey} 
+                                        onChange={(e) => setBulkData({...bulkData, licenseKey: e.target.value})}
+                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 font-mono text-yellow-300"
+                                        placeholder="XXXX-XXXX-XXXX-XXXX"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="flex items-center cursor-pointer mt-2">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={bulkData.isOem} 
+                                        onChange={(e) => setBulkData({...bulkData, isOem: e.target.checked})}
+                                        className="rounded bg-gray-700 border-gray-500 text-brand-primary"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-300">Marcar como OEM / Vitalícia (Sem contagem estrita de ativações)</span>
+                                </label>
+                            </div>
+                         </div>
+                    ) : (
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs uppercase bg-gray-700 text-gray-300 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-4 py-2 w-10">#</th>
                                     {isSoftware ? (
                                         <>
-                                            <td className="px-4 py-2">
-                                                <input 
-                                                    type="text" 
-                                                    value={item.productName} 
-                                                    onChange={(e) => handleItemChange(idx, 'productName', e.target.value)}
-                                                    className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
-                                                    placeholder="Nome do Software..."
-                                                />
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <input 
-                                                    type="text" 
-                                                    value={item.licenseKey} 
-                                                    onChange={(e) => handleItemChange(idx, 'licenseKey', e.target.value)}
-                                                    className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full font-mono text-yellow-300"
-                                                    placeholder="XXXX-XXXX-XXXX-XXXX"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <input 
-                                                    type="text" 
-                                                    value={item.description} 
-                                                    onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                                                    className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
-                                                    placeholder="Notas..."
-                                                />
-                                            </td>
+                                            <th className="px-4 py-2">Nome do Produto *</th>
+                                            <th className="px-4 py-2">Chave de Licença *</th>
+                                            <th className="px-4 py-2">Notas</th>
                                         </>
                                     ) : (
                                         <>
-                                            <td className="px-4 py-2">
-                                                <input 
-                                                    type="text" 
-                                                    value={item.serialNumber} 
-                                                    onChange={(e) => handleItemChange(idx, 'serialNumber', e.target.value)}
-                                                    className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
-                                                    placeholder="S/N..."
-                                                />
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <select 
-                                                    value={item.brandId} 
-                                                    onChange={(e) => handleItemChange(idx, 'brandId', e.target.value)}
-                                                    className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
-                                                >
-                                                    <option value="">Select...</option>
-                                                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                                </select>
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <select 
-                                                    value={item.typeId} 
-                                                    onChange={(e) => handleItemChange(idx, 'typeId', e.target.value)}
-                                                    className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
-                                                >
-                                                    <option value="">Select...</option>
-                                                    {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                </select>
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <input 
-                                                    type="text" 
-                                                    value={item.description} 
-                                                    onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                                                    className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
-                                                />
-                                            </td>
+                                            <th className="px-4 py-2">Nº Série *</th>
+                                            <th className="px-4 py-2">Marca *</th>
+                                            <th className="px-4 py-2">Tipo *</th>
+                                            <th className="px-4 py-2">Descrição</th>
                                         </>
                                     )}
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-700">
+                                {items.map((item, idx) => (
+                                    <tr key={idx} className="bg-surface-dark hover:bg-gray-800 transition-colors">
+                                        <td className="px-4 py-2 text-center text-gray-500">{idx + 1}</td>
+                                        
+                                        {isSoftware ? (
+                                            <>
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={item.productName} 
+                                                        onChange={(e) => handleItemChange(idx, 'productName', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
+                                                        placeholder="Nome do Software..."
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={item.licenseKey} 
+                                                        onChange={(e) => handleItemChange(idx, 'licenseKey', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full font-mono text-yellow-300"
+                                                        placeholder="XXXX-XXXX-XXXX-XXXX"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={item.description} 
+                                                        onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
+                                                        placeholder="Notas..."
+                                                    />
+                                                </td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={item.serialNumber} 
+                                                        onChange={(e) => handleItemChange(idx, 'serialNumber', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
+                                                        placeholder="S/N..."
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <select 
+                                                        value={item.brandId} 
+                                                        onChange={(e) => handleItemChange(idx, 'brandId', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
+                                                    >
+                                                        <option value="">Select...</option>
+                                                        {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <select 
+                                                        value={item.typeId} 
+                                                        onChange={(e) => handleItemChange(idx, 'typeId', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
+                                                    >
+                                                        <option value="">Select...</option>
+                                                        {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={item.description} 
+                                                        onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
+                                                    />
+                                                </td>
+                                            </>
+                                        )}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
