@@ -423,7 +423,13 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     brands={appData.brands}
                     types={appData.equipmentTypes}
                     onSave={async (assets) => {
-                        await dataService.addMultipleEquipment(assets);
+                         // Check resource type here
+                         if (procurementToReceive.resource_type === 'Software') {
+                             await dataService.addMultipleLicenses(assets);
+                         } else {
+                             await dataService.addMultipleEquipment(assets);
+                         }
+                        
                         await dataService.updateProcurement(procurementToReceive.id, { status: 'Concluído' });
                         refreshData();
                     }}

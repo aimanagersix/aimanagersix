@@ -365,6 +365,13 @@ export const addMultipleEquipment = async (items: any[]) => {
     await logAction('CREATE', 'Equipment', `Batch created ${items.length} items`);
     return data;
 };
+export const addMultipleLicenses = async (items: any[]) => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('software_licenses').insert(items).select();
+    if (error) throw error;
+    await logAction('CREATE', 'SoftwareLicense', `Batch created ${items.length} licenses`);
+    return data;
+};
 export const addAssignment = (data: any) => create('assignments', data);
 export const addLicense = (data: any) => create('software_licenses', data);
 export const updateLicense = (id: string, data: any) => update('software_licenses', id, data);
