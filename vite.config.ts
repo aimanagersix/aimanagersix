@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    resolve: {
+      dedupe: ['react', 'react-dom'],
+    },
     define: {
       // Define 'process.env' como um objeto vazio para bibliotecas legadas não crasharem
       'process.env': {},
