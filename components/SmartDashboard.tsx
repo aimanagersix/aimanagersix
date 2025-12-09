@@ -101,7 +101,7 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
         // Incidents add 5 points
         tickets.forEach(t => {
             if (t.entidadeId && t.impactCriticality === CriticalityLevel.Critical) {
-                const name = entMap.get(t.entidadeId) || 'Desconhecido';
+                const name = String(entMap.get(t.entidadeId) || 'Desconhecido');
                 riskMap[name] = (riskMap[name] || 0) + 5;
             }
         });

@@ -11,7 +11,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Expõe as variáveis de ambiente ao código da aplicação.
+      // Define 'process.env' como um objeto vazio para bibliotecas legadas não crasharem
+      'process.env': {},
+      
+      // Expõe as variáveis específicas necessárias
       'process.env.SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
       'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),

@@ -10,11 +10,21 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+interface ErrorBoundaryProps {
+    children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+    hasError: boolean;
+    error: any;
+}
+
 // Simple Error Boundary to catch rendering errors
-class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
-  constructor(props: {children: React.ReactNode}) {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
+
+  constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: any) {

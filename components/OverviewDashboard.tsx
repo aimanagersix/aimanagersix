@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory, ProcurementRequest } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull, FaChartLine, FaStopwatch } from './common/Icons';
@@ -344,7 +343,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             const level = eq.criticality || CriticalityLevel.Low;
             counts[level] = (counts[level] || 0) + 1;
         });
-        return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+        return Object.entries(counts)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
     }, [equipment]);
     
     const ticketsByTeam = useMemo(() => {
@@ -357,7 +358,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             return acc;
         }, new Map<string, number>());
 
-        return Array.from(counts.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
+        return Array.from(counts.entries())
+            .map(([name, value]) => ({ name, value }))
+            .sort((a,b) => b.value - a.value);
     }, [tickets, teams]);
     
     const top5EquipmentTypes = useMemo(() => {

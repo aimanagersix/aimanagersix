@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { AppData } from '../hooks/useAppData';
 import { FaFilter, FaSync, FaEuroSign, FaBoxOpen, FaFileInvoiceDollar, FaLaptop, FaPrint } from 'react-icons/fa';
@@ -83,7 +82,7 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
     const statusOptions = useMemo(() => appData.configEquipmentStatuses.map(s => ({id: s.name, name: s.name})), [appData.configEquipmentStatuses]);
 
     // Main data filtering logic
-    const filteredData = useMemo(() => {
+    const filteredData = useMemo<{ filteredEquipment: any[], softwareCost: number }>(() => {
         let filteredEquipment = appData.equipment;
 
         // Date Filter
@@ -165,7 +164,8 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
     const costByStatus = useMemo(() => {
         const costs = new Map<string, number>();
         filteredData.filteredEquipment.forEach(eq => {
-            costs.set(eq.status, (costs.get(eq.status) || 0) + (eq.acquisitionCost || 0));
+            const status = String(eq.status);
+            costs.set(status, (costs.get(status) || 0) + (eq.acquisitionCost || 0));
         });
         return Array.from(costs.entries()).map(([name, value]) => ({ name, value }));
     }, [filteredData]);
@@ -174,7 +174,7 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
         const typeMap = new Map(appData.equipmentTypes.map(t => [t.id, t.name]));
         const costs = new Map<string, number>();
         filteredData.filteredEquipment.forEach(eq => {
-            const name = typeMap.get(eq.typeId) || 'Desconhecido';
+            const name = String(typeMap.get(eq.typeId) || 'Desconhecido');
             costs.set(name, (costs.get(name) || 0) + (eq.acquisitionCost || 0));
         });
         return Array.from(costs.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);

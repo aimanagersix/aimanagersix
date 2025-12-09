@@ -12,14 +12,21 @@ export const getSupabase = (): SupabaseClient => {
         return supabaseInstance;
     }
 
-    // O Vite define 'process.env' para a aplicação.
-    // Priorizamos o localStorage para permitir que o ecrã de configuração inicial funcione.
-    const supabaseUrl = localStorage.getItem('SUPABASE_URL') || process.env.SUPABASE_URL;
-    const supabaseAnonKey = localStorage.getItem('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
+    // O Vite define 'process.env' para a aplicação durante o build.
+    // Usamos fallback seguro para evitar ReferenceError caso 'process' não esteja definido no browser.
+    const envUrl = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_URL : undefined;
+    const envKey = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_ANON_KEY : undefined;
+
+    const supabaseUrl = localStorage.getItem('SUPABASE_URL') || envUrl;
+    const supabaseAnonKey = localStorage.getItem('SUPABASE_ANON_KEY') || envKey;
 
     if (supabaseUrl && supabaseAnonKey) {
-        supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
-        return supabaseInstance;
+        try {
+            supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+            return supabaseInstance;
+        } catch (e) {
+            console.error("Erro ao inicializar Supabase:", e);
+        }
     }
 
     // Se chegarmos aqui, a app deve estar a tentar aceder a dados sem configuração.
