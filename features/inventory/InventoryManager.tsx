@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
     SoftwareLicense, Assignment, 
@@ -35,15 +35,23 @@ interface InventoryManagerProps {
 }
 
 const InventoryManager: React.FC<InventoryManagerProps> = ({ 
-    activeTab, appData, checkPermission, refreshData, 
+    activeTab, appData, checkPermission, refreshData: refreshGlobalData, 
     dashboardFilter, setDashboardFilter, setReportType, currentUser,
     onViewItem
 }) => {
     
+    // Server-Side Data State for Equipment
+    const [equipmentData, setEquipmentData] = useState<Equipment[]>([]);
+    const [totalEquipment, setTotalEquipment] = useState(0);
+    const [equipmentLoading, setEquipmentLoading] = useState(false);
+    const [equipmentPage, setEquipmentPage] = useState(1);
+    const [equipmentPageSize, setEquipmentPageSize] = useState(20);
+    const [equipmentSort, setEquipmentSort] = useState<{ key: string, direction: 'ascending' | 'descending' }>({ key: 'creationDate', direction: 'descending' });
+    
     // Local State for Inventory Modals
     const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
-    const [equipmentInitialData, setEquipmentInitialData] = useState<Partial<Equipment> | null>(null); // NEW: For cloning or pre-filling
+    const [equipmentInitialData, setEquipmentInitialData] = useState<Partial<Equipment> | null>(null); 
     
     const [showKitModal, setShowKitModal] = useState(false);
     const [kitInitialData, setKitInitialData] = useState<Partial<Equipment> | null>(null);
@@ -63,31 +71,60 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
+    // --- DATA FETCHING (SERVER SIDE) ---
+    const fetchEquipment = useCallback(async () => {
+        setEquipmentLoading(true);
+        try {
+            const { data, total } = await dataService.fetchEquipmentPaginated({
+                page: equipmentPage,
+                pageSize: equipmentPageSize,
+                filters: dashboardFilter,
+                sort: equipmentSort
+            });
+            setEquipmentData(data);
+            setTotalEquipment(total);
+        } catch (error) {
+            console.error("Error fetching equipment:", error);
+            // Fallback empty on error
+            setEquipmentData([]);
+            setTotalEquipment(0);
+        } finally {
+            setEquipmentLoading(false);
+        }
+    }, [equipmentPage, equipmentPageSize, dashboardFilter, equipmentSort]);
+
+    // Initial Load & Refresh
+    useEffect(() => {
+        if (activeTab === 'equipment.inventory') {
+            fetchEquipment();
+        }
+    }, [activeTab, fetchEquipment]);
+
+
     // Handlers
     const handleAssign = async (assignment: any) => {
         await dataService.addAssignment(assignment);
-        refreshData();
+        fetchEquipment(); // Refresh local list
+        refreshGlobalData(); // Refresh global counters if needed
     };
     
     // CLONE LOGIC
     const handleCloneEquipment = (sourceEq: Equipment) => {
-        // Create a copy of the source equipment, removing unique identifiers
         const cloneData: Partial<Equipment> = {
             ...sourceEq,
-            id: undefined, // New ID
-            serialNumber: '', // Must be new
-            inventoryNumber: '', // Must be new
-            nomeNaRede: '', // Must be new or generated
+            id: undefined, 
+            serialNumber: '', 
+            inventoryNumber: '', 
+            nomeNaRede: '', 
             macAddressWIFI: '',
             macAddressCabo: '',
             ip_address: '',
-            status: EquipmentStatus.Stock, // Reset to stock
+            status: EquipmentStatus.Stock, 
             creationDate: undefined,
             modifiedDate: undefined,
-            // Keep: Brand, Type, Description, Specs, Purchase Info, Supplier, Cost, etc.
         };
         
-        setEquipmentToEdit(null); // Ensure we are in "Create" mode not "Edit"
+        setEquipmentToEdit(null); 
         setEquipmentInitialData(cloneData);
         setShowAddEquipmentModal(true);
     };
@@ -103,7 +140,9 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
         }
         if (assignment) await dataService.addAssignment({ ...assignment, equipmentId: eqId });
         if (licenseIds && licenseIds.length > 0) await dataService.syncLicenseAssignments(eqId, licenseIds);
-        refreshData();
+        
+        fetchEquipment(); // Refresh list
+        refreshGlobalData(); // Refresh global
         setShowAddEquipmentModal(false);
     };
     
@@ -140,9 +179,17 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     typeId = newType.id;
                 }
 
-                // 3. Check if Equipment Exists
-                const existingEq = appData.equipment.find((eq: Equipment) => eq.serialNumber === json.serialNumber);
+                // 3. Check if Equipment Exists - Need explicit check as we don't load all
+                // For importing, it's safer to query specific serial first or let DB upsert handle unique constraint
+                // We'll try update first (blindly, assuming ID unknown) or insert.
+                // Better approach: fetch by serial
+                // Since this is client-side logic, we can't easily check DB without exposing a method.
+                // We will assume 'add' handles uniqueness or returns error if duplicate.
+                // *For this demo, we'll try fetch paginated filter by serial*
                 
+                const { data: existingCheck } = await dataService.fetchEquipmentPaginated({ page: 1, pageSize: 1, filters: { serialNumber: json.serialNumber } });
+                const existingEq = existingCheck && existingCheck.length > 0 ? existingCheck[0] : null;
+
                 const payload = {
                     serialNumber: json.serialNumber,
                     brandId: brandId,
@@ -152,11 +199,10 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     os_version: json.os_version,
                     cpu_info: json.cpu_info,
                     ram_size: json.ram_size,
-                    // Add other fields from agent if available
                     macAddressWIFI: json.macAddressWIFI,
                     macAddressCabo: json.macAddressCabo,
                     disk_info: json.disk_info ? JSON.stringify(json.disk_info) : undefined,
-                    last_inventory_scan: json.scan_date || new Date().toISOString().split('T')[0] // Capture Agent Scan Date
+                    last_inventory_scan: json.scan_date || new Date().toISOString().split('T')[0] 
                 };
 
                 if (existingEq) {
@@ -166,7 +212,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                      await dataService.addEquipment({
                          ...payload,
                          status: EquipmentStatus.Stock,
-                         // Note: Do NOT default purchaseDate to today, leave it null/empty to distinguish between insertion and purchase
                          purchaseDate: undefined, 
                          criticality: 'Baixa',
                          creationDate: new Date().toISOString(),
@@ -174,7 +219,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                      });
                      alert(`Novo equipamento criado: ${json.serialNumber}`);
                 }
-                refreshData();
+                fetchEquipment();
 
             } catch (error: any) {
                 console.error(error);
@@ -186,7 +231,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     
     const canApproveProcurement = checkPermission('procurement', 'delete');
 
-    // Resolve Name for History Modal (since Equipment stores ID now)
     const resolvedDetailEquipment = detailEquipment ? {
         ...detailEquipment,
         accounting_code: appData.configAccountingCategories.find((c:any) => c.id === detailEquipment.accounting_category_id)?.name,
@@ -199,7 +243,18 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             {/* --- DASHBOARDS --- */}
             {activeTab === 'equipment.inventory' && (
                 <EquipmentDashboard 
-                    equipment={appData.equipment} 
+                    equipment={equipmentData} // Use local server-fetched data
+                    totalItems={totalEquipment} // Pass total count
+                    loading={equipmentLoading}
+                    page={equipmentPage}
+                    pageSize={equipmentPageSize}
+                    sort={equipmentSort}
+                    onPageChange={setEquipmentPage}
+                    onPageSizeChange={setEquipmentPageSize}
+                    onSortChange={setEquipmentSort}
+                    onFilterChange={setDashboardFilter} // Updates parent filter state, triggering fetch via useEffect
+                    
+                    // Standard Props
                     brands={appData.brands} 
                     equipmentTypes={appData.equipmentTypes}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
@@ -216,18 +271,18 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onUnassign={checkPermission('equipment', 'edit') ? async (id) => {
                         if(window.confirm("Deseja desassociar este equipamento? O estado passará para 'Stock'.")) {
                             await dataService.addAssignment({ equipmentId: id, returnDate: new Date().toISOString().split('T')[0] });
-                            refreshData();
+                            fetchEquipment();
                         }
                     } : undefined}
                     onUpdateStatus={checkPermission('equipment', 'edit') ? async (id, status) => {
                         await dataService.updateEquipment(id, { status });
-                        refreshData();
+                        fetchEquipment();
                     } : undefined}
                     onShowHistory={(eq) => { setDetailEquipment(eq); }} 
                     onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
                     onClone={checkPermission('equipment', 'create') ? handleCloneEquipment : undefined}
                     onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
-                    onImportAgent={checkPermission('equipment', 'create') ? handleAgentImport : undefined} // Pass handler
+                    onImportAgent={checkPermission('equipment', 'create') ? handleAgentImport : undefined} 
                     onGenerateReport={checkPermission('reports', 'view') ? () => setReportType('equipment') : undefined}
                     onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); } : undefined}
                     businessServices={appData.businessServices}
@@ -248,13 +303,13 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <LicenseDashboard 
                     licenses={appData.softwareLicenses}
                     licenseAssignments={appData.licenseAssignments}
-                    equipmentData={appData.equipment}
+                    equipmentData={appData.equipment} // Caution: This might be empty if we optimize fetchAllData later. Licenses should probably also be paginated eventually.
                     assignments={appData.assignments}
                     collaborators={appData.collaborators}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
                     equipmentTypeMap={new Map(appData.equipmentTypes.map((t: EquipmentType) => [t.id, t.name]))}
                     onEdit={checkPermission('licensing', 'edit') ? (l) => { setLicenseToEdit(l); setShowAddLicenseModal(true); } : undefined}
-                    onDelete={checkPermission('licensing', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteLicense(id); refreshData(); } } : undefined}
+                    onDelete={checkPermission('licensing', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteLicense(id); refreshGlobalData(); } } : undefined}
                     onCreate={checkPermission('licensing', 'create') ? () => { setLicenseToEdit(null); setShowAddLicenseModal(true); } : undefined}
                     onGenerateReport={() => setReportType('licensing')}
                     initialFilter={dashboardFilter}
@@ -262,7 +317,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onToggleStatus={checkPermission('licensing', 'edit') ? async (id) => {
                         const lic = appData.softwareLicenses.find((l: SoftwareLicense) => l.id === id);
                         if (lic) await dataService.updateLicense(id, { status: lic.status === 'Ativo' ? 'Inativo' : 'Ativo' });
-                        refreshData();
+                        refreshGlobalData();
                     } : undefined}
                     businessServices={appData.businessServices}
                     serviceDependencies={appData.serviceDependencies}
@@ -279,7 +334,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onCreate={checkPermission('procurement', 'create') ? () => { setProcurementToEdit(null); setShowAddProcurementModal(true); } : undefined}
                     onEdit={checkPermission('procurement', 'edit') ? (req) => { setProcurementToEdit(req); setShowAddProcurementModal(true); } : undefined}
                     onReceive={checkPermission('equipment', 'create') ? (req) => { setProcurementToReceive(req); setShowReceiveAssetsModal(true); } : undefined}
-                    onDelete={checkPermission('procurement', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteProcurement(id); refreshData(); } } : undefined}
+                    onDelete={checkPermission('procurement', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteProcurement(id); refreshGlobalData(); } } : undefined}
                     canApprove={canApproveProcurement}
                 />
             )}
@@ -292,7 +347,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     brands={appData.brands}
                     equipmentTypes={appData.equipmentTypes}
                     equipmentToEdit={equipmentToEdit}
-                    initialData={equipmentInitialData} // Pass cloned data here
+                    initialData={equipmentInitialData} 
                     onSaveBrand={dataService.addBrand}
                     onSaveEquipmentType={dataService.addEquipmentType}
                     onOpenKitModal={(data) => { setKitInitialData(data); setShowAddEquipmentModal(false); setShowKitModal(true); }}
@@ -305,8 +360,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onOpenHistory={(eq) => { setDetailEquipment(eq); }}
                     onManageLicenses={(eq) => { setDetailEquipment(eq); }} 
                     onOpenAssign={(eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
-                    
-                    // NEW PROPS FOR CONFIG TABLES
                     accountingCategories={appData.configAccountingCategories}
                     conservationStates={appData.configConservationStates}
                     cpuOptions={appData.configCpus}
@@ -354,13 +407,14 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onClose={() => setShowKitModal(false)}
                     onSaveKit={async (items) => {
                         await dataService.addMultipleEquipment(items);
-                        refreshData();
+                        fetchEquipment(); // Refresh list
+                        refreshGlobalData(); // Refresh global
                     }}
                     brands={appData.brands}
                     equipmentTypes={appData.equipmentTypes}
                     initialData={kitInitialData}
                     onSaveEquipmentType={dataService.addEquipmentType}
-                    equipment={appData.equipment}
+                    equipment={equipmentData} // Use current page data (mock, kit name logic might be less accurate but safe)
                 />
             )}
 
@@ -376,18 +430,20 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                         for (const eq of equipmentListToAssign) {
                             await dataService.addAssignment({ ...assignment, equipmentId: eq.id });
                         }
-                        refreshData();
+                        fetchEquipment();
+                        refreshGlobalData();
                     }}
                 />
             )}
 
+            {/* Other modals (License, Procurement) use refreshGlobalData() as they affect smaller tables or derived stats */}
             {showAddLicenseModal && (
                 <AddLicenseModal 
                     onClose={() => setShowAddLicenseModal(false)}
                     onSave={async (lic) => {
                         if (licenseToEdit) await dataService.updateLicense(licenseToEdit.id, lic);
                         else await dataService.addLicense(lic);
-                        refreshData();
+                        refreshGlobalData();
                     }}
                     licenseToEdit={licenseToEdit}
                     suppliers={appData.suppliers}
@@ -401,7 +457,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onSave={async (req) => {
                         if (procurementToEdit) await dataService.updateProcurement(procurementToEdit.id, req);
                         else await dataService.addProcurement(req);
-                        refreshData();
+                        refreshGlobalData();
                     }}
                     procurementToEdit={procurementToEdit}
                     currentUser={currentUser}
@@ -409,7 +465,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     suppliers={appData.suppliers}
                     equipmentTypes={appData.equipmentTypes}
                     softwareCategories={appData.softwareCategories}
-                    // Pass config arrays
                     cpuOptions={appData.configCpus}
                     ramOptions={appData.configRamSizes}
                     storageOptions={appData.configStorageTypes}
@@ -423,7 +478,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     brands={appData.brands}
                     types={appData.equipmentTypes}
                     onSave={async (assets) => {
-                         // Check resource type here
                          if (procurementToReceive.resource_type === 'Software') {
                              await dataService.addMultipleLicenses(assets);
                          } else {
@@ -431,7 +485,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                          }
                         
                         await dataService.updateProcurement(procurementToReceive.id, { status: 'Concluído' });
-                        refreshData();
+                        fetchEquipment(); // If hardware
+                        refreshGlobalData();
                     }}
                 />
             )}

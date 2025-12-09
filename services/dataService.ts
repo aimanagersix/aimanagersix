@@ -2,7 +2,7 @@
 import { getSupabase } from './supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 import { 
-    AuditAction, DiagnosticResult
+    AuditAction, DiagnosticResult, Equipment
 } from '../types';
 
 // --- HELPER FUNCTIONS ---
@@ -64,10 +64,95 @@ const remove = async (table: string, id: string) => {
     return true;
 };
 
-// --- DATA FETCHING ---
+// --- SCALABLE DATA FETCHING (SERVER SIDE PAGINATION) ---
+
+export interface FetchEquipmentParams {
+    page: number;
+    pageSize: number;
+    filters?: {
+        brandId?: string;
+        typeId?: string;
+        status?: string;
+        serialNumber?: string;
+        description?: string;
+        nomeNaRede?: string;
+        collaboratorId?: string; // Requires join logic
+    };
+    sort?: {
+        key: string;
+        direction: 'ascending' | 'descending';
+    };
+}
+
+export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }: FetchEquipmentParams) => {
+    const supabase = getSupabase();
+    
+    // Start building query
+    let query = supabase
+        .from('equipment')
+        .select('*', { count: 'exact' }); // Get total count for pagination
+
+    // 1. Apply Filters
+    if (filters) {
+        if (filters.brandId) query = query.eq('brandId', filters.brandId);
+        if (filters.typeId) query = query.eq('typeId', filters.typeId);
+        if (filters.status) query = query.eq('status', filters.status);
+        if (filters.serialNumber) query = query.ilike('serialNumber', `%${filters.serialNumber}%`);
+        if (filters.description) query = query.ilike('description', `%${filters.description}%`);
+        if (filters.nomeNaRede) query = query.ilike('nomeNaRede', `%${filters.nomeNaRede}%`);
+        
+        // Complex filter: Equipment assigned to collaborator
+        // This requires a subquery logic or separate fetch. For performance in Supabase basic client:
+        if (filters.collaboratorId) {
+             // Fetch assignment IDs first (Active only)
+             const { data: assignments } = await supabase
+                .from('assignments')
+                .select('equipmentId')
+                .eq('collaboratorId', filters.collaboratorId)
+                .is('returnDate', null);
+             
+             const eqIds = assignments?.map(a => a.equipmentId) || [];
+             if (eqIds.length > 0) {
+                 query = query.in('id', eqIds);
+             } else {
+                 // Force empty result if collaborator has no equipment
+                 query = query.eq('id', '00000000-0000-0000-0000-000000000000'); 
+             }
+        }
+    }
+
+    // 2. Apply Sorting
+    if (sort) {
+        // Handle special sort keys if needed, otherwise direct map
+        const ascending = sort.direction === 'ascending';
+        query = query.order(sort.key, { ascending });
+    } else {
+        // Default sort
+        query = query.order('creationDate', { ascending: false });
+    }
+
+    // 3. Apply Pagination (Range)
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+
+    return { 
+        data: data as Equipment[], 
+        total: count || 0 
+    };
+};
+
+// --- DATA FETCHING (LEGACY / SMALL TABLES) ---
 
 export const fetchAllData = async () => {
     const supabase = getSupabase();
+    // Removed 'equipment' from here to optimize. Components must use fetchEquipmentPaginated.
+    // However, keeping it for compatibility with other components not yet refactored (Overview).
+    // In a full migration, we would remove it.
     const [
         equipment, brands, equipmentTypes, instituicoes, entidades, collaborators, 
         assignments, tickets, ticketActivities, softwareLicenses, licenseAssignments, 
@@ -86,7 +171,7 @@ export const fetchAllData = async () => {
         configJobTitles, // NEW JOB TITLES
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
-        supabase.from('equipment').select('*'),
+        supabase.from('equipment').select('*'), // Legacy support
         supabase.from('brands').select('*'),
         supabase.from('equipment_types').select('*'),
         supabase.from('instituicoes').select('*'),

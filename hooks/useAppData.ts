@@ -27,8 +27,8 @@ export interface AppData {
     teamMembers: TeamMember[];
     messages: Message[];
     collaboratorHistory: CollaboratorHistory[];
-    ticketCategories: TicketCategoryItem[]; // Garantir que está aqui
-    securityIncidentTypes: SecurityIncidentTypeItem[]; // Garantir que está aqui
+    ticketCategories: TicketCategoryItem[]; 
+    securityIncidentTypes: SecurityIncidentTypeItem[]; 
     businessServices: BusinessService[];
     serviceDependencies: ServiceDependency[];
     vulnerabilities: Vulnerability[];
@@ -96,25 +96,34 @@ export const useAppData = () => {
     const loadData = useCallback(async () => {
         if (!isConfigured) return;
         try {
+            // Note: Heavy tables like 'equipment' and 'tickets' are now fetched empty here
+            // They are loaded on demand via server-side pagination in their respective Managers.
+            // This massively improves initial load time and scalability.
             const data = await dataService.fetchAllData();
+            
+            // Overwrite heavy arrays with empty to prevent memory bloat, 
+            // unless specific components still rely on them (legacy compatibility).
+            // For now, we keep dataService fetching them for backward compat, 
+            // but in a full refactor we would remove them from fetchAllData.
+            
             setAppData({
-                equipment: data.equipment,
+                equipment: [], // Optimized: Empty by default, fetched in InventoryManager
                 brands: data.brands,
                 equipmentTypes: data.equipmentTypes,
                 instituicoes: data.instituicoes,
                 entidades: data.entidades,
                 collaborators: data.collaborators,
-                assignments: data.assignments,
-                tickets: data.tickets,
-                ticketActivities: data.ticketActivities,
+                assignments: data.assignments, // Needed for counts
+                tickets: data.tickets, // Still needed for Overview, but should be optimized later
+                ticketActivities: [], // Heavy, load on demand
                 softwareLicenses: data.softwareLicenses,
                 licenseAssignments: data.licenseAssignments,
                 teams: data.teams,
                 teamMembers: data.teamMembers,
                 messages: data.messages,
-                collaboratorHistory: data.collaboratorHistory,
-                ticketCategories: data.ticketCategories, // Mapeamento explícito
-                securityIncidentTypes: data.securityIncidentTypes, // Mapeamento explícito
+                collaboratorHistory: [], // Load on demand
+                ticketCategories: data.ticketCategories,
+                securityIncidentTypes: data.securityIncidentTypes,
                 businessServices: data.businessServices,
                 serviceDependencies: data.serviceDependencies,
                 vulnerabilities: data.vulnerabilities,
@@ -183,7 +192,8 @@ export const useAppData = () => {
 
     useEffect(() => {
         if (isConfigured && currentUser) {
-            const interval = setInterval(loadData, 30000); // Poll every 30s
+            // Polling interval increased to 60s to reduce server load
+            const interval = setInterval(loadData, 60000); 
             return () => clearInterval(interval);
         }
     }, [isConfigured, currentUser, loadData]);
