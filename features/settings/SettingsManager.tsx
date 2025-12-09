@@ -28,7 +28,6 @@ import AddBrandModal from '../../components/AddBrandModal';
 import AddEquipmentTypeModal from '../../components/AddEquipmentTypeModal';
 import AddCategoryModal from '../../components/AddCategoryModal';
 import AddSecurityIncidentTypeModal from '../../components/AddSecurityIncidentTypeModal';
-import SystemDiagnosticsModal from '../../components/SystemDiagnosticsModal';
 import GenericConfigDashboard from '../../components/settings/GenericConfigDashboard';
 
 interface SettingsManagerProps {
@@ -50,7 +49,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
     const [showAddIncidentTypeModal, setShowAddIncidentTypeModal] = useState(false);
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
-    const [showDiagnostics, setShowDiagnostics] = useState(false);
     
     // State for Automation Tabs
     const [settings, setSettings] = useState<any>({
@@ -153,7 +151,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
-        // 'config_software_products' is handled separately
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
         'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
@@ -167,7 +164,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
         'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
         'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
-        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: appData.configJobTitles }, // NEW
+        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: appData.configJobTitles },
     };
 
     const getCount = (id: string) => {
@@ -190,7 +187,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'webhooks', label: 'Webhooks (SIEM)', icon: <FaNetworkWired /> },
                 { id: 'cronjobs', label: 'Tarefas Agendadas (Cron)', icon: <FaClock /> },
                 { id: 'branding', label: 'Branding (Relatórios)', icon: <FaPalette /> },
-                { id: 'diagnostics', label: 'Diagnóstico de Sistema', icon: <FaHeartbeat /> },
             ]
         },
         {
@@ -211,7 +207,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, 
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
-                { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> }, // NEW
+                { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> }, 
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
                 { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag /> },
                 { id: 'config_criticality_levels', label: 'Níveis de Criticidade', icon: <FaServer /> },
@@ -253,9 +249,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                                         return (
                                         <button
                                             key={item.id}
-                                            onClick={() => item.id === 'diagnostics' ? setShowDiagnostics(true) : setSelectedMenuId(item.id)}
+                                            onClick={() => setSelectedMenuId(item.id)}
                                             className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md flex items-center justify-between gap-3 transition-colors ${
-                                                selectedMenuId === item.id && item.id !== 'diagnostics'
+                                                selectedMenuId === item.id
                                                 ? 'bg-brand-primary text-white shadow-md'
                                                 : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                                             }`}
@@ -327,7 +323,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             </div>
 
             {/* Modals */}
-            {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
             {showAddBrandModal && <AddBrandModal onClose={() => setShowAddBrandModal(false)} onSave={async (b) => { if(brandToEdit) await dataService.updateBrand(brandToEdit.id, b); else await dataService.addBrand(b); refreshData(); }} brandToEdit={brandToEdit} existingBrands={appData.brands} />}
             {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} existingTypes={appData.equipmentTypes} />}
             {showAddCategoryModal && <AddCategoryModal onClose={() => setShowAddCategoryModal(false)} onSave={async (c) => { if(categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, c); else await dataService.addTicketCategory(c); refreshData(); }} categoryToEdit={categoryToEdit} teams={appData.teams} />}

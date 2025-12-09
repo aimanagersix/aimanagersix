@@ -1,161 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React from 'react';
 import Modal from './common/Modal';
-import { DiagnosticResult } from '../types';
-import { runSystemDiagnostics } from '../services/dataService';
-import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaPlay, FaSpinner, FaClipboardList, FaServer } from 'react-icons/fa';
 
 interface SystemDiagnosticsModalProps {
     onClose: () => void;
 }
 
-interface PackageVersion {
-    name: string;
-    current: string;
-    latest: string;
-    status: 'up-to-date' | 'outdated' | 'loading' | 'error' | 'info';
-}
-
 const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose }) => {
-    // Diagnostics State
-    const [results, setResults] = useState<DiagnosticResult[]>([]);
-    const [isRunning, setIsRunning] = useState(false);
-    const [hasRun, setHasRun] = useState(false);
-
-    // Simplified Package List - Removed complex update logic for stability
-    const [packages] = useState<PackageVersion[]>([
-        { name: 'Ambiente', current: 'Browser / PWA', latest: '-', status: 'info' },
-        { name: 'Base de Dados', current: 'Supabase (Cloud)', latest: '-', status: 'info' },
-        { name: 'IA Engine', current: 'Gemini 2.0 Flash', latest: '-', status: 'info' },
-    ]);
-    
-    const handleRunDiagnostics = async () => {
-        setIsRunning(true);
-        setResults([]);
-        try {
-            const res = await runSystemDiagnostics();
-            setResults(res);
-        } catch (e) {
-            console.error(e);
-            alert("Erro fatal ao executar diagnóstico.");
-        } finally {
-            setIsRunning(false);
-            setHasRun(true);
-        }
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'Success': return <FaCheckCircle className="text-green-500" />;
-            case 'Failure': return <FaTimesCircle className="text-red-500" />;
-            case 'Warning': return <FaExclamationTriangle className="text-yellow-500" />;
-            default: return null;
-        }
-    };
-
-    const overallStatus = results.some(r => r.status === 'Failure') ? 'Falha' : 'Sucesso';
-    const overallColor = overallStatus === 'Sucesso' ? 'text-green-400' : 'text-red-400';
-
     return (
-        <Modal title="Diagnóstico de Sistema" onClose={onClose} maxWidth="max-w-4xl">
-            <div className="space-y-8">
-                
-                {/* --- SYSTEM INFO SECTION --- */}
-                <div>
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <FaServer className="text-blue-400" />
-                        Informação do Ambiente
-                    </h3>
-                    <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-hidden">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
-                                <tr>
-                                    <th className="p-3">Componente</th>
-                                    <th className="p-3">Tipo</th>
-                                    <th className="p-3 text-center">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-800">
-                                {packages.map((pkg, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-800/30">
-                                        <td className="p-3 font-semibold text-white">{pkg.name}</td>
-                                        <td className="p-3 font-mono text-gray-300">{pkg.current}</td>
-                                        <td className="p-3 text-center">
-                                            <span className="text-blue-400 text-xs flex items-center justify-center gap-1"><FaCheckCircle/> Operacional</span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div className="border-t border-gray-700"></div>
-
-                {/* --- DIAGNOSTICS SECTION --- */}
-                <div>
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <FaClipboardList className="text-purple-400" />
-                            Teste de Conectividade (End-to-End)
-                        </h3>
-                        {!isRunning && (
-                            <button 
-                                onClick={handleRunDiagnostics}
-                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-all shadow-lg text-sm font-bold"
-                            >
-                                <FaPlay /> Executar Testes
-                            </button>
-                        )}
-                    </div>
-
-                    {isRunning && (
-                        <div className="text-center py-8 bg-gray-800/30 rounded-lg">
-                            <FaSpinner className="animate-spin text-3xl text-brand-secondary mx-auto mb-3" />
-                            <p className="text-gray-300">A validar base de dados e permissões...</p>
-                        </div>
-                    )}
-
-                    {!isRunning && hasRun && (
-                        <div className="animate-fade-in space-y-4">
-                            <div className="flex justify-between items-center bg-gray-800 p-3 rounded-lg border border-gray-700">
-                                <span className="text-gray-400 text-sm">Resultado Geral:</span>
-                                <span className={`text-lg font-bold ${overallColor}`}>{overallStatus}</span>
-                            </div>
-
-                            <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-hidden max-h-64 overflow-y-auto custom-scrollbar">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-800 text-gray-400 uppercase text-xs sticky top-0">
-                                        <tr>
-                                            <th className="p-3">Módulo</th>
-                                            <th className="p-3">Mensagem</th>
-                                            <th className="p-3 text-center">Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-800">
-                                        {results.map((res, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-800/30">
-                                                <td className="p-3 font-semibold text-white text-xs">{res.module}</td>
-                                                <td className="p-3 text-gray-300 text-xs">{res.message}</td>
-                                                <td className="p-3 text-center text-lg">{getStatusIcon(res.status)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-                     
-                    {!isRunning && !hasRun && (
-                         <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200">
-                            <p>
-                                Este diagnóstico executa operações de teste (leitura) para validar a conectividade com a base de dados e armazenamento.
-                            </p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex justify-end pt-4 border-t border-gray-700">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">
+        <Modal title="Diagnóstico de Sistema" onClose={onClose}>
+            <div className="p-4 text-center">
+                <p>Funcionalidade desativada.</p>
+                <div className="mt-4">
+                     <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">
                         Fechar
                     </button>
                 </div>

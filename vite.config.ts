@@ -14,13 +14,6 @@ export default defineConfig(({ mode }) => {
       'process.env.SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
       'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
-      
-      // Valores estáticos seguros para evitar erros de runtime/build
-      'process.env.APP_VERSION': JSON.stringify('1.0.0'),
-      'process.env.REACT_VERSION': JSON.stringify('18.x'),
-      'process.env.VITE_VERSION': JSON.stringify('Latest'),
-      'process.env.GENAI_VERSION': JSON.stringify('Latest'),
-      'process.env.NODE_VERSION': JSON.stringify('Browser'), 
     },
     build: {
       chunkSizeWarningLimit: 1500,
