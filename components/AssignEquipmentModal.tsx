@@ -49,6 +49,12 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
+        // --- VALIDATION: Prevent assignment if serial number is missing ---
+        if (!equipment.serialNumber || equipment.serialNumber.trim() === '') {
+            alert("Não é possível atribuir um equipamento sem Número de Série.\n\nPor favor, edite o equipamento e adicione o S/N antes de prosseguir (Estado atual: Aquisição).");
+            return;
+        }
+
         if (assignType === 'entidade' && !selectedEntidadeId) {
             alert("Por favor, selecione uma entidade.");
             return;
@@ -93,7 +99,14 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
         <Modal title={`Atribuir ${brandName} ${equipmentTypeName}`} onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <p className="text-on-surface-dark-secondary">Equipamento: <span className="font-semibold text-on-surface-dark">{equipment.serialNumber}</span></p>
+                    <p className="text-on-surface-dark-secondary">Equipamento: <span className="font-semibold text-on-surface-dark">{equipment.serialNumber || '(Sem Nº Série)'}</span></p>
+                    
+                    {!equipment.serialNumber && (
+                        <p className="text-sm text-red-400 font-bold mt-2 bg-red-900/20 p-2 rounded border border-red-500/50">
+                            Atenção: Este equipamento não tem número de série. A atribuição será bloqueada.
+                        </p>
+                    )}
+
                     <p className="text-xs text-green-400 mt-1">
                         Nota: O equipamento passará para o estado <strong>{equipment.isLoan ? 'Empréstimo' : 'Operacional'}</strong>.
                     </p>

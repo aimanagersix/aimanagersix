@@ -75,7 +75,8 @@ export const EquipmentStatus = {
   Operational: 'Operacional',
   Decommissioned: 'Abate',
   Warranty: 'Garantia',
-  Loan: 'Empréstimo', // New Status
+  Loan: 'Empréstimo',
+  Acquisition: 'Aquisição', // NEW: Allows creation without Serial Number
 } as const;
 export type EquipmentStatus = string;
 

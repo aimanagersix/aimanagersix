@@ -9,7 +9,6 @@ import * as dataService from '../services/dataService';
 
 // ... (CameraScanner component remains unchanged - skipping for brevity) ...
 // Assuming CameraScanner code is here or imported. 
-// For this output, I will focus on the AddEquipmentModal component changes.
 
 interface CameraScannerProps {
     onCapture: (dataUrl: string) => void;
@@ -17,6 +16,7 @@ interface CameraScannerProps {
 }
 
 const CameraScanner: React.FC<CameraScannerProps> = ({ onCapture, onClose }) => {
+    // ... same as before
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const guideRef = useRef<HTMLDivElement>(null);
@@ -179,7 +179,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     accountingCategories = [], conservationStates = [],
     cpuOptions = [], ramOptions = [], storageOptions = []
 }) => {
-    // ... (Keep existing state and logic)
+    
     const [activeTab, setActiveTab] = useState<'general' | 'hardware' | 'security' | 'financial' | 'compliance'>('general');
 
     const statuses = statusOptions && statusOptions.length > 0 ? statusOptions.map(o => o.name) : Object.values(EquipmentStatus);
@@ -230,8 +230,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const [assignToCollaboratorId, setAssignToCollaboratorId] = useState('');
     
     const aiConfigured = isAiConfigured();
+    const isEditMode = !!(equipmentToEdit && equipmentToEdit.id);
 
-    // ... (Keep existing useEffects)
     useEffect(() => {
         const loadEq = async () => {
             try {
@@ -256,7 +256,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 last_security_update: equipmentToEdit.last_security_update || '',
                 manufacture_date: equipmentToEdit.manufacture_date || '',
-                // Load text fields even if they were not in options previously
                 cpu_info: equipmentToEdit.cpu_info || '',
                 ram_size: equipmentToEdit.ram_size || '',
                 disk_info: equipmentToEdit.disk_info || ''
@@ -318,7 +317,22 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
 
     const validate = useCallback(() => {
         const newErrors: Record<string, string> = {};
-        if (!formData.serialNumber?.trim()) newErrors.serialNumber = "O número de série é obrigatório.";
+        
+        // Serial Number Validation Rule:
+        // 1. Mandatory if EDITING (regardless of status, to force completion of data)
+        // 2. Mandatory if CREATING and status is NOT 'Aquisição'
+        // 3. Optional if CREATING and status IS 'Aquisição'
+        
+        const isAcquisition = formData.status === EquipmentStatus.Acquisition;
+        
+        if (!formData.serialNumber?.trim()) {
+            if (isEditMode) {
+                newErrors.serialNumber = "O número de série é obrigatório ao editar.";
+            } else if (!isAcquisition) {
+                newErrors.serialNumber = "O número de série é obrigatório (exceto se estado 'Aquisição').";
+            }
+        }
+
         if (!formData.brandId) newErrors.brandId = "A marca é obrigatória.";
         if (!formData.typeId) newErrors.typeId = "O tipo é obrigatório.";
         if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
@@ -334,7 +348,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    }, [formData, equipmentTypes]);
+    }, [formData, equipmentTypes, isEditMode]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -485,7 +499,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }
     };
     
-    const isEditMode = equipmentToEdit && equipmentToEdit.id;
     const modalTitle = isEditMode ? "Editar Equipamento" : "Adicionar Novo Equipamento";
     const submitButtonText = isEditMode ? "Guardar Alterações" : "Adicionar Equipamento";
     const getTabClass = (tab: string) => `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`;
@@ -522,9 +535,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     <div className="space-y-4 animate-fade-in">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="relative">
-                                <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Série</label>
+                                <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
+                                    Número de Série {formData.status === EquipmentStatus.Acquisition ? '(Opcional em Aquisição)' : ''}
+                                </label>
                                 <div className="flex">
-                                    <input type="text" name="serialNumber" id="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} />
+                                    <input type="text" name="serialNumber" id="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} placeholder={formData.status === EquipmentStatus.Acquisition ? "Pendente" : "S/N"} />
                                     <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className={`p-2 bg-brand-primary text-white hover:bg-brand-secondary transition-colors ${!aiConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}>{isLoading.serial ? <SpinnerIcon /> : <CameraIcon />}</button>
                                     <button type="button" onClick={() => handleFetchInfo(formData.serialNumber!)} disabled={!formData.serialNumber || isLoading.info || !aiConfigured} className={`p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50 ${!aiConfigured ? 'cursor-not-allowed' : ''}`}>{isLoading.info ? <SpinnerIcon /> : <SearchIcon />}</button>
                                 </div>
@@ -710,7 +725,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         
                         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
                             <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2"><FaNetworkWired className="text-blue-400"/> Rede & Conectividade</h3>
-                            {/* ... rest of hardware tab unchanged ... */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                  {selectedType?.requiresMacWIFI && (
                                     <div>
