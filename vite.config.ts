@@ -1,5 +1,7 @@
+
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import packageJson from './package.json'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -9,27 +11,27 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Expõe as variáveis de ambiente essenciais.
-      'process.env.SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
-      'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ''),
-      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || ''),
+      // Expõe as variáveis de ambiente ao código da aplicação.
+      'process.env.SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+      'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
+      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
+      
+      // Injeta versões atuais do package.json para diagnóstico
+      'process.env.APP_VERSION': JSON.stringify(packageJson.version),
+      'process.env.REACT_VERSION': JSON.stringify(packageJson.dependencies['react']),
+      'process.env.VITE_VERSION': JSON.stringify(packageJson.devDependencies['vite'] || 'Latest'),
+      'process.env.GENAI_VERSION': JSON.stringify(packageJson.dependencies['@google/genai']),
     },
     build: {
-      chunkSizeWarningLimit: 2000,
+      chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {
           manualChunks: (id) => {
-            if (id.includes('node_modules')) {
-              if (id.includes('react') || id.includes('react-dom')) {
-                return 'react-vendor';
-              }
-              if (id.includes('supabase')) {
-                return 'supabase-vendor';
-              }
-              if (id.includes('google')) {
-                return 'ai-vendor';
-              }
-              return 'vendor'; // outros pacotes
+            if (id.includes('/components/')) {
+              return 'components';
+            }
+            if (id.includes('/services/')) {
+                return 'services';
             }
           },
         },
