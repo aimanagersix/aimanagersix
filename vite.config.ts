@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => {
       'process.env.REACT_VERSION': JSON.stringify(packageJson.dependencies['react']),
       'process.env.VITE_VERSION': JSON.stringify(packageJson.devDependencies['vite'] || 'Latest'),
       'process.env.GENAI_VERSION': JSON.stringify(packageJson.dependencies['@google/genai']),
+      'process.env.NODE_VERSION': JSON.stringify((process as any).version), // Versão do Node usada no Build
     },
     build: {
       chunkSizeWarningLimit: 1500,

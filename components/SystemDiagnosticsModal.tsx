@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { DiagnosticResult } from '../types';
 import { runSystemDiagnostics } from '../services/dataService';
-import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaPlay, FaSpinner, FaClipboardList, FaCloudDownloadAlt, FaTerminal, FaCopy } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaPlay, FaSpinner, FaClipboardList, FaCloudDownloadAlt, FaTerminal, FaCopy, FaServer } from 'react-icons/fa';
 
 interface SystemDiagnosticsModalProps {
     onClose: () => void;
@@ -12,7 +12,7 @@ interface PackageVersion {
     name: string;
     current: string;
     latest: string;
-    status: 'up-to-date' | 'outdated' | 'loading' | 'error';
+    status: 'up-to-date' | 'outdated' | 'loading' | 'error' | 'info';
 }
 
 const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose }) => {
@@ -25,6 +25,7 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
     const [checkingUpdates, setCheckingUpdates] = useState(false);
     const [updateCommand, setUpdateCommand] = useState<string | null>(null);
     const [packages, setPackages] = useState<PackageVersion[]>([
+        { name: 'Node.js (Build)', current: process.env.NODE_VERSION || 'Unknown', latest: 'System', status: 'info' },
         { name: 'react', current: process.env.REACT_VERSION || 'Unknown', latest: '-', status: 'loading' },
         { name: 'vite', current: process.env.VITE_VERSION || 'Unknown', latest: '-', status: 'loading' },
         { name: '@google/genai', current: process.env.GENAI_VERSION || 'Unknown', latest: '-', status: 'loading' },
@@ -55,7 +56,9 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
 
         for (let i = 0; i < updatedPackages.length; i++) {
             const pkg = updatedPackages[i];
-            if (pkg.name === 'AIManager (App)') continue; // Skip local app
+            
+            // Skip local app and Node.js (System)
+            if (pkg.name === 'AIManager (App)' || pkg.name === 'Node.js (Build)') continue; 
 
             try {
                 // Use UNPKG as a reliable CORS-friendly source for package.json info
@@ -145,6 +148,7 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
                                             {pkg.status === 'up-to-date' && <span className="text-green-400 text-xs font-bold flex items-center justify-center gap-1"><FaCheckCircle/> Atualizado</span>}
                                             {pkg.status === 'outdated' && <span className="text-yellow-400 text-xs font-bold flex items-center justify-center gap-1"><FaExclamationTriangle/> Nova versão</span>}
                                             {pkg.status === 'error' && <span className="text-red-400 text-xs">Erro Rede</span>}
+                                            {pkg.status === 'info' && <span className="text-blue-400 text-xs flex items-center justify-center gap-1"><FaServer/> Sistema</span>}
                                         </td>
                                         <td className="p-3 text-right">
                                             {pkg.status === 'outdated' && (
