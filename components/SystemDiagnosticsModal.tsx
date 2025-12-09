@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { DiagnosticResult } from '../types';
 import { runSystemDiagnostics } from '../services/dataService';
@@ -24,6 +24,8 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
     // Updates State
     const [checkingUpdates, setCheckingUpdates] = useState(false);
     const [updateCommand, setUpdateCommand] = useState<string | null>(null);
+    
+    // Initial State with Environment Variables
     const [packages, setPackages] = useState<PackageVersion[]>([
         { name: 'Node.js (Build)', current: process.env.NODE_VERSION || 'Unknown', latest: 'System', status: 'info' },
         { name: 'react', current: process.env.REACT_VERSION || 'Unknown', latest: '-', status: 'loading' },
@@ -31,6 +33,9 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
         { name: '@google/genai', current: process.env.GENAI_VERSION || 'Unknown', latest: '-', status: 'loading' },
         { name: 'AIManager (App)', current: process.env.APP_VERSION || '1.0.0', latest: 'Local', status: 'up-to-date' }
     ]);
+    
+    // Use ref to prevent double-execution in React 18 Strict Mode
+    const ranUpdates = useRef(false);
 
     const handleRunDiagnostics = async () => {
         setIsRunning(true);
@@ -49,57 +54,57 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
 
     const cleanVersion = (ver: string) => ver.replace('^', '').replace('~', '');
 
-    const checkUpdates = async () => {
-        setCheckingUpdates(true);
-        
-        const updatedPackages = [...packages];
-
-        for (let i = 0; i < updatedPackages.length; i++) {
-            const pkg = updatedPackages[i];
-            
-            // Skip local app and Node.js (System)
-            if (pkg.name === 'AIManager (App)' || pkg.name === 'Node.js (Build)') continue; 
-
-            try {
-                // Use UNPKG as a reliable CORS-friendly source for package.json info
-                const response = await fetch(`https://unpkg.com/${pkg.name}@latest/package.json`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    const latestVer = data.version;
-                    
-                    pkg.latest = latestVer;
-                    
-                    // Simple string comparison (not semver perfect, but sufficient for this UI)
-                    if (cleanVersion(pkg.current) === latestVer) {
-                        pkg.status = 'up-to-date';
-                    } else {
-                        pkg.status = 'outdated';
-                    }
-                } else {
-                    pkg.status = 'error';
-                }
-            } catch (e) {
-                console.error(`Failed to check ${pkg.name}`, e);
-                pkg.status = 'error';
-            }
-        }
-        
-        setPackages(updatedPackages);
-        setCheckingUpdates(false);
-    };
-
     const handleGenerateUpdate = (pkgName: string, version: string) => {
         const cmd = `npm install ${pkgName}@${version}`;
         setUpdateCommand(cmd);
         navigator.clipboard.writeText(cmd);
     };
 
-    // Auto-run update check on open
     useEffect(() => {
-        if (!checkingUpdates) {
-             checkUpdates();
-        }
+        if (ranUpdates.current) return;
+        ranUpdates.current = true;
+
+        const runCheck = async () => {
+            setCheckingUpdates(true);
+            
+            // Create a deep copy to modify
+            const updatedPackages = packages.map(p => ({...p}));
+
+            for (let i = 0; i < updatedPackages.length; i++) {
+                const pkg = updatedPackages[i];
+                
+                // Skip local app and Node.js
+                if (pkg.name === 'AIManager (App)' || pkg.name === 'Node.js (Build)') continue; 
+
+                try {
+                    const response = await fetch(`https://unpkg.com/${pkg.name}@latest/package.json`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const latestVer = data.version;
+                        
+                        pkg.latest = latestVer;
+                        
+                        if (cleanVersion(pkg.current) === latestVer) {
+                            pkg.status = 'up-to-date';
+                        } else {
+                            pkg.status = 'outdated';
+                        }
+                    } else {
+                        pkg.status = 'error';
+                    }
+                } catch (e) {
+                    console.error(`Failed to check ${pkg.name}`, e);
+                    pkg.status = 'error';
+                }
+                // Update state incrementally for better UX
+                setPackages([...updatedPackages]);
+            }
+            setCheckingUpdates(false);
+        };
+
+        runCheck();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const getStatusIcon = (status: string) => {
