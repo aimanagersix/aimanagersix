@@ -1,4 +1,3 @@
-
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseInstance: SupabaseClient | null = null;
@@ -8,22 +7,24 @@ export const getSupabase = (): SupabaseClient => {
         return supabaseInstance;
     }
 
-    // Acesso direto é OBRIGATÓRIO para o Vite substituir as variáveis durante o build.
-    // Não usar destructuring ou acesso dinâmico (ex: env['KEY']).
-    const viteUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-    const viteKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    // --- LÓGICA DE DETEÇÃO DE CHAVES ---
+    // 1. Tentar VITE padrão (Isto é substituído por string no build do Vercel)
+    // @ts-ignore
+    const viteUrl = import.meta.env.VITE_SUPABASE_URL;
+    // @ts-ignore
+    const viteKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    // Fallback para process.env injetado pelo vite.config.ts (caso o import.meta falhe)
+    // 2. Tentar process.env (Injetado pelo vite.config.ts como fallback)
     // @ts-ignore
     const processUrl = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_URL : null;
     // @ts-ignore
     const processKey = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_ANON_KEY : null;
 
-    // Fallback para LocalStorage (Configuração manual)
+    // 3. Tentar LocalStorage (Configuração manual no browser)
     const storageUrl = localStorage.getItem('SUPABASE_URL');
     const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
 
-    // Ordem de prioridade
+    // Prioridade: Vite > Process > Storage
     const supabaseUrl = viteUrl || processUrl || storageUrl;
     const supabaseAnonKey = viteKey || processKey || storageKey;
 
@@ -32,10 +33,11 @@ export const getSupabase = (): SupabaseClient => {
             supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
             return supabaseInstance;
         } catch (e) {
-            console.error("Erro ao inicializar Supabase:", e);
+            console.error("Erro crítico ao inicializar Supabase:", e);
         }
     }
 
-    // Se chegarmos aqui, a app não tem configuração.
-    throw new Error("As credenciais do Supabase não foram encontradas.");
+    // Se chegarmos aqui, a app não encontrou chaves em lado nenhum
+    console.warn("Supabase credentials not found. URL:", supabaseUrl ? "Found" : "Missing", "Key:", supabaseAnonKey ? "Found" : "Missing");
+    throw new Error("As credenciais do Supabase não foram encontradas. Por favor configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
 };

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -83,22 +82,27 @@ const initialData: AppData = {
 export const useAppData = () => {
     // --- Authentication & Setup State ---
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
-        // 1. Check Vite Env Vars first (Direct Access for Bundle Replacement)
-        const viteUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-        const viteKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
-
+        // 1. Vite Direct
+        // @ts-ignore
+        const viteUrl = import.meta.env.VITE_SUPABASE_URL;
+        // @ts-ignore
+        const viteKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
         if (viteUrl && viteKey) return true;
 
-        // 2. Fallback to process.env (injected via vite.config.ts)
+        // 2. Process Env (via define in vite.config.ts)
         // @ts-ignore
-        if (typeof process !== 'undefined' && process.env?.SUPABASE_URL && process.env?.SUPABASE_ANON_KEY) {
-            return true;
-        }
+        const processUrl = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_URL : null;
+        // @ts-ignore
+        const processKey = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_ANON_KEY : null;
 
-        // 3. Fallback to LocalStorage
-        const url = localStorage.getItem('SUPABASE_URL');
-        const key = localStorage.getItem('SUPABASE_ANON_KEY');
-        return !!(url && key);
+        if (processUrl && processKey) return true;
+
+        // 3. LocalStorage
+        const storageUrl = localStorage.getItem('SUPABASE_URL');
+        const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
+        
+        return !!(storageUrl && storageKey);
     });
     
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
@@ -111,30 +115,24 @@ export const useAppData = () => {
         try {
             // Note: Heavy tables like 'equipment' and 'tickets' are now fetched empty here
             // They are loaded on demand via server-side pagination in their respective Managers.
-            // This massively improves initial load time and scalability.
             const data = await dataService.fetchAllData();
             
-            // Overwrite heavy arrays with empty to prevent memory bloat, 
-            // unless specific components still rely on them (legacy compatibility).
-            // For now, we keep dataService fetching them for backward compat, 
-            // but in a full refactor we would remove them from fetchAllData.
-            
             setAppData({
-                equipment: [], // Optimized: Empty by default, fetched in InventoryManager
+                equipment: [], 
                 brands: data.brands,
                 equipmentTypes: data.equipmentTypes,
                 instituicoes: data.instituicoes,
                 entidades: data.entidades,
                 collaborators: data.collaborators,
-                assignments: data.assignments, // Needed for counts
-                tickets: data.tickets, // Still needed for Overview, but should be optimized later
-                ticketActivities: [], // Heavy, load on demand
+                assignments: data.assignments, 
+                tickets: data.tickets, 
+                ticketActivities: [], 
                 softwareLicenses: data.softwareLicenses,
                 licenseAssignments: data.licenseAssignments,
                 teams: data.teams,
                 teamMembers: data.teamMembers,
                 messages: data.messages,
-                collaboratorHistory: [], // Load on demand
+                collaboratorHistory: [], 
                 ticketCategories: data.ticketCategories,
                 securityIncidentTypes: data.securityIncidentTypes,
                 businessServices: data.businessServices,
@@ -206,7 +204,6 @@ export const useAppData = () => {
 
     useEffect(() => {
         if (isConfigured && currentUser) {
-            // Polling interval increased to 60s to reduce server load
             const interval = setInterval(loadData, 60000); 
             return () => clearInterval(interval);
         }
