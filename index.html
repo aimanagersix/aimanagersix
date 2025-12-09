@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -11,9 +12,13 @@
     <meta name="apple-mobile-web-app-title" content="AIManager">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     
-    <!-- Safety Script: Previne ecrã preto por falta de 'process' e captura erros de arranque -->
+    <!-- Safety Script: Previne ecrã preto, mas respeita injeções do Vite -->
     <script>
-      window.process = { env: {} };
+      // Apenas define se não existir, para não apagar o que o Vite injetou
+      if (typeof window !== 'undefined' && !window.process) {
+        window.process = { env: {} };
+      }
+      
       window.onerror = function(message, source, lineno, colno, error) {
         // Se a app falhar antes do React carregar, mostra o erro na tela
         var errorDiv = document.getElementById('error-display');
@@ -23,6 +28,9 @@
           errorDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:#111;color:#f87171;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;';
           document.body.appendChild(errorDiv);
         }
+        // Ignora erros de ResizeObserver que são inofensivos
+        if (message && message.indexOf('ResizeObserver') !== -1) return;
+        
         errorDiv.innerHTML += '<h3>Erro de Arranque:</h3>' + message + '\n\n' + (error && error.stack ? error.stack : '');
       };
     </script>
