@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
 import DatabaseSchemaModal from './DatabaseSchemaModal';
+import InstallAppButton from './InstallAppButton';
 
 interface SidebarProps {
   currentUser: Collaborator | null;
@@ -257,6 +258,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             </nav>
 
             <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0 relative">
+                 {/* Install Button */}
+                {isExpanded && (
+                    <div className="mb-2">
+                         <InstallAppButton 
+                            className="flex w-full items-center justify-center gap-2 px-2 py-2 text-xs font-bold text-gray-900 bg-brand-secondary rounded-md hover:bg-brand-primary hover:text-white transition-colors"
+                            label="Instalar App"
+                            icon={<FaMobileAlt />}
+                        />
+                    </div>
+                )}
+
                 {currentUser ? (
                     <div className="relative">
                         <button 

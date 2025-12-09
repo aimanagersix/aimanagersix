@@ -2,6 +2,13 @@
   "short_name": "AIManager",
   "name": "AIManager - Gestão de Ativos",
   "description": "Gestão Inteligente de Equipamentos de TI e Compliance",
+  "id": "/?source=pwa",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1E1E1E",
+  "background_color": "#121212",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/2362/2362336.png",
@@ -16,10 +23,5 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "/",
-  "display": "standalone",
-  "orientation": "portrait",
-  "theme_color": "#1E1E1E",
-  "background_color": "#121212",
   "scope": "/"
 }

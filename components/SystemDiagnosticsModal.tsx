@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { DiagnosticResult } from '../types';
 import { runSystemDiagnostics } from '../services/dataService';
-import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaPlay, FaSpinner, FaClipboardList, FaCloudDownloadAlt, FaArrowRight } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaPlay, FaSpinner, FaClipboardList, FaCloudDownloadAlt, FaTerminal, FaCopy } from 'react-icons/fa';
 
 interface SystemDiagnosticsModalProps {
     onClose: () => void;
@@ -23,6 +23,7 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
 
     // Updates State
     const [checkingUpdates, setCheckingUpdates] = useState(false);
+    const [updateCommand, setUpdateCommand] = useState<string | null>(null);
     const [packages, setPackages] = useState<PackageVersion[]>([
         { name: 'react', current: process.env.REACT_VERSION || 'Unknown', latest: '-', status: 'loading' },
         { name: 'vite', current: process.env.VITE_VERSION || 'Unknown', latest: '-', status: 'loading' },
@@ -57,14 +58,16 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
             if (pkg.name === 'AIManager (App)') continue; // Skip local app
 
             try {
-                // Use AllOrigins proxy to bypass CORS on NPM Registry
-                const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://registry.npmjs.org/${pkg.name}/latest`)}`);
+                // Use UNPKG as a reliable CORS-friendly source for package.json info
+                const response = await fetch(`https://unpkg.com/${pkg.name}@latest/package.json`);
+                
                 if (response.ok) {
                     const data = await response.json();
                     const latestVer = data.version;
                     
                     pkg.latest = latestVer;
-                    // Simple string comparison (not semver perfect, but good for visual check)
+                    
+                    // Simple string comparison (not semver perfect, but sufficient for this UI)
                     if (cleanVersion(pkg.current) === latestVer) {
                         pkg.status = 'up-to-date';
                     } else {
@@ -81,6 +84,12 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
         
         setPackages(updatedPackages);
         setCheckingUpdates(false);
+    };
+
+    const handleGenerateUpdate = (pkgName: string, version: string) => {
+        const cmd = `npm install ${pkgName}@${version}`;
+        setUpdateCommand(cmd);
+        navigator.clipboard.writeText(cmd);
     };
 
     // Auto-run update check on open
@@ -118,8 +127,9 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
                                 <tr>
                                     <th className="p-3">Pacote / Biblioteca</th>
                                     <th className="p-3">Versão Instalada</th>
-                                    <th className="p-3">Última Disponível (NPM)</th>
+                                    <th className="p-3">Última Disponível</th>
                                     <th className="p-3 text-center">Estado</th>
+                                    <th className="p-3 text-right">Ação</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800">
@@ -132,22 +142,42 @@ const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({ onClose
                                         </td>
                                         <td className="p-3 text-center">
                                             {pkg.status === 'loading' && <span className="text-gray-500 text-xs">A verificar...</span>}
-                                            {pkg.status === 'up-to-date' && <span className="bg-green-900/30 text-green-400 px-2 py-1 rounded text-xs border border-green-500/30">Atualizado</span>}
-                                            {pkg.status === 'outdated' && <span className="bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded text-xs border border-yellow-500/30 flex items-center justify-center gap-1">Desatualizado <FaExclamationTriangle/></span>}
+                                            {pkg.status === 'up-to-date' && <span className="text-green-400 text-xs font-bold flex items-center justify-center gap-1"><FaCheckCircle/> Atualizado</span>}
+                                            {pkg.status === 'outdated' && <span className="text-yellow-400 text-xs font-bold flex items-center justify-center gap-1"><FaExclamationTriangle/> Nova versão</span>}
                                             {pkg.status === 'error' && <span className="text-red-400 text-xs">Erro Rede</span>}
+                                        </td>
+                                        <td className="p-3 text-right">
+                                            {pkg.status === 'outdated' && (
+                                                <button 
+                                                    onClick={() => handleGenerateUpdate(pkg.name, pkg.latest)}
+                                                    className="px-3 py-1 bg-brand-primary text-white text-xs rounded hover:bg-brand-secondary flex items-center gap-1 ml-auto"
+                                                >
+                                                    <FaCloudDownloadAlt /> Atualizar
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                    {packages.some(p => p.status === 'outdated') && (
-                        <div className="mt-3 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded text-xs text-yellow-200">
-                            <p className="font-bold flex items-center gap-2"><FaExclamationTriangle/> Atualizações Disponíveis</p>
-                            <p className="mt-1">
-                                Para atualizar o "motor" da aplicação, o administrador deve aceder ao terminal do servidor e executar:
-                                <code className="block bg-black/50 p-2 mt-1 rounded font-mono text-gray-300 select-all">npm update && npm run build</code>
+                    
+                    {/* Update Instruction Panel */}
+                    {updateCommand && (
+                        <div className="mt-4 p-4 bg-gray-800 border border-brand-secondary rounded-lg animate-fade-in">
+                            <div className="flex justify-between items-start mb-2">
+                                <h4 className="text-brand-secondary font-bold text-sm flex items-center gap-2">
+                                    <FaTerminal /> Comando de Atualização
+                                </h4>
+                                <button onClick={() => setUpdateCommand(null)} className="text-gray-400 hover:text-white"><FaTimesCircle/></button>
+                            </div>
+                            <p className="text-xs text-gray-300 mb-2">
+                                Numa aplicação web, as atualizações de dependências devem ser feitas no código fonte. O comando foi copiado para a área de transferência. Execute no terminal do servidor:
                             </p>
+                            <div className="bg-black p-3 rounded font-mono text-green-400 text-sm flex justify-between items-center">
+                                <span>{updateCommand} && npm run build</span>
+                                <span className="text-xs text-gray-500 flex items-center gap-1"><FaCopy/> Copiado</span>
+                            </div>
                         </div>
                     )}
                 </div>
