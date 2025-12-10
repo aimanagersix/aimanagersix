@@ -5,7 +5,7 @@ import {
     AuditAction, DiagnosticResult, Equipment, Ticket, Collaborator
 } from '../types';
 
-// --- HELPER FUNCTIONS ---
+// ... (existing code: logAction, create, update, remove functions) ...
 
 export const logAction = async (action: AuditAction, resourceType: string, details: string, resourceId?: string) => {
     const supabase = getSupabase();
@@ -29,29 +29,18 @@ export const logAction = async (action: AuditAction, resourceType: string, detai
 
 const create = async (table: string, data: any) => {
     const supabase = getSupabase();
-    // Use maybeSingle() instead of single() to avoid "Cannot coerce..." errors if RLS hides the return row
     const { data: res, error } = await supabase.from(table).insert(data).select().maybeSingle();
-    
     if (error) throw error;
-    
-    // If creation succeeded but no data returned (RLS), we return the input data as fallback
-    // assuming the ID might have been generated or passed.
     const result = res || data;
-    
     await logAction('CREATE', table, `Created record in ${table}`, result.id);
     return result;
 };
 
 const update = async (table: string, id: string, data: any) => {
     const supabase = getSupabase();
-    // Use maybeSingle() to be safe against RLS restrictions returning 0 rows
     const { data: res, error } = await supabase.from(table).update(data).eq('id', id).select().maybeSingle();
-    
     if (error) throw error;
-    
-    // If update succeeded but RLS hid the result, return the data merged with ID
     const result = res || { ...data, id };
-    
     await logAction('UPDATE', table, `Updated record in ${table}`, id);
     return result;
 };
@@ -64,7 +53,7 @@ const remove = async (table: string, id: string) => {
     return true;
 };
 
-// --- SCALABLE DATA FETCHING (SERVER SIDE PAGINATION) ---
+// ... (existing code: fetch paginated functions) ...
 
 export interface FetchParams {
     page: number;
@@ -78,13 +67,8 @@ export interface FetchParams {
 
 export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }: FetchParams) => {
     const supabase = getSupabase();
-    
-    // Start building query
-    let query = supabase
-        .from('equipment')
-        .select('*', { count: 'exact' }); // Get total count for pagination
+    let query = supabase.from('equipment').select('*', { count: 'exact' });
 
-    // 1. Apply Filters
     if (filters) {
         if (filters.brandId) query = query.eq('brandId', filters.brandId);
         if (filters.typeId) query = query.eq('typeId', filters.typeId);
@@ -94,7 +78,6 @@ export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }:
         if (filters.nomeNaRede) query = query.ilike('nomeNaRede', `%${filters.nomeNaRede}%`);
         
         if (filters.collaboratorId) {
-             // Subquery logic optimization for assigned items
              const { data: assignments } = await supabase
                 .from('assignments')
                 .select('equipmentId')
@@ -110,7 +93,6 @@ export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }:
         }
     }
 
-    // 2. Apply Sorting
     if (sort) {
         const ascending = sort.direction === 'ascending';
         query = query.order(sort.key, { ascending });
@@ -118,29 +100,21 @@ export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }:
         query = query.order('creationDate', { ascending: false });
     }
 
-    // 3. Apply Pagination
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     query = query.range(from, to);
 
     const { data, error, count } = await query;
-
     if (error) throw error;
-
-    return { 
-        data: data as Equipment[], 
-        total: count || 0 
-    };
+    return { data: data as Equipment[], total: count || 0 };
 };
 
 export const fetchTicketsPaginated = async ({ page, pageSize, filters, sort }: FetchParams) => {
     const supabase = getSupabase();
     let query = supabase.from('tickets').select('*', { count: 'exact' });
 
-    // Filters
     if (filters) {
         if (filters.status) {
-            // Handle array of statuses (e.g. Open tickets view)
             if (Array.isArray(filters.status) && filters.status.length > 0) {
                 query = query.in('status', filters.status);
             } else if (filters.status) {
@@ -154,7 +128,6 @@ export const fetchTicketsPaginated = async ({ page, pageSize, filters, sort }: F
         if (filters.title) query = query.ilike('title', `%${filters.title}%`);
     }
 
-    // Sorting
     if (sort) {
         const ascending = sort.direction === 'ascending';
         query = query.order(sort.key, { ascending });
@@ -162,14 +135,12 @@ export const fetchTicketsPaginated = async ({ page, pageSize, filters, sort }: F
         query = query.order('requestDate', { ascending: false });
     }
 
-    // Pagination
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     query = query.range(from, to);
 
     const { data, error, count } = await query;
     if (error) throw error;
-
     return { data: data as Ticket[], total: count || 0 };
 };
 
@@ -179,7 +150,6 @@ export const fetchCollaboratorsPaginated = async ({ page, pageSize, filters, sor
 
     if (filters) {
         if (filters.query) {
-            // Search across multiple fields
             query = query.or(`fullName.ilike.%${filters.query}%,email.ilike.%${filters.query}%,numeroMecanografico.ilike.%${filters.query}%`);
         }
         if (filters.entidadeId) query = query.eq('entidadeId', filters.entidadeId);
@@ -200,19 +170,14 @@ export const fetchCollaboratorsPaginated = async ({ page, pageSize, filters, sor
 
     const { data, error, count } = await query;
     if (error) throw error;
-
     return { data: data as Collaborator[], total: count || 0 };
 };
 
 
-// --- DATA FETCHING (LEGACY / SMALL TABLES) ---
-// Used for lookups (dropdowns) where we need the full list
+// ... (existing code: fetchAllData) ...
 export const fetchAllData = async () => {
     const supabase = getSupabase();
     
-    // Note: We still fetch full lists of small tables for dropdowns.
-    // Heavy tables (equipment, tickets) should be used via paginated functions in dashboards.
-    // We fetch a limited set here just to populate basic appData context for components not yet refactored.
     const [
         brands, equipmentTypes, instituicoes, entidades, collaborators, 
         assignments, ticketActivities, softwareLicenses, licenseAssignments, 
@@ -225,18 +190,18 @@ export const fetchAllData = async () => {
         configTrainingTypes, configResilienceTestTypes, configSoftwareCategories, configSoftwareProducts, configCustomRoles,
         configDecommissionReasons,
         configCollaboratorDeactivationReasons,
-        configAccountingCategories, // CIBE
-        configConservationStates,   // States
-        configCpus, configRamSizes, configStorageTypes, // NEW HARDWARE TABLES
-        configJobTitles, // NEW JOB TITLES
+        configAccountingCategories,
+        configConservationStates,
+        configCpus, configRamSizes, configStorageTypes,
+        configJobTitles,
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
         supabase.from('brands').select('*'),
         supabase.from('equipment_types').select('*'),
         supabase.from('instituicoes').select('*'),
         supabase.from('entidades').select('*'),
-        supabase.from('collaborators').select('*'), // For dropdowns
-        supabase.from('assignments').select('*'), // Still needed for relations map
+        supabase.from('collaborators').select('*'),
+        supabase.from('assignments').select('*'),
         supabase.from('ticket_activities').select('*'),
         supabase.from('software_licenses').select('*'),
         supabase.from('license_assignments').select('*'),
@@ -275,7 +240,7 @@ export const fetchAllData = async () => {
         supabase.from('config_cpus').select('*'),          
         supabase.from('config_ram_sizes').select('*'),     
         supabase.from('config_storage_types').select('*'), 
-        supabase.from('config_job_titles').select('*'), // NEW
+        supabase.from('config_job_titles').select('*'),
         supabase.from('policies').select('*'),
         supabase.from('policy_acceptances').select('*'),
         supabase.from('procurement_requests').select('*'),
@@ -290,7 +255,6 @@ export const fetchAllData = async () => {
         }));
     };
     
-    // Enrich collaborators with job_title_name if job_title_id is present
     const enrichedCollaborators = (collaborators.data || []).map((col: any) => {
         if (col.job_title_id) {
             const jt = (configJobTitles.data || []).find((j: any) => j.id === col.job_title_id);
@@ -300,14 +264,14 @@ export const fetchAllData = async () => {
     });
 
     return {
-        equipment: [], // Optimized: fetched paginated
+        equipment: [],
         brands: brands.data || [],
         equipmentTypes: equipmentTypes.data || [],
         instituicoes: attachContacts(instituicoes.data || [], 'instituicao'),
         entidades: attachContacts(entidades.data || [], 'entidade'),
         collaborators: enrichedCollaborators,
         assignments: assignments.data || [],
-        tickets: [], // Optimized: fetched paginated
+        tickets: [],
         ticketActivities: ticketActivities.data || [],
         softwareLicenses: softwareLicenses.data || [],
         licenseAssignments: licenseAssignments.data || [],
@@ -345,7 +309,7 @@ export const fetchAllData = async () => {
         configCpus: configCpus.data || [],                  
         configRamSizes: configRamSizes.data || [],          
         configStorageTypes: configStorageTypes.data || [],
-        configJobTitles: configJobTitles.data || [], // NEW
+        configJobTitles: configJobTitles.data || [],
         policies: policies.data || [],
         policyAcceptances: policyAcceptances.data || [],
         procurementRequests: procurementRequests.data || [],
@@ -354,7 +318,24 @@ export const fetchAllData = async () => {
     };
 };
 
-// ... (rest of the file remains unchanged)
+// ... (existing imports and other functions) ...
+
+export const triggerBirthdayCron = async () => {
+    const supabase = getSupabase();
+    // This executes the SQL function manually. Note: RPC needs to be enabled for this function or the user needs permissions.
+    // The hardening script grants execute on public functions to authenticated, so it should work.
+    const { error } = await supabase.rpc('send_daily_birthday_emails');
+    
+    if (error) {
+        console.error("Birthday Job Error:", error);
+        if (error.code === '42883') {
+            throw new Error("A função 'send_daily_birthday_emails' não existe. Por favor execute o script SQL na aba 'Tarefas Agendadas'.");
+        }
+        throw error;
+    }
+};
+
+// ... (rest of the file: CRUD functions, getGlobalSetting, etc.) ...
 export const getDocumentTemplates = async () => {
     const supabase = getSupabase();
     const { data } = await supabase.from('document_templates').select('*');
@@ -363,26 +344,21 @@ export const getDocumentTemplates = async () => {
 export const addDocumentTemplate = (data: any) => create('document_templates', data);
 export const updateDocumentTemplate = (id: string, data: any) => update('document_templates', id, data);
 export const deleteDocumentTemplate = (id: string) => remove('document_templates', id);
-
 export const addConfigItem = (table: string, item: any) => create(table, item);
 export const updateConfigItem = (table: string, id: string, item: any) => update(table, id, item);
 export const deleteConfigItem = (table: string, id: string) => remove(table, id);
-
 export const addSoftwareProduct = (data: any) => create('config_software_products', data);
 export const updateSoftwareProduct = (id: string, data: any) => update('config_software_products', id, data);
 export const deleteSoftwareProduct = (id: string) => remove('config_software_products', id);
-
 export const addContactRole = (item: any) => create('contact_roles', item);
 export const updateContactRole = (id: string, item: any) => update('contact_roles', id, item);
 export const deleteContactRole = (id: string) => remove('contact_roles', id);
 export const addContactTitle = (item: any) => create('contact_titles', item);
 export const updateContactTitle = (id: string, item: any) => update('contact_titles', id, item);
 export const deleteContactTitle = (id: string) => remove('contact_titles', id);
-
 export const addJobTitle = (item: any) => create('config_job_titles', item);
 export const updateJobTitle = (id: string, item: any) => update('config_job_titles', id, item);
 export const deleteJobTitle = (id: string) => remove('config_job_titles', id);
-
 export const getGlobalSetting = async (key: string) => {
     const supabase = getSupabase();
     const { data, error } = await supabase.from('global_settings').select('setting_value').eq('setting_key', key).single();
@@ -394,7 +370,6 @@ export const updateGlobalSetting = async (key: string, value: string) => {
     if (error) throw error;
     await logAction('UPDATE', 'Settings', `Updated setting ${key}`);
 };
-
 export const addCollaborator = async (collaborator: any, password?: string) => {
     const serviceKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
     const supabaseUrl = localStorage.getItem('SUPABASE_URL');
@@ -406,26 +381,18 @@ export const addCollaborator = async (collaborator: any, password?: string) => {
                 password: password,
                 email_confirm: true
             });
-            if (error) {
-                console.error("Auth creation error", error);
-            } else if (data.user) {
-                collaborator.id = data.user.id;
-            }
-        } catch (e) {
-            console.error("Admin client error", e);
-        }
+            if (error) { console.error("Auth creation error", error); } 
+            else if (data.user) { collaborator.id = data.user.id; }
+        } catch (e) { console.error("Admin client error", e); }
     }
     return create('collaborators', collaborator);
 };
 export const updateCollaborator = (id: string, data: any) => update('collaborators', id, data);
 export const deleteCollaborator = (id: string) => remove('collaborators', id);
-
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     const serviceKey = localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY');
     const supabaseUrl = localStorage.getItem('SUPABASE_URL');
-    if (!serviceKey || !supabaseUrl) {
-        throw new Error("Service Role Key não configurada.");
-    }
+    if (!serviceKey || !supabaseUrl) throw new Error("Service Role Key não configurada.");
     const adminClient = createClient(supabaseUrl, serviceKey, {auth: {autoRefreshToken: false, persistSession: false}});
     const { error: updateError } = await (adminClient.auth as any).admin.updateUserById(userId, { password: newPassword });
     if (!updateError) {
@@ -443,9 +410,8 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
             email_confirm: true,
             user_metadata: { full_name: collaborator.fullName }
         });
-        if (!createError && newUser?.user) {
-            targetAuthId = newUser.user.id;
-        } else if (createError) {
+        if (!createError && newUser?.user) targetAuthId = newUser.user.id;
+        else if (createError) {
             if (createError.message.includes("already_registered") || createError.message.includes("already been registered")) {
                 const { data: usersList } = await (adminClient.auth as any).admin.listUsers({ perPage: 1000 });
                 const existingUser = usersList.users.find((u: any) => u.email?.toLowerCase() === collaborator.email.toLowerCase());
@@ -453,12 +419,8 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
                     targetAuthId = existingUser.id;
                     const { error: updateExistingError } = await (adminClient.auth as any).admin.updateUserById(targetAuthId, { password: newPassword });
                     if (updateExistingError) throw updateExistingError;
-                } else {
-                    throw new Error("Erro de integridade de email.");
-                }
-            } else {
-                throw createError;
-            }
+                } else throw new Error("Erro de integridade de email.");
+            } else throw createError;
         }
         if (targetAuthId && targetAuthId !== userId) {
             const { error: updateDbError } = await supabase.from('collaborators').update({ id: targetAuthId }).eq('id', userId);
@@ -469,21 +431,17 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
     }
     throw updateError;
 };
-
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {
     const supabase = getSupabase();
     const filePath = `avatars/${id}-${Date.now()}`;
     const { error } = await supabase.storage.from('avatars').upload(filePath, file);
     if (error) {
-        if (error.message.includes('Bucket not found') || (error as any).statusCode === '404') {
-             throw new Error("O bucket 'avatars' não existe.");
-        }
+        if (error.message.includes('Bucket not found') || (error as any).statusCode === '404') throw new Error("O bucket 'avatars' não existe.");
         throw error;
     }
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
     await updateCollaborator(id, { photoUrl: data.publicUrl });
 };
-
 export const addInstituicao = (data: any) => create('instituicoes', data);
 export const updateInstituicao = (id: string, data: any) => update('instituicoes', id, data);
 export const deleteInstituicao = (id: string) => remove('instituicoes', id);
@@ -530,11 +488,7 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     const currentIds = current ? current.map((c: any) => c.softwareLicenseId) : [];
     for (const lid of licenseIds) {
         if (!currentIds.includes(lid)) {
-            await supabase.from('license_assignments').insert({ 
-                equipmentId: equipmentId, 
-                softwareLicenseId: lid, 
-                assignedDate: new Date().toISOString().split('T')[0] 
-            });
+            await supabase.from('license_assignments').insert({ equipmentId: equipmentId, softwareLicenseId: lid, assignedDate: new Date().toISOString().split('T')[0] });
         }
     }
 };
@@ -565,12 +519,7 @@ export const syncResourceContacts = async (type: string, resourceId: string, con
     const supabase = getSupabase();
     await supabase.from('resource_contacts').delete().eq('resource_type', type).eq('resource_id', resourceId);
     if (contacts.length > 0) {
-        const toInsert = contacts.map(c => ({
-            ...c,
-            resource_type: type,
-            resource_id: resourceId,
-            id: undefined 
-        }));
+        const toInsert = contacts.map(c => ({ ...c, resource_type: type, resource_id: resourceId, id: undefined }));
         await supabase.from('resource_contacts').insert(toInsert);
     }
 };
@@ -607,9 +556,7 @@ export const addMessage = (data: any) => create('messages', data);
 export const markMessagesAsRead = async (senderId: string) => {
     const supabase = getSupabase();
     const { data: { user } } = await (supabase.auth as any).getUser();
-    if (user) {
-        await supabase.from('messages').update({ read: true }).eq('senderId', senderId).eq('receiverId', user.id);
-    }
+    if (user) { await supabase.from('messages').update({ read: true }).eq('senderId', senderId).eq('receiverId', user.id); }
 };
 export const getCustomRoles = async () => {
     const supabase = getSupabase();
@@ -642,37 +589,16 @@ export const snoozeNotification = (id: string) => {
     const snoozedStr = localStorage.getItem('snoozed_notifications');
     let snoozed = snoozedStr ? JSON.parse(snoozedStr) : [];
     const until = new Date();
-    until.setDate(until.getDate() + 3); // Snooze for 3 days
+    until.setDate(until.getDate() + 3);
     snoozed.push({ id, until: until.toISOString() });
     localStorage.setItem('snoozed_notifications', JSON.stringify(snoozed));
 };
 export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
     const results: DiagnosticResult[] = [];
     const supabase = getSupabase();
-    const addResult = (module: string, status: 'Success' | 'Failure' | 'Warning', message: string) => {
-        results.push({ module, status, message, timestamp: new Date().toISOString() });
-    };
-    try {
-        const { error } = await supabase.from('global_settings').select('count').limit(1);
-        if (error) throw error;
-        addResult('Database', 'Success', 'Connected to Supabase successfully.');
-    } catch (e: any) {
-        addResult('Database', 'Failure', `Connection failed: ${e.message}`);
-        return results; 
-    }
-    try {
-        const { data, error } = await supabase.storage.getBucket('avatars');
-        if (error) throw error;
-        addResult('Storage', 'Success', 'Bucket "avatars" accessible.');
-    } catch (e: any) {
-        addResult('Storage', 'Failure', `Bucket "avatars" check failed: ${e.message}`);
-    }
-    try {
-        const { data, error } = await supabase.rpc('check_pg_cron');
-        if (error || !data) addResult('Extensions', 'Warning', 'pg_cron not detected.');
-        else addResult('Extensions', 'Success', 'pg_cron enabled.');
-    } catch (e) {
-        addResult('Extensions', 'Warning', 'Could not verify extensions.');
-    }
+    const addResult = (module: string, status: 'Success' | 'Failure' | 'Warning', message: string) => { results.push({ module, status, message, timestamp: new Date().toISOString() }); };
+    try { const { error } = await supabase.from('global_settings').select('count').limit(1); if (error) throw error; addResult('Database', 'Success', 'Connected to Supabase successfully.'); } catch (e: any) { addResult('Database', 'Failure', `Connection failed: ${e.message}`); return results; }
+    try { const { data, error } = await supabase.storage.getBucket('avatars'); if (error) throw error; addResult('Storage', 'Success', 'Bucket "avatars" accessible.'); } catch (e: any) { addResult('Storage', 'Failure', `Bucket "avatars" check failed: ${e.message}`); }
+    try { const { data, error } = await supabase.rpc('check_pg_cron'); if (error || !data) addResult('Extensions', 'Warning', 'pg_cron not detected.'); else addResult('Extensions', 'Success', 'pg_cron enabled.'); } catch (e) { addResult('Extensions', 'Warning', 'Could not verify extensions.'); }
     return results;
 };

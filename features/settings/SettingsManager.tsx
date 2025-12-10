@@ -69,8 +69,14 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         alert('Copiado para a área de transferência!');
     };
 
-    const handleTestCron = () => {
-        alert('Funcionalidade de teste ainda não implementada.');
+    const handleTestCron = async () => {
+        try {
+            await dataService.triggerBirthdayCron();
+            alert('Executado com sucesso! Se existirem aniversariantes hoje, os emails e mensagens foram enviados.');
+        } catch (e: any) {
+            console.error(e);
+            alert('Erro ao executar: ' + e.message);
+        }
     };
 
     const handleSimulateWebhook = async () => {
