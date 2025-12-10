@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock, FaSearch } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock, FaSearch, FaRecycle } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -11,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'audit_db' | 'fix_types' | 'triggers' | 'playwright'>('security');
+    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'audit_db' | 'cleanup' | 'fix_types' | 'triggers' | 'playwright'>('security');
     
     const [testRequest, setTestRequest] = useState('');
     const [generatedTest, setGeneratedTest] = useState('');
@@ -261,6 +261,31 @@ WHERE routines.specific_schema = 'public'
 ORDER BY routines.routine_name;
 `;
 
+    const cleanupScript = `
+-- ==================================================================================
+-- SCRIPT DE HIGIENE FINAL (v7.0)
+-- Remove funções antigas detetadas na auditoria que já não são usadas pelo sistema.
+-- ==================================================================================
+BEGIN;
+
+-- 1. Remover funções de diagnóstico antigas (já não necessárias)
+DROP FUNCTION IF EXISTS public.count_orphaned_assignments();
+DROP FUNCTION IF EXISTS public.count_orphaned_collaborators();
+DROP FUNCTION IF EXISTS public.count_orphaned_entities();
+
+-- 2. Remover verificadores de papel obsoletos (substituídos por 'has_permission' e 'is_admin')
+DROP FUNCTION IF EXISTS public.is_admin_or_tech();
+DROP FUNCTION IF EXISTS public.get_my_role(); -- O frontend gere isto agora
+
+-- 3. Confirmação
+DO $$
+BEGIN
+    RAISE NOTICE 'Limpeza de funções legadas concluída.';
+END $$;
+
+COMMIT;
+`;
+
     const repairScript = `
 -- ... (repair script content kept same) ...
 CREATE EXTENSION IF NOT EXISTS pg_net;
@@ -420,6 +445,12 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <FaSearch /> 5. Auditoria DB
                     </button>
                     <button 
+                        onClick={() => setActiveTab('cleanup')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'cleanup' ? 'border-orange-500 text-white bg-orange-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaRecycle /> 6. Limpeza Final
+                    </button>
+                    <button 
                         onClick={() => setActiveTab('fix_procurement')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'fix_procurement' ? 'border-red-500 text-white bg-red-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
@@ -528,6 +559,28 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                                     {auditScript}
                                 </pre>
                                 <button onClick={() => handleCopy(auditScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CLEANUP TAB */}
+                    {activeTab === 'cleanup' && (
+                        <div className="space-y-4 animate-fade-in">
+                             <div className="bg-orange-900/20 border border-orange-500/50 p-4 rounded-lg text-sm text-orange-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaRecycle /> LIMPEZA FINAL (v7.0)
+                                </div>
+                                <p className="mb-2">
+                                    Este script remove <strong>funções antigas e obsoletas</strong> detetadas na auditoria (ex: <code>is_admin_or_tech</code>, <code>count_orphaned...</code>).
+                                    <br/>
+                                    Execute isto para deixar a base de dados 100% limpa.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-orange-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                    {cleanupScript}
+                                </pre>
+                                <button onClick={() => handleCopy(cleanupScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
                             </div>
                         </div>
                     )}
