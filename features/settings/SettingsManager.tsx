@@ -5,7 +5,8 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaHdd, FaMicrochip, FaMemory, FaLeaf, FaLandmark, FaSync, FaExclamationCircle, FaUserTie
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaUserTie,
+    FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaSync
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -107,7 +108,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt',
                 'equipment_naming_prefix', 'equipment_naming_digits',
                 'weekly_report_recipients', 'resend_api_key', 'resend_from_email',
-                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id'
+                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id',
+                'birthday_email_subject', 'birthday_email_body'
             ];
             
             const fetchedSettings: any = {};
@@ -130,11 +132,14 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 weekly_report_recipients: fetchedSettings.weekly_report_recipients || '',
                 resendApiKey: fetchedSettings.resend_api_key || '',
                 resendFromEmail: fetchedSettings.resend_from_email || '',
+                birthday_email_subject: fetchedSettings.birthday_email_subject || 'Parabéns!',
+                birthday_email_body: fetchedSettings.birthday_email_body || 'Desejamos-lhe um excelente dia de aniversário.',
                 sbUrl: localStorage.getItem('SUPABASE_URL') || '',
                 sbKey: localStorage.getItem('SUPABASE_ANON_KEY') || '',
                 sbServiceKey: localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '',
                 webhookUrl: projectUrl ? `${projectUrl}/functions/v1/siem-ingest` : '',
                 cronFunctionUrl: projectUrl ? `${projectUrl}/functions/v1/weekly-report` : '',
+                birthdayFunctionUrl: projectUrl ? `${projectUrl}/functions/v1/send-birthday-emails` : '',
                 app_logo_base64: fetchedSettings.app_logo_base64 || '',
                 app_logo_size: parseInt(fetchedSettings.app_logo_size || '80'),
                 app_logo_alignment: fetchedSettings.app_logo_alignment || 'center',
@@ -153,7 +158,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
-        // 'config_software_products' is handled separately
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
         'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
@@ -285,6 +289,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                         onSettingsChange={(k, v) => setSettings((p:any) => ({ ...p, [k]: v }))} 
                         onSave={async () => {
                             await dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients); 
+                            await dataService.updateGlobalSetting('birthday_email_subject', settings.birthday_email_subject);
+                            await dataService.updateGlobalSetting('birthday_email_body', settings.birthday_email_body);
                             alert('Guardado!');
                         }}
                         onTest={handleTestCron}
@@ -305,6 +311,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
+                    {/* Special Handling for Software Products to show Category dropdown in Generic Dashboard if we implemented it, but here we just show basic table for now */}
                     {selectedMenuId === 'config_software_products' ? (
                          <SoftwareProductDashboard 
                             products={appData.softwareProducts}

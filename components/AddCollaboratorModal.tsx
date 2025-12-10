@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao, JobTitle } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
-import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey, FaBriefcase, FaPlus } from 'react-icons/fa';
+import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey, FaBriefcase, FaPlus, FaBirthdayCake } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 const isValidEmail = (email: string) => {
@@ -55,6 +55,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         nif: '',
         telefoneInterno: '',
         telemovel: '',
+        dateOfBirth: '', // New field
         address_line: '',
         postal_code: '',
         city: '',
@@ -125,6 +126,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 locality: collaboratorToEdit.locality || '',
                 nif: collaboratorToEdit.nif || '',
                 title: collaboratorToEdit.title || '',
+                dateOfBirth: collaboratorToEdit.dateOfBirth || '',
                 entidadeId: collaboratorToEdit.entidadeId || '',
                 instituicaoId: collaboratorToEdit.instituicaoId || '',
                 job_title_id: collaboratorToEdit.job_title_id || ''
@@ -297,9 +299,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             finalInstituicaoId = null;
         }
         
+        // Clean optional dateOfBirth to avoid empty string errors in DB
+        const cleanDateOfBirth = formData.dateOfBirth === '' ? null : formData.dateOfBirth;
+
         const dataToSave: any = { 
             ...formData, 
             address,
+            dateOfBirth: cleanDateOfBirth,
             numeroMecanografico: formData.numeroMecanografico || 'N/A',
             entidadeId: finalEntidadeId,
             instituicaoId: finalInstituicaoId,
@@ -492,6 +498,21 @@ Verifique as configurações de armazenamento.`);
                         <label className="block text-xs font-medium text-gray-400 mb-1">Extensão</label>
                         <input type="text" name="telefoneInterno" value={formData.telefoneInterno} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                     </div>
+                </div>
+                
+                {/* NEW: Date of Birth Field */}
+                <div>
+                     <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2">
+                        <FaBirthdayCake /> Data de Nascimento
+                    </label>
+                    <input 
+                        type="date" 
+                        name="dateOfBirth" 
+                        value={formData.dateOfBirth} 
+                        onChange={handleChange} 
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Usada para envio automático de parabéns (se ativado).</p>
                 </div>
                 
                 {/* Hierarchical Selection */}

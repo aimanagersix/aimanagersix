@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaCog } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaCog, FaBirthdayCake } from 'react-icons/fa';
 import * as dataService from '../../services/dataService';
 
 interface CronJobsTabProps {
@@ -84,10 +85,96 @@ serve(async (req) => {
 });
 `;
 
-const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
-    const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | null>(null);
+const birthdayFunctionCode = `import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-    const handleCopy = (text: string, type: 'cron_fn' | 'cron_sql') => {
+serve(async (req) => {
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // 1. Obter configurações de template
+    const { data: settings } = await supabaseClient
+      .from('global_settings')
+      .select('setting_key, setting_value')
+      .in('setting_key', ['birthday_email_subject', 'birthday_email_body']);
+
+    const subject = settings?.find(s => s.setting_key === 'birthday_email_subject')?.setting_value || "Feliz Aniversário!";
+    const bodyTemplate = settings?.find(s => s.setting_key === 'birthday_email_body')?.setting_value || "Parabéns!";
+
+    // 2. Encontrar aniversariantes de hoje
+    const today = new Date();
+    const month = today.getMonth() + 1; // JS months are 0-indexed
+    const day = today.getDate();
+
+    // Nota: Como o Supabase não tem uma função fácil de SQL via JS client para extrair data, 
+    // a melhor prática é usar uma RPC ou filtrar no código se a base não for gigante.
+    // Aqui usamos filtro SQL direto se possível, ou RPC 'get_birthdays'.
+    // Vamos assumir que buscamos os ativos e filtramos no código para simplificar sem migrations extra.
+    
+    const { data: collaborators, error: collabError } = await supabaseClient
+      .from('collaborators')
+      .select('fullName, email, "dateOfBirth"')
+      .eq('status', 'Ativo')
+      .not('"dateOfBirth"', 'is', null);
+
+    if (collabError) throw collabError;
+
+    const birthdays = collaborators.filter(c => {
+        if (!c.dateOfBirth) return false;
+        const dob = new Date(c.dateOfBirth);
+        return dob.getMonth() + 1 === month && dob.getDate() === day;
+    });
+
+    if (birthdays.length === 0) {
+        return new Response("No birthdays today.", { status: 200 });
+    }
+
+    // 3. Enviar emails
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL");
+    if(!resendKey || !fromEmail) throw new Error("Resend config missing.");
+
+    const results = [];
+
+    for (const person of birthdays) {
+        const emailBody = bodyTemplate.replace('{{nome}}', person.fullName);
+        const html = \`<div style="font-family: sans-serif; color: #333;">
+            <h2>🎉 \${subject}</h2>
+            <p>\${emailBody}</p>
+            <hr/>
+            <small>Enviado automaticamente pelo AIManager.</small>
+        </div>\`;
+
+        const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: \`Bearer \${resendKey}\`,
+            },
+            body: JSON.stringify({
+                from: fromEmail,
+                to: person.email,
+                subject: subject,
+                html: html,
+            }),
+        });
+        results.push(res.status);
+    }
+
+    return new Response(\`Sent \${results.length} birthday emails.\`, { status: 200 });
+  } catch (error) {
+    return new Response(\`Error: \${error.message}\`, { status: 500 });
+  }
+});
+`;
+
+const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
+    const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | 'bday_fn' | 'bday_sql' | null>(null);
+
+    const handleCopy = (text: string, type: 'cron_fn' | 'cron_sql' | 'bday_fn' | 'bday_sql') => {
         onCopy(text);
         setCopiedCode(type);
         setTimeout(() => setCopiedCode(null), 2000);
@@ -110,19 +197,40 @@ SELECT cron.schedule(
 -- SELECT cron.unschedule('weekly-asset-report');
 `;
 
+    const birthdaySqlCode = `
+-- Agendar a verificação de aniversários todos os dias às 09:00
+SELECT cron.schedule(
+    'daily-birthday-check',
+    '0 9 * * *',
+    $$
+    SELECT net.http_post(
+        url:='${settings.birthdayFunctionUrl || 'YOUR_SUPABASE_URL/functions/v1/send-birthday-emails'}',
+        headers:='{"Content-Type": "application/json", "Authorization": "Bearer [SERVICE_ROLE_KEY]"}'::jsonb
+    )
+    $$
+);
+`;
+
     return (
-        <div className="flex flex-col h-full space-y-4 overflow-y-auto pr-2 custom-scrollbar animate-fade-in p-6">
+        <div className="flex flex-col h-full space-y-6 overflow-y-auto pr-2 custom-scrollbar animate-fade-in p-6">
+            
+            {/* Secção de Relatórios Semanais (Existente) */}
             <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg space-y-4">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaClock className="text-yellow-400"/> Guia de Configuração: Relatórios Automáticos</h3>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaClock className="text-yellow-400"/> Relatórios Semanais Automáticos</h3>
                 
                 <div className="space-y-4">
                     <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaEnvelope className="text-yellow-400"/> Passo 1: Criar a Edge Function (`weekly-report`)</h4>
-                        <p className="text-xs text-gray-400 mb-2">
-                            Crie uma nova função <code>weekly-report</code> e cole o seguinte código no ficheiro <code>index.ts</code> da função. Não se esqueça de definir as variáveis de ambiente (env) no Supabase.
-                        </p>
+                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaEnvelope className="text-yellow-400"/> Configuração de Destinatários</h4>
+                        <div className="flex gap-2">
+                            <input type="text" value={settings.weekly_report_recipients} onChange={(e) => onSettingsChange('weekly_report_recipients', e.target.value)} className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="admin@empresa.com, gestor@empresa.com" />
+                            <button onClick={onSave} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2"><FaSave /> Guardar</button>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase className="text-blue-400"/> Código da Função (`weekly-report`)</h4>
                         <div className="relative">
-                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-64 custom-scrollbar">
+                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
                                 {cronFunctionCode}
                             </pre>
                             <button onClick={() => handleCopy(cronFunctionCode, 'cron_fn')} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
@@ -132,10 +240,7 @@ SELECT cron.schedule(
                     </div>
 
                     <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase className="text-blue-400"/> Passo 2: Agendar a Tarefa (SQL)</h4>
-                        <p className="text-xs text-gray-400 mb-2">
-                            Execute este comando no SQL Editor do seu projeto Supabase para agendar a tarefa. Substitua <code>[SERVICE_ROLE_KEY]</code> pela sua chave.
-                        </p>
+                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaCog className="text-gray-400"/> Agendar (SQL)</h4>
                         <div className="relative">
                             <pre className="text-xs font-mono text-orange-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
                                 {cronSqlCode}
@@ -145,18 +250,64 @@ SELECT cron.schedule(
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Nova Secção: Parabéns Automáticos */}
+            <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg space-y-4">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaBirthdayCake className="text-pink-400"/> Parabéns Automáticos</h3>
+                
+                <div className="bg-black/30 p-4 rounded border border-gray-700">
+                    <h4 className="text-white font-bold mb-3 text-sm">Modelo de Email</h4>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs text-gray-500 uppercase mb-1">Assunto do Email</label>
+                            <input 
+                                type="text" 
+                                value={settings.birthday_email_subject} 
+                                onChange={(e) => onSettingsChange('birthday_email_subject', e.target.value)} 
+                                className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" 
+                                placeholder="Feliz Aniversário!" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-500 uppercase mb-1">Corpo da Mensagem (Use {'{{nome}'} para o nome do colaborador)</label>
+                            <textarea 
+                                value={settings.birthday_email_body} 
+                                onChange={(e) => onSettingsChange('birthday_email_body', e.target.value)} 
+                                rows={3}
+                                className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" 
+                                placeholder="Olá {{nome}}, desejamos-lhe um dia fantástico!" 
+                            />
+                        </div>
+                        <div className="flex justify-end">
+                            <button onClick={onSave} className="bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2"><FaSave /> Guardar Modelo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                        <h4 className="text-white font-bold mb-2 text-sm">1. Código da Função (`send-birthday-emails`)</h4>
+                        <div className="relative">
+                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
+                                {birthdayFunctionCode}
+                            </pre>
+                            <button onClick={() => handleCopy(birthdayFunctionCode, 'bday_fn')} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                {copiedCode === 'bday_fn' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                            </button>
+                        </div>
+                    </div>
 
                     <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                        <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaCog className="text-gray-400"/> Passo 3: Configuração & Teste</h4>
-                        
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-xs text-gray-500 uppercase mb-1">Emails Destinatários (separados por vírgula)</label>
-                                <div className="flex gap-2">
-                                    <input type="text" value={settings.weekly_report_recipients} onChange={(e) => onSettingsChange('weekly_report_recipients', e.target.value)} className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="admin@empresa.com, gestor@empresa.com" />
-                                    <button onClick={onSave} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2"><FaSave /> Guardar</button>
-                                </div>
-                            </div>
+                        <h4 className="text-white font-bold mb-2 text-sm">2. Agendar Diariamente (SQL)</h4>
+                        <div className="relative">
+                            <pre className="text-xs font-mono text-orange-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar">
+                                {birthdaySqlCode}
+                            </pre>
+                            <button onClick={() => handleCopy(birthdaySqlCode, 'bday_sql')} className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded hover:bg-gray-600 text-white">
+                                {copiedCode === 'bday_sql' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                            </button>
                         </div>
                     </div>
                 </div>
