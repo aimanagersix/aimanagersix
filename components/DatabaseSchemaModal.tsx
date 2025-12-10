@@ -59,7 +59,7 @@ COMMIT;
 
     const rbacScript = `
 -- ==================================================================================
--- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.0
+-- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.1 (Fixed Syntax)
 -- Implementa a Abordagem A: A Base de Dados verifica permissões JSON a cada acesso.
 -- ==================================================================================
 
@@ -132,7 +132,8 @@ DROP POLICY IF EXISTS "RBAC Read Entidades" ON public.entidades;
 CREATE POLICY "RBAC Read Entidades" ON public.entidades FOR SELECT TO authenticated
 USING (public.has_permission('organization', 'view'));
 
-DROP POLICY IF EXISTS "RBAC Write Entidades" ON public.entidades FOR ALL TO authenticated
+DROP POLICY IF EXISTS "RBAC Write Entidades" ON public.entidades;
+CREATE POLICY "RBAC Write Entidades" ON public.entidades FOR ALL TO authenticated
 USING (public.has_permission('organization', 'edit'))
 WITH CHECK (public.has_permission('organization', 'edit'));
 
@@ -144,7 +145,8 @@ DROP POLICY IF EXISTS "RBAC Read Licenses" ON public.software_licenses;
 CREATE POLICY "RBAC Read Licenses" ON public.software_licenses FOR SELECT TO authenticated
 USING (public.has_permission('licensing', 'view'));
 
-DROP POLICY IF EXISTS "RBAC Write Licenses" ON public.software_licenses FOR ALL TO authenticated
+DROP POLICY IF EXISTS "RBAC Write Licenses" ON public.software_licenses;
+CREATE POLICY "RBAC Write Licenses" ON public.software_licenses FOR ALL TO authenticated
 USING (public.has_permission('licensing', 'edit'))
 WITH CHECK (public.has_permission('licensing', 'edit'));
 
@@ -379,7 +381,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         onClick={() => setActiveTab('rbac')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'rbac' ? 'border-purple-500 text-white bg-purple-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaUserLock /> 4. Segurança RBAC (v4.0)
+                        <FaUserLock /> 4. Segurança RBAC (v4.1)
                     </button>
                     <button 
                         onClick={() => setActiveTab('fix_procurement')} 
@@ -419,7 +421,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                                 </div>
                                 <p className="mb-2">
                                     Este script ativa o RLS básico nas tabelas de configuração (só Admin escreve). 
-                                    Para segurança total (check dinâmico de permissões), use a aba <strong>RBAC (v4.0)</strong>.
+                                    Para segurança total (check dinâmico de permissões), use a aba <strong>RBAC (v4.1)</strong>.
                                 </p>
                             </div>
                             <div className="relative">
@@ -458,7 +460,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                              <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.0
+                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.1
                                 </div>
                                 <p className="mb-2">
                                     <strong>Abordagem A: Query Dinâmica.</strong> Este script instala a função <code>has_permission()</code> na base de dados
