@@ -60,26 +60,35 @@ COMMIT;
 
     const repairScript = `
 -- ==================================================================================
--- SCRIPT DE RESGATE v3.0 (Correção Definitiva de Permissões)
+-- SCRIPT CIRÚRGICO v3.1: CORREÇÃO DEFINITIVA DE FUNÇÕES
 -- ==================================================================================
 
--- 1. CRIAR A FUNÇÃO DE ANIVERSÁRIOS (PRIORIDADE MÁXIMA)
--- Executamos fora de bloco anónimo para garantir criação
-create extension if not exists pg_net;
-create extension if not exists pg_cron;
+-- 1. Certificar que as extensões existem (sem erros se já existirem)
+CREATE EXTENSION IF NOT EXISTS pg_net;
+CREATE EXTENSION IF NOT EXISTS pg_cron;
 
+-- 2. Limpar a função antiga para recriar do zero
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 
+-- 3. Criar a função com permissões de 'security definer' (executa como admin)
 CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER -- Executa como Superuser da BD, ignorando RLS
+SECURITY DEFINER
 SET search_path = public
 AS $$
 declare
-    v_resend_key text; v_from_email text; v_subject text; v_body_tpl text; v_final_body text; v_chat_message text; v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000'; r_user record;
+    v_resend_key text;
+    v_from_email text;
+    v_subject text;
+    v_body_tpl text;
+    v_final_body text;
+    v_chat_message text;
+    -- ID do Canal Geral (garantir que existe na tabela collaborators ou usar system)
+    v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000';
+    r_user record;
 begin
-    -- Ler configurações (ignorando RLS devido ao SECURITY DEFINER)
+    -- Buscar settings ignorando RLS
     select setting_value into v_resend_key from global_settings where setting_key = 'resend_api_key';
     select setting_value into v_from_email from global_settings where setting_key = 'resend_from_email';
     select setting_value into v_subject from global_settings where setting_key = 'birthday_email_subject';
@@ -88,59 +97,52 @@ begin
     if v_subject is null then v_subject := 'Feliz Aniversário!'; end if;
     if v_body_tpl is null then v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; end if;
     
-    for r_user in select "fullName", "email", "id" from collaborators where status = 'Ativo' and extract(month from "dateOfBirth") = extract(month from current_date) and extract(day from "dateOfBirth") = extract(day from current_date) loop
-        -- Enviar Email
+    -- Loop colaboradores
+    for r_user in 
+        select "fullName", "email", "id" 
+        from collaborators 
+        where status = 'Ativo' 
+        and extract(month from "dateOfBirth") = extract(month from current_date) 
+        and extract(day from "dateOfBirth") = extract(day from current_date) 
+    loop
+        -- Envio Email via pg_net (apenas se configurado)
         if v_resend_key is not null and v_from_email is not null and length(v_resend_key) > 5 then
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
-            perform net.http_post(url:='https://api.resend.com/emails', headers:=jsonb_build_object('Authorization', 'Bearer ' || v_resend_key, 'Content-Type', 'application/json'), body:=jsonb_build_object('from', v_from_email, 'to', r_user.email, 'subject', v_subject, 'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>'));
+            perform net.http_post(
+                url:='https://api.resend.com/emails',
+                headers:=jsonb_build_object(
+                    'Authorization', 'Bearer ' || v_resend_key,
+                    'Content-Type', 'application/json'
+                ),
+                body:=jsonb_build_object(
+                    'from', v_from_email,
+                    'to', r_user.email,
+                    'subject', v_subject,
+                    'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>'
+                )
+            );
         end if;
-        -- Chat Message
+
+        -- Mensagem Chat
         v_chat_message := '🎉 Parabéns ao colega **' || r_user."fullName" || '** que celebra hoje o seu aniversário! 🎂🎈';
+        
+        -- Verificar duplicados hoje
         if not exists (select 1 from messages where "receiverId" = v_general_channel_id and content = v_chat_message and created_at::date = current_date) then
-            INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read) VALUES (v_general_channel_id, v_general_channel_id, v_chat_message, now(), false);
+            INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read) 
+            VALUES (v_general_channel_id, v_general_channel_id, v_chat_message, now(), false);
         end if;
     end loop;
 end;
 $$;
 
--- 2. GARANTIR PERMISSÕES NA FUNÇÃO (CRÍTICO)
--- Isto resolve o erro "function does not exist" para utilizadores da API
+-- 4. FORÇAR PERMISSÕES DE EXECUÇÃO (O PASSO CRÍTICO)
+-- Isto garante que a API (utilizador anon ou authenticated) pode invocar a função
 REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 
-
--- 3. CORRIGIR RLS (BLINDADO COM TRATAMENTO DE ERROS)
--- Usamos blocos DO para que se uma falhar, as outras continuem
-DO $$
-BEGIN
-    -- A. Tabela Global Settings
-    ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
-    BEGIN DROP POLICY IF EXISTS "Settings Read All" ON public.global_settings; EXCEPTION WHEN OTHERS THEN NULL; END;
-    BEGIN DROP POLICY IF EXISTS "Settings Admin Access" ON public.global_settings; EXCEPTION WHEN OTHERS THEN NULL; END;
-    
-    CREATE POLICY "Settings Read All" ON public.global_settings FOR SELECT TO authenticated USING (true);
-    CREATE POLICY "Settings Admin Access" ON public.global_settings FOR ALL TO authenticated USING (true) WITH CHECK (true); -- Aberto temporariamente para garantir acesso
-
-    -- B. Tabela Colaboradores
-    ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
-    -- Limpar politicas antigas/conflituosas
-    BEGIN DROP POLICY IF EXISTS "Read Own Profile" ON public.collaborators; EXCEPTION WHEN OTHERS THEN NULL; END;
-    BEGIN DROP POLICY IF EXISTS "Admin Manage All" ON public.collaborators; EXCEPTION WHEN OTHERS THEN NULL; END;
-    BEGIN DROP POLICY IF EXISTS "Read All Collaborators" ON public.collaborators; EXCEPTION WHEN OTHERS THEN NULL; END;
-    BEGIN DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON public.collaborators; EXCEPTION WHEN OTHERS THEN NULL; END;
-    
-    -- Criar políticas permissivas para resolver bloqueio
-    CREATE POLICY "Read All Collaborators" ON public.collaborators FOR SELECT TO authenticated USING (true);
-    CREATE POLICY "Modify All Collaborators" ON public.collaborators FOR ALL TO authenticated USING (true) WITH CHECK (true);
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Aviso: Erro não crítico ao aplicar políticas: %', SQLERRM;
-END $$;
-
--- 4. REFRESH SCHEMA CACHE
+-- 5. Recarregar Schema Cache
 NOTIFY pgrst, 'reload config';
 `;
 
@@ -286,15 +288,12 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaTools /> SCRIPT DE RESGATE V3.0 (SQL)
+                                    <FaTools /> SCRIPT DE RESGATE V3.1 (Função Aniversários)
                                 </div>
                                 <p className="mb-2">
-                                    <strong>Execute este script para corrigir:</strong>
-                                    <ul className="list-disc list-inside mt-1 ml-2">
-                                        <li>Erro "A função não existe" ao testar aniversários.</li>
-                                        <li>Erro "Policy already exists" ao executar reparações anteriores.</li>
-                                        <li>Erro "Access Denied" ao gravar colaboradores (se não for admin).</li>
-                                    </ul>
+                                    <strong>Execute este script se ainda tiver erros com a função 'send_daily_birthday_emails'.</strong>
+                                    <br/>
+                                    Ele remove a função antiga, recria-a e reaplica todas as permissões necessárias para o utilizador autenticado.
                                 </p>
                             </div>
                             <div className="relative">
