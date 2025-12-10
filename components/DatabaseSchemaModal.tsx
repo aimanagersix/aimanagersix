@@ -60,8 +60,7 @@ COMMIT;
 
     const repairScript = `
 -- ==================================================================================
--- REPARAÇÃO DE FUNÇÕES & PERMISSÕES (v2.3)
--- Adicionado: Função de Aniversários
+-- REPARAÇÃO DE FUNÇÕES & PERMISSÕES (v2.4 - Sintaxe Corrigida)
 -- ==================================================================================
 
 -- 1. CORRIGIR SETTINGS (Permissões de Global Settings)
@@ -82,7 +81,7 @@ INSERT INTO public.global_settings (setting_key, setting_value)
 VALUES ('birthday_email_subject', 'Feliz Aniversário!'), ('birthday_email_body', 'Parabéns {{nome}}! Desejamos-te um dia fantástico.')
 ON CONFLICT (setting_key) DO NOTHING;
 
--- 2. REPARAR FUNÇÃO DE ANIVERSÁRIOS (Correção "Function does not exist")
+-- 2. REPARAR FUNÇÃO DE ANIVERSÁRIOS (Correção "Function does not exist" + Sintaxe)
 create extension if not exists pg_net;
 create or replace function public.send_daily_birthday_emails()
 returns void language plpgsql security definer set search_path = public as $$
@@ -267,7 +266,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaTools /> UPDATE V2.3 & REPARAÇÃO RLS
+                                    <FaTools /> UPDATE V2.4 & REPARAÇÃO
                                 </div>
                                 <p className="mb-2">
                                     Use este script se estiver a ter erros de "RLS Policy Violation" ou "Function does not exist" ao testar aniversários.

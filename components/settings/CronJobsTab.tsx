@@ -12,7 +12,7 @@ interface CronJobsTabProps {
 }
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS + CHAT (Permissões Corrigidas)
+-- SCRIPT DE ANIVERSÁRIOS + CHAT (Correção de Sintaxe v3)
 -- ==================================================================================
 
 -- 1. Garantir Extensão de Rede (para enviar email)
@@ -94,7 +94,7 @@ begin
 end;
 $$;
 
--- 3. PERMISSÕES EXPLÍCITAS (Essencial para o botão de teste funcionar)
+-- 3. PERMISSÕES EXPLÍCITAS
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
@@ -103,10 +103,11 @@ GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+        -- Nota: Usamos aspas simples aqui para evitar erro de sintaxe com $$ aninhado
         PERFORM cron.schedule(
             'job-aniversarios-diario',
             '0 9 * * *',
-            $$select public.send_daily_birthday_emails()$$
+            'select public.send_daily_birthday_emails()'
         );
     END IF;
 EXCEPTION WHEN OTHERS THEN
@@ -213,9 +214,9 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                 </div>
 
                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Atualizado v2</h4>
+                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Correção v3</h4>
                     <p className="text-xs text-gray-400 mb-2">
-                        Se receber o erro "função não existe", <strong>copie e execute este script</strong> para criar a função e dar as permissões corretas.
+                        Se recebeu um erro de sintaxe, <strong>copie e execute este script</strong>. Foi corrigido para evitar aspas aninhadas.
                     </p>
                     <div className="relative">
                         <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-60 custom-scrollbar border border-gray-700">
