@@ -134,7 +134,11 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                             const supplierName = req.supplier_id ? supplierMap.get(req.supplier_id) : '-';
                             
                             return (
-                            <tr key={req.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">
+                            <tr 
+                                key={req.id} 
+                                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer transition-colors"
+                                onClick={() => onEdit && onEdit(req)}
+                            >
                                 <td className="px-6 py-4 text-white">{new Date(req.request_date).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 text-center">
                                     {req.resource_type === 'Hardware' ? <FaMicrochip title="Hardware" className="text-blue-400"/> : <FaKey title="Software" className="text-yellow-400"/>}
@@ -155,7 +159,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                                         {req.status}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex justify-center gap-3">
                                         {/* Receive Button - Only if Received and NOT Completed */}
                                         {onReceive && req.status === ProcurementStatus.Received && (
