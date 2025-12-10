@@ -58,6 +58,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         webhookJson: '{\n  "alert_name": "Possible Ransomware Detected",\n  "hostname": "PC-FIN-01",\n  "severity": "critical",\n  "source": "SentinelOne",\n  "timestamp": "2024-05-20T10:00:00Z"\n}',
         simulatedTicket: null,
         isSimulating: false,
+        // Inicializar com strings vazias para evitar uncontrolled inputs
+        birthday_email_subject: '',
+        birthday_email_body: '',
+        weekly_report_recipients: ''
     });
 
     const handleCopyToClipboard = (text: string) => {
@@ -132,8 +136,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 weekly_report_recipients: fetchedSettings.weekly_report_recipients || '',
                 resendApiKey: fetchedSettings.resend_api_key || '',
                 resendFromEmail: fetchedSettings.resend_from_email || '',
-                birthday_email_subject: fetchedSettings.birthday_email_subject || 'Parabéns!',
-                birthday_email_body: fetchedSettings.birthday_email_body || 'Desejamos-lhe um excelente dia de aniversário.',
+                birthday_email_subject: fetchedSettings.birthday_email_subject || 'Feliz Aniversário!',
+                birthday_email_body: fetchedSettings.birthday_email_body || 'Olá {{nome}},\n\nA equipa deseja-te um excelente dia de aniversário!\n\nCumprimentos,\nA Administração',
                 sbUrl: localStorage.getItem('SUPABASE_URL') || '',
                 sbKey: localStorage.getItem('SUPABASE_ANON_KEY') || '',
                 sbServiceKey: localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '',
@@ -288,10 +292,19 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                         settings={settings} 
                         onSettingsChange={(k, v) => setSettings((p:any) => ({ ...p, [k]: v }))} 
                         onSave={async () => {
-                            await dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients); 
-                            await dataService.updateGlobalSetting('birthday_email_subject', settings.birthday_email_subject);
-                            await dataService.updateGlobalSetting('birthday_email_body', settings.birthday_email_body);
-                            alert('Guardado!');
+                            try {
+                                // Save Weekly Report Settings
+                                const p1 = dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients || '');
+                                // Save Birthday Settings
+                                const p2 = dataService.updateGlobalSetting('birthday_email_subject', settings.birthday_email_subject || '');
+                                const p3 = dataService.updateGlobalSetting('birthday_email_body', settings.birthday_email_body || '');
+                                
+                                await Promise.all([p1, p2, p3]);
+                                alert('Configurações gravadas com sucesso!');
+                            } catch(e: any) {
+                                console.error("Error saving cron settings:", e);
+                                alert(`Erro ao gravar: ${e.message}`);
+                            }
                         }}
                         onTest={handleTestCron}
                         onCopy={handleCopyToClipboard}
