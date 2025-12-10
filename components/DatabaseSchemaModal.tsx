@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -11,9 +11,8 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'fix_procurement' | 'update' | 'fix_types' | 'triggers' | 'playwright'>('security');
+    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'update' | 'fix_types' | 'triggers' | 'playwright'>('security');
     
-    // ... (rest of state logic same as before) ...
     const [testRequest, setTestRequest] = useState('');
     const [generatedTest, setGeneratedTest] = useState('');
     const [isGeneratingTest, setIsGeneratingTest] = useState(false);
@@ -27,9 +26,9 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const aiConfigured = isAiConfigured();
 
     const hardeningScript = `
--- ... (hardening script content kept as is, skipping for brevity in this output but assumes included) ...
 -- ==================================================================================
--- SCRIPT DE SEGURANÇA (HARDENING RLS) - v3.0
+-- SCRIPT DE SEGURANÇA BÁSICA (HARDENING RLS) - v3.0
+-- (Execute este primeiro se a base de dados for nova)
 -- ==================================================================================
 BEGIN;
 CREATE OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN AS $$
@@ -56,6 +55,150 @@ CREATE POLICY "Read Own Profile" ON public.collaborators FOR SELECT TO authentic
 CREATE POLICY "Admin Manage All" ON public.collaborators FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 NOTIFY pgrst, 'reload config';
 COMMIT;
+`;
+
+    const rbacScript = `
+-- ==================================================================================
+-- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.0
+-- Implementa a Abordagem A: A Base de Dados verifica permissões JSON a cada acesso.
+-- ==================================================================================
+
+-- 1. FUNÇÃO CENTRAL DE VERIFICAÇÃO DE PERMISSÕES
+-- Esta função é o coração do sistema de segurança.
+CREATE OR REPLACE FUNCTION public.has_permission(requested_module text, requested_action text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER -- Executa como admin para poder ler roles e configs
+AS $$
+DECLARE
+    v_user_role text;
+    v_perm_json jsonb;
+BEGIN
+    -- Obter a role do utilizador atual
+    SELECT role INTO v_user_role FROM public.collaborators WHERE id = auth.uid();
+
+    -- SuperAdmin tem sempre acesso total (Bypass)
+    IF v_user_role = 'SuperAdmin' THEN 
+        RETURN true; 
+    END IF;
+
+    -- Obter o JSON de permissões da tabela de configuração
+    SELECT permissions INTO v_perm_json 
+    FROM public.config_custom_roles 
+    WHERE name = v_user_role;
+
+    -- Se não houver configuração, negar por defeito
+    IF v_perm_json IS NULL THEN 
+        RETURN false; 
+    END IF;
+
+    -- Verificar a chave específica no JSON (ex: permissions->'equipment'->>'create')
+    -- O COALESCE garante que se a chave não existir, retorna false
+    IF COALESCE((v_perm_json -> requested_module ->> requested_action)::boolean, false) IS TRUE THEN
+        RETURN true;
+    END IF;
+
+    RETURN false;
+END;
+$$;
+
+-- 2. APLICAR POLÍTICAS AOS MÓDULOS PRINCIPAIS
+
+-- >>> Módulo: Equipamentos (Inventory)
+ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "RBAC Read Equipment" ON public.equipment;
+CREATE POLICY "RBAC Read Equipment" ON public.equipment FOR SELECT TO authenticated
+USING (public.has_permission('equipment', 'view'));
+
+DROP POLICY IF EXISTS "RBAC Insert Equipment" ON public.equipment;
+CREATE POLICY "RBAC Insert Equipment" ON public.equipment FOR INSERT TO authenticated
+WITH CHECK (public.has_permission('equipment', 'create'));
+
+DROP POLICY IF EXISTS "RBAC Update Equipment" ON public.equipment;
+CREATE POLICY "RBAC Update Equipment" ON public.equipment FOR UPDATE TO authenticated
+USING (public.has_permission('equipment', 'edit'))
+WITH CHECK (public.has_permission('equipment', 'edit'));
+
+DROP POLICY IF EXISTS "RBAC Delete Equipment" ON public.equipment;
+CREATE POLICY "RBAC Delete Equipment" ON public.equipment FOR DELETE TO authenticated
+USING (public.has_permission('equipment', 'delete'));
+
+
+-- >>> Módulo: Organização (Entidades)
+ALTER TABLE public.entidades ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "RBAC Read Entidades" ON public.entidades;
+CREATE POLICY "RBAC Read Entidades" ON public.entidades FOR SELECT TO authenticated
+USING (public.has_permission('organization', 'view'));
+
+DROP POLICY IF EXISTS "RBAC Write Entidades" ON public.entidades FOR ALL TO authenticated
+USING (public.has_permission('organization', 'edit'))
+WITH CHECK (public.has_permission('organization', 'edit'));
+
+
+-- >>> Módulo: Licenciamento (Software)
+ALTER TABLE public.software_licenses ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "RBAC Read Licenses" ON public.software_licenses;
+CREATE POLICY "RBAC Read Licenses" ON public.software_licenses FOR SELECT TO authenticated
+USING (public.has_permission('licensing', 'view'));
+
+DROP POLICY IF EXISTS "RBAC Write Licenses" ON public.software_licenses FOR ALL TO authenticated
+USING (public.has_permission('licensing', 'edit'))
+WITH CHECK (public.has_permission('licensing', 'edit'));
+
+
+-- >>> Módulo: Tickets (Híbrido: Permissão Global OU Dono do Ticket)
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "RBAC Read Tickets" ON public.tickets;
+CREATE POLICY "RBAC Read Tickets" ON public.tickets FOR SELECT TO authenticated
+USING (
+    public.has_permission('tickets', 'view') OR 
+    collaborator_id = auth.uid() OR -- O próprio solicitante pode ver
+    technician_id = auth.uid()      -- O técnico atribuído pode ver
+);
+
+DROP POLICY IF EXISTS "RBAC Create Tickets" ON public.tickets;
+CREATE POLICY "RBAC Create Tickets" ON public.tickets FOR INSERT TO authenticated
+WITH CHECK (
+    public.has_permission('tickets', 'create') OR
+    collaborator_id = auth.uid() -- Qualquer um pode criar tickets para si mesmo
+);
+
+DROP POLICY IF EXISTS "RBAC Update Tickets" ON public.tickets;
+CREATE POLICY "RBAC Update Tickets" ON public.tickets FOR UPDATE TO authenticated
+USING (
+    public.has_permission('tickets', 'edit') OR
+    (technician_id = auth.uid()) -- Técnico pode editar seus tickets
+)
+WITH CHECK (
+    public.has_permission('tickets', 'edit') OR
+    (technician_id = auth.uid())
+);
+
+
+-- >>> Módulo: Colaboradores (Gestão de Utilizadores)
+-- Nota: 'collaborators' é especial. Todos podem ler (para dropdowns), mas escrita é restrita.
+ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "RBAC Read Collaborators" ON public.collaborators;
+CREATE POLICY "RBAC Read Collaborators" ON public.collaborators FOR SELECT TO authenticated
+USING (true); -- Permitir leitura global para funcionamento da UI (dropdowns)
+
+DROP POLICY IF EXISTS "RBAC Write Collaborators" ON public.collaborators;
+CREATE POLICY "RBAC Write Collaborators" ON public.collaborators FOR ALL TO authenticated
+USING (public.has_permission('organization', 'edit') OR id = auth.uid()) -- Editores ou o próprio
+WITH CHECK (public.has_permission('organization', 'edit') OR id = auth.uid());
+
+
+-- 3. PERMISSÕES DE EXECUÇÃO
+GRANT EXECUTE ON FUNCTION public.has_permission(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_permission(text, text) TO service_role;
+
+-- 4. REFRESH
+NOTIFY pgrst, 'reload config';
 `;
 
     const repairScript = `
@@ -174,8 +317,6 @@ GRANT ALL ON public.procurement_requests TO authenticated, anon;
 UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, requires_disk_info = true WHERE LOWER(name) LIKE '%desktop%' OR LOWER(name) LIKE '%laptop%' OR LOWER(name) LIKE '%portátil%' OR LOWER(name) LIKE '%server%';
 `;
 
-    const updateScript = `-- Script vazio.`;
-
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
         setCopied(true);
@@ -233,7 +374,13 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                     >
                         <FaTools /> 2. Reparação Geral
                     </button>
-                    {/* ... other tabs ... */}
+                    {/* New RBAC Tab */}
+                     <button 
+                        onClick={() => setActiveTab('rbac')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'rbac' ? 'border-purple-500 text-white bg-purple-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaUserLock /> 4. Segurança RBAC (v4.0)
+                    </button>
                     <button 
                         onClick={() => setActiveTab('fix_procurement')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'fix_procurement' ? 'border-red-500 text-white bg-red-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
@@ -268,10 +415,11 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaShieldAlt /> ENDURECIMENTO DE SEGURANÇA (RLS)
+                                    <FaShieldAlt /> ENDURECIMENTO DE SEGURANÇA (RLS) - Básico
                                 </div>
                                 <p className="mb-2">
-                                    Este script ativa o <strong>Row Level Security (RLS)</strong> em todas as tabelas de configuração.
+                                    Este script ativa o RLS básico nas tabelas de configuração (só Admin escreve). 
+                                    Para segurança total (check dinâmico de permissões), use a aba <strong>RBAC (v4.0)</strong>.
                                 </p>
                             </div>
                             <div className="relative">
@@ -305,7 +453,29 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         </div>
                     )}
 
-                    {/* ... other tabs (fix_procurement, fix_types, triggers, playwright) kept same as before ... */}
+                    {/* RBAC TAB */}
+                    {activeTab === 'rbac' && (
+                        <div className="space-y-4 animate-fade-in">
+                             <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.0
+                                </div>
+                                <p className="mb-2">
+                                    <strong>Abordagem A: Query Dinâmica.</strong> Este script instala a função <code>has_permission()</code> na base de dados
+                                    e aplica políticas RLS que verificam o JSON de permissões a cada acesso.
+                                    <br/>
+                                    <strong>Atenção:</strong> Após executar isto, apenas utilizadores com as permissões corretas (configuradas no menu Perfis) conseguirão aceder aos dados. O SuperAdmin mantém acesso total.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-purple-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                    {rbacScript}
+                                </pre>
+                                <button onClick={() => handleCopy(rbacScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* FIX PROCUREMENT TAB */}
                      {activeTab === 'fix_procurement' && (
                         <div className="space-y-4 animate-fade-in">
