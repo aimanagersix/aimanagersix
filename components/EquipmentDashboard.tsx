@@ -164,10 +164,10 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     }, []);
     
     useEffect(() => {
+        // Sync local filters with initialFilter (passed from parent/sidebar/magic bar)
+        // BUT do not trigger onFilterChange here to avoid loops
         if (initialFilter) {
             setFilters(prev => ({ ...prev, ...initialFilter }));
-            // If onFilterChange is provided (server-side mode), trigger it
-            if (onFilterChange) onFilterChange({ ...filters, ...initialFilter });
         }
     }, [initialFilter]);
     
@@ -203,15 +203,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         const newFilters = { ...filters, [name]: value };
         setFilters(newFilters);
         
-        // Use debounce or immediate call depending on preference. 
-        // For inputs like text, debouncing is better, but here keeping simple.
+        // Notify parent about filter change (for server-side fetching)
         if (onFilterChange) {
              onFilterChange(newFilters);
         }
 
-        if (name !== 'collaboratorId') {
-            onClearInitialFilter();
-        }
         if (onPageChange) onPageChange(1);
     };
 
@@ -219,6 +215,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         const blank = { brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' };
         setFilters(blank);
         if (onFilterChange) onFilterChange(blank);
+        // We notify parent to clear its filter state too
         onClearInitialFilter();
         if (onPageChange) onPageChange(1);
     };
