@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock, FaSearch } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -11,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'update' | 'fix_types' | 'triggers' | 'playwright'>('security');
+    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'audit_db' | 'fix_types' | 'triggers' | 'playwright'>('security');
     
     const [testRequest, setTestRequest] = useState('');
     const [generatedTest, setGeneratedTest] = useState('');
@@ -225,10 +225,44 @@ WITH CHECK (created_by = auth.uid());
 NOTIFY pgrst, 'reload config';
 `;
 
+    const auditScript = `
+-- ==================================================================================
+-- SCRIPT DE AUDITORIA E DIAGNÓSTICO (CONSULTA APENAS)
+-- Execute este script para ver o que realmente existe na base de dados.
+-- ==================================================================================
+
+-- 1. LISTAR TODAS AS POLÍTICAS (RLS) ATIVAS
+SELECT 
+    schemaname as esquema,
+    tablename as tabela,
+    policyname as nome_politica,
+    permissive as permissao,
+    cmd as comando
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY tablename, policyname;
+
+-- 2. LISTAR TODOS OS GATILHOS (TRIGGERS)
+SELECT 
+    event_object_table as tabela,
+    trigger_name as nome_trigger,
+    event_manipulation as evento,
+    action_timing as timing
+FROM information_schema.triggers
+WHERE event_object_schema = 'public'
+ORDER BY event_object_table;
+
+-- 3. LISTAR TODAS AS FUNÇÕES (FUNCTIONS) NO SCHEMA PUBLIC
+SELECT 
+    routines.routine_name as nome_funcao,
+    routines.data_type as tipo_retorno
+FROM information_schema.routines
+WHERE routines.specific_schema = 'public'
+ORDER BY routines.routine_name;
+`;
+
     const repairScript = `
--- ==================================================================================
--- SCRIPT DE RESGATE V3.1 (Correção da Função de Aniversários)
--- ==================================================================================
+-- ... (repair script content kept same) ...
 CREATE EXTENSION IF NOT EXISTS pg_net;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
@@ -380,6 +414,12 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <FaUserLock /> 4. Segurança RBAC (v6.0)
                     </button>
                     <button 
+                        onClick={() => setActiveTab('audit_db')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'audit_db' ? 'border-blue-500 text-white bg-blue-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaSearch /> 5. Auditoria DB
+                    </button>
+                    <button 
                         onClick={() => setActiveTab('fix_procurement')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'fix_procurement' ? 'border-red-500 text-white bg-red-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
@@ -466,6 +506,28 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                                     {rbacScript}
                                 </pre>
                                 <button onClick={() => handleCopy(rbacScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* AUDIT TAB */}
+                    {activeTab === 'audit_db' && (
+                        <div className="space-y-4 animate-fade-in">
+                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaSearch /> AUDITORIA E DIAGNÓSTICO (CONSULTA)
+                                </div>
+                                <p className="mb-2">
+                                    Este script <strong>NÃO altera nada</strong>. Ele apenas lista todas as Políticas, Triggers e Funções existentes na base de dados.
+                                    <br/>
+                                    Use-o no SQL Editor do Supabase para verificar se ainda existem regras antigas ("lixo") ou se a limpeza funcionou.
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-blue-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                    {auditScript}
+                                </pre>
+                                <button onClick={() => handleCopy(auditScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
                             </div>
                         </div>
                     )}
