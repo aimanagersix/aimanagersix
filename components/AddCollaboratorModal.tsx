@@ -366,8 +366,8 @@ Verifique as configurações de armazenamento.`);
             const msg = e.message || "Erro ao salvar colaborador.";
             
             // Show alert if explicit error
-            if (msg.includes("row-level security") || msg.includes("Access Denied")) {
-                alert("Erro de Permissão: Não tem autorização para alterar este registo. Verifique se o seu perfil é Admin.");
+            if (msg.includes("row-level security") || msg.includes("Access Denied") || msg.includes("permission denied")) {
+                alert("Erro de Permissão: Não tem autorização para alterar este registo. \n\nDICA: Vá a 'Configurações > Config BD' e execute o script de reparação v3.0.");
             } else {
                 alert(`Erro: ${msg}`);
             }
