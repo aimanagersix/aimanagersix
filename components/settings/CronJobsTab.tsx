@@ -12,17 +12,21 @@ interface CronJobsTabProps {
 }
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS + CHAT (Correção de Sintaxe v4)
+-- SCRIPT DE ANIVERSÁRIOS + CHAT (Correção Definitiva de Permissões v5.1)
 -- ==================================================================================
 
--- 1. Garantir Extensão de Rede (para enviar email)
+-- 1. Garantir Extensões
 create extension if not exists pg_net;
+create extension if not exists pg_cron;
 
--- 2. Criar ou Atualizar a Função
+-- 2. Eliminar função antiga para garantir recriação limpa
+DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
+
+-- 3. Criar a Função
 create or replace function public.send_daily_birthday_emails()
 returns void
 language plpgsql
-security definer
+security definer -- Executa com permissões de admin (importante!)
 set search_path = public
 as $$
 declare
@@ -94,16 +98,18 @@ begin
 end;
 $$;
 
--- 3. PERMISSÕES EXPLÍCITAS
+-- 4. PERMISSÕES EXPLÍCITAS (CRÍTICO PARA O BOTÃO FUNCIONAR)
+-- Isto permite que a API do Supabase veja e execute a função
+REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 
--- 4. Tentar Agendar (apenas se pg_cron existir)
+-- 5. Agendar no CRON (apenas se a extensão existir e estiver activa)
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        -- Nota: Usamos aspas simples aqui para evitar erro de sintaxe com aspas de dolar aninhadas
         PERFORM cron.schedule(
             'job-aniversarios-diario',
             '0 9 * * *',
@@ -111,7 +117,7 @@ BEGIN
         );
     END IF;
 EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'pg_cron não disponível ou erro ao agendar. A função manual foi criada com sucesso.';
+    RAISE NOTICE 'pg_cron não disponível ou erro ao agendar.';
 END $$;
 `;
 
@@ -214,9 +220,9 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                 </div>
 
                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Correção v4</h4>
+                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Correção v5.1</h4>
                     <p className="text-xs text-gray-400 mb-2">
-                        Se recebeu um erro de sintaxe, <strong>copie e execute este script</strong>. Foi corrigido para evitar aspas aninhadas.
+                        Se receber o erro "função não existe" ou "permissão negada", <strong>copie e execute este script</strong> no SQL Editor do Supabase.
                     </p>
                     <div className="relative">
                         <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-60 custom-scrollbar border border-gray-700">

@@ -291,9 +291,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         
+        // Clean up empty strings for foreign keys
+        // PostgreSQL UUID fields cannot be empty string ""
         let finalEntidadeId = formData.entidadeId || null;
         let finalInstituicaoId = selectedInstituicao || null;
-
+        let finalJobTitleId = formData.job_title_id || null;
+        
         if (isGlobalAdmin) {
             finalEntidadeId = null;
             finalInstituicaoId = null;
@@ -309,9 +312,14 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             numeroMecanografico: formData.numeroMecanografico || 'N/A',
             entidadeId: finalEntidadeId,
             instituicaoId: finalInstituicaoId,
-            job_title_id: formData.job_title_id || null
+            job_title_id: finalJobTitleId
         };
         
+        // Ensure role is correctly passed
+        if (!dataToSave.role) {
+            dataToSave.role = 'Utilizador';
+        }
+
         delete dataToSave.contacts;
         delete dataToSave.preferences; 
         delete dataToSave.job_title_name;
