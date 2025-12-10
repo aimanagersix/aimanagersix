@@ -59,7 +59,7 @@ COMMIT;
 
     const rbacScript = `
 -- ==================================================================================
--- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.1 (Fixed Syntax)
+-- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.2 (Fixed Case Sensitivity)
 -- Implementa a Abordagem A: A Base de Dados verifica permissões JSON a cada acesso.
 -- ==================================================================================
 
@@ -158,26 +158,26 @@ DROP POLICY IF EXISTS "RBAC Read Tickets" ON public.tickets;
 CREATE POLICY "RBAC Read Tickets" ON public.tickets FOR SELECT TO authenticated
 USING (
     public.has_permission('tickets', 'view') OR 
-    collaborator_id = auth.uid() OR -- O próprio solicitante pode ver
-    technician_id = auth.uid()      -- O técnico atribuído pode ver
+    "collaboratorId" = auth.uid() OR -- O próprio solicitante pode ver (Aspas duplas para CamelCase)
+    "technicianId" = auth.uid()      -- O técnico atribuído pode ver (Aspas duplas para CamelCase)
 );
 
 DROP POLICY IF EXISTS "RBAC Create Tickets" ON public.tickets;
 CREATE POLICY "RBAC Create Tickets" ON public.tickets FOR INSERT TO authenticated
 WITH CHECK (
     public.has_permission('tickets', 'create') OR
-    collaborator_id = auth.uid() -- Qualquer um pode criar tickets para si mesmo
+    "collaboratorId" = auth.uid() -- Qualquer um pode criar tickets para si mesmo
 );
 
 DROP POLICY IF EXISTS "RBAC Update Tickets" ON public.tickets;
 CREATE POLICY "RBAC Update Tickets" ON public.tickets FOR UPDATE TO authenticated
 USING (
     public.has_permission('tickets', 'edit') OR
-    (technician_id = auth.uid()) -- Técnico pode editar seus tickets
+    ("technicianId" = auth.uid()) -- Técnico pode editar seus tickets
 )
 WITH CHECK (
     public.has_permission('tickets', 'edit') OR
-    (technician_id = auth.uid())
+    ("technicianId" = auth.uid())
 );
 
 
@@ -381,7 +381,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         onClick={() => setActiveTab('rbac')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'rbac' ? 'border-purple-500 text-white bg-purple-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaUserLock /> 4. Segurança RBAC (v4.1)
+                        <FaUserLock /> 4. Segurança RBAC (v4.2)
                     </button>
                     <button 
                         onClick={() => setActiveTab('fix_procurement')} 
@@ -421,7 +421,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                                 </div>
                                 <p className="mb-2">
                                     Este script ativa o RLS básico nas tabelas de configuração (só Admin escreve). 
-                                    Para segurança total (check dinâmico de permissões), use a aba <strong>RBAC (v4.1)</strong>.
+                                    Para segurança total (check dinâmico de permissões), use a aba <strong>RBAC (v4.2)</strong>.
                                 </p>
                             </div>
                             <div className="relative">
@@ -460,7 +460,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                              <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.1
+                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.2
                                 </div>
                                 <p className="mb-2">
                                     <strong>Abordagem A: Query Dinâmica.</strong> Este script instala a função <code>has_permission()</code> na base de dados
