@@ -2,7 +2,7 @@
 import { getSupabase } from './supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 import { 
-    AuditAction, DiagnosticResult, Equipment
+    AuditAction, DiagnosticResult, Equipment, Ticket, Collaborator
 } from '../types';
 
 // --- HELPER FUNCTIONS ---
@@ -66,25 +66,17 @@ const remove = async (table: string, id: string) => {
 
 // --- SCALABLE DATA FETCHING (SERVER SIDE PAGINATION) ---
 
-export interface FetchEquipmentParams {
+export interface FetchParams {
     page: number;
     pageSize: number;
-    filters?: {
-        brandId?: string;
-        typeId?: string;
-        status?: string;
-        serialNumber?: string;
-        description?: string;
-        nomeNaRede?: string;
-        collaboratorId?: string; // Requires join logic
-    };
+    filters?: any;
     sort?: {
         key: string;
         direction: 'ascending' | 'descending';
     };
 }
 
-export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }: FetchEquipmentParams) => {
+export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }: FetchParams) => {
     const supabase = getSupabase();
     
     // Start building query
@@ -101,10 +93,8 @@ export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }:
         if (filters.description) query = query.ilike('description', `%${filters.description}%`);
         if (filters.nomeNaRede) query = query.ilike('nomeNaRede', `%${filters.nomeNaRede}%`);
         
-        // Complex filter: Equipment assigned to collaborator
-        // This requires a subquery logic or separate fetch. For performance in Supabase basic client:
         if (filters.collaboratorId) {
-             // Fetch assignment IDs first (Active only)
+             // Subquery logic optimization for assigned items
              const { data: assignments } = await supabase
                 .from('assignments')
                 .select('equipmentId')
@@ -115,7 +105,6 @@ export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }:
              if (eqIds.length > 0) {
                  query = query.in('id', eqIds);
              } else {
-                 // Force empty result if collaborator has no equipment
                  query = query.eq('id', '00000000-0000-0000-0000-000000000000'); 
              }
         }
@@ -123,15 +112,13 @@ export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }:
 
     // 2. Apply Sorting
     if (sort) {
-        // Handle special sort keys if needed, otherwise direct map
         const ascending = sort.direction === 'ascending';
         query = query.order(sort.key, { ascending });
     } else {
-        // Default sort
         query = query.order('creationDate', { ascending: false });
     }
 
-    // 3. Apply Pagination (Range)
+    // 3. Apply Pagination
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     query = query.range(from, to);
@@ -146,16 +133,89 @@ export const fetchEquipmentPaginated = async ({ page, pageSize, filters, sort }:
     };
 };
 
-// --- DATA FETCHING (LEGACY / SMALL TABLES) ---
+export const fetchTicketsPaginated = async ({ page, pageSize, filters, sort }: FetchParams) => {
+    const supabase = getSupabase();
+    let query = supabase.from('tickets').select('*', { count: 'exact' });
 
+    // Filters
+    if (filters) {
+        if (filters.status) {
+            // Handle array of statuses (e.g. Open tickets view)
+            if (Array.isArray(filters.status) && filters.status.length > 0) {
+                query = query.in('status', filters.status);
+            } else if (filters.status) {
+                query = query.eq('status', filters.status);
+            }
+        }
+        if (filters.category) query = query.eq('category', filters.category);
+        if (filters.team_id) query = query.eq('team_id', filters.team_id);
+        if (filters.technicianId) query = query.eq('technicianId', filters.technicianId);
+        if (filters.collaboratorId) query = query.eq('collaboratorId', filters.collaboratorId);
+        if (filters.title) query = query.ilike('title', `%${filters.title}%`);
+    }
+
+    // Sorting
+    if (sort) {
+        const ascending = sort.direction === 'ascending';
+        query = query.order(sort.key, { ascending });
+    } else {
+        query = query.order('requestDate', { ascending: false });
+    }
+
+    // Pagination
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    return { data: data as Ticket[], total: count || 0 };
+};
+
+export const fetchCollaboratorsPaginated = async ({ page, pageSize, filters, sort }: FetchParams) => {
+    const supabase = getSupabase();
+    let query = supabase.from('collaborators').select('*', { count: 'exact' });
+
+    if (filters) {
+        if (filters.query) {
+            // Search across multiple fields
+            query = query.or(`fullName.ilike.%${filters.query}%,email.ilike.%${filters.query}%,numeroMecanografico.ilike.%${filters.query}%`);
+        }
+        if (filters.entidadeId) query = query.eq('entidadeId', filters.entidadeId);
+        if (filters.status) query = query.eq('status', filters.status);
+        if (filters.role) query = query.eq('role', filters.role);
+    }
+
+    if (sort) {
+        const ascending = sort.direction === 'ascending';
+        query = query.order(sort.key, { ascending });
+    } else {
+        query = query.order('fullName', { ascending: true });
+    }
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    return { data: data as Collaborator[], total: count || 0 };
+};
+
+
+// --- DATA FETCHING (LEGACY / SMALL TABLES) ---
+// Used for lookups (dropdowns) where we need the full list
 export const fetchAllData = async () => {
     const supabase = getSupabase();
-    // Removed 'equipment' from here to optimize. Components must use fetchEquipmentPaginated.
-    // However, keeping it for compatibility with other components not yet refactored (Overview).
-    // In a full migration, we would remove it.
+    
+    // Note: We still fetch full lists of small tables for dropdowns.
+    // Heavy tables (equipment, tickets) should be used via paginated functions in dashboards.
+    // We fetch a limited set here just to populate basic appData context for components not yet refactored.
     const [
-        equipment, brands, equipmentTypes, instituicoes, entidades, collaborators, 
-        assignments, tickets, ticketActivities, softwareLicenses, licenseAssignments, 
+        brands, equipmentTypes, instituicoes, entidades, collaborators, 
+        assignments, ticketActivities, softwareLicenses, licenseAssignments, 
         teams, teamMembers, messages, collaboratorHistory, ticketCategories, 
         securityIncidentTypes, businessServices, serviceDependencies, vulnerabilities, 
         suppliers, backupExecutions, resilienceTests, securityTrainings, resourceContacts, 
@@ -171,14 +231,12 @@ export const fetchAllData = async () => {
         configJobTitles, // NEW JOB TITLES
         policies, policyAcceptances, procurementRequests, calendarEvents, continuityPlans
     ] = await Promise.all([
-        supabase.from('equipment').select('*'), // Legacy support
         supabase.from('brands').select('*'),
         supabase.from('equipment_types').select('*'),
         supabase.from('instituicoes').select('*'),
         supabase.from('entidades').select('*'),
-        supabase.from('collaborators').select('*'),
-        supabase.from('assignments').select('*'),
-        supabase.from('tickets').select('*'),
+        supabase.from('collaborators').select('*'), // For dropdowns
+        supabase.from('assignments').select('*'), // Still needed for relations map
         supabase.from('ticket_activities').select('*'),
         supabase.from('software_licenses').select('*'),
         supabase.from('license_assignments').select('*'),
@@ -242,14 +300,14 @@ export const fetchAllData = async () => {
     });
 
     return {
-        equipment: equipment.data || [],
+        equipment: [], // Optimized: fetched paginated
         brands: brands.data || [],
         equipmentTypes: equipmentTypes.data || [],
         instituicoes: attachContacts(instituicoes.data || [], 'instituicao'),
         entidades: attachContacts(entidades.data || [], 'entidade'),
         collaborators: enrichedCollaborators,
         assignments: assignments.data || [],
-        tickets: tickets.data || [],
+        tickets: [], // Optimized: fetched paginated
         ticketActivities: ticketActivities.data || [],
         softwareLicenses: softwareLicenses.data || [],
         licenseAssignments: licenseAssignments.data || [],
@@ -296,7 +354,7 @@ export const fetchAllData = async () => {
     };
 };
 
-// --- TEMPLATES ---
+// ... (rest of the file remains unchanged)
 export const getDocumentTemplates = async () => {
     const supabase = getSupabase();
     const { data } = await supabase.from('document_templates').select('*');
@@ -306,7 +364,6 @@ export const addDocumentTemplate = (data: any) => create('document_templates', d
 export const updateDocumentTemplate = (id: string, data: any) => update('document_templates', id, data);
 export const deleteDocumentTemplate = (id: string) => remove('document_templates', id);
 
-// --- CONFIG ITEMS ---
 export const addConfigItem = (table: string, item: any) => create(table, item);
 export const updateConfigItem = (table: string, id: string, item: any) => update(table, id, item);
 export const deleteConfigItem = (table: string, id: string) => remove(table, id);
@@ -322,7 +379,6 @@ export const addContactTitle = (item: any) => create('contact_titles', item);
 export const updateContactTitle = (id: string, item: any) => update('contact_titles', id, item);
 export const deleteContactTitle = (id: string) => remove('contact_titles', id);
 
-// NEW: Job Titles
 export const addJobTitle = (item: any) => create('config_job_titles', item);
 export const updateJobTitle = (id: string, item: any) => update('config_job_titles', id, item);
 export const deleteJobTitle = (id: string) => remove('config_job_titles', id);

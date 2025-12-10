@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
     Collaborator, Instituicao, Entidade, Team, Supplier, 
-    ModuleKey, PermissionAction, defaultTooltipConfig, Brand, Assignment, SoftwareLicense, LicenseAssignment, TicketStatus, ConfigItem
+    ModuleKey, PermissionAction, defaultTooltipConfig, Assignment, TicketStatus, ConfigItem, Brand
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -25,7 +26,7 @@ import CollaboratorHistoryModal from '../../components/CollaboratorHistoryModal'
 import { CollaboratorDetailModal } from '../../components/CollaboratorDetailModal';
 import CredentialsModal from '../../components/CredentialsModal';
 import OffboardingModal from '../../components/OffboardingModal';
-import OnboardingModal from '../../components/OnboardingModal'; // Import New Modal
+import OnboardingModal from '../../components/OnboardingModal';
 
 interface OrganizationManagerProps {
     activeTab: string;
@@ -43,62 +44,89 @@ const PROTECTED_EMAIL = 'josefsmoreira@outlook.com';
 const OrganizationManager: React.FC<OrganizationManagerProps> = ({ 
     activeTab, appData, checkPermission, refreshData, currentUser, setActiveTab, onStartChat, setReportType 
 }) => {
+    // Server-Side Data State for Collaborators
+    const [collabsData, setCollabsData] = useState<Collaborator[]>([]);
+    const [totalCollabs, setTotalCollabs] = useState(0);
+    const [collabsLoading, setCollabsLoading] = useState(false);
+    const [collabPage, setCollabPage] = useState(1);
+    const [collabPageSize, setCollabPageSize] = useState(20);
+    // Local filter state managed here for server calls
+    const [collabFilters, setCollabFilters] = useState({ query: '', entidadId: '', status: '', role: '' });
+    
     // Modals State
     const [showAddInstituicaoModal, setShowAddInstituicaoModal] = useState(false);
     const [instituicaoToEdit, setInstituicaoToEdit] = useState<Instituicao | null>(null);
-    
     const [showAddEntidadeModal, setShowAddEntidadeModal] = useState(false);
     const [entidadeToEdit, setEntidadeToEdit] = useState<Entidade | null>(null);
-
     const [showAddCollaboratorModal, setShowAddCollaboratorModal] = useState(false);
     const [collaboratorToEdit, setCollaboratorToEdit] = useState<Collaborator | null>(null);
-    
     const [showAddTeamModal, setShowAddTeamModal] = useState(false);
     const [teamToEdit, setTeamToEdit] = useState<Team | null>(null);
     const [showManageTeamMembersModal, setShowManageTeamMembersModal] = useState(false);
     const [teamToManage, setTeamToManage] = useState<Team | null>(null);
-    
     const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
     const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
-
     const [showImportModal, setShowImportModal] = useState(false);
     const [importConfig, setImportConfig] = useState<any>(null);
-    
     const [showCollaboratorHistoryModal, setShowCollaboratorHistoryModal] = useState(false);
     const [historyCollaborator, setHistoryCollaborator] = useState<Collaborator | null>(null);
-    
     const [showCollaboratorDetailModal, setShowCollaboratorDetailModal] = useState(false);
     const [detailCollaborator, setDetailCollaborator] = useState<Collaborator | null>(null);
-
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
     const [newCredentials, setNewCredentials] = useState<{email: string, password?: string} | null>(null);
-    
-    // Offboarding State
     const [showOffboardingModal, setShowOffboardingModal] = useState(false);
     const [collaboratorToOffboard, setCollaboratorToOffboard] = useState<Collaborator | null>(null);
-    
-    // Onboarding State
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
-    // Handlers for Detail Modal Actions
+    // --- DATA FETCHING (SERVER SIDE) ---
+    const fetchCollaborators = useCallback(async () => {
+        setCollabsLoading(true);
+        try {
+            const { data, total } = await dataService.fetchCollaboratorsPaginated({
+                page: collabPage,
+                pageSize: collabPageSize,
+                filters: collabFilters,
+                sort: { key: 'fullName', direction: 'ascending' }
+            });
+            setCollabsData(data);
+            setTotalCollabs(total);
+        } catch (error) {
+            console.error("Error fetching collaborators:", error);
+            setCollabsData([]);
+            setTotalCollabs(0);
+        } finally {
+            setCollabsLoading(false);
+        }
+    }, [collabPage, collabPageSize, collabFilters]);
+
+    useEffect(() => {
+        if (activeTab === 'collaborators') {
+            fetchCollaborators();
+        }
+    }, [activeTab, fetchCollaborators]);
+
+    const handleRefresh = async () => {
+        await fetchCollaborators();
+        refreshData();
+    };
+
+    // Handlers...
     const handleAssignEquipment = async (collaboratorId: string, equipmentId: string) => {
         await dataService.updateEquipment(equipmentId, { status: 'Operacional' });
         await dataService.addAssignment({ equipmentId, collaboratorId, assignedDate: new Date().toISOString().split('T')[0] });
-        refreshData();
+        handleRefresh();
     };
 
     const handleUnassignEquipment = async (equipmentId: string) => {
         await dataService.addAssignment({ equipmentId, returnDate: new Date().toISOString().split('T')[0] });
-        refreshData();
+        handleRefresh();
     };
 
     const handleSaveCollaborator = async (col: any, pass?: string) => {
         if (collaboratorToEdit) {
             const updatedCollaborator = await dataService.updateCollaborator(collaboratorToEdit.id, col);
-            
-            // Handle Manual Password Reset
             if (pass) {
                 try {
                     await dataService.adminResetPassword(collaboratorToEdit.id, pass);
@@ -108,8 +136,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     alert(`Erro ao redefinir password: ${e.message}`);
                 }
             }
-            
-            refreshData();
+            handleRefresh();
             return updatedCollaborator;
         } else {
             const newCol = await dataService.addCollaborator(col, pass);
@@ -117,42 +144,37 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 setNewCredentials({ email: newCol.email, password: pass });
                 setShowCredentialsModal(true);
             }
-            refreshData();
+            handleRefresh();
             return newCol;
         }
     };
     
     const handleDeleteCollaborator = async (id: string) => {
-        const collab = appData.collaborators.find((c: Collaborator) => c.id === id);
+        const collab = collabsData.find(c => c.id === id); // Look in current page first, fall back to API if needed but action is local
         if (collab && collab.email === PROTECTED_EMAIL) {
             alert("Ação Proibida: Este utilizador raiz não pode ser eliminado.");
             return;
         }
-        
         if (window.confirm("Tem a certeza? Esta ação é irreversível.")) { 
             await dataService.deleteCollaborator(id); 
-            refreshData(); 
+            handleRefresh(); 
         }
     };
     
     const onToggleStatus = async (collaborator: Collaborator) => {
         if (!collaborator) return;
-        
         const isActivating = collaborator.status === 'Inativo';
         if (isActivating) {
             await dataService.updateCollaborator(collaborator.id, { status: 'Ativo' });
-            refreshData();
+            handleRefresh();
             return;
         }
-
-        const assignedEquipment = appData.assignments.filter((a: Assignment) => a.collaboratorId === collaborator.id && !a.returnDate);
-        // Now we open the modal even if no equipment, to capture the deactivation reason
         setCollaboratorToOffboard(collaborator);
         setShowOffboardingModal(true);
     };
     
     const handleConfirmOffboarding = async (collaboratorId: string, reasonId?: string) => {
-        const collaborator = appData.collaborators.find((c: Collaborator) => c.id === collaboratorId);
+        const collaborator = collabsData.find(c => c.id === collaboratorId) || appData.collaborators.find((c:any) => c.id === collaboratorId);
         if (!collaborator) return;
         
         if (collaborator.email === PROTECTED_EMAIL) {
@@ -160,22 +182,19 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
             return;
         }
 
-        // 1. Unassign all equipment
         const assignedEquipmentIds = appData.assignments
             .filter((a: Assignment) => a.collaboratorId === collaboratorId && !a.returnDate)
             .map((a: Assignment) => a.equipmentId);
         
         for (const eqId of assignedEquipmentIds) {
-            await handleUnassignEquipment(eqId);
+            await handleUnassignEquipment(eqId); // This refreshes assignments table implicitly via hook
         }
         
-        // 2. Inactivate collaborator and set reason
         await dataService.updateCollaborator(collaboratorId, { 
             status: 'Inativo',
             deactivation_reason_id: reasonId || undefined
         });
         
-        // 3. Create ticket for IT
         await dataService.addTicket({
             title: `Offboarding: ${collaborator.fullName}`,
             description: `Processo de saída iniciado para ${collaborator.fullName}. Motivo: ${reasonId ? appData.configCollaboratorDeactivationReasons.find((r: ConfigItem) => r.id === reasonId)?.name : 'N/A'}. Por favor, revogar todos os acessos.`,
@@ -188,12 +207,12 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         
         await dataService.logAction('OFFBOARDING', 'Collaborator', `Offboarding process initiated for ${collaborator.fullName}`, collaboratorId);
 
-        refreshData();
+        handleRefresh();
     };
 
     return (
         <>
-             {activeTab === 'organizacao.instituicoes' && (
+            {activeTab === 'organizacao.instituicoes' && (
                 <InstituicaoDashboard 
                     instituicoes={appData.instituicoes}
                     escolasDepartamentos={appData.entidades}
@@ -251,10 +270,18 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     )}
                 </div>
                 <CollaboratorDashboard 
-                    collaborators={appData.collaborators}
+                    collaborators={collabsData} // Paginated data
+                    totalItems={totalCollabs}
+                    loading={collabsLoading}
+                    page={collabPage}
+                    pageSize={collabPageSize}
+                    onPageChange={setCollabPage}
+                    onPageSizeChange={setCollabPageSize}
+                    onFilterChange={setCollabFilters}
+
                     escolasDepartamentos={appData.entidades}
                     instituicoes={appData.instituicoes}
-                    equipment={appData.equipment}
+                    equipment={appData.equipment} // Needed for count/tooltips (Note: global list for lookup)
                     assignments={appData.assignments}
                     tickets={appData.tickets}
                     ticketActivities={appData.ticketActivities}
@@ -278,12 +305,12 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 </>
             )}
 
-            {/* ... (Team and Supplier Dashboards remain the same) ... */}
+            {/* ... (Team and Supplier Dashboards - unchanged logic) ... */}
             {activeTab === 'organizacao.teams' && (
                 <TeamDashboard 
                     teams={appData.teams}
                     teamMembers={appData.teamMembers}
-                    collaborators={appData.collaborators}
+                    collaborators={appData.collaborators} // Dropdowns need full list
                     tickets={appData.tickets}
                     equipmentTypes={appData.equipmentTypes}
                     onEdit={checkPermission('organization', 'edit') ? (t) => { setTeamToEdit(t); setShowAddTeamModal(true); } : undefined}
@@ -396,11 +423,9 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onClose={() => setShowImportModal(false)} 
                     onImport={async (type, data) => {
                         try {
+                            // Basic import implementation (no server pagination needed here usually)
                             if (type === 'instituicoes') {
                                 alert('Importação de instituições não implementada em lote nesta versão de demonstração.');
-                            }
-                            else if (type === 'entidades') {
-                                 alert('Importação de entidades não implementada em lote nesta versão de demonstração.');
                             }
                             refreshData();
                             return { success: true, message: `Importação processada.` };
@@ -462,13 +487,12 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 />
             )}
 
-            {/* NEW ONBOARDING MODAL */}
             {showOnboardingModal && (
                 <OnboardingModal
                     onClose={() => setShowOnboardingModal(false)}
-                    onSave={refreshData}
+                    onSave={handleRefresh}
                     equipmentTypes={appData.equipmentTypes}
-                    softwareCategories={appData.softwareCategories} // Using categories for selection
+                    softwareCategories={appData.softwareCategories}
                     entidades={appData.entidades}
                     instituicoes={appData.instituicoes}
                     currentUser={currentUser}

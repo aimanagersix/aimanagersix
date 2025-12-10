@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao, ConfigItem } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff, FaPlaneArrival } from 'react-icons/fa';
@@ -8,7 +8,7 @@ import Pagination from './common/Pagination';
 interface CollaboratorDashboardProps {
   collaborators: Collaborator[];
   escolasDepartamentos: Entidade[];
-  instituicoes: Instituicao[]; // New Prop
+  instituicoes: Instituicao[]; 
   equipment: Equipment[];
   assignments: Assignment[];
   tickets: Ticket[];
@@ -26,10 +26,18 @@ interface CollaboratorDashboardProps {
   onToggleStatus?: (collaborator: Collaborator) => void;
   onCreate?: () => void;
   tooltipConfig?: TooltipConfig;
-  // New Handlers passed to Detail Modal
   onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
   onUnassignEquipment?: (equipmentId: string) => Promise<void>;
   deactivationReasons?: ConfigItem[];
+
+  // Server-Side Pagination Props
+  totalItems?: number;
+  loading?: boolean;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+  onFilterChange?: (filter: any) => void;
 }
 
 interface TooltipState {
@@ -77,18 +85,16 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     tooltipConfig = defaultTooltipConfig,
     onAssignEquipment,
     onUnassignEquipment,
-    deactivationReasons
+    deactivationReasons,
+    totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange
 }) => {
     
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState({ entidadeId: '', status: '', role: '' });
+    // Local filter state to sync with inputs
+    const [filters, setFilters] = useState({ query: '', entidadeId: '', status: '', role: '' });
     const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
     
     const entidadeMap = React.useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const instituicaoMap = React.useMemo(() => new Map(instituicoes.map(i => [i.id, i.name])), [instituicoes]);
-
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, `${e.description} (SN: ${e.serialNumber})`])), [equipment]);
 
     const equipmentByCollaborator = useMemo(() => {
@@ -107,101 +113,40 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         return map;
     }, [assignments, equipmentMap]);
 
-    // Calculate dependencies for deletion logic
+    // Calculate dependencies for deletion logic (client-side check for visible/loaded items)
+    // Note: For full accuracy with pagination, server should check relations before delete, 
+    // but this UI helper prevents accidental clicks for loaded users.
     const dependencyMap = useMemo(() => {
         const map = new Map<string, string[]>();
-        
         const addDependency = (id: string, reason: string) => {
              if (!map.has(id)) map.set(id, []);
              if (!map.get(id)!.includes(reason)) map.get(id)!.push(reason);
         };
-
-        // Check Assignments (All history, not just active)
-        assignments.forEach(a => {
-            if (a.collaboratorId) addDependency(a.collaboratorId, 'Atribuições de Equipamento');
-        });
-
-        // Check Tickets (Requester or Technician)
-        tickets.forEach(t => {
-            if (t.collaboratorId) addDependency(t.collaboratorId, 'Tickets (Requerente)');
-            if (t.technicianId) addDependency(t.technicianId, 'Tickets (Técnico)');
-        });
-
-        // Check Activities
-        ticketActivities.forEach(ta => {
-            if (ta.technicianId) addDependency(ta.technicianId, 'Atividades de Suporte');
-        });
-
-        // Check Teams
-        teamMembers.forEach(tm => {
-            if (tm.collaborator_id) addDependency(tm.collaborator_id, 'Membro de Equipa');
-        });
-        
-        // Check Collaborator History
-        collaboratorHistory.forEach(ch => {
-            if (ch.collaboratorId) addDependency(ch.collaboratorId, 'Histórico Funcional');
-        });
-        
-        // Check Messages
-        messages.forEach(m => {
-            if (m.senderId) addDependency(m.senderId, 'Mensagens');
-            if (m.receiverId) addDependency(m.receiverId, 'Mensagens');
-        });
-
+        assignments.forEach(a => { if (a.collaboratorId) addDependency(a.collaboratorId, 'Atribuições'); });
+        tickets.forEach(t => { if (t.collaboratorId) addDependency(t.collaboratorId, 'Tickets'); if (t.technicianId) addDependency(t.technicianId, 'Tickets'); });
         return map;
-
-    }, [assignments, tickets, ticketActivities, teamMembers, collaboratorHistory, messages]);
+    }, [assignments, tickets]);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-        setCurrentPage(1);
+        const newFilters = { ...filters, [name]: value };
+        setFilters(newFilters);
+        
+        if (onFilterChange) onFilterChange(newFilters);
+        if (onPageChange) onPageChange(1);
     };
 
     const clearFilters = () => {
-        setSearchQuery('');
-        setFilters({ entidadeId: '', status: '', role: '' });
-        setCurrentPage(1);
+        const blank = { query: '', entidadeId: '', status: '', role: '' };
+        setFilters(blank);
+        if (onFilterChange) onFilterChange(blank);
+        if (onPageChange) onPageChange(1);
     };
-
-    const handleItemsPerPageChange = (size: number) => {
-        setItemsPerPage(size);
-        setCurrentPage(1);
-    };
-
-    const filteredCollaborators = useMemo(() => {
-        const query = searchQuery.toLowerCase();
-        return collaborators.filter(col => {
-            const searchMatch = query === '' ||
-                col.fullName.toLowerCase().includes(query) ||
-                col.email.toLowerCase().includes(query) ||
-                (col.numeroMecanografico || '').toLowerCase().includes(query);
-
-            const entidadeMatch = filters.entidadeId === '' || col.entidadeId === filters.entidadeId;
-            const statusMatch = filters.status === '' || col.status === filters.status;
-            const roleMatch = filters.role === '' || col.role === filters.role;
-            
-            return searchMatch && entidadeMatch && statusMatch && roleMatch;
-        }).sort((a,b) => a.fullName.localeCompare(b.fullName));
-    }, [collaborators, filters, searchQuery]);
-    
-    const totalPages = Math.ceil(filteredCollaborators.length / itemsPerPage);
-    const paginatedCollaborators = useMemo(() => {
-        return filteredCollaborators.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    }, [filteredCollaborators, currentPage, itemsPerPage]);
 
     const handleMouseOver = (col: Collaborator, event: React.MouseEvent) => {
         const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
-        // Ensure defaults are used if config is partial
         const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
-        
-        const entityName = col.entidadeId 
-            ? entidadeMap.get(col.entidadeId) 
-            : col.instituicaoId 
-                ? instituicaoMap.get(col.instituicaoId) 
-                : 'Global / N/A';
-                
-        // Prefer Job Title for display, fallback to Role if not set
+        const entityName = col.entidadeId ? entidadeMap.get(col.entidadeId) : col.instituicaoId ? instituicaoMap.get(col.instituicaoId) : 'Global / N/A';
         const displayJob = col.job_title_name || col.role;
 
         const content = (
@@ -215,7 +160,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         {col.telemovel && <p><strong className="text-gray-400">Móvel:</strong> <span className="text-white">{col.telemovel}</span></p>}
                     </div>
                 )}
-                
                 {assignedEquipment.length > 0 && (
                     <div className="mt-2 border-t border-gray-700 pt-1">
                         <p className="font-bold text-brand-secondary mb-1">Equipamentos ({assignedEquipment.length}):</p>
@@ -227,24 +171,14 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 )}
             </div>
         );
-
-        setTooltip({
-            visible: true,
-            content: content,
-            x: event.clientX,
-            y: event.clientY,
-        });
+        setTooltip({ visible: true, content: content, x: event.clientX, y: event.clientY });
     };
 
     const handleMouseMove = (event: React.MouseEvent) => {
-        if (tooltip?.visible) {
-            setTooltip(prev => prev ? { ...prev, x: event.clientX, y: event.clientY } : null);
-        }
+        if (tooltip?.visible) setTooltip(prev => prev ? { ...prev, x: event.clientX, y: event.clientY } : null);
     };
 
-    const handleMouseLeave = () => {
-        setTooltip(null);
-    };
+    const handleMouseLeave = () => setTooltip(null);
     
     const getAssociationText = (col: Collaborator) => {
         if (col.entidadeId) return entidadeMap.get(col.entidadeId) || 'Entidade N/A';
@@ -259,12 +193,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
             <h2 className="text-xl font-semibold text-white">Gestão de Colaboradores</h2>
              <div className="flex items-center gap-2">
                 {onGenerateReport && (
-                    <button
-                        onClick={onGenerateReport}
-                        className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
-                    >
-                        <ReportIcon />
-                        Gerar Relatório
+                    <button onClick={onGenerateReport} className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors">
+                        <ReportIcon /> Gerar Relatório
                     </button>
                 )}
                 {onCreate && (
@@ -285,9 +215,10 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         </div>
                         <input
                             type="text"
+                            name="query"
                             id="searchQuery"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            value={filters.query}
+                            onChange={handleFilterChange}
                             placeholder="Nome, email, nº mecanográfico..."
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 pl-10 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
                         />
@@ -334,16 +265,14 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 </div>
             </div>
             <div className="flex justify-end">
-                <button
-                    onClick={clearFilters}
-                    className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
-                >
-                    Limpar Filtros
-                </button>
+                <button onClick={clearFilters} className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Limpar Filtros</button>
             </div>
         </div>
       
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto min-h-[400px]">
+        {loading ? (
+             <div className="flex justify-center items-center h-64 text-gray-400">A carregar colaboradores...</div>
+        ) : (
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
@@ -358,7 +287,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
             </tr>
           </thead>
           <tbody>
-            {paginatedCollaborators.length > 0 ? paginatedCollaborators.map((col) => {
+            {collaborators.length > 0 ? collaborators.map((col) => {
                  const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
                  const equipmentCount = assignedEquipment.length;
                  const dependencies = dependencyMap.get(col.id) || [];
@@ -366,26 +295,15 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  const isSuperAdmin = col.role === UserRole.SuperAdmin;
                  const isCurrentUser = currentUser?.id === col.id;
                  const isOnboarding = col.status === CollaboratorStatus.Onboarding;
-                 const isProtectedUser = col.email === PROTECTED_EMAIL; // Hardcoded protection
+                 const isProtectedUser = col.email === PROTECTED_EMAIL; 
                  
-                 // Disable delete for SuperAdmin OR self OR specific protected email
                  const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || isCurrentUser || isProtectedUser;
                  
                  let deleteTooltip = `Excluir ${col.fullName}`;
-                 if (isProtectedUser) {
-                     deleteTooltip = "Utilizador Protegido pelo Sistema (Raiz)";
-                 } else if (isSuperAdmin) {
-                     deleteTooltip = "Impossível excluir perfil SuperAdmin";
-                 } else if (isCurrentUser) {
-                     deleteTooltip = "Não pode apagar o seu próprio utilizador";
-                 } else if (dependencies.length > 0) {
-                     const uniqueDependencies = Array.from(new Set(dependencies));
-                     const displayedReasons = uniqueDependencies.slice(0, 3);
-                     if (uniqueDependencies.length > 3) {
-                         displayedReasons.push('...');
-                     }
-                     deleteTooltip = `Impossível excluir: Associado a ${displayedReasons.join(", ")}`;
-                 }
+                 if (isProtectedUser) deleteTooltip = "Utilizador Protegido pelo Sistema (Raiz)";
+                 else if (isSuperAdmin) deleteTooltip = "Impossível excluir perfil SuperAdmin";
+                 else if (isCurrentUser) deleteTooltip = "Não pode apagar o seu próprio utilizador";
+                 else if (dependencies.length > 0) deleteTooltip = `Impossível excluir: Associado a registos (Tickets, Atribuições)`;
 
                 return (
               <tr 
@@ -407,11 +325,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     <div>
                         <span>{col.fullName}</span>
                         {isOnboarding && <span className="ml-2 text-[10px] uppercase bg-blue-900/50 text-blue-300 px-1 rounded border border-blue-500/30 flex items-center w-fit gap-1 mt-0.5"><FaPlaneArrival/> Novo</span>}
-                        {equipmentCount > 0 && (
-                            <div className="text-xs text-brand-secondary mt-1">
-                                {equipmentCount} equipamento(s) atribuído(s)
-                            </div>
-                        )}
+                        {equipmentCount > 0 && <div className="text-xs text-brand-secondary mt-1">{equipmentCount} equipamento(s) atribuído(s)</div>}
                     </div>
                   </div>
                 </td>
@@ -424,23 +338,15 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     <div className="font-semibold text-white">{col.job_title_name || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}</div>
                     <div className="text-xs text-gray-500">{col.role}</div>
                 </td>
+                <td className="px-6 py-4">{getAssociationText(col)}</td>
                 <td className="px-6 py-4">
-                    {getAssociationText(col)}
-                </td>
-                <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(col.status)}`}>
-                        {col.status}
-                    </span>
+                    <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(col.status)}`}>{col.status}</span>
                 </td>
                 <td className="px-6 py-4 text-center">
                     {col.canLogin ? (
-                        <span className="inline-flex items-center justify-center p-1.5 bg-green-500/20 rounded-full" title="Acesso permitido">
-                            <CheckIcon className="h-4 w-4 text-green-400" />
-                        </span>
+                        <span className="inline-flex items-center justify-center p-1.5 bg-green-500/20 rounded-full" title="Acesso permitido"><CheckIcon className="h-4 w-4 text-green-400" /></span>
                     ) : (
-                        <span className="inline-flex items-center justify-center p-1.5 bg-red-500/20 rounded-full" title="Acesso negado">
-                            <XIcon className="h-4 w-4 text-red-400" />
-                        </span>
+                        <span className="inline-flex items-center justify-center p-1.5 bg-red-500/20 rounded-full" title="Acesso negado"><XIcon className="h-4 w-4 text-red-400" /></span>
                     )}
                 </td>
                 <td className="px-6 py-4 text-center">
@@ -455,26 +361,17 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                             </button>
                         )}
                         {onStartChat && currentUser && currentUser.id !== col.id && (
-                             <button onClick={(e) => { e.stopPropagation(); onStartChat(col); }} className="text-gray-400 hover:text-white" aria-label={`Mensagem para ${col.fullName}`}>
-                                <FaComment className="h-5 w-5"/>
-                            </button>
+                             <button onClick={(e) => { e.stopPropagation(); onStartChat(col); }} className="text-gray-400 hover:text-white" aria-label={`Mensagem para ${col.fullName}`}><FaComment className="h-5 w-5"/></button>
                         )}
                         {onShowDetails && ( 
-                            <button onClick={(e) => { e.stopPropagation(); onShowDetails(col); }} className="text-teal-400 hover:text-teal-300" aria-label={`Ficha de ${col.fullName}`}>
-                                <ReportIcon className="h-5 w-5"/>
-                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); onShowDetails(col); }} className="text-teal-400 hover:text-teal-300" aria-label={`Ficha de ${col.fullName}`}><ReportIcon className="h-5 w-5"/></button>
                         )}
                         {onEdit && (
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(col); }} className="text-blue-400 hover:text-blue-300" aria-label={`Edit ${col.fullName}`}>
-                                <EditIcon />
-                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(col); }} className="text-blue-400 hover:text-blue-300" aria-label={`Edit ${col.fullName}`}><EditIcon /></button>
                         )}
                         {onDelete && !isSuperAdmin && (
                             <button 
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    if (!isDeleteDisabled) onDelete(col.id); 
-                                }} 
+                                onClick={(e) => { e.stopPropagation(); if (!isDeleteDisabled) onDelete(col.id); }} 
                                 className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
                                 disabled={isDeleteDisabled}
                                 title={deleteTooltip}
@@ -488,34 +385,24 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
               </tr>
             )
             }) : (
-                <tr>
-                    <td colSpan={8} className="text-center py-8 text-on-surface-dark-secondary">Nenhum colaborador encontrado com os filtros atuais.</td>
-                </tr>
+                <tr><td colSpan={8} className="text-center py-8 text-on-surface-dark-secondary">Nenhum colaborador encontrado com os filtros atuais.</td></tr>
             )}
           </tbody>
         </table>
+        )}
         {tooltip?.visible && (
-            <div
-                style={{
-                    position: 'fixed',
-                    top: tooltip.y + 15,
-                    left: tooltip.x + 15,
-                    pointerEvents: 'none',
-                }}
-                className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm"
-                role="tooltip"
-            >
+            <div style={{ position: 'fixed', top: tooltip.y + 15, left: tooltip.x + 15, pointerEvents: 'none' }} className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm" role="tooltip">
                 {tooltip.content}
             </div>
         )}
       </div>
        <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onItemsPerPageChange={handleItemsPerPageChange}
-            totalItems={filteredCollaborators.length}
+            currentPage={page || 1}
+            totalPages={Math.ceil((totalItems || 0) / (pageSize || 20))}
+            onPageChange={(p) => onPageChange && onPageChange(p)}
+            itemsPerPage={pageSize || 20}
+            onItemsPerPageChange={(s) => onPageSizeChange && onPageSizeChange(s)}
+            totalItems={totalItems || 0}
         />
     </div>
   );

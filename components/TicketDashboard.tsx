@@ -4,7 +4,7 @@ import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, Equipmen
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
-import * as dataService from '../services/dataService'; // To fetch suppliers map if not passed prop, but ideally passed prop
+import * as dataService from '../services/dataService';
 
 interface TicketDashboardProps {
   tickets: Ticket[];
@@ -22,7 +22,16 @@ interface TicketDashboardProps {
   onOpenActivities?: (ticket: Ticket) => void;
   onGenerateSecurityReport?: (ticket: Ticket) => void;
   categories: TicketCategoryItem[];
-  onCreate?: () => void; 
+  onCreate?: () => void;
+  
+  // Server-Side Pagination Props
+  totalItems?: number;
+  loading?: boolean;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+  onFilterChange?: (filter: any) => void;
 }
 
 const getStatusClass = (status: TicketStatus) => {
@@ -34,7 +43,7 @@ const getStatusClass = (status: TicketStatus) => {
     }
 };
 
-// Helper to calculate NIS2 Regulatory Deadline (24h)
+// ... (Keep helper functions getNis2Countdown, getSLATimer, getSecurityIcon as is) ...
 const getNis2Countdown = (ticket: Ticket) => {
     if (ticket.status === TicketStatus.Finished) return null;
     
@@ -65,87 +74,59 @@ const getNis2Countdown = (ticket: Ticket) => {
     }
 };
 
-// Helper to calculate deadlines based on Category SLA
 const getSLATimer = (ticket: Ticket, category?: TicketCategoryItem) => {
     if (ticket.status === TicketStatus.Finished) {
         return null;
     }
-    
-    // If no custom SLA is defined, default to 0 (no timer) or special logic for Security Incident Enum fallback
     let warningLimit = category?.sla_warning_hours || 0;
     let criticalLimit = category?.sla_critical_hours || 0;
-
-    // Fallback for hardcoded legacy 'Incidente de Segurança' if not in DB yet
     if (warningLimit === 0 && criticalLimit === 0 && (ticket.category === 'Incidente de Segurança' || ticket.category === TicketCategory.SecurityIncident)) {
         warningLimit = 24;
         criticalLimit = 72;
     }
-
     if (warningLimit === 0 && criticalLimit === 0) return null;
 
     const requestDate = new Date(ticket.requestDate);
     const now = new Date();
     const elapsedHours = (now.getTime() - requestDate.getTime()) / (1000 * 60 * 60);
 
-    // Warning Zone
     if (warningLimit > 0 && elapsedHours < warningLimit) {
         const hoursLeft = Math.ceil(warningLimit - elapsedHours);
-        return {
-            label: 'Alerta',
-            text: `${hoursLeft}h restantes`,
-            className: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
-            icon: <FaClock className="animate-pulse" />
-        };
+        return { label: 'Alerta', text: `${hoursLeft}h restantes`, className: 'text-orange-400 border-orange-500/30 bg-orange-500/10', icon: <FaClock className="animate-pulse" /> };
     }
-    // Critical Zone
     if (criticalLimit > 0 && elapsedHours < criticalLimit) {
         const hoursLeft = Math.ceil(criticalLimit - elapsedHours);
-        return {
-            label: 'Prazo Final',
-            text: `${hoursLeft}h restantes`,
-            className: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
-            icon: <FaExclamationTriangle />
-        };
+        return { label: 'Prazo Final', text: `${hoursLeft}h restantes`, className: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10', icon: <FaExclamationTriangle /> };
     }
-    
-    // Overdue
     if (criticalLimit > 0) {
-        return {
-            label: 'SLA Excedido',
-            text: `+${Math.floor(elapsedHours - criticalLimit)}h atraso`,
-            className: 'text-red-500 border-red-500/50 bg-red-500/20 font-bold',
-            icon: <FaShieldAlt />
-        };
+        return { label: 'SLA Excedido', text: `+${Math.floor(elapsedHours - criticalLimit)}h atraso`, className: 'text-red-500 border-red-500/50 bg-red-500/20 font-bold', icon: <FaShieldAlt /> };
     }
-
     return null;
 };
 
-// Helper to get icon for security incident type (Flexible matching for dynamic DB strings)
 const getSecurityIcon = (type?: string) => {
     if (!type) return <FaShieldAlt className="text-red-500" />;
-    
     const lowerType = type.toLowerCase();
-    
     if (lowerType.includes('ransomware')) return <FaSkull className="text-red-500" title="Ransomware" />;
     if (lowerType.includes('phishing') || lowerType.includes('engenharia')) return <FaUserSecret className="text-orange-500" title="Phishing" />;
-    if (lowerType.includes('malware') || lowerType.includes('vírus') || lowerType.includes('virus')) return <FaBug className="text-yellow-500" title="Malware" />;
+    if (lowerType.includes('malware') || lowerType.includes('vírus')) return <FaBug className="text-yellow-500" title="Malware" />;
     if (lowerType.includes('ddos') || lowerType.includes('negação')) return <FaNetworkWired className="text-purple-500" title="DDoS" />;
     if (lowerType.includes('fuga') || lowerType.includes('leak')) return <FaLock className="text-red-400" title="Fuga de Dados" />;
-    
     return <FaShieldAlt className="text-red-500" />;
 };
 
 
-const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, onGenerateReport, onOpenActivities, onGenerateSecurityReport, categories, onCreate }) => {
+const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
+    tickets, escolasDepartamentos: entidades, collaborators, teams, equipment, 
+    onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, 
+    onGenerateReport, onOpenActivities, onGenerateSecurityReport, categories, onCreate,
+    totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange
+}) => {
     
-    const [filters, setFilters] = useState<{ status: string | string[], team_id: string, category: string }>({ status: '', team_id: '', category: '' });
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [filters, setFilters] = useState<{ status: string, team_id: string, category: string, title: string }>({ status: '', team_id: '', category: '', title: '' });
     const [supplierMap, setSupplierMap] = useState<Map<string, string>>(new Map());
 
     useEffect(() => {
-        // Fetch suppliers for mapping requester IDs
         const loadSuppliers = async () => {
             const data = await dataService.fetchAllData();
             const map = new Map<string, string>(data.suppliers.map((s: any) => [s.id, s.name]));
@@ -156,17 +137,14 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
 
     useEffect(() => {
         if (initialFilter) {
-            // Updated logic to accept all filter fields coming from OverviewDashboard
-            setFilters({
-                status: initialFilter.status || '',
+            setFilters(prev => ({
+                ...prev,
+                status: Array.isArray(initialFilter.status) ? '' : (initialFilter.status || ''),
                 category: initialFilter.category || '',
                 team_id: initialFilter.team_id || ''
-            });
-        } else {
-            // Reset
-            setFilters({ status: '', category: '', team_id: '' });
+            }));
+            // If filters are passed from parent (overview), they are already applied to the server fetch in manager.
         }
-        setCurrentPage(1); // Reset page on filter change
     }, [initialFilter]);
     
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
@@ -175,58 +153,26 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
     
-    // Fallback if categories empty
     const displayCategories = categories.length > 0 ? categories.map(c => c.name) : Object.values(TicketCategory);
 
-    const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFilters(prev => ({...prev, [name]: value}));
-        onClearInitialFilter?.();
-        setCurrentPage(1);
+        const newFilters = { ...filters, [name]: value };
+        setFilters(newFilters);
+        
+        if (onFilterChange) {
+            onFilterChange(newFilters);
+        }
+        if (onClearInitialFilter) onClearInitialFilter();
+        if (onPageChange) onPageChange(1);
     };
-    
-    const handleItemsPerPageChange = (size: number) => {
-        setItemsPerPage(size);
-        setCurrentPage(1);
-    };
-
-    const filteredTickets = useMemo(() => {
-        return [...tickets].sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
-        .filter(ticket => {
-            const teamMatch = !filters.team_id || ticket.team_id === filters.team_id;
-            // Fix category matching: check if ticket.category is equal OR if it's the generic "Incidente de Segurança" fallback
-            const categoryMatch = !filters.category || 
-                                  ticket.category === filters.category || 
-                                  (filters.category === 'Incidente de Segurança' && ticket.category === TicketCategory.SecurityIncident);
-                                  
-            const statusMatch = (() => {
-                if (!filters.status || (Array.isArray(filters.status) && filters.status.length === 0)) return true;
-                if (Array.isArray(filters.status)) {
-                    return filters.status.includes(ticket.status);
-                }
-                return ticket.status === filters.status;
-            })();
-
-            return teamMatch && statusMatch && categoryMatch;
-        });
-    }, [tickets, filters]);
-
-    const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
-    const paginatedTickets = useMemo(() => {
-        return filteredTickets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    }, [filteredTickets, currentPage, itemsPerPage]);
-
 
     const handleStatusChange = (ticket: Ticket, newStatus: TicketStatus) => {
         if (!onUpdateTicket || !onOpenCloseTicketModal) return;
-
         if (newStatus === TicketStatus.Finished) {
             onOpenCloseTicketModal(ticket);
         } else if (newStatus === TicketStatus.Requested) {
-            const updatedTicket: Ticket = {
-                ...ticket,
-                status: newStatus,
-            };
+            const updatedTicket: Ticket = { ...ticket, status: newStatus };
             delete updatedTicket.finishDate;
             delete updatedTicket.technicianId;
             onUpdateTicket(updatedTicket);
@@ -248,47 +194,40 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    {/* Create Button added here */}
                     {onCreate && (
                         <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors mr-2">
                             <PlusIcon /> Abrir Ticket
                         </button>
                     )}
                     
-                    <select
-                        id="categoryFilter"
-                        name="category"
-                        value={filters.category}
-                        onChange={handleFilterChange}
+                    <input 
+                        type="text" 
+                        name="title" 
+                        placeholder="Pesquisar assunto..." 
+                        value={filters.title} 
+                        onChange={handleFilterChange} 
                         className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                     >
+                    />
+
+                    <select id="categoryFilter" name="category" value={filters.category} onChange={handleFilterChange} className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
                         <option value="">Todas as Categorias</option>
                         {displayCategories.map(c => <option key={c} value={c}>{c}</option>)}
                      </select>
-                     <select
-                        id="team_idFilter"
-                        name="team_id"
-                        value={filters.team_id}
-                        onChange={handleFilterChange}
-                        className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                     >
+                     <select id="team_idFilter" name="team_id" value={filters.team_id} onChange={handleFilterChange} className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
                         <option value="">Todas as Equipas</option>
                         {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                      </select>
-                     <select
-                        id="statusFilter"
-                        name="status"
-                        value={Array.isArray(filters.status) ? '' : filters.status}
-                        onChange={handleFilterChange}
-                        className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                     >
+                     <select id="statusFilter" name="status" value={filters.status} onChange={handleFilterChange} className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
                         <option value="">Todos os Estados</option>
                         {Object.values(TicketStatus).map(s => <option key={s} value={s}>{s}</option>)}
                      </select>
                 </div>
             </div>
         
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto min-h-[400px]">
+                {loading ? (
+                    <div className="flex justify-center items-center h-64 text-gray-400">A carregar tickets...</div>
+                ) : (
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
@@ -302,19 +241,16 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedTickets.length > 0 ? paginatedTickets.map((ticket) => {
+                        {tickets.length > 0 ? tickets.map((ticket) => {
                             const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
                             const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
                             const sla = getSLATimer(ticket, categoryObj);
                             const nis2Countdown = getNis2Countdown(ticket);
-                            const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança' || (categoryObj && (categoryObj.sla_warning_hours || 0 > 0 || categoryObj.sla_critical_hours || 0 > 0));
                             const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
                             
-                            // Determine requester display
                             const requesterName = ticket.requester_supplier_id 
                                 ? supplierMap.get(ticket.requester_supplier_id) 
                                 : (collaboratorMap.get(ticket.collaboratorId) || 'N/A');
-                            
                             const isSupplierRequester = !!ticket.requester_supplier_id;
 
                             return(
@@ -335,11 +271,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                         </span>
                                     </div>
                                     {isRealSecurity && ticket.securityIncidentType && (
-                                         <div className="mt-1">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-900/50 text-red-200 border border-red-700/50">
-                                                {ticket.securityIncidentType}
-                                            </span>
-                                        </div>
+                                         <div className="mt-1"><span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-900/50 text-red-200 border border-red-700/50">{ticket.securityIncidentType}</span></div>
                                     )}
                                     {isRealSecurity && ticket.impactCriticality && (
                                         <div className="text-xs mt-1 text-gray-400">Impacto: <span className="text-white font-bold">{ticket.impactCriticality}</span></div>
@@ -347,42 +279,23 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                 </td>
                                 <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs" title={ticket.description}>
                                     <div className="font-bold mb-1 text-white">
-                                        {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-2 text-on-surface-dark-secondary" title={`${ticket.attachments.length} anexo(s)`} />}
+                                        {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-2 text-on-surface-dark-secondary" />}
                                         {ticket.title || '(Sem Assunto)'}
                                     </div>
                                     <div className="text-xs text-gray-300 mb-1 flex items-center gap-1">
                                         {isSupplierRequester ? <FaTruck className="text-yellow-500"/> : null}
                                         Solicitante: {requesterName}
                                     </div>
-                                    <div className="text-on-surface-dark-secondary truncate text-xs">
-                                        {ticket.description}
-                                    </div>
+                                    <div className="text-on-surface-dark-secondary truncate text-xs">{ticket.description}</div>
                                     {associatedEquipment && (
-                                        <div className="text-xs text-indigo-400 mt-1 truncate">
-                                            Equip: {associatedEquipment.description} (S/N: {associatedEquipment.serialNumber})
-                                        </div>
+                                        <div className="text-xs text-indigo-400 mt-1 truncate">Equip: {associatedEquipment.description} ({associatedEquipment.serialNumber})</div>
                                     )}
                                     <div className="text-xs text-gray-500 mt-1">{new Date(ticket.requestDate).toLocaleString()}</div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col gap-2">
-                                        {nis2Countdown && (
-                                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border ${nis2Countdown.className}`} title="Prazo legal de notificação (Alerta Precoce 24h)">
-                                                <FaLandmark className="h-3 w-3"/>
-                                                {nis2Countdown.text}
-                                            </div>
-                                        )}
-                                        {sla ? (
-                                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border ${sla.className}`}>
-                                                {sla.icon}
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold">{sla.label}</span>
-                                                    <span>{sla.text}</span>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            !nis2Countdown && <span className="text-gray-500 text-xs">Sem SLA definido</span>
-                                        )}
+                                        {nis2Countdown && (<div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border ${nis2Countdown.className}`}><FaLandmark className="h-3 w-3"/>{nis2Countdown.text}</div>)}
+                                        {sla ? (<div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border ${sla.className}`}>{sla.icon}<div className="flex flex-col"><span className="font-bold">{sla.label}</span><span>{sla.text}</span></div></div>) : (!nis2Countdown && <span className="text-gray-500 text-xs">Sem SLA</span>)}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : '—'}</td>
@@ -393,52 +306,37 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ tickets, escolasDepar
                                         className={`px-2 py-1 rounded-md text-xs border bg-transparent ${getStatusClass(ticket.status)} focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:cursor-not-allowed disabled:opacity-70`}
                                         disabled={!onUpdateTicket}
                                     >
-                                        {Object.values(TicketStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                        {Object.values(TicketStatus).map(s => <option key={s} value={s} className="bg-gray-800 text-white">{s}</option>)}
                                     </select>
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
                                         {isRealSecurity && onGenerateSecurityReport && (
-                                             <button
-                                                onClick={(e) => { e.stopPropagation(); onGenerateSecurityReport(ticket); }}
-                                                className="text-red-400 hover:text-red-300"
-                                                title="Relatório de Notificação Oficial (NIS2)"
-                                            >
-                                                <FaFileContract className="h-5 w-5"/>
-                                            </button>
+                                             <button onClick={(e) => { e.stopPropagation(); onGenerateSecurityReport(ticket); }} className="text-red-400 hover:text-red-300" title="Relatório NIS2"><FaFileContract className="h-5 w-5"/></button>
                                         )}
                                         {onOpenActivities && (
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); onOpenActivities(ticket); }}
-                                                className="text-teal-400 hover:text-teal-300"
-                                                title="Registar Intervenção / Ver Atividades"
-                                            >
-                                                <FaTasks className="h-5 w-5"/>
-                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); onOpenActivities(ticket); }} className="text-teal-400 hover:text-teal-300" title="Atividades"><FaTasks className="h-5 w-5"/></button>
                                         )}
                                         {onEdit && (
-                                            <button onClick={(e) => { e.stopPropagation(); onEdit(ticket); }} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ticket de ${requesterName}`}>
-                                                <EditIcon />
-                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); onEdit(ticket); }} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>
                                         )}
                                     </div>
                                 </td>
                             </tr>
                         )}) : (
-                            <tr>
-                                <td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">Nenhum ticket encontrado com os filtros atuais.</td>
-                            </tr>
+                            <tr><td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">Nenhum ticket encontrado.</td></tr>
                         )}
                     </tbody>
                 </table>
+                )}
             </div>
             <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                itemsPerPage={itemsPerPage}
-                onItemsPerPageChange={handleItemsPerPageChange}
-                totalItems={filteredTickets.length}
+                currentPage={page || 1}
+                totalPages={Math.ceil((totalItems || 0) / (pageSize || 20))}
+                onPageChange={(p) => onPageChange && onPageChange(p)}
+                itemsPerPage={pageSize || 20}
+                onItemsPerPageChange={(s) => onPageSizeChange && onPageSizeChange(s)}
+                totalItems={totalItems || 0}
             />
         </div>
     );

@@ -1,7 +1,5 @@
 
-
-
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
     Ticket, Collaborator, ModuleKey, PermissionAction
 } from '../../types';
@@ -29,7 +27,14 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     appData, checkPermission, refreshData, 
     dashboardFilter, setDashboardFilter, setReportType, currentUser 
 }) => {
-    
+    // Server-Side Data State for Tickets
+    const [ticketsData, setTicketsData] = useState<Ticket[]>([]);
+    const [totalTickets, setTotalTickets] = useState(0);
+    const [ticketsLoading, setTicketsLoading] = useState(false);
+    const [ticketPage, setTicketPage] = useState(1);
+    const [ticketPageSize, setTicketPageSize] = useState(20);
+    const [ticketSort, setTicketSort] = useState<{ key: string, direction: 'ascending' | 'descending' }>({ key: 'requestDate', direction: 'descending' });
+
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
     const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
     const [showCloseTicketModal, setShowCloseTicketModal] = useState(false);
@@ -37,10 +42,48 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     const [showTicketActivitiesModal, setShowTicketActivitiesModal] = useState(false);
     const [ticketForActivities, setTicketForActivities] = useState<Ticket | null>(null);
 
+    // --- DATA FETCHING (SERVER SIDE) ---
+    const fetchTickets = useCallback(async () => {
+        setTicketsLoading(true);
+        try {
+            const { data, total } = await dataService.fetchTicketsPaginated({
+                page: ticketPage,
+                pageSize: ticketPageSize,
+                filters: dashboardFilter,
+                sort: ticketSort
+            });
+            setTicketsData(data);
+            setTotalTickets(total);
+        } catch (error) {
+            console.error("Error fetching tickets:", error);
+            setTicketsData([]);
+            setTotalTickets(0);
+        } finally {
+            setTicketsLoading(false);
+        }
+    }, [ticketPage, ticketPageSize, dashboardFilter, ticketSort]);
+
+    useEffect(() => {
+        fetchTickets();
+    }, [fetchTickets]);
+
+    const handleRefresh = async () => {
+        await fetchTickets();
+        refreshData(); // Updates global counters
+    };
+
     return (
         <>
             <TicketDashboard 
-                tickets={appData.tickets}
+                tickets={ticketsData}
+                totalItems={totalTickets}
+                loading={ticketsLoading}
+                page={ticketPage}
+                pageSize={ticketPageSize}
+                onPageChange={setTicketPage}
+                onPageSizeChange={setTicketPageSize}
+                onFilterChange={setDashboardFilter}
+                
                 escolasDepartamentos={appData.entidades}
                 collaborators={appData.collaborators}
                 teams={appData.teams}
@@ -52,7 +95,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 onEdit={checkPermission('tickets', 'edit') ? (t) => { setTicketToEdit(t); setShowAddTicketModal(true); } : undefined}
                 onCreate={checkPermission('tickets', 'create') ? () => { setTicketToEdit(null); setShowAddTicketModal(true); } : undefined}
                 onOpenCloseTicketModal={checkPermission('tickets', 'edit') ? (t) => { setTicketToClose(t); setShowCloseTicketModal(true); } : undefined}
-                onUpdateTicket={checkPermission('tickets', 'edit') ? async (t) => { await dataService.updateTicket(t.id, t); refreshData(); } : undefined}
+                onUpdateTicket={checkPermission('tickets', 'edit') ? async (t) => { await dataService.updateTicket(t.id, t); handleRefresh(); } : undefined}
                 onGenerateReport={checkPermission('reports', 'view') ? () => setReportType('ticket') : undefined}
                 onOpenActivities={(t) => { setTicketForActivities(t); setShowTicketActivitiesModal(true); }}
                 onGenerateSecurityReport={(t) => { 
@@ -68,7 +111,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     onSave={async (ticket) => {
                         if (ticketToEdit) await dataService.updateTicket(ticketToEdit.id, ticket);
                         else await dataService.addTicket(ticket);
-                        refreshData();
+                        handleRefresh();
                     }}
                     ticketToEdit={ticketToEdit}
                     escolasDepartamentos={appData.entidades}
@@ -81,7 +124,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     assignments={appData.assignments}
                     categories={appData.ticketCategories}
                     securityIncidentTypes={appData.securityIncidentTypes}
-                    pastTickets={appData.tickets}
+                    pastTickets={ticketsData} // Used for AI context in ticket similarity (Note: Sending partial list is safer for performance, or fetch specific history inside modal)
                 />
             )}
             {showCloseTicketModal && ticketToClose && (
@@ -96,7 +139,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                             technicianId: techId,
                             resolution_summary: resolution 
                         });
-                        refreshData();
+                        handleRefresh();
                         setShowCloseTicketModal(false);
                     }}
                     activities={appData.ticketActivities.filter((a: any) => a.ticketId === ticketToClose.id)}
@@ -120,6 +163,8 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                             technicianId: currentUser?.id || '',
                             date: new Date().toISOString()
                         });
+                        // Activities are fetched globally currently, but could be specific.
+                        // For now we rely on global refresh for activities list, but dashboard for tickets list.
                         refreshData();
                     }}
                 />
