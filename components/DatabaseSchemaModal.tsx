@@ -27,32 +27,50 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const hardeningScript = `
 -- ==================================================================================
--- SCRIPT DE SEGURANÇA BÁSICA (HARDENING RLS) - v3.0
--- (Execute este primeiro se a base de dados for nova)
+-- SCRIPT DE SEGURANÇA BÁSICA (HARDENING RLS) - v3.5 (Com Limpeza)
+-- Limpa políticas antigas em tabelas de configuração e aplica novas.
 -- ==================================================================================
 BEGIN;
+
+-- 1. Função Helper de Admin
 CREATE OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN AS $$
 DECLARE current_role text;
 BEGIN SELECT role INTO current_role FROM public.collaborators WHERE id = auth.uid(); RETURN current_role IN ('SuperAdmin', 'Admin'); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. Loop de Limpeza e Aplicação
 DO $$
-DECLARE tables text[] := ARRAY['brands', 'equipment_types', 'config_equipment_statuses', 'config_cpus', 'config_ram_sizes', 'config_storage_types', 'config_job_titles', 'config_software_categories', 'config_software_products', 'ticket_categories', 'security_incident_types', 'config_accounting_categories', 'config_conservation_states', 'document_templates', 'contact_roles', 'contact_titles', 'global_settings', 'config_criticality_levels', 'config_cia_ratings', 'config_service_statuses', 'config_backup_types', 'config_training_types', 'config_resilience_test_types', 'config_decommission_reasons', 'config_collaborator_deactivation_reasons']; tbl text;
+DECLARE 
+    tables text[] := ARRAY[
+        'brands', 'equipment_types', 'config_equipment_statuses', 'config_cpus', 'config_ram_sizes', 
+        'config_storage_types', 'config_job_titles', 'config_software_categories', 'config_software_products', 
+        'ticket_categories', 'security_incident_types', 'config_accounting_categories', 'config_conservation_states', 
+        'document_templates', 'contact_roles', 'contact_titles', 'global_settings', 'config_criticality_levels', 
+        'config_cia_ratings', 'config_service_statuses', 'config_backup_types', 'config_training_types', 
+        'config_resilience_test_types', 'config_decommission_reasons', 'config_collaborator_deactivation_reasons'
+    ]; 
+    tbl text;
+    pol text;
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
+        -- Ativar RLS
         EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', tbl);
-        EXECUTE format('DROP POLICY IF EXISTS "Allow Read Authenticated" ON public.%I', tbl);
-        EXECUTE format('DROP POLICY IF EXISTS "Allow Write Admin" ON public.%I', tbl);
+        
+        -- LIMPEZA: Apagar TODAS as políticas existentes na tabela para evitar conflitos
+        FOR pol IN (SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = tbl) LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol, tbl);
+        END LOOP;
+
+        -- Criar Novas Políticas Limpas
         EXECUTE format('CREATE POLICY "Allow Read Authenticated" ON public.%I FOR SELECT TO authenticated USING (true)', tbl);
         EXECUTE format('CREATE POLICY "Allow Write Admin" ON public.%I FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())', tbl);
+        
+        -- Grants
         EXECUTE format('GRANT ALL ON public.%I TO authenticated', tbl);
         EXECUTE format('GRANT ALL ON public.%I TO service_role', tbl);
     END LOOP;
 END $$;
-ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Read Own Profile" ON public.collaborators;
-DROP POLICY IF EXISTS "Admin Manage All" ON public.collaborators;
-CREATE POLICY "Read Own Profile" ON public.collaborators FOR SELECT TO authenticated USING (auth.uid() = id);
-CREATE POLICY "Admin Manage All" ON public.collaborators FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
 NOTIFY pgrst, 'reload config';
 COMMIT;
 `;
@@ -60,7 +78,7 @@ COMMIT;
     const rbacScript = `
 -- ==================================================================================
 -- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.3 (Limpeza Total & Reset)
--- Implementa a Abordagem A: A Base de Dados verifica permissões JSON a cada acesso.
+-- Remove todo o "lixo" de políticas antigas nas tabelas principais antes de aplicar RBAC.
 -- ==================================================================================
 
 -- 1. FUNÇÃO CENTRAL DE VERIFICAÇÃO DE PERMISSÕES
@@ -167,6 +185,7 @@ WITH CHECK (
 
 
 -- >>> Módulo: Colaboradores (Gestão de Utilizadores)
+-- Nota: Limpamos políticas anteriores que pudessem estar duplicadas
 CREATE POLICY "RBAC Read Collaborators" ON public.collaborators FOR SELECT TO authenticated
 USING (true); -- Leitura global necessária para dropdowns
 
@@ -397,11 +416,12 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaShieldAlt /> ENDURECIMENTO DE SEGURANÇA (RLS) - Básico
+                                    <FaShieldAlt /> ENDURECIMENTO DE SEGURANÇA (RLS) - Básico (v3.5)
                                 </div>
                                 <p className="mb-2">
-                                    Este script ativa o RLS básico nas tabelas de configuração (só Admin escreve). 
-                                    Para segurança total (check dinâmico de permissões), use a aba <strong>RBAC (v4.3)</strong>.
+                                    Este script ativa o RLS básico nas <strong>tabelas de configuração</strong> (brands, types, etc.) e garante que apenas Admins podem escrever.
+                                    <br/>
+                                    <strong>Nota:</strong> Inclui limpeza prévia de políticas antigas nestas tabelas.
                                 </p>
                             </div>
                             <div className="relative">
@@ -443,10 +463,10 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                                     <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC) - v4.3 (Limpeza Total)
                                 </div>
                                 <p className="mb-2">
-                                    <strong>Atenção:</strong> Este script faz um <strong>DROP POLICY IF EXISTS</strong> em loop para todas as políticas antigas ou duplicadas nas tabelas críticas, 
-                                    e depois reaplica as regras RBAC limpas.
+                                    <strong>Correção de Conflitos:</strong> Este script remove <strong>todas</strong> as políticas antigas nas tabelas principais (equipamentos, tickets, colaboradores)
+                                    antes de aplicar as novas regras RBAC.
                                     <br/>
-                                    Isto resolve o problema de ter políticas conflitantes como "Read All" vs "RBAC Read".
+                                    Isto resolve problemas onde políticas antigas como "Read All" estavam a sobrepor as restrições novas.
                                 </p>
                             </div>
                             <div className="relative">
