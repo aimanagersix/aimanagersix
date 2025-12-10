@@ -59,121 +59,106 @@ COMMIT;
 
     const rbacScript = `
 -- ==================================================================================
--- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.2 (Fixed Case Sensitivity)
+-- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.3 (Limpeza Total & Reset)
 -- Implementa a Abordagem A: A Base de Dados verifica permissões JSON a cada acesso.
 -- ==================================================================================
 
 -- 1. FUNÇÃO CENTRAL DE VERIFICAÇÃO DE PERMISSÕES
--- Esta função é o coração do sistema de segurança.
 CREATE OR REPLACE FUNCTION public.has_permission(requested_module text, requested_action text)
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY DEFINER -- Executa como admin para poder ler roles e configs
+SECURITY DEFINER
 AS $$
 DECLARE
     v_user_role text;
     v_perm_json jsonb;
 BEGIN
-    -- Obter a role do utilizador atual
     SELECT role INTO v_user_role FROM public.collaborators WHERE id = auth.uid();
-
-    -- SuperAdmin tem sempre acesso total (Bypass)
-    IF v_user_role = 'SuperAdmin' THEN 
-        RETURN true; 
-    END IF;
-
-    -- Obter o JSON de permissões da tabela de configuração
-    SELECT permissions INTO v_perm_json 
-    FROM public.config_custom_roles 
-    WHERE name = v_user_role;
-
-    -- Se não houver configuração, negar por defeito
-    IF v_perm_json IS NULL THEN 
-        RETURN false; 
-    END IF;
-
-    -- Verificar a chave específica no JSON (ex: permissions->'equipment'->>'create')
-    -- O COALESCE garante que se a chave não existir, retorna false
-    IF COALESCE((v_perm_json -> requested_module ->> requested_action)::boolean, false) IS TRUE THEN
-        RETURN true;
-    END IF;
-
+    IF v_user_role = 'SuperAdmin' THEN RETURN true; END IF;
+    SELECT permissions INTO v_perm_json FROM public.config_custom_roles WHERE name = v_user_role;
+    IF v_perm_json IS NULL THEN RETURN false; END IF;
+    IF COALESCE((v_perm_json -> requested_module ->> requested_action)::boolean, false) IS TRUE THEN RETURN true; END IF;
     RETURN false;
 END;
 $$;
 
--- 2. APLICAR POLÍTICAS AOS MÓDULOS PRINCIPAIS
+-- 2. LIMPEZA TOTAL DE POLÍTICAS ANTIGAS (GARBAGE COLLECTION)
+-- Removemos TODAS as políticas das tabelas principais para garantir que não sobram regras antigas "permissivas".
+DO $$
+DECLARE
+    t text;
+    p text;
+    -- Lista de tabelas geridas pelo RBAC
+    tables text[] := ARRAY['equipment', 'entidades', 'software_licenses', 'tickets', 'collaborators', 'procurement_requests'];
+BEGIN
+    FOREACH t IN ARRAY tables LOOP
+        -- Ativar RLS se ainda não estiver
+        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
+        
+        -- Loop para apagar todas as policies existentes na tabela
+        FOR p IN (SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = t) LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p, t);
+        END LOOP;
+        
+        -- Garantir GRANTS básicos
+        EXECUTE format('GRANT ALL ON public.%I TO authenticated', t);
+        EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
+    END LOOP;
+END $$;
+
+-- 3. APLICAR NOVAS POLÍTICAS RBAC LIMPAS
 
 -- >>> Módulo: Equipamentos (Inventory)
-ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "RBAC Read Equipment" ON public.equipment;
 CREATE POLICY "RBAC Read Equipment" ON public.equipment FOR SELECT TO authenticated
 USING (public.has_permission('equipment', 'view'));
 
-DROP POLICY IF EXISTS "RBAC Insert Equipment" ON public.equipment;
 CREATE POLICY "RBAC Insert Equipment" ON public.equipment FOR INSERT TO authenticated
 WITH CHECK (public.has_permission('equipment', 'create'));
 
-DROP POLICY IF EXISTS "RBAC Update Equipment" ON public.equipment;
 CREATE POLICY "RBAC Update Equipment" ON public.equipment FOR UPDATE TO authenticated
 USING (public.has_permission('equipment', 'edit'))
 WITH CHECK (public.has_permission('equipment', 'edit'));
 
-DROP POLICY IF EXISTS "RBAC Delete Equipment" ON public.equipment;
 CREATE POLICY "RBAC Delete Equipment" ON public.equipment FOR DELETE TO authenticated
 USING (public.has_permission('equipment', 'delete'));
 
 
 -- >>> Módulo: Organização (Entidades)
-ALTER TABLE public.entidades ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "RBAC Read Entidades" ON public.entidades;
 CREATE POLICY "RBAC Read Entidades" ON public.entidades FOR SELECT TO authenticated
 USING (public.has_permission('organization', 'view'));
 
-DROP POLICY IF EXISTS "RBAC Write Entidades" ON public.entidades;
 CREATE POLICY "RBAC Write Entidades" ON public.entidades FOR ALL TO authenticated
 USING (public.has_permission('organization', 'edit'))
 WITH CHECK (public.has_permission('organization', 'edit'));
 
 
 -- >>> Módulo: Licenciamento (Software)
-ALTER TABLE public.software_licenses ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "RBAC Read Licenses" ON public.software_licenses;
 CREATE POLICY "RBAC Read Licenses" ON public.software_licenses FOR SELECT TO authenticated
 USING (public.has_permission('licensing', 'view'));
 
-DROP POLICY IF EXISTS "RBAC Write Licenses" ON public.software_licenses;
 CREATE POLICY "RBAC Write Licenses" ON public.software_licenses FOR ALL TO authenticated
 USING (public.has_permission('licensing', 'edit'))
 WITH CHECK (public.has_permission('licensing', 'edit'));
 
 
--- >>> Módulo: Tickets (Híbrido: Permissão Global OU Dono do Ticket)
-ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "RBAC Read Tickets" ON public.tickets;
+-- >>> Módulo: Tickets (Híbrido)
 CREATE POLICY "RBAC Read Tickets" ON public.tickets FOR SELECT TO authenticated
 USING (
     public.has_permission('tickets', 'view') OR 
-    "collaboratorId" = auth.uid() OR -- O próprio solicitante pode ver (Aspas duplas para CamelCase)
-    "technicianId" = auth.uid()      -- O técnico atribuído pode ver (Aspas duplas para CamelCase)
+    "collaboratorId" = auth.uid() OR 
+    "technicianId" = auth.uid()
 );
 
-DROP POLICY IF EXISTS "RBAC Create Tickets" ON public.tickets;
 CREATE POLICY "RBAC Create Tickets" ON public.tickets FOR INSERT TO authenticated
 WITH CHECK (
     public.has_permission('tickets', 'create') OR
-    "collaboratorId" = auth.uid() -- Qualquer um pode criar tickets para si mesmo
+    "collaboratorId" = auth.uid() 
 );
 
-DROP POLICY IF EXISTS "RBAC Update Tickets" ON public.tickets;
 CREATE POLICY "RBAC Update Tickets" ON public.tickets FOR UPDATE TO authenticated
 USING (
     public.has_permission('tickets', 'edit') OR
-    ("technicianId" = auth.uid()) -- Técnico pode editar seus tickets
+    ("technicianId" = auth.uid())
 )
 WITH CHECK (
     public.has_permission('tickets', 'edit') OR
@@ -182,24 +167,19 @@ WITH CHECK (
 
 
 -- >>> Módulo: Colaboradores (Gestão de Utilizadores)
--- Nota: 'collaborators' é especial. Todos podem ler (para dropdowns), mas escrita é restrita.
-ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "RBAC Read Collaborators" ON public.collaborators;
 CREATE POLICY "RBAC Read Collaborators" ON public.collaborators FOR SELECT TO authenticated
-USING (true); -- Permitir leitura global para funcionamento da UI (dropdowns)
+USING (true); -- Leitura global necessária para dropdowns
 
-DROP POLICY IF EXISTS "RBAC Write Collaborators" ON public.collaborators;
 CREATE POLICY "RBAC Write Collaborators" ON public.collaborators FOR ALL TO authenticated
-USING (public.has_permission('organization', 'edit') OR id = auth.uid()) -- Editores ou o próprio
+USING (public.has_permission('organization', 'edit') OR id = auth.uid())
 WITH CHECK (public.has_permission('organization', 'edit') OR id = auth.uid());
 
 
--- 3. PERMISSÕES DE EXECUÇÃO
+-- 4. PERMISSÕES DE EXECUÇÃO
 GRANT EXECUTE ON FUNCTION public.has_permission(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_permission(text, text) TO service_role;
 
--- 4. REFRESH
+-- 5. REFRESH
 NOTIFY pgrst, 'reload config';
 `;
 
@@ -381,7 +361,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         onClick={() => setActiveTab('rbac')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'rbac' ? 'border-purple-500 text-white bg-purple-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaUserLock /> 4. Segurança RBAC (v4.2)
+                        <FaUserLock /> 4. Segurança RBAC (v4.3)
                     </button>
                     <button 
                         onClick={() => setActiveTab('fix_procurement')} 
@@ -421,7 +401,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                                 </div>
                                 <p className="mb-2">
                                     Este script ativa o RLS básico nas tabelas de configuração (só Admin escreve). 
-                                    Para segurança total (check dinâmico de permissões), use a aba <strong>RBAC (v4.2)</strong>.
+                                    Para segurança total (check dinâmico de permissões), use a aba <strong>RBAC (v4.3)</strong>.
                                 </p>
                             </div>
                             <div className="relative">
@@ -460,13 +440,13 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                              <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.2
+                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC) - v4.3 (Limpeza Total)
                                 </div>
                                 <p className="mb-2">
-                                    <strong>Abordagem A: Query Dinâmica.</strong> Este script instala a função <code>has_permission()</code> na base de dados
-                                    e aplica políticas RLS que verificam o JSON de permissões a cada acesso.
+                                    <strong>Atenção:</strong> Este script faz um <strong>DROP POLICY IF EXISTS</strong> em loop para todas as políticas antigas ou duplicadas nas tabelas críticas, 
+                                    e depois reaplica as regras RBAC limpas.
                                     <br/>
-                                    <strong>Atenção:</strong> Após executar isto, apenas utilizadores com as permissões corretas (configuradas no menu Perfis) conseguirão aceder aos dados. O SuperAdmin mantém acesso total.
+                                    Isto resolve o problema de ter políticas conflitantes como "Read All" vs "RBAC Read".
                                 </p>
                             </div>
                             <div className="relative">
