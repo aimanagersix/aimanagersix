@@ -16,10 +16,10 @@ O **AIManager** é uma plataforma empresarial para Gestão de Ativos de TI (ITAM
 ## 2. Histórico de Versões e Changelog
 
 ### **Versão 3.0 (Atual - Security Hardening & Cleanup)**
-*   **🔐 RBAC v5.0 (Limpeza Total):** Implementação de um script de "vassourada" que remove todas as políticas RLS antigas e conflituosas antes de aplicar as novas regras granulares baseadas em JSON.
-*   **🛡️ Hardening v4.0:** Extensão da segurança RLS a todas as tabelas de configuração (listas, tipos, categorias), garantindo que apenas Admins podem escrever, enquanto todos os autenticados podem ler.
-*   **🧹 Auditoria de Base de Dados:** Introdução de scripts SQL de diagnóstico para listar triggers, funções e políticas ativas, permitindo detetar "lixo" legado.
-*   **📱 Melhorias Mobile:** Ajustes na barra de navegação e menu de perfil para melhor experiência em telemóveis.
+*   **🔐 RBAC v6.0 (A Vassoura):** Implementação de um script de limpeza profunda que remove proativamente *todas* as políticas RLS antigas e conflituosas (como "Ops Read", "Aux Write") antes de aplicar as novas regras granulares.
+*   **🛡️ Hardening v5.0:** Extensão da segurança RLS a todas as tabelas de configuração e auxiliares, garantindo que apenas Admins podem escrever, enquanto todos os autenticados podem ler.
+*   **🧹 Auditoria de Base de Dados:** Introdução de scripts SQL de diagnóstico para listar triggers, funções e políticas ativas, permitindo aos administradores verificar a "higiene" da base de dados.
+*   **📱 Melhorias Mobile:** Otimização dos menus de navegação e instalação PWA.
 
 ### Versão 2.0
 *   **Novo Módulo de Onboarding:** Criação de colaboradores e tickets automáticos de aprovisionamento.
@@ -34,11 +34,11 @@ O **AIManager** é uma plataforma empresarial para Gestão de Ativos de TI (ITAM
 
 ## 3. Arquitetura de Segurança (RBAC)
 
-A segurança do AIManager não depende apenas do Frontend. Ela é imposta diretamente no motor da base de dados.
+A segurança do AIManager é imposta diretamente no motor da base de dados (PostgreSQL), garantindo que as regras são cumpridas independentemente da interface.
 
 ### Mecanismo de Permissões
 1.  **Tabela `config_custom_roles`:** Armazena um objeto JSONB com a matriz de permissões (ex: `{ "equipment": { "view": true, "edit": false } }`).
-2.  **Função `public.has_permission()`:** Esta função SQL é chamada por cada *Policy* de segurança. Ela verifica o papel do utilizador atual, consulta o JSON e retorna `true/false`.
+2.  **Função `public.has_permission()`:** Esta função SQL é chamada por cada *Policy* de segurança. Ela verifica o papel do utilizador atual (via `auth.uid()`), consulta o JSON e retorna `true/false`.
 3.  **Imediatez:** Alterações aos perfis têm efeito imediato no backend.
 
 ---
@@ -51,7 +51,7 @@ A segurança do AIManager não depende apenas do Frontend. Ela é imposta direta
 
 ### 🗄️ Camada de Dados (`/services`)
 *   **`dataService.ts`**: Abstração do Supabase Client. Gere CRUD e Logs de Auditoria.
-*   **`automationService.ts`**: Lógica de scans de vulnerabilidade.
+*   **`automationService.ts`**: Lógica de scans de vulnerabilidade e integrações.
 
 ### 📦 Módulos Funcionais (`/features`)
 *   **InventoryManager:** Equipamentos, Licenças, Aquisições.
@@ -66,5 +66,5 @@ A segurança do AIManager não depende apenas do Frontend. Ela é imposta direta
 Localizadas no componente `DatabaseSchemaModal.tsx`, estas ferramentas são críticas para a manutenção:
 *   **Segurança (RLS):** Aplica regras de acesso a tabelas de configuração.
 *   **Reparação:** Corrige funções RPC (ex: aniversários).
-*   **RBAC (v5.0):** Limpa e reaplica regras de acesso operacionais.
+*   **RBAC (v6.0):** Limpa e reaplica regras de acesso operacionais.
 *   **Auditoria DB:** Gera relatórios SQL sobre o estado atual do esquema do banco de dados (Triggers, Policies, Functions).

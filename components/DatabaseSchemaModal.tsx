@@ -90,7 +90,7 @@ COMMIT;
 
     const rbacScript = `
 -- ==================================================================================
--- SCRIPT DE SEGURANÇA AVANÇADA (RBAC) - v6.0 (LIMPEZA FINAL E DEFINITIVA)
+-- SCRIPT DE SEGURANÇA AVANÇADA (RBAC) - v6.0 (A VASSOURA)
 -- Resolve o problema de múltiplas políticas conflituosas (Ops, Aux, RBAC duplicados).
 -- ==================================================================================
 
