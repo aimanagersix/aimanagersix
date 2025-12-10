@@ -12,19 +12,18 @@ interface CronJobsTabProps {
 }
 
 const birthdaySqlScript = `-- ==================================================================================
--- SOLUÇÃO SQL-ONLY PARA ANIVERSÁRIOS + CHAT (Copie e cole TUDO no SQL Editor)
--- Envia Email via Resend e Mensagem para o Canal Geral.
+-- SCRIPT DE ANIVERSÁRIOS + CHAT (Permissões Corrigidas)
 -- ==================================================================================
 
--- 1. Ativar Extensões necessárias
+-- 1. Garantir Extensão de Rede (para enviar email)
 create extension if not exists pg_net;
-create extension if not exists pg_cron;
 
--- 2. Criar a Função de Envio na Base de Dados
+-- 2. Criar ou Atualizar a Função
 create or replace function public.send_daily_birthday_emails()
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
     v_resend_key text;
@@ -33,7 +32,7 @@ declare
     v_body_tpl text;
     v_final_body text;
     v_chat_message text;
-    v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000'; -- ID do Canal Geral
+    v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000';
     r_user record;
 begin
     -- A. Obter Configurações
@@ -42,7 +41,6 @@ begin
     select setting_value into v_subject from global_settings where setting_key = 'birthday_email_subject';
     select setting_value into v_body_tpl from global_settings where setting_key = 'birthday_email_body';
 
-    -- Defaults
     if v_subject is null then v_subject := 'Feliz Aniversário!'; end if;
     if v_body_tpl is null then v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; end if;
 
@@ -54,8 +52,8 @@ begin
         and extract(month from "dateOfBirth") = extract(month from current_date)
         and extract(day from "dateOfBirth") = extract(day from current_date)
     loop
-        -- 1. Enviar Email (Se API Key existir)
-        if v_resend_key is not null and v_from_email is not null then
+        -- 1. Enviar Email (Se configurado)
+        if v_resend_key is not null and v_from_email is not null and length(v_resend_key) > 5 then
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
             
             perform net.http_post(
@@ -76,26 +74,44 @@ begin
         -- 2. Enviar Mensagem para o Chat Geral
         v_chat_message := '🎉 Parabéns ao colega **' || r_user."fullName" || '** que celebra hoje o seu aniversário! 🎂🎈';
         
-        INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read)
-        VALUES (
-            v_general_channel_id, -- Enviado pelo "Sistema/Geral"
-            v_general_channel_id, -- Para o Canal Geral
-            v_chat_message,
-            now(),
-            false
-        );
-        
-        raise notice 'Processado aniversário para: %', r_user."fullName";
+        -- Verificar se a mensagem já foi enviada hoje para evitar duplicados em testes
+        if not exists (
+            select 1 from messages 
+            where "receiverId" = v_general_channel_id 
+            and content = v_chat_message 
+            and created_at::date = current_date
+        ) then
+            INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read)
+            VALUES (
+                v_general_channel_id,
+                v_general_channel_id,
+                v_chat_message,
+                now(),
+                false
+            );
+        end if;
     end loop;
 end;
 $$;
 
--- 3. Agendar a execução (Todos os dias às 09:00 da manhã)
-select cron.schedule(
-    'job-aniversarios-diario',
-    '0 9 * * *',
-    $$select public.send_daily_birthday_emails()$$
-);
+-- 3. PERMISSÕES EXPLÍCITAS (Essencial para o botão de teste funcionar)
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
+
+-- 4. Tentar Agendar (apenas se pg_cron existir)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+        PERFORM cron.schedule(
+            'job-aniversarios-diario',
+            '0 9 * * *',
+            $$select public.send_daily_birthday_emails()$$
+        );
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pg_cron não disponível ou erro ao agendar. A função manual foi criada com sucesso.';
+END $$;
 `;
 
 const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
@@ -109,7 +125,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
     };
 
     const handleRunTest = async () => {
-        if(!confirm("Isto irá executar a verificação de aniversários AGORA. Se houver aniversariantes hoje, eles receberão o email e a mensagem no chat novamente. Continuar?")) return;
+        if(!confirm("Isto irá executar a verificação de aniversários AGORA. Se houver aniversariantes hoje, eles receberão o email. A mensagem no chat só será enviada se ainda não existir hoje. Continuar?")) return;
         
         setIsTesting(true);
         try {
@@ -197,9 +213,9 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                 </div>
 
                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Atualizado</h4>
+                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Atualizado v2</h4>
                     <p className="text-xs text-gray-400 mb-2">
-                        Se alterou a lógica (ex: adicionar chat), <strong>copie e execute novamente</strong> este script no Supabase SQL Editor.
+                        Se receber o erro "função não existe", <strong>copie e execute este script</strong> para criar a função e dar as permissões corretas.
                     </p>
                     <div className="relative">
                         <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-60 custom-scrollbar border border-gray-700">
