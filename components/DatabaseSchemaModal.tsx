@@ -60,37 +60,17 @@ COMMIT;
 
     const repairScript = `
 -- ==================================================================================
--- REPARAÇÃO DE FUNÇÕES & PERMISSÕES (v2.7 - Correção Policy Exists)
+-- REPARAÇÃO GERAL v2.8 (Prioridade Alta)
 -- ==================================================================================
 
--- 1. CORRIGIR SETTINGS (Permissões de Global Settings)
-ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
-
--- Apagar TODAS as políticas antigas antes de recriar para evitar erro "policy already exists"
-DROP POLICY IF EXISTS "Allow Write Admin" ON public.global_settings;
-DROP POLICY IF EXISTS "Settings Admin Access" ON public.global_settings;
-DROP POLICY IF EXISTS "Enable read access for all users" ON public.global_settings;
-DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON public.global_settings;
-DROP POLICY IF EXISTS "Enable update for users based on email" ON public.global_settings;
-DROP POLICY IF EXISTS "Settings Read All" ON public.global_settings; 
-
-CREATE POLICY "Settings Admin Access" ON public.global_settings FOR ALL TO authenticated
-USING (exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin')))
-WITH CHECK (exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin')));
-
-CREATE POLICY "Settings Read All" ON public.global_settings FOR SELECT TO authenticated USING (true);
-
-INSERT INTO public.global_settings (setting_key, setting_value)
-VALUES ('birthday_email_subject', 'Feliz Aniversário!'), ('birthday_email_body', 'Parabéns {{nome}}! Desejamos-te um dia fantástico.')
-ON CONFLICT (setting_key) DO NOTHING;
-
--- 2. REPARAR FUNÇÃO DE ANIVERSÁRIOS
+-- 1. CORRIGIR FUNÇÃO DE ANIVERSÁRIOS (PRIORITÁRIO)
 create extension if not exists pg_net;
 create extension if not exists pg_cron;
 
--- Remover função antiga para garantir atualização
+-- Remover versão antiga para evitar conflitos de assinatura
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 
+-- Recriar Função
 create or replace function public.send_daily_birthday_emails()
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -114,30 +94,60 @@ begin
     end loop;
 end;
 $$;
--- CRUCIAL: Conceder permissões para que a API consiga ver e executar a função
+
+-- Permissões Explícitas (CRÍTICO)
 REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 
--- 3. REPARAR TABELA DE CARGOS (Job Titles) - Correção para erro ao salvar colaborador
-CREATE TABLE IF NOT EXISTS public.config_job_titles (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT NOT NULL UNIQUE, created_at TIMESTAMPTZ DEFAULT now());
-ALTER TABLE public.config_job_titles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Job Titles Read" ON public.config_job_titles;
-DROP POLICY IF EXISTS "Job Titles Write" ON public.config_job_titles;
-CREATE POLICY "Job Titles Read" ON public.config_job_titles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Job Titles Write" ON public.config_job_titles FOR ALL TO authenticated USING (exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin')));
-ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS job_title_id UUID REFERENCES public.config_job_titles(id);
+-- 2. CORRIGIR POLÍTICAS GLOBAL SETTINGS (BLINDADO CONTRA ERROS)
+DO $$
+BEGIN
+    ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
+    -- Tentar apagar, se falhar continua
+    BEGIN DROP POLICY IF EXISTS "Allow Write Admin" ON public.global_settings; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DROP POLICY IF EXISTS "Settings Admin Access" ON public.global_settings; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DROP POLICY IF EXISTS "Enable read access for all users" ON public.global_settings; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON public.global_settings; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DROP POLICY IF EXISTS "Enable update for users based on email" ON public.global_settings; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DROP POLICY IF EXISTS "Settings Read All" ON public.global_settings; EXCEPTION WHEN OTHERS THEN NULL; END;
+    
+    -- Criar novas políticas
+    CREATE POLICY "Settings Admin Access" ON public.global_settings FOR ALL TO authenticated
+    USING (exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin')))
+    WITH CHECK (exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin')));
 
--- 4. REPARAR PERMISSÕES COLABORADORES (Correção para erro ao salvar)
-ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Read Own Profile" ON public.collaborators;
-DROP POLICY IF EXISTS "Admin Manage All" ON public.collaborators;
--- Permitir leitura a todos (necessário para atribuições)
-CREATE POLICY "Read All Collaborators" ON public.collaborators FOR SELECT TO authenticated USING (true);
--- Permitir escrita apenas a admins e ao próprio (para certos campos, mas aqui simplificado para admins)
-CREATE POLICY "Admin Manage All" ON public.collaborators FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+    CREATE POLICY "Settings Read All" ON public.global_settings FOR SELECT TO authenticated USING (true);
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Erro ao configurar políticas de settings: %', SQLERRM;
+END $$;
+
+-- 3. REPARAR PERMISSÕES DE COLABORADORES
+DO $$
+BEGIN
+    ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
+    BEGIN DROP POLICY IF EXISTS "Read Own Profile" ON public.collaborators; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DROP POLICY IF EXISTS "Admin Manage All" ON public.collaborators; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DROP POLICY IF EXISTS "Read All Collaborators" ON public.collaborators; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DROP POLICY IF EXISTS "Self Update" ON public.collaborators; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+    -- Permitir leitura a todos (necessário para atribuições)
+    CREATE POLICY "Read All Collaborators" ON public.collaborators FOR SELECT TO authenticated USING (true);
+    
+    -- Permitir escrita apenas a admins
+    CREATE POLICY "Admin Manage All" ON public.collaborators FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+    
+    -- Permitir que o próprio utilizador edite o seu perfil (ex: foto, telemóvel)
+    CREATE POLICY "Self Update" ON public.collaborators FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Erro ao configurar políticas de colaboradores: %', SQLERRM;
+END $$;
+
+-- 4. FORÇAR RECARREGAMENTO DE CACHE DE PERMISSÕES
+NOTIFY pgrst, 'reload config';
 `;
 
     const fixProcurementScript = `
@@ -282,12 +292,15 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaTools /> UPDATE V2.7 & REPARAÇÃO
+                                    <FaTools /> UPDATE V2.8 & REPARAÇÃO (ROBUSTO)
                                 </div>
                                 <p className="mb-2">
-                                    Use este script se estiver a ter erros de "RLS Policy Violation", "Function does not exist" ou "Policy already exists".
-                                    <br/>
-                                    <strong>Inclui:</strong> Limpeza de políticas duplicadas, reparação da função 'send_daily_birthday_emails' e permissões de escrita em Colaboradores.
+                                    <strong>Execute este script para corrigir:</strong>
+                                    <ul className="list-disc list-inside mt-1 ml-2">
+                                        <li>Erro "A função não existe" ao testar aniversários.</li>
+                                        <li>Erro "Policy already exists" ao executar reparações anteriores.</li>
+                                        <li>Erro "Access Denied" ao gravar colaboradores (se não for admin).</li>
+                                    </ul>
                                 </p>
                             </div>
                             <div className="relative">

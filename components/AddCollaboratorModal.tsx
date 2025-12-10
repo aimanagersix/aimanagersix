@@ -364,6 +364,14 @@ Verifique as configurações de armazenamento.`);
         } catch (e: any) {
             console.error(e);
             const msg = e.message || "Erro ao salvar colaborador.";
+            
+            // Show alert if explicit error
+            if (msg.includes("row-level security") || msg.includes("Access Denied")) {
+                alert("Erro de Permissão: Não tem autorização para alterar este registo. Verifique se o seu perfil é Admin.");
+            } else {
+                alert(`Erro: ${msg}`);
+            }
+
             setErrors(prev => ({
                 ...prev, 
                 general: msg,
