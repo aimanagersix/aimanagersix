@@ -60,7 +60,7 @@ COMMIT;
 
     const repairScript = `
 -- ==================================================================================
--- REPARAÇÃO DE FUNÇÕES & PERMISSÕES (v2.4 - Sintaxe Corrigida)
+-- REPARAÇÃO DE FUNÇÕES & PERMISSÕES (v2.5 - Sintaxe Corrigida)
 -- ==================================================================================
 
 -- 1. CORRIGIR SETTINGS (Permissões de Global Settings)
@@ -266,7 +266,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaTools /> UPDATE V2.4 & REPARAÇÃO
+                                    <FaTools /> UPDATE V2.5 & REPARAÇÃO
                                 </div>
                                 <p className="mb-2">
                                     Use este script se estiver a ter erros de "RLS Policy Violation" ou "Function does not exist" ao testar aniversários.

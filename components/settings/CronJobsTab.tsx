@@ -12,7 +12,7 @@ interface CronJobsTabProps {
 }
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS + CHAT (Correção de Sintaxe v3)
+-- SCRIPT DE ANIVERSÁRIOS + CHAT (Correção de Sintaxe v4)
 -- ==================================================================================
 
 -- 1. Garantir Extensão de Rede (para enviar email)
@@ -103,7 +103,7 @@ GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        -- Nota: Usamos aspas simples aqui para evitar erro de sintaxe com $$ aninhado
+        -- Nota: Usamos aspas simples aqui para evitar erro de sintaxe com aspas de dolar aninhadas
         PERFORM cron.schedule(
             'job-aniversarios-diario',
             '0 9 * * *',
@@ -214,7 +214,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                 </div>
 
                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Correção v3</h4>
+                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Correção v4</h4>
                     <p className="text-xs text-gray-400 mb-2">
                         Se recebeu um erro de sintaxe, <strong>copie e execute este script</strong>. Foi corrigido para evitar aspas aninhadas.
                     </p>
