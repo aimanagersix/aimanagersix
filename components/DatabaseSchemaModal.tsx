@@ -11,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'unlock' | 'repair' | 'fix_procurement' | 'update' | 'fix_types' | 'triggers' | 'playwright'>('unlock');
+    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'fix_procurement' | 'update' | 'fix_types' | 'triggers' | 'playwright'>('security');
     
     // Playwright AI State
     const [testRequest, setTestRequest] = useState('');
@@ -27,45 +27,77 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const aiConfigured = isAiConfigured();
 
-    const unlockScript = `
+    const hardeningScript = `
 -- ==================================================================================
--- SCRIPT DE DESBLOQUEIO TOTAL (RLS FIX) - v2.2
--- Execute isto para garantir que todas as tabelas de configuração aparecem na app.
+-- SCRIPT DE SEGURANÇA (HARDENING RLS) - v3.0 (Recomendado)
+-- Ativa a segurança ao nível da linha e define permissões baseadas em Funções (RBAC).
 -- ==================================================================================
 
 BEGIN;
 
--- 1. Tabelas de Hardware e Cargos
-ALTER TABLE IF EXISTS public.config_cpus DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_ram_sizes DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_storage_types DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_job_titles DISABLE ROW LEVEL SECURITY;
+-- 1. Função Auxiliar para verificar se é Admin (Baseado na tabela collaborators)
+-- Esta função é "SECURITY DEFINER" para poder ler a tabela collaborators mesmo que o utilizador não tenha acesso direto.
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+DECLARE
+  current_role text;
+BEGIN
+  -- Verifica a role do utilizador atual (auth.uid()) na tabela de colaboradores
+  SELECT role INTO current_role FROM public.collaborators WHERE id = auth.uid();
+  RETURN current_role IN ('SuperAdmin', 'Admin');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 2. Tabelas de Software e Tickets (REFORÇADO)
-ALTER TABLE IF EXISTS public.config_software_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_software_products DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.ticket_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.security_incident_types DISABLE ROW LEVEL SECURITY;
+-- 2. Lista de Tabelas de Configuração e Sistema
+-- Vamos aplicar RLS rigoroso a todas estas tabelas
+DO $$
+DECLARE
+    tables text[] := ARRAY[
+        'brands', 'equipment_types', 'config_equipment_statuses', 
+        'config_cpus', 'config_ram_sizes', 'config_storage_types', 
+        'config_job_titles', 'config_software_categories', 
+        'config_software_products', 'ticket_categories', 
+        'security_incident_types', 'config_accounting_categories', 
+        'config_conservation_states', 'document_templates',
+        'contact_roles', 'contact_titles', 'global_settings',
+        'config_criticality_levels', 'config_cia_ratings', 
+        'config_service_statuses', 'config_backup_types', 
+        'config_training_types', 'config_resilience_test_types',
+        'config_decommission_reasons', 'config_collaborator_deactivation_reasons'
+    ];
+    tbl text;
+BEGIN
+    FOREACH tbl IN ARRAY tables LOOP
+        -- 2.1 ATIVAR RLS (Isto bloqueia todo o acesso por defeito)
+        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', tbl);
+        
+        -- 2.2 Limpar políticas antigas para evitar conflitos
+        EXECUTE format('DROP POLICY IF EXISTS "Allow Read Authenticated" ON public.%I', tbl);
+        EXECUTE format('DROP POLICY IF EXISTS "Allow Write Admin" ON public.%I', tbl);
+        
+        -- 2.3 Política de Leitura: Qualquer utilizador autenticado pode LER (para dropdowns funcionarem)
+        EXECUTE format('CREATE POLICY "Allow Read Authenticated" ON public.%I FOR SELECT TO authenticated USING (true)', tbl);
+        
+        -- 2.4 Política de Escrita: Apenas Admins podem INSERIR/ATUALIZAR/APAGAR
+        EXECUTE format('CREATE POLICY "Allow Write Admin" ON public.%I FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())', tbl);
+        
+        -- 2.5 Garantir permissões ao nível da tabela (GRANT)
+        EXECUTE format('GRANT ALL ON public.%I TO authenticated', tbl);
+        EXECUTE format('GRANT ALL ON public.%I TO service_role', tbl);
+    END LOOP;
+END $$;
 
--- 3. Outras Tabelas de Configuração
-ALTER TABLE IF EXISTS public.config_accounting_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.config_conservation_states DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.document_templates DISABLE ROW LEVEL SECURITY;
+-- 3. Políticas Específicas para Colaboradores (Auto-leitura)
+ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Read Own Profile" ON public.collaborators;
+DROP POLICY IF EXISTS "Admin Manage All" ON public.collaborators;
 
--- 4. Garantir permissões de leitura/escrita para todos os utilizadores autenticados
-GRANT ALL ON public.config_cpus TO authenticated, anon;
-GRANT ALL ON public.config_ram_sizes TO authenticated, anon;
-GRANT ALL ON public.config_storage_types TO authenticated, anon;
-GRANT ALL ON public.config_job_titles TO authenticated, anon;
-GRANT ALL ON public.config_software_categories TO authenticated, anon;
-GRANT ALL ON public.config_software_products TO authenticated, anon;
-GRANT ALL ON public.ticket_categories TO authenticated, anon;
-GRANT ALL ON public.security_incident_types TO authenticated, anon;
-GRANT ALL ON public.config_accounting_categories TO authenticated, anon;
-GRANT ALL ON public.config_conservation_states TO authenticated, anon;
-GRANT ALL ON public.document_templates TO authenticated, anon;
+-- Utilizador vê o seu próprio perfil
+CREATE POLICY "Read Own Profile" ON public.collaborators FOR SELECT TO authenticated USING (auth.uid() = id);
+-- Admins veem e gerem todos
+CREATE POLICY "Admin Manage All" ON public.collaborators FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
--- 5. Forçar atualização de cache do PostgREST
+-- 4. Atualizar cache de permissões
 NOTIFY pgrst, 'reload config';
 
 COMMIT;
@@ -290,10 +322,10 @@ WHERE
                 {/* Tabs Navigation */}
                 <div className="flex border-b border-gray-700 mb-4 gap-2 flex-wrap bg-gray-900/50 p-2 rounded-t-lg">
                      <button 
-                        onClick={() => setActiveTab('unlock')} 
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'unlock' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        onClick={() => setActiveTab('security')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'security' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaUnlock /> 1. Desbloquear (RLS)
+                        <FaShieldAlt /> 1. Segurança (RLS Hardening)
                     </button>
                      <button 
                         onClick={() => setActiveTab('repair')} 
@@ -330,23 +362,25 @@ WHERE
                 {/* Content Area */}
                 <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 p-1">
                     
-                    {/* UNLOCK TAB */}
-                    {activeTab === 'unlock' && (
+                    {/* UNLOCK / SECURITY TAB */}
+                    {activeTab === 'security' && (
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUnlock /> CORREÇÃO DE VISIBILIDADE (RLS)
+                                    <FaShieldAlt /> ENDURECIMENTO DE SEGURANÇA (RLS)
                                 </div>
                                 <p className="mb-2">
-                                    Se as <strong>Categorias de Tickets</strong>, Tipos de Incidente ou Cargos aparecem vazios, execute este script para corrigir as permissões.
+                                    Este script ativa o <strong>Row Level Security (RLS)</strong> em todas as tabelas de configuração.
+                                    <br/>
+                                    Em vez de desativar a segurança, ele cria políticas que permitem a <strong>leitura</strong> a todos os utilizadores autenticados, mas restringem a <strong>escrita/edição</strong> apenas aos Administradores.
                                 </p>
                             </div>
                             <div className="relative">
                                 <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
-                                    {unlockScript}
+                                    {hardeningScript}
                                 </pre>
                                 <button 
-                                    onClick={() => handleCopy(unlockScript)} 
+                                    onClick={() => handleCopy(hardeningScript)} 
                                     className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"
                                     title="Copiar SQL"
                                 >
