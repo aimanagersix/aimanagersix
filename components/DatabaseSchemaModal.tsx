@@ -27,8 +27,8 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const hardeningScript = `
 -- ==================================================================================
--- SCRIPT DE SEGURANÇA BÁSICA (HARDENING RLS) - v3.5 (Com Limpeza)
--- Limpa políticas antigas em tabelas de configuração e aplica novas.
+-- SCRIPT DE SEGURANÇA BÁSICA (HARDENING RLS) - v4.0 (Cobertura Total de Configs)
+-- Limpa e protege todas as tabelas de configuração e auxiliares.
 -- ==================================================================================
 BEGIN;
 
@@ -42,32 +42,44 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 DO $$
 DECLARE 
     tables text[] := ARRAY[
+        -- Hardware & Software Configs
         'brands', 'equipment_types', 'config_equipment_statuses', 'config_cpus', 'config_ram_sizes', 
-        'config_storage_types', 'config_job_titles', 'config_software_categories', 'config_software_products', 
-        'ticket_categories', 'security_incident_types', 'config_accounting_categories', 'config_conservation_states', 
-        'document_templates', 'contact_roles', 'contact_titles', 'global_settings', 'config_criticality_levels', 
-        'config_cia_ratings', 'config_service_statuses', 'config_backup_types', 'config_training_types', 
-        'config_resilience_test_types', 'config_decommission_reasons', 'config_collaborator_deactivation_reasons'
+        'config_storage_types', 'config_software_categories', 'config_software_products',
+        'config_decommission_reasons', 'config_conservation_states',
+        
+        -- HR & Organization Configs
+        'config_job_titles', 'contact_roles', 'contact_titles', 'config_collaborator_deactivation_reasons',
+        'config_custom_roles', 'config_user_roles', 'config_accounting_categories', 'document_templates',
+        
+        -- Support & Compliance Configs
+        'ticket_categories', 'security_incident_types', 'config_criticality_levels', 'config_cia_ratings', 
+        'config_service_statuses', 'config_backup_types', 'config_training_types', 'config_resilience_test_types',
+        'global_settings'
     ]; 
     tbl text;
     pol text;
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
-        -- Ativar RLS
-        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', tbl);
-        
-        -- LIMPEZA: Apagar TODAS as políticas existentes na tabela para evitar conflitos
-        FOR pol IN (SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = tbl) LOOP
-            EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol, tbl);
-        END LOOP;
+        -- Garantir que a tabela existe antes de aplicar (evita erros em bases novas)
+        IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = tbl) THEN
+            -- Ativar RLS
+            EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', tbl);
+            
+            -- LIMPEZA: Apagar TODAS as políticas existentes para evitar conflitos
+            FOR pol IN (SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = tbl) LOOP
+                EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol, tbl);
+            END LOOP;
 
-        -- Criar Novas Políticas Limpas
-        EXECUTE format('CREATE POLICY "Allow Read Authenticated" ON public.%I FOR SELECT TO authenticated USING (true)', tbl);
-        EXECUTE format('CREATE POLICY "Allow Write Admin" ON public.%I FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())', tbl);
-        
-        -- Grants
-        EXECUTE format('GRANT ALL ON public.%I TO authenticated', tbl);
-        EXECUTE format('GRANT ALL ON public.%I TO service_role', tbl);
+            -- Criar Novas Políticas Limpas
+            -- 1. Leitura: Todos os utilizadores autenticados podem ler configurações
+            EXECUTE format('CREATE POLICY "Allow Read Authenticated" ON public.%I FOR SELECT TO authenticated USING (true)', tbl);
+            -- 2. Escrita: Apenas Admins podem alterar configurações
+            EXECUTE format('CREATE POLICY "Allow Write Admin" ON public.%I FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())', tbl);
+            
+            -- Grants
+            EXECUTE format('GRANT ALL ON public.%I TO authenticated', tbl);
+            EXECUTE format('GRANT ALL ON public.%I TO service_role', tbl);
+        END IF;
     END LOOP;
 END $$;
 
@@ -77,8 +89,8 @@ COMMIT;
 
     const rbacScript = `
 -- ==================================================================================
--- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v4.3 (Limpeza Total & Reset)
--- Remove todo o "lixo" de políticas antigas nas tabelas principais antes de aplicar RBAC.
+-- SCRIPT DE SEGURANÇA AVANÇADA (RBAC DINÂMICO) - v5.0 (LIMPEZA PROFUNDA)
+-- Cobre todas as tabelas operacionais restantes (Assignments, Suppliers, Teams, etc.)
 -- ==================================================================================
 
 -- 1. FUNÇÃO CENTRAL DE VERIFICAÇÃO DE PERMISSÕES
@@ -92,129 +104,135 @@ DECLARE
     v_perm_json jsonb;
 BEGIN
     SELECT role INTO v_user_role FROM public.collaborators WHERE id = auth.uid();
-    IF v_user_role = 'SuperAdmin' THEN RETURN true; END IF;
+    -- Bypass para SuperAdmin e Admin para evitar bloqueios acidentais em módulos críticos
+    IF v_user_role IN ('SuperAdmin', 'Admin') THEN RETURN true; END IF;
+    
     SELECT permissions INTO v_perm_json FROM public.config_custom_roles WHERE name = v_user_role;
     IF v_perm_json IS NULL THEN RETURN false; END IF;
+    
     IF COALESCE((v_perm_json -> requested_module ->> requested_action)::boolean, false) IS TRUE THEN RETURN true; END IF;
+    
     RETURN false;
 END;
 $$;
 
--- 2. LIMPEZA TOTAL DE POLÍTICAS ANTIGAS (GARBAGE COLLECTION)
--- Removemos TODAS as políticas das tabelas principais para garantir que não sobram regras antigas "permissivas".
+-- 2. LIMPEZA TOTAL DE POLÍTICAS (Operacional)
 DO $$
 DECLARE
     t text;
     p text;
-    -- Lista de tabelas geridas pelo RBAC
-    tables text[] := ARRAY['equipment', 'entidades', 'software_licenses', 'tickets', 'collaborators', 'procurement_requests'];
+    -- Lista COMPLETA de tabelas operacionais
+    tables text[] := ARRAY[
+        'equipment', 'entidades', 'software_licenses', 'tickets', 'collaborators', 'procurement_requests', -- Core
+        'assignments', 'license_assignments', -- Links
+        'instituicoes', 'suppliers', 'teams', 'team_members', 'resource_contacts', -- Org
+        'ticket_activities', -- Support
+        'backup_executions', 'resilience_tests', 'security_training_records', 'vulnerabilities', 'policies', 'policy_acceptances', 'continuity_plans', -- Compliance
+        'calendar_events', 'messages', 'audit_logs' -- Utils
+    ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP
-        -- Ativar RLS se ainda não estiver
-        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
-        
-        -- Loop para apagar todas as policies existentes na tabela
-        FOR p IN (SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = t) LOOP
-            EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p, t);
-        END LOOP;
-        
-        -- Garantir GRANTS básicos
-        EXECUTE format('GRANT ALL ON public.%I TO authenticated', t);
-        EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
+        IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = t) THEN
+            EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
+            
+            -- Apagar TODAS as políticas antigas
+            FOR p IN (SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = t) LOOP
+                EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p, t);
+            END LOOP;
+            
+            EXECUTE format('GRANT ALL ON public.%I TO authenticated', t);
+            EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
+        END IF;
     END LOOP;
 END $$;
 
--- 3. APLICAR NOVAS POLÍTICAS RBAC LIMPAS
+-- 3. APLICAR NOVAS POLÍTICAS
 
--- >>> Módulo: Equipamentos (Inventory)
-CREATE POLICY "RBAC Read Equipment" ON public.equipment FOR SELECT TO authenticated
-USING (public.has_permission('equipment', 'view'));
+-- >>> EQUIPAMENTOS & ATRIBUIÇÕES
+CREATE POLICY "RBAC Read Equipment" ON public.equipment FOR SELECT TO authenticated USING (public.has_permission('equipment', 'view'));
+CREATE POLICY "RBAC Write Equipment" ON public.equipment FOR ALL TO authenticated USING (public.has_permission('equipment', 'edit')) WITH CHECK (public.has_permission('equipment', 'edit'));
+CREATE POLICY "RBAC Insert Equipment" ON public.equipment FOR INSERT TO authenticated WITH CHECK (public.has_permission('equipment', 'create'));
+CREATE POLICY "RBAC Delete Equipment" ON public.equipment FOR DELETE TO authenticated USING (public.has_permission('equipment', 'delete'));
 
-CREATE POLICY "RBAC Insert Equipment" ON public.equipment FOR INSERT TO authenticated
-WITH CHECK (public.has_permission('equipment', 'create'));
+CREATE POLICY "RBAC Read Assignments" ON public.assignments FOR SELECT TO authenticated USING (public.has_permission('equipment', 'view'));
+CREATE POLICY "RBAC Write Assignments" ON public.assignments FOR ALL TO authenticated USING (public.has_permission('equipment', 'edit')) WITH CHECK (public.has_permission('equipment', 'edit'));
 
-CREATE POLICY "RBAC Update Equipment" ON public.equipment FOR UPDATE TO authenticated
-USING (public.has_permission('equipment', 'edit'))
-WITH CHECK (public.has_permission('equipment', 'edit'));
+-- >>> LICENCIAMENTO
+CREATE POLICY "RBAC Read Licenses" ON public.software_licenses FOR SELECT TO authenticated USING (public.has_permission('licensing', 'view'));
+CREATE POLICY "RBAC Write Licenses" ON public.software_licenses FOR ALL TO authenticated USING (public.has_permission('licensing', 'edit')) WITH CHECK (public.has_permission('licensing', 'edit'));
+CREATE POLICY "RBAC Read LicAssign" ON public.license_assignments FOR SELECT TO authenticated USING (public.has_permission('licensing', 'view'));
+CREATE POLICY "RBAC Write LicAssign" ON public.license_assignments FOR ALL TO authenticated USING (public.has_permission('licensing', 'edit')) WITH CHECK (public.has_permission('licensing', 'edit'));
 
-CREATE POLICY "RBAC Delete Equipment" ON public.equipment FOR DELETE TO authenticated
-USING (public.has_permission('equipment', 'delete'));
+-- >>> ORGANIZAÇÃO (Entidades, Instituições, Fornecedores, Equipas)
+CREATE POLICY "RBAC Read Org" ON public.entidades FOR SELECT TO authenticated USING (public.has_permission('organization', 'view'));
+CREATE POLICY "RBAC Write Org" ON public.entidades FOR ALL TO authenticated USING (public.has_permission('organization', 'edit')) WITH CHECK (public.has_permission('organization', 'edit'));
 
+CREATE POLICY "RBAC Read Inst" ON public.instituicoes FOR SELECT TO authenticated USING (public.has_permission('organization', 'view'));
+CREATE POLICY "RBAC Write Inst" ON public.instituicoes FOR ALL TO authenticated USING (public.has_permission('organization', 'edit')) WITH CHECK (public.has_permission('organization', 'edit'));
 
--- >>> Módulo: Organização (Entidades)
-CREATE POLICY "RBAC Read Entidades" ON public.entidades FOR SELECT TO authenticated
-USING (public.has_permission('organization', 'view'));
+CREATE POLICY "RBAC Read Suppliers" ON public.suppliers FOR SELECT TO authenticated USING (public.has_permission('suppliers', 'view') OR public.has_permission('organization', 'view'));
+CREATE POLICY "RBAC Write Suppliers" ON public.suppliers FOR ALL TO authenticated USING (public.has_permission('suppliers', 'edit')) WITH CHECK (public.has_permission('suppliers', 'edit'));
 
-CREATE POLICY "RBAC Write Entidades" ON public.entidades FOR ALL TO authenticated
-USING (public.has_permission('organization', 'edit'))
-WITH CHECK (public.has_permission('organization', 'edit'));
+CREATE POLICY "RBAC Read Teams" ON public.teams FOR SELECT TO authenticated USING (public.has_permission('organization', 'view'));
+CREATE POLICY "RBAC Write Teams" ON public.teams FOR ALL TO authenticated USING (public.has_permission('organization', 'edit')) WITH CHECK (public.has_permission('organization', 'edit'));
+CREATE POLICY "RBAC All TeamMembers" ON public.team_members FOR ALL TO authenticated USING (public.has_permission('organization', 'view')) WITH CHECK (public.has_permission('organization', 'edit'));
 
+CREATE POLICY "RBAC All Contacts" ON public.resource_contacts FOR ALL TO authenticated USING (true) WITH CHECK (public.has_permission('organization', 'edit') OR public.has_permission('suppliers', 'edit'));
 
--- >>> Módulo: Licenciamento (Software)
-CREATE POLICY "RBAC Read Licenses" ON public.software_licenses FOR SELECT TO authenticated
-USING (public.has_permission('licensing', 'view'));
+-- >>> COLABORADORES
+CREATE POLICY "RBAC Read Collabs" ON public.collaborators FOR SELECT TO authenticated USING (true); -- Dropdowns precisam de ler todos
+CREATE POLICY "RBAC Write Collabs" ON public.collaborators FOR ALL TO authenticated USING (public.has_permission('organization', 'edit') OR id = auth.uid()) WITH CHECK (public.has_permission('organization', 'edit') OR id = auth.uid());
 
-CREATE POLICY "RBAC Write Licenses" ON public.software_licenses FOR ALL TO authenticated
-USING (public.has_permission('licensing', 'edit'))
-WITH CHECK (public.has_permission('licensing', 'edit'));
-
-
--- >>> Módulo: Tickets (Híbrido)
+-- >>> TICKETS (Híbrido: Permissão Global OU Envolvimento Pessoal)
 CREATE POLICY "RBAC Read Tickets" ON public.tickets FOR SELECT TO authenticated
-USING (
-    public.has_permission('tickets', 'view') OR 
-    "collaboratorId" = auth.uid() OR 
-    "technicianId" = auth.uid()
-);
+USING (public.has_permission('tickets', 'view') OR "collaboratorId" = auth.uid() OR "technicianId" = auth.uid());
 
-CREATE POLICY "RBAC Create Tickets" ON public.tickets FOR INSERT TO authenticated
-WITH CHECK (
-    public.has_permission('tickets', 'create') OR
-    "collaboratorId" = auth.uid() 
-);
+CREATE POLICY "RBAC Insert Tickets" ON public.tickets FOR INSERT TO authenticated
+WITH CHECK (public.has_permission('tickets', 'create') OR "collaboratorId" = auth.uid());
 
 CREATE POLICY "RBAC Update Tickets" ON public.tickets FOR UPDATE TO authenticated
-USING (
-    public.has_permission('tickets', 'edit') OR
-    ("technicianId" = auth.uid())
-)
-WITH CHECK (
-    public.has_permission('tickets', 'edit') OR
-    ("technicianId" = auth.uid())
-);
+USING (public.has_permission('tickets', 'edit') OR "technicianId" = auth.uid())
+WITH CHECK (public.has_permission('tickets', 'edit') OR "technicianId" = auth.uid());
 
+-- Actividades do Ticket (Visível se vê o ticket)
+CREATE POLICY "RBAC Read Activities" ON public.ticket_activities FOR SELECT TO authenticated
+USING (EXISTS (SELECT 1 FROM public.tickets t WHERE t.id = ticket_activities."ticketId" AND (public.has_permission('tickets', 'view') OR t."collaboratorId" = auth.uid() OR t."technicianId" = auth.uid())));
+CREATE POLICY "RBAC Write Activities" ON public.ticket_activities FOR INSERT TO authenticated WITH CHECK (true);
 
--- >>> Módulo: Colaboradores (Gestão de Utilizadores)
--- Nota: Limpamos políticas anteriores que pudessem estar duplicadas
-CREATE POLICY "RBAC Read Collaborators" ON public.collaborators FOR SELECT TO authenticated
-USING (true); -- Leitura global necessária para dropdowns
+-- >>> COMPLIANCE & OUTROS
+CREATE POLICY "RBAC Compliance Read" ON public.vulnerabilities FOR SELECT TO authenticated USING (public.has_permission('compliance_security', 'view'));
+CREATE POLICY "RBAC Compliance Write" ON public.vulnerabilities FOR ALL TO authenticated USING (public.has_permission('compliance_security', 'edit')) WITH CHECK (public.has_permission('compliance_security', 'edit'));
 
-CREATE POLICY "RBAC Write Collaborators" ON public.collaborators FOR ALL TO authenticated
-USING (public.has_permission('organization', 'edit') OR id = auth.uid())
-WITH CHECK (public.has_permission('organization', 'edit') OR id = auth.uid());
+CREATE POLICY "RBAC Backup Read" ON public.backup_executions FOR SELECT TO authenticated USING (public.has_permission('compliance_backups', 'view'));
+CREATE POLICY "RBAC Backup Write" ON public.backup_executions FOR ALL TO authenticated USING (public.has_permission('compliance_backups', 'edit')) WITH CHECK (public.has_permission('compliance_backups', 'edit'));
 
+-- >>> UTILITÁRIOS (Logs, Mensagens, Calendário)
+-- Audit Logs: Todos escrevem (log), só Admin lê.
+CREATE POLICY "Audit Insert All" ON public.audit_logs FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Audit Read Admin" ON public.audit_logs FOR SELECT TO authenticated USING (public.is_admin());
 
--- 4. PERMISSÕES DE EXECUÇÃO
-GRANT EXECUTE ON FUNCTION public.has_permission(text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.has_permission(text, text) TO service_role;
+-- Mensagens (Chat): Vê quem envia, recebe ou Canal Geral
+CREATE POLICY "Chat Access" ON public.messages FOR ALL TO authenticated
+USING ("senderId" = auth.uid() OR "receiverId" = auth.uid() OR "receiverId" = '00000000-0000-0000-0000-000000000000')
+WITH CHECK ("senderId" = auth.uid());
 
--- 5. REFRESH
+-- Calendário: Pessoal ou Equipa
+CREATE POLICY "Calendar Access" ON public.calendar_events FOR ALL TO authenticated
+USING (created_by = auth.uid() OR is_private = false)
+WITH CHECK (created_by = auth.uid());
+
+-- 4. REFRESH
 NOTIFY pgrst, 'reload config';
 `;
 
     const repairScript = `
 -- ==================================================================================
--- SCRIPT CIRÚRGICO v3.1: CORREÇÃO DEFINITIVA DE FUNÇÕES
+-- SCRIPT DE RESGATE V3.1 (Correção da Função de Aniversários)
 -- ==================================================================================
-
--- 1. Certificar que as extensões existem (sem erros se já existirem)
 CREATE EXTENSION IF NOT EXISTS pg_net;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
-
--- 2. Limpar a função antiga para recriar do zero
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 
--- 3. Criar a função com permissões de 'security definer' (executa como admin)
 CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
 RETURNS void
 LANGUAGE plpgsql
@@ -228,11 +246,9 @@ declare
     v_body_tpl text;
     v_final_body text;
     v_chat_message text;
-    -- ID do Canal Geral (garantir que existe na tabela collaborators ou usar system)
     v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000';
     r_user record;
 begin
-    -- Buscar settings ignorando RLS
     select setting_value into v_resend_key from global_settings where setting_key = 'resend_api_key';
     select setting_value into v_from_email from global_settings where setting_key = 'resend_from_email';
     select setting_value into v_subject from global_settings where setting_key = 'birthday_email_subject';
@@ -241,7 +257,6 @@ begin
     if v_subject is null then v_subject := 'Feliz Aniversário!'; end if;
     if v_body_tpl is null then v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; end if;
     
-    -- Loop colaboradores
     for r_user in 
         select "fullName", "email", "id" 
         from collaborators 
@@ -249,28 +264,15 @@ begin
         and extract(month from "dateOfBirth") = extract(month from current_date) 
         and extract(day from "dateOfBirth") = extract(day from current_date) 
     loop
-        -- Envio Email via pg_net (apenas se configurado)
         if v_resend_key is not null and v_from_email is not null and length(v_resend_key) > 5 then
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
             perform net.http_post(
                 url:='https://api.resend.com/emails',
-                headers:=jsonb_build_object(
-                    'Authorization', 'Bearer ' || v_resend_key,
-                    'Content-Type', 'application/json'
-                ),
-                body:=jsonb_build_object(
-                    'from', v_from_email,
-                    'to', r_user.email,
-                    'subject', v_subject,
-                    'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>'
-                )
+                headers:=jsonb_build_object('Authorization', 'Bearer ' || v_resend_key, 'Content-Type', 'application/json'),
+                body:=jsonb_build_object('from', v_from_email, 'to', r_user.email, 'subject', v_subject, 'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>')
             );
         end if;
-
-        -- Mensagem Chat
         v_chat_message := '🎉 Parabéns ao colega **' || r_user."fullName" || '** que celebra hoje o seu aniversário! 🎂🎈';
-        
-        -- Verificar duplicados hoje
         if not exists (select 1 from messages where "receiverId" = v_general_channel_id and content = v_chat_message and created_at::date = current_date) then
             INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read) 
             VALUES (v_general_channel_id, v_general_channel_id, v_chat_message, now(), false);
@@ -278,15 +280,10 @@ begin
     end loop;
 end;
 $$;
-
--- 4. FORÇAR PERMISSÕES DE EXECUÇÃO (O PASSO CRÍTICO)
--- Isto garante que a API (utilizador anon ou authenticated) pode invocar a função
 REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
-
--- 5. Recarregar Schema Cache
 NOTIFY pgrst, 'reload config';
 `;
 
@@ -380,7 +377,7 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         onClick={() => setActiveTab('rbac')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'rbac' ? 'border-purple-500 text-white bg-purple-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaUserLock /> 4. Segurança RBAC (v4.3)
+                        <FaUserLock /> 4. Segurança RBAC (v5.0)
                     </button>
                     <button 
                         onClick={() => setActiveTab('fix_procurement')} 
@@ -416,12 +413,10 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaShieldAlt /> ENDURECIMENTO DE SEGURANÇA (RLS) - Básico (v3.5)
+                                    <FaShieldAlt /> ENDURECIMENTO DE SEGURANÇA (RLS) - v4.0
                                 </div>
                                 <p className="mb-2">
-                                    Este script ativa o RLS básico nas <strong>tabelas de configuração</strong> (brands, types, etc.) e garante que apenas Admins podem escrever.
-                                    <br/>
-                                    <strong>Nota:</strong> Inclui limpeza prévia de políticas antigas nestas tabelas.
+                                    Este script ativa o RLS básico em <strong>todas</strong> as tabelas de configuração, incluindo as novas (Cargos, Motivos, etc.).
                                 </p>
                             </div>
                             <div className="relative">
@@ -460,13 +455,12 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                              <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC) - v4.3 (Limpeza Total)
+                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC) - v5.0 (Final)
                                 </div>
                                 <p className="mb-2">
-                                    <strong>Correção de Conflitos:</strong> Este script remove <strong>todas</strong> as políticas antigas nas tabelas principais (equipamentos, tickets, colaboradores)
-                                    antes de aplicar as novas regras RBAC.
+                                    <strong>Limpeza Total:</strong> Este script remove todas as políticas antigas de <strong>todas</strong> as tabelas operacionais (incluindo `assignments`, `suppliers`, `teams`, etc.) e aplica as novas regras.
                                     <br/>
-                                    Isto resolve problemas onde políticas antigas como "Read All" estavam a sobrepor as restrições novas.
+                                    Após executar isto, todo o "lixo" será removido.
                                 </p>
                             </div>
                             <div className="relative">
