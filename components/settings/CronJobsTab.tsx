@@ -12,24 +12,29 @@ interface CronJobsTabProps {
 }
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS + CHAT (Correção Definitiva de Permissões v5.1)
+-- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.2 - CACHE & PERMISSÕES)
 -- ==================================================================================
 
--- 1. Garantir Extensões
-create extension if not exists pg_net;
-create extension if not exists pg_cron;
+BEGIN;
 
--- 2. Eliminar função antiga para garantir recriação limpa
+-- 1. Garantir Extensões Necessárias
+CREATE EXTENSION IF NOT EXISTS pg_net;
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- 2. LIMPEZA AGRESSIVA (Remove qualquer variação antiga da função)
+-- Isto resolve o erro "função não existe" se houver conflito de argumentos
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
+DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(date);
+DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(text);
 
--- 3. Criar a Função
-create or replace function public.send_daily_birthday_emails()
-returns void
-language plpgsql
-security definer -- Executa com permissões de admin (importante!)
-set search_path = public
-as $$
-declare
+-- 3. CRIAR A FUNÇÃO (Versão Limpa)
+CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER -- Executa como SuperAdmin para ignorar RLS
+SET search_path = public
+AS $$
+DECLARE
     v_resend_key text;
     v_from_email text;
     v_subject text;
@@ -38,29 +43,28 @@ declare
     v_chat_message text;
     v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000';
     r_user record;
-begin
-    -- A. Obter Configurações
-    select setting_value into v_resend_key from global_settings where setting_key = 'resend_api_key';
-    select setting_value into v_from_email from global_settings where setting_key = 'resend_from_email';
-    select setting_value into v_subject from global_settings where setting_key = 'birthday_email_subject';
-    select setting_value into v_body_tpl from global_settings where setting_key = 'birthday_email_body';
+BEGIN
+    -- Ler Configurações
+    SELECT setting_value INTO v_resend_key FROM global_settings WHERE setting_key = 'resend_api_key';
+    SELECT setting_value INTO v_from_email FROM global_settings WHERE setting_key = 'resend_from_email';
+    SELECT setting_value INTO v_subject FROM global_settings WHERE setting_key = 'birthday_email_subject';
+    SELECT setting_value INTO v_body_tpl FROM global_settings WHERE setting_key = 'birthday_email_body';
 
-    if v_subject is null then v_subject := 'Feliz Aniversário!'; end if;
-    if v_body_tpl is null then v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; end if;
+    IF v_subject IS NULL THEN v_subject := 'Feliz Aniversário!'; END IF;
+    IF v_body_tpl IS NULL THEN v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; END IF;
 
-    -- B. Loop pelos aniversariantes do dia
-    for r_user in
-        select "fullName", "email", "id"
-        from collaborators
-        where status = 'Ativo'
-        and extract(month from "dateOfBirth") = extract(month from current_date)
-        and extract(day from "dateOfBirth") = extract(day from current_date)
-    loop
-        -- 1. Enviar Email (Se configurado)
-        if v_resend_key is not null and v_from_email is not null and length(v_resend_key) > 5 then
+    -- Loop Aniversariantes
+    FOR r_user IN
+        SELECT "fullName", "email", "id"
+        FROM collaborators
+        WHERE status = 'Ativo'
+        AND EXTRACT(MONTH FROM "dateOfBirth") = EXTRACT(MONTH FROM CURRENT_DATE)
+        AND EXTRACT(DAY FROM "dateOfBirth") = EXTRACT(DAY FROM CURRENT_DATE)
+    LOOP
+        -- A. Enviar Email
+        IF v_resend_key IS NOT NULL AND v_from_email IS NOT NULL AND length(v_resend_key) > 5 THEN
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
-            
-            perform net.http_post(
+            PERFORM net.http_post(
                 url:='https://api.resend.com/emails',
                 headers:=jsonb_build_object(
                     'Authorization', 'Bearer ' || v_resend_key,
@@ -73,52 +77,42 @@ begin
                     'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>'
                 )
             );
-        end if;
+        END IF;
 
-        -- 2. Enviar Mensagem para o Chat Geral
+        -- B. Enviar Mensagem Chat
         v_chat_message := '🎉 Parabéns ao colega **' || r_user."fullName" || '** que celebra hoje o seu aniversário! 🎂🎈';
         
-        -- Verificar se a mensagem já foi enviada hoje para evitar duplicados em testes
-        if not exists (
-            select 1 from messages 
-            where "receiverId" = v_general_channel_id 
-            and content = v_chat_message 
-            and created_at::date = current_date
-        ) then
+        IF NOT EXISTS (SELECT 1 FROM messages WHERE "receiverId" = v_general_channel_id AND content = v_chat_message AND created_at::date = CURRENT_DATE) THEN
             INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read)
-            VALUES (
-                v_general_channel_id,
-                v_general_channel_id,
-                v_chat_message,
-                now(),
-                false
-            );
-        end if;
-    end loop;
-end;
+            VALUES (v_general_channel_id, v_general_channel_id, v_chat_message, now(), false);
+        END IF;
+    END LOOP;
+END;
 $$;
 
--- 4. PERMISSÕES EXPLÍCITAS (CRÍTICO PARA O BOTÃO FUNCIONAR)
--- Isto permite que a API do Supabase veja e execute a função
+-- 4. REFRESH DE PERMISSÕES (Crucial para a API ver a função)
 REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 
--- 5. Agendar no CRON (apenas se a extensão existir e estiver activa)
+-- 5. RECARREGAR CACHE DA API (O Segredo)
+-- Isto força o PostgREST a reconhecer a nova função imediatamente
+NOTIFY pgrst, 'reload config';
+
+-- 6. AGENDAR CRON (Se aplicável)
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        PERFORM cron.schedule(
-            'job-aniversarios-diario',
-            '0 9 * * *',
-            'select public.send_daily_birthday_emails()'
-        );
+        PERFORM cron.unschedule('job-aniversarios-diario'); -- Limpar antigo
+        PERFORM cron.schedule('job-aniversarios-diario', '0 9 * * *', 'SELECT public.send_daily_birthday_emails()');
     END IF;
 EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'pg_cron não disponível ou erro ao agendar.';
+    RAISE NOTICE 'Aviso: pg_cron não disponível, mas a função manual funcionará.';
 END $$;
+
+COMMIT;
 `;
 
 const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
@@ -132,7 +126,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
     };
 
     const handleRunTest = async () => {
-        if(!confirm("Isto irá executar a verificação de aniversários AGORA. Se houver aniversariantes hoje, eles receberão o email. A mensagem no chat só será enviada se ainda não existir hoje. Continuar?")) return;
+        if(!confirm("Isto irá executar a verificação de aniversários AGORA. Se houver aniversariantes hoje, eles receberão o email. Continuar?")) return;
         
         setIsTesting(true);
         try {
@@ -220,9 +214,12 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                 </div>
 
                 <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                    <h4 className="text-white font-bold mb-2 text-sm flex items-center gap-2"><FaDatabase/> Script de Instalação (SQL) - Correção v5.1</h4>
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-white font-bold text-sm flex items-center gap-2"><FaDatabase/> Script de Correção v5.2 (Nuclear Fix)</h4>
+                        <span className="text-[10px] text-red-300 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30">Use este se receber erro "Função não existe"</span>
+                    </div>
                     <p className="text-xs text-gray-400 mb-2">
-                        Se receber o erro "função não existe" ou "permissão negada", <strong>copie e execute este script</strong> no SQL Editor do Supabase.
+                        Este script força a limpeza da cache da API, recria a função do zero e garante permissões de execução.
                     </p>
                     <div className="relative">
                         <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-60 custom-scrollbar border border-gray-700">
