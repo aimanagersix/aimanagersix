@@ -36,7 +36,6 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 BEGIN;
 
 -- 1. Função Auxiliar para verificar se é Admin (Baseado na tabela collaborators)
--- Esta função é "SECURITY DEFINER" para poder ler a tabela collaborators mesmo que o utilizador não tenha acesso direto.
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -49,7 +48,6 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 2. Lista de Tabelas de Configuração e Sistema
--- Vamos aplicar RLS rigoroso a todas estas tabelas
 DO $$
 DECLARE
     tables text[] := ARRAY[
@@ -68,36 +66,33 @@ DECLARE
     tbl text;
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
-        -- 2.1 ATIVAR RLS (Isto bloqueia todo o acesso por defeito)
+        -- 2.1 ATIVAR RLS
         EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', tbl);
         
-        -- 2.2 Limpar políticas antigas para evitar conflitos
+        -- 2.2 Limpar políticas antigas
         EXECUTE format('DROP POLICY IF EXISTS "Allow Read Authenticated" ON public.%I', tbl);
         EXECUTE format('DROP POLICY IF EXISTS "Allow Write Admin" ON public.%I', tbl);
         
-        -- 2.3 Política de Leitura: Qualquer utilizador autenticado pode LER (para dropdowns funcionarem)
+        -- 2.3 Política de Leitura
         EXECUTE format('CREATE POLICY "Allow Read Authenticated" ON public.%I FOR SELECT TO authenticated USING (true)', tbl);
         
-        -- 2.4 Política de Escrita: Apenas Admins podem INSERIR/ATUALIZAR/APAGAR
+        -- 2.4 Política de Escrita (Admins Only)
         EXECUTE format('CREATE POLICY "Allow Write Admin" ON public.%I FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())', tbl);
         
-        -- 2.5 Garantir permissões ao nível da tabela (GRANT)
+        -- 2.5 Grant Permissões
         EXECUTE format('GRANT ALL ON public.%I TO authenticated', tbl);
         EXECUTE format('GRANT ALL ON public.%I TO service_role', tbl);
     END LOOP;
 END $$;
 
--- 3. Políticas Específicas para Colaboradores (Auto-leitura)
+-- 3. Políticas Específicas para Colaboradores
 ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Read Own Profile" ON public.collaborators;
 DROP POLICY IF EXISTS "Admin Manage All" ON public.collaborators;
 
--- Utilizador vê o seu próprio perfil
 CREATE POLICY "Read Own Profile" ON public.collaborators FOR SELECT TO authenticated USING (auth.uid() = id);
--- Admins veem e gerem todos
 CREATE POLICY "Admin Manage All" ON public.collaborators FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
--- 4. Atualizar cache de permissões
 NOTIFY pgrst, 'reload config';
 
 COMMIT;
@@ -105,14 +100,45 @@ COMMIT;
 
     const repairScript = `
 -- ==================================================================================
--- REPARAÇÃO DE FUNÇÕES DE SISTEMA
--- Corrige o erro "column reference trigger_name is ambiguous" e recria funções.
+-- REPARAÇÃO DE FUNÇÕES & PERMISSÕES (v2.2)
+-- Execute este script para corrigir erros de "RLS Policy Violation" e funções.
 -- ==================================================================================
 
--- 1. Apagar função antiga (necessário para mudar tipo de retorno)
+-- 1. CORRIGIR SETTINGS (Permissões de Global Settings)
+ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
+
+-- Apagar políticas antigas que possam estar a bloquear
+DROP POLICY IF EXISTS "Allow Write Admin" ON public.global_settings;
+DROP POLICY IF EXISTS "Settings Admin Access" ON public.global_settings;
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.global_settings;
+DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON public.global_settings;
+DROP POLICY IF EXISTS "Enable update for users based on email" ON public.global_settings;
+
+-- Criar política permissiva para Admins (Leitura e Escrita)
+CREATE POLICY "Settings Admin Access" ON public.global_settings
+FOR ALL TO authenticated
+USING (
+  exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin'))
+)
+WITH CHECK (
+  exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin'))
+);
+
+-- Criar política de Leitura para todos os autenticados (necessário para a app arrancar)
+CREATE POLICY "Settings Read All" ON public.global_settings
+FOR SELECT TO authenticated
+USING (true);
+
+-- Pré-inserir chaves de aniversário para evitar erro de INSERT se a política falhar
+INSERT INTO public.global_settings (setting_key, setting_value)
+VALUES 
+  ('birthday_email_subject', 'Feliz Aniversário!'),
+  ('birthday_email_body', 'Parabéns {{nome}}! Desejamos-te um dia fantástico.')
+ON CONFLICT (setting_key) DO NOTHING;
+
+-- 2. REPARAR FUNÇÃO get_database_triggers
 DROP FUNCTION IF EXISTS get_database_triggers();
 
--- 2. Recriar função corrigida
 CREATE OR REPLACE FUNCTION get_database_triggers()
 RETURNS TABLE (
     trigger_name text,
@@ -134,17 +160,27 @@ AS $$
         t.trigger_schema = 'public';
 $$;
 
--- 3. Garantir permissões
 GRANT EXECUTE ON FUNCTION get_database_triggers TO authenticated, anon;
 
--- 4. Criar Tabela de Cargos (se não existir) - v2.1
+-- 3. REPARAR TABELA DE CARGOS (Job Titles)
 CREATE TABLE IF NOT EXISTS public.config_job_titles (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Adicionar coluna aos colaboradores
+-- Garantir acesso à tabela de cargos
+ALTER TABLE public.config_job_titles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Job Titles Read" ON public.config_job_titles;
+DROP POLICY IF EXISTS "Job Titles Write" ON public.config_job_titles;
+CREATE POLICY "Job Titles Read" ON public.config_job_titles FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Job Titles Write" ON public.config_job_titles FOR ALL TO authenticated USING (
+    exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin'))
+) WITH CHECK (
+    exists (select 1 from public.collaborators where id = auth.uid() and role in ('SuperAdmin', 'Admin'))
+);
+
+-- Adicionar coluna aos colaboradores se faltar
 ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS job_title_id UUID REFERENCES public.config_job_titles(id);
 `;
 
@@ -325,7 +361,7 @@ WHERE
                         onClick={() => setActiveTab('security')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'security' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaShieldAlt /> 1. Segurança (RLS Hardening)
+                        <FaShieldAlt /> 1. Segurança (RLS)
                     </button>
                      <button 
                         onClick={() => setActiveTab('repair')} 
@@ -395,12 +431,14 @@ WHERE
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaTools /> UPDATE V2.1 & REPARAÇÃO
+                                    <FaTools /> UPDATE V2.2 & REPARAÇÃO RLS
                                 </div>
                                 <p className="mb-2">
-                                    Use este script para: 
-                                    1. Corrigir erro de triggers.
-                                    2. Criar tabela de Cargos (config_job_titles) e adicionar coluna aos colaboradores.
+                                    Use este script se estiver a ter erros de "RLS Policy Violation" ao gravar configurações.
+                                    <br/>
+                                    1. Corrige as permissões da tabela 'global_settings'.
+                                    2. Cria as chaves de configuração de email em falta.
+                                    3. Repara a função de triggers.
                                 </p>
                             </div>
                             <div className="relative">
