@@ -87,6 +87,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 escolasDepartamentos={appData.entidades}
                 collaborators={appData.collaborators}
                 teams={appData.teams}
+                suppliers={appData.suppliers} // Added Suppliers Prop
                 equipment={appData.equipment}
                 equipmentTypes={appData.equipmentTypes}
                 categories={appData.ticketCategories}

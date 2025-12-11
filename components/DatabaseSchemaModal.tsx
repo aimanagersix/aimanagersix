@@ -10,41 +10,34 @@ interface DatabaseSchemaModalProps {
 }
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
-    const [copied, setCopied] = useState<string | null>(null);
-    // Novas abas organizadas
-    const [activeTab, setActiveTab] = useState<'setup' | 'policies' | 'functions' | 'sql_ai' | 'maintenance' | 'playwright'>('setup');
-    
-    // Playwright State
-    const [testRequest, setTestRequest] = useState('');
-    const [generatedTest, setGeneratedTest] = useState('');
-    const [isGeneratingTest, setIsGeneratingTest] = useState(false);
-    const [testEmail, setTestEmail] = useState('josefsmoreira@outlook.com');
-    const [testPassword, setTestPassword] = useState('QSQmZf62!');
-    
-    // SQL AI State
-    const [sqlRequest, setSqlRequest] = useState('');
-    const [generatedSql, setGeneratedSql] = useState('');
-    const [isGeneratingSql, setIsGeneratingSql] = useState(false);
-
-    // Triggers State
-    const [triggers, setTriggers] = useState<any[]>([]);
     const [isLoadingTriggers, setIsLoadingTriggers] = useState(false);
     const [triggerError, setTriggerError] = useState<string | null>(null);
+    const [triggers, setTriggers] = useState<any[]>([]);
+    const [sqlRequest, setSqlRequest] = useState('');
+    const [isGeneratingSql, setIsGeneratingSql] = useState(false);
+    const [generatedSql, setGeneratedSql] = useState('');
+    const [testRequest, setTestRequest] = useState('');
+    const [isGeneratingTest, setIsGeneratingTest] = useState(false);
+    const [testEmail, setTestEmail] = useState(''); 
+    const [testPassword, setTestPassword] = useState('');
+    const [generatedTest, setGeneratedTest] = useState('');
+    const [activeTab, setActiveTab] = useState('setup');
+    const [copied, setCopied] = useState('');
 
     const aiConfigured = isAiConfigured();
 
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
         setCopied(id);
-        setTimeout(() => setCopied(null), 2000);
+        setTimeout(() => setCopied(''), 2000);
     };
 
     // --- SCRIPTS ---
 
     const setupGenesisScript = `
 -- ==================================================================================
--- SCRIPT GENESIS: ESTRUTURA INICIAL DA BASE DE DADOS (AIManager v5.0)
--- Execute este script apenas para criar uma nova base de dados do zero.
+-- SCRIPT GENESIS: ESTRUTURA INICIAL DA BASE DE DADOS (AIManager v5.5)
+-- Execute este script apenas para criar uma nova base de dados do zero ou reparar tabelas em falta.
 -- ==================================================================================
 BEGIN;
 
@@ -59,6 +52,7 @@ CREATE TABLE IF NOT EXISTS public.instituicoes (id UUID DEFAULT gen_random_uuid(
 CREATE TABLE IF NOT EXISTS public.entidades (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, instituicaoId UUID REFERENCES public.instituicoes(id), name TEXT NOT NULL, codigo TEXT, status TEXT DEFAULT 'Ativo');
 CREATE TABLE IF NOT EXISTS public.suppliers (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT NOT NULL, nif TEXT, is_active BOOLEAN DEFAULT true);
 CREATE TABLE IF NOT EXISTS public.teams (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT NOT NULL, is_active BOOLEAN DEFAULT true);
+CREATE TABLE IF NOT EXISTS public.resource_contacts (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, resource_type TEXT NOT NULL, resource_id UUID NOT NULL, name TEXT, email TEXT, phone TEXT, role TEXT, is_active BOOLEAN DEFAULT true);
 
 -- 3. Core: Colaboradores
 CREATE TABLE IF NOT EXISTS public.collaborators (
@@ -90,7 +84,9 @@ CREATE TABLE IF NOT EXISTS public.tickets (
     status TEXT DEFAULT 'Pedido',
     "entidadeId" UUID REFERENCES public.entidades(id),
     "collaboratorId" UUID REFERENCES public.collaborators(id),
-    "requestDate" TIMESTAMPTZ DEFAULT now()
+    "requestDate" TIMESTAMPTZ DEFAULT now(),
+    "supplier_id" UUID REFERENCES public.suppliers(id),
+    "requester_supplier_id" UUID REFERENCES public.suppliers(id)
 );
 
 -- 6. Core: Atribuições
@@ -141,6 +137,8 @@ END $$;
 -- Permite que todos leiam configurações para que as dropdowns funcionem
 CREATE POLICY "Public_Read_Config" ON public.brands FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Public_Read_Types" ON public.equipment_types FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Public_Read_Suppliers" ON public.suppliers FOR SELECT TO authenticated USING (true);
+
 -- Adicione aqui outras políticas específicas se necessário...
 
 NOTIFY pgrst, 'reload config';
@@ -204,9 +202,9 @@ WHERE LOWER(name) LIKE '%desktop%' OR LOWER(name) LIKE '%laptop%' OR LOWER(name)
 ALTER TABLE IF EXISTS public.procurement_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Procurement_Access" ON public.procurement_requests FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- 3. Limpeza de funções obsoletas
-DROP FUNCTION IF EXISTS public.is_admin_or_tech();
-DROP FUNCTION IF EXISTS public.count_orphaned_assignments();
+-- 3. Adicionar Colunas de Fornecedor aos Tickets se faltarem
+ALTER TABLE IF EXISTS public.tickets ADD COLUMN IF NOT EXISTS supplier_id UUID REFERENCES public.suppliers(id);
+ALTER TABLE IF EXISTS public.tickets ADD COLUMN IF NOT EXISTS requester_supplier_id UUID REFERENCES public.suppliers(id);
 `;
 
     const loadTriggers = async () => {
