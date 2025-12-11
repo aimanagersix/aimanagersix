@@ -221,7 +221,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                       >
                           <FaBoxOpen />
                           {t('nav.inventory')}
-                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isInventarioMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 0 24 24" stroke="currentColor">
+                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isInventarioMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                       </button>
@@ -405,7 +405,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
             </div>
         </div>
       </div>
-    </header>
+    </div> {/* ADDED MISSING CLOSING TAG FOR THE MAX-W-SCREEN-XL CONTAINER */}
 
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
@@ -490,6 +490,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
         {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
         {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}
+    </header>
     </>
   );
 };
