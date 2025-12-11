@@ -274,7 +274,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                         {/* Passo 3: Reinstalar */}
                         <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
                              <div className="flex justify-between items-center mb-1">
-                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Reinstalação Completa v5.7 (Safe Mode)</h5>
+                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Instalação Completa v5.7 (Safe Mode)</h5>
                             </div>
                             <p className="text-[10px] text-gray-400 mb-2">Separa a criação da função do agendamento cron (mais seguro).</p>
                             <div className="relative">
