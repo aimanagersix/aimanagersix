@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Ticket, TicketActivity, Collaborator, TicketStatus, Equipment, EquipmentType, Entidade, Assignment } from '../types';
 import { PlusIcon, FaPrint } from './common/Icons';
@@ -20,6 +20,10 @@ interface TicketActivitiesModalProps {
 }
 
 const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, activities, collaborators, currentUser, equipment, equipmentTypes, entidades, onClose, onAddActivity, assignments }) => {
+    // Local state for activities to ensure immediate updates without full app refresh dependence
+    const [localActivities, setLocalActivities] = useState<TicketActivity[]>([]);
+    const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+
     const [newActivityDescription, setNewActivityDescription] = useState('');
     const [selectedEquipmentId, setSelectedEquipmentId] = useState(ticket.equipmentId || '');
     const [error, setError] = useState('');
@@ -40,6 +44,25 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         });
     }, [equipment, assignments, ticket.entidadeId, ticket.collaboratorId, entidades]);
 
+    // Fetch activities on mount and update local state
+    const fetchActivities = async () => {
+        setIsLoadingActivities(true);
+        try {
+            const data = await dataService.getTicketActivities(ticket.id);
+            setLocalActivities(data);
+        } catch (e) {
+            console.error("Failed to load activities", e);
+            // Fallback to props if fetch fails
+            setLocalActivities(activities);
+        } finally {
+            setIsLoadingActivities(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchActivities();
+    }, [ticket.id]);
+
     const handleAddActivity = async () => {
         if (newActivityDescription.trim() === '') {
             setError('A descrição da atividade é obrigatória.');
@@ -53,9 +76,10 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                 equipmentId: selectedEquipmentId || undefined,
             });
             setNewActivityDescription('');
+            // Immediately reload activities to show the new one
+            await fetchActivities();
         } catch (e) {
             console.error("Erro ao adicionar atividade:", e);
-            // O erro já deve ter sido tratado/alertado pelo pai, mas mantemos o estado limpo
         } finally {
             setIsSaving(false);
         }
@@ -65,9 +89,10 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
     const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
     const entidadeName = entidades.find(e => e.id === ticket.entidadeId)?.name || 'Entidade Desconhecida';
     
+    // Use localActivities instead of props
     const sortedActivities = useMemo(() => {
-        return [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [activities]);
+        return [...localActivities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [localActivities]);
 
     const handlePrint = async () => {
         const printWindow = window.open('', '_blank');
@@ -301,7 +326,11 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                 
                 <div>
                     <h3 className="font-semibold text-on-surface-dark mb-2">Histórico de Intervenções</h3>
-                    {sortedActivities.length > 0 ? (
+                    {isLoadingActivities ? (
+                         <div className="flex justify-center items-center py-8">
+                             <FaSpinner className="animate-spin text-gray-500" />
+                         </div>
+                    ) : sortedActivities.length > 0 ? (
                         <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
                             {sortedActivities.map(activity => {
                                 const activityEquipment = activity.equipmentId ? equipmentMap.get(activity.equipmentId) : null;

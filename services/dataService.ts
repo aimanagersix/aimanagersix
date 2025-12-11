@@ -335,6 +335,18 @@ export const addTicket = async (data: any) => {
 export const updateTicket = (id: string, data: any) => update('tickets', id, data);
 export const addTicketActivity = (data: any) => create('ticket_activities', data);
 
+// FETCH SPECIFIC ACTIVITIES (FIX FOR NOT SHOWING UP)
+export const getTicketActivities = async (ticketId: string) => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('ticket_activities')
+        .select('*')
+        .eq('ticketId', ticketId)
+        .order('date', { ascending: false });
+    if (error) throw error;
+    return data || [];
+};
+
 export const addTicketCategory = (data: any) => create('ticket_categories', data);
 export const updateTicketCategory = (id: string, data: any) => update('ticket_categories', id, data);
 export const deleteTicketCategory = (id: string) => remove('ticket_categories', id);
