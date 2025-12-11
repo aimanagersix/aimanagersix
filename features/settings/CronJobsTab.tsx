@@ -12,7 +12,6 @@ interface CronJobsTabProps {
 
 const checkFunctionScript = `-- DIAGNÓSTICO: VERIFICAR SE A FUNÇÃO EXISTE NA BD
 -- Execute este script. Se o resultado for "0 rows", a função NÃO foi criada.
--- Se aparecer uma linha, a função existe e o problema é Cache da API.
 
 SELECT 
     routine_name as "Nome",
@@ -30,30 +29,20 @@ NOTIFY pgrst, 'reload config';
 `;
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.6 - ROBUST INSTALL)
+-- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.7 - SAFE MODE)
 -- ==================================================================================
 
-BEGIN;
-
--- 1. Garantir permissões no Schema Public (Evita erros de visibilidade)
-GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-
--- 2. Garantir Extensões (Se falhar aqui, o script para)
-CREATE EXTENSION IF NOT EXISTS pg_net;
--- pg_cron pode não estar disponível em todos os planos, ignorar erro se falhar não é crítico para o teste manual
-BEGIN
-    CREATE EXTENSION IF NOT EXISTS pg_cron;
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'pg_cron não disponível ou sem permissões. O agendamento automático não funcionará, mas o teste manual sim.';
-END;
-
--- 3. LIMPEZA TOTAL
+-- 1. LIMPEZA PRÉVIA
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(date);
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(text);
-DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(json);
 
--- 4. CRIAR A FUNÇÃO
+-- 2. TENTATIVA DE EXTENSÃO DE REDE (Necessária para enviar o email)
+-- Se falhar, o script continua, mas o envio real falhará (o registo no chat funcionará)
+CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA public;
+
+-- 3. CRIAÇÃO DA FUNÇÃO (Lógica Principal)
+-- Criamos isto FORA de blocos complexos para garantir que é gravado.
 CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
 RETURNS void
 LANGUAGE plpgsql
@@ -87,22 +76,28 @@ BEGIN
         AND EXTRACT(MONTH FROM "dateOfBirth") = EXTRACT(MONTH FROM CURRENT_DATE)
         AND EXTRACT(DAY FROM "dateOfBirth") = EXTRACT(DAY FROM CURRENT_DATE)
     LOOP
-        -- A. Enviar Email
+        -- A. Enviar Email (Se pg_net existir e key estiver configurada)
         IF v_resend_key IS NOT NULL AND v_from_email IS NOT NULL AND length(v_resend_key) > 5 THEN
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
-            PERFORM net.http_post(
-                url:='https://api.resend.com/emails',
-                headers:=jsonb_build_object(
-                    'Authorization', 'Bearer ' || v_resend_key,
-                    'Content-Type', 'application/json'
-                ),
-                body:=jsonb_build_object(
-                    'from', v_from_email,
-                    'to', r_user.email,
-                    'subject', v_subject,
-                    'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>'
-                )
-            );
+            
+            -- Bloco seguro para envio HTTP
+            BEGIN
+                PERFORM net.http_post(
+                    url:='https://api.resend.com/emails',
+                    headers:=jsonb_build_object(
+                        'Authorization', 'Bearer ' || v_resend_key,
+                        'Content-Type', 'application/json'
+                    ),
+                    body:=jsonb_build_object(
+                        'from', v_from_email,
+                        'to', r_user.email,
+                        'subject', v_subject,
+                        'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>'
+                    )
+                );
+            EXCEPTION WHEN OTHERS THEN
+                RAISE WARNING 'Falha ao enviar email via pg_net: %', SQLERRM;
+            END;
         END IF;
 
         -- B. Enviar Mensagem Chat
@@ -116,17 +111,30 @@ BEGIN
 END;
 $$;
 
--- 5. PERMISSÕES EXPLÍCITAS (Indispensável para API)
-REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
+-- 4. PERMISSÕES (Crucial)
+ALTER FUNCTION public.send_daily_birthday_emails() OWNER TO postgres;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 
--- 6. RECARREGAR CACHE
+-- 5. AGENDAMENTO AUTOMÁTICO (Opcional - Em bloco separado para não falhar o resto)
+DO $$
+BEGIN
+    -- Tenta ativar pg_cron
+    CREATE EXTENSION IF NOT EXISTS pg_cron;
+    
+    -- Se chegou aqui, tenta agendar
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+        PERFORM cron.unschedule('job-aniversarios-diario');
+        -- Agenda para as 09:00 AM diariamente
+        PERFORM cron.schedule('job-aniversarios-diario', '0 9 * * *', 'SELECT public.send_daily_birthday_emails()');
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Agendamento automático (pg_cron) não disponível. O teste manual funcionará.';
+END $$;
+
+-- 6. REFRESH CACHE
 NOTIFY pgrst, 'reload config';
-
-COMMIT;
 `;
 
 const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
@@ -266,9 +274,9 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                         {/* Passo 3: Reinstalar */}
                         <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
                              <div className="flex justify-between items-center mb-1">
-                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Reinstalação Completa v5.6</h5>
+                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Reinstalação Completa v5.7 (Safe Mode)</h5>
                             </div>
-                            <p className="text-[10px] text-gray-400 mb-2">Apaga e recria tudo com permissões forçadas.</p>
+                            <p className="text-[10px] text-gray-400 mb-2">Separa a criação da função do agendamento cron (mais seguro).</p>
                             <div className="relative">
                                 <pre className="text-[10px] font-mono text-red-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto max-h-32">{birthdaySqlScript}</pre>
                                 <button onClick={() => handleCopy(birthdaySqlScript, 'install_sql')} className="absolute top-1 right-1 p-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[10px]">
