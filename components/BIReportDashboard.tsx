@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { AppData } from '../hooks/useAppData';
 import { FaFilter, FaSync, FaEuroSign, FaBoxOpen, FaFileInvoiceDollar, FaLaptop, FaPrint } from 'react-icons/fa';
@@ -85,9 +86,9 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
     const filteredData = useMemo<{ filteredEquipment: any[], softwareCost: number }>(() => {
         let filteredEquipment = appData.equipment;
 
-        // Date Filter
-        if (filters.dateFrom) filteredEquipment = filteredEquipment.filter(e => e.purchaseDate >= filters.dateFrom);
-        if (filters.dateTo) filteredEquipment = filteredEquipment.filter(e => e.purchaseDate <= filters.dateTo);
+        // Date Filter - Add check for undefined purchaseDate
+        if (filters.dateFrom) filteredEquipment = filteredEquipment.filter(e => e.purchaseDate && e.purchaseDate >= filters.dateFrom);
+        if (filters.dateTo) filteredEquipment = filteredEquipment.filter(e => e.purchaseDate && e.purchaseDate <= filters.dateTo);
         
         // Status & Type Filter
         if (filters.status.length > 0) filteredEquipment = filteredEquipment.filter(e => filters.status.includes(e.status));
