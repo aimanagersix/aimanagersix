@@ -1,3 +1,4 @@
+
 export type ModuleKey = 
     | 'equipment' | 'licensing' | 'tickets' | 'organization' | 'suppliers' 
     | 'procurement' | 'reports' | 'settings' | 'dashboard_smart'
@@ -110,6 +111,7 @@ export interface Entidade {
     email: string;
     telefone?: string;
     telemovel?: string;
+    telefoneInterno?: string; // Added
     responsavel?: string;
     status: EntidadeStatus;
     website?: string;
@@ -119,6 +121,7 @@ export interface Entidade {
     city?: string;
     locality?: string;
     description?: string;
+    nif?: string; // Added
     contacts?: ResourceContact[];
 }
 
@@ -158,7 +161,8 @@ export enum EquipmentStatus {
     Abate = 'Abate',
     Emprestimo = 'Empréstimo',
     Decommissioned = 'Abate', // Alias
-    Acquisition = 'Aquisição'
+    Acquisition = 'Aquisição',
+    Warranty = 'Garantia' // Alias
 }
 
 export enum CriticalityLevel {
@@ -201,6 +205,7 @@ export interface Equipment {
     cpu_info?: string;
     ram_size?: string;
     disk_info?: string;
+    monitor_info?: string; // Added
     manufacture_date?: string;
     embedded_license_key?: string;
     wwan_address?: string;

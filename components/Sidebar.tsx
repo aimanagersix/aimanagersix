@@ -6,7 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
-import DatabaseSchemaModal from './DatabaseSchemaModal';
+import { DatabaseSchemaModal } from './DatabaseSchemaModal';
 import InstallAppButton from './InstallAppButton';
 
 interface SidebarProps {
@@ -231,8 +231,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 {hasToolsTabs && (
                     <div className="space-y-1">
                         <button
-                            onClick={() => setIsToolsOpen(!isToolsOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            onClick={() => setIsToolsMenuOpen(!isToolsOpen)}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                             title={!isExpanded ? t('nav.tools') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
@@ -258,7 +258,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             </nav>
 
             <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0 relative">
-                 {/* Install Button */}
+                {/* Install Button */}
                 {isExpanded && (
                     <div className="mb-2">
                          <InstallAppButton 

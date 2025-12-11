@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
-import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, SupplierContact } from '../types';
+import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, ResourceContact } from '../types';
 import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic } from 'react-icons/fa';
 // FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { SearchIcon, SpinnerIcon, FaTrash as DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
@@ -328,7 +328,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         }));
     };
 
-    const handleContactsChange = (contacts: SupplierContact[]) => {
+    const handleContactsChange = (contacts: ResourceContact[]) => {
         setFormData(prev => ({ ...prev, contacts }));
     };
 

@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency, SoftwareCategory } from '../types';
-// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { EditIcon, FaTrash as DeleteIcon, ReportIcon, PlusIcon, MailIcon, FaPrint } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp, FaLaptop, FaSort, FaSortUp, FaSortDown, FaTags } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -26,7 +25,7 @@ interface LicenseDashboardProps {
   // BIA Props
   businessServices?: BusinessService[];
   serviceDependencies?: ServiceDependency[];
-  softwareCategories?: SoftwareCategory[]; // NEW
+  softwareCategories?: SoftwareCategory[];
 }
 
 const getStatusClass = (status?: LicenseStatus) => {
@@ -173,13 +172,13 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
-        onClearInitialFilter?.();
+        if (onClearInitialFilter) onClearInitialFilter();
         setCurrentPage(1);
     };
 
     const clearFilters = () => {
         setFilters({ productName: '', licenseKey: '', status: '', invoiceNumber: '', categoryId: '' });
-        onClearInitialFilter?.();
+        if (onClearInitialFilter) onClearInitialFilter();
         setCurrentPage(1);
     };
 
@@ -195,285 +194,193 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         }
         setSortConfig({ key, direction });
     };
-    
-    const handleSendEmail = (l: SoftwareLicense) => {
-        const subject = `Licença de Software: ${l.productName}`;
-        const body = `Detalhes da Licença:\n\nProduto: ${l.productName}\nChave: ${l.licenseKey}\nValidade: ${l.expiryDate || 'Vitalícia'}\n${l.purchaseDate ? `Data de Compra: ${l.purchaseDate}` : ''}\n\nCumprimentos,`;
-        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    };
 
-    const handlePrintLicense = async (license: SoftwareLicense) => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
-        const [logoBase64, sizeStr, align, footerId] = await Promise.all([
-            dataService.getGlobalSetting('app_logo_base64'),
-            dataService.getGlobalSetting('app_logo_size'),
-            dataService.getGlobalSetting('app_logo_alignment'),
-            dataService.getGlobalSetting('report_footer_institution_id')
-        ]);
-        const logoSize = sizeStr ? parseInt(sizeStr) : 80;
-        const logoHtml = logoBase64 ? `<div style="display: flex; justify-content: ${align || 'center'}; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px;" /></div>` : '';
-        
-        let footerHtml = '';
-        if (footerId) {
-            const allData = await dataService.fetchAllData();
-            const inst = allData.instituicoes.find((i: any) => i.id === footerId);
-            if (inst) {
-                footerHtml = `<div class="footer"><p><strong>${inst.name}</strong> | ${[inst.address_line, inst.postal_code, inst.city].filter(Boolean).join(', ')} | NIF: ${inst.nif}</p></div>`;
-            }
-        }
-        
-        const content = `
-            <html><head><title>Ficha de Licença</title>
-            <style>
-                body { font-family: sans-serif; padding: 20px; color: #333; }
-                h1 { color: #0D47A1; } .label { font-weight: bold; color: #666; font-size: 12px; }
-                .value { font-size: 16px; margin-bottom: 15px; border-bottom: 1px dotted #ccc; padding: 2px 0;}
-                .footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 9pt; color: #666; }
-            </style>
-            </head><body>
-            ${logoHtml}
-            <h1>${license.productName}</h1>
-            <div class="label">Chave</div><div class="value">${license.licenseKey}</div>
-            <div class="label">Total / Em Uso</div><div class="value">${license.totalSeats} / ${usedSeatsMap.get(license.id) || 0}</div>
-            <div class="label">Data Compra</div><div class="value">${license.purchaseDate || '-'}</div>
-            <div class="label">Data Expiração</div><div class="value">${license.expiryDate || 'Vitalícia'}</div>
-            ${footerHtml}
-            <script>window.onload = function() { window.print(); }</script>
-            </body></html>
-        `;
-        printWindow.document.write(content);
-        printWindow.document.close();
-    };
-
-    const processedLicenses = useMemo(() => {
-        let filtered = licenses.filter(license => {
-            const nameMatch = filters.productName === '' || license.productName.toLowerCase().includes(filters.productName.toLowerCase());
-            const keyMatch = filters.licenseKey === '' || license.licenseKey.toLowerCase().includes(filters.licenseKey.toLowerCase());
-            const invoiceMatch = filters.invoiceNumber === '' || (license.invoiceNumber && license.invoiceNumber.toLowerCase().includes(filters.invoiceNumber.toLowerCase()));
-            const categoryMatch = filters.categoryId === '' || license.category_id === filters.categoryId;
-
-            const statusMatch = (() => {
-                if (!filters.status) return true;
-                if (filters.status === LicenseStatus.Ativo) return (license.status || LicenseStatus.Ativo) === LicenseStatus.Ativo;
-                if (filters.status === LicenseStatus.Inativo) return license.status === LicenseStatus.Inativo;
-                const usedSeats = usedSeatsMap.get(license.id) || 0;
-                const availableSeats = license.is_oem ? 100 : (license.totalSeats - usedSeats); 
-                
-                if (filters.status === 'available' && availableSeats <= 0) return false;
-                if (filters.status === 'in_use' && usedSeats === 0) return false;
-                if (filters.status === 'depleted' && availableSeats > 0 && !license.is_oem) return false;
-                return true;
-            })();
-            
-            return nameMatch && keyMatch && invoiceMatch && statusMatch && categoryMatch;
+    const filteredLicenses = useMemo(() => {
+        let items = licenses.filter(l => {
+            const matchName = filters.productName === '' || l.productName.toLowerCase().includes(filters.productName.toLowerCase());
+            const matchKey = filters.licenseKey === '' || l.licenseKey.toLowerCase().includes(filters.licenseKey.toLowerCase());
+            const matchStatus = filters.status === '' || l.status === filters.status;
+            const matchCategory = filters.categoryId === '' || l.category_id === filters.categoryId;
+            return matchName && matchKey && matchStatus && matchCategory;
         });
 
-        if (sortConfig !== null) {
-            filtered.sort((a, b) => {
-                let aValue: any;
-                let bValue: any;
-
+        if (sortConfig) {
+            items.sort((a, b) => {
                 if (sortConfig.key === 'usage') {
-                    const aUsed = usedSeatsMap.get(a.id) || 0;
-                    const bUsed = usedSeatsMap.get(b.id) || 0;
-                    aValue = a.is_oem ? 0 : (a.totalSeats > 0 ? aUsed / a.totalSeats : 0);
-                    bValue = b.is_oem ? 0 : (b.totalSeats > 0 ? bUsed / b.totalSeats : 0);
-                } else {
-                    aValue = a[sortConfig.key as keyof SoftwareLicense] ?? '';
-                    bValue = b[sortConfig.key as keyof SoftwareLicense] ?? '';
+                    const usageA = (usedSeatsMap.get(a.id) || 0) / (a.is_oem ? 1 : a.totalSeats);
+                    const usageB = (usedSeatsMap.get(b.id) || 0) / (b.is_oem ? 1 : b.totalSeats);
+                    return sortConfig.direction === 'ascending' ? usageA - usageB : usageB - usageA;
                 }
-
-                if (aValue < bValue) {
-                    return sortConfig.direction === 'ascending' ? -1 : 1;
-                }
-                if (aValue > bValue) {
-                    return sortConfig.direction === 'ascending' ? 1 : -1;
-                }
+                
+                const valA = a[sortConfig.key as keyof SoftwareLicense];
+                const valB = b[sortConfig.key as keyof SoftwareLicense];
+                
+                if (valA === undefined && valB === undefined) return 0;
+                if (valA === undefined) return 1;
+                if (valB === undefined) return -1;
+                
+                if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
                 return 0;
             });
         }
-        
-        return filtered;
-    }, [licenses, filters, usedSeatsMap, sortConfig]);
 
-    const totalPages = Math.ceil(processedLicenses.length / itemsPerPage);
+        return items;
+    }, [licenses, filters, sortConfig, usedSeatsMap]);
+
+    const totalPages = Math.ceil(filteredLicenses.length / itemsPerPage);
     const paginatedLicenses = useMemo(() => {
-        return processedLicenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    }, [processedLicenses, currentPage, itemsPerPage]);
-
+        return filteredLicenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [filteredLicenses, currentPage, itemsPerPage]);
 
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-            <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                <h2 className="text-xl font-semibold text-white">Gestão de Licenciamento</h2>
-                 <div className="flex items-center gap-2">
+            <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+                <div>
+                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                        <FaTags className="text-yellow-500" />
+                        Gestão de Licenças de Software
+                    </h2>
+                </div>
+                <div className="flex gap-2">
                     {onGenerateReport && (
-                        <button
-                            onClick={onGenerateReport}
-                            className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors"
-                        >
-                            <ReportIcon />
-                            Gerar Relatório
+                        <button onClick={onGenerateReport} className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors border border-gray-600">
+                            <ReportIcon /> Relatório
                         </button>
                     )}
                     {onCreate && (
-                        <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                            <PlusIcon /> Adicionar
+                        <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors shadow-lg">
+                            <PlusIcon /> Adicionar Licença
                         </button>
                     )}
                 </div>
             </div>
 
-            <div className="space-y-4 mb-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" id="productNameFilter" name="productName" value={filters.productName} onChange={handleFilterChange} placeholder="Filtrar por Produto..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
-                    <select name="categoryId" value={filters.categoryId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
-                        <option value="">Todas as Categorias</option>
-                        {softwareCategories.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                    <input type="text" id="invoiceNumberFilter" name="invoiceNumber" value={filters.invoiceNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Fatura..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary" />
-                    <select id="statusFilter" name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary">
-                        <option value="">Todos os Estados</option>
-                        <option value={LicenseStatus.Ativo}>Ativo</option>
-                        <option value={LicenseStatus.Inativo}>Inativo</option>
-                        <option value="available">Com Vagas</option>
-                        <option value="in_use">Em Uso</option>
-                        <option value="depleted">Esgotado</option>
-                    </select>
-                </div>
-                 <div className="flex justify-end">
-                    <button onClick={clearFilters} className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">
-                        Limpar Filtros
-                    </button>
-                </div>
+            <div className="flex flex-wrap gap-4 mb-6">
+                <input
+                    type="text"
+                    name="productName"
+                    value={filters.productName}
+                    onChange={handleFilterChange}
+                    placeholder="Filtrar por Produto..."
+                    className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm flex-grow min-w-[200px]"
+                />
+                <input
+                    type="text"
+                    name="licenseKey"
+                    value={filters.licenseKey}
+                    onChange={handleFilterChange}
+                    placeholder="Filtrar por Chave..."
+                    className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm flex-grow min-w-[200px]"
+                />
+                <select
+                    name="categoryId"
+                    value={filters.categoryId}
+                    onChange={handleFilterChange}
+                    className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm w-40"
+                >
+                    <option value="">Todas as Categorias</option>
+                    {softwareCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <select
+                    name="status"
+                    value={filters.status}
+                    onChange={handleFilterChange}
+                    className="bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm w-32"
+                >
+                    <option value="">Todos os Estados</option>
+                    {Object.values(LicenseStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <button onClick={clearFilters} className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500">
+                    Limpar
+                </button>
             </div>
-            
-            <div className="overflow-x-auto">
+
+            <div className="overflow-x-auto min-h-[400px]">
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th scope="col" className="px-2 py-3 w-12"></th>
-                            <SortableHeader sortKey="productName" title="Nome do Produto" sortConfig={sortConfig} requestSort={requestSort} />
-                            <SortableHeader sortKey="licenseKey" title="Chave de Licença" sortConfig={sortConfig} requestSort={requestSort} />
-                            <SortableHeader sortKey="criticality" title="Criticidade" sortConfig={sortConfig} requestSort={requestSort} />
-                            <SortableHeader sortKey="status" title="Status" sortConfig={sortConfig} requestSort={requestSort} />
-                            <SortableHeader sortKey="usage" title="Uso (Total/Uso/Disp)" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
-                            <SortableHeader sortKey="purchaseDate" title="Datas" sortConfig={sortConfig} requestSort={requestSort} />
-                            <th scope="col" className="px-6 py-3 text-center">Ações</th>
+                            <th className="px-4 py-3 w-10"></th>
+                            <SortableHeader sortKey="productName" title="Produto" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="licenseKey" title="Chave" sortConfig={sortConfig} requestSort={requestSort} />
+                            <SortableHeader sortKey="usage" title="Uso" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
+                            <SortableHeader sortKey="status" title="Estado" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
+                            <SortableHeader sortKey="expiryDate" title="Validade" sortConfig={sortConfig} requestSort={requestSort} />
+                            <th className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedLicenses.length > 0 ? paginatedLicenses.map((license) => {
-                            const usedSeats = usedSeatsMap.get(license.id) || 0;
-                            const availableSeats = license.totalSeats - usedSeats;
-                            const status = license.status || LicenseStatus.Ativo;
-                            const assignedDetails = assignmentsByLicense.get(license.id) || [];
+                        {paginatedLicenses.length > 0 ? paginatedLicenses.map(license => {
+                            const used = usedSeatsMap.get(license.id) || 0;
                             const isExpanded = expandedLicenseId === license.id;
-                            const biaInfo = licenseCriticalityMap.get(license.id);
                             const categoryName = categoryMap.get(license.category_id || '');
                             
-                            // Logic to disable delete button
-                            const isDeleteDisabled = usedSeats > 0;
-
                             return (
                                 <React.Fragment key={license.id}>
-                                    <tr 
-                                        className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
-                                        onClick={() => handleToggleExpand(license.id)}
-                                    >
-                                        <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
-                                            {assignedDetails.length > 0 && (
-                                                <button onClick={() => handleToggleExpand(license.id)} className="text-gray-400 hover:text-white" aria-label={isExpanded ? "Esconder detalhes" : "Mostrar detalhes"}>
-                                                    {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
-                                                </button>
-                                            )}
+                                    <tr className={`border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer ${isExpanded ? 'bg-gray-800/80' : ''}`} onClick={() => handleToggleExpand(license.id)}>
+                                        <td className="px-4 py-4 text-center">
+                                            {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
                                         </td>
-                                        <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
-                                            <div className="flex flex-col">
-                                                <div className="flex items-center">
-                                                    {license.productName}
-                                                    {license.is_oem && <span className="ml-2 text-[10px] bg-blue-900/30 text-blue-300 px-1 rounded border border-blue-500/30">OEM</span>}
-                                                    {biaInfo && (
-                                                        <span className="flex h-2 w-2 relative ml-2" title={`Suporta serviço crítico: ${biaInfo.serviceName} (${biaInfo.level})`}>
-                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {categoryName && <span className="text-xs text-gray-400 mt-1 flex items-center gap-1"><FaTags/> {categoryName}</span>}
-                                            </div>
+                                        <td className="px-6 py-4 font-medium text-white">
+                                            <div>{license.productName}</div>
+                                            {categoryName && <div className="text-xs text-gray-400 mt-1">{categoryName}</div>}
+                                            {license.is_oem && <span className="text-[10px] bg-purple-900 text-purple-200 px-1 rounded border border-purple-500 ml-2">OEM</span>}
                                         </td>
                                         <td className="px-6 py-4 font-mono text-xs">{license.licenseKey}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs rounded border ${getCriticalityClass(license.criticality)}`}>
-                                                {license.criticality || 'Baixa'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                                            {onToggleStatus ? (
-                                                <button onClick={() => onToggleStatus(license.id)} className={`flex items-center gap-1 text-xl ${status === LicenseStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`} title={status === LicenseStatus.Ativo ? 'Desativar' : 'Ativar'}>
-                                                    {status === LicenseStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
-                                                </button>
+                                        <td className="px-6 py-4 text-center">
+                                            {license.is_oem ? (
+                                                <span className="text-blue-400 font-bold">{used} (Ilimitado)</span>
                                             ) : (
-                                                <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(status)}`}>
-                                                    {status}
+                                                <span className={`${used >= license.totalSeats ? 'text-red-400 font-bold' : 'text-green-400'}`}>
+                                                    {used} / {license.totalSeats}
                                                 </span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            {license.is_oem ? (
-                                                <span className="text-xs italic text-blue-400">Dinâmico (OEM)</span>
-                                            ) : (
-                                                <div className="flex flex-col items-center">
-                                                     <div className="w-full bg-gray-700 rounded-full h-2.5 mb-1">
-                                                        <div className="bg-brand-secondary h-2.5 rounded-full" style={{ width: `${license.totalSeats > 0 ? (usedSeats/license.totalSeats)*100 : 0}%`}}></div>
-                                                    </div>
-                                                    <span className="text-xs whitespace-nowrap">
-                                                        <span className="text-white font-bold">{license.totalSeats}</span> / <span className="text-yellow-400">{usedSeats}</span> / <span className="text-green-400">{availableSeats}</span>
-                                                    </span>
-                                                </div>
-                                            )}
+                                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusClass(license.status as LicenseStatus)}`}>
+                                                {license.status}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4 text-xs">
-                                            <div>Compra: {license.purchaseDate || 'N/A'}</div>
-                                            <div>Expira: {license.expiryDate || 'Vitalícia'}</div>
+                                            {license.expiryDate || <span className="text-green-500">Vitalícia</span>}
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <div className="flex justify-center items-center gap-4">
-                                                <button onClick={(e) => { e.stopPropagation(); handlePrintLicense(license); }} className="text-gray-400 hover:text-white" title="Imprimir Ficha"><FaPrint /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleSendEmail(license); }} className="text-gray-400 hover:text-white" title="Partilhar Chave"><MailIcon /></button>
+                                            <div className="flex justify-center items-center gap-3">
+                                                {onToggleStatus && (
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); onToggleStatus(license.id); }} 
+                                                        className={`text-lg ${license.status === 'Ativo' ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
+                                                    >
+                                                        {license.status === 'Ativo' ? <FaToggleOn /> : <FaToggleOff />}
+                                                    </button>
+                                                )}
                                                 {onEdit && (
-                                                    <button onClick={(e) => { e.stopPropagation(); onEdit(license); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); onEdit(license); }} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>
                                                 )}
                                                 {onDelete && (
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); onDelete(license.id); }} 
-                                                        className={isDeleteDisabled ? "text-gray-600 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
-                                                        title={isDeleteDisabled ? "Impossível excluir: Licença em uso" : "Excluir"}
-                                                        disabled={isDeleteDisabled}
-                                                    >
-                                                        <DeleteIcon />
-                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); onDelete(license.id); }} className="text-red-400 hover:text-red-300"><DeleteIcon /></button>
                                                 )}
                                             </div>
                                         </td>
                                     </tr>
                                     {isExpanded && (
-                                        <tr className="bg-gray-800/50">
-                                            <td colSpan={9} className="p-4">
-                                                <h4 className="text-sm font-bold text-white mb-2">Atribuído a:</h4>
-                                                <ul className="list-disc list-inside text-xs text-gray-300 space-y-1 pl-4">
-                                                    {assignedDetails.map(({ equipment, user }, index) => (
-                                                        <li key={index}>
-                                                            <span className="font-semibold text-white">{equipment.description}</span> (S/N: {equipment.serialNumber})
-                                                            {user && <span className="text-gray-400"> - Utilizador: {user}</span>}
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                                        <tr className="bg-gray-900/30 border-b border-gray-700">
+                                            <td colSpan={7} className="p-4">
+                                                <div className="pl-12">
+                                                    <h4 className="text-sm font-bold text-gray-400 mb-2 flex items-center gap-2"><FaLaptop /> Equipamentos Associados ({assignmentsByLicense.get(license.id)?.length || 0})</h4>
+                                                    {(assignmentsByLicense.get(license.id) || []).length > 0 ? (
+                                                        <ul className="space-y-1 text-sm text-gray-300 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                                                            {(assignmentsByLicense.get(license.id) || []).map((assign, idx) => (
+                                                                <li key={idx} className="flex justify-between items-center bg-gray-800 p-2 rounded border border-gray-700">
+                                                                    <span>{assign.equipment.description} <span className="text-gray-500 text-xs">({assign.equipment.serialNumber})</span></span>
+                                                                    <span className="text-xs text-brand-secondary">{assign.user || 'Sem Utilizador'}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : (
+                                                        <p className="text-gray-500 text-xs italic">Nenhum equipamento a utilizar esta licença.</p>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     )}
@@ -481,19 +388,20 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
                             );
                         }) : (
                             <tr>
-                                <td colSpan={9} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma licença encontrada.</td>
+                                <td colSpan={7} className="text-center py-8 text-gray-500">Nenhuma licença encontrada.</td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
-             <Pagination
+
+            <Pagination 
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
                 itemsPerPage={itemsPerPage}
                 onItemsPerPageChange={handleItemsPerPageChange}
-                totalItems={processedLicenses.length}
+                totalItems={filteredLicenses.length}
             />
         </div>
     );

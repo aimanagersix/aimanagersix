@@ -1,5 +1,4 @@
 
-// ... existing imports ...
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -8,10 +7,60 @@ import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxe
 import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired, FaMemory, FaHdd, FaListAlt } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
-// ... (CameraScanner component remains unchanged) ...
+// Basic Camera Scanner Component
+const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void, onClose: () => void }> = ({ onCapture, onClose }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [stream, setStream] = useState<MediaStream | null>(null);
+
+    useEffect(() => {
+        const startCamera = async () => {
+            try {
+                const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                setStream(mediaStream);
+                if (videoRef.current) {
+                    videoRef.current.srcObject = mediaStream;
+                }
+            } catch (err) {
+                console.error("Error accessing camera:", err);
+                alert("Erro ao aceder à câmara. Verifique as permissões.");
+                onClose();
+            }
+        };
+        startCamera();
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, []);
+
+    const capture = () => {
+        if (videoRef.current && canvasRef.current) {
+            const context = canvasRef.current.getContext('2d');
+            if (context) {
+                canvasRef.current.width = videoRef.current.videoWidth;
+                canvasRef.current.height = videoRef.current.videoHeight;
+                context.drawImage(videoRef.current, 0, 0, videoRef.current.videoWidth, videoRef.current.videoHeight);
+                const dataUrl = canvasRef.current.toDataURL('image/jpeg');
+                onCapture(dataUrl);
+            }
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
+            <video ref={videoRef} autoPlay playsInline className="w-full max-w-md" />
+            <canvas ref={canvasRef} className="hidden" />
+            <div className="absolute bottom-10 flex gap-4">
+                <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-full">Cancelar</button>
+                <button onClick={capture} className="px-6 py-2 bg-white text-black rounded-full font-bold">Capturar</button>
+            </div>
+        </div>
+    );
+};
 
 interface AddEquipmentModalProps {
-    // ... existing props ...
     onClose: () => void;
     onSave: (equipment: Partial<Equipment>, assignment?: any, licenseIds?: string[]) => Promise<any>;
     brands: Brand[];
@@ -74,17 +123,17 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         wwan_address: '',
         bluetooth_address: '',
         usb_thunderbolt_address: '',
-        ip_address: '', // IP Address
+        ip_address: '',
         ram_size: '',
         disk_info: '',
         cpu_info: '',
-        monitor_info: '',
+        monitor_info: '', // Added
         manufacture_date: '',
         accounting_category_id: '',
         conservation_state_id: '',
         residual_value: 0
     });
-    // ... rest of the state ...
+    
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isScanning, setIsScanning] = useState(false);
     const [isLoading, setIsLoading] = useState({ serial: false, info: false });
@@ -129,6 +178,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 cpu_info: equipmentToEdit.cpu_info || '',
                 ram_size: equipmentToEdit.ram_size || '',
                 disk_info: equipmentToEdit.disk_info || '',
+                monitor_info: equipmentToEdit.monitor_info || '',
                 ip_address: equipmentToEdit.ip_address || '',
             });
         } else if (initialData) {
@@ -165,7 +215,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     }, [formData.typeId, equipmentTypes]);
     
     // ... (rest of logic: isMaintenanceType, isComputingDevice, filteredCollaborators, validate, handleChange, handleSetWarranty, handleGenerateName, handleFetchInfo, handleScanComplete, handleAddNewBrand, handleAddNewType, handleSubmit) ...
-    // Keeping logic identical to previous file content, just focusing on render changes for IP Address
 
     const isMaintenanceType = useMemo(() => {
         return selectedType?.is_maintenance === true;

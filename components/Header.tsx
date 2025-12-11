@@ -6,7 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
-import DatabaseSchemaModal from './DatabaseSchemaModal';
+import { DatabaseSchemaModal } from './DatabaseSchemaModal';
 import InstallAppButton from './InstallAppButton';
 
 interface HeaderProps {

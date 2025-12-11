@@ -223,7 +223,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
         }
         return {
-            operational: statusCounts[EquipmentStatus.Operational] || 0,
+            operational: statusCounts[EquipmentStatus.Operacional] || 0,
             stock: statusCounts[EquipmentStatus.Stock] || 0,
             warranty: statusCounts[EquipmentStatus.Warranty] || 0,
             decommissioned: statusCounts[EquipmentStatus.Decommissioned] || 0,
@@ -531,7 +531,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             {/* --- MODULE 3: INVENTORY HEALTH & STATUS --- */}
             <DashboardSection title="Estado do Inventário" icon={<FaWarehouse />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <StatCard title={t('overview.operational')} value={stats.operational} icon={<FaCheckCircle className="h-5 w-5" />} color="bg-green-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Operational })} />
+                    <StatCard title={t('overview.operational')} value={stats.operational} icon={<FaCheckCircle className="h-5 w-5" />} color="bg-green-600" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Operacional })} />
                     <StatCard title={t('overview.stock')} value={stats.stock} icon={<FaWarehouse className="h-5 w-5" />} color="bg-indigo-500" onClick={() => onViewItem('equipment.inventory', { status: EquipmentStatus.Stock })} />
                     <StatCard title={t('overview.expiring_warranties')} value={healthStats.expiringWarranties} icon={<FaShieldAlt className="h-5 w-5" />} color="bg-yellow-600" onClick={() => onViewItem('equipment.inventory', {})} subtext={t('overview.next_30_days')}/>
                     <StatCard title={t('overview.expiring_licenses')} value={healthStats.expiringLicenses} icon={<FaExclamationTriangle className="h-5 w-5" />} color="bg-orange-600" onClick={() => onViewItem('licensing', {})} subtext={t('overview.next_30_days')}/>

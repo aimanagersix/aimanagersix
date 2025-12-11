@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Collaborator, Message } from '../types';
+import { Collaborator, Message, CollaboratorStatus } from '../types';
 import { FaComment, FaPaperPlane, FaArrowLeft, FaUsers } from './common/Icons';
 import { FaTimes, FaBullhorn, FaCircle } from 'react-icons/fa';
 
@@ -38,7 +38,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
             email: 'general@system.local',
             numeroMecanografico: 'SYS',
             role: 'System',
-            status: 'Ativo',
+            status: CollaboratorStatus.Ativo, // Fixed Type
             canLogin: false,
             receivesNotifications: false
         };

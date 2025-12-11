@@ -214,7 +214,7 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
     
     // Status Steps Visualization
     const steps: ProcurementStatus[] = [ProcurementStatus.Pending, ProcurementStatus.Approved, ProcurementStatus.Ordered, ProcurementStatus.Received, ProcurementStatus.Completed];
-    const currentStepIdx = steps.indexOf(formData.status || ProcurementStatus.Pending);
+    const currentStepIdx = steps.indexOf((formData.status as ProcurementStatus) || ProcurementStatus.Pending);
     const isRejected = formData.status === ProcurementStatus.Rejected;
 
     const selectedType = equipmentTypes.find(t => t.id === formData.equipment_type_id);

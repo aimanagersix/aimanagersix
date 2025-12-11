@@ -259,7 +259,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const handleStatusChange = (item: Equipment, newStatus: EquipmentStatus) => {
         if (!onUpdateStatus || !onAssign) return;
         const isCurrentlyAssigned = assignedEquipmentIds.has(item.id);
-        if (newStatus === EquipmentStatus.Operational && !isCurrentlyAssigned) {
+        if (newStatus === EquipmentStatus.Operacional && !isCurrentlyAssigned) {
             onAssign(item);
             return;
         }
