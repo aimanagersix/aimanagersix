@@ -405,7 +405,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
             </div>
         </div>
       </div>
-    </div> {/* Added missing closing div */}
+    </div> {/* FIM DO CONTAINER PRINCIPAL DO HEADER (MAX-W-SCREEN-XL) - CORRIGIDO */}
 
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
