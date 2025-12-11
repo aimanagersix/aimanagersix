@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaCommentDots, FaStethoscope, FaExclamationTriangle } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaCommentDots, FaStethoscope, FaExclamationTriangle, FaSearch } from 'react-icons/fa';
 
 interface CronJobsTabProps {
     settings: any;
@@ -10,6 +10,19 @@ interface CronJobsTabProps {
     onCopy: (text: string) => void;
 }
 
+const checkFunctionScript = `-- DIAGNÓSTICO: VERIFICAR SE A FUNÇÃO EXISTE NA BD
+-- Execute este script. Se o resultado for "0 rows", a função NÃO foi criada.
+-- Se aparecer uma linha, a função existe e o problema é Cache da API.
+
+SELECT 
+    routine_name as "Nome",
+    routine_type as "Tipo",
+    security_type as "Segurança"
+FROM information_schema.routines
+WHERE routine_schema = 'public' 
+AND routine_name = 'send_daily_birthday_emails';
+`;
+
 const cacheCleanScript = `-- COMANDO DE LIMPEZA DE CACHE DO SUPABASE (POSTGREST)
 -- Execute isto no SQL Editor para forçar a API a reconhecer as novas funções.
 
@@ -17,45 +30,34 @@ NOTIFY pgrst, 'reload config';
 `;
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.5 - RLS FIX GLOBAL & MESSAGES)
+-- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.6 - ROBUST INSTALL)
 -- ==================================================================================
 
 BEGIN;
 
--- 1. CORREÇÃO DE PERMISSÕES (O Passo que faltava)
--- Desbloqueia a tabela de configurações e mensagens para evitar o erro "violates row-level security"
+-- 1. Garantir permissões no Schema Public (Evita erros de visibilidade)
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
--- A. Tabela Global Settings
-ALTER TABLE IF EXISTS public.global_settings ENABLE ROW LEVEL SECURITY;
--- Removemos políticas antigas que possam estar a bloquear
-DROP POLICY IF EXISTS "Settings_Read_All" ON public.global_settings;
-DROP POLICY IF EXISTS "Settings_Write_All" ON public.global_settings;
-DROP POLICY IF EXISTS "Config_Write_Admin" ON public.global_settings;
-DROP POLICY IF EXISTS "Config_Read_All" ON public.global_settings;
+-- 2. Garantir Extensões (Se falhar aqui, o script para)
+CREATE EXTENSION IF NOT EXISTS pg_net;
+-- pg_cron pode não estar disponível em todos os planos, ignorar erro se falhar não é crítico para o teste manual
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_cron;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pg_cron não disponível ou sem permissões. O agendamento automático não funcionará, mas o teste manual sim.';
+END;
 
--- Criamos novas políticas permissivas para o funcionamento do sistema
-CREATE POLICY "Settings_Read_All" ON public.global_settings FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Settings_Write_All" ON public.global_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
-GRANT ALL ON public.global_settings TO authenticated;
-GRANT ALL ON public.global_settings TO service_role;
-
--- B. Tabela Messages (Para o bot conseguir escrever no chat)
-ALTER TABLE IF EXISTS public.messages ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Bot_Insert_Message" ON public.messages;
-CREATE POLICY "Bot_Insert_Message" ON public.messages FOR INSERT TO authenticated WITH CHECK (true);
-
-
--- 2. LIMPEZA DA FUNÇÃO (Remove versões antigas)
+-- 3. LIMPEZA TOTAL
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(date);
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(text);
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(json);
 
--- 3. CRIAR A FUNÇÃO (Lógica de Envio)
+-- 4. CRIAR A FUNÇÃO
 CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER -- Executa como SuperAdmin (ignora RLS na leitura de users)
+SECURITY DEFINER -- Executa como Admin
 SET search_path = public
 AS $$
 DECLARE
@@ -85,7 +87,7 @@ BEGIN
         AND EXTRACT(MONTH FROM "dateOfBirth") = EXTRACT(MONTH FROM CURRENT_DATE)
         AND EXTRACT(DAY FROM "dateOfBirth") = EXTRACT(DAY FROM CURRENT_DATE)
     LOOP
-        -- A. Enviar Email (apenas se configurado e API Key válida)
+        -- A. Enviar Email
         IF v_resend_key IS NOT NULL AND v_from_email IS NOT NULL AND length(v_resend_key) > 5 THEN
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
             PERFORM net.http_post(
@@ -106,7 +108,6 @@ BEGIN
         -- B. Enviar Mensagem Chat
         v_chat_message := '🎉 Parabéns ao colega **' || r_user."fullName" || '** que celebra hoje o seu aniversário! 🎂🎈';
         
-        -- Inserir mensagem se ainda não existir hoje para este user
         IF NOT EXISTS (SELECT 1 FROM messages WHERE "receiverId" = v_general_channel_id AND content = v_chat_message AND created_at::date = CURRENT_DATE) THEN
             INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read)
             VALUES (v_general_channel_id, v_general_channel_id, v_chat_message, now(), false);
@@ -115,26 +116,26 @@ BEGIN
 END;
 $$;
 
--- 4. PERMISSÕES DE EXECUÇÃO
+-- 5. PERMISSÕES EXPLÍCITAS (Indispensável para API)
 REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 
--- 5. RECARREGAR CACHE DA API
+-- 6. RECARREGAR CACHE
 NOTIFY pgrst, 'reload config';
 
 COMMIT;
 `;
 
 const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
-    const [copiedCode, setCopiedCode] = useState<'bday_sql' | 'cache_sql' | null>(null);
+    const [copiedCode, setCopiedCode] = useState<string | null>(null);
     const [isTesting, setIsTesting] = useState(false);
 
-    const handleCopy = (text: string, type: 'bday_sql' | 'cache_sql') => {
+    const handleCopy = (text: string, id: string) => {
         onCopy(text);
-        setCopiedCode(type);
+        setCopiedCode(id);
         setTimeout(() => setCopiedCode(null), 2000);
     };
 
@@ -226,42 +227,56 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                     <button onClick={onSave} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2"><FaSave /> Guardar Texto do Email</button>
                 </div>
 
-                {/* Área de Diagnóstico e Limpeza */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t border-gray-700 pt-4">
-                     
-                     <div className="bg-blue-900/10 p-4 rounded border border-blue-500/30 relative">
-                        <div className="flex justify-between items-center mb-2">
-                            <h4 className="text-blue-300 font-bold text-sm flex items-center gap-2"><FaStethoscope /> 1. Limpar Cache API (Rápido)</h4>
+                {/* Área de Diagnóstico e Resolução */}
+                <div className="mt-8 border-t border-gray-700 pt-4">
+                    <h4 className="text-white font-bold text-md mb-4 flex items-center gap-2">
+                        <FaStethoscope className="text-yellow-400" /> Diagnóstico e Resolução
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 gap-4">
+                        
+                        {/* Passo 1: Verificar se existe */}
+                        <div className="bg-blue-900/20 p-3 rounded border border-blue-500/30">
+                            <div className="flex justify-between items-center mb-1">
+                                <h5 className="text-blue-300 font-bold text-xs flex items-center gap-2"><FaSearch/> 1. Verificar se a função existe na BD</h5>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mb-2">Execute isto no SQL Editor. Se retornar 0 linhas, a função não foi criada.</p>
+                            <div className="relative">
+                                <pre className="text-[10px] font-mono text-blue-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto">{checkFunctionScript}</pre>
+                                <button onClick={() => handleCopy(checkFunctionScript, 'check_sql')} className="absolute top-1 right-1 p-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[10px]">
+                                    {copiedCode === 'check_sql' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                                </button>
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-400 mb-2">
-                            Se a função existe mas dá erro <strong>"não existe"</strong>, execute este comando no SQL Editor para atualizar a cache.
-                        </p>
-                        <div className="relative">
-                            <pre className="text-xs font-mono text-blue-200 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar border border-gray-700">
-                                {cacheCleanScript}
-                            </pre>
-                            <button onClick={() => handleCopy(cacheCleanScript, 'cache_sql')} className="absolute top-2 right-2 p-2 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600 shadow-lg flex items-center gap-2 text-xs">
-                                {copiedCode === 'cache_sql' ? <><FaCheck className="text-green-400"/> Copiado</> : <><FaCopy /> Copiar</>}
-                            </button>
-                        </div>
-                    </div>
 
-                    <div className="bg-red-900/10 p-4 rounded border border-red-500/30 relative">
-                        <div className="flex justify-between items-center mb-2">
-                            <h4 className="text-red-300 font-bold text-sm flex items-center gap-2"><FaDatabase/> 2. Instalação Completa v5.5</h4>
-                            <span className="text-[9px] text-red-300 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30 uppercase">Nuclear Fix</span>
+                         {/* Passo 2: Limpar Cache */}
+                        <div className="bg-orange-900/20 p-3 rounded border border-orange-500/30">
+                            <div className="flex justify-between items-center mb-1">
+                                <h5 className="text-orange-300 font-bold text-xs flex items-center gap-2"><FaExclamationTriangle/> 2. Forçar atualização da API (Cache)</h5>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mb-2">Se a função existe na BD mas dá erro na App, execute isto.</p>
+                            <div className="relative">
+                                <pre className="text-[10px] font-mono text-orange-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto">{cacheCleanScript}</pre>
+                                <button onClick={() => handleCopy(cacheCleanScript, 'cache_sql')} className="absolute top-1 right-1 p-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[10px]">
+                                    {copiedCode === 'cache_sql' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                                </button>
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-400 mb-2">
-                            Corrige o erro "violates row-level security", recria a função e limpa a cache.
-                        </p>
-                        <div className="relative">
-                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar border border-gray-700">
-                                {birthdaySqlScript}
-                            </pre>
-                            <button onClick={() => handleCopy(birthdaySqlScript, 'bday_sql')} className="absolute top-2 right-2 p-2 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600 shadow-lg flex items-center gap-2 text-xs">
-                                {copiedCode === 'bday_sql' ? <><FaCheck className="text-green-400"/> Copiado</> : <><FaCopy /> Copiar</>}
-                            </button>
+
+                        {/* Passo 3: Reinstalar */}
+                        <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
+                             <div className="flex justify-between items-center mb-1">
+                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Reinstalação Completa v5.6</h5>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mb-2">Apaga e recria tudo com permissões forçadas.</p>
+                            <div className="relative">
+                                <pre className="text-[10px] font-mono text-red-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto max-h-32">{birthdaySqlScript}</pre>
+                                <button onClick={() => handleCopy(birthdaySqlScript, 'install_sql')} className="absolute top-1 right-1 p-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[10px]">
+                                    {copiedCode === 'install_sql' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                                </button>
+                            </div>
                         </div>
+
                     </div>
                 </div>
             </div>
