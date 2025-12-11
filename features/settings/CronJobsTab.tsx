@@ -23,16 +23,17 @@ SELECT public.send_daily_birthday_emails();
 `;
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS & DIAGNÓSTICO (VERSÃO v5.10 - EMAIL TESTER)
--- Inclui: Correção Timestamp + Nova função de teste de email isolado
+-- SCRIPT DE ANIVERSÁRIOS & DIAGNÓSTICO (VERSÃO v5.11 - HTTP SYNC FIX)
+-- Correção: Substituído pg_net (async) por http (sync) para capturar erros imediatamente.
 -- ==================================================================================
 
 -- 1. LIMPEZA PRÉVIA
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 DROP FUNCTION IF EXISTS public.test_resend_email(text);
 
--- 2. TENTATIVA DE EXTENSÃO DE REDE
-DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA public; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+-- 2. INSTALAR EXTENSÃO HTTP (Síncrona)
+-- Necessária para obter o código de status (200, 400, etc) imediatamente.
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA public;
 
 -- 3. FUNÇÃO PRINCIPAL (ROTINA DIÁRIA)
 CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
@@ -50,8 +51,8 @@ DECLARE
     v_chat_message text;
     v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000';
     r_user record;
-    v_status int;
-    v_resp text;
+    v_status integer;
+    v_content text;
 BEGIN
     -- Ler Configurações
     BEGIN
@@ -75,31 +76,30 @@ BEGIN
         AND EXTRACT(MONTH FROM "dateOfBirth"::date) = EXTRACT(MONTH FROM CURRENT_DATE)
         AND EXTRACT(DAY FROM "dateOfBirth"::date) = EXTRACT(DAY FROM CURRENT_DATE)
     LOOP
-        -- A. Enviar Email
+        -- A. Enviar Email (Usando extensão HTTP Síncrona)
         IF v_resend_key IS NOT NULL AND v_from_email IS NOT NULL AND length(v_resend_key) > 5 THEN
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
             
             BEGIN
-                SELECT status, content::text INTO v_status, v_resp FROM net.http_post(
-                    url:='https://api.resend.com/emails',
-                    headers:=jsonb_build_object(
-                        'Authorization', 'Bearer ' || v_resend_key,
-                        'Content-Type', 'application/json'
-                    ),
-                    body:=jsonb_build_object(
+                SELECT status, content::text INTO v_status, v_content 
+                FROM http((
+                    'POST', 
+                    'https://api.resend.com/emails', 
+                    ARRAY[http_header('Authorization', 'Bearer ' || v_resend_key), http_header('Content-Type', 'application/json')], 
+                    'application/json', 
+                    jsonb_build_object(
                         'from', v_from_email,
                         'to', r_user.email,
                         'subject', v_subject,
                         'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>'
-                    )
-                );
-                
-                -- Log de erro se falhar (aparecerá nos logs do Postgres/Supabase)
+                    )::text
+                ));
+
                 IF v_status >= 400 THEN
-                    RAISE WARNING 'Erro Resend (%): %', v_status, v_resp;
+                    RAISE WARNING 'Erro Resend para %: Status %, Resposta %', r_user.email, v_status, v_content;
                 END IF;
             EXCEPTION WHEN OTHERS THEN
-                RAISE WARNING 'Falha crítica ao chamar net.http_post: %', SQLERRM;
+                RAISE WARNING 'Falha crítica ao enviar email para %: %', r_user.email, SQLERRM;
             END;
         END IF;
 
@@ -124,8 +124,8 @@ AS $$
 DECLARE
     v_resend_key text;
     v_from_email text;
-    v_status int;
-    v_resp text;
+    v_status integer;
+    v_content text;
 BEGIN
     SELECT setting_value INTO v_resend_key FROM global_settings WHERE setting_key = 'resend_api_key';
     SELECT setting_value INTO v_from_email FROM global_settings WHERE setting_key = 'resend_from_email';
@@ -138,24 +138,25 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'Email de Envio (From) não configurado.');
     END IF;
 
-    SELECT status, content::text INTO v_status, v_resp FROM net.http_post(
-        url:='https://api.resend.com/emails',
-        headers:=jsonb_build_object(
-            'Authorization', 'Bearer ' || v_resend_key,
-            'Content-Type', 'application/json'
-        ),
-        body:=jsonb_build_object(
+    -- Chamada Síncrona usando extensão 'http'
+    SELECT status, content::text INTO v_status, v_content 
+    FROM http((
+        'POST', 
+        'https://api.resend.com/emails', 
+        ARRAY[http_header('Authorization', 'Bearer ' || v_resend_key), http_header('Content-Type', 'application/json')], 
+        'application/json', 
+        jsonb_build_object(
             'from', v_from_email,
             'to', target_email,
             'subject', 'Teste de Conexão AIManager',
             'html', '<strong>Sucesso!</strong> O sistema de emails está configurado corretamente.'
-        )
-    );
+        )::text
+    ));
 
     IF v_status >= 200 AND v_status < 300 THEN
-        RETURN jsonb_build_object('success', true, 'status', v_status, 'response', v_resp);
+        RETURN jsonb_build_object('success', true, 'status', v_status, 'response', v_content);
     ELSE
-        RETURN jsonb_build_object('success', false, 'status', v_status, 'response', v_resp);
+        RETURN jsonb_build_object('success', false, 'status', v_status, 'response', v_content);
     END IF;
 EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object('success', false, 'message', SQLERRM);
@@ -222,7 +223,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
             if (error) {
                 console.error("RPC Error:", error);
                 if (error.code === '42883') {
-                     alert("A função de teste não existe. Por favor execute o Script de Instalação v5.10 abaixo no SQL Editor.");
+                     alert("A função de teste não existe ou foi atualizada. Por favor execute o Script de Instalação v5.11 abaixo.");
                 } else {
                      alert(`Erro ao invocar teste: ${error.message}`);
                 }
@@ -390,10 +391,10 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                 {/* Passo 2: Reinstalar */}
                                 <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
                                      <div className="flex justify-between items-center mb-1">
-                                        <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaTerminal/> 2. Instalação Completa v5.10 (Update)</h5>
+                                        <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaTerminal/> 2. Instalação Completa v5.11 (Fix Sync)</h5>
                                     </div>
                                     <p className="text-[10px] text-gray-400 mb-2">
-                                        Use este script para atualizar a função de aniversários (correção de tipos) e <strong>instalar a ferramenta de teste de email</strong>.
+                                        Use este script para corrigir o erro "column status does not exist" usando a extensão <code>http</code> síncrona.
                                     </p>
                                     <div className="relative">
                                         <pre className="text-[10px] font-mono text-red-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto max-h-48 custom-scrollbar">{birthdaySqlScript}</pre>
