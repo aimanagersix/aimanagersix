@@ -5,7 +5,8 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc,
+    FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -21,6 +22,7 @@ import ConnectionsTab from './ConnectionsTab';
 import AgentsTab from './AgentsTab';
 import WebhooksTab from './WebhooksTab';
 import CronJobsTab from '../../features/settings/CronJobsTab';
+import SoftwareProductDashboard from './SoftwareProductDashboard';
 
 // Modals for Child Dashboards
 import AddBrandModal from '../AddBrandModal';
@@ -63,8 +65,14 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         alert('Copiado para a área de transferência!');
     };
 
-    const handleTestCron = () => {
-        alert('Funcionalidade de teste ainda não implementada.');
+    const handleTestCron = async () => {
+        try {
+            await dataService.triggerBirthdayCron();
+            alert('Executado com sucesso! Se existirem aniversariantes hoje, os emails e mensagens foram enviados.');
+        } catch (e: any) {
+            console.error(e);
+            alert('Erro ao executar: ' + e.message);
+        }
     };
 
     const handleSimulateWebhook = async () => {
@@ -174,6 +182,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, 
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
+                { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> },
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
                 { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag /> },
                 { id: 'config_criticality_levels', label: 'Níveis de Criticidade', icon: <FaServer /> },
@@ -196,7 +205,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
         'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
-        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, // To be implemented fully via GenericDashboard or Custom
+        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, 
         'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
         'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
         'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
@@ -205,6 +214,22 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: appData.configBackupTypes },
         'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: appData.configTrainingTypes },
         'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes },
+        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories },
+        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates, colorField: true },
+        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
+        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
+        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
+        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: appData.configJobTitles },
+    };
+
+    const getCount = (id: string) => {
+        if (simpleConfigTables[id]) return simpleConfigTables[id].data?.length || 0;
+        if (id === 'brands') return appData.brands?.length || 0;
+        if (id === 'equipment_types') return appData.equipmentTypes?.length || 0;
+        if (id === 'config_software_products') return appData.softwareProducts?.length || 0;
+        if (id === 'ticket_categories') return appData.ticketCategories?.length || 0;
+        if (id === 'security_incident_types') return appData.securityIncidentTypes?.length || 0;
+        return null;
     };
 
     return (
@@ -212,25 +237,43 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-150px)]">
                 {/* Sidebar Menu */}
                 <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden flex-shrink-0">
+                    {/* Reload Button */}
+                    <div className="p-2 border-b border-gray-700">
+                         <button 
+                            onClick={() => window.location.reload()}
+                            className="w-full flex items-center justify-center gap-2 bg-green-700 hover:bg-green-600 text-white p-2 rounded text-sm transition-colors font-bold"
+                        >
+                            <FaSync /> Forçar Recarregamento
+                        </button>
+                    </div>
                     <div className="overflow-y-auto flex-grow p-2 space-y-4 custom-scrollbar">
                         {menuStructure.map((group, gIdx) => (
                             <div key={gIdx}>
                                 <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{group.group}</h3>
                                 <div className="space-y-1">
-                                    {group.items.map(item => (
+                                    {group.items.map(item => {
+                                        const count = getCount(item.id);
+                                        return (
                                         <button
                                             key={item.id}
                                             onClick={() => item.id === 'diagnostics' ? setShowDiagnostics(true) : setSelectedMenuId(item.id)}
-                                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md flex items-center gap-3 transition-colors ${
+                                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md flex items-center justify-between gap-3 transition-colors ${
                                                 selectedMenuId === item.id && item.id !== 'diagnostics'
                                                 ? 'bg-brand-primary text-white shadow-md'
                                                 : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                                             }`}
                                         >
-                                            {item.icon}
-                                            {item.label}
+                                            <div className="flex items-center gap-3">
+                                                {item.icon}
+                                                {item.label}
+                                            </div>
+                                            {count !== null && (
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${count > 0 ? 'bg-gray-700 text-gray-300' : 'bg-red-900/50 text-red-200'}`}>
+                                                    {count}
+                                                </span>
+                                            )}
                                         </button>
-                                    ))}
+                                    )})}
                                 </div>
                             </div>
                         ))}
@@ -244,8 +287,19 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                         settings={settings} 
                         onSettingsChange={(k, v) => setSettings((p:any) => ({ ...p, [k]: v }))} 
                         onSave={async () => {
-                            await dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients); 
-                            alert('Guardado!');
+                            try {
+                                // Save Weekly Report Settings
+                                const p1 = dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients || '');
+                                // Save Birthday Settings
+                                const p2 = dataService.updateGlobalSetting('birthday_email_subject', settings.birthday_email_subject || '');
+                                const p3 = dataService.updateGlobalSetting('birthday_email_body', settings.birthday_email_body || '');
+                                
+                                await Promise.all([p1, p2, p3]);
+                                alert('Configurações gravadas com sucesso!');
+                            } catch(e: any) {
+                                console.error("Error saving cron settings:", e);
+                                alert(`Erro ao gravar: ${e.message}`);
+                            }
                         }}
                         onTest={handleTestCron}
                         onCopy={handleCopyToClipboard}
@@ -265,7 +319,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
-                    {/* Special Handling for Software Products to show Category dropdown in Generic Dashboard if we implemented it, but here we just show basic table for now */}
                     {selectedMenuId === 'config_software_products' ? (
                          <SoftwareProductDashboard 
                             products={appData.softwareProducts}
