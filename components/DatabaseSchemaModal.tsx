@@ -11,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'audit_db' | 'cleanup' | 'fix_types' | 'triggers' | 'playwright'>('security');
+    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'audit_db' | 'cleanup' | 'fix_types' | 'triggers' | 'playwright'>('repair');
     
     const [testRequest, setTestRequest] = useState('');
     const [generatedTest, setGeneratedTest] = useState('');
@@ -178,6 +178,9 @@ CREATE POLICY "RBAC_Access_TeamMembers" ON public.team_members FOR ALL TO authen
 
 CREATE POLICY "RBAC_Access_Contacts" ON public.resource_contacts FOR ALL TO authenticated USING (true) WITH CHECK (public.has_permission('organization', 'edit') OR public.has_permission('suppliers', 'edit'));
 
+-- >>> AQUISIÇÕES (Procurement) - CORRIGIDO
+CREATE POLICY "RBAC_Procurement" ON public.procurement_requests FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 -- >>> COLABORADORES
 -- Nota: Todos autenticados podem LER colaboradores para preencher dropdowns, mas só admin/organization edita.
 CREATE POLICY "RBAC_Read_Collabs" ON public.collaborators FOR SELECT TO authenticated USING (true);
@@ -287,7 +290,43 @@ COMMIT;
 `;
 
     const repairScript = `
--- ... (repair script content kept same) ...
+-- ==================================================================================
+-- SCRIPT DE RESGATE GLOBAL v4.0 (AQUISIÇÕES + SETTINGS)
+-- ==================================================================================
+BEGIN;
+
+-- 1. Desbloquear Tabela de AQUISIÇÕES (Procurement)
+ALTER TABLE IF EXISTS public.procurement_requests ENABLE ROW LEVEL SECURITY;
+-- Limpar políticas antigas que possam estar a bloquear
+DO $$
+DECLARE pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'procurement_requests' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.procurement_requests', pol.policyname);
+    END LOOP;
+END $$;
+-- Criar política permissiva de emergência
+CREATE POLICY "Procurement_Emergency_Access" ON public.procurement_requests
+FOR ALL TO authenticated USING (true) WITH CHECK (true);
+GRANT ALL ON public.procurement_requests TO authenticated;
+GRANT ALL ON public.procurement_requests TO service_role;
+
+-- 2. Desbloquear GLOBAL SETTINGS
+ALTER TABLE IF EXISTS public.global_settings ENABLE ROW LEVEL SECURITY;
+DO $$
+DECLARE pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'global_settings' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.global_settings', pol.policyname);
+    END LOOP;
+END $$;
+CREATE POLICY "GlobalSettings_Read" ON public.global_settings FOR SELECT TO authenticated USING (true);
+CREATE POLICY "GlobalSettings_Write" ON public.global_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+GRANT ALL ON public.global_settings TO authenticated;
+GRANT ALL ON public.global_settings TO service_role;
+
+
+-- 3. Recriar Função de Aniversários (se falhou)
 CREATE EXTENSION IF NOT EXISTS pg_net;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
@@ -344,15 +383,67 @@ GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
 NOTIFY pgrst, 'reload config';
+
+COMMIT;
 `;
 
     const fixProcurementScript = `
--- ... (procurement fix script kept as is) ...
+-- REPARAÇÃO TOTAL DE AQUISIÇÕES & PERMISSÕES
+BEGIN;
+
+-- 1. Garantir que a tabela existe
+CREATE TABLE IF NOT EXISTS public.procurement_requests (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    quantity INTEGER DEFAULT 1,
+    estimated_cost NUMERIC,
+    requester_id UUID REFERENCES public.collaborators(id),
+    status TEXT DEFAULT 'Pendente',
+    request_date DATE DEFAULT CURRENT_DATE,
+    priority TEXT DEFAULT 'Normal',
+    resource_type TEXT DEFAULT 'Hardware',
+    specifications JSONB DEFAULT '{}'::jsonb,
+    attachments JSONB DEFAULT '[]'::jsonb,
+    brand_id UUID REFERENCES public.brands(id),
+    equipment_type_id UUID REFERENCES public.equipment_types(id),
+    software_category_id UUID REFERENCES public.config_software_categories(id),
+    supplier_id UUID REFERENCES public.suppliers(id),
+    approver_id UUID REFERENCES public.collaborators(id),
+    approval_date DATE,
+    order_date DATE,
+    received_date DATE,
+    order_reference TEXT,
+    invoice_number TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. RESET TOTAL DE RLS (A Solução para o seu erro)
+ALTER TABLE public.procurement_requests ENABLE ROW LEVEL SECURITY;
+
+-- Remover TODAS as políticas antigas para evitar conflitos
+DO $$
+DECLARE pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'procurement_requests' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.procurement_requests', pol.policyname);
+    END LOOP;
+END $$;
+
+-- Criar política permissiva (Desbloqueio Imediato)
+CREATE POLICY "Procurement_Emergency_Access" ON public.procurement_requests
+FOR ALL TO authenticated
+USING (true)
+WITH CHECK (true);
+
+-- 3. Grants
+GRANT ALL ON public.procurement_requests TO authenticated;
+GRANT ALL ON public.procurement_requests TO service_role;
+
+-- 4. Triggers (Garantir que a automação funciona)
 DROP TRIGGER IF EXISTS on_procurement_created ON public.procurement_requests;
-DROP TRIGGER IF EXISTS tr_procurement_notification ON public.procurement_requests;
-DROP FUNCTION IF EXISTS notify_procurement_creation();
-DROP FUNCTION IF EXISTS process_procurement_logic();
-CREATE TABLE IF NOT EXISTS public.procurement_requests (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, title TEXT NOT NULL, description TEXT, quantity INTEGER DEFAULT 1, estimated_cost NUMERIC, requester_id UUID REFERENCES public.collaborators(id), status TEXT DEFAULT 'Pendente', request_date DATE DEFAULT CURRENT_DATE, priority TEXT DEFAULT 'Normal', resource_type TEXT DEFAULT 'Hardware', specifications JSONB DEFAULT '{}'::jsonb, attachments JSONB DEFAULT '[]'::jsonb, brand_id UUID REFERENCES public.brands(id), equipment_type_id UUID REFERENCES public.equipment_types(id), software_category_id UUID REFERENCES public.config_software_categories(id), supplier_id UUID REFERENCES public.suppliers(id), approver_id UUID REFERENCES public.collaborators(id), approval_date DATE, order_date DATE, received_date DATE, order_reference TEXT, invoice_number TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());
+
 CREATE OR REPLACE FUNCTION process_procurement_logic() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE requester_name TEXT; requester_entidade_id UUID; ticket_description TEXT; admin_id UUID;
 BEGIN
@@ -363,11 +454,10 @@ BEGIN
   INSERT INTO public.tickets (title, description, status, category, "entidadeId", "collaboratorId", "requestDate", "technicianId") VALUES ('Aprovação Necessária: ' || COALESCE(NEW.title, ''), ticket_description, 'Pedido', 'Pedido de Acesso', requester_entidade_id, NEW.requester_id, NOW(), admin_id);
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RAISE WARNING 'Erro ao criar ticket automático para aquisição: %', SQLERRM; RETURN NEW; END; $$;
+
 CREATE TRIGGER on_procurement_created AFTER INSERT ON public.procurement_requests FOR EACH ROW EXECUTE FUNCTION process_procurement_logic();
-ALTER TABLE public.procurement_requests ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Procurement Access" ON public.procurement_requests;
-CREATE POLICY "Procurement Access" ON public.procurement_requests FOR ALL TO authenticated USING (true) WITH CHECK (true);
-GRANT ALL ON public.procurement_requests TO authenticated, anon;
+
+COMMIT;
 `;
 
     const fixTypesScript = `
@@ -504,12 +594,12 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaTools /> SCRIPT DE RESGATE V3.1 (Função Aniversários)
+                                    <FaTools /> SCRIPT DE RESGATE GLOBAL v4.0
                                 </div>
                                 <p className="mb-2">
-                                    <strong>Execute este script se ainda tiver erros com a função 'send_daily_birthday_emails'.</strong>
+                                    <strong>Execute este script se tiver erros de permissão ou funções em falta.</strong>
                                     <br/>
-                                    Ele remove a função antiga, recria-a e reaplica todas as permissões necessárias para o utilizador autenticado.
+                                    Ele reinicia as permissões de segurança das tabelas de <strong>Aquisições</strong>, <strong>Configurações Globais</strong> e da função de <strong>Aniversários</strong>, permitindo o acesso a todos os utilizadores autenticados.
                                 </p>
                             </div>
                             <div className="relative">
@@ -588,6 +678,15 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                     {/* FIX PROCUREMENT TAB */}
                      {activeTab === 'fix_procurement' && (
                         <div className="space-y-4 animate-fade-in">
+                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaShoppingCart /> CORRIGIR AQUISIÇÕES (RLS & ESTRUTURA)
+                                </div>
+                                <p className="mb-2">
+                                    Execute este script para corrigir o erro <strong>"new row violates row-level security policy"</strong> ao criar pedidos de aquisição.
+                                    Ele reinicia as permissões desta tabela específica.
+                                </p>
+                            </div>
                              <div className="relative">
                                 <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-red-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">{fixProcurementScript}</pre>
                                 <button onClick={() => handleCopy(fixProcurementScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
