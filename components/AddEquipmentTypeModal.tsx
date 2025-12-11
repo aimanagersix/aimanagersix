@@ -29,6 +29,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requires_disk_info: false,
         requires_cpu_info: false,
         requires_manufacture_date: false,
+        requires_ip: false, // New Field
     });
     const [error, setError] = useState('');
 
@@ -51,6 +52,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requires_disk_info: typeToEdit.requires_disk_info || false,
                 requires_cpu_info: typeToEdit.requires_cpu_info || false,
                 requires_manufacture_date: typeToEdit.requires_manufacture_date || false,
+                requires_ip: typeToEdit.requires_ip || false, // New Field
             });
         }
     }, [typeToEdit]);
@@ -140,6 +142,10 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requiresNomeNaRede" checked={formData.requiresNomeNaRede} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Nome na Rede"</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer">
+                            <input type="checkbox" name="requires_ip" checked={formData.requires_ip} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Endereço IP"</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
                             <input type="checkbox" name="requiresMacWIFI" checked={formData.requiresMacWIFI} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
