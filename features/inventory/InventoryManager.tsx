@@ -119,6 +119,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             macAddressWIFI: '',
             macAddressCabo: '',
             ip_address: '',
+            embedded_license_key: '', // Reset license key on clone
             status: EquipmentStatus.Stock, 
             creationDate: undefined,
             modifiedDate: undefined,
@@ -180,13 +181,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                 }
 
                 // 3. Check if Equipment Exists - Need explicit check as we don't load all
-                // For importing, it's safer to query specific serial first or let DB upsert handle unique constraint
-                // We'll try update first (blindly, assuming ID unknown) or insert.
-                // Better approach: fetch by serial
-                // Since this is client-side logic, we can't easily check DB without exposing a method.
-                // We will assume 'add' handles uniqueness or returns error if duplicate.
-                // *For this demo, we'll try fetch paginated filter by serial*
-                
                 const { data: existingCheck } = await dataService.fetchEquipmentPaginated({ page: 1, pageSize: 1, filters: { serialNumber: json.serialNumber } });
                 const existingEq = existingCheck && existingCheck.length > 0 ? existingCheck[0] : null;
 
@@ -202,6 +196,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     macAddressWIFI: json.macAddressWIFI,
                     macAddressCabo: json.macAddressCabo,
                     disk_info: json.disk_info ? JSON.stringify(json.disk_info) : undefined,
+                    embedded_license_key: json.embedded_license_key, // NEW: Import License Key from BIOS
                     last_inventory_scan: json.scan_date || new Date().toISOString().split('T')[0] 
                 };
 
