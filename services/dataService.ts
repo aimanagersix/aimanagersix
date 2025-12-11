@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 import { 
@@ -51,6 +52,78 @@ const remove = async (table: string, id: string) => {
     const { error } = await supabase.from(table).delete().eq('id', id);
     if (error) throw error;
     await logAction('DELETE', table, `Deleted item from ${table}`, id);
+};
+
+// --- Slack Notification Helper ---
+const sendSlackNotification = async (ticket: any) => {
+    try {
+        const webhookUrl = await getGlobalSetting('slack_webhook_url');
+        if (!webhookUrl) return;
+
+        const isCritical = ticket.impactCriticality === 'Crítica' || ticket.impactCriticality === 'Alta';
+        const color = isCritical ? '#FF0000' : '#FFA500'; // Red or Orange
+        const emoji = isCritical ? '🚨' : '⚠️';
+
+        const payload = {
+            username: "AIManager Security Bot",
+            icon_emoji: ":shield:",
+            attachments: [
+                {
+                    color: color,
+                    blocks: [
+                        {
+                            type: "header",
+                            text: {
+                                type: "plain_text",
+                                text: `${emoji} Novo Incidente de Segurança: ${ticket.title}`,
+                                emoji: true
+                            }
+                        },
+                        {
+                            type: "section",
+                            fields: [
+                                {
+                                    type: "mrkdwn",
+                                    text: `*Tipo:* ${ticket.securityIncidentType || 'Genérico'}`
+                                },
+                                {
+                                    type: "mrkdwn",
+                                    text: `*Severidade:* ${ticket.impactCriticality || 'N/A'}`
+                                }
+                            ]
+                        },
+                        {
+                            type: "section",
+                            text: {
+                                type: "mrkdwn",
+                                text: `*Descrição:*\n${ticket.description || 'Sem descrição.'}`
+                            }
+                        },
+                        {
+                            type: "context",
+                            elements: [
+                                {
+                                    type: "mrkdwn",
+                                    text: `📅 Data: ${new Date(ticket.requestDate).toLocaleString()} | ID: #${ticket.id.substring(0,8)}`
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Use fetch with no-cors if directly from browser to avoid CORS (Slack webhooks often block browser calls)
+        // Or standard POST if proxied. For now, try standard POST.
+        // If CORS fails, we should ideally use a Supabase Edge Function, but let's try direct first.
+        await fetch(webhookUrl, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+    } catch (error) {
+        console.error("Failed to send Slack notification:", error);
+    }
 };
 
 // --- Exports ---
@@ -247,7 +320,18 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     }
 };
 
-export const addTicket = (data: any) => create('tickets', data);
+export const addTicket = async (data: any) => {
+    const result = await create('tickets', data);
+    
+    // Check if it's a security incident and send Slack notification
+    if (data.category === 'Incidente de Segurança' || data.securityIncidentType) {
+        // Run in background to not block UI
+        sendSlackNotification(result).catch(err => console.error("Background Slack error:", err));
+    }
+    
+    return result;
+};
+
 export const updateTicket = (id: string, data: any) => update('tickets', id, data);
 export const addTicketActivity = (data: any) => create('ticket_activities', data);
 
