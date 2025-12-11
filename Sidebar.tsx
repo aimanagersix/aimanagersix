@@ -7,7 +7,7 @@ import { useLanguage } from './contexts/LanguageContext';
 import { useLayout } from './contexts/LayoutContext';
 import MFASetupModal from './components/MFASetupModal';
 import AuditLogModal from './components/AuditLogModal';
-import { DatabaseSchemaModal } from './components/DatabaseSchemaModal';
+import DatabaseSchemaModal from './components/DatabaseSchemaModal';
 import InstallAppButton from './components/InstallAppButton';
 
 interface SidebarProps {
@@ -250,8 +250,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
                                 {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['tools']?.map && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {onOpenCalendar && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={onOpenCalendar} />}
-                                {onOpenManual && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={onOpenManual} />}
+                                {onOpenCalendar && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => { onOpenCalendar(); }} />}
+                                {onOpenManual && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => { onOpenManual(); }} />}
                             </div>
                         )}
                     </div>

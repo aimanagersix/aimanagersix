@@ -7,7 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
 import AuditLogModal from './AuditLogModal';
-import { DatabaseSchemaModal } from './DatabaseSchemaModal';
+import DatabaseSchemaModal from './DatabaseSchemaModal';
 import InstallAppButton from './InstallAppButton';
 
 interface HeaderProps {
@@ -403,7 +403,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     </div>
                 )}
             </div>
-          </div>
         </div>
       </div>
 
@@ -495,4 +494,4 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
   );
 };
 
-export default Sidebar;
+export default Header;
