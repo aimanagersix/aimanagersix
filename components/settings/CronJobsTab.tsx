@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaCog, FaBirthdayCake, FaCommentDots } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaCog, FaBirthdayCake, FaCommentDots, FaStethoscope, FaSync } from 'react-icons/fa';
 import * as dataService from '../../services/dataService';
 
 interface CronJobsTabProps {
@@ -10,6 +10,26 @@ interface CronJobsTabProps {
     onTest: () => void;
     onCopy: (text: string) => void;
 }
+
+const cacheCleanScript = `-- COMANDO DE LIMPEZA DE CACHE DO SUPABASE (POSTGREST)
+-- Execute isto se receber o erro 42883 (Função não existe) apesar de a ter criado.
+
+BEGIN;
+
+-- 1. Forçar a API a reler a estrutura da base de dados
+NOTIFY pgrst, 'reload config';
+
+-- 2. Verificar se a função existe (O resultado deve aparecer em baixo no SQL Editor)
+SELECT 
+    routine_name as "Nome da Função",
+    routine_type as "Tipo",
+    security_type as "Segurança"
+FROM information_schema.routines
+WHERE routine_schema = 'public' 
+AND routine_name = 'send_daily_birthday_emails';
+
+COMMIT;
+`;
 
 const birthdaySqlScript = `-- ==================================================================================
 -- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.2 - CACHE & PERMISSÕES)
@@ -116,10 +136,10 @@ COMMIT;
 `;
 
 const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
-    const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | 'bday_sql' | null>(null);
+    const [copiedCode, setCopiedCode] = useState<'cron_fn' | 'cron_sql' | 'bday_sql' | 'cache_sql' | null>(null);
     const [isTesting, setIsTesting] = useState(false);
 
-    const handleCopy = (text: string, type: 'cron_fn' | 'cron_sql' | 'bday_sql') => {
+    const handleCopy = (text: string, type: 'cron_fn' | 'cron_sql' | 'bday_sql' | 'cache_sql') => {
         onCopy(text);
         setCopiedCode(type);
         setTimeout(() => setCopiedCode(null), 2000);
@@ -213,21 +233,41 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                     <button onClick={onSave} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm flex items-center gap-2"><FaSave /> Guardar Texto do Email</button>
                 </div>
 
-                <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
-                    <div className="flex justify-between items-center mb-2">
-                        <h4 className="text-white font-bold text-sm flex items-center gap-2"><FaDatabase/> Script de Correção v5.2 (Nuclear Fix)</h4>
-                        <span className="text-[10px] text-red-300 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30">Use este se receber erro "Função não existe"</span>
+                {/* Área de Diagnóstico e Limpeza */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-white font-bold text-sm flex items-center gap-2"><FaStethoscope className="text-blue-400"/> Limpar Cache API (Diagnóstico)</h4>
+                        </div>
+                        <p className="text-xs text-gray-400 mb-2">
+                            Use este script apenas para forçar a API a "ver" a função, sem recriar tudo.
+                        </p>
+                        <div className="relative">
+                            <pre className="text-xs font-mono text-blue-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar border border-gray-700">
+                                {cacheCleanScript}
+                            </pre>
+                            <button onClick={() => handleCopy(cacheCleanScript, 'cache_sql')} className="absolute top-2 right-2 p-2 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600 shadow-lg flex items-center gap-2">
+                                {copiedCode === 'cache_sql' ? <><FaCheck className="text-green-400"/> Copiado</> : <><FaCopy /> Copiar</>}
+                            </button>
+                        </div>
                     </div>
-                    <p className="text-xs text-gray-400 mb-2">
-                        Este script força a limpeza da cache da API, recria a função do zero e garante permissões de execução.
-                    </p>
-                    <div className="relative">
-                        <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-60 custom-scrollbar border border-gray-700">
-                            {birthdaySqlScript}
-                        </pre>
-                        <button onClick={() => handleCopy(birthdaySqlScript, 'bday_sql')} className="absolute top-2 right-2 p-2 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600 shadow-lg flex items-center gap-2">
-                            {copiedCode === 'bday_sql' ? <><FaCheck className="text-green-400"/> Copiado</> : <><FaCopy /> Copiar SQL</>}
-                        </button>
+
+                    <div className="bg-black/30 p-4 rounded border border-gray-700 relative">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-white font-bold text-sm flex items-center gap-2"><FaDatabase/> Instalação Completa v5.2</h4>
+                            <span className="text-[10px] text-red-300 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30">Nuclear Fix</span>
+                        </div>
+                        <p className="text-xs text-gray-400 mb-2">
+                            Apaga e recria a função + limpa a cache. Use se a função não existir.
+                        </p>
+                        <div className="relative">
+                            <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar border border-gray-700">
+                                {birthdaySqlScript}
+                            </pre>
+                            <button onClick={() => handleCopy(birthdaySqlScript, 'bday_sql')} className="absolute top-2 right-2 p-2 bg-gray-700 rounded hover:bg-gray-600 text-white border border-gray-600 shadow-lg flex items-center gap-2">
+                                {copiedCode === 'bday_sql' ? <><FaCheck className="text-green-400"/> Copiado</> : <><FaCopy /> Copiar</>}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
