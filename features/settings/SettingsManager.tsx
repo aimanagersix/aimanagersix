@@ -5,8 +5,8 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc, FaUserTie,
-    FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaSync
+    FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaBroom, FaUserSlash, FaCompactDisc,
+    FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -58,10 +58,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         webhookJson: '{\n  "alert_name": "Possible Ransomware Detected",\n  "hostname": "PC-FIN-01",\n  "severity": "critical",\n  "source": "SentinelOne",\n  "timestamp": "2024-05-20T10:00:00Z"\n}',
         simulatedTicket: null,
         isSimulating: false,
-        // Inicializar com strings vazias para evitar uncontrolled inputs
-        birthday_email_subject: '',
-        birthday_email_body: '',
-        weekly_report_recipients: ''
     });
 
     const handleCopyToClipboard = (text: string) => {
@@ -118,8 +114,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt',
                 'equipment_naming_prefix', 'equipment_naming_digits',
                 'weekly_report_recipients', 'resend_api_key', 'resend_from_email',
-                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id',
-                'birthday_email_subject', 'birthday_email_body'
+                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id'
             ];
             
             const fetchedSettings: any = {};
@@ -142,57 +137,19 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 weekly_report_recipients: fetchedSettings.weekly_report_recipients || '',
                 resendApiKey: fetchedSettings.resend_api_key || '',
                 resendFromEmail: fetchedSettings.resend_from_email || '',
-                birthday_email_subject: fetchedSettings.birthday_email_subject || 'Feliz Aniversário!',
-                birthday_email_body: fetchedSettings.birthday_email_body || 'Olá {{nome}},\n\nA equipa deseja-te um excelente dia de aniversário!\n\nCumprimentos,\nA Administração',
                 sbUrl: localStorage.getItem('SUPABASE_URL') || '',
                 sbKey: localStorage.getItem('SUPABASE_ANON_KEY') || '',
                 sbServiceKey: localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '',
                 webhookUrl: projectUrl ? `${projectUrl}/functions/v1/siem-ingest` : '',
                 cronFunctionUrl: projectUrl ? `${projectUrl}/functions/v1/weekly-report` : '',
-                birthdayFunctionUrl: projectUrl ? `${projectUrl}/functions/v1/send-birthday-emails` : '',
                 app_logo_base64: fetchedSettings.app_logo_base64 || '',
                 app_logo_size: parseInt(fetchedSettings.app_logo_size || '80'),
                 app_logo_alignment: fetchedSettings.app_logo_alignment || 'center',
                 report_footer_institution_id: fetchedSettings.report_footer_institution_id || '',
-                slackWebhookUrl: '',
             }));
-            
-            const slackUrl = await dataService.getGlobalSetting('slack_webhook_url');
-            setSettings((prev: any) => ({ ...prev, slackWebhookUrl: slackUrl || '' }));
         };
         loadSettings();
     }, [selectedMenuId]);
-
-    const simpleConfigTables: Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }> = {
-        'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: appData.configEquipmentStatuses, colorField: true },
-        'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
-        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
-        'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
-        'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
-        'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
-        'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
-        'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: appData.configCiaRatings },
-        'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: appData.configServiceStatuses },
-        'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: appData.configBackupTypes },
-        'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: appData.configTrainingTypes },
-        'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes },
-        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories },
-        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates, colorField: true },
-        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
-        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
-        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
-        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: appData.configJobTitles }, // NEW
-    };
-
-    const getCount = (id: string) => {
-        if (simpleConfigTables[id]) return simpleConfigTables[id].data?.length || 0;
-        if (id === 'brands') return appData.brands?.length || 0;
-        if (id === 'equipment_types') return appData.equipmentTypes?.length || 0;
-        if (id === 'config_software_products') return appData.softwareProducts?.length || 0;
-        if (id === 'ticket_categories') return appData.ticketCategories?.length || 0;
-        if (id === 'security_incident_types') return appData.securityIncidentTypes?.length || 0;
-        return null;
-    };
 
     const menuStructure: { group: string; items: { id: string; label: string; icon: React.ReactNode }[] }[] = [
         {
@@ -225,7 +182,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, 
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
-                { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> }, // NEW
+                { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> },
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
                 { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag /> },
                 { id: 'config_criticality_levels', label: 'Níveis de Criticidade', icon: <FaServer /> },
@@ -243,13 +200,45 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         }
     ];
 
+    const simpleConfigTables: Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }> = {
+        'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: appData.configEquipmentStatuses, colorField: true },
+        'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons },
+        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons },
+        'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories },
+        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, 
+        'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles },
+        'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles },
+        'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels },
+        'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: appData.configCiaRatings },
+        'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: appData.configServiceStatuses },
+        'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: appData.configBackupTypes },
+        'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: appData.configTrainingTypes },
+        'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes },
+        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories },
+        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates, colorField: true },
+        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus },
+        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes },
+        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes },
+        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: appData.configJobTitles },
+    };
+
+    const getCount = (id: string) => {
+        if (simpleConfigTables[id]) return simpleConfigTables[id].data?.length || 0;
+        if (id === 'brands') return appData.brands?.length || 0;
+        if (id === 'equipment_types') return appData.equipmentTypes?.length || 0;
+        if (id === 'config_software_products') return appData.softwareProducts?.length || 0;
+        if (id === 'ticket_categories') return appData.ticketCategories?.length || 0;
+        if (id === 'security_incident_types') return appData.securityIncidentTypes?.length || 0;
+        return null;
+    };
+
     return (
         <>
             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-150px)]">
-                {/* Sidebar Menu */}
-                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden flex-shrink-0">
+                {/* Sidebar Menu - Added overflow-y-auto to this container explicitly */}
+                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-full max-h-full">
                     {/* Reload Button */}
-                    <div className="p-2 border-b border-gray-700">
+                    <div className="p-2 border-b border-gray-700 flex-shrink-0">
                          <button 
                             onClick={() => window.location.reload()}
                             className="w-full flex items-center justify-center gap-2 bg-green-700 hover:bg-green-600 text-white p-2 rounded text-sm transition-colors font-bold"
@@ -257,6 +246,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                             <FaSync /> Forçar Recarregamento
                         </button>
                     </div>
+                    {/* Scrollable list */}
                     <div className="overflow-y-auto flex-grow p-2 space-y-4 custom-scrollbar">
                         {menuStructure.map((group, gIdx) => (
                             <div key={gIdx}>
@@ -292,7 +282,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4" key={selectedMenuId}>
+                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4 h-full" key={selectedMenuId}>
                     {selectedMenuId === 'agents' && <AgentsTab />}
                     {selectedMenuId === 'cronjobs' && <CronJobsTab 
                         settings={settings} 
@@ -330,7 +320,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     {selectedMenuId === 'ticket_categories' && <CategoryDashboard categories={appData.ticketCategories} tickets={appData.tickets} teams={appData.teams} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />}
                     {selectedMenuId === 'security_incident_types' && <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />}
                     
-                    {/* Special Handling for Software Products to show Category dropdown in Generic Dashboard if we implemented it, but here we just show basic table for now */}
                     {selectedMenuId === 'config_software_products' ? (
                          <SoftwareProductDashboard 
                             products={appData.softwareProducts}
