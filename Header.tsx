@@ -489,9 +489,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
         {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
         {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}
-    </header>
-    </>
-  );
+        </>
+    );
 };
 
-export default Header;
+export default Sidebar;

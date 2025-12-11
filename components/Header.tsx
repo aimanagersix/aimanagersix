@@ -403,6 +403,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     </div>
                 )}
             </div>
+          </div>
         </div>
       </div>
 
