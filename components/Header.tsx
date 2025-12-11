@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
@@ -53,10 +52,11 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
     );
 };
 
-
 const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenProfile, onOpenCalendar, onOpenManual }) => {
     const { t, setLanguage, language } = useLanguage();
     const { setLayoutMode } = useLayout();
+    
+    // Dropdown States
     const [isOrganizacaoMenuOpen, setOrganizacaoMenuOpen] = useState(false);
     const organizacaoMenuRef = useRef<HTMLDivElement>(null);
     const [isInventarioMenuOpen, setInventarioMenuOpen] = useState(false);
@@ -72,11 +72,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
     const toolsMenuRef = useRef<HTMLDivElement>(null);
 
-    // Security Modals
+    // Modals
     const [showMFA, setShowMFA] = useState(false);
     const [showAudit, setShowAudit] = useState(false);
     const [showDbSchema, setShowDbSchema] = useState(false);
 
+    // Mobile Menu
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -137,8 +138,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     <header className="bg-gray-800 shadow-lg relative z-30">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
+          
+          {/* Left Side: Logo & Mobile Toggle */}
           <div className="flex items-center gap-4">
-            {/* Mobile Menu Button */}
             <button 
                 ref={mobileMenuButtonRef}
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -154,7 +156,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
             </div>
           </div>
 
-          {/* Desktop Nav */}
+          {/* Center: Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-2">
               {/* Visão Geral */}
               {tabConfig['overview'] && (
@@ -303,7 +305,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
               )}
           </nav>
 
-          {/* Right Side Icons */}
+          {/* Right Side Icons - NOTA: Esta secção foi restaurada! */}
           <div className="flex items-center space-x-4">
             <button onClick={onNotificationClick} className="relative p-2 text-gray-400 hover:text-white transition-colors">
                 <FaBell className="w-6 h-6" />
@@ -406,7 +408,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
             </div>
         </div>
       </div>
-    </div> {/* FIM DO CONTAINER PRINCIPAL DO HEADER (MAX-W-SCREEN-XL) - CORRIGIDO */}
+      </div> 
+    </header>
 
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
@@ -491,7 +494,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
         {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
         {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}
-    </header>
     </>
   );
 };
