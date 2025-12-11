@@ -17,7 +17,7 @@ NOTIFY pgrst, 'reload config';
 `;
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.3 - CACHE & PERMISSÕES)
+-- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.4 - PERMISSÕES & SEARCH PATH)
 -- ==================================================================================
 
 BEGIN;
@@ -26,17 +26,18 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
--- 2. LIMPEZA TOTAL (Remove qualquer variação antiga da função para evitar conflitos)
+-- 2. LIMPEZA TOTAL (Remove qualquer variação antiga da função para evitar conflitos de assinatura)
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(date);
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(text);
+DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(json);
 
--- 3. CRIAR A FUNÇÃO (Versão Limpa)
+-- 3. CRIAR A FUNÇÃO (Sem argumentos)
 CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER -- Executa como SuperAdmin para ignorar RLS
-SET search_path = public
+SECURITY DEFINER -- Executa como Admin (ignora RLS do utilizador que chama)
+SET search_path = public -- Força o uso do schema public para evitar erros de resolução
 AS $$
 DECLARE
     v_resend_key text;
@@ -95,15 +96,14 @@ BEGIN
 END;
 $$;
 
--- 4. REFRESH DE PERMISSÕES (Crucial para a API ver a função)
+-- 4. PERMISSÕES EXPLÍCITAS (Essencial para evitar erro 42883 por falta de acesso)
 REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;         -- Permitir chamadas anónimas (se necessário)
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated; -- Permitir chamadas de utilizadores logados
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;  -- Permitir chamadas de sistema
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 
--- 5. RECARREGAR CACHE DA API (O Segredo)
--- Isto força o PostgREST a reconhecer a nova função imediatamente
+-- 5. RECARREGAR CACHE DA API
 NOTIFY pgrst, 'reload config';
 
 COMMIT;
@@ -229,11 +229,11 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
 
                     <div className="bg-red-900/10 p-4 rounded border border-red-500/30 relative">
                         <div className="flex justify-between items-center mb-2">
-                            <h4 className="text-red-300 font-bold text-sm flex items-center gap-2"><FaDatabase/> 2. Instalação Completa v5.3</h4>
+                            <h4 className="text-red-300 font-bold text-sm flex items-center gap-2"><FaDatabase/> 2. Instalação Completa v5.4</h4>
                             <span className="text-[9px] text-red-300 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30 uppercase">Nuclear Fix</span>
                         </div>
                         <p className="text-xs text-gray-400 mb-2">
-                            Apaga todas as versões antigas, recria a função do zero e limpa a cache. Use se o passo 1 não funcionar.
+                            Apaga versões antigas, recria a função com permissões explícitas e limpa a cache.
                         </p>
                         <div className="relative">
                             <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar border border-gray-700">
