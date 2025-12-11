@@ -124,7 +124,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     assignments={appData.assignments}
                     categories={appData.ticketCategories}
                     securityIncidentTypes={appData.securityIncidentTypes}
-                    pastTickets={ticketsData} // Used for AI context in ticket similarity (Note: Sending partial list is safer for performance, or fetch specific history inside modal)
+                    pastTickets={ticketsData} 
                 />
             )}
             {showCloseTicketModal && ticketToClose && (
@@ -157,15 +157,26 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     assignments={appData.assignments}
                     onClose={() => setShowTicketActivitiesModal(false)}
                     onAddActivity={async (activity) => {
-                        await dataService.addTicketActivity({
-                            ...activity,
-                            ticketId: ticketForActivities.id,
-                            technicianId: currentUser?.id || '',
-                            date: new Date().toISOString()
-                        });
-                        // Activities are fetched globally currently, but could be specific.
-                        // For now we rely on global refresh for activities list, but dashboard for tickets list.
-                        refreshData();
+                        try {
+                            const techId = currentUser?.id;
+                            
+                            // Prevent sending empty string for UUID column
+                            if (!techId) {
+                                alert("Erro: Utilizador atual não identificado. Faça login novamente.");
+                                return;
+                            }
+
+                            await dataService.addTicketActivity({
+                                ...activity,
+                                ticketId: ticketForActivities.id,
+                                technicianId: techId, // Must be a valid UUID
+                                date: new Date().toISOString()
+                            });
+                            refreshData(); // Refresh global data (activities list)
+                        } catch (e: any) {
+                            console.error("Error adding activity:", e);
+                            alert(`Erro ao gravar atividade: ${e.message}`);
+                        }
                     }}
                 />
             )}

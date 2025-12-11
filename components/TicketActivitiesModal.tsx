@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, TicketActivity, Collaborator, TicketStatus, Equipment, EquipmentType, Entidade, Assignment } from '../types';
 import { PlusIcon, FaPrint } from './common/Icons';
-import { FaDownload } from 'react-icons/fa';
+import { FaDownload, FaSpinner } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 interface TicketActivitiesModalProps {
@@ -14,7 +15,7 @@ interface TicketActivitiesModalProps {
     equipmentTypes: EquipmentType[];
     entidades: Entidade[];
     onClose: () => void;
-    onAddActivity: (activity: { description: string, equipmentId?: string }) => void;
+    onAddActivity: (activity: { description: string, equipmentId?: string }) => Promise<void>;
     assignments: Assignment[];
 }
 
@@ -22,6 +23,7 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
     const [newActivityDescription, setNewActivityDescription] = useState('');
     const [selectedEquipmentId, setSelectedEquipmentId] = useState(ticket.equipmentId || '');
     const [error, setError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
@@ -38,17 +40,25 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         });
     }, [equipment, assignments, ticket.entidadeId, ticket.collaboratorId, entidades]);
 
-    const handleAddActivity = () => {
+    const handleAddActivity = async () => {
         if (newActivityDescription.trim() === '') {
             setError('A descrição da atividade é obrigatória.');
             return;
         }
         setError('');
-        onAddActivity({ 
-            description: newActivityDescription,
-            equipmentId: selectedEquipmentId || undefined,
-        });
-        setNewActivityDescription('');
+        setIsSaving(true);
+        try {
+            await onAddActivity({ 
+                description: newActivityDescription,
+                equipmentId: selectedEquipmentId || undefined,
+            });
+            setNewActivityDescription('');
+        } catch (e) {
+            console.error("Erro ao adicionar atividade:", e);
+            // O erro já deve ter sido tratado/alertado pelo pai, mas mantemos o estado limpo
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const requesterName = collaboratorMap.get(ticket.collaboratorId) || 'Desconhecido';
@@ -278,10 +288,11 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                             <div className="flex justify-end">
                                 <button
                                     onClick={handleAddActivity}
-                                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary text-sm"
+                                    disabled={isSaving}
+                                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary text-sm disabled:opacity-50"
                                 >
-                                    <PlusIcon className="h-4 w-4" />
-                                    Adicionar Registo
+                                    {isSaving ? <FaSpinner className="animate-spin" /> : <PlusIcon className="h-4 w-4" />}
+                                    {isSaving ? 'A Gravar...' : 'Adicionar Registo'}
                                 </button>
                             </div>
                         </div>
