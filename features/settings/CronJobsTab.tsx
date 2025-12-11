@@ -39,7 +39,7 @@ DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(text);
 
 -- 2. TENTATIVA DE EXTENSÃO DE REDE (Necessária para enviar o email)
 -- Se falhar, o script continua, mas o envio real falhará (o registo no chat funcionará)
-CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA public;
+DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA public; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- 3. CRIAÇÃO DA FUNÇÃO (Lógica Principal)
 -- Criamos isto FORA de blocos complexos para garantir que é gravado.
