@@ -20,7 +20,7 @@ import GeneralScansTab from './GeneralScansTab';
 import ConnectionsTab from './ConnectionsTab';
 import AgentsTab from './AgentsTab';
 import WebhooksTab from './WebhooksTab';
-import CronJobsTab from './CronJobsTab';
+import CronJobsTab from '../../features/settings/CronJobsTab';
 
 // Modals for Child Dashboards
 import AddBrandModal from '../AddBrandModal';
@@ -171,7 +171,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
                 { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação', icon: <FaUserSlash /> },
                 { id: 'config_software_categories', label: 'Categorias de Software', icon: <FaList /> },
-                { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, // NEW
+                { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, 
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
                 { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
@@ -182,6 +182,11 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_backup_types', label: 'Tipos de Backup', icon: <FaServer /> },
                 { id: 'config_training_types', label: 'Tipos de Formação', icon: <FaGraduationCap /> },
                 { id: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt /> },
+                { id: 'config_accounting_categories', label: 'Classificador CIBE', icon: <FaLandmark /> },
+                { id: 'config_conservation_states', label: 'Estados Conservação', icon: <FaLeaf /> },
+                { id: 'config_cpus', label: 'Processadores (CPU)', icon: <FaMicrochip /> },
+                { id: 'config_ram_sizes', label: 'Tamanhos de RAM', icon: <FaMemory /> },
+                { id: 'config_storage_types', label: 'Tipos de Disco', icon: <FaHdd /> },
             ]
         }
     ];
@@ -262,11 +267,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     
                     {/* Special Handling for Software Products to show Category dropdown in Generic Dashboard if we implemented it, but here we just show basic table for now */}
                     {selectedMenuId === 'config_software_products' ? (
-                         <GenericConfigDashboard 
-                            title="Produtos de Software"
-                            icon={<FaCompactDisc />}
-                            items={[]} // Fetch logic would be needed here or GenericDashboard updated to fetch
-                            tableName="config_software_products"
+                         <SoftwareProductDashboard 
+                            products={appData.softwareProducts}
+                            categories={appData.softwareCategories}
                             onRefresh={refreshData}
                         />
                     ) : (

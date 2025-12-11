@@ -21,7 +21,7 @@ import GeneralScansTab from '../../components/settings/GeneralScansTab';
 import ConnectionsTab from '../../components/settings/ConnectionsTab';
 import AgentsTab from '../../components/settings/AgentsTab';
 import WebhooksTab from '../../components/settings/WebhooksTab';
-import CronJobsTab from '../../components/settings/CronJobsTab';
+import CronJobsTab from './CronJobsTab';
 import SoftwareProductDashboard from '../../components/settings/SoftwareProductDashboard';
 
 // Modals for Child Dashboards
