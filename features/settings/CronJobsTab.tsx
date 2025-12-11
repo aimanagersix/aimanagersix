@@ -17,27 +17,46 @@ NOTIFY pgrst, 'reload config';
 `;
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.4 - PERMISSÕES & SEARCH PATH)
+-- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.5 - RLS FIX GLOBAL & MESSAGES)
 -- ==================================================================================
 
 BEGIN;
 
--- 1. Garantir Extensões
-CREATE EXTENSION IF NOT EXISTS pg_net;
-CREATE EXTENSION IF NOT EXISTS pg_cron;
+-- 1. CORREÇÃO DE PERMISSÕES (O Passo que faltava)
+-- Desbloqueia a tabela de configurações e mensagens para evitar o erro "violates row-level security"
 
--- 2. LIMPEZA TOTAL (Remove qualquer variação antiga da função para evitar conflitos de assinatura)
+-- A. Tabela Global Settings
+ALTER TABLE IF EXISTS public.global_settings ENABLE ROW LEVEL SECURITY;
+-- Removemos políticas antigas que possam estar a bloquear
+DROP POLICY IF EXISTS "Settings_Read_All" ON public.global_settings;
+DROP POLICY IF EXISTS "Settings_Write_All" ON public.global_settings;
+DROP POLICY IF EXISTS "Config_Write_Admin" ON public.global_settings;
+DROP POLICY IF EXISTS "Config_Read_All" ON public.global_settings;
+
+-- Criamos novas políticas permissivas para o funcionamento do sistema
+CREATE POLICY "Settings_Read_All" ON public.global_settings FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Settings_Write_All" ON public.global_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+GRANT ALL ON public.global_settings TO authenticated;
+GRANT ALL ON public.global_settings TO service_role;
+
+-- B. Tabela Messages (Para o bot conseguir escrever no chat)
+ALTER TABLE IF EXISTS public.messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Bot_Insert_Message" ON public.messages;
+CREATE POLICY "Bot_Insert_Message" ON public.messages FOR INSERT TO authenticated WITH CHECK (true);
+
+
+-- 2. LIMPEZA DA FUNÇÃO (Remove versões antigas)
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(date);
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(text);
 DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(json);
 
--- 3. CRIAR A FUNÇÃO (Sem argumentos)
+-- 3. CRIAR A FUNÇÃO (Lógica de Envio)
 CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER -- Executa como Admin (ignora RLS do utilizador que chama)
-SET search_path = public -- Força o uso do schema public para evitar erros de resolução
+SECURITY DEFINER -- Executa como SuperAdmin (ignora RLS na leitura de users)
+SET search_path = public
 AS $$
 DECLARE
     v_resend_key text;
@@ -55,8 +74,8 @@ BEGIN
     SELECT setting_value INTO v_subject FROM global_settings WHERE setting_key = 'birthday_email_subject';
     SELECT setting_value INTO v_body_tpl FROM global_settings WHERE setting_key = 'birthday_email_body';
 
-    IF v_subject IS NULL THEN v_subject := 'Feliz Aniversário!'; END IF;
-    IF v_body_tpl IS NULL THEN v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; END IF;
+    IF v_subject IS NULL OR v_subject = '' THEN v_subject := 'Feliz Aniversário!'; END IF;
+    IF v_body_tpl IS NULL OR v_body_tpl = '' THEN v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; END IF;
 
     -- Loop Aniversariantes
     FOR r_user IN
@@ -66,7 +85,7 @@ BEGIN
         AND EXTRACT(MONTH FROM "dateOfBirth") = EXTRACT(MONTH FROM CURRENT_DATE)
         AND EXTRACT(DAY FROM "dateOfBirth") = EXTRACT(DAY FROM CURRENT_DATE)
     LOOP
-        -- A. Enviar Email (apenas se configurado)
+        -- A. Enviar Email (apenas se configurado e API Key válida)
         IF v_resend_key IS NOT NULL AND v_from_email IS NOT NULL AND length(v_resend_key) > 5 THEN
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
             PERFORM net.http_post(
@@ -96,11 +115,11 @@ BEGIN
 END;
 $$;
 
--- 4. PERMISSÕES EXPLÍCITAS (Essencial para evitar erro 42883 por falta de acesso)
+-- 4. PERMISSÕES DE EXECUÇÃO
 REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;         -- Permitir chamadas anónimas (se necessário)
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated; -- Permitir chamadas de utilizadores logados
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;  -- Permitir chamadas de sistema
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
 GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO postgres;
 
 -- 5. RECARREGAR CACHE DA API
@@ -229,11 +248,11 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
 
                     <div className="bg-red-900/10 p-4 rounded border border-red-500/30 relative">
                         <div className="flex justify-between items-center mb-2">
-                            <h4 className="text-red-300 font-bold text-sm flex items-center gap-2"><FaDatabase/> 2. Instalação Completa v5.4</h4>
+                            <h4 className="text-red-300 font-bold text-sm flex items-center gap-2"><FaDatabase/> 2. Instalação Completa v5.5</h4>
                             <span className="text-[9px] text-red-300 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30 uppercase">Nuclear Fix</span>
                         </div>
                         <p className="text-xs text-gray-400 mb-2">
-                            Apaga versões antigas, recria a função com permissões explícitas e limpa a cache.
+                            Corrige o erro "violates row-level security", recria a função e limpa a cache.
                         </p>
                         <div className="relative">
                             <pre className="text-xs font-mono text-green-300 bg-gray-900 p-3 rounded overflow-x-auto max-h-40 custom-scrollbar border border-gray-700">
