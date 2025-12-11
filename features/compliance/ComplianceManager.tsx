@@ -252,6 +252,7 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     }}
                     ticketToEdit={ticketToEdit}
                     escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
                     collaborators={appData.collaborators}
                     teams={appData.teams}
                     currentUser={currentUser}

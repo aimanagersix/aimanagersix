@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier, Instituicao } from '../types';
 import { FaTrash as DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark, FaDownload, SpinnerIcon } from './common/Icons';
 import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
-import { FaLightbulb, FaLock, FaUserTie, FaTruck, FaUsers } from 'react-icons/fa';
+import { FaLightbulb, FaLock, FaUserTie, FaTruck, FaUsers, FaBuilding, FaTools } from 'react-icons/fa';
 import RegulatoryNotificationModal from './RegulatoryNotificationModal';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -13,7 +14,9 @@ interface AddTicketModalProps {
     onSave: (ticket: Omit<Ticket, 'id' | 'requestDate' | 'status' | 'finishDate'> | Ticket) => Promise<any>;
     ticketToEdit?: Ticket | null;
     escolasDepartamentos: Entidade[];
+    instituicoes: Instituicao[];
     collaborators: Collaborator[];
+    suppliers?: Supplier[];
     teams: Team[];
     currentUser: Collaborator | null;
     userPermissions: { viewScope: string };
@@ -37,7 +40,7 @@ const formatFileSize = (bytes: number): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, collaborators, teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [], initialData }) => {
+export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, instituicoes, collaborators, suppliers = [], teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [], initialData }) => {
     
     const activeCategories = useMemo(() => {
          if (categories.length > 0) {
@@ -58,8 +61,10 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
             return {
                 title: ticketToEdit.title || '',
                 entidadeId: ticketToEdit.entidadeId,
+                instituicaoId: ticketToEdit.instituicaoId,
                 collaboratorId: ticketToEdit.collaboratorId,
                 requester_supplier_id: ticketToEdit.requester_supplier_id,
+                supplier_id: ticketToEdit.supplier_id, // Linked external service provider
                 description: ticketToEdit.description,
                 team_id: ticketToEdit.team_id || '',
                 equipmentId: ticketToEdit.equipmentId || '',
@@ -83,6 +88,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
             impactConfidentiality: (initialData?.impactConfidentiality as CIARating) || CIARating.Low,
             impactIntegrity: (initialData?.impactIntegrity as CIARating) || CIARating.Low,
             impactAvailability: (initialData?.impactAvailability as CIARating) || CIARating.Low,
+            supplier_id: '',
         };
         
         const defaultCatObj = categories.find(c => c.name === baseData.category);
@@ -90,11 +96,13 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
             baseData.team_id = defaultCatObj.default_team_id;
         }
 
-        const isUtilizador = userPermissions.viewScope === 'own';
+        // Auto-fill for normal users
+        const isUtilizador = userPermissions.viewScope === 'own' || currentUser?.role === 'Utilizador';
         if (isUtilizador && currentUser) {
             return {
                 ...baseData,
                 entidadeId: currentUser.entidadeId,
+                instituicaoId: currentUser.instituicaoId,
                 collaboratorId: currentUser.id,
             };
         }
@@ -102,6 +110,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
         return {
             ...baseData,
             entidadeId: initialData?.entidadeId || entidades[0]?.id || '',
+            instituicaoId: initialData?.instituicaoId || '',
             collaboratorId: initialData?.collaboratorId || collaborators.find(c => c.entidadeId === (initialData?.entidadeId || entidades[0]?.id))?.id || '',
         };
     });
@@ -112,7 +121,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     
     // Requester Type
     const [requesterType, setRequesterType] = useState<'internal' | 'external'>('internal');
-    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
     // AI Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -129,24 +137,10 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     
     const aiConfigured = isAiConfigured();
      
-    const isUtilizador = userPermissions.viewScope === 'own';
+    // Determine if user is restricted
+    const isUtilizador = userPermissions.viewScope === 'own' || currentUser?.role === 'Utilizador';
     const isSecurityIncident = formData.category === TicketCategory.SecurityIncident || formData.category === 'Incidente de Segurança';
 
-    // ... (Keep Realtime Presence Logic as is) ...
-    // ... (Keep Supplier Fetch Logic as is) ...
-    // ... (Keep useEffect hooks for equipment/auto-fill) ...
-
-    // Fetch suppliers
-    useEffect(() => {
-        const loadSuppliers = async () => {
-            try {
-                const data = await dataService.fetchAllData();
-                setSuppliers(data.suppliers);
-            } catch (e) { console.error(e); }
-        };
-        loadSuppliers();
-    }, []);
-    
     useEffect(() => {
         if (ticketToEdit) {
             setAttachments(ticketToEdit.attachments?.map(a => ({ ...a, size: 0 })) || []);
@@ -160,27 +154,33 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
         if (isUtilizador && currentUser) {
             return [currentUser];
         }
-        return collaborators.filter(c => c.entidadeId === formData.entidadeId && c.status === CollaboratorStatus.Ativo);
-    }, [formData.entidadeId, collaborators, isUtilizador, currentUser]);
+        // Filter by Entity OR Institution
+        if (formData.entidadeId) {
+            return collaborators.filter(c => c.entidadeId === formData.entidadeId && c.status === CollaboratorStatus.Ativo);
+        } else if (formData.instituicaoId) {
+             // If only institution selected, show all collabs in that institution
+             return collaborators.filter(c => c.instituicaoId === formData.instituicaoId && c.status === CollaboratorStatus.Ativo);
+        }
+        return [];
+    }, [formData.entidadeId, formData.instituicaoId, collaborators, isUtilizador, currentUser]);
 
     const availableEquipment = useMemo(() => {
         const activeAssignments = assignments.filter(a => !a.returnDate);
         const equipmentIds = new Set<string>();
 
         activeAssignments.forEach(a => {
-            if (a.entidadeId === formData.entidadeId) {
-                if (formData.collaboratorId && a.collaboratorId === formData.collaboratorId) {
-                    equipmentIds.add(a.equipmentId);
-                } else if (!a.collaboratorId) {
-                    equipmentIds.add(a.equipmentId);
-                }
+            // Equipment assigned to the collaborator directly
+            if (formData.collaboratorId && a.collaboratorId === formData.collaboratorId) {
+                equipmentIds.add(a.equipmentId);
+            }
+            // Equipment assigned to the location (Entity)
+            if (formData.entidadeId && a.entidadeId === formData.entidadeId && !a.collaboratorId) {
+                equipmentIds.add(a.equipmentId);
             }
         });
 
         return equipment.filter(e => equipmentIds.has(e.id));
     }, [formData.entidadeId, formData.collaboratorId, assignments, equipment]);
-
-    // ... (Keep handleChange, validate, handleFileSelect, AI functions) ...
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -192,6 +192,10 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                  category: value,
                  team_id: catObj?.default_team_id || prev.team_id 
              }));
+        } else if (name === 'entidadeId') {
+             // When entity changes, auto-set institution
+             const ent = entidades.find(e => e.id === value);
+             setFormData(prev => ({ ...prev, entidadeId: value, instituicaoId: ent?.instituicaoId || prev.instituicaoId }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -200,13 +204,19 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.title?.trim()) newErrors.title = "O assunto é obrigatório.";
-        if (!formData.entidadeId && requesterType === 'internal') newErrors.entidadeId = "A entidade é obrigatória.";
         
-        if (requesterType === 'internal' && !formData.collaboratorId) {
-            newErrors.collaboratorId = "O colaborador é obrigatório.";
+        // Validation: Must have EITHER EntidadeId OR InstituicaoId if internal
+        if (requesterType === 'internal') {
+             if (!formData.entidadeId && !formData.instituicaoId) {
+                 newErrors.entidadeId = "Selecione a Entidade ou Instituição.";
+             }
+             if (!formData.collaboratorId) {
+                newErrors.collaboratorId = "O colaborador é obrigatório.";
+            }
         }
+        
         if (requesterType === 'external' && !formData.requester_supplier_id) {
-            newErrors.requester_supplier_id = "O fornecedor é obrigatório.";
+            newErrors.requester_supplier_id = "O fornecedor solicitante é obrigatório.";
         }
 
         if (!formData.description?.trim()) newErrors.description = "A descrição do problema é obrigatória.";
@@ -215,9 +225,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
         return Object.keys(newErrors).length === 0;
     };
     
-    // ... (File handling and AI Logic omitted for brevity but kept in component) ...
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-         // ... existing logic ...
          const files = e.target.files;
         if (!files) return;
 
@@ -248,7 +256,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     };
     
     const handleAiAnalyze = async () => {
-        // ... existing logic ...
          if (!aiConfigured) return;
         if (!formData.description || formData.description.length < 10) {
             alert("Por favor, descreva o problema com mais detalhe antes de analisar.");
@@ -322,31 +329,38 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
         setIsSaving(true);
 
         try {
-            const dataToSubmit: any = {
+            const dataToSave: any = {
                 ...formData,
                 team_id: formData.team_id || undefined,
                 equipmentId: formData.equipmentId || undefined,
+                supplier_id: formData.supplier_id || undefined,
                 attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })),
             };
             
             if (requesterType === 'external') {
-                dataToSubmit.collaboratorId = undefined;
+                dataToSave.collaboratorId = undefined;
+                dataToSave.entidadeId = undefined;
+                dataToSave.instituicaoId = undefined;
             } else {
-                dataToSubmit.requester_supplier_id = undefined;
+                dataToSave.requester_supplier_id = undefined;
             }
+            
+            // Clean empty strings for UUID fields
+            if (!dataToSave.entidadeId) dataToSave.entidadeId = undefined;
+            if (!dataToSave.instituicaoId) dataToSave.instituicaoId = undefined;
 
             if (formData.category !== TicketCategory.SecurityIncident && formData.category !== 'Incidente de Segurança') {
-                delete dataToSubmit.securityIncidentType;
-                delete dataToSubmit.impactCriticality;
-                delete dataToSubmit.impactConfidentiality;
-                delete dataToSubmit.impactIntegrity;
-                delete dataToSubmit.impactAvailability;
+                delete dataToSave.securityIncidentType;
+                delete dataToSave.impactCriticality;
+                delete dataToSave.impactConfidentiality;
+                delete dataToSave.impactIntegrity;
+                delete dataToSave.impactAvailability;
             }
 
             if (ticketToEdit) {
-                await onSave({ ...ticketToEdit, ...dataToSubmit });
+                await onSave({ ...ticketToEdit, ...dataToSave });
             } else {
-                await onSave(dataToSubmit as Omit<Ticket, 'id' | 'requestDate' | 'status' | 'finishDate'>);
+                await onSave(dataToSave as Omit<Ticket, 'id' | 'requestDate' | 'status' | 'finishDate'>);
             }
             onClose();
         } catch (error: any) {
@@ -358,43 +372,71 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     };
 
     const modalTitle = ticketToEdit ? "Editar Ticket" : "Adicionar Novo Ticket";
+    const assignedCollabName = collaborators.find(c => c.id === formData.collaboratorId)?.fullName;
+    const assignedEntName = entidades.find(e => e.id === formData.entidadeId)?.name;
+    const assignedInstName = instituicoes.find(i => i.id === formData.instituicaoId)?.name;
 
     return (
         <>
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
-             {/* Simplified rendering for brevity in update, keeping structure intact */}
              <form onSubmit={handleSubmit} className="space-y-4">
                 
-                {/* ... (Fields: Requester Type, Entity, Collaborator, Category, Security Section, Title, Description) ... */}
-                
                 {/* Requester Toggle */}
-                <div className="flex justify-center pb-2 border-b border-gray-700 mb-4">
-                     {/* ... */}
-                     <div className="flex bg-gray-700 p-1 rounded-lg">
-                        <button type="button" onClick={() => setRequesterType('internal')} className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${requesterType === 'internal' ? 'bg-brand-primary text-white shadow' : 'text-gray-400 hover:text-white'}`}><FaUserTie /> Interno</button>
-                        <button type="button" onClick={() => setRequesterType('external')} className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${requesterType === 'external' ? 'bg-brand-primary text-white shadow' : 'text-gray-400 hover:text-white'}`}><FaTruck /> Fornecedor</button>
+                {!isUtilizador && (
+                    <div className="flex justify-center pb-2 border-b border-gray-700 mb-4">
+                        <div className="flex bg-gray-700 p-1 rounded-lg">
+                            <button type="button" onClick={() => setRequesterType('internal')} className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${requesterType === 'internal' ? 'bg-brand-primary text-white shadow' : 'text-gray-400 hover:text-white'}`}><FaUserTie /> Interno</button>
+                            <button type="button" onClick={() => setRequesterType('external')} className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${requesterType === 'external' ? 'bg-brand-primary text-white shadow' : 'text-gray-400 hover:text-white'}`}><FaTruck /> Fornecedor</button>
+                        </div>
                     </div>
-                </div>
+                )}
                 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {requesterType === 'internal' ? (
                         <>
-                            <div>
-                                <label htmlFor="entidadeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
-                                <select name="entidadeId" id="entidadeId" value={formData.entidadeId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.entidadeId ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:cursor-not-allowed`} disabled={isUtilizador}>
-                                    <option value="" disabled>Selecione uma entidade</option>
-                                    {entidades.map(entidade => (<option key={entidade.id} value={entidade.id}>{entidade.name}</option>))}
-                                </select>
-                                {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
-                            </div>
-                            <div>
-                                <label htmlFor="collaboratorId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Colaborador</label>
-                                <select name="collaboratorId" id="collaboratorId" value={formData.collaboratorId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.collaboratorId ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:cursor-not-allowed`} disabled={isUtilizador || availableCollaborators.length === 0}>
-                                    <option value="" disabled>Selecione um colaborador</option>
-                                    {availableCollaborators.map(col => (<option key={col.id} value={col.id}>{col.fullName}</option>))}
-                                </select>
-                                {errors.collaboratorId && <p className="text-red-400 text-xs italic mt-1">{errors.collaboratorId}</p>}
-                            </div>
+                            {isUtilizador ? (
+                                // Read-Only View for Normal Users
+                                <>
+                                    <div className="col-span-2 bg-gray-800/50 p-3 rounded border border-gray-600 flex justify-between items-center">
+                                        <div>
+                                            <p className="text-xs text-gray-400 uppercase">Solicitante (Eu)</p>
+                                            <p className="text-white font-bold">{currentUser?.fullName}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs text-gray-400 uppercase">Departamento</p>
+                                            <p className="text-white font-bold">{assignedEntName || assignedInstName || 'Geral'}</p>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                // Admin View - Full Selection
+                                <>
+                                    <div>
+                                        <label htmlFor="instituicaoId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Instituição / Entidade</label>
+                                        <div className="flex flex-col gap-2">
+                                            <select name="instituicaoId" value={formData.instituicaoId} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                                                <option value="">Selecione Instituição</option>
+                                                {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                                            </select>
+                                            {formData.instituicaoId && (
+                                                <select name="entidadeId" value={formData.entidadeId} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                                                    <option value="">-- Geral / Sem Entidade --</option>
+                                                    {entidades.filter(e => e.instituicaoId === formData.instituicaoId).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                                </select>
+                                            )}
+                                        </div>
+                                        {errors.entidadeId && <p className="text-red-400 text-xs italic mt-1">{errors.entidadeId}</p>}
+                                    </div>
+                                    <div>
+                                        <label htmlFor="collaboratorId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Colaborador</label>
+                                        <select name="collaboratorId" id="collaboratorId" value={formData.collaboratorId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.collaboratorId ? 'border-red-500' : 'border-gray-600'}`} disabled={availableCollaborators.length === 0}>
+                                            <option value="" disabled>Selecione um colaborador</option>
+                                            {availableCollaborators.map(col => (<option key={col.id} value={col.id}>{col.fullName}</option>))}
+                                        </select>
+                                        {errors.collaboratorId && <p className="text-red-400 text-xs italic mt-1">{errors.collaboratorId}</p>}
+                                    </div>
+                                </>
+                            )}
                         </>
                     ) : (
                          <div className="col-span-2">
@@ -408,26 +450,56 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                     )}
                 </div>
                 
-                <div>
-                    <label htmlFor="category" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Categoria</label>
-                    <select name="category" id="category" value={formData.category} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                        {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
-                    </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="category" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Categoria</label>
+                        <select name="category" id="category" value={formData.category} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                            {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
+                        </select>
+                    </div>
+                     <div>
+                        <label htmlFor="equipmentId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipamento Associado (Opcional)</label>
+                        <select name="equipmentId" value={formData.equipmentId} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                            <option value="">-- Nenhum --</option>
+                            {availableEquipment.map(eq => (
+                                <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 
+                {/* External Supplier Link (For internal tickets about an external service) */}
+                {requesterType === 'internal' && (
+                    <div>
+                         <label htmlFor="supplier_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-2">
+                            <FaTools className="text-gray-400"/> Fornecedor / Serviço Externo Associado (Opcional)
+                         </label>
+                        <select name="supplier_id" value={formData.supplier_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                            <option value="">-- Nenhum --</option>
+                            {suppliers.map(sup => (<option key={sup.id} value={sup.id}>{sup.name}</option>))}
+                        </select>
+                    </div>
+                )}
+
                 {isSecurityIncident && (
-                     // ... Security fields (simplified) ...
                      <div className="border border-red-500/50 bg-red-900/20 rounded-lg p-4 space-y-4 animate-fade-in">
                          <div className="flex items-center gap-2 text-red-400 font-bold"><FaShieldAlt /><h3>Incidente de Segurança (NIS2)</h3></div>
-                         <div>
-                            <label className="block text-sm font-bold text-white mb-1">Tipo</label>
-                            <select name="securityIncidentType" value={formData.securityIncidentType} onChange={handleChange} className={`w-full bg-gray-800 border text-white rounded-md p-2 ${errors.securityIncidentType ? 'border-red-500' : 'border-red-700'}`}>
-                                <option value="">-- Selecione --</option>
-                                {activeSecurityIncidentTypes.map(type => (<option key={type} value={type}>{type}</option>))}
-                            </select>
-                            {errors.securityIncidentType && <p className="text-red-400 text-xs italic mt-1">{errors.securityIncidentType}</p>}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div>
+                                <label className="block text-sm font-bold text-white mb-1">Tipo de Incidente</label>
+                                <select name="securityIncidentType" value={formData.securityIncidentType} onChange={handleChange} className={`w-full bg-gray-800 border text-white rounded-md p-2 ${errors.securityIncidentType ? 'border-red-500' : 'border-red-700'}`}>
+                                    <option value="">-- Selecione --</option>
+                                    {activeSecurityIncidentTypes.map(type => (<option key={type} value={type}>{type}</option>))}
+                                </select>
+                                {errors.securityIncidentType && <p className="text-red-400 text-xs italic mt-1">{errors.securityIncidentType}</p>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-white mb-1">Criticidade</label>
+                                <select name="impactCriticality" value={formData.impactCriticality} onChange={handleChange} className="w-full bg-gray-800 border border-red-700 text-white rounded-md p-2">
+                                     {Object.values(CriticalityLevel).map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
                         </div>
-                        {/* ... Criticality inputs ... */}
                      </div>
                 )}
 
@@ -447,7 +519,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                     <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} ></textarea>
                     {errors.description && <p className="text-red-400 text-xs italic mt-1">{errors.description}</p>}
                     
-                    {/* AI Suggestion Box if present */}
+                    {/* AI Suggestion Box */}
                     {aiSuggestion && (
                         <div className="mt-2 p-3 bg-purple-900/20 border border-purple-500 rounded-md shadow-xl animate-fade-in">
                             <p className="text-xs font-bold text-purple-200 mb-1">Sugestão Inteligente:</p>
@@ -459,8 +531,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                         </div>
                     )}
                 </div>
-
-                {/* ... Equipment and Team fields ... */}
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
@@ -475,7 +545,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                 </div>
             </form>
         </Modal>
-        {/* ... Regulatory Modal ... */}
         </>
     );
 };

@@ -115,7 +115,9 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     }}
                     ticketToEdit={ticketToEdit}
                     escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
                     collaborators={appData.collaborators}
+                    suppliers={appData.suppliers}
                     teams={appData.teams}
                     currentUser={currentUser}
                     userPermissions={{ viewScope: 'all' }}

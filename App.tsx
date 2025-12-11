@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember
@@ -587,6 +586,7 @@ export const App: React.FC = () => {
                     }}
                     ticketToEdit={ticketToEdit}
                     escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
                     collaborators={appData.collaborators}
                     teams={appData.teams}
                     currentUser={currentUser}

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers } from './common/Icons';
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import * as dataService from '../services/dataService';
@@ -231,7 +231,8 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th scope="col" className="px-6 py-3">Entidade / Equipa</th>
+                            <th scope="col" className="px-6 py-3">Entidade</th>
+                            <th scope="col" className="px-6 py-3">Equipa</th>
                             <th scope="col" className="px-6 py-3">Categoria</th>
                             <th scope="col" className="px-6 py-3">Assunto / Descrição</th>
                             <th scope="col" className="px-6 py-3">SLA / Prazos</th>
@@ -252,6 +253,9 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 ? supplierMap.get(ticket.requester_supplier_id) 
                                 : (collaboratorMap.get(ticket.collaboratorId) || 'N/A');
                             const isSupplierRequester = !!ticket.requester_supplier_id;
+                            
+                            // Determine Team Name
+                            const teamName = ticket.team_id ? teamMap.get(ticket.team_id) : 'Geral';
 
                             return(
                             <tr 
@@ -261,7 +265,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                             >
                                 <td className="px-6 py-4">
                                     <div>{entidadeMap.get(ticket.entidadeId) || 'N/A'}</div>
-                                    {ticket.team_id && <div className="text-xs text-brand-secondary mt-1">{teamMap.get(ticket.team_id)}</div>}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className="inline-flex items-center gap-1 bg-gray-800 border border-gray-600 px-2 py-1 rounded text-xs text-white font-medium whitespace-nowrap">
+                                        <FaUsers className="text-brand-secondary"/> {teamName}
+                                    </span>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2">
@@ -324,7 +332,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 </td>
                             </tr>
                         )}) : (
-                            <tr><td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">Nenhum ticket encontrado.</td></tr>
+                            <tr><td colSpan={8} className="text-center py-8 text-on-surface-dark-secondary">Nenhum ticket encontrado.</td></tr>
                         )}
                     </tbody>
                 </table>

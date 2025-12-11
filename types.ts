@@ -490,7 +490,8 @@ export interface SecurityIncidentTypeItem {
 export interface Ticket {
   id: string;
   title: string;
-  entidadeId: string;
+  entidadeId?: string; // Now optional if institutionId is set
+  instituicaoId?: string; // NEW: Allow ticket on Institution Level
   collaboratorId: string;
   description: string;
   requestDate: string;
@@ -501,8 +502,9 @@ export interface Ticket {
   team_id?: string;
   equipmentId?: string;
   
-  // Supplier Request Support
+  // Supplier Request Support / Linked Service
   requester_supplier_id?: string; // If set, collaboratorId might be ignored or set to a system user
+  supplier_id?: string; // NEW: Associated Supplier (External Service)
   
   // NIS2 Incident Response Fields
   category?: string; // Changed to string to support dynamic categories
