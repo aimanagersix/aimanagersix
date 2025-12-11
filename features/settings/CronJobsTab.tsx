@@ -11,7 +11,7 @@ interface CronJobsTabProps {
 }
 
 const checkFunctionScript = `-- DIAGNÓSTICO: VERIFICAR SE A FUNÇÃO EXISTE NA BD
--- Execute este script. Se o resultado for "0 rows", a função NÃO foi criada.
+-- Execute este script no SQL Editor. Se o resultado for "0 rows", a função NÃO foi criada corretamente.
 
 SELECT 
     routine_name as "Nome",
