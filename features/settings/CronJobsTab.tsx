@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaCommentDots, FaStethoscope, FaExclamationTriangle, FaSearch, FaTerminal, FaPaperPlane } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaCommentDots, FaStethoscope, FaExclamationTriangle, FaSearch, FaTerminal, FaPaperPlane, FaMagic } from 'react-icons/fa';
 import { getSupabase } from '../../services/supabaseClient';
 
 interface CronJobsTabProps {
@@ -23,8 +23,8 @@ SELECT public.send_daily_birthday_emails();
 `;
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS & DIAGNÓSTICO (VERSÃO v5.11 - HTTP SYNC FIX)
--- Correção: Substituído pg_net (async) por http (sync) para capturar erros imediatamente.
+-- SCRIPT DE ANIVERSÁRIOS & DIAGNÓSTICO (VERSÃO v5.12 - RESEND FIX)
+-- Correção: HTTP Sync + Tratamento de erro 403 (Domínio não verificado)
 -- ==================================================================================
 
 -- 1. LIMPEZA PRÉVIA
@@ -32,7 +32,6 @@ DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
 DROP FUNCTION IF EXISTS public.test_resend_email(text);
 
 -- 2. INSTALAR EXTENSÃO HTTP (Síncrona)
--- Necessária para obter o código de status (200, 400, etc) imediatamente.
 CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA public;
 
 -- 3. FUNÇÃO PRINCIPAL (ROTINA DIÁRIA)
@@ -76,7 +75,7 @@ BEGIN
         AND EXTRACT(MONTH FROM "dateOfBirth"::date) = EXTRACT(MONTH FROM CURRENT_DATE)
         AND EXTRACT(DAY FROM "dateOfBirth"::date) = EXTRACT(DAY FROM CURRENT_DATE)
     LOOP
-        -- A. Enviar Email (Usando extensão HTTP Síncrona)
+        -- A. Enviar Email
         IF v_resend_key IS NOT NULL AND v_from_email IS NOT NULL AND length(v_resend_key) > 5 THEN
             v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
             
@@ -96,10 +95,10 @@ BEGIN
                 ));
 
                 IF v_status >= 400 THEN
-                    RAISE WARNING 'Erro Resend para %: Status %, Resposta %', r_user.email, v_status, v_content;
+                    RAISE WARNING 'Erro Resend (Email %): Status %, Resposta %', r_user.email, v_status, v_content;
                 END IF;
             EXCEPTION WHEN OTHERS THEN
-                RAISE WARNING 'Falha crítica ao enviar email para %: %', r_user.email, SQLERRM;
+                RAISE WARNING 'Falha crítica HTTP para %: %', r_user.email, SQLERRM;
             END;
         END IF;
 
@@ -114,7 +113,7 @@ BEGIN
 END;
 $$;
 
--- 4. NOVA FUNÇÃO DE TESTE ISOLADO (DIAGNÓSTICO)
+-- 4. FUNÇÃO DE TESTE ISOLADO
 CREATE OR REPLACE FUNCTION public.test_resend_email(target_email text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -138,7 +137,6 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'Email de Envio (From) não configurado.');
     END IF;
 
-    -- Chamada Síncrona usando extensão 'http'
     SELECT status, content::text INTO v_status, v_content 
     FROM http((
         'POST', 
@@ -149,7 +147,7 @@ BEGIN
             'from', v_from_email,
             'to', target_email,
             'subject', 'Teste de Conexão AIManager',
-            'html', '<strong>Sucesso!</strong> O sistema de emails está configurado corretamente.'
+            'html', '<strong>Sucesso!</strong> O sistema de emails está configurado corretamente.<br/>Enviado de: ' || v_from_email
         )::text
     ));
 
@@ -171,7 +169,7 @@ GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
 GRANT EXECUTE ON FUNCTION public.test_resend_email(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.test_resend_email(text) TO service_role;
 
--- 6. AGENDAMENTO (pg_cron)
+-- 6. AGENDAMENTO
 DO $$
 BEGIN
     CREATE EXTENSION IF NOT EXISTS pg_cron;
@@ -209,6 +207,11 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
         }
     };
 
+    const handleSetTestEmail = () => {
+        onSettingsChange('resendFromEmail', 'onboarding@resend.dev');
+        alert("Email definido para 'onboarding@resend.dev'.\n\nATENÇÃO: Em modo de teste gratuito, o Resend SÓ envia emails para o endereço de email que usou no registo da conta Resend. Emails para outros colegas falharão com erro 403.");
+    };
+
     const handleSendTestEmail = async () => {
         if (!testEmailAddress || !testEmailAddress.includes('@')) {
             alert("Por favor insira um email válido.");
@@ -223,7 +226,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
             if (error) {
                 console.error("RPC Error:", error);
                 if (error.code === '42883') {
-                     alert("A função de teste não existe ou foi atualizada. Por favor execute o Script de Instalação v5.11 abaixo.");
+                     alert("A função de teste não existe ou foi atualizada. Por favor execute o Script de Instalação v5.12 abaixo.");
                 } else {
                      alert(`Erro ao invocar teste: ${error.message}`);
                 }
@@ -233,7 +236,14 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
             if (data && data.success) {
                 alert(`Sucesso! Email enviado. Verifique a caixa de entrada de ${testEmailAddress}.`);
             } else {
-                alert(`O Resend recusou o envio.\nStatus: ${data?.status}\nErro: ${data?.response || data?.message}`);
+                let msg = `O Resend recusou o envio.\nStatus: ${data?.status}\n`;
+                
+                if (data?.status === 403) {
+                    msg += "Motivo: Domínio não verificado. Você está a tentar enviar 'DE' um email que não possui (ex: gmail.com) ou 'PARA' um email não autorizado no modo de teste.";
+                } else {
+                    msg += `Erro: ${data?.response || data?.message}`;
+                }
+                alert(msg);
             }
 
         } catch (e: any) {
@@ -313,8 +323,30 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="bg-black/30 p-4 rounded border border-gray-700">
-                                    <h4 className="text-white font-bold mb-3 text-sm flex items-center gap-2"><FaEnvelope/> Template do Email</h4>
+                                    <h4 className="text-white font-bold mb-3 text-sm flex items-center gap-2"><FaEnvelope/> Configuração Email</h4>
                                     <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 uppercase mb-1">Email de Envio (From)</label>
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.resendFromEmail || ''} 
+                                                    readOnly 
+                                                    className="w-full bg-gray-800 border border-gray-600 text-gray-400 rounded-md p-2 text-sm cursor-not-allowed" 
+                                                    placeholder="Definir em 'Conexões & APIs'"
+                                                />
+                                                <button 
+                                                    onClick={handleSetTestEmail}
+                                                    className="whitespace-nowrap px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded border border-gray-500 flex items-center gap-1"
+                                                    title="Usar email de teste do Resend"
+                                                >
+                                                    <FaMagic /> Modo Teste
+                                                </button>
+                                            </div>
+                                            <p className="text-[10px] text-yellow-400 mt-1">
+                                                * Para usar Gmail/Outlook como remetente, o Resend bloqueia (Erro 403). Use <code>onboarding@resend.dev</code> para testes.
+                                            </p>
+                                        </div>
                                         <div>
                                             <label className="block text-xs text-gray-500 uppercase mb-1">Assunto</label>
                                             <input 
@@ -325,31 +357,20 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                                 placeholder="Feliz Aniversário!" 
                                             />
                                         </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 uppercase mb-1">Mensagem (HTML Suportado)</label>
-                                            <textarea 
-                                                value={settings.birthday_email_body} 
-                                                onChange={(e) => onSettingsChange('birthday_email_body', e.target.value)} 
-                                                rows={3}
-                                                className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" 
-                                                placeholder="Parabéns {{nome}}! Desejamos-te um dia fantástico." 
-                                            />
-                                            <p className="text-[10px] text-gray-500 mt-1">Variável disponível: <code>{'{{nome}'}</code></p>
-                                        </div>
                                     </div>
                                 </div>
                                 
                                 <div className="bg-black/30 p-4 rounded border border-gray-700 flex flex-col">
-                                     <h4 className="text-white font-bold mb-3 text-sm flex items-center gap-2"><FaStethoscope className="text-blue-400"/> Testar Conexão Resend</h4>
+                                     <h4 className="text-white font-bold mb-3 text-sm flex items-center gap-2"><FaStethoscope className="text-blue-400"/> Testar Envio (Diagnóstico)</h4>
                                      <p className="text-xs text-gray-400 mb-3">
-                                         Envie um email de teste para validar se a Chave API e o Domínio estão corretos.
+                                         Envie um email de teste. Se usar o email <code>onboarding@resend.dev</code>, só pode enviar para o <strong>seu próprio email de registo</strong> no Resend.
                                      </p>
                                      <div className="flex gap-2">
                                          <input 
                                             type="email" 
                                             value={testEmailAddress}
                                             onChange={(e) => setTestEmailAddress(e.target.value)}
-                                            placeholder="seu.email@exemplo.com"
+                                            placeholder="seu.email@admin.com"
                                             className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
                                          />
                                          <button 
@@ -391,10 +412,10 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                 {/* Passo 2: Reinstalar */}
                                 <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
                                      <div className="flex justify-between items-center mb-1">
-                                        <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaTerminal/> 2. Instalação Completa v5.11 (Fix Sync)</h5>
+                                        <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaTerminal/> 2. Instalação Completa v5.12 (HTTP Fix + 403 Handler)</h5>
                                     </div>
                                     <p className="text-[10px] text-gray-400 mb-2">
-                                        Use este script para corrigir o erro "column status does not exist" usando a extensão <code>http</code> síncrona.
+                                        Atualiza a função de envio para usar a extensão HTTP síncrona e tratar melhor os erros de domínio não verificado.
                                     </p>
                                     <div className="relative">
                                         <pre className="text-[10px] font-mono text-red-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto max-h-48 custom-scrollbar">{birthdaySqlScript}</pre>
