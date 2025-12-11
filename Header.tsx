@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from './types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './components/common/Icons';
@@ -216,7 +217,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                   <div className="relative" ref={inventarioMenuRef}>
                       <button
                           onClick={() => setInventarioMenuOpen(prev => !prev)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isInventarioOpen ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isInventoryActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                       >
                           <FaBoxOpen />
                           {t('nav.inventory')}
@@ -494,4 +495,4 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
   );
 };
 
-export default Sidebar;
+export default Header;

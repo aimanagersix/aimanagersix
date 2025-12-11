@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
@@ -167,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setInventarioOpen(!isInventarioOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isInventarioOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isInventarioOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                             title={!isExpanded ? t('nav.inventory') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
@@ -231,7 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 {hasToolsTabs && (
                     <div className="space-y-1">
                         <button
-                            onClick={() => setIsToolsMenuOpen(!isToolsOpen)}
+                            onClick={() => setIsToolsOpen(!isToolsOpen)}
                             className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                             title={!isExpanded ? t('nav.tools') : undefined}
                         >

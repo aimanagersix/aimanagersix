@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from './types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './components/common/Icons';
@@ -107,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         {tabConfig['overview.smart'] ? (
                             <>
                                 <button
-                                    onClick={() => setIsOverviewMenuOpen(!isOverviewOpen)}
+                                    onClick={() => setIsOverviewOpen(!isOverviewOpen)}
                                     className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                                     title={!isExpanded ? t('nav.overview') : undefined}
                                 >
@@ -138,7 +139,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setOrganizacaoOpen(!isOrganizacaoOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOrganizacaoOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOrganizacaoOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                             title={!isExpanded ? t('nav.organization') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
@@ -231,7 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 {hasToolsTabs && (
                     <div className="space-y-1">
                         <button
-                            onClick={() => setIsToolsMenuOpen(!isToolsOpen)}
+                            onClick={() => setIsToolsOpen(!isToolsOpen)}
                             className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                             title={!isExpanded ? t('nav.tools') : undefined}
                         >
@@ -249,8 +250,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
                                 {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['tools']?.map && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {onOpenCalendar && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={onOpenCalendar} />}
-                                {onOpenManual && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={onOpenManual} />}
+                                {onOpenCalendar && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => { onOpenCalendar(); setIsMobileMenuOpen(false); }} />}
+                                {onOpenManual && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => { onOpenManual(); setIsMobileMenuOpen(false); }} />}
                             </div>
                         )}
                     </div>
