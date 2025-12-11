@@ -341,7 +341,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         </div>
                         <div className="py-1">
                             {onOpenProfile && (
-                                <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
                                     <FaUserCircle className="mr-3 text-brand-secondary" /> {t('common.profile')}
                                 </button>
                             )}
@@ -403,6 +403,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     </div>
                 )}
             </div>
+          </div>
         </div>
       </div>
 
@@ -489,8 +490,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
         {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
         {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}
-        </>
-    );
+    </header>
+    </>
+  );
 };
 
-export default Sidebar;
+export default Header;

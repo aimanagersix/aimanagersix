@@ -495,4 +495,4 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
   );
 };
 
-export default Header;
+export default Sidebar;
