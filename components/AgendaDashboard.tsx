@@ -30,7 +30,7 @@ const AgendaDashboard: React.FC = () => {
                 const items: AgendaItem[] = [];
 
                 // 1. Collaborators
-                const entidadeMap = new Map(data.entidades.map((e: any) => [e.id, e.name]));
+                const entidadeMap = new Map<string, string>(data.entidades.map((e: any) => [e.id, e.name]));
                 data.collaborators.forEach((c: Collaborator) => {
                     items.push({
                         id: c.id,
