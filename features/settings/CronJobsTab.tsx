@@ -36,8 +36,8 @@ NOTIFY pgrst, 'reload config';
 `;
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS (VERSÃO v5.8 - TYPE FIX)
--- Correção: Adicionado ::date para evitar erro "function extract(unknown, text) does not exist"
+-- SCRIPT DE ANIVERSÁRIOS (VERSÃO v5.9 - COLUMN NAME FIX)
+-- Correção: Substituído "created_at" por "timestamp" na tabela messages.
 -- ==================================================================================
 
 -- 1. LIMPEZA PRÉVIA
@@ -116,8 +116,9 @@ BEGIN
         -- B. Enviar Mensagem Chat
         v_chat_message := '🎉 Parabéns ao colega **' || r_user."fullName" || '** que celebra hoje o seu aniversário! 🎂🎈';
         
-        IF NOT EXISTS (SELECT 1 FROM messages WHERE "receiverId" = v_general_channel_id AND content = v_chat_message AND created_at::date = CURRENT_DATE) THEN
-            INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read)
+        -- CORREÇÃO v5.9: Usar "timestamp" em vez de "created_at"
+        IF NOT EXISTS (SELECT 1 FROM messages WHERE "receiverId" = v_general_channel_id AND content = v_chat_message AND "timestamp"::date = CURRENT_DATE) THEN
+            INSERT INTO public.messages ("senderId", "receiverId", content, "timestamp", read)
             VALUES (v_general_channel_id, v_general_channel_id, v_chat_message, now(), false);
         END IF;
     END LOOP;
@@ -301,9 +302,9 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                         {/* Passo 3: Reinstalar */}
                         <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
                              <div className="flex justify-between items-center mb-1">
-                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Instalação Completa v5.8 (Safe Mode + Type Fix)</h5>
+                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Instalação Completa v5.9 (Safe Mode + Type/Column Fix)</h5>
                             </div>
-                            <p className="text-[10px] text-gray-400 mb-2">Separa a criação da função do agendamento cron e corrige o tipo de dados.</p>
+                            <p className="text-[10px] text-gray-400 mb-2">Separa a criação da função do agendamento cron e corrige o tipo de dados e o nome da coluna.</p>
                             <div className="relative">
                                 <pre className="text-[10px] font-mono text-red-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto max-h-32">{birthdaySqlScript}</pre>
                                 <button onClick={() => handleCopy(birthdaySqlScript, 'install_sql')} className="absolute top-1 right-1 p-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[10px]">
