@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock, FaSearch, FaRecycle, FaCrown } from 'react-icons/fa';
-import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock, FaSearch, FaRecycle, FaCrown, FaCode } from 'react-icons/fa';
+import { generatePlaywrightTest, generateSqlHelper, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
 interface DatabaseSchemaModalProps {
@@ -10,532 +10,205 @@ interface DatabaseSchemaModalProps {
 }
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
-    const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'audit_db' | 'cleanup' | 'fix_types' | 'triggers' | 'playwright' | 'superadmin_omni'>('superadmin_omni');
+    const [copied, setCopied] = useState<string | null>(null);
+    // Novas abas organizadas
+    const [activeTab, setActiveTab] = useState<'setup' | 'policies' | 'functions' | 'sql_ai' | 'maintenance' | 'playwright'>('setup');
     
+    // Playwright State
     const [testRequest, setTestRequest] = useState('');
     const [generatedTest, setGeneratedTest] = useState('');
     const [isGeneratingTest, setIsGeneratingTest] = useState(false);
     const [testEmail, setTestEmail] = useState('josefsmoreira@outlook.com');
     const [testPassword, setTestPassword] = useState('QSQmZf62!');
     
+    // SQL AI State
+    const [sqlRequest, setSqlRequest] = useState('');
+    const [generatedSql, setGeneratedSql] = useState('');
+    const [isGeneratingSql, setIsGeneratingSql] = useState(false);
+
+    // Triggers State
     const [triggers, setTriggers] = useState<any[]>([]);
     const [isLoadingTriggers, setIsLoadingTriggers] = useState(false);
     const [triggerError, setTriggerError] = useState<string | null>(null);
 
     const aiConfigured = isAiConfigured();
 
-    const omniAdminScript = `
+    const handleCopy = (text: string, id: string) => {
+        navigator.clipboard.writeText(text);
+        setCopied(id);
+        setTimeout(() => setCopied(null), 2000);
+    };
+
+    // --- SCRIPTS ---
+
+    const setupGenesisScript = `
 -- ==================================================================================
--- SCRIPT DE ACESSO TOTAL SUPERADMIN (OMNIPOTENT FIX) - v8.0
--- Este script percorre TODAS as tabelas e força acesso total para Admins.
--- Resolve erros "new row violates row-level security policy".
--- ==================================================================================
-BEGIN;
-
--- 1. Garantir Função de Verificação (Indestrutível)
-CREATE OR REPLACE FUNCTION public.is_admin_check()
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    v_role text;
-BEGIN
-    -- Se não estiver autenticado, false
-    IF auth.uid() IS NULL THEN RETURN false; END IF;
-    
-    -- Buscar role
-    SELECT role INTO v_role FROM public.collaborators WHERE id = auth.uid();
-    
-    -- Verificar se é Admin ou SuperAdmin
-    RETURN v_role IN ('SuperAdmin', 'Admin');
-EXCEPTION WHEN OTHERS THEN
-    -- Fallback de segurança
-    RETURN false;
-END;
-$$;
-
--- 2. Loop Dinâmico: Aplicar Política de Admin a TODAS as tabelas existentes
-DO $$
-DECLARE
-    t text;
-BEGIN
-    FOR t IN
-        SELECT table_name
-        FROM information_schema.tables
-        WHERE table_schema = 'public'
-        AND table_type = 'BASE TABLE'
-    LOOP
-        -- A. Garantir que RLS está ativo (Segurança por defeito)
-        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
-
-        -- B. Remover política de Admin antiga (se existir, para atualizar)
-        EXECUTE format('DROP POLICY IF EXISTS "SuperAdmin_Omni_Access" ON public.%I', t);
-
-        -- C. Criar a Política Mestra: Admins podem fazer TUDO (ALL)
-        -- O Postgres usa lógica "OR" entre políticas permissivas.
-        -- Se esta política passar, o acesso é garantido, ignorando outras restrições.
-        EXECUTE format('CREATE POLICY "SuperAdmin_Omni_Access" ON public.%I FOR ALL TO authenticated USING (public.is_admin_check()) WITH CHECK (public.is_admin_check())', t);
-        
-        -- D. Garantir Grants (Permissões de baixo nível)
-        EXECUTE format('GRANT ALL ON public.%I TO authenticated', t);
-        EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
-        
-        RAISE NOTICE 'Política Omni aplicada na tabela: %', t;
-    END LOOP;
-END $$;
-
-NOTIFY pgrst, 'reload config';
-COMMIT;
-`;
-
-    const hardeningScript = `
--- ==================================================================================
--- SCRIPT DE SEGURANÇA BÁSICA (HARDENING RLS) - v5.0 (LIMPEZA TOTAL DE CONFIGS)
--- Remove TODO o lixo (Ops Read, Aux Write, etc) das tabelas de configuração.
+-- SCRIPT GENESIS: ESTRUTURA INICIAL DA BASE DE DADOS (AIManager v5.0)
+-- Execute este script apenas para criar uma nova base de dados do zero.
 -- ==================================================================================
 BEGIN;
 
--- 1. Função Helper de Admin (Garante que existe)
-CREATE OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN AS $$
-DECLARE current_role text;
-BEGIN SELECT role INTO current_role FROM public.collaborators WHERE id = auth.uid(); RETURN current_role IN ('SuperAdmin', 'Admin'); END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- 1. Tabelas de Configuração (Enums/Lookups)
+CREATE TABLE IF NOT EXISTS public.global_settings (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, setting_key TEXT UNIQUE NOT NULL, setting_value TEXT, updated_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS public.brands (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT UNIQUE NOT NULL, risk_level TEXT DEFAULT 'Baixa', is_iso27001_certified BOOLEAN DEFAULT false, security_contact_email TEXT);
+CREATE TABLE IF NOT EXISTS public.equipment_types (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT UNIQUE NOT NULL, requires_location BOOLEAN DEFAULT false, is_maintenance BOOLEAN DEFAULT false);
+CREATE TABLE IF NOT EXISTS public.config_software_categories (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT UNIQUE NOT NULL);
 
--- 2. Loop de "Vassourada" e Aplicação
-DO $$
-DECLARE 
-    tables text[] := ARRAY[
-        -- Hardware & Software Configs
-        'brands', 'equipment_types', 'config_equipment_statuses', 'config_cpus', 'config_ram_sizes', 
-        'config_storage_types', 'config_software_categories', 'config_software_products',
-        'config_decommission_reasons', 'config_conservation_states',
-        
-        -- HR & Organization Configs
-        'config_job_titles', 'contact_roles', 'contact_titles', 'config_collaborator_deactivation_reasons',
-        'config_custom_roles', 'config_user_roles', 'config_accounting_categories', 'document_templates',
-        
-        -- Support & Compliance Configs
-        'ticket_categories', 'security_incident_types', 'config_criticality_levels', 'config_cia_ratings', 
-        'config_service_statuses', 'config_backup_types', 'config_training_types', 'config_resilience_test_types',
-        'global_settings'
-    ]; 
-    tbl text;
-    pol record;
-BEGIN
-    FOREACH tbl IN ARRAY tables LOOP
-        -- Garantir que a tabela existe antes de aplicar
-        IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = tbl) THEN
-            
-            -- 1. Ativar RLS
-            EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', tbl);
-            
-            -- 2. "VASSOURADA": Iterar sobre pg_policies e apagar TUDO o que existe nesta tabela
-            FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = tbl LOOP
-                EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, tbl);
-            END LOOP;
+-- 2. Organização
+CREATE TABLE IF NOT EXISTS public.instituicoes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT NOT NULL, codigo TEXT, email TEXT, is_active BOOLEAN DEFAULT true);
+CREATE TABLE IF NOT EXISTS public.entidades (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, instituicaoId UUID REFERENCES public.instituicoes(id), name TEXT NOT NULL, codigo TEXT, status TEXT DEFAULT 'Ativo');
+CREATE TABLE IF NOT EXISTS public.suppliers (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT NOT NULL, nif TEXT, is_active BOOLEAN DEFAULT true);
+CREATE TABLE IF NOT EXISTS public.teams (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT NOT NULL, is_active BOOLEAN DEFAULT true);
 
-            -- 3. Criar Novas Políticas Limpas
-            -- Leitura: Todos os utilizadores autenticados
-            EXECUTE format('CREATE POLICY "Config_Read_All" ON public.%I FOR SELECT TO authenticated USING (true)', tbl);
-            -- Escrita: Apenas Admins
-            EXECUTE format('CREATE POLICY "Config_Write_Admin" ON public.%I FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())', tbl);
-            
-            -- 4. Grants Básicos
-            EXECUTE format('GRANT ALL ON public.%I TO authenticated', tbl);
-            EXECUTE format('GRANT ALL ON public.%I TO service_role', tbl);
-        END IF;
-    END LOOP;
-END $$;
+-- 3. Core: Colaboradores
+CREATE TABLE IF NOT EXISTS public.collaborators (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "fullName" TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    role TEXT DEFAULT 'Utilizador',
+    status TEXT DEFAULT 'Ativo',
+    "entidadeId" UUID REFERENCES public.entidades(id),
+    "canLogin" BOOLEAN DEFAULT false
+);
 
-NOTIFY pgrst, 'reload config';
-COMMIT;
-`;
+-- 4. Core: Equipamentos
+CREATE TABLE IF NOT EXISTS public.equipment (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "serialNumber" TEXT,
+    "brandId" UUID REFERENCES public.brands(id),
+    "typeId" UUID REFERENCES public.equipment_types(id),
+    description TEXT,
+    status TEXT DEFAULT 'Stock',
+    "creationDate" TIMESTAMPTZ DEFAULT now()
+);
 
-    const rbacScript = `
--- ==================================================================================
--- SCRIPT DE SEGURANÇA AVANÇADA (RBAC) - v6.0 (A VASSOURA)
--- Resolve o problema de múltiplas políticas conflituosas (Ops, Aux, RBAC duplicados).
--- ==================================================================================
-
--- 1. FUNÇÃO CENTRAL
-CREATE OR REPLACE FUNCTION public.has_permission(requested_module text, requested_action text)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_user_role text;
-    v_perm_json jsonb;
-BEGIN
-    SELECT role INTO v_user_role FROM public.collaborators WHERE id = auth.uid();
-    IF v_user_role IN ('SuperAdmin', 'Admin') THEN RETURN true; END IF;
-    SELECT permissions INTO v_perm_json FROM public.config_custom_roles WHERE name = v_user_role;
-    IF v_perm_json IS NULL THEN RETURN false; END IF;
-    IF COALESCE((v_perm_json -> requested_module ->> requested_action)::boolean, false) IS TRUE THEN RETURN true; END IF;
-    RETURN false;
-END;
-$$;
-
--- 2. LIMPEZA PROFUNDA (GARBAGE COLLECTOR)
-DO $$
-DECLARE
-    t text;
-    pol record;
-    -- Lista de TODAS as tabelas operacionais que tinham "lixo" no CSV
-    tables text[] := ARRAY[
-        'equipment', 'entidades', 'software_licenses', 'tickets', 'collaborators', 'procurement_requests',
-        'assignments', 'license_assignments', 'instituicoes', 'suppliers', 'teams', 'team_members', 'resource_contacts',
-        'ticket_activities', 'backup_executions', 'resilience_tests', 'security_training_records', 
-        'vulnerabilities', 'policies', 'policy_acceptances', 'continuity_plans', 'calendar_events', 'messages', 'audit_logs',
-        'ticket' -- Incluindo a tabela fantasma caso exista
-    ];
-BEGIN
-    FOREACH t IN ARRAY tables LOOP
-        IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = t) THEN
-            -- Garantir RLS Ativo
-            EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
-            
-            -- APAGAR TODAS AS POLÍTICAS EXISTENTES (Sem saber o nome)
-            -- Isto remove "Ops Read", "Aux Write", "Public Read", "RBAC Old", TUDO.
-            FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = t LOOP
-                EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, t);
-            END LOOP;
-            
-            -- Grants de base
-            EXECUTE format('GRANT ALL ON public.%I TO authenticated', t);
-            EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
-        END IF;
-    END LOOP;
-END $$;
-
--- 3. APLICAR AS NOVAS REGRAS (LIMPAS)
-
--- >>> EQUIPAMENTOS & ATRIBUIÇÕES
-CREATE POLICY "RBAC_Read_Equip" ON public.equipment FOR SELECT TO authenticated USING (public.has_permission('equipment', 'view'));
-CREATE POLICY "RBAC_Write_Equip" ON public.equipment FOR ALL TO authenticated USING (public.has_permission('equipment', 'edit')) WITH CHECK (public.has_permission('equipment', 'edit'));
-CREATE POLICY "RBAC_Create_Equip" ON public.equipment FOR INSERT TO authenticated WITH CHECK (public.has_permission('equipment', 'create'));
-CREATE POLICY "RBAC_Delete_Equip" ON public.equipment FOR DELETE TO authenticated USING (public.has_permission('equipment', 'delete'));
-
-CREATE POLICY "RBAC_Read_Assign" ON public.assignments FOR SELECT TO authenticated USING (public.has_permission('equipment', 'view'));
-CREATE POLICY "RBAC_Write_Assign" ON public.assignments FOR ALL TO authenticated USING (public.has_permission('equipment', 'edit')) WITH CHECK (public.has_permission('equipment', 'edit'));
-
--- >>> LICENCIAMENTO
-CREATE POLICY "RBAC_Read_Lic" ON public.software_licenses FOR SELECT TO authenticated USING (public.has_permission('licensing', 'view'));
-CREATE POLICY "RBAC_Write_Lic" ON public.software_licenses FOR ALL TO authenticated USING (public.has_permission('licensing', 'edit')) WITH CHECK (public.has_permission('licensing', 'edit'));
-CREATE POLICY "RBAC_Read_LicAssign" ON public.license_assignments FOR SELECT TO authenticated USING (public.has_permission('licensing', 'view'));
-CREATE POLICY "RBAC_Write_LicAssign" ON public.license_assignments FOR ALL TO authenticated USING (public.has_permission('licensing', 'edit')) WITH CHECK (public.has_permission('licensing', 'edit'));
-
--- >>> ORGANIZAÇÃO (Entidades, Instituições, Fornecedores, Equipas)
-CREATE POLICY "RBAC_Read_Ent" ON public.entidades FOR SELECT TO authenticated USING (public.has_permission('organization', 'view'));
-CREATE POLICY "RBAC_Write_Ent" ON public.entidades FOR ALL TO authenticated USING (public.has_permission('organization', 'edit')) WITH CHECK (public.has_permission('organization', 'edit'));
-
-CREATE POLICY "RBAC_Read_Inst" ON public.instituicoes FOR SELECT TO authenticated USING (public.has_permission('organization', 'view'));
-CREATE POLICY "RBAC_Write_Inst" ON public.instituicoes FOR ALL TO authenticated USING (public.has_permission('organization', 'edit')) WITH CHECK (public.has_permission('organization', 'edit'));
-
-CREATE POLICY "RBAC_Read_Sup" ON public.suppliers FOR SELECT TO authenticated USING (public.has_permission('suppliers', 'view') OR public.has_permission('organization', 'view'));
-CREATE POLICY "RBAC_Write_Sup" ON public.suppliers FOR ALL TO authenticated USING (public.has_permission('suppliers', 'edit')) WITH CHECK (public.has_permission('suppliers', 'edit'));
-
-CREATE POLICY "RBAC_Read_Teams" ON public.teams FOR SELECT TO authenticated USING (public.has_permission('organization', 'view'));
-CREATE POLICY "RBAC_Write_Teams" ON public.teams FOR ALL TO authenticated USING (public.has_permission('organization', 'edit')) WITH CHECK (public.has_permission('organization', 'edit'));
-CREATE POLICY "RBAC_Access_TeamMembers" ON public.team_members FOR ALL TO authenticated USING (public.has_permission('organization', 'view')) WITH CHECK (public.has_permission('organization', 'edit'));
-
-CREATE POLICY "RBAC_Access_Contacts" ON public.resource_contacts FOR ALL TO authenticated USING (true) WITH CHECK (public.has_permission('organization', 'edit') OR public.has_permission('suppliers', 'edit'));
-
--- >>> AQUISIÇÕES (Procurement) - CORRIGIDO
-CREATE POLICY "RBAC_Procurement" ON public.procurement_requests FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
--- >>> COLABORADORES
--- Nota: Todos autenticados podem LER colaboradores para preencher dropdowns, mas só admin/organization edita.
-CREATE POLICY "RBAC_Read_Collabs" ON public.collaborators FOR SELECT TO authenticated USING (true);
-CREATE POLICY "RBAC_Write_Collabs" ON public.collaborators FOR ALL TO authenticated USING (public.has_permission('organization', 'edit') OR id = auth.uid()) WITH CHECK (public.has_permission('organization', 'edit') OR id = auth.uid());
-
--- >>> TICKETS (Híbrido)
-CREATE POLICY "RBAC_Read_Tickets" ON public.tickets FOR SELECT TO authenticated
-USING (public.has_permission('tickets', 'view') OR "collaboratorId" = auth.uid() OR "technicianId" = auth.uid());
-
-CREATE POLICY "RBAC_Create_Tickets" ON public.tickets FOR INSERT TO authenticated
-WITH CHECK (public.has_permission('tickets', 'create') OR "collaboratorId" = auth.uid());
-
-CREATE POLICY "RBAC_Update_Tickets" ON public.tickets FOR UPDATE TO authenticated
-USING (public.has_permission('tickets', 'edit') OR "technicianId" = auth.uid() OR "collaboratorId" = auth.uid())
-WITH CHECK (public.has_permission('tickets', 'edit') OR "technicianId" = auth.uid() OR "collaboratorId" = auth.uid());
-
--- Actividades
-CREATE POLICY "RBAC_Read_Activities" ON public.ticket_activities FOR SELECT TO authenticated
-USING (EXISTS (SELECT 1 FROM public.tickets t WHERE t.id = ticket_activities."ticketId" AND (public.has_permission('tickets', 'view') OR t."collaboratorId" = auth.uid() OR t."technicianId" = auth.uid())));
-CREATE POLICY "RBAC_Write_Activities" ON public.ticket_activities FOR INSERT TO authenticated WITH CHECK (true);
-
--- >>> COMPLIANCE & OUTROS
-CREATE POLICY "RBAC_Compliance_Read" ON public.vulnerabilities FOR SELECT TO authenticated USING (public.has_permission('compliance_security', 'view'));
-CREATE POLICY "RBAC_Compliance_Write" ON public.vulnerabilities FOR ALL TO authenticated USING (public.has_permission('compliance_security', 'edit')) WITH CHECK (public.has_permission('compliance_security', 'edit'));
-
-CREATE POLICY "RBAC_Backup_Read" ON public.backup_executions FOR SELECT TO authenticated USING (public.has_permission('compliance_backups', 'view'));
-CREATE POLICY "RBAC_Backup_Write" ON public.backup_executions FOR ALL TO authenticated USING (public.has_permission('compliance_backups', 'edit')) WITH CHECK (public.has_permission('compliance_backups', 'edit'));
-
--- >>> UTILITÁRIOS
--- Logs: Todos escrevem (insert-only), Admin lê.
-CREATE POLICY "Audit_Insert" ON public.audit_logs FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Audit_Read_Admin" ON public.audit_logs FOR SELECT TO authenticated USING (public.is_admin());
-
--- Chat: Sender, Receiver ou Canal Geral
-CREATE POLICY "Chat_Access" ON public.messages FOR ALL TO authenticated
-USING ("senderId" = auth.uid() OR "receiverId" = auth.uid() OR "receiverId" = '00000000-0000-0000-0000-000000000000')
-WITH CHECK ("senderId" = auth.uid());
-
--- Calendário
-CREATE POLICY "Calendar_Access" ON public.calendar_events FOR ALL TO authenticated
-USING (created_by = auth.uid() OR is_private = false)
-WITH CHECK (created_by = auth.uid());
-
--- 4. REFRESH
-NOTIFY pgrst, 'reload config';
-`;
-
-    const auditScript = `
--- ==================================================================================
--- SCRIPT DE AUDITORIA E DIAGNÓSTICO (CONSULTA APENAS)
--- Execute este script para ver o que realmente existe na base de dados.
--- ==================================================================================
-
--- 1. LISTAR TODAS AS POLÍTICAS (RLS) ATIVAS
-SELECT 
-    schemaname as esquema,
-    tablename as tabela,
-    policyname as nome_politica,
-    permissive as permissao,
-    cmd as comando
-FROM pg_policies
-WHERE schemaname = 'public'
-ORDER BY tablename, policyname;
-
--- 2. LISTAR TODOS OS GATILHOS (TRIGGERS)
-SELECT 
-    event_object_table as tabela,
-    trigger_name as nome_trigger,
-    event_manipulation as evento,
-    action_timing as timing
-FROM information_schema.triggers
-WHERE event_object_schema = 'public'
-ORDER BY event_object_table;
-
--- 3. LISTAR TODAS AS FUNÇÕES (FUNCTIONS) NO SCHEMA PUBLIC
-SELECT 
-    routines.routine_name as nome_funcao,
-    routines.data_type as tipo_retorno
-FROM information_schema.routines
-WHERE routines.specific_schema = 'public'
-ORDER BY routines.routine_name;
-`;
-
-    const cleanupScript = `
--- ==================================================================================
--- SCRIPT DE HIGIENE FINAL (v7.0)
--- Remove funções antigas detetadas na auditoria que já não são usadas pelo sistema.
--- ==================================================================================
-BEGIN;
-
--- 1. Remover funções de diagnóstico antigas (já não necessárias)
-DROP FUNCTION IF EXISTS public.count_orphaned_assignments();
-DROP FUNCTION IF EXISTS public.count_orphaned_collaborators();
-DROP FUNCTION IF EXISTS public.count_orphaned_entities();
-
--- 2. Remover verificadores de papel obsoletos (substituídos por 'has_permission' e 'is_admin')
-DROP FUNCTION IF EXISTS public.is_admin_or_tech();
-DROP FUNCTION IF EXISTS public.get_my_role(); -- O frontend gere isto agora
-
--- 3. Confirmação
-DO $$
-BEGIN
-    RAISE NOTICE 'Limpeza de funções legadas concluída.';
-END $$;
-
-COMMIT;
-`;
-
-    const repairScript = `
--- ==================================================================================
--- SCRIPT DE RESGATE GLOBAL v4.0 (AQUISIÇÕES + SETTINGS)
--- ==================================================================================
-BEGIN;
-
--- 1. Desbloquear Tabela de AQUISIÇÕES (Procurement)
-ALTER TABLE IF EXISTS public.procurement_requests ENABLE ROW LEVEL SECURITY;
--- Limpar políticas antigas que possam estar a bloquear
-DO $$
-DECLARE pol record;
-BEGIN
-    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'procurement_requests' LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.procurement_requests', pol.policyname);
-    END LOOP;
-END $$;
--- Criar política permissiva de emergência
-CREATE POLICY "Procurement_Emergency_Access" ON public.procurement_requests
-FOR ALL TO authenticated USING (true) WITH CHECK (true);
-GRANT ALL ON public.procurement_requests TO authenticated;
-GRANT ALL ON public.procurement_requests TO service_role;
-
--- 2. Desbloquear GLOBAL SETTINGS
-ALTER TABLE IF EXISTS public.global_settings ENABLE ROW LEVEL SECURITY;
-DO $$
-DECLARE pol record;
-BEGIN
-    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'global_settings' LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.global_settings', pol.policyname);
-    END LOOP;
-END $$;
-CREATE POLICY "GlobalSettings_Read" ON public.global_settings FOR SELECT TO authenticated USING (true);
-CREATE POLICY "GlobalSettings_Write" ON public.global_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
-GRANT ALL ON public.global_settings TO authenticated;
-GRANT ALL ON public.global_settings TO service_role;
-
-
--- 3. Recriar Função de Aniversários (se falhou)
-CREATE EXTENSION IF NOT EXISTS pg_net;
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-DROP FUNCTION IF EXISTS public.send_daily_birthday_emails();
-
-CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-declare
-    v_resend_key text;
-    v_from_email text;
-    v_subject text;
-    v_body_tpl text;
-    v_final_body text;
-    v_chat_message text;
-    v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000';
-    r_user record;
-begin
-    select setting_value into v_resend_key from global_settings where setting_key = 'resend_api_key';
-    select setting_value into v_from_email from global_settings where setting_key = 'resend_from_email';
-    select setting_value into v_subject from global_settings where setting_key = 'birthday_email_subject';
-    select setting_value into v_body_tpl from global_settings where setting_key = 'birthday_email_body';
-    
-    if v_subject is null then v_subject := 'Feliz Aniversário!'; end if;
-    if v_body_tpl is null then v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; end if;
-    
-    for r_user in 
-        select "fullName", "email", "id" 
-        from collaborators 
-        where status = 'Ativo' 
-        and extract(month from "dateOfBirth") = extract(month from current_date) 
-        and extract(day from "dateOfBirth") = extract(day from current_date) 
-    loop
-        if v_resend_key is not null and v_from_email is not null and length(v_resend_key) > 5 then
-            v_final_body := replace(v_body_tpl, '{{nome}}', r_user."fullName");
-            perform net.http_post(
-                url:='https://api.resend.com/emails',
-                headers:=jsonb_build_object('Authorization', 'Bearer ' || v_resend_key, 'Content-Type', 'application/json'),
-                body:=jsonb_build_object('from', v_from_email, 'to', r_user.email, 'subject', v_subject, 'html', '<div style="font-family: sans-serif; color: #333;"><h2>🎉 ' || v_subject || '</h2><p>' || v_final_body || '</p><hr/><small>Enviado automaticamente pelo AIManager.</small></div>')
-            );
-        end if;
-        v_chat_message := '🎉 Parabéns ao colega **' || r_user."fullName" || '** que celebra hoje o seu aniversário! 🎂🎈';
-        if not exists (select 1 from messages where "receiverId" = v_general_channel_id and content = v_chat_message and created_at::date = current_date) then
-            INSERT INTO public.messages ("senderId", "receiverId", content, timestamp, read) 
-            VALUES (v_general_channel_id, v_general_channel_id, v_chat_message, now(), false);
-        end if;
-    end loop;
-end;
-$$;
-REVOKE ALL ON FUNCTION public.send_daily_birthday_emails() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO anon;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.send_daily_birthday_emails() TO service_role;
-NOTIFY pgrst, 'reload config';
-
-COMMIT;
-`;
-
-    const fixProcurementScript = `
--- REPARAÇÃO TOTAL DE AQUISIÇÕES & PERMISSÕES
-BEGIN;
-
--- 1. Garantir que a tabela existe
-CREATE TABLE IF NOT EXISTS public.procurement_requests (
+-- 5. Core: Tickets
+CREATE TABLE IF NOT EXISTS public.tickets (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
-    quantity INTEGER DEFAULT 1,
-    estimated_cost NUMERIC,
-    requester_id UUID REFERENCES public.collaborators(id),
-    status TEXT DEFAULT 'Pendente',
-    request_date DATE DEFAULT CURRENT_DATE,
-    priority TEXT DEFAULT 'Normal',
-    resource_type TEXT DEFAULT 'Hardware',
-    specifications JSONB DEFAULT '{}'::jsonb,
-    attachments JSONB DEFAULT '[]'::jsonb,
-    brand_id UUID REFERENCES public.brands(id),
-    equipment_type_id UUID REFERENCES public.equipment_types(id),
-    software_category_id UUID REFERENCES public.config_software_categories(id),
-    supplier_id UUID REFERENCES public.suppliers(id),
-    approver_id UUID REFERENCES public.collaborators(id),
-    approval_date DATE,
-    order_date DATE,
-    received_date DATE,
-    order_reference TEXT,
-    invoice_number TEXT,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    status TEXT DEFAULT 'Pedido',
+    "entidadeId" UUID REFERENCES public.entidades(id),
+    "collaboratorId" UUID REFERENCES public.collaborators(id),
+    "requestDate" TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. RESET TOTAL DE RLS (A Solução para o seu erro)
-ALTER TABLE public.procurement_requests ENABLE ROW LEVEL SECURITY;
+-- 6. Core: Atribuições
+CREATE TABLE IF NOT EXISTS public.assignments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "equipmentId" UUID REFERENCES public.equipment(id),
+    "collaboratorId" UUID REFERENCES public.collaborators(id),
+    "entidadeId" UUID REFERENCES public.entidades(id),
+    "assignedDate" DATE DEFAULT CURRENT_DATE,
+    "returnDate" DATE
+);
 
--- Remover TODAS as políticas antigas para evitar conflitos
-DO $$
-DECLARE pol record;
+COMMIT;
+-- FIM DO GENESIS
+`;
+
+    const policiesScript = `
+-- ==================================================================================
+-- SCRIPT DE SEGURANÇA (RLS & RBAC) - SUPERADMIN OMNI v8.0
+-- 1. Limpa políticas antigas.
+-- 2. Define a regra de ouro: SuperAdmin/Admin pode tudo.
+-- 3. Define regras específicas para utilizadores normais.
+-- ==================================================================================
+BEGIN;
+
+-- A. Função Auxiliar de Verificação
+CREATE OR REPLACE FUNCTION public.is_admin_check() RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'procurement_requests' LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.procurement_requests', pol.policyname);
+    IF auth.uid() IS NULL THEN RETURN false; END IF;
+    RETURN EXISTS (SELECT 1 FROM public.collaborators WHERE id = auth.uid() AND role IN ('SuperAdmin', 'Admin'));
+END;
+$$;
+
+-- B. Loop para aplicar a Regra Mestra a TODAS as tabelas
+DO $$
+DECLARE t text;
+BEGIN
+    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS "SuperAdmin_Omni_Access" ON public.%I', t);
+        EXECUTE format('CREATE POLICY "SuperAdmin_Omni_Access" ON public.%I FOR ALL TO authenticated USING (public.is_admin_check()) WITH CHECK (public.is_admin_check())', t);
+        EXECUTE format('GRANT ALL ON public.%I TO authenticated', t);
+        EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
     END LOOP;
 END $$;
 
--- Criar política permissiva (Desbloqueio Imediato)
-CREATE POLICY "Procurement_Emergency_Access" ON public.procurement_requests
-FOR ALL TO authenticated
-USING (true)
-WITH CHECK (true);
+-- C. Regras de Leitura Básica para Utilizadores Normais (Exemplo)
+-- Permite que todos leiam configurações para que as dropdowns funcionem
+CREATE POLICY "Public_Read_Config" ON public.brands FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Public_Read_Types" ON public.equipment_types FOR SELECT TO authenticated USING (true);
+-- Adicione aqui outras políticas específicas se necessário...
 
--- 3. Grants
-GRANT ALL ON public.procurement_requests TO authenticated;
-GRANT ALL ON public.procurement_requests TO service_role;
-
--- 4. Triggers (Garantir que a automação funciona)
-DROP TRIGGER IF EXISTS on_procurement_created ON public.procurement_requests;
-
-CREATE OR REPLACE FUNCTION process_procurement_logic() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE requester_name TEXT; requester_entidade_id UUID; ticket_description TEXT; admin_id UUID;
-BEGIN
-  SELECT "fullName", "entidadeId" INTO requester_name, requester_entidade_id FROM public.collaborators WHERE id = NEW.requester_id;
-  IF requester_name IS NULL THEN requester_name := 'Utilizador Desconhecido'; END IF;
-  ticket_description := 'Novo Pedido de Aquisição: ' || COALESCE(NEW.title, 'Sem Título') || '. Solicitado por: ' || requester_name || '. Custo Est.: ' || COALESCE(NEW.estimated_cost, 0)::text || ' EUR.';
-  SELECT id INTO admin_id FROM public.collaborators WHERE role = 'SuperAdmin' LIMIT 1;
-  INSERT INTO public.tickets (title, description, status, category, "entidadeId", "collaboratorId", "requestDate", "technicianId") VALUES ('Aprovação Necessária: ' || COALESCE(NEW.title, ''), ticket_description, 'Pedido', 'Pedido de Acesso', requester_entidade_id, NEW.requester_id, NOW(), admin_id);
-  RETURN NEW;
-EXCEPTION WHEN OTHERS THEN RAISE WARNING 'Erro ao criar ticket automático para aquisição: %', SQLERRM; RETURN NEW; END; $$;
-
-CREATE TRIGGER on_procurement_created AFTER INSERT ON public.procurement_requests FOR EACH ROW EXECUTE FUNCTION process_procurement_logic();
-
+NOTIFY pgrst, 'reload config';
 COMMIT;
 `;
 
-    const fixTypesScript = `
-UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, requires_disk_info = true WHERE LOWER(name) LIKE '%desktop%' OR LOWER(name) LIKE '%laptop%' OR LOWER(name) LIKE '%portátil%' OR LOWER(name) LIKE '%server%';
+    const functionsScript = `
+-- ==================================================================================
+-- SCRIPT DE FUNÇÕES E TRIGGERS (LÓGICA DE BACKEND)
+-- Instala a extensão HTTP para emails e cria os gatilhos de automação.
+-- ==================================================================================
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA public;
+
+-- 1. Função de Envio de Email (Resend)
+CREATE OR REPLACE FUNCTION public.send_email_via_resend(to_email text, subject text, html_body text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE v_resend_key text; v_from_email text;
+BEGIN
+    SELECT setting_value INTO v_resend_key FROM global_settings WHERE setting_key = 'resend_api_key';
+    SELECT setting_value INTO v_from_email FROM global_settings WHERE setting_key = 'resend_from_email';
+    IF v_resend_key IS NOT NULL THEN
+        PERFORM http((
+            'POST', 'https://api.resend.com/emails', 
+            ARRAY[http_header('Authorization', 'Bearer ' || v_resend_key), http_header('Content-Type', 'application/json')], 
+            'application/json', 
+            jsonb_build_object('from', v_from_email, 'to', to_email, 'subject', subject, 'html', html_body)::text
+        ));
+    END IF;
+END;
+$$;
+
+-- 2. Trigger: Atualizar 'updated_at' automaticamente
+CREATE OR REPLACE FUNCTION update_modified_column() RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END;
+$$ language 'plpgsql';
+
+DO $$
+DECLARE t text;
+BEGIN
+    FOR t IN SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public' LOOP
+        EXECUTE format('DROP TRIGGER IF EXISTS update_modtime ON public.%I', t);
+        EXECUTE format('CREATE TRIGGER update_modtime BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE PROCEDURE update_modified_column()', t);
+    END LOOP;
+END $$;
 `;
 
-    const handleCopy = (text: string) => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-    
+    const maintenanceScript = `
+-- ==================================================================================
+-- SCRIPT DE MANUTENÇÃO E LIMPEZA
+-- Use isto para corrigir tipos de dados ou limpar registos órfãos.
+-- ==================================================================================
+
+-- 1. Corrigir definições de Tipos de Equipamento (Ex: Portáteis exigem CPU/RAM)
+UPDATE equipment_types SET 
+    requires_cpu_info = true, 
+    requires_ram_size = true, 
+    requires_disk_info = true 
+WHERE LOWER(name) LIKE '%desktop%' OR LOWER(name) LIKE '%laptop%' OR LOWER(name) LIKE '%portátil%';
+
+-- 2. Garantir que a tabela de Aquisições tem permissões (Fix comum)
+ALTER TABLE IF EXISTS public.procurement_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Procurement_Access" ON public.procurement_requests FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 3. Limpeza de funções obsoletas
+DROP FUNCTION IF EXISTS public.is_admin_or_tech();
+DROP FUNCTION IF EXISTS public.count_orphaned_assignments();
+`;
+
     const loadTriggers = async () => {
         setIsLoadingTriggers(true);
         setTriggerError(null);
@@ -544,9 +217,23 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
             if (error) throw error;
             setTriggers(data || []);
         } catch (error: any) {
-            setTriggerError(error.message || "Erro ao carregar triggers. Vá à aba 'Reparação' e execute o script.");
+            setTriggerError(error.message || "Erro ao carregar triggers.");
         } finally {
             setIsLoadingTriggers(false);
+        }
+    };
+
+    const handleGenerateSql = async () => {
+        if (!sqlRequest.trim()) return;
+        setIsGeneratingSql(true);
+        try {
+            const sql = await generateSqlHelper(sqlRequest);
+            setGeneratedSql(sql);
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao gerar SQL.");
+        } finally {
+            setIsGeneratingSql(false);
         }
     };
 
@@ -565,70 +252,45 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
     };
 
     useEffect(() => {
-        if (activeTab === 'triggers') {
+        if (activeTab === 'functions') { // Carregar triggers na aba de funções/triggers
             loadTriggers();
         }
     }, [activeTab]);
     
     return (
-        <Modal title="Configuração de Base de Dados & Ferramentas" onClose={onClose} maxWidth="max-w-6xl">
+        <Modal title="Configuração Avançada de Base de Dados" onClose={onClose} maxWidth="max-w-6xl">
             <div className="flex flex-col h-[80vh]">
                 {/* Tabs Navigation */}
-                <div className="flex border-b border-gray-700 mb-4 gap-2 flex-wrap bg-gray-900/50 p-2 rounded-t-lg">
+                <div className="flex border-b border-gray-700 mb-4 gap-1 flex-wrap bg-gray-900/50 p-2 rounded-t-lg">
                      <button 
-                        onClick={() => setActiveTab('superadmin_omni')} 
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'superadmin_omni' ? 'border-red-500 text-white bg-red-900/40 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        onClick={() => setActiveTab('setup')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'setup' ? 'border-blue-500 text-white bg-blue-900/40 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaCrown /> SuperAdmin Omni
+                        <FaDatabase /> 1. Setup Inicial
                     </button>
                      <button 
-                        onClick={() => setActiveTab('security')} 
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'security' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        onClick={() => setActiveTab('policies')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'policies' ? 'border-red-500 text-white bg-red-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaShieldAlt /> 1. Segurança (RLS)
+                        <FaShieldAlt /> 2. Políticas (RLS)
                     </button>
                      <button 
-                        onClick={() => setActiveTab('repair')} 
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'repair' ? 'border-yellow-500 text-white bg-yellow-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        onClick={() => setActiveTab('functions')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'functions' ? 'border-yellow-500 text-white bg-yellow-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaTools /> 2. Reparação Geral
-                    </button>
-                    {/* New RBAC Tab */}
-                     <button 
-                        onClick={() => setActiveTab('rbac')} 
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'rbac' ? 'border-purple-500 text-white bg-purple-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        <FaUserLock /> 4. Segurança RBAC (v6.0)
+                        <FaBolt /> 3. Funções & Triggers
                     </button>
                     <button 
-                        onClick={() => setActiveTab('audit_db')} 
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'audit_db' ? 'border-blue-500 text-white bg-blue-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        onClick={() => setActiveTab('maintenance')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'maintenance' ? 'border-orange-500 text-white bg-orange-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaSearch /> 5. Auditoria DB
+                        <FaTools /> Manutenção
                     </button>
                     <button 
-                        onClick={() => setActiveTab('cleanup')} 
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'cleanup' ? 'border-orange-500 text-white bg-orange-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        onClick={() => setActiveTab('sql_ai')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'sql_ai' ? 'border-purple-500 text-white bg-purple-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
-                        <FaRecycle /> 6. Limpeza Final
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('fix_procurement')} 
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'fix_procurement' ? 'border-red-500 text-white bg-red-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        <FaShoppingCart /> 3. Corrigir Aquisições
-                    </button>
-                     <button 
-                        onClick={() => setActiveTab('fix_types')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'fix_types' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        <FaMagic /> Ativar Campos
-                    </button>
-                     <button 
-                        onClick={() => setActiveTab('triggers')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'triggers' ? 'border-brand-secondary text-white bg-gray-800 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        <FaBolt /> Triggers
+                        <FaMagic /> SQL com IA
                     </button>
                     <button 
                         onClick={() => setActiveTab('playwright')} 
@@ -641,183 +303,174 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                 {/* Content Area */}
                 <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 p-1">
 
-                     {/* OMNI ADMIN TAB */}
-                     {activeTab === 'superadmin_omni' && (
+                     {/* SETUP TAB */}
+                     {activeTab === 'setup' && (
                         <div className="space-y-4 animate-fade-in">
-                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
-                                <div className="flex items-center gap-2 font-bold mb-2 text-lg text-red-400">
-                                    <FaCrown /> SCRIPT OMNIPOTENTE v8.0 (RESOLVE ERRO DE POLÍTICAS)
-                                </div>
-                                <p className="mb-2">
-                                    Este script é a "bala de prata". Ele varre <strong>automaticamente TODAS as tabelas</strong> do banco de dados (Policies, Equipamentos, Colaboradores, etc.) e força uma regra de acesso total (ALL) para SuperAdmins e Admins.
-                                </p>
-                                <p className="font-bold">
-                                    Use este script para corrigir o erro: "new row violates row-level security policy for table 'policies'".
-                                </p>
-                            </div>
-                            <div className="relative">
-                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-red-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
-                                    {omniAdminScript}
-                                </pre>
-                                <button onClick={() => handleCopy(omniAdminScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg flex items-center gap-2"><FaCopy /> Copiar Script</button>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {/* UNLOCK / SECURITY TAB */}
-                    {activeTab === 'security' && (
-                        <div className="space-y-4 animate-fade-in">
-                            <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-2">
+                            <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaShieldAlt /> ENDURECIMENTO DE SEGURANÇA (RLS) - v5.0 (Configurações)
+                                    <FaDatabase /> Script Genesis (Estrutura)
                                 </div>
                                 <p className="mb-2">
-                                    Este script limpa todas as regras antigas nas <strong>tabelas de configuração</strong> (marcas, tipos, etc.) e aplica a regra "Leitura para todos, Escrita para Admin".
-                                </p>
-                            </div>
-                            <div className="relative">
-                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
-                                    {hardeningScript}
-                                </pre>
-                                <button onClick={() => handleCopy(hardeningScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
-                            </div>
-                        </div>
-                    )}
-
-                     {/* REPAIR TAB */}
-                     {activeTab === 'repair' && (
-                        <div className="space-y-4 animate-fade-in">
-                            <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-2">
-                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaTools /> SCRIPT DE RESGATE GLOBAL v4.0
-                                </div>
-                                <p className="mb-2">
-                                    <strong>Execute este script se tiver erros de permissão ou funções em falta.</strong>
+                                    Este script cria a estrutura inicial da base de dados (tabelas e relações).
                                     <br/>
-                                    Ele reinicia as permissões de segurança das tabelas de <strong>Aquisições</strong>, <strong>Configurações Globais</strong> e da função de <strong>Aniversários</strong>, permitindo o acesso a todos os utilizadores autenticados.
-                                </p>
-                            </div>
-                            <div className="relative">
-                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-yellow-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
-                                    {repairScript}
-                                </pre>
-                                <button onClick={() => handleCopy(repairScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* RBAC TAB */}
-                    {activeTab === 'rbac' && (
-                        <div className="space-y-4 animate-fade-in">
-                             <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200 mb-2">
-                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaUserLock /> SCRIPT DE SEGURANÇA AVANÇADA (RBAC) - v6.0 (A Vassoura)
-                                </div>
-                                <p className="mb-2">
-                                    <strong>Limpeza Definitiva:</strong> Este script usa o catálogo de sistema do Postgres para encontrar e apagar <strong>todas</strong> as políticas existentes nas tabelas operacionais, independentemente do nome (seja "Ops Read", "Public Access", etc.), antes de aplicar as novas regras RBAC.
-                                </p>
-                            </div>
-                            <div className="relative">
-                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-purple-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
-                                    {rbacScript}
-                                </pre>
-                                <button onClick={() => handleCopy(rbacScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* AUDIT TAB */}
-                    {activeTab === 'audit_db' && (
-                        <div className="space-y-4 animate-fade-in">
-                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-2">
-                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaSearch /> AUDITORIA E DIAGNÓSTICO (CONSULTA)
-                                </div>
-                                <p className="mb-2">
-                                    Este script <strong>NÃO altera nada</strong>. Ele apenas lista todas as Políticas, Triggers e Funções existentes na base de dados.
-                                    <br/>
-                                    Use-o no SQL Editor do Supabase para verificar se ainda existem regras antigas ("lixo") ou se a limpeza funcionou.
+                                    <strong>Nota de Segurança:</strong> É seguro partilhar este script publicamente, pois ele define apenas a <em>arquitetura</em> (Schema) e não contém dados sensíveis ou chaves de API. O "segredo" está nos dados e nas variáveis de ambiente (.env), não aqui.
                                 </p>
                             </div>
                             <div className="relative">
                                 <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-blue-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
-                                    {auditScript}
+                                    {setupGenesisScript}
                                 </pre>
-                                <button onClick={() => handleCopy(auditScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
+                                <button onClick={() => handleCopy(setupGenesisScript, 'genesis')} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg flex items-center gap-2">
+                                    {copied === 'genesis' ? <FaCheck className="text-green-400"/> : <FaCopy />} Copiar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* POLICIES TAB */}
+                    {activeTab === 'policies' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaShieldAlt /> Políticas de Segurança (RLS)
+                                </div>
+                                <p className="mb-2">
+                                    <strong>O que são?</strong> As RLS (Row Level Security) são as "regras do jogo". Definem quem pode ver ou editar cada linha de cada tabela.
+                                    <br/>
+                                    Se tiver erros de "permission denied" ou "violation of policy", execute o script abaixo. Ele reinicia todas as regras e dá poder total aos Administradores (Script Omni).
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-red-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                    {policiesScript}
+                                </pre>
+                                <button onClick={() => handleCopy(policiesScript, 'policies')} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg flex items-center gap-2">
+                                    {copied === 'policies' ? <FaCheck className="text-green-400"/> : <FaCopy />} Copiar Correção
+                                </button>
                             </div>
                         </div>
                     )}
 
-                    {/* CLEANUP TAB */}
-                    {activeTab === 'cleanup' && (
+                     {/* FUNCTIONS TAB */}
+                     {activeTab === 'functions' && (
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
+                                    <FaBolt /> Funções e Gatilhos (Triggers)
+                                </div>
+                                <p className="mb-2">
+                                    <strong>Funções (RPC):</strong> Scripts que correm no servidor (ex: enviar email de parabéns).
+                                    <br/>
+                                    <strong>Triggers:</strong> Automações que disparam quando algo muda (ex: atualizar a data 'modified_at' quando se edita um equipamento).
+                                </p>
+                            </div>
+                            
+                            {/* Triggers Table */}
+                             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-md font-bold text-white">Gatilhos Ativos na Base de Dados</h3>
+                                    <button onClick={loadTriggers} className="text-sm text-brand-secondary hover:underline flex items-center gap-1"><FaSync className={isLoadingTriggers ? "animate-spin" : ""} /> Atualizar Lista</button>
+                                </div>
+                                {triggerError ? <div className="text-red-400 text-sm p-2 border border-red-500/30 rounded bg-red-900/20">{triggerError}</div> : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs text-left text-gray-300">
+                                            <thead className="bg-gray-800 text-gray-400 uppercase">
+                                                <tr>
+                                                    <th className="p-2">Nome do Trigger</th>
+                                                    <th className="p-2">Evento</th>
+                                                    <th className="p-2">Tabela</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {triggers.length > 0 ? triggers.map((t: any, i: number) => (
+                                                    <tr key={i} className="border-b border-gray-800">
+                                                        <td className="p-2 font-bold text-white">{t.trigger_name}</td>
+                                                        <td className="p-2">{t.event_manipulation}</td>
+                                                        <td className="p-2 text-brand-secondary">{t.event_object_table}</td>
+                                                    </tr>
+                                                )) : <tr><td colSpan={3} className="p-4 text-center">Nenhum trigger encontrado.</td></tr>}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Script */}
+                            <div className="relative">
+                                <div className="text-xs text-gray-400 mb-1 ml-1">Script de Instalação de Funções Base:</div>
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-yellow-400 overflow-auto max-h-[300px] custom-scrollbar border border-gray-700">
+                                    {functionsScript}
+                                </pre>
+                                <button onClick={() => handleCopy(functionsScript, 'funcs')} className="absolute top-8 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg flex items-center gap-2">
+                                    {copied === 'funcs' ? <FaCheck className="text-green-400"/> : <FaCopy />} Copiar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MAINTENANCE TAB */}
+                    {activeTab === 'maintenance' && (
                         <div className="space-y-4 animate-fade-in">
                              <div className="bg-orange-900/20 border border-orange-500/50 p-4 rounded-lg text-sm text-orange-200 mb-2">
                                 <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaRecycle /> LIMPEZA FINAL (v7.0)
+                                    <FaTools /> Scripts de Reparação e Limpeza
                                 </div>
                                 <p className="mb-2">
-                                    Este script remove <strong>funções antigas e obsoletas</strong> detetadas na auditoria (ex: <code>is_admin_or_tech</code>, <code>count_orphaned...</code>).
-                                    <br/>
-                                    Execute isto para deixar a base de dados 100% limpa.
+                                    Coleção de scripts úteis para corrigir problemas comuns (ex: tipos de equipamento sem campos obrigatórios, permissões de aquisições bloqueadas).
                                 </p>
                             </div>
                             <div className="relative">
                                 <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-orange-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
-                                    {cleanupScript}
+                                    {maintenanceScript}
                                 </pre>
-                                <button onClick={() => handleCopy(cleanupScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
+                                <button onClick={() => handleCopy(maintenanceScript, 'maint')} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg flex items-center gap-2">
+                                    {copied === 'maint' ? <FaCheck className="text-green-400"/> : <FaCopy />} Copiar
+                                </button>
                             </div>
                         </div>
                     )}
-
-                    {/* FIX PROCUREMENT TAB */}
-                     {activeTab === 'fix_procurement' && (
+                    
+                    {/* SQL AI TAB */}
+                    {activeTab === 'sql_ai' && (
                         <div className="space-y-4 animate-fade-in">
-                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
-                                <div className="flex items-center gap-2 font-bold mb-2 text-lg">
-                                    <FaShoppingCart /> CORRIGIR AQUISIÇÕES (RLS & ESTRUTURA)
+                            <div className="grid grid-cols-1 gap-4">
+                                <div className="bg-purple-900/20 border border-purple-500/50 p-4 rounded-lg text-sm text-purple-200">
+                                    <div className="flex items-center gap-2 font-bold mb-2 text-lg"><FaMagic /> Assistente SQL (Gemini)</div>
+                                    <p>Descreva o que quer fazer na base de dados e a IA gera o código SQL para si.</p>
                                 </div>
-                                <p className="mb-2">
-                                    Execute este script para corrigir o erro <strong>"new row violates row-level security policy"</strong> ao criar pedidos de aquisição.
-                                    Ele reinicia as permissões desta tabela específica.
-                                </p>
-                            </div>
-                             <div className="relative">
-                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-red-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">{fixProcurementScript}</pre>
-                                <button onClick={() => handleCopy(fixProcurementScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
-                            </div>
-                        </div>
-                    )}
-                    {activeTab === 'fix_types' && (
-                         <div className="space-y-4 animate-fade-in">
-                             <div className="relative">
-                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-purple-400 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">{fixTypesScript}</pre>
-                                <button onClick={() => handleCopy(fixTypesScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg"><FaCopy /></button>
-                            </div>
-                        </div>
-                    )}
-                    {activeTab === 'triggers' && (
-                         <div className="space-y-4 animate-fade-in">
-                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaBolt className="text-yellow-500" /> Triggers</h3>
-                                    <button onClick={loadTriggers} className="text-sm text-brand-secondary hover:underline flex items-center gap-1"><FaSync className={isLoadingTriggers ? "animate-spin" : ""} /> Atualizar</button>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Pedido em Linguagem Natural</label>
+                                    <div className="flex gap-2">
+                                        <textarea value={sqlRequest} onChange={e => setSqlRequest(e.target.value)} rows={3} className="w-full bg-gray-800 p-2 rounded text-sm border border-gray-600" placeholder="Ex: Cria uma tabela para registar visitas de fornecedores com data, nome e motivo..."/>
+                                        <button onClick={handleGenerateSql} disabled={isGeneratingSql || !aiConfigured} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded flex flex-col items-center justify-center gap-1 disabled:opacity-50 min-w-[100px]">
+                                            {isGeneratingSql ? <FaSpinner className="animate-spin text-xl"/> : <FaMagic className="text-xl"/>}
+                                            <span className="text-xs">Gerar SQL</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                {triggerError ? <div className="text-red-400 text-sm p-2 border border-red-500/30 rounded bg-red-900/20">{triggerError}</div> : (
-                                    <div className="overflow-x-auto"><table className="w-full text-xs text-left text-gray-300"><thead className="bg-gray-800 text-gray-400 uppercase"><tr><th className="p-2">Trigger</th><th className="p-2">Evento</th><th className="p-2">Tabela</th></tr></thead><tbody>{triggers.length > 0 ? triggers.map((t: any, i: number) => (<tr key={i} className="border-b border-gray-800"><td className="p-2 font-bold text-white">{t.trigger_name}</td><td className="p-2">{t.event_manipulation}</td><td className="p-2">{t.event_object_table}</td></tr>)) : <tr><td colSpan={3} className="p-4 text-center">Nenhum trigger encontrado.</td></tr>}</tbody></table></div>
+                                {generatedSql && (
+                                    <div className="relative">
+                                        <label className="block text-sm text-gray-400 mb-1">SQL Gerado</label>
+                                        <textarea value={generatedSql} readOnly className="w-full h-64 bg-gray-900 font-mono text-xs text-green-400 p-4 rounded border border-gray-700"/>
+                                        <button onClick={() => handleCopy(generatedSql, 'sql_ai')} className="absolute top-8 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded border border-gray-600">
+                                            {copied === 'sql_ai' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     )}
+
+                    {/* PLAYWRIGHT TAB */}
                     {activeTab === 'playwright' && (
                         <div className="space-y-4 animate-fade-in">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Cenário</label>
-                                    <textarea value={testRequest} onChange={e => setTestRequest(e.target.value)} rows={4} className="w-full bg-gray-800 p-2 rounded text-sm border border-gray-600" placeholder="Descreva o teste..."/>
+                                    <label className="block text-sm text-gray-400 mb-1">Cenário de Teste</label>
+                                    <textarea value={testRequest} onChange={e => setTestRequest(e.target.value)} rows={4} className="w-full bg-gray-800 p-2 rounded text-sm border border-gray-600" placeholder="Descreva o teste (ex: Login com sucesso e criar um ticket)..."/>
                                     <button onClick={handleGenerateTest} disabled={isGeneratingTest || !aiConfigured} className="mt-2 bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">{isGeneratingTest ? <FaSpinner className="animate-spin"/> : <FaPlay />} Gerar Teste</button>
                                 </div>
-                                <div><label className="block text-sm text-gray-400 mb-1">Código</label><div className="relative h-64 md:h-auto"><textarea value={generatedTest} readOnly className="w-full h-full bg-gray-900 font-mono text-xs text-green-400 p-4 rounded border border-gray-700"/>{generatedTest && <button onClick={() => handleCopy(generatedTest)} className="absolute top-2 right-2 p-1 bg-gray-700 rounded hover:bg-gray-600"><FaCopy/></button>}</div></div>
+                                <div><label className="block text-sm text-gray-400 mb-1">Código Playwright (TypeScript)</label><div className="relative h-64 md:h-auto"><textarea value={generatedTest} readOnly className="w-full h-full bg-gray-900 font-mono text-xs text-green-400 p-4 rounded border border-gray-700"/>{generatedTest && <button onClick={() => handleCopy(generatedTest, 'e2e')} className="absolute top-2 right-2 p-1 bg-gray-700 rounded hover:bg-gray-600"><FaCopy/></button>}</div></div>
                             </div>
                         </div>
                     )}
