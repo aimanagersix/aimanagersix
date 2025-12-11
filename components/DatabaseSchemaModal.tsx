@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock, FaSearch, FaRecycle } from 'react-icons/fa';
+import { FaCopy, FaCheck, FaDatabase, FaTrash, FaBroom, FaRobot, FaPlay, FaSpinner, FaBolt, FaSync, FaExclamationTriangle, FaSeedling, FaCommentDots, FaHdd, FaMagic, FaTools, FaUnlock, FaShieldAlt, FaShoppingCart, FaUserLock, FaSearch, FaRecycle, FaCrown } from 'react-icons/fa';
 import { generatePlaywrightTest, isAiConfigured } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 
@@ -11,7 +11,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'audit_db' | 'cleanup' | 'fix_types' | 'triggers' | 'playwright'>('repair');
+    const [activeTab, setActiveTab] = useState<'security' | 'repair' | 'rbac' | 'fix_procurement' | 'audit_db' | 'cleanup' | 'fix_types' | 'triggers' | 'playwright' | 'superadmin_omni'>('superadmin_omni');
     
     const [testRequest, setTestRequest] = useState('');
     const [generatedTest, setGeneratedTest] = useState('');
@@ -24,6 +24,72 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const [triggerError, setTriggerError] = useState<string | null>(null);
 
     const aiConfigured = isAiConfigured();
+
+    const omniAdminScript = `
+-- ==================================================================================
+-- SCRIPT DE ACESSO TOTAL SUPERADMIN (OMNIPOTENT FIX) - v8.0
+-- Este script percorre TODAS as tabelas e força acesso total para Admins.
+-- Resolve erros "new row violates row-level security policy".
+-- ==================================================================================
+BEGIN;
+
+-- 1. Garantir Função de Verificação (Indestrutível)
+CREATE OR REPLACE FUNCTION public.is_admin_check()
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_role text;
+BEGIN
+    -- Se não estiver autenticado, false
+    IF auth.uid() IS NULL THEN RETURN false; END IF;
+    
+    -- Buscar role
+    SELECT role INTO v_role FROM public.collaborators WHERE id = auth.uid();
+    
+    -- Verificar se é Admin ou SuperAdmin
+    RETURN v_role IN ('SuperAdmin', 'Admin');
+EXCEPTION WHEN OTHERS THEN
+    -- Fallback de segurança
+    RETURN false;
+END;
+$$;
+
+-- 2. Loop Dinâmico: Aplicar Política de Admin a TODAS as tabelas existentes
+DO $$
+DECLARE
+    t text;
+BEGIN
+    FOR t IN
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_type = 'BASE TABLE'
+    LOOP
+        -- A. Garantir que RLS está ativo (Segurança por defeito)
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+
+        -- B. Remover política de Admin antiga (se existir, para atualizar)
+        EXECUTE format('DROP POLICY IF EXISTS "SuperAdmin_Omni_Access" ON public.%I', t);
+
+        -- C. Criar a Política Mestra: Admins podem fazer TUDO (ALL)
+        -- O Postgres usa lógica "OR" entre políticas permissivas.
+        -- Se esta política passar, o acesso é garantido, ignorando outras restrições.
+        EXECUTE format('CREATE POLICY "SuperAdmin_Omni_Access" ON public.%I FOR ALL TO authenticated USING (public.is_admin_check()) WITH CHECK (public.is_admin_check())', t);
+        
+        -- D. Garantir Grants (Permissões de baixo nível)
+        EXECUTE format('GRANT ALL ON public.%I TO authenticated', t);
+        EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
+        
+        RAISE NOTICE 'Política Omni aplicada na tabela: %', t;
+    END LOOP;
+END $$;
+
+NOTIFY pgrst, 'reload config';
+COMMIT;
+`;
 
     const hardeningScript = `
 -- ==================================================================================
@@ -510,6 +576,12 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
                 {/* Tabs Navigation */}
                 <div className="flex border-b border-gray-700 mb-4 gap-2 flex-wrap bg-gray-900/50 p-2 rounded-t-lg">
                      <button 
+                        onClick={() => setActiveTab('superadmin_omni')} 
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'superadmin_omni' ? 'border-red-500 text-white bg-red-900/40 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
+                    >
+                        <FaCrown /> SuperAdmin Omni
+                    </button>
+                     <button 
                         onClick={() => setActiveTab('security')} 
                         className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'security' ? 'border-green-500 text-white bg-green-900/20 rounded-t' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
@@ -568,6 +640,29 @@ UPDATE equipment_types SET requires_cpu_info = true, requires_ram_size = true, r
 
                 {/* Content Area */}
                 <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 p-1">
+
+                     {/* OMNI ADMIN TAB */}
+                     {activeTab === 'superadmin_omni' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-2">
+                                <div className="flex items-center gap-2 font-bold mb-2 text-lg text-red-400">
+                                    <FaCrown /> SCRIPT OMNIPOTENTE v8.0 (RESOLVE ERRO DE POLÍTICAS)
+                                </div>
+                                <p className="mb-2">
+                                    Este script é a "bala de prata". Ele varre <strong>automaticamente TODAS as tabelas</strong> do banco de dados (Policies, Equipamentos, Colaboradores, etc.) e força uma regra de acesso total (ALL) para SuperAdmins e Admins.
+                                </p>
+                                <p className="font-bold">
+                                    Use este script para corrigir o erro: "new row violates row-level security policy for table 'policies'".
+                                </p>
+                            </div>
+                            <div className="relative">
+                                <pre className="bg-gray-900 p-4 rounded-lg text-xs font-mono text-red-300 overflow-auto max-h-[500px] custom-scrollbar border border-gray-700">
+                                    {omniAdminScript}
+                                </pre>
+                                <button onClick={() => handleCopy(omniAdminScript)} className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-md border border-gray-600 transition-colors shadow-lg flex items-center gap-2"><FaCopy /> Copiar Script</button>
+                            </div>
+                        </div>
+                    )}
                     
                     {/* UNLOCK / SECURITY TAB */}
                     {activeTab === 'security' && (
