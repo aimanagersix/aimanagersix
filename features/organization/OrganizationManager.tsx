@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { 
     Collaborator, Instituicao, Entidade, Team, Supplier, 
@@ -301,6 +300,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onAssignEquipment={checkPermission('equipment', 'edit') ? handleAssignEquipment : undefined}
                     onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
                     deactivationReasons={appData.configCollaboratorDeactivationReasons}
+                    jobTitles={appData.configJobTitles}
                 />
                 </>
             )}

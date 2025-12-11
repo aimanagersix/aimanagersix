@@ -29,6 +29,7 @@ interface CollaboratorDashboardProps {
   onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
   onUnassignEquipment?: (equipmentId: string) => Promise<void>;
   deactivationReasons?: ConfigItem[];
+  jobTitles?: ConfigItem[]; // Added prop for job title mapping
 
   // Server-Side Pagination Props
   totalItems?: number;
@@ -86,6 +87,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     onAssignEquipment,
     onUnassignEquipment,
     deactivationReasons,
+    jobTitles = [],
     totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange
 }) => {
     
@@ -96,6 +98,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     const entidadeMap = React.useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const instituicaoMap = React.useMemo(() => new Map(instituicoes.map(i => [i.id, i.name])), [instituicoes]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, `${e.description} (SN: ${e.serialNumber})`])), [equipment]);
+    const jobTitleMap = useMemo(() => new Map(jobTitles.map(j => [j.id, j.name])), [jobTitles]);
 
     const equipmentByCollaborator = useMemo(() => {
         const map = new Map<string, string[]>();
@@ -147,7 +150,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
         const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
         const entityName = col.entidadeId ? entidadeMap.get(col.entidadeId) : col.instituicaoId ? instituicaoMap.get(col.instituicaoId) : 'Global / N/A';
-        const displayJob = col.job_title_name || col.role;
+        const displayJob = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : col.role);
 
         const content = (
             <div className="text-xs leading-tight space-y-1">
@@ -304,6 +307,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  else if (isSuperAdmin) deleteTooltip = "Impossível excluir perfil SuperAdmin";
                  else if (isCurrentUser) deleteTooltip = "Não pode apagar o seu próprio utilizador";
                  else if (dependencies.length > 0) deleteTooltip = `Impossível excluir: Associado a registos (Tickets, Atribuições)`;
+                 
+                 const resolvedJobTitle = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : null);
 
                 return (
               <tr 
@@ -335,7 +340,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     {col.telemovel && <div className="text-xs text-on-surface-dark-secondary">Móvel: {col.telemovel}</div>}
                 </td>
                 <td className="px-6 py-4">
-                    <div className="font-semibold text-white">{col.job_title_name || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}</div>
+                    <div className="font-semibold text-white">{resolvedJobTitle || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}</div>
                     <div className="text-xs text-gray-500">{col.role}</div>
                 </td>
                 <td className="px-6 py-4">{getAssociationText(col)}</td>
