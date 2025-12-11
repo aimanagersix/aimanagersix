@@ -12,6 +12,7 @@ import TicketDashboard from '../../components/TicketDashboard';
 import { AddTicketModal } from '../../components/AddTicketModal';
 import CloseTicketModal from '../../components/CloseTicketModal';
 import TicketActivitiesModal from '../../components/TicketActivitiesModal';
+import RegulatoryNotificationModal from '../../components/RegulatoryNotificationModal';
 
 interface TicketManagerProps {
     appData: any;
@@ -37,10 +38,16 @@ const TicketManager: React.FC<TicketManagerProps> = ({
 
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
     const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
+    
     const [showCloseTicketModal, setShowCloseTicketModal] = useState(false);
     const [ticketToClose, setTicketToClose] = useState<Ticket | null>(null);
+    
     const [showTicketActivitiesModal, setShowTicketActivitiesModal] = useState(false);
     const [ticketForActivities, setTicketForActivities] = useState<Ticket | null>(null);
+
+    // NIS2 Report Modal
+    const [showRegulatoryModal, setShowRegulatoryModal] = useState(false);
+    const [ticketForRegulatoryReport, setTicketForRegulatoryReport] = useState<Ticket | null>(null);
 
     // --- DATA FETCHING (SERVER SIDE) ---
     const fetchTickets = useCallback(async () => {
@@ -87,7 +94,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 escolasDepartamentos={appData.entidades}
                 collaborators={appData.collaborators}
                 teams={appData.teams}
-                suppliers={appData.suppliers} // Added Suppliers Prop
+                suppliers={appData.suppliers} 
                 equipment={appData.equipment}
                 equipmentTypes={appData.equipmentTypes}
                 categories={appData.ticketCategories}
@@ -100,8 +107,8 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 onGenerateReport={checkPermission('reports', 'view') ? () => setReportType('ticket') : undefined}
                 onOpenActivities={(t) => { setTicketForActivities(t); setShowTicketActivitiesModal(true); }}
                 onGenerateSecurityReport={(t) => { 
-                    setTicketToEdit(t);
-                    setShowAddTicketModal(true);
+                    setTicketForRegulatoryReport(t);
+                    setShowRegulatoryModal(true);
                 }}
             />
 
@@ -181,6 +188,14 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                             alert(`Erro ao gravar atividade: ${e.message}`);
                         }
                     }}
+                />
+            )}
+
+            {showRegulatoryModal && ticketForRegulatoryReport && (
+                <RegulatoryNotificationModal
+                    ticket={ticketForRegulatoryReport}
+                    activities={appData.ticketActivities.filter((a: any) => a.ticketId === ticketForRegulatoryReport.id)}
+                    onClose={() => setShowRegulatoryModal(false)}
                 />
             )}
         </>

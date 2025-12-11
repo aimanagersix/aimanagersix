@@ -152,7 +152,8 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     const supabase = sb();
     // 1. Get current active assignments
     const { data: current } = await supabase.from('license_assignments').select('*').eq('equipmentId', equipmentId).is('returnDate', null);
-    const currentLicenseIds = new Set(current?.map((c: any) => c.softwareLicenseId) || []);
+    // Explicitly cast to string to avoid 'unknown' inference issues
+    const currentLicenseIds = new Set<string>((current?.map((c: any) => String(c.softwareLicenseId)) || []));
 
     const toAdd = licenseIds.filter(id => !currentLicenseIds.has(id));
     const toRemove = Array.from(currentLicenseIds).filter(id => !licenseIds.includes(id));
