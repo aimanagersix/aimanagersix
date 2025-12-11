@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaCommentDots, FaStethoscope, FaExclamationTriangle, FaSearch } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaCommentDots, FaStethoscope, FaExclamationTriangle, FaSearch, FaTerminal } from 'react-icons/fa';
 
 interface CronJobsTabProps {
     settings: any;
@@ -22,6 +22,13 @@ WHERE routine_schema = 'public'
 AND routine_name = 'send_daily_birthday_emails';
 `;
 
+const manualExecScript = `-- TESTE MANUAL DIRETO (SQL)
+-- Execute isto no SQL Editor para testar a lógica sem passar pela App/API.
+-- Se der erro aqui, o problema está no script SQL da função (tabelas em falta, pg_net, etc).
+
+SELECT public.send_daily_birthday_emails();
+`;
+
 const cacheCleanScript = `-- COMANDO DE LIMPEZA DE CACHE DO SUPABASE (POSTGREST)
 -- Execute isto no SQL Editor para forçar a API a reconhecer as novas funções.
 
@@ -29,7 +36,8 @@ NOTIFY pgrst, 'reload config';
 `;
 
 const birthdaySqlScript = `-- ==================================================================================
--- SCRIPT DE ANIVERSÁRIOS (SOLUÇÃO DEFINITIVA v5.7 - SAFE MODE)
+-- SCRIPT DE ANIVERSÁRIOS (VERSÃO v5.8 - TYPE FIX)
+-- Correção: Adicionado ::date para evitar erro "function extract(unknown, text) does not exist"
 -- ==================================================================================
 
 -- 1. LIMPEZA PRÉVIA
@@ -42,7 +50,6 @@ DROP FUNCTION IF EXISTS public.send_daily_birthday_emails(text);
 DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA public; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- 3. CRIAÇÃO DA FUNÇÃO (Lógica Principal)
--- Criamos isto FORA de blocos complexos para garantir que é gravado.
 CREATE OR REPLACE FUNCTION public.send_daily_birthday_emails()
 RETURNS void
 LANGUAGE plpgsql
@@ -59,22 +66,28 @@ DECLARE
     v_general_channel_id uuid := '00000000-0000-0000-0000-000000000000';
     r_user record;
 BEGIN
-    -- Ler Configurações
-    SELECT setting_value INTO v_resend_key FROM global_settings WHERE setting_key = 'resend_api_key';
-    SELECT setting_value INTO v_from_email FROM global_settings WHERE setting_key = 'resend_from_email';
-    SELECT setting_value INTO v_subject FROM global_settings WHERE setting_key = 'birthday_email_subject';
-    SELECT setting_value INTO v_body_tpl FROM global_settings WHERE setting_key = 'birthday_email_body';
+    -- Ler Configurações (Bloco seguro)
+    BEGIN
+        SELECT setting_value INTO v_resend_key FROM global_settings WHERE setting_key = 'resend_api_key';
+        SELECT setting_value INTO v_from_email FROM global_settings WHERE setting_key = 'resend_from_email';
+        SELECT setting_value INTO v_subject FROM global_settings WHERE setting_key = 'birthday_email_subject';
+        SELECT setting_value INTO v_body_tpl FROM global_settings WHERE setting_key = 'birthday_email_body';
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'Tabela global_settings não encontrada ou erro de leitura.';
+    END;
 
     IF v_subject IS NULL OR v_subject = '' THEN v_subject := 'Feliz Aniversário!'; END IF;
     IF v_body_tpl IS NULL OR v_body_tpl = '' THEN v_body_tpl := 'Parabéns {{nome}}! Desejamos-te um dia fantástico.'; END IF;
 
     -- Loop Aniversariantes
+    -- CORREÇÃO v5.8: Cast explícito ::date em "dateOfBirth" para evitar erros se a coluna for texto
     FOR r_user IN
         SELECT "fullName", "email", "id"
         FROM collaborators
         WHERE status = 'Ativo'
-        AND EXTRACT(MONTH FROM "dateOfBirth") = EXTRACT(MONTH FROM CURRENT_DATE)
-        AND EXTRACT(DAY FROM "dateOfBirth") = EXTRACT(DAY FROM CURRENT_DATE)
+        AND "dateOfBirth" IS NOT NULL
+        AND EXTRACT(MONTH FROM "dateOfBirth"::date) = EXTRACT(MONTH FROM CURRENT_DATE)
+        AND EXTRACT(DAY FROM "dateOfBirth"::date) = EXTRACT(DAY FROM CURRENT_DATE)
     LOOP
         -- A. Enviar Email (Se pg_net existir e key estiver configurada)
         IF v_resend_key IS NOT NULL AND v_from_email IS NOT NULL AND length(v_resend_key) > 5 THEN
@@ -242,7 +255,21 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                     </h4>
                     
                     <div className="grid grid-cols-1 gap-4">
-                        
+                         
+                         {/* Passo 0: Teste Manual Direto */}
+                         <div className="bg-purple-900/20 p-3 rounded border border-purple-500/30">
+                            <div className="flex justify-between items-center mb-1">
+                                <h5 className="text-purple-300 font-bold text-xs flex items-center gap-2"><FaTerminal/> 0. Teste Manual Direto (SQL)</h5>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mb-2">Execute isto no SQL Editor para testar a lógica sem passar pela App.</p>
+                            <div className="relative">
+                                <pre className="text-[10px] font-mono text-purple-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto">{manualExecScript}</pre>
+                                <button onClick={() => handleCopy(manualExecScript, 'manual_exec')} className="absolute top-1 right-1 p-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[10px]">
+                                    {copiedCode === 'manual_exec' ? <FaCheck className="text-green-400"/> : <FaCopy />}
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Passo 1: Verificar se existe */}
                         <div className="bg-blue-900/20 p-3 rounded border border-blue-500/30">
                             <div className="flex justify-between items-center mb-1">
@@ -274,9 +301,9 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                         {/* Passo 3: Reinstalar */}
                         <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
                              <div className="flex justify-between items-center mb-1">
-                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Instalação Completa v5.7 (Safe Mode)</h5>
+                                <h5 className="text-red-300 font-bold text-xs flex items-center gap-2"><FaDatabase/> 3. Instalação Completa v5.8 (Safe Mode + Type Fix)</h5>
                             </div>
-                            <p className="text-[10px] text-gray-400 mb-2">Separa a criação da função do agendamento cron (mais seguro).</p>
+                            <p className="text-[10px] text-gray-400 mb-2">Separa a criação da função do agendamento cron e corrige o tipo de dados.</p>
                             <div className="relative">
                                 <pre className="text-[10px] font-mono text-red-200 bg-gray-900 p-2 rounded border border-gray-700 overflow-x-auto max-h-32">{birthdaySqlScript}</pre>
                                 <button onClick={() => handleCopy(birthdaySqlScript, 'install_sql')} className="absolute top-1 right-1 p-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[10px]">
