@@ -203,7 +203,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
                             <th scope="col" className="px-6 py-3">Fornecedor / NIF</th>
-                            <th scope="col" className="px-6 py-3">Contactos</th>
+                            <th scope="col" className="px-6 py-3 w-1/4">Contactos</th>
                             <th scope="col" className="px-6 py-3 text-center">ISO 27001</th>
                             <th scope="col" className="px-6 py-3 text-center">Nível de Risco</th>
                             <th scope="col" className="px-6 py-3">Contratos</th>
@@ -214,14 +214,14 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                     <tbody>
                         {paginatedSuppliers.length > 0 ? paginatedSuppliers.map((supplier) => {
                             const isActive = supplier.is_active !== false;
-                            const extraContacts = supplier.contacts?.length || 0;
+                            
                             return (
                             <tr 
                                 key={supplier.id} 
                                 className={`border-b border-gray-700 cursor-pointer ${isActive ? 'bg-surface-dark hover:bg-gray-800/50' : 'bg-gray-800/50 opacity-70'}`}
                                 onClick={() => setSelectedSupplier(supplier)}
                             >
-                                <td className="px-6 py-4 font-medium text-on-surface-dark">
+                                <td className="px-6 py-4 font-medium text-on-surface-dark align-top">
                                     <div className="text-base">{supplier.name}</div>
                                     {supplier.nif && <div className="text-xs text-gray-500">NIF: {supplier.nif}</div>}
                                     {supplier.website && (
@@ -230,35 +230,60 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                         </a>
                                     )}
                                 </td>
-                                <td className="px-6 py-4">
-                                    {supplier.contact_name ? (
-                                        <>
-                                            <div className="font-semibold text-xs text-white">{supplier.contact_name}</div>
-                                            {supplier.contact_email && <div className="text-xs flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {supplier.contact_email}</div>}
-                                            {supplier.contact_phone && <div className="text-xs flex items-center gap-1"><FaPhone className="h-3 w-3"/> {supplier.contact_phone}</div>}
-                                        </>
-                                    ) : <span className="text-xs text-gray-500 italic">Sem contacto principal</span>}
+                                <td className="px-6 py-4 align-top">
+                                    {/* Main Contact */}
+                                    <div className="mb-3">
+                                        <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Principal</p>
+                                        {supplier.contact_name ? (
+                                            <>
+                                                <div className="font-semibold text-sm text-white">{supplier.contact_name}</div>
+                                                {supplier.contact_email && <div className="text-xs flex items-center gap-1 text-gray-300"><FaEnvelope className="h-3 w-3"/> {supplier.contact_email}</div>}
+                                                {supplier.contact_phone && <div className="text-xs flex items-center gap-1 text-gray-300"><FaPhone className="h-3 w-3"/> {supplier.contact_phone}</div>}
+                                            </>
+                                        ) : <span className="text-xs text-gray-500 italic">Não definido</span>}
+                                    </div>
                                     
-                                    {/* INDICATOR FOR EXTRA CONTACTS */}
-                                    {extraContacts > 0 && (
-                                        <div className="mt-2 inline-flex items-center gap-1 bg-gray-700/50 text-gray-300 text-[10px] px-2 py-0.5 rounded-full border border-gray-600">
-                                            <FaUsers className="h-3 w-3"/> + {extraContacts} Contacto{extraContacts > 1 ? 's' : ''}
+                                    {/* Extra Contacts List - Detailed */}
+                                    {supplier.contacts && supplier.contacts.length > 0 && (
+                                        <div className="border-t border-gray-600 pt-2 mt-2">
+                                            <p className="text-[10px] uppercase text-brand-secondary font-bold mb-2 flex items-center gap-1">
+                                                <FaUsers className="h-3 w-3"/> Outros ({supplier.contacts.length})
+                                            </p>
+                                            <div className="space-y-2">
+                                                {supplier.contacts.map(c => (
+                                                    <div key={c.id} className="bg-gray-800/50 p-2 rounded border border-gray-700">
+                                                        <div className="text-xs font-bold text-white flex justify-between items-center">
+                                                            {c.name}
+                                                            {c.title && <span className="text-[9px] font-normal text-gray-500 ml-1">({c.title})</span>}
+                                                        </div>
+                                                        <div className="text-[10px] text-brand-secondary mb-0.5 font-semibold">{c.role}</div>
+                                                        {c.email && <div className="text-[10px] text-gray-400 break-all">{c.email}</div>}
+                                                        {c.phone && <div className="text-[10px] text-gray-400">{c.phone}</div>}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-6 py-4 text-center align-top pt-8">
                                     {supplier.is_iso27001_certified ? (
-                                        <FaCheckCircle className="text-green-500 h-5 w-5 mx-auto" title="Certificado ISO 27001"/>
+                                        <div className="flex flex-col items-center">
+                                            <FaCheckCircle className="text-green-500 h-6 w-6 mb-1" title="Certificado ISO 27001"/>
+                                            <span className="text-[10px] text-green-400">Certificado</span>
+                                        </div>
                                     ) : (
-                                        <FaTimesCircle className="text-gray-600 h-5 w-5 mx-auto" title="Não Certificado"/>
+                                        <div className="flex flex-col items-center">
+                                            <FaTimesCircle className="text-gray-600 h-6 w-6 mb-1" title="Não Certificado"/>
+                                            <span className="text-[10px] text-gray-500">Não</span>
+                                        </div>
                                     )}
                                 </td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-6 py-4 text-center align-top pt-8">
                                     <span className={`px-2 py-1 text-xs rounded border font-bold ${getRiskClass(supplier.risk_level)}`}>
                                         {supplier.risk_level}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 align-top pt-8">
                                     {supplier.contracts && supplier.contracts.length > 0 ? (
                                         <span className="text-xs bg-gray-700 px-2 py-1 rounded-full text-white">
                                             {supplier.contracts.length} Contrato(s)
@@ -267,12 +292,12 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                         <span className="text-xs text-gray-500 italic">--</span>
                                     )}
                                 </td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-6 py-4 text-center align-top pt-8">
                                     <span className={`px-2 py-1 text-xs rounded-full ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                                         {isActive ? 'Ativo' : 'Inativo'}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-6 py-4 text-center align-top pt-8">
                                     <div className="flex justify-center items-center gap-4">
                                         {onToggleStatus && (
                                             <button 
