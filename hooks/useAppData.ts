@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -113,12 +114,12 @@ export const useAppData = () => {
     const loadData = useCallback(async () => {
         if (!isConfigured) return;
         try {
-            // Note: Heavy tables like 'equipment' and 'tickets' are now fetched empty here
-            // They are loaded on demand via server-side pagination in their respective Managers.
             const data = await dataService.fetchAllData();
             
             setAppData({
-                equipment: [], 
+                // Re-enabled full load for Dashboard stats. 
+                // Optimization: In a real large-scale app, we would fetch count(*) via RPC for dashboards instead of loading all rows.
+                equipment: data.equipment, 
                 brands: data.brands,
                 equipmentTypes: data.equipmentTypes,
                 instituicoes: data.instituicoes,
@@ -126,7 +127,7 @@ export const useAppData = () => {
                 collaborators: data.collaborators,
                 assignments: data.assignments, 
                 tickets: data.tickets, 
-                ticketActivities: [], 
+                ticketActivities: [], // Activities still loaded on demand per ticket
                 softwareLicenses: data.softwareLicenses,
                 licenseAssignments: data.licenseAssignments,
                 teams: data.teams,

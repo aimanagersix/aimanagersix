@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember
@@ -428,6 +429,7 @@ export const App: React.FC = () => {
                         onViewItem={handleViewItem}
                         onGenerateComplianceReport={() => { setReportType('compliance'); setShowReportModal(true); }}
                         procurementRequests={appData.procurementRequests}
+                        onRefresh={refreshData} // Added refresh handler
                     />}
 
                     {activeTab === 'overview.smart' && canViewSmartDashboard && (

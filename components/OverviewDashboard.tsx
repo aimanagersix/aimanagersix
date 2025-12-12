@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory, ProcurementRequest } from '../types';
-import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull, FaChartLine, FaStopwatch } from './common/Icons';
+import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull, FaChartLine, FaStopwatch, FaSync } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
 
@@ -23,6 +23,7 @@ interface OverviewDashboardProps {
     procurementRequests?: ProcurementRequest[];
     onViewItem: (tab: string, filter: any) => void;
     onGenerateComplianceReport: () => void;
+    onRefresh?: () => void; // New Prop
 }
 
 interface StatCardProps {
@@ -190,11 +191,20 @@ const DashboardSection: React.FC<{ title: string; icon?: React.ReactNode; childr
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
-    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], vulnerabilities = [], procurementRequests = [], onViewItem, onGenerateComplianceReport 
+    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], vulnerabilities = [], procurementRequests = [], onViewItem, onGenerateComplianceReport, onRefresh
 }) => {
     const { t } = useLanguage();
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
     const [lastReviewDate, setLastReviewDate] = useState<string | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefreshClick = async () => {
+        if (onRefresh) {
+            setIsRefreshing(true);
+            await onRefresh();
+            setTimeout(() => setIsRefreshing(false), 500);
+        }
+    };
 
     useEffect(() => {
         const checkAccessReview = async () => {
@@ -221,7 +231,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     const stats = useMemo(() => {
         const statusCounts: Record<string, number> = {};
         for (const item of equipment) {
-            statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+            // Normalize status to key (case insensitive check)
+            const status = item.status;
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
         }
         return {
             operational: statusCounts[EquipmentStatus.Operacional] || 0,
@@ -252,7 +264,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         resolvedTickets.forEach(t => {
             const start = new Date(t.requestDate).getTime();
             const end = new Date(t.finishDate!).getTime();
-            totalDuration += (end - start);
+            if (!isNaN(start) && !isNaN(end)) {
+                totalDuration += (end - start);
+            }
         });
         const avgResolutionHours = resolvedTickets.length > 0 ? Math.round(totalDuration / resolvedTickets.length / (1000 * 60 * 60)) : 0;
 
@@ -336,7 +350,10 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
         equipment.forEach(eq => {
             if (!eq.purchaseDate) return;
-            const ageInYears = (now.valueOf() - new Date(eq.purchaseDate).valueOf()) / (1000 * 60 * 60 * 24 * 365.25);
+            const pDate = new Date(eq.purchaseDate);
+            if (isNaN(pDate.getTime())) return;
+            
+            const ageInYears = (now.valueOf() - pDate.valueOf()) / (1000 * 60 * 60 * 24 * 365.25);
             if (ageInYears < 1) ageGroups['< 1 ano']++;
             else if (ageInYears < 2) ageGroups['1-2 anos']++;
             else if (ageInYears < 4) ageGroups['2-4 anos']++;
@@ -407,12 +424,29 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             }));
         
         return [...recentAssignments, ...recentTickets]
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .sort((a, b) => {
+                const dateA = new Date(a.date).getTime();
+                const dateB = new Date(b.date).getTime();
+                return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+            })
             .slice(0, 8);
     }, [assignments, tickets, equipment, collaborators]);
 
     return (
         <div className="space-y-8">
+            <div className="flex justify-end">
+                {onRefresh && (
+                    <button 
+                        onClick={handleRefreshClick}
+                        disabled={isRefreshing}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
+                    >
+                        <FaSync className={isRefreshing ? 'animate-spin' : ''} /> 
+                        {isRefreshing ? 'A atualizar...' : 'Atualizar Dados'}
+                    </button>
+                )}
+            </div>
+
             {/* --- ALERTS SECTION --- */}
             <div className="space-y-4">
                 {securityStats.openCritical > 0 && (
