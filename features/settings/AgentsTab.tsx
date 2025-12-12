@@ -3,10 +3,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows, FaPython, FaFileCode } from 'react-icons/fa';
 
 const agentScriptTemplatePowerShell = `
-# AIManager Windows Inventory Agent v2.3 (Offline Mode)
+# AIManager Windows Inventory Agent v2.4 (Offline Mode)
 #
 # ESTE SCRIPT É SEGURO: NÃO CONTÉM CHAVES DE API.
 # Gera um ficheiro JSON local para ser carregado manualmente na aplicação web.
+
+# Auto-Elevate to Administrator if not already running as Admin
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File ""$($MyInvocation.MyCommand.Path)"" -Verb RunAs"
+    exit
+}
 
 function Get-HardwareInfo {
     Write-Host "A recolher dados de Hardware e SO..." -ForegroundColor Cyan
@@ -256,8 +262,8 @@ const AgentsTab: React.FC = () => {
                 </p>
                 <ol className="list-decimal list-inside space-y-1 ml-2 text-gray-300">
                     <li>Descarregue o script e execute no computador alvo (Windows: "Executar com PowerShell").</li>
-                    <li>O script irá extrair dados de hardware, rede, <strong>Licença OEM</strong>, <strong>Data Fabrico</strong> e <strong>Patch de Segurança</strong>.</li>
-                    <li>Será gerado um ficheiro <code>.json</code> localmente.</li>
+                    <li>O script irá solicitar permissões de Administrador automaticamente para extrair a chave OEM da BIOS.</li>
+                    <li>Será gerado um ficheiro <code>.json</code> localmente com os dados do equipamento.</li>
                     <li>Vá ao menu <strong>Ativos &gt; Equipamentos</strong> e clique em <strong>"Importar JSON Agente"</strong>.</li>
                 </ol>
                 <div className="flex gap-2 mt-3">
