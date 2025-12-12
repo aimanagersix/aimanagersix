@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao, JobTitle } from '../types';
 import { SpinnerIcon, CheckIcon } from './common/Icons';
-import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey, FaBriefcase, FaPlus, FaBirthdayCake } from 'react-icons/fa';
+import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey, FaBriefcase, FaPlus, FaBirthdayCake, FaUserShield, FaBell } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 const isValidEmail = (email: string) => {
@@ -443,48 +443,34 @@ Verifique as configurações de armazenamento.`);
                     </div>
                 </div>
 
-                {/* Job Title & Role Selection */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-800/50 p-3 rounded border border-gray-700">
-                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2">
-                            <FaBriefcase /> Cargo / Função Profissional
-                        </label>
-                        {showAddJobTitle ? (
-                             <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    value={newJobTitleName} 
-                                    onChange={(e) => setNewJobTitleName(e.target.value)} 
-                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" 
-                                    placeholder="Novo cargo..."
-                                    autoFocus
-                                />
-                                <button type="button" onClick={handleAddJobTitle} className="bg-green-600 text-white p-2 rounded"><CheckIcon/></button>
-                                <button type="button" onClick={() => setShowAddJobTitle(false)} className="bg-red-600 text-white p-2 rounded"><FaTrash className="w-3 h-3"/></button>
-                             </div>
-                        ) : (
+                {/* Job Title */}
+                <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2">
+                        <FaBriefcase /> Cargo / Função Profissional
+                    </label>
+                    {showAddJobTitle ? (
                             <div className="flex gap-2">
-                                <select name="job_title_id" value={formData.job_title_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                                    <option value="">-- Selecione Cargo --</option>
-                                    {jobTitles.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
-                                </select>
-                                <button type="button" onClick={() => setShowAddJobTitle(true)} className="bg-gray-600 text-white p-2 rounded hover:bg-gray-500" title="Adicionar Novo Cargo"><FaPlus className="w-3 h-3"/></button>
+                            <input 
+                                type="text" 
+                                value={newJobTitleName} 
+                                onChange={(e) => setNewJobTitleName(e.target.value)} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" 
+                                placeholder="Novo cargo..."
+                                autoFocus
+                            />
+                            <button type="button" onClick={handleAddJobTitle} className="bg-green-600 text-white p-2 rounded"><CheckIcon/></button>
+                            <button type="button" onClick={() => setShowAddJobTitle(false)} className="bg-red-600 text-white p-2 rounded"><FaTrash className="w-3 h-3"/></button>
                             </div>
-                        )}
-                        <p className="text-[10px] text-gray-500 mt-1">Ex: Enfermeiro, Contabilista, Diretor.</p>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2">
-                            <FaKey /> Perfil de Acesso (Sistema)
-                        </label>
-                        <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                            {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                         <p className="text-[10px] text-gray-500 mt-1">Define permissões na aplicação (Admin, Utilizador...).</p>
-                        {formData.role === UserRole.SuperAdmin && !showGlobalToggle && (
-                             <p className="text-[10px] text-yellow-400 mt-1">Apenas o SuperAdmin atual pode conceder Acesso Global.</p>
-                        )}
-                    </div>
+                    ) : (
+                        <div className="flex gap-2">
+                            <select name="job_title_id" value={formData.job_title_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                                <option value="">-- Selecione Cargo --</option>
+                                {jobTitles.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
+                            </select>
+                            <button type="button" onClick={() => setShowAddJobTitle(true)} className="bg-gray-600 text-white p-2 rounded hover:bg-gray-500" title="Adicionar Novo Cargo"><FaPlus className="w-3 h-3"/></button>
+                        </div>
+                    )}
+                    <p className="text-[10px] text-gray-500 mt-1">Ex: Enfermeiro, Contabilista, Diretor.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -564,39 +550,6 @@ Verifique as configurações de armazenamento.`);
                     </div>
                 </div>
 
-                {showGlobalToggle && (
-                    <div className={`p-3 rounded border flex items-center transition-colors ${isGlobalAdmin ? 'bg-purple-900/40 border-purple-500' : 'bg-gray-800 border-gray-600'}`}>
-                         <label className="flex items-center cursor-pointer w-full">
-                            <input 
-                                type="checkbox" 
-                                checked={isGlobalAdmin} 
-                                onChange={handleGlobalAdminToggle} 
-                                className="h-5 w-5 rounded border-gray-500 bg-gray-700 text-purple-500 focus:ring-purple-500" 
-                            />
-                            <div className="ml-3">
-                                <span className="text-sm font-bold text-white flex items-center gap-2">
-                                    <FaGlobe className={isGlobalAdmin ? "text-purple-400" : "text-gray-400"} /> 
-                                    Acesso Global (Super Admin)
-                                </span>
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                    Permite ver e gerir todas as instituições sem restrição. Apenas para perfil SuperAdmin.
-                                </p>
-                            </div>
-                        </label>
-                    </div>
-                )}
-
-                <div className="flex items-center gap-4 pt-2">
-                    <label className="flex items-center cursor-pointer">
-                        <input type="checkbox" name="canLogin" checked={formData.canLogin} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
-                        <span className="ml-2 text-sm text-gray-300">Permitir Login</span>
-                    </label>
-                    <label className="flex items-center cursor-pointer">
-                        <input type="checkbox" name="receivesNotifications" checked={formData.receivesNotifications} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
-                        <span className="ml-2 text-sm text-gray-300">Recebe Notificações</span>
-                    </label>
-                </div>
-
                 <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mt-2">
                     <h4 className="text-sm font-semibold text-white mb-3 border-b border-gray-700 pb-1">Morada (Pessoal)</h4>
                     <div className="space-y-3">
@@ -620,58 +573,110 @@ Verifique as configurações de armazenamento.`);
                         </div>
                     </div>
                 </div>
-                
-                {/* Password Management */}
-                {(formData.canLogin && (!collaboratorToEdit || showPasswordReset)) && (
-                    <div className="border-t border-gray-600 pt-4 bg-blue-900/10 p-3 rounded mt-2">
-                        <label className="block text-xs font-bold text-white mb-1 flex items-center gap-2">
-                            <FaKey /> Password Inicial / Reset
-                        </label>
-                        <div className="flex gap-2">
-                            <input 
-                                type="text" 
-                                value={password} 
-                                onChange={(e) => setPassword(e.target.value)} 
-                                placeholder={collaboratorToEdit ? "Nova Password..." : "Opcional (será gerada se vazio)"} 
-                                className="flex-grow bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm font-mono" 
-                            />
-                             <button 
-                                type="button" 
-                                onClick={handleGeneratePassword} 
-                                className="p-2 bg-purple-600 text-white rounded hover:bg-purple-500 transition-colors"
-                                title="Gerar password forte"
-                            >
-                                <FaMagic />
-                            </button>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-1">
-                            {collaboratorToEdit 
-                                ? "Atenção: Isto irá alterar imediatamente a password do utilizador." 
-                                : "Se deixar em branco, será gerada uma password automática."
-                            }
-                        </p>
-                    </div>
-                )}
-                
-                {collaboratorToEdit && formData.canLogin && !showPasswordReset && (
-                     <button 
-                        type="button" 
-                        onClick={() => setShowPasswordReset(true)}
-                        className="text-xs text-blue-400 hover:text-blue-300 underline mt-2 flex items-center gap-1"
-                    >
-                        <FaKey /> Redefinir Password Manualmente
-                    </button>
-                )}
 
-                {errors.general && <p className="text-red-400 text-xs border border-red-500/50 bg-red-500/10 p-2 rounded">{errors.general}</p>}
+                {/* System Access Section - Grouped Logic */}
+                <div className="bg-gray-900/50 p-4 rounded border border-gray-600 mt-4">
+                    <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                        <FaUserShield className="text-brand-secondary"/> Acesso ao Sistema
+                    </h4>
+                    
+                    <div className="flex flex-wrap gap-4 items-center mb-4">
+                        <label className="flex items-center cursor-pointer">
+                            <input type="checkbox" name="canLogin" checked={formData.canLogin} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-gray-300 font-bold">Permitir Login</span>
+                        </label>
+                        
+                        {formData.canLogin && (
+                            <div className="flex-grow min-w-[200px] animate-fade-in">
+                                <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2">
+                                    <FaKey /> Perfil de Acesso (RBAC)
+                                </label>
+                                <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm">
+                                    {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <label className="flex items-center cursor-pointer mb-3">
+                        <input type="checkbox" name="receivesNotifications" checked={formData.receivesNotifications} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                        <span className="ml-2 text-sm text-gray-300 flex items-center gap-1"><FaBell className="text-xs"/> Recebe Notificações (Email)</span>
+                    </label>
+
+                    {showGlobalToggle && (
+                        <div className={`p-3 rounded border flex items-center transition-colors mb-3 ${isGlobalAdmin ? 'bg-purple-900/40 border-purple-500' : 'bg-gray-800 border-gray-600'}`}>
+                            <label className="flex items-center cursor-pointer w-full">
+                                <input 
+                                    type="checkbox" 
+                                    checked={isGlobalAdmin} 
+                                    onChange={handleGlobalAdminToggle} 
+                                    className="h-5 w-5 rounded border-gray-500 bg-gray-700 text-purple-500 focus:ring-purple-500" 
+                                />
+                                <div className="ml-3">
+                                    <span className="text-sm font-bold text-white flex items-center gap-2">
+                                        <FaGlobe className={isGlobalAdmin ? "text-purple-400" : "text-gray-400"} /> 
+                                        Acesso Global (Super Admin)
+                                    </span>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                        Permite ver e gerir todas as instituições sem restrição. Apenas para perfil SuperAdmin.
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+                    )}
+                
+                    {/* Password Management (Inside Access Section) */}
+                    {(formData.canLogin && (!collaboratorToEdit || showPasswordReset)) && (
+                        <div className="bg-blue-900/10 p-3 rounded border border-blue-900/30">
+                            <label className="block text-xs font-bold text-blue-200 mb-1 flex items-center gap-2">
+                                <FaKey /> Password Inicial / Reset
+                            </label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={password} 
+                                    onChange={(e) => setPassword(e.target.value)} 
+                                    placeholder={collaboratorToEdit ? "Nova Password..." : "Opcional (será gerada se vazio)"} 
+                                    className="flex-grow bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm font-mono" 
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={handleGeneratePassword} 
+                                    className="p-2 bg-purple-600 text-white rounded hover:bg-purple-500 transition-colors"
+                                    title="Gerar password forte"
+                                >
+                                    <FaMagic />
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-1">
+                                {collaboratorToEdit 
+                                    ? "Atenção: Isto irá alterar imediatamente a password do utilizador." 
+                                    : "Se deixar em branco, será gerada uma password automática."
+                                }
+                            </p>
+                        </div>
+                    )}
+                    
+                    {collaboratorToEdit && formData.canLogin && !showPasswordReset && (
+                        <button 
+                            type="button" 
+                            onClick={() => setShowPasswordReset(true)}
+                            className="text-xs text-blue-400 hover:text-blue-300 underline mt-2 flex items-center gap-1"
+                        >
+                            <FaKey /> Redefinir Password Manualmente
+                        </button>
+                    )}
+                </div>
+
+                {errors.general && <p className="text-red-400 text-xs border border-red-500/50 bg-red-500/10 p-2 rounded mt-2">{errors.general}</p>}
                 
                 {successMessage && (
-                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">
+                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in mt-2">
                         {successMessage}
                     </div>
                 )}
 
-                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar / Fechar</button>
                     <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
                         {isSaving ? <SpinnerIcon className="h-4 w-4" /> : successMessage ? <CheckIcon className="h-4 w-4"/> : null}

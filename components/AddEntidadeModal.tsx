@@ -171,9 +171,9 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         });
 
         try {
-            // Use AllOrigins as a more stable proxy
+            // Updated to use corsproxy.io for better reliability than allorigins
             const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
             
             const response = await fetch(proxyUrl);
 
@@ -196,10 +196,12 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                 } else {
                      setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
                 }
+            } else {
+                 setErrors(prev => ({ ...prev, nif: "Erro de ligação ao serviço de NIF." }));
             }
         } catch (e) {
-            console.error("Erro NIF:", e);
-            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF. Tente preencher manualmente." }));
+            console.error("Erro NIF.pt:", e);
+            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF (API indisponível). Tente preencher manualmente." }));
         } finally {
             setIsFetchingNif(false);
         }

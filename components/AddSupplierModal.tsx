@@ -244,9 +244,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         });
 
         try {
-            // Use AllOrigins as a more stable proxy
+            // Updated to use corsproxy.io for better reliability than allorigins
             const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
             
             const response = await fetch(proxyUrl);
 
@@ -270,11 +270,11 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                      setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
                 }
             } else {
-                 setErrors(prev => ({ ...prev, nif: "Erro ao comunicar com o serviço de validação." }));
+                 setErrors(prev => ({ ...prev, nif: "Erro de ligação ao serviço de NIF." }));
             }
         } catch (e) {
             console.error("Erro NIF.pt:", e);
-            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF. Tente preencher manualmente." }));
+            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF (API indisponível). Tente preencher manualmente." }));
         } finally {
             setIsFetchingNif(false);
         }
@@ -497,9 +497,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2">
                     {activeTab === 'details' && (
                     <div className="space-y-4">
-                        {/* Header Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2">
+                        {/* Header Info - Grid Layout Fixed */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-1">
                                 <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF</label>
                                 <div className="flex">
                                     <input 
@@ -508,8 +508,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                         id="nif" 
                                         value={formData.nif} 
                                         onChange={handleChange} 
-                                        placeholder="NIF para pesquisa automática"
-                                        className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
+                                        placeholder="NIF"
+                                        className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 w-full ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
                                     />
                                     <button 
                                         type="button" 
