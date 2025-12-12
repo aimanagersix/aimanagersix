@@ -343,8 +343,21 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 <AddInstituicaoModal
                     onClose={() => setShowAddInstituicaoModal(false)}
                     onSave={async (inst) => {
-                        if (instituicaoToEdit) await dataService.updateInstituicao(instituicaoToEdit.id, inst);
-                        else await dataService.addInstituicao(inst);
+                        const contacts = (inst as any).contacts;
+                        const instData = { ...inst };
+                        delete (instData as any).contacts;
+
+                        let savedInst;
+                        if (instituicaoToEdit) {
+                            savedInst = await dataService.updateInstituicao(instituicaoToEdit.id, instData);
+                        } else {
+                            savedInst = await dataService.addInstituicao(instData);
+                        }
+
+                        if (contacts && savedInst) {
+                            await dataService.syncResourceContacts('instituicao', savedInst.id, contacts);
+                        }
+
                         refreshData();
                     }}
                     instituicaoToEdit={instituicaoToEdit}
@@ -354,8 +367,21 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 <AddEntidadeModal
                     onClose={() => setShowAddEntidadeModal(false)}
                     onSave={async (ent) => {
-                        if (entidadeToEdit && entidadeToEdit.id) await dataService.updateEntidade(entidadeToEdit.id, ent);
-                        else await dataService.addEntidade(ent);
+                        const contacts = (ent as any).contacts;
+                        const entData = { ...ent };
+                        delete (entData as any).contacts;
+
+                        let savedEnt;
+                        if (entidadeToEdit && entidadeToEdit.id) {
+                            savedEnt = await dataService.updateEntidade(entidadeToEdit.id, entData);
+                        } else {
+                            savedEnt = await dataService.addEntidade(entData);
+                        }
+
+                        if (contacts && savedEnt) {
+                            await dataService.syncResourceContacts('entidade', savedEnt.id, contacts);
+                        }
+
                         refreshData();
                     }}
                     entidadeToEdit={entidadeToEdit}
@@ -402,6 +428,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 <AddSupplierModal 
                     onClose={() => setShowAddSupplierModal(false)}
                     onSave={async (sup) => {
+                        // Separate Contacts from Supplier Data
                         const contacts = (sup as any).contacts;
                         const supplierData = { ...sup };
                         delete (supplierData as any).contacts;
@@ -413,7 +440,8 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                             savedSupplier = await dataService.addSupplier(supplierData);
                         }
 
-                        if (contacts) {
+                        // Sync Contacts if present
+                        if (contacts && savedSupplier) {
                             await dataService.syncResourceContacts('supplier', savedSupplier.id, contacts);
                         }
                         

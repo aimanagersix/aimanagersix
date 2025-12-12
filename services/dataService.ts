@@ -207,19 +207,46 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
 export const addSupplier = (data: any) => create('suppliers', data);
 export const updateSupplier = (id: string, data: any) => update('suppliers', id, data);
 export const deleteSupplier = (id: string) => remove('suppliers', id);
+
+// --- CORREÇÃO DA FUNÇÃO SYNC CONTACTS ---
 export const syncResourceContacts = async (type: string, resourceId: string, contacts: any[]) => {
     const supabase = sb();
-    // Soft delete or Hard delete? Hard delete for simplicity in editing session
-    await supabase.from('resource_contacts').delete().eq('resource_type', type).eq('resource_id', resourceId);
     
-    if (contacts.length > 0) {
+    // 1. Limpar contactos anteriores para este recurso
+    const { error: deleteError } = await supabase
+        .from('resource_contacts')
+        .delete()
+        .eq('resource_type', type)
+        .eq('resource_id', resourceId);
+
+    if (deleteError) {
+        console.error("Error deleting old contacts:", deleteError);
+        throw deleteError;
+    }
+    
+    if (contacts && contacts.length > 0) {
+        // 2. Mapeamento explícito para evitar enviar lixo ou IDs gerados pelo frontend
         const records = contacts.map(c => ({
-            ...c,
-            id: undefined, // Let DB generate new ID
             resource_type: type,
-            resource_id: resourceId
+            resource_id: resourceId,
+            title: c.title || '',
+            name: c.name,
+            role: c.role || '',
+            email: c.email || '',
+            phone: c.phone || '',
+            is_active: c.is_active !== false
+            // IMPORTANTE: Não enviar 'id' se for gerado pelo crypto.randomUUID no frontend, 
+            // deixar a BD gerar o UUID correto.
         }));
-        await supabase.from('resource_contacts').insert(records);
+
+        const { error: insertError } = await supabase
+            .from('resource_contacts')
+            .insert(records);
+            
+        if (insertError) {
+             console.error("Error inserting new contacts:", insertError);
+             throw insertError;
+        }
     }
 };
 
