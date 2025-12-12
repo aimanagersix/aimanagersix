@@ -104,7 +104,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const ciaRatings = ciaOptions && ciaOptions.length > 0 ? ciaOptions.map(o => o.name) : Object.values(CIARating);
 
     const [formData, setFormData] = useState<Partial<Equipment>>({
-        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', purchaseDate: new Date().toISOString().split('T')[0], warrantyEndDate: '', invoiceNumber: '', requisitionNumber: '',
+        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', 
+        purchaseDate: '', // Initialize empty, do NOT default to today
+        warrantyEndDate: '', invoiceNumber: '', requisitionNumber: '',
         status: EquipmentStatus.Stock,
         criticality: CriticalityLevel.Low,
         confidentiality: CIARating.Low,
@@ -167,7 +169,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         if (equipmentToEdit) {
             setFormData({
                 ...equipmentToEdit,
-                purchaseDate: equipmentToEdit.purchaseDate || new Date().toISOString().split('T')[0],
+                purchaseDate: equipmentToEdit.purchaseDate || '', // Use stored date or empty
                 parent_equipment_id: equipmentToEdit.parent_equipment_id || '',
                 accounting_category_id: equipmentToEdit.accounting_category_id || '',
                 conservation_state_id: equipmentToEdit.conservation_state_id || '',
@@ -378,8 +380,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         try {
             const dataToSubmit: any = { ...formData };
             
-            // Sanitize Date fields
-            const dateFields = ['warrantyEndDate', 'last_security_update', 'manufacture_date'];
+            // Sanitize Date fields - Convert empty strings to null to avoid 'invalid input syntax for type date: ""'
+            const dateFields = ['purchaseDate', 'warrantyEndDate', 'last_security_update', 'manufacture_date'];
             dateFields.forEach(field => {
                 if (dataToSubmit[field] === '') {
                     dataToSubmit[field] = null;
@@ -716,7 +718,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 </div>
                                 <div>
                                     <label htmlFor="last_security_update" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Último Patch de Segurança</label>
-                                    <input type="date" name="last_security_update" id="last_security_update" value={formData.last_security_update} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                    <input type="date" name="last_security_update" id="last_security_update" value={formData.last_security_update || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                                 </div>
                                 <div>
                                     <label htmlFor="firmware_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do Firmware</label>
@@ -757,7 +759,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-700">
                                 <div>
                                     <label htmlFor="purchaseDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Compra</label>
-                                    <input type="date" name="purchaseDate" id="purchaseDate" value={formData.purchaseDate} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.purchaseDate ? 'border-red-500' : 'border-gray-600'}`} />
+                                    <input type="date" name="purchaseDate" id="purchaseDate" value={formData.purchaseDate || ''} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.purchaseDate ? 'border-red-500' : 'border-gray-600'}`} />
                                 </div>
                                 <div>
                                     <label htmlFor="invoiceNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura (Opcional)</label>
@@ -770,7 +772,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 <div>
                                     <label htmlFor="warrantyEndDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fim da Garantia (Opcional)</label>
                                     <div className="flex items-center gap-2">
-                                        <input type="date" name="warrantyEndDate" id="warrantyEndDate" value={formData.warrantyEndDate} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded-md p-2" />
+                                        <input type="date" name="warrantyEndDate" id="warrantyEndDate" value={formData.warrantyEndDate || ''} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded-md p-2" />
                                         <button type="button" onClick={() => handleSetWarranty(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
                                         <button type="button" onClick={() => handleSetWarranty(3)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">3 Anos</button>
                                     </div>

@@ -105,6 +105,7 @@ function Get-HardwareInfo {
         nomeNaRede = $env:COMPUTERNAME
         macAddressWIFI = $macWifi
         macAddressCabo = $macCabo
+        purchaseDate = $null # Explicitly null to avoid defaults
         scan_date = (Get-Date).ToString("yyyy-MM-dd")
     }
 }
@@ -209,6 +210,7 @@ def get_system_info():
     info['serialNumber'] = f"PY-{uuid.getnode()}" 
     info['brandName'] = "Generic"
     info['typeName'] = "Server" if platform.system() == "Linux" else "Workstation"
+    info['purchaseDate'] = None # Explicitly null
     
     info['scan_date'] = datetime.now().strftime("%Y-%m-%d")
 
