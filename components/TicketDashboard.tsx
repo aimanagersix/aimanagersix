@@ -48,7 +48,11 @@ const getStatusClass = (status: TicketStatus) => {
 const getNis2Countdown = (ticket: Ticket) => {
     if (ticket.status === TicketStatus.Finished) return null;
     
-    const isSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
+    // CORREÇÃO: Usar a mesma lógica robusta do dashboard geral
+    const isSecurity = ticket.category === TicketCategory.SecurityIncident || 
+                       ticket.category === 'Incidente de Segurança' ||
+                       !!ticket.securityIncidentType;
+
     if (!isSecurity) return null;
 
     const requestDate = new Date(ticket.requestDate);
@@ -81,7 +85,13 @@ const getSLATimer = (ticket: Ticket, category?: TicketCategoryItem) => {
     }
     let warningLimit = category?.sla_warning_hours || 0;
     let criticalLimit = category?.sla_critical_hours || 0;
-    if (warningLimit === 0 && criticalLimit === 0 && (ticket.category === 'Incidente de Segurança' || ticket.category === TicketCategory.SecurityIncident)) {
+    
+    // Default security SLA if not defined in DB but is security incident
+    const isSecurity = ticket.category === 'Incidente de Segurança' || 
+                       ticket.category === TicketCategory.SecurityIncident ||
+                       !!ticket.securityIncidentType;
+
+    if (warningLimit === 0 && criticalLimit === 0 && isSecurity) {
         warningLimit = 24;
         criticalLimit = 72;
     }
@@ -241,7 +251,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                             const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
                             const sla = getSLATimer(ticket, categoryObj);
                             const nis2Countdown = getNis2Countdown(ticket);
-                            const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || ticket.category === 'Incidente de Segurança';
+                            
+                            // CORREÇÃO: Detetar incidente real mesmo se a categoria textual estiver diferente
+                            const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || 
+                                                   ticket.category === 'Incidente de Segurança' || 
+                                                   !!ticket.securityIncidentType;
                             
                             const requesterName = ticket.requester_supplier_id 
                                 ? supplierMap.get(ticket.requester_supplier_id) 

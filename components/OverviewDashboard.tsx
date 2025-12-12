@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory, ProcurementRequest } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull, FaChartLine, FaStopwatch } from './common/Icons';
@@ -232,8 +233,16 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
     const ticketStats = useMemo(() => {
         const open = tickets.filter(t => t.status === TicketStatus.Requested || t.status === TicketStatus.InProgress).length;
+        
+        // CORREÇÃO: Lógica de contagem mais robusta para incidentes de segurança
+        // Considera: Categoria exata OU campo securityIncidentType preenchido
         const securityIncidents = tickets.filter(t => 
-            (t.category === TicketCategory.SecurityIncident || t.category === 'Incidente de Segurança') && 
+            (
+                t.category === TicketCategory.SecurityIncident || 
+                t.category === 'Incidente de Segurança' || 
+                (t.category && t.category.toLowerCase().includes('segurança')) || 
+                !!t.securityIncidentType
+            ) && 
             (t.status === TicketStatus.Requested || t.status === TicketStatus.InProgress)
         ).length;
 
