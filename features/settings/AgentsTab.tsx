@@ -1,16 +1,21 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows, FaPython, FaFileCode } from 'react-icons/fa';
+import React, { useState, useMemo } from 'react';
+import { FaRobot, FaCopy, FaCheck, FaDownload, FaWindows, FaPython } from 'react-icons/fa';
 
 const agentScriptTemplatePowerShell = `
-# AIManager Windows Inventory Agent v2.4 (Offline Mode)
+# AIManager Windows Inventory Agent v2.5 (Offline Mode)
 #
 # ESTE SCRIPT É SEGURO: NÃO CONTÉM CHAVES DE API.
 # Gera um ficheiro JSON local para ser carregado manualmente na aplicação web.
 
-# Auto-Elevate to Administrator if not already running as Admin
+# --- AUTO-ELEVATE TO ADMINISTRATOR ---
+# Verifica se está a correr como Admin. Se não, reinicia o processo pedindo elevação.
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File ""$($MyInvocation.MyCommand.Path)"" -Verb RunAs"
+    Write-Host "A solicitar privilegios de Administrador para ler chave da BIOS..." -ForegroundColor Yellow
+    $newProcess = New-Object System.Diagnostics.ProcessStartInfo "powershell"
+    $newProcess.Arguments = "-NoProfile -ExecutionPolicy Bypass -File ""$($MyInvocation.MyCommand.Path)"" -Verb RunAs"
+    $newProcess.Verb = "runas"
+    [System.Diagnostics.Process]::Start($newProcess)
     exit
 }
 
@@ -25,40 +30,38 @@ function Get-HardwareInfo {
         @{ Model = $_.Model; Size = [Math]::Round($_.Size / 1GB) }
     }
     
-    # 1. Get Embedded License Key (OEM) from BIOS
-    # Tenta obter via WMI (Get-WmiObject) primeiro, fallback para CIM
+    # 1. Obter Chave de Licença Embutida (OEM/BIOS)
+    # Tenta via WMI primeiro (mais comum em versões antigas), depois CIM
     $embeddedKey = ""
     try {
         $wmiObj = Get-WmiObject -query 'select * from SoftwareLicensingService' -ErrorAction SilentlyContinue
-        if ($wmiObj) { $embeddedKey = $wmiObj.OA3xOriginalProductKey }
+        if ($wmiObj -and $wmiObj.OA3xOriginalProductKey) { 
+            $embeddedKey = $wmiObj.OA3xOriginalProductKey 
+        }
     } catch {}
 
     if ([string]::IsNullOrWhiteSpace($embeddedKey)) {
         try {
-            $cimObj = Get-CimInstance -query "select OA3xOriginalProductKey from SoftwareLicensingService" -ErrorAction SilentlyContinue
-            if ($cimObj) { $embeddedKey = $cimObj.OA3xOriginalProductKey }
-        } catch {
-            Write-Host "Nota: Nao foi possivel ler a chave da BIOS." -ForegroundColor Yellow
-        }
+            $cimObj = Get-CimInstance -query 'select OA3xOriginalProductKey from SoftwareLicensingService' -ErrorAction SilentlyContinue
+            if ($cimObj -and $cimObj.OA3xOriginalProductKey) { 
+                $embeddedKey = $cimObj.OA3xOriginalProductKey 
+            }
+        } catch {}
     }
 
-    # 2. Get Last Security Patch Date
+    # 2. Obter Data do Último Patch de Segurança
     $lastPatchDate = ""
     try {
         $hotfix = Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 1 -ErrorAction SilentlyContinue
         if ($hotfix) {
             $lastPatchDate = $hotfix.InstalledOn.ToString("yyyy-MM-dd")
         }
-    } catch {
-        Write-Host "Nota: Nao foi possivel ler historico de updates." -ForegroundColor Yellow
-    }
+    } catch {}
 
-    # 3. Get BIOS/Manufacture Date
+    # 3. Formatar Data da BIOS
     $biosDate = ""
     if ($bios.ReleaseDate) {
-        # Tenta converter se for objecto DateTime ou string WMI
         try {
-            # Formato WMI string costuma ser YYYYMMDD...
             if ($bios.ReleaseDate.Length -ge 8) {
                 $biosDate = $bios.ReleaseDate.Substring(0, 4) + "-" + $bios.ReleaseDate.Substring(4, 2) + "-" + $bios.ReleaseDate.Substring(6, 2)
             } else {
@@ -78,7 +81,7 @@ function Get-HardwareInfo {
     
     $serialNumber = $bios.SerialNumber.Trim()
     
-    # Normalize brand
+    # Normalizar Marca
     $brand = $cs.Manufacturer
     if($brand -match "Dell") { $brand = "Dell" }
     if($brand -match "HP") { $brand = "HP" }
@@ -118,11 +121,12 @@ try {
     
     Write-Host "Sucesso! Ficheiro gerado:" -ForegroundColor Green
     Write-Host $filePath -ForegroundColor Yellow
-    Write-Host "Agora faca upload deste ficheiro no menu 'Inventario' da aplicacao." -ForegroundColor White
+    Write-Host "Chave Windows detetada: $(if($info.embedded_license_key){'Sim'}else{'Nao'})" -ForegroundColor Cyan
+    Write-Host "Agora faça upload deste ficheiro no menu 'Inventário' da aplicação." -ForegroundColor White
 } catch {
     Write-Error "Erro: $($_.Exception.Message)"
 }
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 10
 `;
 
 const agentScriptTemplatePython = `
@@ -135,7 +139,7 @@ import os
 import subprocess
 from datetime import datetime
 
-# AIManager Inventory Agent v2.3 (Offline Mode)
+# AIManager Inventory Agent v2.5 (Offline Mode)
 # Gera um ficheiro JSON local.
 
 def get_bios_key():
@@ -143,13 +147,14 @@ def get_bios_key():
     key = ""
     try:
         if platform.system() == "Windows":
-            # Usando WmiObject conforme requisitado para maior compatibilidade
+            # Tenta via Powershell WMI
             cmd = "powershell \"(Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey\""
             key = subprocess.check_output(cmd, shell=True).decode().strip()
         elif platform.system() == "Linux":
             if os.geteuid() == 0 and os.path.exists('/sys/firmware/acpi/tables/MSDM'):
                 with open('/sys/firmware/acpi/tables/MSDM', 'rb') as f:
                     content = f.read()
+                    # Offset 56 geralmente contém a chave
                     key = content[56:].decode('utf-8', errors='ignore').strip()
     except Exception:
         pass
@@ -162,7 +167,6 @@ def get_bios_date():
         if platform.system() == "Windows":
             cmd = "wmic bios get releasedate"
             output = subprocess.check_output(cmd, shell=True).decode().strip()
-            # Output vem como ReleaseDate \n 20230101...
             lines = output.split('\\n')
             if len(lines) > 1:
                 raw = lines[1].strip()
@@ -171,7 +175,7 @@ def get_bios_date():
         elif platform.system() == "Linux":
              if os.path.exists('/sys/class/dmi/id/bios_date'):
                  with open('/sys/class/dmi/id/bios_date', 'r') as f:
-                     raw = f.read().strip() # mm/dd/yyyy usually
+                     raw = f.read().strip()
                      parts = raw.split('/')
                      if len(parts) == 3:
                          date_str = f"{parts[2]}-{parts[0]}-{parts[1]}"
@@ -180,7 +184,7 @@ def get_bios_date():
     return date_str
 
 def get_system_info():
-    print("A recolher informacao do sistema...")
+    print("A recolher informação do sistema...")
     
     info = {}
     
@@ -219,7 +223,8 @@ if __name__ == "__main__":
             json.dump(data, f, indent=2, ensure_ascii=False)
             
         print(f"Sucesso! Ficheiro gerado: {filename}")
-        print("Faca upload deste ficheiro na aplicacao web.")
+        print(f"Chave detetada: {data['embedded_license_key']}")
+        print("Faça upload deste ficheiro na aplicação web.")
     except Exception as e:
         print(f"Erro: {e}")
 `;
@@ -261,9 +266,9 @@ const AgentsTab: React.FC = () => {
                     Esta abordagem <strong>Air-Gapped</strong> garante segurança máxima. Os scripts não contêm credenciais.
                 </p>
                 <ol className="list-decimal list-inside space-y-1 ml-2 text-gray-300">
-                    <li>Descarregue o script e execute no computador alvo (Windows: "Executar com PowerShell").</li>
-                    <li>O script irá solicitar permissões de Administrador automaticamente para extrair a chave OEM da BIOS.</li>
-                    <li>Será gerado um ficheiro <code>.json</code> localmente com os dados do equipamento.</li>
+                    <li>Descarregue o script e execute no computador alvo.</li>
+                    <li>O script irá solicitar permissões de <strong>Administrador</strong> automaticamente.</li>
+                    <li>Será gerado um ficheiro <code>.json</code> contendo o inventário e a chave Windows.</li>
                     <li>Vá ao menu <strong>Ativos &gt; Equipamentos</strong> e clique em <strong>"Importar JSON Agente"</strong>.</li>
                 </ol>
                 <div className="flex gap-2 mt-3">
@@ -271,13 +276,13 @@ const AgentsTab: React.FC = () => {
                         onClick={() => setActiveTab('powershell')}
                         className={`px-4 py-2 rounded text-xs font-bold flex items-center gap-2 transition-colors ${activeTab === 'powershell' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
                     >
-                        <FaWindows /> Windows (PowerShell)
+                        <FaWindows /> Windows (PowerShell v2.5)
                     </button>
                     <button 
                         onClick={() => setActiveTab('python')}
                         className={`px-4 py-2 rounded text-xs font-bold flex items-center gap-2 transition-colors ${activeTab === 'python' ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
                     >
-                        <FaPython /> Cross-Platform (Python)
+                        <FaPython /> Cross-Platform (Python v2.5)
                     </button>
                 </div>
             </div>
