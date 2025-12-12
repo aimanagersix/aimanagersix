@@ -399,31 +399,20 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             address,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
         };
-        const contacts = dataToSave.contacts;
-        delete dataToSave.contacts;
+        // DO NOT delete contacts here. Let the parent OrganizationManager handle the split.
+        // We pass everything so the parent has all the necessary data to save supplier AND sync contacts properly.
 
         try {
             let result;
             if (supplierToEdit) {
-                // Merge old with new, but ensure contacts are removed
+                // Merge old with new
                 const payload = { ...supplierToEdit, ...dataToSave };
-                delete payload.contacts;
                 result = await onSave(payload);
             } else {
                 result = await onSave(dataToSave);
             }
 
             if (result) {
-                if (result.id && contacts && contacts.length > 0) {
-                    try {
-                        await dataService.syncResourceContacts('supplier', result.id, contacts);
-                    } catch (contactError: any) {
-                        console.error("Error saving contacts:", contactError);
-                        const msg = contactError.message || contactError.code || "Erro desconhecido";
-                        alert(`O fornecedor foi gravada, mas ocorreu um erro ao gravar os contactos adicionais: ${msg}. Verifique se a tabela 'resource_contacts' existe.`);
-                    }
-                }
-
                 // Ticket Creation Logic
                 if (createTicket && onCreateTicket && formData.is_iso27001_certified && formData.iso_certificate_expiry) {
                     let requestDate = customTicketDate;
@@ -444,10 +433,14 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     await onCreateTicket(ticketPayload);
                 }
                 setSuccessMessage('Fornecedor gravado com sucesso!');
-                setTimeout(() => setSuccessMessage(''), 3000);
+                setTimeout(() => {
+                    setSuccessMessage('');
+                    // Optionally close automatically or let user close
+                }, 3000);
             }
         } catch (error) {
             console.error("Erro ao salvar fornecedor ou ticket:", error);
+            alert("Erro ao gravar. Verifique a consola.");
         } finally {
             setIsSaving(false);
         }
@@ -495,6 +488,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2">
+                    {/* ... (Existing tab content rendering logic remains unchanged) ... */}
                     {activeTab === 'details' && (
                     <div className="space-y-4">
                         {/* Header Info - Grid Layout Fixed */}

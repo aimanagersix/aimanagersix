@@ -402,12 +402,21 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 <AddSupplierModal 
                     onClose={() => setShowAddSupplierModal(false)}
                     onSave={async (sup) => {
+                        const contacts = (sup as any).contacts;
+                        const supplierData = { ...sup };
+                        delete (supplierData as any).contacts;
+
                         let savedSupplier;
                         if (supplierToEdit) {
-                            savedSupplier = await dataService.updateSupplier(supplierToEdit.id, sup);
+                            savedSupplier = await dataService.updateSupplier(supplierToEdit.id, supplierData);
                         } else {
-                            savedSupplier = await dataService.addSupplier(sup);
+                            savedSupplier = await dataService.addSupplier(supplierData);
                         }
+
+                        if (contacts) {
+                            await dataService.syncResourceContacts('supplier', savedSupplier.id, contacts);
+                        }
+                        
                         refreshData();
                         return savedSupplier;
                     }}
