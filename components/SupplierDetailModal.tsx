@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel } from '../types';
@@ -132,7 +133,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
 
     return (
         <Modal title={`Detalhes do Fornecedor: ${supplier.name}`} onClose={onClose} maxWidth="max-w-4xl">
-            <div className="space-y-6">
+            <div className="space-y-6 overflow-y-auto max-h-[80vh] custom-scrollbar pr-2">
                 {/* Header */}
                 <div className="flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                     <div className="p-3 bg-brand-primary/20 rounded-full text-brand-secondary">
@@ -161,8 +162,8 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                         </span>
                     </div>
                 </div>
-                {/* ... Rest of the modal content remains unchanged ... */}
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-surface-dark border border-gray-700 p-4 rounded-lg">
                         <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-3">Conformidade NIS2</h3>
                         <div className="space-y-3">
@@ -213,7 +214,8 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                     </div>
                 </div>
                 
-                {supplier.contacts && supplier.contacts.length > 0 && (
+                {/* Explicitly Render Extra Contacts */}
+                {supplier.contacts && supplier.contacts.length > 0 ? (
                     <div className="bg-surface-dark border border-gray-700 p-4 rounded-lg">
                         <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-3 flex items-center gap-2"><FaUserTie /> Pessoas de Contacto ({supplier.contacts.length})</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-48 overflow-y-auto custom-scrollbar pr-2">
@@ -230,6 +232,10 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({ supplier, onC
                                 </div>
                             ))}
                         </div>
+                    </div>
+                ) : (
+                     <div className="bg-gray-800/30 border border-gray-700 border-dashed p-4 rounded-lg text-center text-sm text-gray-500">
+                        Não existem pessoas de contacto adicionais registadas.
                     </div>
                 )}
 

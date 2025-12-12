@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Supplier, CriticalityLevel, BusinessService } from '../types';
 // FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
-import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle } from './common/Icons';
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle, FaUsers } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import SupplierDetailModal from './SupplierDetailModal';
@@ -214,6 +214,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                     <tbody>
                         {paginatedSuppliers.length > 0 ? paginatedSuppliers.map((supplier) => {
                             const isActive = supplier.is_active !== false;
+                            const extraContacts = supplier.contacts?.length || 0;
                             return (
                             <tr 
                                 key={supplier.id} 
@@ -230,9 +231,20 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                     )}
                                 </td>
                                 <td className="px-6 py-4">
-                                    {supplier.contact_name && <div className="font-semibold text-xs text-white">{supplier.contact_name}</div>}
-                                    {supplier.contact_email && <div className="text-xs flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {supplier.contact_email}</div>}
-                                    {supplier.contact_phone && <div className="text-xs flex items-center gap-1"><FaPhone className="h-3 w-3"/> {supplier.contact_phone}</div>}
+                                    {supplier.contact_name ? (
+                                        <>
+                                            <div className="font-semibold text-xs text-white">{supplier.contact_name}</div>
+                                            {supplier.contact_email && <div className="text-xs flex items-center gap-1"><FaEnvelope className="h-3 w-3"/> {supplier.contact_email}</div>}
+                                            {supplier.contact_phone && <div className="text-xs flex items-center gap-1"><FaPhone className="h-3 w-3"/> {supplier.contact_phone}</div>}
+                                        </>
+                                    ) : <span className="text-xs text-gray-500 italic">Sem contacto principal</span>}
+                                    
+                                    {/* INDICATOR FOR EXTRA CONTACTS */}
+                                    {extraContacts > 0 && (
+                                        <div className="mt-2 inline-flex items-center gap-1 bg-gray-700/50 text-gray-300 text-[10px] px-2 py-0.5 rounded-full border border-gray-600">
+                                            <FaUsers className="h-3 w-3"/> + {extraContacts} Contacto{extraContacts > 1 ? 's' : ''}
+                                        </div>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     {supplier.is_iso27001_certified ? (

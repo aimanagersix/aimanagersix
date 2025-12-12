@@ -180,7 +180,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     typeId = newType.id;
                 }
 
-                // 3. Check if Equipment Exists - Need explicit check as we don't load all
+                // 3. Check if Equipment Exists
                 const { data: existingCheck } = await dataService.fetchEquipmentPaginated({ page: 1, pageSize: 1, filters: { serialNumber: json.serialNumber } });
                 const existingEq = existingCheck && existingCheck.length > 0 ? existingCheck[0] : null;
 
@@ -196,7 +196,9 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     macAddressWIFI: json.macAddressWIFI,
                     macAddressCabo: json.macAddressCabo,
                     disk_info: json.disk_info ? JSON.stringify(json.disk_info) : undefined,
-                    embedded_license_key: json.embedded_license_key, // NEW: Import License Key from BIOS
+                    embedded_license_key: json.embedded_license_key, 
+                    manufacture_date: json.bios_date, // NEW: BIOS Date
+                    last_security_update: json.last_patch_date, // NEW: Patch Date
                     last_inventory_scan: json.scan_date || new Date().toISOString().split('T')[0] 
                 };
 
@@ -207,7 +209,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                      await dataService.addEquipment({
                          ...payload,
                          status: EquipmentStatus.Stock,
-                         purchaseDate: undefined, 
+                         purchaseDate: null, // Force null so it doesn't default to 'now'. System uses creationDate for intro date.
                          criticality: 'Baixa',
                          creationDate: new Date().toISOString(),
                          modifiedDate: new Date().toISOString()
@@ -238,8 +240,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             {/* --- DASHBOARDS --- */}
             {activeTab === 'equipment.inventory' && (
                 <EquipmentDashboard 
-                    equipment={equipmentData} // Use local server-fetched data
-                    totalItems={totalEquipment} // Pass total count
+                    equipment={equipmentData} 
+                    totalItems={totalEquipment} 
                     loading={equipmentLoading}
                     page={equipmentPage}
                     pageSize={equipmentPageSize}
@@ -247,9 +249,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     onPageChange={setEquipmentPage}
                     onPageSizeChange={setEquipmentPageSize}
                     onSortChange={setEquipmentSort}
-                    onFilterChange={setDashboardFilter} // Updates parent filter state, triggering fetch via useEffect
+                    onFilterChange={setDashboardFilter} 
                     
-                    // Standard Props
                     brands={appData.brands} 
                     equipmentTypes={appData.equipmentTypes}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
@@ -294,11 +295,12 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                 />
             )}
 
+            {/* ... Rest of the file (Licensing, Procurement) remains unchanged ... */}
             {activeTab === 'licensing' && (
                 <LicenseDashboard 
                     licenses={appData.softwareLicenses}
                     licenseAssignments={appData.licenseAssignments}
-                    equipmentData={appData.equipment} // Caution: This might be empty if we optimize fetchAllData later. Licenses should probably also be paginated eventually.
+                    equipmentData={appData.equipment} 
                     assignments={appData.assignments}
                     collaborators={appData.collaborators}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
