@@ -10,19 +10,22 @@ import {
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
-// Child Dashboards/Components
+// Child Dashboards/Components (Shared)
 import BrandDashboard from '../../components/BrandDashboard';
 import EquipmentTypeDashboard from '../../components/EquipmentTypeDashboard';
 import CategoryDashboard from '../../components/CategoryDashboard';
 import SecurityIncidentTypeDashboard from '../../components/SecurityIncidentTypeDashboard';
 import RoleManager from '../../components/RoleManager'; 
-import BrandingTab from '../../components/settings/BrandingTab';
-import GeneralScansTab from '../../components/settings/GeneralScansTab';
-import ConnectionsTab from '../../components/settings/ConnectionsTab';
-import AgentsTab from '../../components/settings/AgentsTab';
-import WebhooksTab from '../../components/settings/WebhooksTab';
+
+// Local Feature Components (Corrected Imports)
+import BrandingTab from './BrandingTab';
+import GeneralScansTab from './GeneralScansTab';
+import ConnectionsTab from './ConnectionsTab';
+import AgentsTab from './AgentsTab';
+import WebhooksTab from './WebhooksTab';
 import CronJobsTab from './CronJobsTab';
-import SoftwareProductDashboard from '../../components/settings/SoftwareProductDashboard';
+import SoftwareProductDashboard from './SoftwareProductDashboard';
+import GenericConfigDashboard from './GenericConfigDashboard';
 
 // Modals for Child Dashboards
 import AddBrandModal from '../../components/AddBrandModal';
@@ -30,7 +33,7 @@ import AddEquipmentTypeModal from '../../components/AddEquipmentTypeModal';
 import AddCategoryModal from '../../components/AddCategoryModal';
 import AddSecurityIncidentTypeModal from '../../components/AddSecurityIncidentTypeModal';
 import SystemDiagnosticsModal from '../../components/SystemDiagnosticsModal';
-import GenericConfigDashboard from '../../components/settings/GenericConfigDashboard';
+
 
 interface SettingsManagerProps {
     appData: any;
@@ -235,7 +238,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     return (
         <>
             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-150px)]">
-                {/* Sidebar Menu - Added overflow-y-auto to this container explicitly */}
+                {/* Sidebar Menu */}
                 <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-full max-h-full">
                     {/* Reload Button */}
                     <div className="p-2 border-b border-gray-700 flex-shrink-0">
@@ -286,7 +289,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     {selectedMenuId === 'agents' && <AgentsTab />}
                     {selectedMenuId === 'cronjobs' && <CronJobsTab 
                         settings={settings} 
-                        onSettingsChange={(k, v) => setSettings((p:any) => ({ ...p, [k]: v }))} 
+                        onSettingsChange={(k: string, v: any) => setSettings((p:any) => ({ ...p, [k]: v }))} 
                         onSave={async () => {
                             try {
                                 // Save Weekly Report Settings
@@ -307,13 +310,13 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     />}
                     {selectedMenuId === 'webhooks' && <WebhooksTab 
                         settings={settings} 
-                        onSettingsChange={(k,v) => setSettings((p:any) => ({...p, [k]:v}))}
+                        onSettingsChange={(k: string, v: any) => setSettings((p:any) => ({...p, [k]:v}))}
                         onSimulate={handleSimulateWebhook}
                         onCreateSimulatedTicket={handleCreateSimulatedTicket}
                     />}
-                    {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
-                    {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
-                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
+                    {selectedMenuId === 'branding' && <BrandingTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
+                    {selectedMenuId === 'general' && <GeneralScansTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />}
+                    {selectedMenuId === 'connections' && <ConnectionsTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />}
                     {selectedMenuId === 'roles' && <RoleManager roles={appData.customRoles} onRefresh={refreshData} />}
                     {selectedMenuId === 'brands' && <BrandDashboard brands={appData.brands} equipment={appData.equipment} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />}
                     {selectedMenuId === 'equipment_types' && <EquipmentTypeDashboard equipmentTypes={appData.equipmentTypes} equipment={appData.equipment} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />}
