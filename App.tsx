@@ -341,6 +341,11 @@ export const App: React.FC = () => {
     const handleOpenProfile = () => {
         setShowProfileModal(true);
     };
+    
+    // NEW: Handle mobile menu close via layout context hook when expanding sidebar
+    const handleSidebarHover = (state: boolean) => {
+        setIsSidebarExpanded(state);
+    };
 
     // --- Render ---
 
@@ -386,7 +391,7 @@ export const App: React.FC = () => {
                     notificationCount={notificationCount}
                     onNotificationClick={() => setShowNotificationsModal(true)}
                     isExpanded={isSidebarExpanded}
-                    onHover={setIsSidebarExpanded}
+                    onHover={handleSidebarHover}
                     onOpenProfile={handleOpenProfile}
                     onOpenCalendar={() => setShowCalendarModal(true)}
                     onOpenManual={() => setShowUserManualModal(true)}
@@ -406,8 +411,8 @@ export const App: React.FC = () => {
                 />
             )}
 
-            <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar ${layoutMode === 'side' ? (isSidebarExpanded ? 'ml-64' : 'ml-20') : ''}`}>
-                <div className="max-w-screen-xl mx-auto p-4 md:p-6">
+            <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar overflow-x-hidden ${layoutMode === 'side' ? (isSidebarExpanded ? 'ml-0 md:ml-64' : 'ml-0 md:ml-20') : ''}`}>
+                <div className={`w-full max-w-full p-2 md:p-6 ${layoutMode === 'side' ? 'pt-20 md:pt-6' : ''}`}> {/* Added top padding for mobile header in side mode */}
                     
                     {/* ---------------- DASHBOARDS ---------------- */}
 
@@ -429,7 +434,7 @@ export const App: React.FC = () => {
                         onViewItem={handleViewItem}
                         onGenerateComplianceReport={() => { setReportType('compliance'); setShowReportModal(true); }}
                         procurementRequests={appData.procurementRequests}
-                        onRefresh={refreshData} // Added refresh handler
+                        onRefresh={refreshData} 
                     />}
 
                     {activeTab === 'overview.smart' && canViewSmartDashboard && (

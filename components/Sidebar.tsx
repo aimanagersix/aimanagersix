@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt, FaTimes } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -29,6 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const { t, setLanguage, language } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     
+    // Auto-open menus based on active tab
     const [isOrganizacaoOpen, setOrganizacaoOpen] = useState(activeTab.startsWith('organizacao') || activeTab === 'collaborators');
     const [isInventarioOpen, setInventarioOpen] = useState(activeTab.startsWith('equipment') || activeTab === 'licensing');
     const [isNis2Open, setIsNis2Open] = useState(activeTab.startsWith('nis2'));
@@ -36,6 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const [isToolsOpen, setIsToolsOpen] = useState(activeTab.startsWith('tools'));
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
+    // Modals
     const [showMFA, setShowMFA] = useState(false);
     const [showAudit, setShowAudit] = useState(false);
     const [showDbSchema, setShowDbSchema] = useState(false);
@@ -43,7 +45,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const hasOverviewTabs = tabConfig['overview'] || tabConfig['overview.smart'];
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.procurement'];
-    // Check granular compliance tabs
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience || tabConfig.nis2?.training || tabConfig.nis2?.policies;
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
@@ -52,12 +53,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
+    // Helper for Menu Items
     const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
         const handleClick = (e: React.MouseEvent) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
             if (onClick) onClick();
             else if (tab && setActiveTab) setActiveTab(tab); 
+            
+            // On mobile, close sidebar after click
+            if (window.innerWidth < 768) {
+                onHover(false); 
+            }
         };
 
         return (
@@ -83,22 +90,40 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
     return (
         <>
+        {/* Mobile Overlay (Only visible when expanded on mobile) */}
+        {isExpanded && (
+            <div 
+                className="md:hidden fixed inset-0 bg-black/50 z-40" 
+                onClick={() => onHover(false)}
+            />
+        )}
+
         <aside 
-            className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-all duration-300 ease-in-out ${isExpanded ? 'w-64' : 'w-20'}`}
-            onMouseEnter={() => onHover(true)}
+            className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-all duration-300 ease-in-out 
+                ${isExpanded ? 'w-64 translate-x-0' : 'w-20 -translate-x-full md:translate-x-0'}
+            `}
+            onMouseEnter={() => { if(window.innerWidth >= 768) onHover(true); }}
             onMouseLeave={() => {
-                onHover(false);
-                setIsUserMenuOpen(false); 
+                if(window.innerWidth >= 768) {
+                    onHover(false);
+                    setIsUserMenuOpen(false); 
+                }
             }}
         >
-            <div className="flex items-center justify-center h-20 flex-shrink-0 bg-gray-900 border-b border-gray-800 overflow-hidden whitespace-nowrap cursor-pointer" onClick={() => setActiveTab('overview')}>
-                <span className="font-bold text-2xl text-white transition-all duration-300">
-                    {isExpanded ? (
-                        <>AI<span className="text-brand-secondary">Manager</span></>
-                    ) : (
-                        <span className="text-brand-secondary">AI</span>
-                    )}
-                </span>
+            <div className="flex items-center justify-between h-20 flex-shrink-0 bg-gray-900 border-b border-gray-800 px-4">
+                <div className="flex items-center overflow-hidden whitespace-nowrap cursor-pointer" onClick={() => setActiveTab('overview')}>
+                    <span className="font-bold text-2xl text-white transition-all duration-300">
+                        {isExpanded ? (
+                            <>AI<span className="text-brand-secondary">Manager</span></>
+                        ) : (
+                            <span className="text-brand-secondary">AI</span>
+                        )}
+                    </span>
+                </div>
+                {/* Mobile Close Button */}
+                <button className="md:hidden text-gray-400" onClick={() => onHover(false)}>
+                    <FaTimes />
+                </button>
             </div>
 
             <nav className="flex-grow py-4 px-2 space-y-1 overflow-y-auto custom-scrollbar overflow-x-hidden">
@@ -259,7 +284,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             </nav>
 
             <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0 relative">
-                {/* Install Button */}
                 {isExpanded && (
                     <div className="mb-2">
                          <InstallAppButton 
@@ -290,7 +314,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         </button>
 
                         {isUserMenuOpen && (
-                            <div className="absolute bottom-full left-0 w-full mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50 min-w-[200px]">
+                            <div className="absolute bottom-full left-0 w-full mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50 min-w-[220px]">
                                 {onOpenProfile && (
                                     <button onClick={() => { onOpenProfile(); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-sm text-on-surface-dark hover:bg-gray-700">
                                         <FaUserCircle className="text-brand-secondary" /> {t('common.profile')}
