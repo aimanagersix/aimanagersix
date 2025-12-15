@@ -228,12 +228,8 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     
     const canApproveProcurement = checkPermission('procurement', 'delete');
 
-    const resolvedDetailEquipment = detailEquipment ? {
-        ...detailEquipment,
-        accounting_code: appData.configAccountingCategories.find((c:any) => c.id === detailEquipment.accounting_category_id)?.name,
-        conservation_state: appData.configConservationStates.find((c:any) => c.id === detailEquipment.conservation_state_id)?.name
-    } : null;
-
+    // No longer trying to resolve inside the manager, passing lists to modal instead
+    const resolvedDetailEquipment = detailEquipment;
 
     return (
         <>
@@ -380,7 +376,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
 
             {detailEquipment && (
                  <EquipmentHistoryModal 
-                    equipment={resolvedDetailEquipment || detailEquipment}
+                    equipment={detailEquipment}
                     assignments={appData.assignments}
                     collaborators={appData.collaborators}
                     escolasDepartamentos={appData.entidades}
@@ -396,6 +392,9 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     suppliers={appData.suppliers}
                     procurementRequests={appData.procurementRequests}
                     onViewItem={onViewItem}
+                    // PASS CONFIG LISTS FOR NAME RESOLUTION
+                    accountingCategories={appData.configAccountingCategories}
+                    conservationStates={appData.configConservationStates}
                  />
             )}
 

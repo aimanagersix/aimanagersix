@@ -1,8 +1,8 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier } from '../types';
-import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory, FaTools, FaPrint } from 'react-icons/fa';
+import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ConfigItem } from '../types';
+import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaEdit, FaPlus, FaMapMarkerAlt, FaLaptop, FaTicketAlt, FaHistory, FaTools, FaPrint, FaLandmark, FaRobot } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -22,6 +22,9 @@ interface EquipmentDetailModalProps {
     vulnerabilities?: Vulnerability[];
     suppliers?: Supplier[];
     onEdit?: (equipment: Equipment) => void;
+    // New Config Props
+    accountingCategories?: ConfigItem[];
+    conservationStates?: ConfigItem[];
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -35,7 +38,8 @@ const getCriticalityClass = (level: CriticalityLevel) => {
 
 const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({ 
     equipment, assignments, collaborators, escolasDepartamentos: entidades, onClose, tickets, ticketActivities,
-    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit
+    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit,
+    accountingCategories = [], conservationStates = []
 }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'licenses' | 'security'>('details');
     const [showManageLicenses, setShowManageLicenses] = useState(false);
@@ -129,7 +133,6 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
          const printWindow = window.open('', '_blank');
         if (!printWindow) return;
         
-        // Simple HTML template for quick print
         const content = `
             <html>
             <head><title>Ficha de Equipamento</title><style>body { font-family: sans-serif; padding: 20px; }</style></head>
@@ -146,6 +149,18 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
         printWindow.document.write(content);
         printWindow.document.close();
     };
+
+    // Lookup Names
+    const accountingName = useMemo(() => {
+        if (!equipment.accounting_category_id) return 'N/A';
+        return accountingCategories.find(c => c.id === equipment.accounting_category_id)?.name || equipment.accounting_category_id;
+    }, [equipment.accounting_category_id, accountingCategories]);
+
+    const conservationName = useMemo(() => {
+        if (!equipment.conservation_state_id) return 'N/A';
+        return conservationStates.find(c => c.id === equipment.conservation_state_id)?.name || equipment.conservation_state_id;
+    }, [equipment.conservation_state_id, conservationStates]);
+
 
     return (
         <Modal title={`Detalhes: ${equipment.serialNumber}`} onClose={onClose} maxWidth="max-w-5xl">
@@ -221,6 +236,12 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                         <div className="flex justify-between"><span className="text-gray-500">MAC Address (WiFi):</span> <span className="text-white font-mono">{equipment.macAddressWIFI || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">MAC Address (Cabo):</span> <span className="text-white font-mono">{equipment.macAddressCabo || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Sistema Operativo:</span> <span className="text-white">{equipment.os_version || '-'}</span></div>
+                                         {equipment.last_inventory_scan && (
+                                            <div className="flex justify-between mt-2 pt-2 border-t border-gray-700">
+                                                <span className="text-brand-secondary flex items-center gap-1"><FaRobot/> Último Inventário (Agente):</span> 
+                                                <span className="text-white font-bold">{equipment.last_inventory_scan}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="space-y-4">
@@ -235,47 +256,43 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                                 </div>
                             </div>
                             
-                            {/* FinOps TCO Block */}
+                            {/* Legal/Accounting Data */}
+                            <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
+                                 <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
+                                    <FaLandmark className="text-yellow-500"/> Contabilidade & Inventário Legal
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                                    <div>
+                                        <span className="block text-xs text-gray-500 uppercase">Classificador (CIBE)</span>
+                                        <span className="font-bold text-white">{accountingName}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs text-gray-500 uppercase">Estado de Conservação</span>
+                                        <span className={`font-bold text-white`}>
+                                            {conservationName}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs text-gray-500 uppercase">Valor Residual</span>
+                                        <span className="font-mono text-white">€ {equipment.residual_value || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div className="bg-gray-800/30 p-4 rounded border border-gray-700">
                                 <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2 border-b border-gray-700 pb-2">
                                     <FaEuroSign className="text-green-400"/> FinOps: TCO & Manutenção
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                    <div className="bg-gray-900 p-3 rounded">
-                                        <span className="block text-xs text-gray-500 uppercase">Compra</span>
-                                        <span className="text-lg font-bold text-white">€ {equipment.acquisitionCost || 0}</span>
-                                    </div>
-                                    <div className="bg-gray-900 p-3 rounded">
-                                        <span className="block text-xs text-gray-500 uppercase">Peças / Manutenção</span>
-                                        <span className="text-lg font-bold text-yellow-400">€ {maintenanceCost}</span>
-                                    </div>
-                                    <div className="bg-gray-900 p-3 rounded border border-green-900">
-                                        <span className="block text-xs text-green-500 uppercase font-bold">Custo Total (TCO)</span>
-                                        <span className="text-xl font-bold text-green-400">€ {totalTCO}</span>
-                                    </div>
+                                    <div className="bg-gray-900 p-3 rounded"><span className="block text-xs text-gray-500 uppercase">Compra</span><span className="text-lg font-bold text-white">€ {equipment.acquisitionCost || 0}</span></div>
+                                    <div className="bg-gray-900 p-3 rounded"><span className="block text-xs text-gray-500 uppercase">Manutenção</span><span className="text-lg font-bold text-yellow-400">€ {maintenanceCost}</span></div>
+                                    <div className="bg-gray-900 p-3 rounded border border-green-900"><span className="block text-xs text-green-500 uppercase font-bold">TCO</span><span className="text-xl font-bold text-green-400">€ {totalTCO}</span></div>
                                 </div>
                                 
                                 {childEquipment.length > 0 ? (
                                     <div>
-                                        <h4 className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-2"><FaTools/> Peças & Componentes Instalados</h4>
-                                        <table className="w-full text-xs text-left">
-                                            <thead className="bg-gray-900 text-gray-500 uppercase">
-                                                <tr>
-                                                    <th className="p-2">Descrição</th>
-                                                    <th className="p-2">Data Compra</th>
-                                                    <th className="p-2 text-right">Custo</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-700">
-                                                {childEquipment.map(child => (
-                                                    <tr key={child.id}>
-                                                        <td className="p-2 text-gray-300">{child.description} ({child.serialNumber})</td>
-                                                        <td className="p-2 text-gray-400">{child.purchaseDate}</td>
-                                                        <td className="p-2 text-right font-mono text-white">€ {child.acquisitionCost || 0}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                        <h4 className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-2"><FaTools/> Peças Instaladas</h4>
+                                        <table className="w-full text-xs text-left"><thead className="bg-gray-900 text-gray-500 uppercase"><tr><th className="p-2">Descrição</th><th className="p-2">Data</th><th className="p-2 text-right">Custo</th></tr></thead><tbody className="divide-y divide-gray-700">{childEquipment.map(c => <tr key={c.id}><td className="p-2 text-gray-300">{c.description}</td><td className="p-2 text-gray-400">{c.purchaseDate}</td><td className="p-2 text-right font-mono text-white">€ {c.acquisitionCost || 0}</td></tr>)}</tbody></table>
                                     </div>
                                 ) : (
                                     <p className="text-xs text-gray-500 italic">Nenhum componente ou manutenção registada.</p>

@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest } from '../types';
+import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest, ConfigItem } from '../types';
 import { FaShieldAlt, FaExclamationTriangle, FaKey, FaBug, FaGlobe, FaPhone, FaEnvelope, FaEuroSign, FaChartLine, FaEdit, FaPlus, FaMapMarkerAlt, FaServer, FaShoppingCart, FaLaptop, FaTools, FaTicketAlt, FaHistory, FaRobot, FaLandmark, FaSpinner } from 'react-icons/fa';
 import ManageAssignedLicensesModal from './ManageAssignedLicensesModal';
 import * as dataService from '../services/dataService';
@@ -25,6 +25,9 @@ interface EquipmentHistoryModalProps {
     procurementRequests?: ProcurementRequest[];
     onEdit?: (equipment: Equipment) => void;
     onViewItem?: (tab: string, filter: any) => void;
+    // Config Lists for Name Resolution
+    accountingCategories?: ConfigItem[];
+    conservationStates?: ConfigItem[];
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -38,7 +41,8 @@ const getCriticalityClass = (level: CriticalityLevel) => {
 
 const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({ 
     equipment, assignments, collaborators, escolasDepartamentos: entidades, onClose, tickets, ticketActivities,
-    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit, procurementRequests = [], onViewItem
+    businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit, procurementRequests = [], onViewItem,
+    accountingCategories = [], conservationStates = []
 }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'licenses' | 'security' | 'acquisition'>('details');
     const [showManageLicenses, setShowManageLicenses] = useState(false);
@@ -127,6 +131,17 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     const handleSaveLicenses = async (eqId: string, licenseIds: string[]) => {
         await dataService.syncLicenseAssignments(eqId, licenseIds);
     };
+
+    // Lookup Names
+    const accountingName = useMemo(() => {
+        if (!equipment.accounting_category_id) return 'N/A';
+        return accountingCategories.find(c => c.id === equipment.accounting_category_id)?.name || equipment.accounting_category_id;
+    }, [equipment.accounting_category_id, accountingCategories]);
+
+    const conservationName = useMemo(() => {
+        if (!equipment.conservation_state_id) return 'N/A';
+        return conservationStates.find(c => c.id === equipment.conservation_state_id)?.name || equipment.conservation_state_id;
+    }, [equipment.conservation_state_id, conservationStates]);
 
     return (
         <>
@@ -241,13 +256,12 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                                     <div>
                                         <span className="block text-xs text-gray-500 uppercase">Classificador (CIBE)</span>
-                                        {/* Note: The parent component (InventoryManager) should pass resolved names if they are IDs, or the Equipment object should have them populated. Assuming IDs for now, but if resolved, 'accounting_code' prop. */}
-                                        <span className="font-mono text-white">{(equipment as any).accounting_code || equipment.accounting_category_id || 'N/A'}</span>
+                                        <span className="font-bold text-white">{accountingName}</span>
                                     </div>
                                     <div>
                                         <span className="block text-xs text-gray-500 uppercase">Estado de Conservação</span>
                                         <span className={`font-bold text-white`}>
-                                            {(equipment as any).conservation_state || equipment.conservation_state_id || 'N/A'}
+                                            {conservationName}
                                         </span>
                                     </div>
                                     <div>

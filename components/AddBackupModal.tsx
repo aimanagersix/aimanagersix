@@ -74,15 +74,16 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
 
         return equipmentList
             .filter(e => {
+                // Must be Operacional to be backed up
+                if (e.status !== 'Operacional') return false;
+
                 // Check A: Is the typeId strictly in the allowed IDs list?
                 if (allowedTypeIds.has(e.typeId)) return true;
 
                 // Check B: Did the import save the Name instead of ID in the typeId field?
-                // (This fixes the "Counter is 0" issue where IDs don't match but Names do)
                 if (e.typeId && allowedTypeNames.has(String(e.typeId).toLowerCase().trim())) return true;
 
                 // Check C: Resolve the Equipment's Type object and check its flag directly
-                // (Handles cases where ID matches but the Set lookup failed for some reason)
                 const actualType = equipmentTypes.find(t => t.id === e.typeId);
                 if (actualType) {
                      const needsBackup = actualType.requiresBackupTest || (actualType as any).requires_backup_test;
@@ -270,7 +271,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                             {eligibleEquipment.length > 0 ? eligibleEquipment.map(eq => (
                                 <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
                             )) : (
-                                <option value="" disabled>Nenhum equipamento marcado para backup encontrado (verifique se 'Requer Backup' está ativo no Tipo)</option>
+                                <option value="" disabled>Nenhum equipamento 'Operacional' requer backup.</option>
                             )}
                         </select>
                     </div>
