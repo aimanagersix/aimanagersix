@@ -55,24 +55,42 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Filter eligible equipment based on type configuration
+    // Robust Equipment Filtering Logic
     const eligibleEquipment = useMemo(() => {
         if (showAllEquipment) {
             return equipmentList.sort((a, b) => a.description.localeCompare(b.description));
         }
 
-        const allowedTypeIds = new Set(
-            equipmentTypes.filter(t => {
-                // Robust check: Handle camelCase (Frontend) and snake_case (DB raw)
-                // Use Boolean() to handle 1/0 integers or string "true" if DB returns differently
-                const camel = t.requiresBackupTest;
-                const snake = (t as any).requires_backup_test;
-                return Boolean(camel) || Boolean(snake);
-            }).map(t => t.id)
-        );
+        // 1. Identify which Types imply a backup is needed
+        const typesRequiringBackup = equipmentTypes.filter(t => {
+            const camel = t.requiresBackupTest;
+            const snake = (t as any).requires_backup_test;
+            return Boolean(camel) || Boolean(snake);
+        });
         
+        // 2. Create sets for fast lookup of both ID and Name (handles data inconsistency)
+        const allowedTypeIds = new Set(typesRequiringBackup.map(t => t.id));
+        const allowedTypeNames = new Set(typesRequiringBackup.map(t => t.name.toLowerCase().trim()));
+
         return equipmentList
-            .filter(e => allowedTypeIds.has(e.typeId))
+            .filter(e => {
+                // Check A: Is the typeId strictly in the allowed IDs list?
+                if (allowedTypeIds.has(e.typeId)) return true;
+
+                // Check B: Did the import save the Name instead of ID in the typeId field?
+                // (This fixes the "Counter is 0" issue where IDs don't match but Names do)
+                if (e.typeId && allowedTypeNames.has(String(e.typeId).toLowerCase().trim())) return true;
+
+                // Check C: Resolve the Equipment's Type object and check its flag directly
+                // (Handles cases where ID matches but the Set lookup failed for some reason)
+                const actualType = equipmentTypes.find(t => t.id === e.typeId);
+                if (actualType) {
+                     const needsBackup = actualType.requiresBackupTest || (actualType as any).requires_backup_test;
+                     if (needsBackup) return true;
+                }
+
+                return false;
+            })
             .sort((a, b) => a.description.localeCompare(b.description));
     }, [equipmentList, equipmentTypes, showAllEquipment]);
 
@@ -84,14 +102,15 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             if (backupToEdit.attachments) {
                 setAttachments(backupToEdit.attachments.map(a => ({ ...a, size: 0 })));
             }
-            // If editing a record for an equipment not in the filtered list, show all to ensure it appears
+            // If editing, verify if the equipment is in the filtered list. If not, show all to ensure it appears.
             if (backupToEdit.equipment_id) {
-                // Check if currently filtered list contains it. If not, auto-enable show all
-                // This logic happens inside the render or via user interaction usually, 
-                // but setting showAllEquipment true if needed is safe.
+                const inList = eligibleEquipment.some(e => e.id === backupToEdit.equipment_id);
+                if (!inList) {
+                    setShowAllEquipment(true);
+                }
             }
         }
-    }, [backupToEdit]);
+    }, [backupToEdit, eligibleEquipment]);
 
     // Update system name when equipment changes
     useEffect(() => {
@@ -251,7 +270,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                             {eligibleEquipment.length > 0 ? eligibleEquipment.map(eq => (
                                 <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
                             )) : (
-                                <option value="" disabled>Nenhum equipamento marcado para backup</option>
+                                <option value="" disabled>Nenhum equipamento marcado para backup encontrado (verifique se 'Requer Backup' está ativo no Tipo)</option>
                             )}
                         </select>
                     </div>
@@ -264,7 +283,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                                 onChange={(e) => setShowAllEquipment(e.target.checked)} 
                                 className="rounded bg-gray-700 border-gray-600 text-brand-secondary focus:ring-brand-secondary"
                             />
-                            <span className="flex items-center gap-1"><FaFilter className="text-[10px]"/> Mostrar todos os equipamentos (ignorar filtro de tipo)</span>
+                            <span className="flex items-center gap-1"><FaFilter className="text-[10px]"/> Mostrar todos os equipamentos (ignorar filtro)</span>
                         </label>
                     </div>
                     
