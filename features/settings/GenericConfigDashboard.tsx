@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ConfigItem } from '../../types';
 import * as dataService from '../../services/dataService';

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import * as dataService from '../../services/dataService';
 import { parseSecurityAlert } from '../../services/geminiService';
