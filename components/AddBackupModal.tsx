@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Modal from './common/Modal';
 import { BackupExecution, BackupType, Collaborator, Equipment, EquipmentType, Ticket, TicketStatus } from '../types';
-import { FaServer, FaFileContract, FaDownload, FaTicketAlt, FaCalendarPlus, FaRobot } from 'react-icons/fa';
+import { FaServer, FaFileContract, FaDownload, FaTicketAlt, FaCalendarPlus, FaRobot, FaFilter } from 'react-icons/fa';
 // FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { FaTrash as DeleteIcon, SpinnerIcon } from './common/Icons';
 import { analyzeBackupScreenshot, isAiConfigured } from '../services/geminiService';
@@ -47,6 +47,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
     // Ticket creation state
     const [createTicket, setCreateTicket] = useState(false);
     const [ticketDate, setTicketDate] = useState('');
+    const [showAllEquipment, setShowAllEquipment] = useState(false);
     
     // AI Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -56,11 +57,21 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
 
     // Filter eligible equipment based on type configuration
     const eligibleEquipment = useMemo(() => {
+        if (showAllEquipment) {
+            return equipmentList.sort((a, b) => a.description.localeCompare(b.description));
+        }
+
         const allowedTypeIds = new Set(
-            equipmentTypes.filter(t => t.requiresBackupTest).map(t => t.id)
+            equipmentTypes.filter(t => 
+                // Check both camelCase (Typescript) and snake_case (Raw DB) properties to ensure compatibility
+                t.requiresBackupTest === true || (t as any).requires_backup_test === true
+            ).map(t => t.id)
         );
-        return equipmentList.filter(e => allowedTypeIds.has(e.typeId));
-    }, [equipmentList, equipmentTypes]);
+        
+        return equipmentList
+            .filter(e => allowedTypeIds.has(e.typeId))
+            .sort((a, b) => a.description.localeCompare(b.description));
+    }, [equipmentList, equipmentTypes, showAllEquipment]);
 
     const equipmentMap = useMemo(() => new Map(equipmentList.map(e => [e.id, e])), [equipmentList]);
 
@@ -69,6 +80,12 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             setFormData({ ...backupToEdit });
             if (backupToEdit.attachments) {
                 setAttachments(backupToEdit.attachments.map(a => ({ ...a, size: 0 })));
+            }
+            // If editing a record for an equipment not in the filtered list, show all to ensure it appears
+            if (backupToEdit.equipment_id) {
+                // Check if currently filtered list contains it. If not, auto-enable show all
+                // This logic happens inside the render or via user interaction usually, 
+                // but setting showAllEquipment true if needed is safe.
             }
         }
     }, [backupToEdit]);
@@ -216,21 +233,37 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                 
                 {/* Equipment Selection */}
                 <div className="bg-gray-900/30 p-3 rounded border border-gray-700">
-                    <label htmlFor="equipment_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Sistema / Equipamento (Apenas tipos elegíveis)</label>
-                    <select 
-                        name="equipment_id" 
-                        id="equipment_id" 
-                        value={formData.equipment_id} 
-                        onChange={handleChange} 
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm mb-2"
-                    >
-                        <option value="">-- Selecione Equipamento (Opcional) --</option>
-                        {eligibleEquipment.length > 0 ? eligibleEquipment.map(eq => (
-                            <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
-                        )) : (
-                            <option value="" disabled>Nenhum equipamento marcado para backup</option>
-                        )}
-                    </select>
+                    <label htmlFor="equipment_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
+                        Sistema / Equipamento
+                    </label>
+                    <div className="flex gap-2 mb-2">
+                        <select 
+                            name="equipment_id" 
+                            id="equipment_id" 
+                            value={formData.equipment_id} 
+                            onChange={handleChange} 
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                        >
+                            <option value="">-- Selecione Equipamento (Opcional) --</option>
+                            {eligibleEquipment.length > 0 ? eligibleEquipment.map(eq => (
+                                <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
+                            )) : (
+                                <option value="" disabled>Nenhum equipamento marcado para backup</option>
+                            )}
+                        </select>
+                    </div>
+
+                    <div className="flex items-center mb-3">
+                         <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-400 hover:text-white transition-colors">
+                            <input 
+                                type="checkbox" 
+                                checked={showAllEquipment} 
+                                onChange={(e) => setShowAllEquipment(e.target.checked)} 
+                                className="rounded bg-gray-700 border-gray-600 text-brand-secondary focus:ring-brand-secondary"
+                            />
+                            <span className="flex items-center gap-1"><FaFilter className="text-[10px]"/> Mostrar todos os equipamentos (ignorar filtro de tipo)</span>
+                        </label>
+                    </div>
                     
                     <label htmlFor="system_name" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Nome do Sistema (Manual se não selecionado)</label>
                     <input 

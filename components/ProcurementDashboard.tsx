@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole } from '../types';
-import { FaShoppingCart, FaPlus, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaBoxOpen, FaEdit, FaTrash, FaMicrochip, FaKey } from 'react-icons/fa';
+import { FaShoppingCart, FaPlus, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaBoxOpen, FaEdit, FaTrash, FaMicrochip, FaKey, FaSort, FaSortUp, FaSortDown, FaSync } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import * as dataService from '../services/dataService'; // For brand fetching if not passed via props, but assume props passed usually
 
@@ -29,12 +29,44 @@ const getStatusClass = (status: string) => {
     }
 };
 
+// Helper Component for Sortable Headers
+const SortableHeader: React.FC<{
+    label: string;
+    sortKey: string;
+    currentSort: { key: string; direction: 'ascending' | 'descending' };
+    onSort: (key: string) => void;
+    className?: string;
+}> = ({ label, sortKey, currentSort, onSort, className = "" }) => (
+    <th 
+        scope="col" 
+        className={`px-6 py-3 cursor-pointer hover:bg-gray-700/50 transition-colors group ${className}`}
+        onClick={() => onSort(sortKey)}
+    >
+        <div className={`flex items-center gap-2 ${className.includes('text-right') ? 'justify-end' : className.includes('text-center') ? 'justify-center' : 'justify-start'}`}>
+            {label}
+            <span className="text-gray-500 group-hover:text-gray-300">
+                {currentSort.key === sortKey ? (
+                    currentSort.direction === 'ascending' ? <FaSortUp /> : <FaSortDown />
+                ) : (
+                    <FaSort className="opacity-50" />
+                )}
+            </span>
+        </div>
+    </th>
+);
+
 const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = [], collaborators, suppliers, currentUser, onCreate, onEdit, onDelete, onReceive, canApprove = false }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [brandMap, setBrandMap] = useState<Map<string, string>>(new Map());
+    
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'request_date',
+        direction: 'descending'
+    });
 
     useEffect(() => {
         const loadBrands = async () => {
@@ -48,9 +80,24 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const handleClearFilters = () => {
+        setSearchQuery('');
+        setFilterStatus('');
+        setCurrentPage(1);
+    };
+
     const filteredRequests = useMemo(() => {
         if (!requests) return [];
-        return requests.filter(r => {
+        
+        let filtered = requests.filter(r => {
             const requesterName = collaboratorMap.get(r.requester_id)?.toLowerCase() || '';
             const supplierName = r.supplier_id ? (supplierMap.get(r.supplier_id)?.toLowerCase() || '') : '';
             const brandName = r.brand_id ? (brandMap.get(r.brand_id)?.toLowerCase() || '') : '';
@@ -64,8 +111,49 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
             const statusMatch = filterStatus === '' || r.status === filterStatus;
             
             return searchMatch && statusMatch;
-        }).sort((a, b) => new Date(b.request_date).getTime() - new Date(a.request_date).getTime());
-    }, [requests, searchQuery, filterStatus, collaboratorMap, supplierMap, brandMap]);
+        });
+
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let valA: any = a[sortConfig.key as keyof ProcurementRequest];
+            let valB: any = b[sortConfig.key as keyof ProcurementRequest];
+
+            // Resolve values for specific sort keys
+            if (sortConfig.key === 'requester_id') {
+                valA = collaboratorMap.get(a.requester_id) || '';
+                valB = collaboratorMap.get(b.requester_id) || '';
+            } else if (sortConfig.key === 'brand_supplier') {
+                // Hybrid Sort for the combined column
+                const brandA = a.brand_id ? brandMap.get(a.brand_id) : '';
+                const brandB = b.brand_id ? brandMap.get(b.brand_id) : '';
+                const supA = a.supplier_id ? supplierMap.get(a.supplier_id) : '';
+                const supB = b.supplier_id ? supplierMap.get(b.supplier_id) : '';
+                valA = (brandA || '') + (supA || '');
+                valB = (brandB || '') + (supB || '');
+            } else if (sortConfig.key === 'estimated_cost') {
+                valA = a.estimated_cost || 0;
+                valB = b.estimated_cost || 0;
+            }
+
+            // Null safety
+            if (valA === undefined || valA === null) valA = '';
+            if (valB === undefined || valB === null) valB = '';
+
+            // String comparison
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return sortConfig.direction === 'ascending' 
+                    ? valA.localeCompare(valB) 
+                    : valB.localeCompare(valA);
+            }
+            
+            // Numeric/Date comparison
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+
+        return filtered;
+    }, [requests, searchQuery, filterStatus, collaboratorMap, supplierMap, brandMap, sortConfig]);
 
     const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
     const paginatedRequests = useMemo(() => {
@@ -90,7 +178,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                 )}
             </div>
 
-            <div className="flex gap-4 mb-6 bg-gray-900/30 p-4 rounded-lg border border-gray-700">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6 bg-gray-900/30 p-4 rounded-lg border border-gray-700">
                 <div className="relative flex-grow">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <FaSearch className="h-4 w-4 text-gray-400" />
@@ -106,25 +194,31 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                 <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
+                    className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm sm:w-48"
                 >
                     <option value="">Todos os Estados</option>
                     {Object.values(ProcurementStatus).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
+                <button 
+                    onClick={handleClearFilters}
+                    className="px-4 py-2 text-sm bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors flex items-center gap-2 border border-gray-600 whitespace-nowrap"
+                >
+                    <FaSync className={searchQuery || filterStatus ? "text-brand-secondary" : ""} /> Limpar
+                </button>
             </div>
 
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th className="px-6 py-3">Data</th>
-                            <th className="px-6 py-3">Tipo</th>
-                            <th className="px-6 py-3">Pedido</th>
-                            <th className="px-6 py-3">Marca/Fornecedor</th>
-                            <th className="px-6 py-3">Requerente</th>
-                            <th className="px-6 py-3 text-center">Qtd</th>
-                            <th className="px-6 py-3 text-right">Valor Est.</th>
-                            <th className="px-6 py-3 text-center">Estado</th>
+                            <SortableHeader label="Data" sortKey="request_date" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Tipo" sortKey="resource_type" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Pedido" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Marca/Fornecedor" sortKey="brand_supplier" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Requerente" sortKey="requester_id" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Qtd" sortKey="quantity" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Valor Est." sortKey="estimated_cost" currentSort={sortConfig} onSort={handleSort} className="text-right" />
+                            <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
@@ -139,9 +233,9 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                                 className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer transition-colors"
                                 onClick={() => onEdit && onEdit(req)}
                             >
-                                <td className="px-6 py-4 text-white">{new Date(req.request_date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 text-white whitespace-nowrap">{new Date(req.request_date).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 text-center">
-                                    {req.resource_type === 'Hardware' ? <FaMicrochip title="Hardware" className="text-blue-400"/> : <FaKey title="Software" className="text-yellow-400"/>}
+                                    {req.resource_type === 'Hardware' ? <FaMicrochip title="Hardware" className="text-blue-400 mx-auto"/> : <FaKey title="Software" className="text-yellow-400 mx-auto"/>}
                                 </td>
                                 <td className="px-6 py-4 font-medium text-on-surface-dark">
                                     {req.title}
@@ -153,7 +247,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                                 </td>
                                 <td className="px-6 py-4">{collaboratorMap.get(req.requester_id)}</td>
                                 <td className="px-6 py-4 text-center">{req.quantity}</td>
-                                <td className="px-6 py-4 text-right font-mono">{req.estimated_cost ? `€ ${req.estimated_cost}` : '-'}</td>
+                                <td className="px-6 py-4 text-right font-mono">{req.estimated_cost ? `€ ${req.estimated_cost.toLocaleString()}` : '-'}</td>
                                 <td className="px-6 py-4 text-center">
                                     <span className={`px-2 py-1 text-xs rounded border ${getStatusClass(req.status)}`}>
                                         {req.status}

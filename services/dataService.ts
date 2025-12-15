@@ -64,13 +64,8 @@ export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
 };
 
 export const fetchDatabaseTriggers = async () => {
-    // This requires a specific RPC function to be set up in Supabase to query information_schema or pg_trigger
-    // If not available, we return empty or try a raw query if enabled (unlikely from client)
-    // We'll try calling an RPC if it exists, otherwise return mockup or empty.
-    // Assuming 'get_db_triggers' RPC exists from setup scripts.
-    const { data, error } = await sb().rpc('get_db_triggers'); // Custom RPC needed
+    const { data, error } = await sb().rpc('get_db_triggers'); 
     if (error) {
-        // Fallback for demo/dev if RPC missing
         return { data: [], error: null }; 
     }
     return { data, error };
@@ -129,7 +124,7 @@ export const deleteEquipmentType = (id: string) => remove('equipment_types', id)
 // Equipment
 export const addEquipment = (data: any) => create('equipment', data);
 export const updateEquipment = (id: string, data: any) => update('equipment', id, data);
-export const deleteEquipment = (id: string) => remove('equipment', id); // Not standard used but good to have
+export const deleteEquipment = (id: string) => remove('equipment', id); 
 export const addMultipleEquipment = async (items: any[]) => {
     const { data, error } = await sb().from('equipment').insert(items).select();
     if (error) throw error;
@@ -150,15 +145,12 @@ export const addMultipleLicenses = async (items: any[]) => {
 };
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const supabase = sb();
-    // 1. Get current active assignments
     const { data: current } = await supabase.from('license_assignments').select('*').eq('equipmentId', equipmentId).is('returnDate', null);
-    // Explicitly cast to string to avoid 'unknown' inference issues
     const currentLicenseIds = new Set<string>((current?.map((c: any) => String(c.softwareLicenseId)) || []));
 
     const toAdd = licenseIds.filter(id => !currentLicenseIds.has(id));
     const toRemove = Array.from(currentLicenseIds).filter(id => !licenseIds.includes(id));
 
-    // 2. Add new
     if (toAdd.length > 0) {
         const newRecords = toAdd.map(lid => ({
             equipmentId,
@@ -168,7 +160,6 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         await supabase.from('license_assignments').insert(newRecords);
     }
 
-    // 3. Remove old (update returnDate)
     if (toRemove.length > 0) {
         await supabase.from('license_assignments')
             .update({ returnDate: new Date().toISOString().split('T')[0] })
@@ -208,11 +199,9 @@ export const addSupplier = (data: any) => create('suppliers', data);
 export const updateSupplier = (id: string, data: any) => update('suppliers', id, data);
 export const deleteSupplier = (id: string) => remove('suppliers', id);
 
-// --- CORREÇÃO DA FUNÇÃO SYNC CONTACTS ---
 export const syncResourceContacts = async (type: string, resourceId: string, contacts: any[]) => {
     const supabase = sb();
     
-    // 1. Limpar contactos anteriores para este recurso
     const { error: deleteError } = await supabase
         .from('resource_contacts')
         .delete()
@@ -225,7 +214,6 @@ export const syncResourceContacts = async (type: string, resourceId: string, con
     }
     
     if (contacts && contacts.length > 0) {
-        // 2. Mapeamento explícito para evitar enviar lixo ou IDs gerados pelo frontend
         const records = contacts.map(c => ({
             resource_type: type,
             resource_id: resourceId,
@@ -235,8 +223,6 @@ export const syncResourceContacts = async (type: string, resourceId: string, con
             email: c.email || '',
             phone: c.phone || '',
             is_active: c.is_active !== false
-            // IMPORTANTE: Não enviar 'id' se for gerado pelo crypto.randomUUID no frontend, 
-            // deixar a BD gerar o UUID correto.
         }));
 
         const { error: insertError } = await supabase
@@ -253,20 +239,10 @@ export const syncResourceContacts = async (type: string, resourceId: string, con
 // Collaborators
 export const addCollaborator = async (data: any, password?: string) => {
     const supabase = sb();
-    // 1. Create in public.collaborators
     const { data: collab, error } = await supabase.from('collaborators').insert(data).select().single();
     if (error) throw error;
 
-    // 2. If login enabled and password provided, create in Auth (Server-side usually, but here via client using service key if possible or anon key if allowed)
-    // Note: Client-side creation of other users requires Admin privileges and likely a Supabase Edge Function or proper RLS.
-    // For this demo, we assume the user creating has permission or using a special flow.
-    // If we have a password, we try to signUp.
     if (data.canLogin && password && data.email) {
-        // Warning: signUp signs in the user immediately in client context. 
-        // To create user without signing in, use Admin API (Service Role) via Edge Function.
-        // We will call an Edge Function or assume the user uses the 'invite' functionality later.
-        // Falling back to a direct RPC call if exists, or just skipping auth creation here (manual signup).
-        // Let's assume we call a helper RPC or edge function
         await supabase.functions.invoke('admin-create-user', { 
             body: { email: data.email, password, user_metadata: { collaborator_id: collab.id } }
         });
@@ -285,7 +261,6 @@ export const uploadCollaboratorPhoto = async (id: string, file: File) => {
     await updateCollaborator(id, { photoUrl: publicUrl });
 };
 export const adminResetPassword = async (userId: string, newPassword: string) => {
-    // This requires Service Role. We should call an edge function.
     await sb().functions.invoke('admin-reset-password', { body: { userId, newPassword } });
 };
 
@@ -395,7 +370,6 @@ export const fetchLastRiskAcknowledgement = async () => {
     return data;
 };
 export const triggerBirthdayCron = async () => {
-    // Invoke function
     const { error } = await sb().rpc('send_daily_birthday_emails');
     if (error) throw error;
 };
@@ -403,7 +377,7 @@ export const snoozeNotification = (id: string) => {
     const existing = localStorage.getItem('snoozed_notifications');
     const snoozed = existing ? JSON.parse(existing) : [];
     const snoozeUntil = new Date();
-    snoozeUntil.setDate(snoozeUntil.getDate() + 7); // Snooze for 7 days
+    snoozeUntil.setDate(snoozeUntil.getDate() + 7); 
     snoozed.push({ id, until: snoozeUntil.toISOString() });
     localStorage.setItem('snoozed_notifications', JSON.stringify(snoozed));
 };
@@ -493,17 +467,35 @@ export const fetchTicketsPaginated = async ({ page, pageSize, filters, sort }: a
     return { data: data || [], total: count || 0 };
 };
 
+// Safe Fetch Helper: Prevents crashing entire dashboard if one table fails/missing
+const safe = (p: Promise<any>) => p.catch(err => {
+    console.warn("Non-critical data fetch warning:", err.message);
+    return { data: [], error: err };
+});
+
 export const fetchAllData = async () => {
     const supabase = sb();
+    
+    // Critical tables - fail hard if missing
     const [
+        { data: equipment }, 
+        { data: collaborators },
+        { data: tickets },
         { data: brands },
         { data: equipmentTypes },
-        { data: equipment }, 
+    ] = await Promise.all([
+        supabase.from('equipment').select('*'), 
+        supabase.from('collaborators').select('*'),
+        supabase.from('tickets').select('*'),
+        supabase.from('brands').select('*'),
+        supabase.from('equipment_types').select('*'),
+    ]);
+
+    // Secondary / Feature tables - wrapped in safe() to allow partial load
+    const [
         { data: instituicoes },
         { data: entidades },
-        { data: collaborators },
         { data: assignments },
-        { data: tickets },
         { data: ticketActivities },
         { data: softwareLicenses },
         { data: licenseAssignments },
@@ -548,57 +540,52 @@ export const fetchAllData = async () => {
         { data: collaboratorHistory },
         { data: documentTemplates } 
     ] = await Promise.all([
-        supabase.from('brands').select('*'),
-        supabase.from('equipment_types').select('*'),
-        supabase.from('equipment').select('*'), 
-        supabase.from('instituicoes').select('*'),
-        supabase.from('entidades').select('*'),
-        supabase.from('collaborators').select('*'),
-        supabase.from('assignments').select('*'),
-        supabase.from('tickets').select('*'),
-        supabase.from('ticket_activities').select('*'),
-        supabase.from('software_licenses').select('*'),
-        supabase.from('license_assignments').select('*'),
-        supabase.from('teams').select('*'),
-        supabase.from('team_members').select('*'),
-        supabase.from('messages').select('*').order('timestamp', { ascending: false }).limit(500),
-        supabase.from('ticket_categories').select('*'),
-        supabase.from('security_incident_types').select('*'),
-        supabase.from('business_services').select('*'),
-        supabase.from('service_dependencies').select('*'),
-        supabase.from('vulnerabilities').select('*'),
-        supabase.from('suppliers').select('*'), 
-        supabase.from('resource_contacts').select('*'), 
-        supabase.from('backup_executions').select('*'),
-        supabase.from('resilience_tests').select('*'),
-        supabase.from('security_training_records').select('*'),
-        supabase.from('config_custom_roles').select('*'),
-        supabase.from('config_software_categories').select('*'),
-        supabase.from('config_software_products').select('*'),
-        supabase.from('config_equipment_statuses').select('*'),
-        supabase.from('contact_roles').select('*'),
-        supabase.from('contact_titles').select('*'),
-        supabase.from('config_criticality_levels').select('*'),
-        supabase.from('config_cia_ratings').select('*'),
-        supabase.from('config_service_statuses').select('*'),
-        supabase.from('config_backup_types').select('*'),
-        supabase.from('config_training_types').select('*'),
-        supabase.from('config_resilience_test_types').select('*'),
-        supabase.from('config_decommission_reasons').select('*'),
-        supabase.from('config_collaborator_deactivation_reasons').select('*'),
-        supabase.from('config_accounting_categories').select('*'),
-        supabase.from('config_conservation_states').select('*'),
-        supabase.from('config_cpus').select('*'),
-        supabase.from('config_ram_sizes').select('*'),
-        supabase.from('config_storage_types').select('*'),
-        supabase.from('config_job_titles').select('*'),
-        supabase.from('policies').select('*'),
-        supabase.from('policy_acceptances').select('*'),
-        supabase.from('procurement_requests').select('*'),
-        supabase.from('calendar_events').select('*'),
-        supabase.from('continuity_plans').select('*'),
-        supabase.from('collaborator_history').select('*'),
-        supabase.from('document_templates').select('*')
+        safe(supabase.from('instituicoes').select('*')),
+        safe(supabase.from('entidades').select('*')),
+        safe(supabase.from('assignments').select('*')),
+        safe(supabase.from('ticket_activities').select('*')),
+        safe(supabase.from('software_licenses').select('*')),
+        safe(supabase.from('license_assignments').select('*')),
+        safe(supabase.from('teams').select('*')),
+        safe(supabase.from('team_members').select('*')),
+        safe(supabase.from('messages').select('*').order('timestamp', { ascending: false }).limit(500)),
+        safe(supabase.from('ticket_categories').select('*')),
+        safe(supabase.from('security_incident_types').select('*')),
+        safe(supabase.from('business_services').select('*')),
+        safe(supabase.from('service_dependencies').select('*')),
+        safe(supabase.from('vulnerabilities').select('*')),
+        safe(supabase.from('suppliers').select('*')), 
+        safe(supabase.from('resource_contacts').select('*')), 
+        safe(supabase.from('backup_executions').select('*')),
+        safe(supabase.from('resilience_tests').select('*')),
+        safe(supabase.from('security_training_records').select('*')),
+        safe(supabase.from('config_custom_roles').select('*')),
+        safe(supabase.from('config_software_categories').select('*')),
+        safe(supabase.from('config_software_products').select('*')),
+        safe(supabase.from('config_equipment_statuses').select('*')),
+        safe(supabase.from('contact_roles').select('*')),
+        safe(supabase.from('contact_titles').select('*')),
+        safe(supabase.from('config_criticality_levels').select('*')),
+        safe(supabase.from('config_cia_ratings').select('*')),
+        safe(supabase.from('config_service_statuses').select('*')),
+        safe(supabase.from('config_backup_types').select('*')),
+        safe(supabase.from('config_training_types').select('*')),
+        safe(supabase.from('config_resilience_test_types').select('*')),
+        safe(supabase.from('config_decommission_reasons').select('*')),
+        safe(supabase.from('config_collaborator_deactivation_reasons').select('*')),
+        safe(supabase.from('config_accounting_categories').select('*')),
+        safe(supabase.from('config_conservation_states').select('*')),
+        safe(supabase.from('config_cpus').select('*')),
+        safe(supabase.from('config_ram_sizes').select('*')),
+        safe(supabase.from('config_storage_types').select('*')),
+        safe(supabase.from('config_job_titles').select('*')),
+        safe(supabase.from('policies').select('*')),
+        safe(supabase.from('policy_acceptances').select('*')),
+        safe(supabase.from('procurement_requests').select('*')),
+        safe(supabase.from('calendar_events').select('*')),
+        safe(supabase.from('continuity_plans').select('*')),
+        safe(supabase.from('collaborator_history').select('*')),
+        safe(supabase.from('document_templates').select('*'))
     ]);
 
     const suppliersWithContacts = (suppliers || []).map((s: any) => ({

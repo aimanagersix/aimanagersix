@@ -122,11 +122,13 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
     const [lastReviewDate, setLastReviewDate] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
     const handleRefreshClick = async () => {
         if (onRefresh) {
             setIsRefreshing(true);
             await onRefresh();
+            setLastUpdated(new Date());
             setTimeout(() => setIsRefreshing(false), 500);
         }
     };
@@ -153,49 +155,39 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         onViewItem('collaborators', { role: 'Admin' });
     };
 
-    // --- Dynamic Status Calculation (Issue 2) ---
+    // --- Dynamic Status Calculation ---
     const equipmentStatusData = useMemo(() => {
         const counts: Record<string, number> = {};
         let totalValue = 0;
 
         equipment.forEach(item => {
-            // Normalize status (handles custom statuses)
             const status = item.status || 'Desconhecido';
             counts[status] = (counts[status] || 0) + 1;
             
-            // Calculate Financial Value
             if (item.status !== 'Abate' && item.status !== 'Decommissioned') {
                 totalValue += (item.acquisitionCost || 0);
             }
         });
 
-        // Convert to array for chart
         const chartData = Object.entries(counts)
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value);
 
         return { chartData, totalValue };
-    }, [equipment]);
+    }, [equipment, equipment.length]); // Added .length to force recalculation if array mutates
 
-    // --- Enhanced Ticket Stats (Issue 1) ---
+    // --- Enhanced Ticket Stats ---
     const ticketStats = useMemo(() => {
         const open = tickets.filter(t => t.status !== TicketStatus.Finished && t.status !== TicketStatus.Cancelled).length;
         
-        // Robust Security Incident Detection
         const securityIncidents = tickets.filter(t => {
             const isActive = t.status !== TicketStatus.Finished && t.status !== TicketStatus.Cancelled;
-            
-            // Check category string loosely
             const cat = (t.category || '').toLowerCase();
             const isSecurityCat = cat.includes('segurança') || cat.includes('security') || cat.includes('ciber') || cat.includes('ataque') || cat.includes('vírus') || cat.includes('phishing');
-            
-            // Check specific field
             const hasType = !!t.securityIncidentType;
-
             return isActive && (isSecurityCat || hasType);
         }).length;
 
-        // Average Resolution Time
         const resolvedTickets = tickets.filter(t => t.status === TicketStatus.Finished && t.finishDate);
         let totalDuration = 0;
         resolvedTickets.forEach(t => {
@@ -208,7 +200,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         const avgResolutionHours = resolvedTickets.length > 0 ? Math.round(totalDuration / resolvedTickets.length / (1000 * 60 * 60)) : 0;
 
         return { open, securityIncidents, avgResolutionHours };
-    }, [tickets]);
+    }, [tickets, tickets.length]);
     
     // --- Other Metrics ---
     const healthStats = useMemo(() => {
@@ -228,7 +220,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             openCritical,
             total: vulnerabilities.length
         };
-    }, [vulnerabilities]);
+    }, [vulnerabilities, vulnerabilities.length]);
 
     const equipmentByAge = useMemo(() => {
         const now = new Date();
@@ -246,12 +238,11 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             else ageGroups['> 5 anos']++;
         });
         return Object.entries(ageGroups).map(([name, value]) => ({ name, value }));
-    }, [equipment]);
+    }, [equipment, equipment.length]);
 
     const ticketsByTeam = useMemo(() => {
         const teamMap = new Map(teams.map(t => [t.id, t.name]));
         const counts = tickets.reduce((acc, ticket) => {
-            // Count open tickets per team
             if (ticket.team_id && ticket.status !== TicketStatus.Finished) {
                 const teamName = teamMap.get(ticket.team_id) || 'Equipa Desconhecida';
                 acc.set(teamName, (acc.get(teamName) || 0) + 1);
@@ -262,7 +253,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         return Array.from(counts.entries())
             .map(([name, value]) => ({ name, value }))
             .sort((a,b) => b.value - a.value);
-    }, [tickets, teams]);
+    }, [tickets, tickets.length, teams]);
     
     const recentActivity = useMemo(() => {
         const equipmentMap = new Map(equipment.map(e => [e.id, e.description]));
@@ -299,16 +290,19 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         <div className="space-y-8 pb-10">
             <div className="flex justify-between items-center">
                 <h1 className="text-xl font-bold text-white hidden md:block">Dashboard Operacional</h1>
-                {onRefresh && (
-                    <button 
-                        onClick={handleRefreshClick}
-                        disabled={isRefreshing}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors text-sm ml-auto"
-                    >
-                        <FaSync className={isRefreshing ? 'animate-spin' : ''} /> 
-                        {isRefreshing ? 'A atualizar...' : 'Atualizar Dados'}
-                    </button>
-                )}
+                <div className="flex items-center gap-3 ml-auto">
+                    <span className="text-[10px] text-gray-500">Última atualização: {lastUpdated.toLocaleTimeString()}</span>
+                    {onRefresh && (
+                        <button 
+                            onClick={handleRefreshClick}
+                            disabled={isRefreshing}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
+                        >
+                            <FaSync className={isRefreshing ? 'animate-spin' : ''} /> 
+                            {isRefreshing ? 'A atualizar...' : 'Atualizar Dados'}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* --- ALERTS SECTION --- */}
