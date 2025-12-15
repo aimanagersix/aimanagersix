@@ -62,10 +62,13 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
         }
 
         const allowedTypeIds = new Set(
-            equipmentTypes.filter(t => 
-                // Check both camelCase (Typescript) and snake_case (Raw DB) properties to ensure compatibility
-                t.requiresBackupTest === true || (t as any).requires_backup_test === true
-            ).map(t => t.id)
+            equipmentTypes.filter(t => {
+                // Robust check: Handle camelCase (Frontend) and snake_case (DB raw)
+                // Use Boolean() to handle 1/0 integers or string "true" if DB returns differently
+                const camel = t.requiresBackupTest;
+                const snake = (t as any).requires_backup_test;
+                return Boolean(camel) || Boolean(snake);
+            }).map(t => t.id)
         );
         
         return equipmentList
