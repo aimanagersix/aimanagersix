@@ -5,7 +5,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync, FaChevronRight
+    FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync, FaChevronRight, FaArrowLeft, FaBars
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -42,7 +42,8 @@ interface SettingsManagerProps {
 
 const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData }) => {
     const [selectedMenuId, setSelectedMenuId] = useState<string>('general'); 
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(true); // Control sidebar visibility on mobile
+    // Mobile State: 'menu' (lista) or 'content' (detalhe)
+    const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
 
     // Modals State
     const [showAddBrandModal, setShowAddBrandModal] = useState(false);
@@ -61,6 +62,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         simulatedTicket: null,
         isSimulating: false,
     });
+
+    // Helper for safe data access
+    const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
 
     const handleCopyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -202,43 +206,51 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         }
     ];
 
-    // Helper to ensure we always have an array
-    const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
-
-    // Map simple tables for generic dashboard
-    const simpleConfigTables: Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }> = {
-        'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: safeData(appData.configEquipmentStatuses), colorField: true },
-        'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: safeData(appData.configDecommissionReasons) },
-        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
-        'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: safeData(appData.softwareCategories) },
-        'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
-        'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
-        'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: safeData(appData.configCriticalityLevels) },
-        'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: safeData(appData.configCiaRatings) },
-        'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: safeData(appData.configServiceStatuses) },
-        'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: safeData(appData.configBackupTypes) },
-        'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: safeData(appData.configTrainingTypes) },
-        'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: safeData(appData.configResilienceTestTypes) },
-        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: safeData(appData.configAccountingCategories) },
-        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: safeData(appData.configConservationStates), colorField: true },
-        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: safeData(appData.configCpus) },
-        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: safeData(appData.configRamSizes) },
-        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: safeData(appData.configStorageTypes) },
-        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
-    };
+    // Memoize the mapping to ensure stability
+    const simpleConfigTables = useMemo(() => {
+        return {
+            'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: safeData(appData.configEquipmentStatuses), colorField: true },
+            'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: safeData(appData.configDecommissionReasons) },
+            'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
+            'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: safeData(appData.softwareCategories) },
+            'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
+            'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
+            'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: safeData(appData.configCriticalityLevels) },
+            'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: safeData(appData.configCiaRatings) },
+            'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: safeData(appData.configServiceStatuses) },
+            'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: safeData(appData.configBackupTypes) },
+            'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: safeData(appData.configTrainingTypes) },
+            'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: safeData(appData.configResilienceTestTypes) },
+            'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: safeData(appData.configAccountingCategories) },
+            'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: safeData(appData.configConservationStates), colorField: true },
+            'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: safeData(appData.configCpus) },
+            'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: safeData(appData.configRamSizes) },
+            'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: safeData(appData.configStorageTypes) },
+            'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
+        } as Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }>;
+    }, [appData]);
 
     const getCount = (id: string) => {
         if (simpleConfigTables[id]) return simpleConfigTables[id].data?.length || 0;
-        if (id === 'brands') return safeData(appData.brands).length;
-        if (id === 'equipment_types') return safeData(appData.equipmentTypes).length;
-        if (id === 'config_software_products') return safeData(appData.softwareProducts).length;
-        if (id === 'ticket_categories') return safeData(appData.ticketCategories).length;
-        if (id === 'security_incident_types') return safeData(appData.securityIncidentTypes).length;
+        if (id === 'brands') return (appData.brands || []).length;
+        if (id === 'equipment_types') return (appData.equipmentTypes || []).length;
+        if (id === 'config_software_products') return (appData.softwareProducts || []).length;
+        if (id === 'ticket_categories') return (appData.ticketCategories || []).length;
+        if (id === 'security_incident_types') return (appData.securityIncidentTypes || []).length;
         return null;
     };
 
-    // Centralized Render Logic to ensure visibility
-    const renderContent = () => {
+    const handleMenuClick = (id: string) => {
+        if (id === 'diagnostics') {
+            setShowDiagnostics(true);
+        } else {
+            setSelectedMenuId(id);
+            setMobileView('content'); // Switch to content on mobile
+        }
+    };
+
+    // Centralized Render Logic
+    const renderPanel = () => {
         switch (selectedMenuId) {
             case 'agents': return <AgentsTab />;
             case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p:any) => ({ ...p, [k]: v }))} onSave={async () => { try { const p1 = dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients || ''); const p2 = dataService.updateGlobalSetting('birthday_email_subject', settings.birthday_email_subject || ''); const p3 = dataService.updateGlobalSetting('birthday_email_body', settings.birthday_email_body || ''); await Promise.all([p1, p2, p3]); alert('Configurações gravadas com sucesso!'); } catch(e: any) { alert(`Erro ao gravar: ${e.message}`); } }} onTest={handleTestCron} onCopy={handleCopyToClipboard} />;
@@ -253,7 +265,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />;
             case 'config_software_products': return <SoftwareProductDashboard products={safeData(appData.softwareProducts)} categories={safeData(appData.softwareCategories)} onRefresh={refreshData} />;
             default:
-                // Check if it's a generic table ID
                 if (simpleConfigTables[selectedMenuId]) {
                     return (
                         <GenericConfigDashboard 
@@ -266,18 +277,23 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                         />
                     );
                 }
-                return <div className="p-8 text-center text-gray-500">Selecione um menu.</div>;
+                return <div className="p-8 text-center text-gray-500">Selecione uma opção do menu.</div>;
         }
-    };
+    }
 
     return (
         <>
-             {/* Layout with auto height to allow scrolling */}
-            <div className="flex flex-col lg:flex-row gap-6 pb-10 h-full min-h-[500px]">
+            {/* 
+               LAYOUT FIX: Use standard flex layout that works on desktop always.
+               On mobile, we hide one column or the other based on 'mobileView' state.
+            */}
+            <div className="flex flex-col lg:flex-row gap-6 pb-10 h-full min-h-[600px]">
                 
-                {/* Sidebar Menu */}
-                {/* Mobile: Toggleable / Desktop: Always visible */}
-                <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} lg:block w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-fit self-start max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar`}>
+                {/* --- SIDEBAR MENU --- */}
+                <div className={`
+                    w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-fit self-start max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar
+                    ${mobileView === 'menu' ? 'block' : 'hidden lg:block'} 
+                `}>
                     {/* Reload Button */}
                     <div className="p-2 border-b border-gray-700 flex-shrink-0 sticky top-0 bg-surface-dark z-10">
                          <button 
@@ -287,7 +303,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                             <FaSync /> Forçar Recarregamento
                         </button>
                     </div>
-                    {/* List */}
+                    {/* Menu List */}
                     <div className="p-2 space-y-4">
                         {menuStructure.map((group, gIdx) => (
                             <div key={gIdx}>
@@ -298,14 +314,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                                         return (
                                         <button
                                             key={item.id}
-                                            onClick={() => {
-                                                if (item.id === 'diagnostics') setShowDiagnostics(true);
-                                                else {
-                                                    setSelectedMenuId(item.id);
-                                                    // On mobile, close menu after selection
-                                                    if(window.innerWidth < 1024) setIsMobileMenuOpen(false);
-                                                }
-                                            }}
+                                            onClick={() => handleMenuClick(item.id)}
                                             className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md flex items-center justify-between gap-3 transition-colors ${
                                                 selectedMenuId === item.id && item.id !== 'diagnostics'
                                                 ? 'bg-brand-primary text-white shadow-md'
@@ -322,7 +331,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                                                         {count}
                                                     </span>
                                                 )}
-                                                {selectedMenuId === item.id && item.id !== 'diagnostics' && <FaChevronRight className="w-2 h-2" />}
+                                                {/* Only show arrow on Desktop, on Mobile it's implicit nav */}
+                                                <FaChevronRight className="w-2 h-2 hidden lg:block" />
                                             </div>
                                         </button>
                                     )})}
@@ -332,24 +342,28 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     </div>
                 </div>
 
-                {/* Mobile Menu Toggle (Visible only on small screens) */}
-                <button 
-                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="lg:hidden w-full bg-gray-800 text-white p-3 rounded mb-2 flex items-center justify-between"
-                >
-                    <span>{isMobileMenuOpen ? 'Fechar Menu' : 'Abrir Menu de Configurações'}</span>
-                    <FaChevronRight className={`transform transition-transform ${isMobileMenuOpen ? 'rotate-90' : ''}`}/>
-                </button>
+                {/* --- CONTENT AREA --- */}
+                <div className={`
+                    flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col relative min-h-[600px] w-full
+                    ${mobileView === 'content' ? 'block' : 'hidden lg:flex'}
+                `}>
+                    {/* Mobile Back Button */}
+                    <div className="lg:hidden p-2 border-b border-gray-700 mb-2">
+                        <button 
+                            onClick={() => setMobileView('menu')}
+                            className="flex items-center gap-2 text-gray-300 hover:text-white"
+                        >
+                            <FaArrowLeft /> Voltar ao Menu
+                        </button>
+                    </div>
 
-                {/* Content Area - Uses KEY to force re-render when switching menus */}
-                <div className={`flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col relative min-h-[600px] w-full ${isMobileMenuOpen ? 'hidden lg:flex' : 'flex'}`}>
-                    <div className="flex-grow w-full" key={selectedMenuId}>
-                        {renderContent()}
+                    <div className="flex-grow w-full">
+                        {renderPanel()}
                     </div>
                 </div>
             </div>
 
-            {/* Modals - Rendered at root */}
+            {/* Modals */}
             {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
             {showAddBrandModal && <AddBrandModal onClose={() => setShowAddBrandModal(false)} onSave={async (b) => { if(brandToEdit) await dataService.updateBrand(brandToEdit.id, b); else await dataService.addBrand(b); refreshData(); }} brandToEdit={brandToEdit} existingBrands={appData.brands} />}
             {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} existingTypes={appData.equipmentTypes} />}

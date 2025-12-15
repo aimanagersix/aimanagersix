@@ -21,6 +21,9 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
     const [error, setError] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
+    // Ensure items is an array
+    const safeItems = Array.isArray(items) ? items : [];
+
     const handleSave = async () => {
         const name = (editingItem ? editingItem.name : newItemName).trim();
         if (!name) {
@@ -29,7 +32,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
         }
 
         // Validate duplicate name (case insensitive)
-        const isDuplicate = (items || []).some(
+        const isDuplicate = safeItems.some(
             (item) => item.name.toLowerCase() === name.toLowerCase() && item.id !== editingItem?.id
         );
 
@@ -69,7 +72,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
     };
 
     return (
-        <div className="p-6">
+        <div className="p-6 h-full flex flex-col">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">{icon} {title}</h2>
                 <button onClick={onRefresh} className="text-sm text-brand-secondary hover:text-white flex items-center gap-1">
@@ -119,17 +122,17 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
                 {error && <p className="text-red-400 text-xs mt-2 bg-red-900/20 p-2 rounded flex items-center gap-2"><FaExclamationCircle/> {error}</p>}
             </div>
 
-            <div className="overflow-x-auto border border-gray-700 rounded-lg">
+            <div className="overflow-x-auto border border-gray-700 rounded-lg flex-grow">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                    <thead className="bg-gray-800 text-gray-400 uppercase text-xs sticky top-0">
                         <tr>
                             <th className="p-3">Nome</th>
                             <th className="p-3 text-right">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
-                        {(items || []).length > 0 ? (
-                            items.map(item => (
+                        {safeItems.length > 0 ? (
+                            safeItems.map(item => (
                                 <tr key={item.id} className="hover:bg-gray-800/50">
                                     <td className="p-3 flex items-center gap-3">
                                         {colorField && <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: item.color || 'transparent', border: '1px solid #4B5563' }}></div>}
