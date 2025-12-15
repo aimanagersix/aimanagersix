@@ -573,5 +573,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                 </div>
             </form>
         </Modal>
+        </>
     );
 };
