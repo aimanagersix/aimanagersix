@@ -265,7 +265,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 </div>
                 <div className="flex items-end">
                     <button onClick={clearFilters} className="w-full px-4 py-2 text-sm bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors border border-gray-600">
-                        Limpar Filtros
+                        Limpar
                     </button>
                 </div>
             </div>
@@ -283,8 +283,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         {/* MOBILE VIEW (CARDS) */}
         <div className="grid grid-cols-1 gap-4 md:hidden">
             {collaborators.length > 0 ? collaborators.map((col) => {
-                const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
-                const equipmentCount = assignedEquipment.length;
+                const equipmentCount = (equipmentByCollaborator.get(col.id) || []).length;
                 const dependencies = dependencyMap.get(col.id) || [];
                 const isSuperAdmin = col.role === UserRole.SuperAdmin;
                 const isProtectedUser = col.email === PROTECTED_EMAIL;
@@ -292,74 +291,75 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 const resolvedJobTitle = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : null);
 
                 return (
-                    <div key={col.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-md">
-                        <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
+                    <div key={col.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-md flex flex-col gap-3">
+                        {/* Header: Photo + Name + Status */}
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3 overflow-hidden">
                                 {col.photoUrl ? (
-                                    <img src={col.photoUrl} alt={col.fullName} className="h-12 w-12 rounded-full object-cover border-2 border-gray-600" />
+                                    <img src={col.photoUrl} alt={col.fullName} className="h-10 w-10 rounded-full object-cover border border-gray-600 flex-shrink-0" />
                                 ) : (
-                                    <div className="h-12 w-12 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-lg">{col.fullName.charAt(0)}</div>
+                                    <div className="h-10 w-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-sm flex-shrink-0">{col.fullName.charAt(0)}</div>
                                 )}
-                                <div>
-                                    <h3 className="font-bold text-white text-lg leading-tight">{col.fullName}</h3>
-                                    <p className="text-sm text-brand-secondary">{resolvedJobTitle || col.role}</p>
+                                <div className="min-w-0">
+                                    <h3 className="font-bold text-white text-base truncate">{col.fullName}</h3>
+                                    <p className="text-xs text-brand-secondary truncate">{resolvedJobTitle || col.role}</p>
                                 </div>
                             </div>
-                            <span className={`px-2 py-1 text-[10px] rounded-full font-bold uppercase ${getStatusClass(col.status)}`}>{col.status}</span>
+                            <span className={`flex-shrink-0 px-2 py-0.5 text-[10px] rounded-full font-bold uppercase ${getStatusClass(col.status)}`}>
+                                {col.status === 'Ativo' ? 'ATV' : col.status === 'Inativo' ? 'INA' : 'ONB'}
+                            </span>
                         </div>
                         
-                        <div className="space-y-2 text-sm text-gray-300 mb-4 bg-gray-900/50 p-3 rounded">
-                            <div className="flex items-center gap-2">
-                                <FaEnvelope className="text-gray-500 w-4"/> <span className="truncate">{col.email}</span>
+                        {/* Details Block */}
+                        <div className="text-xs text-gray-300 bg-gray-900/40 p-2 rounded border border-gray-700/50 space-y-1.5">
+                            <div className="flex items-center gap-2 truncate">
+                                <FaEnvelope className="text-gray-500 w-3"/> <span className="truncate">{col.email}</span>
                             </div>
                             {(col.telemovel || col.telefoneInterno) && (
                                 <div className="flex items-center gap-2">
-                                    <FaPhone className="text-gray-500 w-4"/> <span>{col.telemovel || col.telefoneInterno}</span>
+                                    <FaPhone className="text-gray-500 w-3"/> <span>{col.telemovel || col.telefoneInterno}</span>
                                 </div>
                             )}
-                            <div className="flex items-center gap-2">
-                                <FaIdCard className="text-gray-500 w-4"/> <span>Mec: {col.numeroMecanografico}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs">
-                                <span className="text-gray-500 w-4 text-center">•</span> {getAssociationText(col)}
+                            <div className="flex items-center gap-2 truncate">
+                                <span className="text-gray-500 w-3 text-center">•</span> {getAssociationText(col)}
                             </div>
                             {equipmentCount > 0 && (
-                                <div className="mt-2 pt-2 border-t border-gray-700 text-brand-secondary font-bold text-xs">
+                                <div className="pt-1 border-t border-gray-700/50 text-blue-300 font-medium">
                                     {equipmentCount} equipamentos atribuídos
                                 </div>
                             )}
                         </div>
 
-                        <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-700">
-                             {/* Actions Row */}
+                        {/* Actions Grid */}
+                        <div className="grid grid-cols-4 gap-2 pt-1">
                             <button 
                                 onClick={() => onShowDetails && onShowDetails(col)}
-                                className="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 text-teal-400"
+                                className="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 bg-gray-700/30 text-teal-400"
                             >
-                                <ReportIcon className="h-5 w-5 mb-1"/> <span className="text-[10px]">Detalhes</span>
+                                <ReportIcon className="h-4 w-4 mb-1"/> <span className="text-[9px]">Ver</span>
                             </button>
                             <button 
                                 onClick={() => onEdit && onEdit(col)}
-                                className="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 text-blue-400"
+                                className="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 bg-gray-700/30 text-blue-400"
                             >
-                                <EditIcon className="h-5 w-5 mb-1"/> <span className="text-[10px]">Editar</span>
+                                <EditIcon className="h-4 w-4 mb-1"/> <span className="text-[9px]">Edit</span>
                             </button>
                             {onToggleStatus && !isSuperAdmin && !isProtectedUser && (
                                 <button 
                                     onClick={() => onToggleStatus(col)}
-                                    className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 ${col.status === CollaboratorStatus.Ativo ? 'text-green-400' : 'text-gray-500'}`}
+                                    className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 bg-gray-700/30 ${col.status === CollaboratorStatus.Ativo ? 'text-green-400' : 'text-gray-500'}`}
                                 >
-                                    {col.status === CollaboratorStatus.Ativo ? <FaToggleOn className="h-5 w-5 mb-1"/> : <FaToggleOff className="h-5 w-5 mb-1"/>} 
-                                    <span className="text-[10px]">{col.status === 'Ativo' ? 'Ativo' : 'Inativo'}</span>
+                                    {col.status === CollaboratorStatus.Ativo ? <FaToggleOn className="h-4 w-4 mb-1"/> : <FaToggleOff className="h-4 w-4 mb-1"/>} 
+                                    <span className="text-[9px]">Status</span>
                                 </button>
                             )}
                              {onDelete && !isSuperAdmin && (
                                 <button 
                                     onClick={() => { if (!isDeleteDisabled) onDelete(col.id); }} 
-                                    className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 ${isDeleteDisabled ? "text-gray-600 opacity-50" : "text-red-400"}`}
+                                    className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 bg-gray-700/30 ${isDeleteDisabled ? "text-gray-600 opacity-50" : "text-red-400"}`}
                                     disabled={isDeleteDisabled}
                                 >
-                                    <DeleteIcon className="h-5 w-5 mb-1"/> <span className="text-[10px]">Apagar</span>
+                                    <DeleteIcon className="h-4 w-4 mb-1"/> <span className="text-[9px]">Del</span>
                                 </button>
                             )}
                         </div>
