@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
 import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint } from 'react-icons/fa';
@@ -189,13 +190,13 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     };
 
     return (
-        <div className="flex flex-col md:flex-row h-full bg-surface-dark text-white overflow-hidden min-h-0">
+        <div className="flex flex-col md:flex-row bg-surface-dark text-white min-h-[600px]">
             {/* Sidebar List - Mobile top, Desktop side */}
-            <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-700 flex flex-col bg-gray-900/50 flex-shrink-0 md:h-full max-h-48 md:max-h-full overflow-hidden">
+            <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-700 flex flex-col bg-gray-900/50 flex-shrink-0">
                 <div className="p-4 border-b border-gray-700 flex-shrink-0">
                     <h3 className="font-bold flex items-center gap-2"><FaShieldAlt className="text-purple-500"/> Perfis de Acesso</h3>
                 </div>
-                <div className="flex-grow overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                <div className="p-2 space-y-1">
                     {roles.map(role => (
                         <div 
                             key={role.id}
@@ -207,7 +208,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                         </div>
                     ))}
                 </div>
-                <div className="p-3 border-t border-gray-700 flex-shrink-0">
+                <div className="p-3 border-t border-gray-700 mt-auto">
                     {!showNewRoleInput ? (
                         <button 
                             onClick={() => setShowNewRoleInput(true)}
@@ -233,10 +234,10 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
             </div>
 
             {/* Permissions Matrix */}
-            <div className="flex-1 flex flex-col overflow-hidden h-full min-h-0">
+            <div className="flex-1 flex flex-col">
                 {selectedRole ? (
                     <>
-                        <div className="p-4 md:p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface-dark gap-4 flex-shrink-0">
+                        <div className="p-4 md:p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface-dark gap-4">
                             <div>
                                 <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
                                     {selectedRole.name}
@@ -268,7 +269,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar min-h-0">
+                        <div className="flex-1 p-4 md:p-6">
                              {!isEditing && (
                                 <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded flex items-center gap-2 text-xs md:text-sm text-blue-200">
                                     <FaInfoCircle /> 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import * as dataService from '../../services/dataService';
 import { parseSecurityAlert } from '../../services/geminiService';
@@ -235,11 +236,11 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     return (
         <>
-             {/* Main Container - Adjusted Height for Desktop to avoid overflow under header */}
-            <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-9rem)]">
+             {/* Layout Alterado: Sem altura fixa, permite scroll natural */}
+            <div className="flex flex-col lg:flex-row gap-6 pb-10">
                 
                 {/* Sidebar Menu */}
-                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 max-h-60 lg:max-h-full lg:h-full">
+                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-fit">
                     {/* Reload Button */}
                     <div className="p-2 border-b border-gray-700 flex-shrink-0">
                          <button 
@@ -249,8 +250,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                             <FaSync /> Forçar Recarregamento
                         </button>
                     </div>
-                    {/* Scrollable list */}
-                    <div className="overflow-y-auto flex-grow p-2 space-y-4 custom-scrollbar">
+                    {/* List */}
+                    <div className="p-2 space-y-4">
                         {menuStructure.map((group, gIdx) => (
                             <div key={gIdx}>
                                 <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{group.group}</h3>
@@ -284,10 +285,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     </div>
                 </div>
 
-                {/* Content Area - Adjusted to handle internal scrolling */}
-                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden h-[500px] lg:h-full relative" key={selectedMenuId}>
-                    {/* Inner Scroll Container */}
-                    <div className="flex-grow overflow-y-auto custom-scrollbar h-full">
+                {/* Content Area - Sem overflow-hidden para permitir scroll da pagina */}
+                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col relative min-h-[500px]" key={selectedMenuId}>
+                    <div className="flex-grow">
                         {selectedMenuId === 'agents' && <AgentsTab />}
                         {selectedMenuId === 'cronjobs' && <CronJobsTab 
                             settings={settings} 
