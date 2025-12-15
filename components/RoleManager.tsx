@@ -190,7 +190,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     };
 
     return (
-        <div className="flex flex-col md:flex-row h-full bg-surface-dark text-white overflow-hidden">
+        <div className="flex flex-col md:flex-row h-full bg-surface-dark text-white overflow-hidden min-h-0">
             {/* Sidebar List - Mobile top, Desktop side */}
             <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-700 flex flex-col bg-gray-900/50 flex-shrink-0 md:h-full max-h-48 md:max-h-full overflow-hidden">
                 <div className="p-4 border-b border-gray-700 flex-shrink-0">
@@ -234,7 +234,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
             </div>
 
             {/* Permissions Matrix */}
-            <div className="flex-1 flex flex-col overflow-hidden h-full">
+            <div className="flex-1 flex flex-col overflow-hidden h-full min-h-0">
                 {selectedRole ? (
                     <>
                         <div className="p-4 md:p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface-dark gap-4 flex-shrink-0">
@@ -269,7 +269,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                             </div>
                         </div>
 
-                        <div className="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar min-h-0">
                              {!isEditing && (
                                 <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded flex items-center gap-2 text-xs md:text-sm text-blue-200">
                                     <FaInfoCircle /> 

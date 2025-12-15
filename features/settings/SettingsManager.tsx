@@ -17,7 +17,7 @@ import CategoryDashboard from '../../components/CategoryDashboard';
 import SecurityIncidentTypeDashboard from '../../components/SecurityIncidentTypeDashboard';
 import RoleManager from '../../components/RoleManager'; 
 
-// Local Feature Components (Corrected Imports)
+// Local Feature Components
 import BrandingTab from './BrandingTab';
 import GeneralScansTab from './GeneralScansTab';
 import ConnectionsTab from './ConnectionsTab';
@@ -27,7 +27,7 @@ import CronJobsTab from './CronJobsTab';
 import SoftwareProductDashboard from './SoftwareProductDashboard';
 import GenericConfigDashboard from './GenericConfigDashboard';
 
-// Modals for Child Dashboards
+// Modals
 import AddBrandModal from '../../components/AddBrandModal';
 import AddEquipmentTypeModal from '../../components/AddEquipmentTypeModal';
 import AddCategoryModal from '../../components/AddCategoryModal';
@@ -41,7 +41,6 @@ interface SettingsManagerProps {
 }
 
 
-// Main Component
 const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData }) => {
     const [selectedMenuId, setSelectedMenuId] = useState<string>('roles'); 
 
@@ -237,9 +236,11 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     return (
         <>
-            <div className="flex flex-col lg:flex-row gap-6 h-[85vh] lg:h-[calc(100vh-100px)]">
+             {/* Main Container - Adjusted Height for Desktop to avoid overflow under header */}
+            <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-9rem)]">
+                
                 {/* Sidebar Menu */}
-                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 lg:h-full h-48 lg:max-h-full">
+                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 max-h-60 lg:max-h-full lg:h-full">
                     {/* Reload Button */}
                     <div className="p-2 border-b border-gray-700 flex-shrink-0">
                          <button 
@@ -284,18 +285,17 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     </div>
                 </div>
 
-                {/* Content Area */}
-                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col h-full relative" key={selectedMenuId}>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {/* Content Area - Adjusted to handle internal scrolling */}
+                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col overflow-hidden h-[500px] lg:h-full relative" key={selectedMenuId}>
+                    {/* Inner Scroll Container */}
+                    <div className="flex-grow overflow-y-auto custom-scrollbar h-full">
                         {selectedMenuId === 'agents' && <AgentsTab />}
                         {selectedMenuId === 'cronjobs' && <CronJobsTab 
                             settings={settings} 
                             onSettingsChange={(k: string, v: any) => setSettings((p:any) => ({ ...p, [k]: v }))} 
                             onSave={async () => {
                                 try {
-                                    // Save Weekly Report Settings
                                     const p1 = dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients || '');
-                                    // Save Birthday Settings
                                     const p2 = dataService.updateGlobalSetting('birthday_email_subject', settings.birthday_email_subject || '');
                                     const p3 = dataService.updateGlobalSetting('birthday_email_body', settings.birthday_email_body || '');
                                     

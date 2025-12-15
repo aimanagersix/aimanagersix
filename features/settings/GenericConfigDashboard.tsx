@@ -69,7 +69,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
     };
 
     return (
-        <div className="p-6 h-full flex flex-col">
+        <div className="p-6 h-full flex flex-col min-h-0">
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">{icon} {title}</h2>
                 <button onClick={onRefresh} className="text-sm text-brand-secondary hover:text-white flex items-center gap-1">
@@ -103,7 +103,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
             </div>
             {error && <p className="text-red-400 text-xs mb-2 bg-red-900/20 p-2 rounded flex items-center gap-2 flex-shrink-0"><FaExclamationCircle/> {error}</p>}
 
-            <div className="flex-grow overflow-y-auto custom-scrollbar border border-gray-700 rounded-lg min-h-[300px]">
+            <div className="flex-1 overflow-y-auto custom-scrollbar border border-gray-700 rounded-lg min-h-0">
                 <table className="w-full text-sm">
                     <tbody>
                         {(items || []).map(item => (
