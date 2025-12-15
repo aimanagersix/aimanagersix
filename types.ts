@@ -144,7 +144,7 @@ export interface EquipmentType {
     requiresMacCabo?: boolean;
     requiresInventoryNumber?: boolean;
     default_team_id?: string;
-    requiresBackupTest?: boolean;
+    requiresBackupTest?: boolean; // Corrected to match User DB
     requiresLocation?: boolean;
     is_maintenance?: boolean;
     requires_wwan_address?: boolean;

@@ -19,7 +19,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requiresMacCabo: false,
         requiresInventoryNumber: false,
         default_team_id: '',
-        requiresBackupTest: false,
+        requiresBackupTest: false, // Reverted to camelCase to match User DB
         requiresLocation: false,
         is_maintenance: false,
         requires_wwan_address: false,
@@ -29,7 +29,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requires_disk_info: false,
         requires_cpu_info: false,
         requires_manufacture_date: false,
-        requires_ip: false, // New Field
+        requires_ip: false,
     });
     const [error, setError] = useState('');
 
@@ -42,7 +42,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requiresMacCabo: typeToEdit.requiresMacCabo || false,
                 requiresInventoryNumber: typeToEdit.requiresInventoryNumber || false,
                 default_team_id: typeToEdit.default_team_id || '',
-                requiresBackupTest: typeToEdit.requiresBackupTest || false,
+                requiresBackupTest: typeToEdit.requiresBackupTest || false, // Reverted to camelCase
                 requiresLocation: typeToEdit.requiresLocation || false,
                 is_maintenance: typeToEdit.is_maintenance || false,
                 requires_wwan_address: typeToEdit.requires_wwan_address || false,
@@ -52,7 +52,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requires_disk_info: typeToEdit.requires_disk_info || false,
                 requires_cpu_info: typeToEdit.requires_cpu_info || false,
                 requires_manufacture_date: typeToEdit.requires_manufacture_date || false,
-                requires_ip: typeToEdit.requires_ip || false, // New Field
+                requires_ip: typeToEdit.requires_ip || false,
             });
         }
     }, [typeToEdit]);
@@ -191,6 +191,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                             <input type="checkbox" name="requires_manufacture_date" checked={formData.requires_manufacture_date} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Data de Fabrico</span>
                         </label>
+                        {/* UPDATE: Using the camelCase name 'requiresBackupTest' to match DB */}
                         <label className="flex items-center cursor-pointer sm:col-span-2 mt-2 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">
                             <input type="checkbox" name="requiresBackupTest" checked={formData.requiresBackupTest} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-indigo-200 font-bold">Requer Teste de Restauro (Backups)</span>

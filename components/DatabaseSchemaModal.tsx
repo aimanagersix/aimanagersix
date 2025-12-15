@@ -135,6 +135,10 @@ ALTER TABLE IF EXISTS public.tickets ADD COLUMN IF NOT EXISTS requester_supplier
 
 -- E. Flag de Segurança nas Categorias (v3.2)
 ALTER TABLE IF EXISTS public.ticket_categories ADD COLUMN IF NOT EXISTS is_security BOOLEAN DEFAULT false;
+
+-- F. Flag de Backup nos Tipos de Equipamento
+-- IMPORTANTE: Usamos aspas para forçar o nome CamelCase "requiresBackupTest" se necessário
+ALTER TABLE IF EXISTS public.equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" BOOLEAN DEFAULT false;
 `,
         triggers: `
 -- ==================================================================================
@@ -374,7 +378,7 @@ CREATE POLICY "Audit Log View Admin" ON public.audit_logs FOR SELECT USING (
                 {/* Content Area */}
                 <div className="flex-grow overflow-hidden">
                     {activeTab === 'init' && renderScriptTab('init', "Use este script para criar as tabelas base do sistema (Equipamentos, Colaboradores, Tickets, etc.). Execute apenas se a base de dados estiver vazia.")}
-                    {activeTab === 'updates' && renderScriptTab('updates', "Use este script para aplicar atualizações incrementais e adicionar novos campos que possam faltar (Ex: IP, Monitor, Job Titles). Seguro para executar em cima de bases de dados existentes.")}
+                    {activeTab === 'updates' && renderScriptTab('updates', "Use este script para aplicar atualizações incrementais e adicionar campos novos (como a coluna 'Requer Backup' em falta).")}
                     {activeTab === 'triggers' && renderScriptTab('triggers', "Configura automatismos da base de dados, como atualização automática de datas de modificação e registo de logs de auditoria.")}
                     {activeTab === 'functions' && renderScriptTab('functions', "Funções de servidor (RPC) usadas pela aplicação para lógica complexa, como a verificação diária de aniversários ou cálculos de dashboard.")}
                     {activeTab === 'policies' && renderScriptTab('policies', "Define as regras de segurança (Row Level Security). Determina quem pode ver, editar ou apagar dados com base no seu perfil (Admin, Técnico, Utilizador).")}

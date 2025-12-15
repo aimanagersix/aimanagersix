@@ -62,11 +62,8 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
         }
 
         // 1. Identify which Types imply a backup is needed
-        const typesRequiringBackup = equipmentTypes.filter(t => {
-            const camel = t.requiresBackupTest;
-            const snake = (t as any).requires_backup_test;
-            return Boolean(camel) || Boolean(snake);
-        });
+        // Using 'requiresBackupTest' (camelCase) to match DB
+        const typesRequiringBackup = equipmentTypes.filter(t => t.requiresBackupTest);
         
         // 2. Create sets for fast lookup of both ID and Name (handles data inconsistency)
         const allowedTypeIds = new Set(typesRequiringBackup.map(t => t.id));
@@ -85,9 +82,8 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
 
                 // Check C: Resolve the Equipment's Type object and check its flag directly
                 const actualType = equipmentTypes.find(t => t.id === e.typeId);
-                if (actualType) {
-                     const needsBackup = actualType.requiresBackupTest || (actualType as any).requires_backup_test;
-                     if (needsBackup) return true;
+                if (actualType && actualType.requiresBackupTest) {
+                     return true;
                 }
 
                 return false;
