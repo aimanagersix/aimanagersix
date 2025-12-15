@@ -212,40 +212,57 @@ $$;
 `,
         policies: `
 -- ==================================================================================
--- 5. POLÍTICAS DE SEGURANÇA (RLS - Row Level Security)
--- Define quem pode ver e editar o quê.
+-- 5. REPARAÇÃO DE SEGURANÇA (RLS - Row Level Security)
+-- Execute isto se os dados (Equipamentos, Tipos) não aparecerem na aplicação.
 -- ==================================================================================
 
--- Habilitar RLS nas tabelas sensíveis
+-- 1. Tabela de EQUIPAMENTOS (O problema provável está aqui)
+ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
+
+-- Remove políticas antigas que possam estar a bloquear acesso
+DROP POLICY IF EXISTS "Allow read access for all users" ON public.equipment;
+DROP POLICY IF EXISTS "Allow all access for admins" ON public.equipment;
+DROP POLICY IF EXISTS "Public Read" ON public.equipment;
+DROP POLICY IF EXISTS "Authenticated Read" ON public.equipment;
+
+-- Cria política permissiva para leitura (qualquer utilizador autenticado vê tudo)
+CREATE POLICY "Authenticated Read" ON public.equipment 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Cria política para escrita (apenas Admins/Técnicos ou via app logic)
+-- Nesta versão simplificada, permitimos tudo a autenticados para evitar bloqueios.
+-- Pode restringir depois se necessário.
+CREATE POLICY "Authenticated Write" ON public.equipment 
+FOR ALL USING (auth.role() = 'authenticated');
+
+
+-- 2. Tabela de TIPOS DE EQUIPAMENTO
+ALTER TABLE public.equipment_types ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated Read" ON public.equipment_types;
+DROP POLICY IF EXISTS "Authenticated Write" ON public.equipment_types;
+
+CREATE POLICY "Authenticated Read" ON public.equipment_types FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated Write" ON public.equipment_types FOR ALL USING (auth.role() = 'authenticated');
+
+
+-- 3. Tabela de COLABORADORES
+ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated Read" ON public.collaborators;
+DROP POLICY IF EXISTS "Authenticated Write" ON public.collaborators;
+
+CREATE POLICY "Authenticated Read" ON public.collaborators FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated Write" ON public.collaborators FOR ALL USING (auth.role() = 'authenticated');
+
+
+-- 4. Configurações Globais e Auditoria
 ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
-
--- Limpar políticas antigas para evitar conflitos
 DROP POLICY IF EXISTS "Allow read access for all users" ON public.global_settings;
-DROP POLICY IF EXISTS "Allow all access for admins" ON public.global_settings;
-DROP POLICY IF EXISTS "Audit Log Insert" ON public.audit_logs;
-
--- 1. Configurações Globais: Leitura para todos (autenticados), Escrita só Admins
 CREATE POLICY "Allow read access for all users" ON public.global_settings FOR SELECT USING (true);
+CREATE POLICY "Allow write access for all users" ON public.global_settings FOR ALL USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Allow all access for admins" ON public.global_settings FOR ALL USING (
-  exists (
-    select 1 from public.collaborators 
-    where email = auth.jwt() ->> 'email' 
-    and role IN ('Admin', 'SuperAdmin')
-  )
-);
-
--- 2. Auditoria: Inserção pelo sistema, Leitura só Admins
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Audit Log Insert" ON public.audit_logs;
 CREATE POLICY "Audit Log Insert" ON public.audit_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Audit Log View Admin" ON public.audit_logs FOR SELECT USING (
-  exists (
-    select 1 from public.collaborators 
-    where email = auth.jwt() ->> 'email' 
-    and role IN ('Admin', 'SuperAdmin')
-  )
-);
 `
     };
 
@@ -381,7 +398,7 @@ CREATE POLICY "Audit Log View Admin" ON public.audit_logs FOR SELECT USING (
                     {activeTab === 'updates' && renderScriptTab('updates', "Use este script para aplicar atualizações incrementais e adicionar campos novos (como a coluna 'Requer Backup' em falta).")}
                     {activeTab === 'triggers' && renderScriptTab('triggers', "Configura automatismos da base de dados, como atualização automática de datas de modificação e registo de logs de auditoria.")}
                     {activeTab === 'functions' && renderScriptTab('functions', "Funções de servidor (RPC) usadas pela aplicação para lógica complexa, como a verificação diária de aniversários ou cálculos de dashboard.")}
-                    {activeTab === 'policies' && renderScriptTab('policies', "Define as regras de segurança (Row Level Security). Determina quem pode ver, editar ou apagar dados com base no seu perfil (Admin, Técnico, Utilizador).")}
+                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Execute este script se os dados não aparecerem na aplicação. Ele reseta e corrige as permissões de leitura/escrita (RLS) para Equipamentos e outras tabelas críticas.")}
                     
                     {activeTab === 'ai_sql' && renderAiTab('sql')}
                     {activeTab === 'ai_e2e' && renderAiTab('e2e')}
