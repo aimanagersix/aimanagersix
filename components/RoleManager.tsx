@@ -190,9 +190,9 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     };
 
     return (
-        <div className="flex h-full bg-surface-dark text-white">
-            {/* Sidebar List */}
-            <div className="w-64 border-r border-gray-700 flex flex-col bg-gray-900/50">
+        <div className="flex flex-col md:flex-row h-full bg-surface-dark text-white">
+            {/* Sidebar List - Mobile top, Desktop side */}
+            <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-700 flex flex-col bg-gray-900/50 flex-shrink-0 md:h-full max-h-48 md:max-h-full overflow-hidden">
                 <div className="p-4 border-b border-gray-700">
                     <h3 className="font-bold flex items-center gap-2"><FaShieldAlt className="text-purple-500"/> Perfis de Acesso</h3>
                 </div>
@@ -234,46 +234,46 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
             </div>
 
             {/* Permissions Matrix */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden h-full">
                 {selectedRole ? (
                     <>
-                        <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-surface-dark">
+                        <div className="p-4 md:p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface-dark gap-4">
                             <div>
-                                <h2 className="text-2xl font-bold flex items-center gap-3">
+                                <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
                                     {selectedRole.name}
                                     {selectedRole.is_system && <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded border border-gray-600">Sistema</span>}
                                 </h2>
-                                <p className="text-sm text-gray-400 mt-1">Defina as permissões granulares para este perfil.</p>
+                                <p className="text-xs md:text-sm text-gray-400 mt-1">Defina as permissões granulares para este perfil.</p>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex gap-3 w-full sm:w-auto">
                                 {!selectedRole.is_system && (
                                     <button 
                                         onClick={() => handleDeleteRole(selectedRole.id)}
-                                        className="px-4 py-2 bg-red-900/20 text-red-400 border border-red-500/30 rounded hover:bg-red-900/40 text-sm flex items-center gap-2"
+                                        className="px-3 py-2 bg-red-900/20 text-red-400 border border-red-500/30 rounded hover:bg-red-900/40 text-xs md:text-sm flex items-center gap-2 flex-1 sm:flex-none justify-center"
                                     >
-                                        <FaTrash /> Apagar Perfil
+                                        <FaTrash /> <span className="hidden sm:inline">Apagar</span>
                                     </button>
                                 )}
                                 {isEditing ? (
                                     <>
-                                        <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
-                                        <button onClick={handleSavePermissions} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 flex items-center gap-2">
+                                        <button onClick={() => setIsEditing(false)} className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 text-xs md:text-sm">Cancelar</button>
+                                        <button onClick={handleSavePermissions} className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-500 flex items-center gap-2 text-xs md:text-sm">
                                             <FaSave /> Guardar
                                         </button>
                                     </>
                                 ) : (
-                                    <button onClick={() => setIsEditing(true)} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2">
-                                        <EditIcon /> Editar Permissões
+                                    <button onClick={() => setIsEditing(true)} className="px-3 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2 text-xs md:text-sm flex-1 sm:flex-none justify-center">
+                                        <EditIcon /> Editar
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        <div className="flex-grow overflow-y-auto p-6 custom-scrollbar">
+                        <div className="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar">
                              {!isEditing && (
-                                <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded flex items-center gap-2 text-sm text-blue-200">
+                                <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded flex items-center gap-2 text-xs md:text-sm text-blue-200">
                                     <FaInfoCircle /> 
-                                    <span>Modo de Leitura. Clique em "Editar Permissões" para alterar.</span>
+                                    <span>Modo de Leitura. Clique em "Editar" para alterar.</span>
                                 </div>
                             )}
                             
@@ -293,7 +293,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                 </label>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-6 pb-10">
                                 {PERMISSION_GROUPS.map((group, gIdx) => (
                                     <div key={gIdx} className="border border-gray-700 rounded-lg overflow-hidden">
                                         <div 
@@ -305,7 +305,8 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                         </div>
                                         
                                         {!collapsedGroups[group.label] && (
-                                            <table className="w-full text-left border-collapse bg-gray-900/30">
+                                            <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse bg-gray-900/30 min-w-[500px]">
                                                 <thead>
                                                     <tr>
                                                         <th className="p-3 border-b border-gray-700 text-gray-500 font-medium text-xs w-1/3">Módulo / Tabela</th>
@@ -362,6 +363,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                                     ))}
                                                 </tbody>
                                             </table>
+                                            </div>
                                         )}
                                     </div>
                                 ))}
@@ -369,7 +371,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                         </div>
                     </>
                 ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="flex items-center justify-center h-full text-gray-500 p-10">
                         Selecione um perfil para gerir.
                     </div>
                 )}

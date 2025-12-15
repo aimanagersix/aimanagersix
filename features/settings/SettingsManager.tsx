@@ -237,9 +237,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     return (
         <>
-            <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-150px)]">
+            <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-140px)] h-auto">
                 {/* Sidebar Menu */}
-                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-full max-h-full">
+                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 lg:h-full h-auto max-h-60 lg:max-h-full">
                     {/* Reload Button */}
                     <div className="p-2 border-b border-gray-700 flex-shrink-0">
                          <button 
@@ -285,7 +285,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4 h-full" key={selectedMenuId}>
+                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 overflow-hidden flex flex-col p-4 lg:h-full h-auto min-h-[500px]" key={selectedMenuId}>
                     {selectedMenuId === 'agents' && <AgentsTab />}
                     {selectedMenuId === 'cronjobs' && <CronJobsTab 
                         settings={settings} 
