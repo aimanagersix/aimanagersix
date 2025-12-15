@@ -15,7 +15,10 @@ export type ModuleKey =
     | 'config_criticality_levels' | 'config_cia_ratings' 
     | 'config_service_statuses' | 'config_backup_types' 
     | 'config_training_types' | 'config_resilience_test_types' 
-    | 'document_templates' | 'config_job_titles';
+    | 'document_templates' | 'config_job_titles'
+    // New Dashboard Widget Keys
+    | 'widget_alerts' | 'widget_kpi_cards' | 'widget_inventory_charts' 
+    | 'widget_financial' | 'widget_operational_charts' | 'widget_activity';
 
 export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
 

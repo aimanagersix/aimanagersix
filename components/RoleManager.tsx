@@ -19,6 +19,17 @@ interface PermissionGroup {
 
 const PERMISSION_GROUPS: PermissionGroup[] = [
     {
+        label: 'Configuração: Dashboard Widgets',
+        items: [
+            { key: 'widget_alerts', label: 'Alertas de Segurança' },
+            { key: 'widget_kpi_cards', label: 'Cartões KPI (Topo)' },
+            { key: 'widget_inventory_charts', label: 'Gráficos de Inventário' },
+            { key: 'widget_financial', label: 'Resumo Financeiro' },
+            { key: 'widget_operational_charts', label: 'Gráficos Operacionais (Idade/Tickets)' },
+            { key: 'widget_activity', label: 'Atividade Recente' },
+        ]
+    },
+    {
         label: 'Módulos Principais',
         items: [
             { key: 'equipment', label: 'Inventário de Equipamentos' },
@@ -311,24 +322,42 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                                             <td className="p-3 text-sm font-medium text-gray-300 pl-4">
                                                                 {item.label}
                                                             </td>
-                                                            {ACTIONS.map(action => {
-                                                                const isChecked = editedPermissions[item.key]?.[action.key] || false;
-                                                                return (
-                                                                    <td key={action.key} className="p-3 text-center">
-                                                                        <label className={`inline-flex items-center justify-center w-5 h-5 rounded border ${isEditing ? 'cursor-pointer hover:border-brand-secondary' : 'cursor-default opacity-50'} ${isChecked ? 'bg-green-600 border-green-500' : 'bg-gray-800 border-gray-600'}`}>
-                                                                            {isEditing ? (
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    className="hidden"
-                                                                                    checked={isChecked}
-                                                                                    onChange={(e) => handlePermissionChange(item.key, action.key, e.target.checked)}
-                                                                                />
-                                                                            ) : null}
-                                                                            {isChecked && <FaCheck className="text-white text-[10px]" />}
-                                                                        </label>
-                                                                    </td>
-                                                                );
-                                                            })}
+                                                            {/* Custom Logic for Dashboard Widgets: Only show 'View' checkbox */}
+                                                            {item.key.startsWith('widget_') ? (
+                                                                 <td colSpan={4} className="p-3 text-center">
+                                                                    <label className={`inline-flex items-center justify-center w-5 h-5 rounded border ${isEditing ? 'cursor-pointer hover:border-brand-secondary' : 'cursor-default opacity-50'} ${editedPermissions[item.key]?.['view'] ? 'bg-green-600 border-green-500' : 'bg-gray-800 border-gray-600'}`}>
+                                                                        {isEditing ? (
+                                                                            <input 
+                                                                                type="checkbox" 
+                                                                                className="hidden"
+                                                                                checked={editedPermissions[item.key]?.['view'] || false}
+                                                                                onChange={(e) => handlePermissionChange(item.key, 'view', e.target.checked)}
+                                                                            />
+                                                                        ) : null}
+                                                                        {editedPermissions[item.key]?.['view'] && <FaCheck className="text-white text-[10px]" />}
+                                                                    </label>
+                                                                    <span className="text-xs text-gray-500 ml-2">Visível no Dashboard</span>
+                                                                 </td>
+                                                            ) : (
+                                                                ACTIONS.map(action => {
+                                                                    const isChecked = editedPermissions[item.key]?.[action.key] || false;
+                                                                    return (
+                                                                        <td key={action.key} className="p-3 text-center">
+                                                                            <label className={`inline-flex items-center justify-center w-5 h-5 rounded border ${isEditing ? 'cursor-pointer hover:border-brand-secondary' : 'cursor-default opacity-50'} ${isChecked ? 'bg-green-600 border-green-500' : 'bg-gray-800 border-gray-600'}`}>
+                                                                                {isEditing ? (
+                                                                                    <input 
+                                                                                        type="checkbox" 
+                                                                                        className="hidden"
+                                                                                        checked={isChecked}
+                                                                                        onChange={(e) => handlePermissionChange(item.key, action.key, e.target.checked)}
+                                                                                    />
+                                                                                ) : null}
+                                                                                {isChecked && <FaCheck className="text-white text-[10px]" />}
+                                                                            </label>
+                                                                        </td>
+                                                                    );
+                                                                })
+                                                            )}
                                                         </tr>
                                                     ))}
                                                 </tbody>

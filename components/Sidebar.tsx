@@ -73,14 +73,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 onClick={handleClick}
                 className={`flex items-center gap-3 w-full text-left transition-colors duration-200 rounded-md overflow-hidden whitespace-nowrap cursor-pointer no-underline ${
                     isDropdownItem 
-                    ? `px-4 py-2 text-sm ${tab && activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
-                    : `px-4 py-3 text-sm font-medium ${tab && activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
+                    ? `px-4 py-3 md:py-2 text-base md:text-sm ${tab && activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
+                    : `px-4 py-3 text-base md:text-sm font-medium ${tab && activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
                 } ${className}`}
                 role={isDropdownItem ? 'menuitem' : 'tab'}
                 aria-current={tab && activeTab === tab ? 'page' : undefined}
                 title={!isExpanded ? label : undefined}
             >
-                <span className="text-lg flex-shrink-0 w-6 flex justify-center">{icon}</span>
+                <span className="text-xl md:text-lg flex-shrink-0 w-6 flex justify-center">{icon}</span>
                 <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
                     {label}
                 </span>
@@ -90,17 +90,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
     return (
         <>
-        {/* Mobile Overlay (Only visible when expanded on mobile) */}
-        {isExpanded && (
-            <div 
-                className="md:hidden fixed inset-0 bg-black/50 z-40" 
-                onClick={() => onHover(false)}
-            />
-        )}
+        {/* Mobile Overlay (Backdrop) */}
+        <div 
+            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 md:hidden ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            onClick={() => onHover(false)}
+        />
 
         <aside 
-            className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-all duration-300 ease-in-out 
-                ${isExpanded ? 'w-64 translate-x-0' : 'w-20 -translate-x-full md:translate-x-0'}
+            className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-transform duration-300 ease-in-out 
+                md:translate-x-0 ${isExpanded ? 'translate-x-0 w-72 md:w-64' : '-translate-x-full md:w-20'}
             `}
             onMouseEnter={() => { if(window.innerWidth >= 768) onHover(true); }}
             onMouseLeave={() => {
@@ -121,8 +119,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     </span>
                 </div>
                 {/* Mobile Close Button */}
-                <button className="md:hidden text-gray-400" onClick={() => onHover(false)}>
-                    <FaTimes />
+                <button className="md:hidden text-gray-400 p-2 rounded hover:bg-gray-800" onClick={() => onHover(false)}>
+                    <FaTimes className="h-6 w-6" />
                 </button>
             </div>
 
@@ -134,11 +132,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             <>
                                 <button
                                     onClick={() => setIsOverviewOpen(!isOverviewOpen)}
-                                    className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                                    className={`flex items-center justify-between w-full px-4 py-3 text-base md:text-sm font-medium rounded-md transition-colors duration-200 ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
                                     title={!isExpanded ? t('nav.overview') : undefined}
                                 >
                                     <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                                        <FaChartBar className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                        <FaChartBar className="text-xl md:text-lg flex-shrink-0 w-6 flex justify-center" />
                                         <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.overview')}</span>
                                     </div>
                                     {isExpanded && (
@@ -164,11 +162,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setOrganizacaoOpen(!isOrganizacaoOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOrganizacaoOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-base md:text-sm font-medium rounded-md transition-colors duration-200 ${isOrganizacaoOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                             title={!isExpanded ? t('nav.organization') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                                <FaSitemap className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                <FaSitemap className="text-xl md:text-lg flex-shrink-0 w-6 flex justify-center" />
                                 <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.organization')}</span>
                             </div>
                             {isExpanded && (
@@ -193,11 +191,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setInventarioOpen(!isInventarioOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isInventarioOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-base md:text-sm font-medium rounded-md transition-colors duration-200 ${isInventarioOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                             title={!isExpanded ? t('nav.inventory') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                                <FaBoxOpen className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                <FaBoxOpen className="text-xl md:text-lg flex-shrink-0 w-6 flex justify-center" />
                                 <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.inventory')}</span>
                             </div>
                             {isExpanded && (
@@ -220,11 +218,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setIsNis2Open(prev => !prev)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isNis2Open ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-base md:text-sm font-medium rounded-md transition-colors duration-200 ${isNis2Open ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                             title={!isExpanded ? (tabConfig.nis2?.title || t('nav.compliance')) : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                                <FaShieldAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                <FaShieldAlt className="text-xl md:text-lg flex-shrink-0 w-6 flex justify-center" />
                                 <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.compliance')}</span>
                             </div>
                             {isExpanded && (
@@ -258,11 +256,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <div className="space-y-1">
                         <button
                             onClick={() => setIsToolsOpen(!isToolsOpen)}
-                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-base md:text-sm font-medium rounded-md transition-colors duration-200 ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                             title={!isExpanded ? t('nav.tools') : undefined}
                         >
                             <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                                <FaToolbox className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                <FaToolbox className="text-xl md:text-lg flex-shrink-0 w-6 flex justify-center" />
                                 <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.tools')}</span>
                             </div>
                             {isExpanded && (

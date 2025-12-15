@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao, ConfigItem } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
-import { FaHistory, FaToggleOn, FaToggleOff, FaPlaneArrival } from 'react-icons/fa';
+import { FaHistory, FaToggleOn, FaToggleOff, FaPlaneArrival, FaPhone, FaEnvelope, FaIdCard } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
 interface CollaboratorDashboardProps {
@@ -29,7 +29,7 @@ interface CollaboratorDashboardProps {
   onAssignEquipment?: (collaboratorId: string, equipmentId: string) => Promise<void>;
   onUnassignEquipment?: (equipmentId: string) => Promise<void>;
   deactivationReasons?: ConfigItem[];
-  jobTitles?: ConfigItem[]; // Added prop for job title mapping
+  jobTitles?: ConfigItem[];
 
   // Server-Side Pagination Props
   totalItems?: number;
@@ -51,9 +51,9 @@ interface TooltipState {
 const getStatusClass = (status: CollaboratorStatus) => {
     switch (status) {
         case CollaboratorStatus.Ativo:
-            return 'bg-green-500/20 text-green-400';
+            return 'bg-green-500/20 text-green-400 border border-green-500/30';
         case CollaboratorStatus.Inativo:
-            return 'bg-red-500/20 text-red-400';
+            return 'bg-red-500/20 text-red-400 border border-red-500/30';
         case CollaboratorStatus.Onboarding:
             return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
         default:
@@ -116,9 +116,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         return map;
     }, [assignments, equipmentMap]);
 
-    // Calculate dependencies for deletion logic (client-side check for visible/loaded items)
-    // Note: For full accuracy with pagination, server should check relations before delete, 
-    // but this UI helper prevents accidental clicks for loaded users.
     const dependencyMap = useMemo(() => {
         const map = new Map<string, string[]>();
         const addDependency = (id: string, reason: string) => {
@@ -147,6 +144,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     };
 
     const handleMouseOver = (col: Collaborator, event: React.MouseEvent) => {
+        if (window.innerWidth < 768) return; // Disable tooltip on mobile
         const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
         const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
         const entityName = col.entidadeId ? entidadeMap.get(col.entidadeId) : col.instituicaoId ? instituicaoMap.get(col.instituicaoId) : 'Global / N/A';
@@ -191,91 +189,191 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     };
 
   return (
-    <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-        <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+    <div className="bg-surface-dark p-4 md:p-6 rounded-lg shadow-xl">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
             <h2 className="text-xl font-semibold text-white">Gestão de Colaboradores</h2>
-             <div className="flex items-center gap-2">
+             <div className="flex items-center gap-2 w-full sm:w-auto">
                 {onGenerateReport && (
-                    <button onClick={onGenerateReport} className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors">
-                        <ReportIcon /> Gerar Relatório
+                    <button onClick={onGenerateReport} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors">
+                        <ReportIcon className="w-4 h-4" /> <span className="hidden sm:inline">Relatório</span>
                     </button>
                 )}
                 {onCreate && (
-                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                        <PlusIcon /> Adicionar
+                    <button onClick={onCreate} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <PlusIcon className="w-4 h-4" /> Adicionar
                     </button>
                 )}
             </div>
         </div>
 
-        <div className="space-y-4 mb-6">
+        {/* Filters - Mobile Optimized */}
+        <div className="space-y-4 mb-6 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                    <label htmlFor="searchQuery" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Procurar Colaborador</label>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Pesquisar</label>
                     <div className="relative">
                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <SearchIcon className="h-5 w-5 text-gray-400" />
+                          <SearchIcon className="h-4 w-4 text-gray-500" />
                         </div>
                         <input
                             type="text"
                             name="query"
-                            id="searchQuery"
                             value={filters.query}
                             onChange={handleFilterChange}
-                            placeholder="Nome, email, nº mecanográfico..."
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 pl-10 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                            placeholder="Nome, email, mec..."
+                            className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 pl-9 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
                         />
                     </div>
                 </div>
                 <div>
-                    <label htmlFor="entidadeFilter" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Entidade</label>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Entidade</label>
                     <select
-                        id="entidadeFilter"
                         name="entidadeId"
                         value={filters.entidadeId}
                         onChange={handleFilterChange}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
+                        className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
                     >
-                        <option value="">Todas as Entidades</option>
+                        <option value="">Todas</option>
                         {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                     </select>
                 </div>
-                <div>
-                    <label htmlFor="roleFilter" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Perfil de Acesso</label>
-                    <select
-                        id="roleFilter"
-                        name="role"
-                        value={filters.role}
-                        onChange={handleFilterChange}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                    >
-                        <option value="">Todos os Perfis</option>
-                        {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Perfil</label>
+                        <select
+                            name="role"
+                            value={filters.role}
+                            onChange={handleFilterChange}
+                            className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
+                        >
+                            <option value="">Todos</option>
+                            {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
+                         <select
+                            name="status"
+                            value={filters.status}
+                            onChange={handleFilterChange}
+                            className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
+                        >
+                            <option value="">Todos</option>
+                            {Object.values(CollaboratorStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
                 </div>
-                <div>
-                    <label htmlFor="statusFilter" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Filtrar por Status</label>
-                    <select
-                        id="statusFilter"
-                        name="status"
-                        value={filters.status}
-                        onChange={handleFilterChange}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                    >
-                        <option value="">Todos</option>
-                        {Object.values(CollaboratorStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                <div className="flex items-end">
+                    <button onClick={clearFilters} className="w-full px-4 py-2 text-sm bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors border border-gray-600">
+                        Limpar Filtros
+                    </button>
                 </div>
-            </div>
-            <div className="flex justify-end">
-                <button onClick={clearFilters} className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Limpar Filtros</button>
             </div>
         </div>
       
-      <div className="overflow-x-auto min-h-[400px]">
-        {loading ? (
-             <div className="flex justify-center items-center h-64 text-gray-400">A carregar colaboradores...</div>
-        ) : (
+      {loading ? (
+             <div className="flex justify-center items-center h-64 text-gray-400">
+                <div className="flex flex-col items-center gap-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-secondary"></div>
+                    <span className="text-sm">A carregar colaboradores...</span>
+                </div>
+             </div>
+      ) : (
+        <>
+        {/* MOBILE VIEW (CARDS) */}
+        <div className="grid grid-cols-1 gap-4 md:hidden">
+            {collaborators.length > 0 ? collaborators.map((col) => {
+                const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
+                const equipmentCount = assignedEquipment.length;
+                const dependencies = dependencyMap.get(col.id) || [];
+                const isSuperAdmin = col.role === UserRole.SuperAdmin;
+                const isProtectedUser = col.email === PROTECTED_EMAIL;
+                const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || currentUser?.id === col.id || isProtectedUser;
+                const resolvedJobTitle = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : null);
+
+                return (
+                    <div key={col.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-md">
+                        <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                                {col.photoUrl ? (
+                                    <img src={col.photoUrl} alt={col.fullName} className="h-12 w-12 rounded-full object-cover border-2 border-gray-600" />
+                                ) : (
+                                    <div className="h-12 w-12 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-lg">{col.fullName.charAt(0)}</div>
+                                )}
+                                <div>
+                                    <h3 className="font-bold text-white text-lg leading-tight">{col.fullName}</h3>
+                                    <p className="text-sm text-brand-secondary">{resolvedJobTitle || col.role}</p>
+                                </div>
+                            </div>
+                            <span className={`px-2 py-1 text-[10px] rounded-full font-bold uppercase ${getStatusClass(col.status)}`}>{col.status}</span>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm text-gray-300 mb-4 bg-gray-900/50 p-3 rounded">
+                            <div className="flex items-center gap-2">
+                                <FaEnvelope className="text-gray-500 w-4"/> <span className="truncate">{col.email}</span>
+                            </div>
+                            {(col.telemovel || col.telefoneInterno) && (
+                                <div className="flex items-center gap-2">
+                                    <FaPhone className="text-gray-500 w-4"/> <span>{col.telemovel || col.telefoneInterno}</span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                                <FaIdCard className="text-gray-500 w-4"/> <span>Mec: {col.numeroMecanografico}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                                <span className="text-gray-500 w-4 text-center">•</span> {getAssociationText(col)}
+                            </div>
+                            {equipmentCount > 0 && (
+                                <div className="mt-2 pt-2 border-t border-gray-700 text-brand-secondary font-bold text-xs">
+                                    {equipmentCount} equipamentos atribuídos
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-700">
+                             {/* Actions Row */}
+                            <button 
+                                onClick={() => onShowDetails && onShowDetails(col)}
+                                className="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 text-teal-400"
+                            >
+                                <ReportIcon className="h-5 w-5 mb-1"/> <span className="text-[10px]">Detalhes</span>
+                            </button>
+                            <button 
+                                onClick={() => onEdit && onEdit(col)}
+                                className="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 text-blue-400"
+                            >
+                                <EditIcon className="h-5 w-5 mb-1"/> <span className="text-[10px]">Editar</span>
+                            </button>
+                            {onToggleStatus && !isSuperAdmin && !isProtectedUser && (
+                                <button 
+                                    onClick={() => onToggleStatus(col)}
+                                    className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 ${col.status === CollaboratorStatus.Ativo ? 'text-green-400' : 'text-gray-500'}`}
+                                >
+                                    {col.status === CollaboratorStatus.Ativo ? <FaToggleOn className="h-5 w-5 mb-1"/> : <FaToggleOff className="h-5 w-5 mb-1"/>} 
+                                    <span className="text-[10px]">{col.status === 'Ativo' ? 'Ativo' : 'Inativo'}</span>
+                                </button>
+                            )}
+                             {onDelete && !isSuperAdmin && (
+                                <button 
+                                    onClick={() => { if (!isDeleteDisabled) onDelete(col.id); }} 
+                                    className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 ${isDeleteDisabled ? "text-gray-600 opacity-50" : "text-red-400"}`}
+                                    disabled={isDeleteDisabled}
+                                >
+                                    <DeleteIcon className="h-5 w-5 mb-1"/> <span className="text-[10px]">Apagar</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            }) : (
+                 <div className="text-center py-8 text-on-surface-dark-secondary bg-gray-800 rounded-lg border border-gray-700 border-dashed">
+                    Nenhum colaborador encontrado.
+                </div>
+            )}
+        </div>
+
+        {/* DESKTOP VIEW (TABLE) */}
+        <div className="hidden md:block overflow-x-auto min-h-[400px]">
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
@@ -283,7 +381,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
               <th scope="col" className="px-6 py-3">Nome Completo / Equipamentos</th>
               <th scope="col" className="px-6 py-3">Contactos</th>
               <th scope="col" className="px-6 py-3">Cargo / Perfil</th>
-              <th scope="col" className="px-6 py-3">Associação (Entidade/Inst.)</th>
+              <th scope="col" className="px-6 py-3">Associação</th>
               <th scope="col" className="px-6 py-3">Status</th>
               <th scope="col" className="px-6 py-3 text-center">Acesso</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
@@ -313,13 +411,13 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 return (
               <tr 
                 key={col.id} 
-                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer"
+                className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer transition-colors"
                 onMouseOver={(e) => handleMouseOver(col, e)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
                 onClick={() => onShowDetails ? onShowDetails(col) : (onEdit && onEdit(col))}
               >
-                <td className="px-6 py-4">{col.numeroMecanografico}</td>
+                <td className="px-6 py-4 font-mono text-xs">{col.numeroMecanografico}</td>
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                   <div className="flex items-center gap-3">
                     {col.photoUrl ? (
@@ -328,24 +426,24 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         <div className="h-10 w-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">{col.fullName.charAt(0)}</div>
                     )}
                     <div>
-                        <span>{col.fullName}</span>
+                        <span className="text-white font-semibold">{col.fullName}</span>
                         {isOnboarding && <span className="ml-2 text-[10px] uppercase bg-blue-900/50 text-blue-300 px-1 rounded border border-blue-500/30 flex items-center w-fit gap-1 mt-0.5"><FaPlaneArrival/> Novo</span>}
-                        {equipmentCount > 0 && <div className="text-xs text-brand-secondary mt-1">{equipmentCount} equipamento(s) atribuído(s)</div>}
+                        {equipmentCount > 0 && <div className="text-xs text-brand-secondary mt-1 font-normal">{equipmentCount} equipamento(s) atribuído(s)</div>}
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                    <div>{col.email}</div>
-                    {col.telefoneInterno && <div className="text-xs text-on-surface-dark-secondary">Interno: {col.telefoneInterno}</div>}
-                    {col.telemovel && <div className="text-xs text-on-surface-dark-secondary">Móvel: {col.telemovel}</div>}
+                    <div className="text-white">{col.email}</div>
+                    {col.telefoneInterno && <div className="text-xs text-gray-400">Int: {col.telefoneInterno}</div>}
+                    {col.telemovel && <div className="text-xs text-gray-400">Móvel: {col.telemovel}</div>}
                 </td>
                 <td className="px-6 py-4">
-                    <div className="font-semibold text-white">{resolvedJobTitle || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}</div>
-                    <div className="text-xs text-gray-500">{col.role}</div>
+                    <div className="font-semibold text-white text-sm">{resolvedJobTitle || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}</div>
+                    <div className="text-xs text-brand-secondary">{col.role}</div>
                 </td>
-                <td className="px-6 py-4">{getAssociationText(col)}</td>
+                <td className="px-6 py-4 text-xs text-gray-300">{getAssociationText(col)}</td>
                 <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusClass(col.status)}`}>{col.status}</span>
+                    <span className={`px-2 py-1 text-xs rounded-full font-bold uppercase tracking-wider ${getStatusClass(col.status)}`}>{col.status}</span>
                 </td>
                 <td className="px-6 py-4 text-center">
                     {col.canLogin ? (
@@ -355,32 +453,31 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     )}
                 </td>
                 <td className="px-6 py-4 text-center">
-                     <div className="flex justify-center items-center gap-4">
+                     <div className="flex justify-center items-center gap-3">
                         {onToggleStatus && !isSuperAdmin && !isProtectedUser && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onToggleStatus(col); }}
-                                className={`text-xl ${col.status === CollaboratorStatus.Ativo ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
-                                title={col.status === CollaboratorStatus.Ativo ? 'Inativar (Assistente de Saída)' : 'Ativar'}
+                                className={`text-lg p-1 rounded hover:bg-gray-700 ${col.status === CollaboratorStatus.Ativo ? 'text-green-400' : 'text-gray-500'}`}
+                                title={col.status === CollaboratorStatus.Ativo ? 'Inativar' : 'Ativar'}
                             >
                                 {col.status === CollaboratorStatus.Ativo ? <FaToggleOn /> : <FaToggleOff />}
                             </button>
                         )}
                         {onStartChat && currentUser && currentUser.id !== col.id && (
-                             <button onClick={(e) => { e.stopPropagation(); onStartChat(col); }} className="text-gray-400 hover:text-white" aria-label={`Mensagem para ${col.fullName}`}><FaComment className="h-5 w-5"/></button>
+                             <button onClick={(e) => { e.stopPropagation(); onStartChat(col); }} className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700" title="Mensagem"><FaComment className="h-4 w-4"/></button>
                         )}
                         {onShowDetails && ( 
-                            <button onClick={(e) => { e.stopPropagation(); onShowDetails(col); }} className="text-teal-400 hover:text-teal-300" aria-label={`Ficha de ${col.fullName}`}><ReportIcon className="h-5 w-5"/></button>
+                            <button onClick={(e) => { e.stopPropagation(); onShowDetails(col); }} className="text-teal-400 hover:text-teal-300 p-1 rounded hover:bg-gray-700" title="Ficha Completa"><ReportIcon className="h-5 w-5"/></button>
                         )}
                         {onEdit && (
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(col); }} className="text-blue-400 hover:text-blue-300" aria-label={`Edit ${col.fullName}`}><EditIcon /></button>
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(col); }} className="text-blue-400 hover:text-blue-300 p-1 rounded hover:bg-gray-700" title="Editar"><EditIcon /></button>
                         )}
                         {onDelete && !isSuperAdmin && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); if (!isDeleteDisabled) onDelete(col.id); }} 
-                                className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
+                                className={`p-1 rounded hover:bg-gray-700 ${isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}`}
                                 disabled={isDeleteDisabled}
                                 title={deleteTooltip}
-                                aria-label={deleteTooltip}
                             >
                                 <DeleteIcon />
                             </button>
@@ -394,13 +491,16 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
             )}
           </tbody>
         </table>
+        </div>
+        </>
         )}
+        
         {tooltip?.visible && (
-            <div style={{ position: 'fixed', top: tooltip.y + 15, left: tooltip.x + 15, pointerEvents: 'none' }} className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm" role="tooltip">
+            <div style={{ position: 'fixed', top: tooltip.y + 15, left: tooltip.x + 15, pointerEvents: 'none' }} className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm hidden md:block" role="tooltip">
                 {tooltip.content}
             </div>
         )}
-      </div>
+       
        <Pagination
             currentPage={page || 1}
             totalPages={Math.ceil((totalItems || 0) / (pageSize || 20))}

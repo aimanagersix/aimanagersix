@@ -223,6 +223,10 @@ export const App: React.FC = () => {
         if (currentUser.role === UserRole.Utilizador || currentUser.role === 'Basic') {
             if (module === 'tickets' && action === 'create') return true;
             if (module === 'tickets' && action === 'view') return true;
+            // Dashboard widgets visible for basic users by default if not strictly denied (or handle via DB config if desired to be strict)
+            // For now, let's assume Basic users see KPI and Activity, but not financial or heavy charts unless configured.
+             if (module === 'widget_kpi_cards' && action === 'view') return true;
+             if (module === 'widget_activity' && action === 'view') return true;
             return false;
         }
         
@@ -435,6 +439,7 @@ export const App: React.FC = () => {
                         onGenerateComplianceReport={() => { setReportType('compliance'); setShowReportModal(true); }}
                         procurementRequests={appData.procurementRequests}
                         onRefresh={refreshData} 
+                        checkPermission={checkPermission}
                     />}
 
                     {activeTab === 'overview.smart' && canViewSmartDashboard && (

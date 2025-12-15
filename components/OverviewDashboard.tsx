@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory, ProcurementRequest } from '../types';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory, ProcurementRequest, ModuleKey, PermissionAction } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull, FaChartLine, FaStopwatch, FaSync, FaEuroSign, FaServer } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
@@ -24,6 +24,7 @@ interface OverviewDashboardProps {
     onViewItem: (tab: string, filter: any) => void;
     onGenerateComplianceReport: () => void;
     onRefresh?: () => void;
+    checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
 }
 
 interface StatCardProps {
@@ -115,7 +116,7 @@ const DashboardSection: React.FC<{ title: string; icon?: React.ReactNode; childr
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
-    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], vulnerabilities = [], procurementRequests = [], onViewItem, onGenerateComplianceReport, onRefresh
+    expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], vulnerabilities = [], procurementRequests = [], onViewItem, onGenerateComplianceReport, onRefresh, checkPermission
 }) => {
     const { t } = useLanguage();
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
@@ -311,6 +312,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             </div>
 
             {/* --- ALERTS SECTION --- */}
+            {checkPermission('widget_alerts', 'view') && (
             <div className="space-y-4">
                 {securityStats.openCritical > 0 && (
                     <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in shadow-lg shadow-red-900/10">
@@ -356,8 +358,10 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     </div>
                 )}
             </div>
+            )}
 
-            {/* --- MODULE 1: SECURITY & RISK --- */}
+            {/* --- MODULE 1: SECURITY & RISK (KPI CARDS) --- */}
+            {checkPermission('widget_kpi_cards', 'view') && (
             <DashboardSection title="Segurança & Risco (NIS2)" icon={<FaShieldAlt />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                      <StatCard 
@@ -395,21 +399,26 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     />
                 </div>
             </DashboardSection>
+            )}
 
             {/* --- MODULE 2: INVENTORY STATUS (Dynamic) --- */}
+            {(checkPermission('widget_inventory_charts', 'view') || checkPermission('widget_financial', 'view')) && (
             <DashboardSection title="Estado do Inventário" icon={<FaWarehouse />}>
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* Dynamic Status Chart */}
                     <div className="lg:col-span-8">
+                    {checkPermission('widget_inventory_charts', 'view') && (
                         <BarChart 
                             title={t('overview.inventory_status')} 
                             data={equipmentStatusData.chartData} 
                             icon={<FaChartPie />}
                             colorBar="bg-blue-500"
                         />
+                    )}
                     </div>
                     {/* Financial & Alerts */}
                     <div className="lg:col-span-4 flex flex-col gap-4">
+                        {checkPermission('widget_financial', 'view') && (
                          <div className="bg-surface-dark p-5 rounded-lg shadow-lg border border-gray-800 flex flex-col justify-center items-center text-center h-full">
                             <div className="p-3 bg-green-900/30 text-green-400 rounded-full mb-2">
                                 <FaEuroSign className="h-6 w-6" />
@@ -420,7 +429,10 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             </p>
                             <p className="text-[10px] text-gray-500">Baseado no Custo de Aquisição (CAPEX)</p>
                         </div>
+                        )}
                         
+                        {checkPermission('widget_inventory_charts', 'view') && (
+                        <>
                         <StatCard 
                             title="Garantias a Expirar" 
                             value={healthStats.expiringWarranties} 
@@ -437,11 +449,15 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             onClick={() => onViewItem('licensing', {})} 
                             subtext="Nos próximos 30 dias"
                         />
+                        </>
+                        )}
                     </div>
                 </div>
             </DashboardSection>
+            )}
 
             {/* --- MODULE 3: OPERATIONAL INSIGHTS --- */}
+            {checkPermission('widget_operational_charts', 'view') && (
             <DashboardSection title="Insights Operacionais" icon={<FaChartLine />}>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      <div className="h-64">
@@ -460,8 +476,10 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     </div>
                 </div>
             </DashboardSection>
+            )}
 
             {/* --- MODULE 4: RECENT ACTIVITY --- */}
+            {checkPermission('widget_activity', 'view') && (
             <DashboardSection title={t('overview.recent_activity')} icon={<FaHistory />}>
                 <div className="bg-surface-dark p-6 rounded-lg shadow-lg border border-gray-800">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -475,6 +493,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     </div>
                 </div>
             </DashboardSection>
+            )}
         </div>
     );
 };
