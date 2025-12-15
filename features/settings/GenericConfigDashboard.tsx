@@ -69,7 +69,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
     };
 
     return (
-        <div className="p-6 h-full flex flex-col">
+        <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">{icon} {title}</h2>
                 <button onClick={onRefresh} className="text-sm text-brand-secondary hover:text-white flex items-center gap-1">
@@ -77,7 +77,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
                 </button>
             </div>
             
-            {/* Input Area - Always visible at top */}
+            {/* Input Area */}
             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 mb-6 shadow-sm">
                 <h3 className="text-sm font-bold text-gray-400 mb-2 uppercase">{editingItem ? 'Editar Item' : 'Criar Novo Item'}</h3>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -119,7 +119,7 @@ const GenericConfigDashboard: React.FC<GenericConfigDashboardProps> = ({ title, 
                 {error && <p className="text-red-400 text-xs mt-2 bg-red-900/20 p-2 rounded flex items-center gap-2"><FaExclamationCircle/> {error}</p>}
             </div>
 
-            <div className="flex-1 overflow-x-auto border border-gray-700 rounded-lg">
+            <div className="overflow-x-auto border border-gray-700 rounded-lg">
                 <table className="w-full text-sm text-left">
                     <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                         <tr>

@@ -92,7 +92,7 @@ const SecretStatusItem = ({
 const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsChange, onSave }) => {
 
     return (
-        <div className="space-y-6 animate-fade-in p-6 h-full overflow-y-auto custom-scrollbar">
+        <div className="space-y-6 animate-fade-in p-6">
             
             <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 mb-6">
                 <p>

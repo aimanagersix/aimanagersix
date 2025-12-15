@@ -27,7 +27,7 @@ const BrandingTab: React.FC<BrandingTabProps> = ({ settings, onSettingsChange, o
     };
 
     return (
-        <div className="p-6 h-full flex flex-col">
+        <div className="p-6 flex flex-col">
             <h2 className="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">
                 Personalização (Branding)
             </h2>

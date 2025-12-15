@@ -12,7 +12,7 @@ interface WebhooksTabProps {
 const WebhooksTab: React.FC<WebhooksTabProps> = ({ settings, onSettingsChange, onSimulate, onCreateSimulatedTicket }) => {
     
     return (
-        <div className="animate-fade-in p-6 h-full flex flex-col">
+        <div className="animate-fade-in p-6 flex flex-col">
             <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-6">
                 <div className="flex items-center gap-2 font-bold mb-2"><FaNetworkWired /> Webhooks de Ingestão</div>
                 <p>

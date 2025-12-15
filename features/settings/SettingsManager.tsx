@@ -233,7 +233,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         return null;
     };
 
-    // Centralized Render Logic to avoid confusion and ensure correct panel is shown
+    // Centralized Render Logic to ensure visibility
     const renderContent = () => {
         switch (selectedMenuId) {
             case 'agents': return <AgentsTab />;
@@ -249,7 +249,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />;
             case 'config_software_products': return <SoftwareProductDashboard products={appData.softwareProducts} categories={appData.softwareCategories} onRefresh={refreshData} />;
             default:
-                // Generic Tables
+                // Check if it's a generic table ID
                 if (simpleConfigTables[selectedMenuId]) {
                     return (
                         <GenericConfigDashboard 
@@ -268,10 +268,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     return (
         <>
-             {/* Layout: Sem altura fixa no pai para permitir scroll natural da página inteira */}
+             {/* Layout with auto height to allow scrolling */}
             <div className="flex flex-col lg:flex-row gap-6 pb-10">
                 
-                {/* Sidebar Menu - Fixed Width but auto height */}
+                {/* Sidebar Menu */}
                 <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-fit self-start">
                     {/* Reload Button */}
                     <div className="p-2 border-b border-gray-700 flex-shrink-0">
@@ -320,7 +320,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     </div>
                 </div>
 
-                {/* Content Area - Expands naturally */}
+                {/* Content Area */}
                 <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col relative min-h-[600px]">
                     <div className="flex-grow">
                         {renderContent()}
@@ -328,7 +328,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 </div>
             </div>
 
-            {/* Modals - Rendered at root level of component to avoid z-index issues */}
+            {/* Modals - Rendered at root */}
             {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
             {showAddBrandModal && <AddBrandModal onClose={() => setShowAddBrandModal(false)} onSave={async (b) => { if(brandToEdit) await dataService.updateBrand(brandToEdit.id, b); else await dataService.addBrand(b); refreshData(); }} brandToEdit={brandToEdit} existingBrands={appData.brands} />}
             {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} existingTypes={appData.equipmentTypes} />}
