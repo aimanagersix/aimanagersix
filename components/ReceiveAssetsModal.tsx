@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, Brand, EquipmentType, EquipmentStatus, CriticalityLevel, LicenseStatus } from '../types';
-import { FaBoxOpen, FaCheck, FaKey, FaLaptop, FaListOl, FaTags } from 'react-icons/fa';
+import { FaBoxOpen, FaCheck, FaKey, FaLaptop, FaListOl, FaTags, FaCalendarAlt } from 'react-icons/fa';
 
 interface ReceiveAssetsModalProps {
     onClose: () => void;
@@ -19,6 +19,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
     
     // New: Common Status for Hardware
     const [commonStatus, setCommonStatus] = useState<string>(EquipmentStatus.Stock);
+    const [commonWarrantyDate, setCommonWarrantyDate] = useState('');
 
     // Hardware State
     const [items, setItems] = useState<any[]>([]);
@@ -51,6 +52,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                     typeId: request.equipment_type_id || '',
                     description: request.title || '', // Default description from request title
                     status: commonStatus, // Use the selected status
+                    warrantyEndDate: '', // Initialize empty
                     // Prefill specs from request JSON
                     ram_size: request.specifications?.ram_size || '',
                     cpu_info: request.specifications?.cpu_info || '',
@@ -75,16 +77,17 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
         }
     }, [commonStatus, isSoftware]);
 
-    // Apply common brand/type to all (Hardware Only)
+    // Apply common brand/type/warranty to all (Hardware Only)
     useEffect(() => {
-        if (!isSoftware && (commonBrandId || commonTypeId)) {
+        if (!isSoftware) {
             setItems(prev => prev.map(item => ({
                 ...item,
                 brandId: commonBrandId || item.brandId,
-                typeId: commonTypeId || item.typeId
+                typeId: commonTypeId || item.typeId,
+                warrantyEndDate: commonWarrantyDate || item.warrantyEndDate
             })));
         }
-    }, [commonBrandId, commonTypeId, isSoftware]);
+    }, [commonBrandId, commonTypeId, commonWarrantyDate, isSoftware]);
 
     const handleItemChange = (index: number, field: string, value: string) => {
         setItems(prev => {
@@ -92,6 +95,14 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
             newItems[index] = { ...newItems[index], [field]: value };
             return newItems;
         });
+    };
+    
+    const handleSetCommonWarranty = (years: number) => {
+        // Use received_date or today as purchase date base
+        const baseDateStr = request.received_date || new Date().toISOString().split('T')[0];
+        const date = new Date(baseDateStr);
+        date.setFullYear(date.getFullYear() + years);
+        setCommonWarrantyDate(date.toISOString().split('T')[0]);
     };
 
     const handleSubmit = async () => {
@@ -172,6 +183,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                     description: item.description,
                     status: commonStatus, // Use selected status (Stock or Acquisition)
                     purchaseDate: request.received_date || new Date().toISOString().split('T')[0],
+                    warrantyEndDate: item.warrantyEndDate || undefined,
                     supplier_id: request.supplier_id,
                     invoiceNumber: request.invoice_number,
                     requisitionNumber: request.order_reference,
@@ -198,7 +210,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
     };
 
     return (
-        <Modal title={isSoftware ? "Receção de Software (Licenças)" : "Receção de Material - Entrada em Stock"} onClose={onClose} maxWidth="max-w-5xl">
+        <Modal title={isSoftware ? "Receção de Software (Licenças)" : "Receção de Material - Entrada em Stock"} onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-6">
                 <div className="bg-blue-900/20 p-4 rounded border border-blue-500/30 flex items-start gap-3">
                     {isSoftware ? <FaKey className="text-2xl text-yellow-400 mt-1" /> : <FaBoxOpen className="text-2xl text-blue-400 mt-1" />}
@@ -251,7 +263,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
 
                 {/* Bulk Actions (Hardware Only) */}
                 {!isSoftware && (
-                    <div className="bg-gray-800 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-gray-800 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                              <label className="block text-xs text-gray-400 mb-1">Estado Inicial</label>
                              <select 
@@ -285,6 +297,21 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                                 <option value="">-- Selecione --</option>
                                 {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-1">Fim da Garantia (Opcional)</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="date" 
+                                    value={commonWarrantyDate} 
+                                    onChange={(e) => setCommonWarrantyDate(e.target.value)} 
+                                    className="w-full bg-gray-700 border border-gray-500 text-white rounded p-1 text-sm"
+                                />
+                            </div>
+                             <div className="flex gap-2 mt-1">
+                                <button type="button" onClick={() => handleSetCommonWarranty(2)} className="px-2 py-1 text-[10px] bg-gray-600 rounded hover:bg-gray-500 flex items-center gap-1">+2 Anos</button>
+                                <button type="button" onClick={() => handleSetCommonWarranty(3)} className="px-2 py-1 text-[10px] bg-gray-600 rounded hover:bg-gray-500 flex items-center gap-1">+3 Anos</button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -345,6 +372,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                                             <th className="px-4 py-2">Marca *</th>
                                             <th className="px-4 py-2">Tipo *</th>
                                             <th className="px-4 py-2">Descrição</th>
+                                            <th className="px-4 py-2">Fim Garantia</th>
                                         </>
                                     )}
                                 </tr>
@@ -421,6 +449,14 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                                                         value={item.description} 
                                                         onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
                                                         className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="date" 
+                                                        value={item.warrantyEndDate || ''} 
+                                                        onChange={(e) => handleItemChange(idx, 'warrantyEndDate', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full text-xs"
                                                     />
                                                 </td>
                                             </>
