@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { TicketCategoryItem, Ticket, Team } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
-import { FaToggleOn, FaToggleOff, FaUsers } from 'react-icons/fa';
+import { FaToggleOn, FaToggleOff, FaUsers, FaShieldAlt } from 'react-icons/fa';
 
 interface CategoryDashboardProps {
   categories: TicketCategoryItem[];
@@ -60,6 +60,7 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories = [], 
             <tr>
               <th scope="col" className="px-6 py-3">Nome da Categoria</th>
               <th scope="col" className="px-6 py-3">Equipa Padrão</th>
+              <th scope="col" className="px-6 py-3 text-center">Tipo</th>
               <th scope="col" className="px-6 py-3 text-center">Status</th>
               <th scope="col" className="px-6 py-3 text-center">Nº de Tickets</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
@@ -84,6 +85,15 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories = [], 
                         </div>
                     ) : (
                         <span className="text-gray-500 italic">Nenhuma</span>
+                    )}
+                </td>
+                <td className="px-6 py-4 text-center">
+                    {cat.is_security ? (
+                         <span className="inline-flex items-center gap-1 bg-red-900/30 text-red-400 px-2 py-1 rounded text-xs border border-red-500/30 font-bold" title="Incidente de Segurança">
+                            <FaShieldAlt className="h-3 w-3" /> Segurança
+                        </span>
+                    ) : (
+                        <span className="text-gray-500 text-xs">Padrão</span>
                     )}
                 </td>
                 <td className="px-6 py-4 text-center">
@@ -120,7 +130,7 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories = [], 
               </tr>
             )}) : (
                 <tr>
-                    <td colSpan={5} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma categoria encontrada.</td>
+                    <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma categoria encontrada.</td>
                 </tr>
             )}
           </tbody>

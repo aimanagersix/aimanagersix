@@ -132,6 +132,9 @@ ALTER TABLE IF EXISTS public.collaborators ADD COLUMN IF NOT EXISTS "dateOfBirth
 -- D. Campos em falta nos Tickets (Fornecedores Externos)
 ALTER TABLE IF EXISTS public.tickets ADD COLUMN IF NOT EXISTS supplier_id UUID REFERENCES public.suppliers(id);
 ALTER TABLE IF EXISTS public.tickets ADD COLUMN IF NOT EXISTS requester_supplier_id UUID REFERENCES public.suppliers(id);
+
+-- E. Flag de Segurança nas Categorias (v3.2)
+ALTER TABLE IF EXISTS public.ticket_categories ADD COLUMN IF NOT EXISTS is_security BOOLEAN DEFAULT false;
 `,
         triggers: `
 -- ==================================================================================

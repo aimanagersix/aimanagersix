@@ -140,14 +140,20 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     // Determine if user is restricted
     const isUtilizador = userPermissions.viewScope === 'own' || currentUser?.role === 'Utilizador';
     
-    // Enhanced Security Detection: Check for "Segurança" or "Security" in the category name
+    // Enhanced Security Detection: Check property on object first, fall back to string match
     const isSecurityIncident = useMemo(() => {
+        const selectedCatObj = categories.find(c => c.name === formData.category);
+        if (selectedCatObj && selectedCatObj.is_security !== undefined) {
+             return selectedCatObj.is_security;
+        }
+
+        // Fallback for legacy or unconfigured
         const cat = (formData.category || '').toLowerCase();
         return cat.includes('segurança') || 
                cat.includes('security') || 
                cat.includes('incidente') || // Broad catch for "Incidente de..."
                formData.category === TicketCategory.SecurityIncident;
-    }, [formData.category]);
+    }, [formData.category, categories]);
 
     useEffect(() => {
         if (ticketToEdit) {
@@ -287,10 +293,17 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
             else if (result.suggestedPriority === 'Média') mappedPriority = CriticalityLevel.Medium;
 
             let bestCategory = activeCategories.find(c => c.toLowerCase() === result.suggestedCategory.toLowerCase()) || result.suggestedCategory;
+            
+            // Check if we have a real category that is marked as security
             if (result.isSecurityIncident) {
-                // If AI detects security, switch to a security category if available
-                const securityCat = activeCategories.find(c => c.toLowerCase().includes('segurança')) || 'Incidente de Segurança';
-                bestCategory = securityCat;
+                const securityCat = categories.find(c => c.is_security);
+                if (securityCat) {
+                    bestCategory = securityCat.name;
+                } else {
+                    // Fallback name check
+                    const fallbackCat = activeCategories.find(c => c.toLowerCase().includes('segurança')) || 'Incidente de Segurança';
+                    bestCategory = fallbackCat;
+                }
             }
 
             setAiSuggestion({

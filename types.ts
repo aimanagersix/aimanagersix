@@ -315,6 +315,7 @@ export interface TicketCategoryItem {
     default_team_id?: string;
     sla_warning_hours?: number;
     sla_critical_hours?: number;
+    is_security?: boolean; // New field
 }
 
 export enum SecurityIncidentType {

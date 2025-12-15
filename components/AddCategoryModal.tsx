@@ -1,9 +1,8 @@
 
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { TicketCategoryItem, Team } from '../types';
-import { FaClock, FaExclamationTriangle } from 'react-icons/fa';
+import { FaClock, FaExclamationTriangle, FaShieldAlt } from 'react-icons/fa';
 
 interface AddCategoryModalProps {
     onClose: () => void;
@@ -19,6 +18,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
         default_team_id: '',
         sla_warning_hours: 0,
         sla_critical_hours: 0,
+        is_security: false
     });
     const [error, setError] = useState('');
 
@@ -30,6 +30,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                 default_team_id: categoryToEdit.default_team_id || '',
                 sla_warning_hours: categoryToEdit.sla_warning_hours || 0,
                 sla_critical_hours: categoryToEdit.sla_critical_hours || 0,
+                is_security: categoryToEdit.is_security || false
             });
         }
     }, [categoryToEdit]);
@@ -55,6 +56,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
             default_team_id: formData.default_team_id || undefined,
             sla_warning_hours: formData.sla_warning_hours || 0,
             sla_critical_hours: formData.sla_critical_hours || 0,
+            is_security: formData.is_security || false
         };
 
         if (categoryToEdit) {
@@ -98,6 +100,25 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                         ))}
                     </select>
                     <p className="text-xs text-gray-500 mt-1">Tickets criados nesta categoria serão automaticamente encaminhados para esta equipa.</p>
+                </div>
+
+                <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
+                    <label className="flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            name="is_security"
+                            id="is_security"
+                            checked={formData.is_security}
+                            onChange={handleChange}
+                            className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
+                        />
+                        <span className="ml-2 block text-sm font-bold text-red-300 flex items-center gap-2">
+                            <FaShieldAlt /> É um Incidente de Segurança?
+                        </span>
+                    </label>
+                    <p className="text-xs text-gray-400 mt-1 ml-6">
+                        Se marcado, o sistema pedirá detalhes adicionais (Tipo de Incidente, Criticidade NIS2) ao criar um ticket.
+                    </p>
                 </div>
                 
                 <div className="bg-gray-900/50 p-3 rounded border border-gray-700">
