@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
 import { BackupExecution, BackupType, Collaborator, Equipment, EquipmentType, Ticket, TicketStatus } from '../types';
 import { FaServer, FaFileContract, FaDownload, FaTicketAlt, FaCalendarPlus, FaRobot, FaFilter } from 'react-icons/fa';
-// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { FaTrash as DeleteIcon, SpinnerIcon } from './common/Icons';
 import { analyzeBackupScreenshot, isAiConfigured } from '../services/geminiService';
 
@@ -57,36 +56,28 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
 
     // Robust Equipment Filtering Logic
     const eligibleEquipment = useMemo(() => {
+        // Se a opção "Mostrar Todos" estiver ativa, retorna a lista completa ordenada
         if (showAllEquipment) {
             return equipmentList.sort((a, b) => a.description.localeCompare(b.description));
         }
 
-        // 1. Identify which Types imply a backup is needed
-        // Using 'requiresBackupTest' (camelCase) to match DB
-        const typesRequiringBackup = equipmentTypes.filter(t => t.requiresBackupTest);
-        
-        // 2. Create sets for fast lookup of both ID and Name (handles data inconsistency)
-        const allowedTypeIds = new Set(typesRequiringBackup.map(t => t.id));
-        const allowedTypeNames = new Set(typesRequiringBackup.map(t => t.name.toLowerCase().trim()));
-
         return equipmentList
             .filter(e => {
-                // Must be Operacional to be backed up
+                // 1. Estado deve ser Operacional
                 if (e.status !== 'Operacional') return false;
 
-                // Check A: Is the typeId strictly in the allowed IDs list?
-                if (allowedTypeIds.has(e.typeId)) return true;
+                // 2. Verificar Tipo
+                const type = equipmentTypes.find(t => t.id === e.typeId);
+                if (!type) return false;
 
-                // Check B: Did the import save the Name instead of ID in the typeId field?
-                if (e.typeId && allowedTypeNames.has(String(e.typeId).toLowerCase().trim())) return true;
+                // 3. Verificação Robusta da Flag (CamelCase, SnakeCase ou LowerCase)
+                // O Supabase/Postgres pode devolver nomes de colunas de forma diferente dependendo da criação
+                const needsBackup = 
+                    (type as any).requiresBackupTest === true || 
+                    (type as any).requires_backup_test === true ||
+                    (type as any).requiresbackuptest === true;
 
-                // Check C: Resolve the Equipment's Type object and check its flag directly
-                const actualType = equipmentTypes.find(t => t.id === e.typeId);
-                if (actualType && actualType.requiresBackupTest) {
-                     return true;
-                }
-
-                return false;
+                return needsBackup;
             })
             .sort((a, b) => a.description.localeCompare(b.description));
     }, [equipmentList, equipmentTypes, showAllEquipment]);
@@ -99,7 +90,8 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             if (backupToEdit.attachments) {
                 setAttachments(backupToEdit.attachments.map(a => ({ ...a, size: 0 })));
             }
-            // If editing, verify if the equipment is in the filtered list. If not, show all to ensure it appears.
+            // Se estiver a editar, verifica se o equipamento está na lista filtrada.
+            // Se não estiver (ex: já não é Operacional), força "Mostrar Todos" para não quebrar a UI.
             if (backupToEdit.equipment_id) {
                 const inList = eligibleEquipment.some(e => e.id === backupToEdit.equipment_id);
                 if (!inList) {
@@ -151,7 +143,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             setFormData(prev => ({
                 ...prev,
                 status: result.status,
-                backup_date: result.date || prev.backup_date, // Use extracted date or keep existing
+                backup_date: result.date || prev.backup_date, 
                 system_name: result.systemName || prev.system_name
             }));
             
@@ -184,7 +176,6 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             reader.onload = (loadEvent) => {
                 const dataUrl = loadEvent.target?.result as string;
                 setAttachments(prev => [...prev, { name: file.name, dataUrl, size: file.size }]);
-                // Trigger AI analysis for images
                 if (file.type.startsWith('image/') && !backupToEdit) {
                     handleAiAnalysis(file, dataUrl);
                 }
@@ -212,7 +203,6 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             ...formData,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
         };
-        // Clean up optional fields to avoid empty strings in UUID/Integer columns
         if (!dataToSave.restore_time_minutes) delete dataToSave.restore_time_minutes;
         if (!dataToSave.equipment_id) delete dataToSave.equipment_id;
         if (!dataToSave.tester_id) delete dataToSave.tester_id;
@@ -223,7 +213,6 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             onSave(dataToSave);
         }
 
-        // Handle Automatic Ticket Creation
         if (createTicket && onCreateTicket && !backupToEdit) {
             const eq = formData.equipment_id ? equipmentMap.get(formData.equipment_id) : null;
             const title = eq 
@@ -233,10 +222,10 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             const ticketPayload: Partial<Ticket> = {
                 title: title,
                 description: `Agendamento automático de teste de restauro (backup verify) para o sistema: ${formData.system_name}.\n\nBaseado no teste anterior realizado em ${formData.test_date}.`,
-                requestDate: ticketDate, // This will be the scheduled date
+                requestDate: ticketDate,
                 status: TicketStatus.Requested,
                 equipmentId: formData.equipment_id || undefined,
-                category: 'Manutenção' // Fallback category
+                category: 'Manutenção'
             };
             onCreateTicket(ticketPayload);
         }
@@ -253,7 +242,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                 {/* Equipment Selection */}
                 <div className="bg-gray-900/30 p-3 rounded border border-gray-700">
                     <label htmlFor="equipment_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
-                        Sistema / Equipamento
+                        Sistema / Equipamento <span className="text-xs text-gray-500">(Carregados: {equipmentList.length})</span>
                     </label>
                     <div className="flex gap-2 mb-2">
                         <select 
@@ -280,7 +269,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                                 onChange={(e) => setShowAllEquipment(e.target.checked)} 
                                 className="rounded bg-gray-700 border-gray-600 text-brand-secondary focus:ring-brand-secondary"
                             />
-                            <span className="flex items-center gap-1"><FaFilter className="text-[10px]"/> Mostrar todos os equipamentos (ignorar filtro)</span>
+                            <span className="flex items-center gap-1"><FaFilter className="text-[10px]"/> Mostrar todos os equipamentos (Ignorar filtros de Tipo/Estado)</span>
                         </label>
                     </div>
                     
