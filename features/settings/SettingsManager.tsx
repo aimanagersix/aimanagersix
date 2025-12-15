@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as dataService from '../../services/dataService';
 import { parseSecurityAlert } from '../../services/geminiService';
 import { 
@@ -201,27 +201,31 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         }
     ];
 
-    const simpleConfigTables: Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }> = {
-        'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: appData.configEquipmentStatuses || [], colorField: true },
-        'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: appData.configDecommissionReasons || [] },
-        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: appData.configCollaboratorDeactivationReasons || [] },
-        'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: appData.softwareCategories || [] },
-        'config_software_products': { label: 'Produtos de Software', icon: <FaCompactDisc/>, data: [] }, // Handled separately
-        'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: appData.contactRoles || [] },
-        'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: appData.contactTitles || [] },
-        'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: appData.configCriticalityLevels || [] },
-        'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: appData.configCiaRatings || [] },
-        'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: appData.configServiceStatuses || [] },
-        'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: appData.configBackupTypes || [] },
-        'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: appData.configTrainingTypes || [] },
-        'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: appData.configResilienceTestTypes || [] },
-        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: appData.configAccountingCategories || [] },
-        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: appData.configConservationStates || [], colorField: true },
-        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: appData.configCpus || [] },
-        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: appData.configRamSizes || [] },
-        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: appData.configStorageTypes || [] },
-        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: appData.configJobTitles || [] },
-    };
+    // Memoize the mapping to ensure stability
+    const simpleConfigTables = useMemo(() => {
+        const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
+        return {
+            'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: safeData(appData.configEquipmentStatuses), colorField: true },
+            'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: safeData(appData.configDecommissionReasons) },
+            'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
+            'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: safeData(appData.softwareCategories) },
+            // config_software_products is handled via dedicated dashboard
+            'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
+            'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
+            'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: safeData(appData.configCriticalityLevels) },
+            'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: safeData(appData.configCiaRatings) },
+            'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: safeData(appData.configServiceStatuses) },
+            'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: safeData(appData.configBackupTypes) },
+            'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: safeData(appData.configTrainingTypes) },
+            'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: safeData(appData.configResilienceTestTypes) },
+            'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: safeData(appData.configAccountingCategories) },
+            'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: safeData(appData.configConservationStates), colorField: true },
+            'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: safeData(appData.configCpus) },
+            'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: safeData(appData.configRamSizes) },
+            'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: safeData(appData.configStorageTypes) },
+            'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
+        } as Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }>;
+    }, [appData]);
 
     const getCount = (id: string) => {
         if (simpleConfigTables[id]) return simpleConfigTables[id].data?.length || 0;
@@ -233,8 +237,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         return null;
     };
 
-    // Centralized Render Logic to ensure visibility
-    const renderContent = () => {
+    // Render logic separated
+    const renderPanel = () => {
         switch (selectedMenuId) {
             case 'agents': return <AgentsTab />;
             case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p:any) => ({ ...p, [k]: v }))} onSave={async () => { try { const p1 = dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients || ''); const p2 = dataService.updateGlobalSetting('birthday_email_subject', settings.birthday_email_subject || ''); const p3 = dataService.updateGlobalSetting('birthday_email_body', settings.birthday_email_body || ''); await Promise.all([p1, p2, p3]); alert('Configurações gravadas com sucesso!'); } catch(e: any) { alert(`Erro ao gravar: ${e.message}`); } }} onTest={handleTestCron} onCopy={handleCopyToClipboard} />;
@@ -249,7 +253,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={appData.securityIncidentTypes} tickets={appData.tickets} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />;
             case 'config_software_products': return <SoftwareProductDashboard products={appData.softwareProducts} categories={appData.softwareCategories} onRefresh={refreshData} />;
             default:
-                // Check if it's a generic table ID
                 if (simpleConfigTables[selectedMenuId]) {
                     return (
                         <GenericConfigDashboard 
@@ -262,19 +265,18 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                         />
                     );
                 }
-                return <div className="p-8 text-center text-gray-500">Selecione um menu.</div>;
+                return <div className="p-8 text-center text-gray-500">Selecione uma opção do menu.</div>;
         }
-    };
+    }
 
     return (
         <>
-             {/* Layout with auto height to allow scrolling */}
-            <div className="flex flex-col lg:flex-row gap-6 pb-10">
+            <div className="flex flex-col lg:flex-row gap-6 pb-10 h-full">
                 
                 {/* Sidebar Menu */}
-                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-fit self-start">
+                <div className="w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-fit self-start max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar">
                     {/* Reload Button */}
-                    <div className="p-2 border-b border-gray-700 flex-shrink-0">
+                    <div className="p-2 border-b border-gray-700 flex-shrink-0 sticky top-0 bg-surface-dark z-10">
                          <button 
                             onClick={() => window.location.reload()}
                             className="w-full flex items-center justify-center gap-2 bg-green-700 hover:bg-green-600 text-white p-2 rounded text-sm transition-colors font-bold"
@@ -283,7 +285,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                         </button>
                     </div>
                     {/* List */}
-                    <div className="p-2 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                    <div className="p-2 space-y-4">
                         {menuStructure.map((group, gIdx) => (
                             <div key={gIdx}>
                                 <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{group.group}</h3>
@@ -320,15 +322,15 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     </div>
                 </div>
 
-                {/* Content Area */}
-                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col relative min-h-[600px]">
-                    <div className="flex-grow">
-                        {renderContent()}
+                {/* Content Area - Key Prop ensures re-render on menu change */}
+                <div className="flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col relative min-h-[600px] w-full">
+                    <div className="flex-grow w-full" key={selectedMenuId}>
+                        {renderPanel()}
                     </div>
                 </div>
             </div>
 
-            {/* Modals - Rendered at root */}
+            {/* Modals */}
             {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
             {showAddBrandModal && <AddBrandModal onClose={() => setShowAddBrandModal(false)} onSave={async (b) => { if(brandToEdit) await dataService.updateBrand(brandToEdit.id, b); else await dataService.addBrand(b); refreshData(); }} brandToEdit={brandToEdit} existingBrands={appData.brands} />}
             {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} existingTypes={appData.equipmentTypes} />}
