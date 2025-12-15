@@ -190,10 +190,10 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     };
 
     return (
-        <div className="flex flex-col md:flex-row h-full bg-surface-dark text-white">
+        <div className="flex flex-col md:flex-row h-full bg-surface-dark text-white overflow-hidden">
             {/* Sidebar List - Mobile top, Desktop side */}
             <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-700 flex flex-col bg-gray-900/50 flex-shrink-0 md:h-full max-h-48 md:max-h-full overflow-hidden">
-                <div className="p-4 border-b border-gray-700">
+                <div className="p-4 border-b border-gray-700 flex-shrink-0">
                     <h3 className="font-bold flex items-center gap-2"><FaShieldAlt className="text-purple-500"/> Perfis de Acesso</h3>
                 </div>
                 <div className="flex-grow overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -208,7 +208,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                         </div>
                     ))}
                 </div>
-                <div className="p-3 border-t border-gray-700">
+                <div className="p-3 border-t border-gray-700 flex-shrink-0">
                     {!showNewRoleInput ? (
                         <button 
                             onClick={() => setShowNewRoleInput(true)}
@@ -237,7 +237,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
             <div className="flex-1 flex flex-col overflow-hidden h-full">
                 {selectedRole ? (
                     <>
-                        <div className="p-4 md:p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface-dark gap-4">
+                        <div className="p-4 md:p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface-dark gap-4 flex-shrink-0">
                             <div>
                                 <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
                                     {selectedRole.name}
