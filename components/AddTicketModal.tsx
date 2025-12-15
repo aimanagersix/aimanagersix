@@ -139,7 +139,15 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
      
     // Determine if user is restricted
     const isUtilizador = userPermissions.viewScope === 'own' || currentUser?.role === 'Utilizador';
-    const isSecurityIncident = formData.category === TicketCategory.SecurityIncident || formData.category === 'Incidente de Segurança';
+    
+    // Enhanced Security Detection: Check for "Segurança" or "Security" in the category name
+    const isSecurityIncident = useMemo(() => {
+        const cat = (formData.category || '').toLowerCase();
+        return cat.includes('segurança') || 
+               cat.includes('security') || 
+               cat.includes('incidente') || // Broad catch for "Incidente de..."
+               formData.category === TicketCategory.SecurityIncident;
+    }, [formData.category]);
 
     useEffect(() => {
         if (ticketToEdit) {
@@ -220,7 +228,12 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
         }
 
         if (!formData.description?.trim()) newErrors.description = "A descrição do problema é obrigatória.";
-        if (isSecurityIncident && !formData.securityIncidentType) newErrors.securityIncidentType = "Por favor, selecione o tipo de incidente de segurança.";
+        
+        // Validation for Security Incidents
+        if (isSecurityIncident && !formData.securityIncidentType) {
+            newErrors.securityIncidentType = "Por favor, selecione o tipo de incidente de segurança.";
+        }
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -275,7 +288,9 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
 
             let bestCategory = activeCategories.find(c => c.toLowerCase() === result.suggestedCategory.toLowerCase()) || result.suggestedCategory;
             if (result.isSecurityIncident) {
-                bestCategory = 'Incidente de Segurança'; 
+                // If AI detects security, switch to a security category if available
+                const securityCat = activeCategories.find(c => c.toLowerCase().includes('segurança')) || 'Incidente de Segurança';
+                bestCategory = securityCat;
             }
 
             setAiSuggestion({
@@ -349,7 +364,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
             if (!dataToSave.entidadeId) dataToSave.entidadeId = undefined;
             if (!dataToSave.instituicaoId) dataToSave.instituicaoId = undefined;
 
-            if (formData.category !== TicketCategory.SecurityIncident && formData.category !== 'Incidente de Segurança') {
+            if (!isSecurityIncident) {
                 delete dataToSave.securityIncidentType;
                 delete dataToSave.impactCriticality;
                 delete dataToSave.impactConfidentiality;
@@ -545,6 +560,5 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                 </div>
             </form>
         </Modal>
-        </>
     );
 };

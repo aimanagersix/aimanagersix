@@ -44,13 +44,14 @@ const getStatusClass = (status: TicketStatus) => {
     }
 };
 
-// ... (Keep helper functions getNis2Countdown, getSLATimer, getSecurityIcon as is) ...
 const getNis2Countdown = (ticket: Ticket) => {
     if (ticket.status === TicketStatus.Finished) return null;
     
-    // CORREÇÃO: Usar a mesma lógica robusta do dashboard geral
-    const isSecurity = ticket.category === TicketCategory.SecurityIncident || 
-                       ticket.category === 'Incidente de Segurança' ||
+    // Check if category name contains "Segurança" or "Security"
+    const catLower = (ticket.category || '').toLowerCase();
+    const isSecurity = catLower.includes('segurança') || 
+                       catLower.includes('security') ||
+                       ticket.category === TicketCategory.SecurityIncident || 
                        !!ticket.securityIncidentType;
 
     if (!isSecurity) return null;
@@ -87,8 +88,9 @@ const getSLATimer = (ticket: Ticket, category?: TicketCategoryItem) => {
     let criticalLimit = category?.sla_critical_hours || 0;
     
     // Default security SLA if not defined in DB but is security incident
-    const isSecurity = ticket.category === 'Incidente de Segurança' || 
-                       ticket.category === TicketCategory.SecurityIncident ||
+    const catLower = (ticket.category || '').toLowerCase();
+    const isSecurity = catLower.includes('segurança') || 
+                       catLower.includes('security') ||
                        !!ticket.securityIncidentType;
 
     if (warningLimit === 0 && criticalLimit === 0 && isSecurity) {
@@ -252,9 +254,10 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                             const sla = getSLATimer(ticket, categoryObj);
                             const nis2Countdown = getNis2Countdown(ticket);
                             
-                            // CORREÇÃO: Detetar incidente real mesmo se a categoria textual estiver diferente
-                            const isRealSecurity = ticket.category === TicketCategory.SecurityIncident || 
-                                                   ticket.category === 'Incidente de Segurança' || 
+                            // Check for security context
+                            const catLower = (ticket.category || '').toLowerCase();
+                            const isRealSecurity = catLower.includes('segurança') || 
+                                                   catLower.includes('security') ||
                                                    !!ticket.securityIncidentType;
                             
                             const requesterName = ticket.requester_supplier_id 
