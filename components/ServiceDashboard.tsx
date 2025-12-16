@@ -5,6 +5,7 @@ import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus, Service
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaSitemap, ReportIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import { FaShieldAlt, FaNetworkWired } from 'react-icons/fa';
+import SortableHeader from './common/SortableHeader';
 
 interface ServiceDashboardProps {
   services: BusinessService[];
@@ -32,6 +33,12 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [filterCriticality, setFilterCriticality] = useState<string>('');
     
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'criticality',
+        direction: 'descending'
+    });
+
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     
     const dependencyCountMap = useMemo(() => {
@@ -41,17 +48,65 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
         }, {} as Record<string, number>);
     }, [dependencies]);
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const filteredServices = useMemo(() => {
-        return services.filter(s => 
+        let filtered = services.filter(s => 
             filterCriticality === '' || s.criticality === filterCriticality
-        ).sort((a,b) => {
-            // Sort by criticality priority
-            const priority: Record<string, number> = { [CriticalityLevel.Critical]: 3, [CriticalityLevel.High]: 2, [CriticalityLevel.Medium]: 1, [CriticalityLevel.Low]: 0 };
-            const prioA = priority[a.criticality || 'Baixa'] || 0;
-            const prioB = priority[b.criticality || 'Baixa'] || 0;
-            return prioB - prioA;
+        );
+
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            // Priority for risk level sorting
+            const priority: Record<string, number> = { 
+                [CriticalityLevel.Critical]: 4, 
+                [CriticalityLevel.High]: 3, 
+                [CriticalityLevel.Medium]: 2, 
+                [CriticalityLevel.Low]: 1 
+            };
+
+            switch (sortConfig.key) {
+                case 'criticality':
+                    valA = priority[a.criticality || 'Baixa'] || 0;
+                    valB = priority[b.criticality || 'Baixa'] || 0;
+                    break;
+                case 'owner':
+                    valA = a.owner_id ? (collaboratorMap.get(a.owner_id) || '') : '';
+                    valB = b.owner_id ? (collaboratorMap.get(b.owner_id) || '') : '';
+                    break;
+                case 'dependencies':
+                    valA = dependencyCountMap[a.id] || 0;
+                    valB = dependencyCountMap[b.id] || 0;
+                    break;
+                case 'rto':
+                    // Simple string sort for RTO as parsing "4h" vs "24h" is tricky without standard format
+                    valA = a.rto_goal || '';
+                    valB = b.rto_goal || '';
+                    break;
+                default:
+                    valA = a[sortConfig.key as keyof BusinessService];
+                    valB = b[sortConfig.key as keyof BusinessService];
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
         });
-    }, [services, filterCriticality]);
+
+        return filtered;
+    }, [services, filterCriticality, sortConfig, collaboratorMap, dependencyCountMap]);
 
     const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
     const paginatedServices = useMemo(() => {
@@ -100,12 +155,12 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th scope="col" className="px-6 py-3">Nome do Serviço</th>
-                            <th scope="col" className="px-6 py-3 text-center">Criticidade</th>
-                            <th scope="col" className="px-6 py-3 text-center">RTO Alvo</th>
-                            <th scope="col" className="px-6 py-3">Dono do Serviço</th>
-                            <th scope="col" className="px-6 py-3 text-center">Dependências</th>
-                            <th scope="col" className="px-6 py-3 text-center">Status</th>
+                            <SortableHeader label="Nome do Serviço" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Criticidade" sortKey="criticality" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="RTO Alvo" sortKey="rto" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Dono do Serviço" sortKey="owner" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Dependências" sortKey="dependencies" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th scope="col" className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>

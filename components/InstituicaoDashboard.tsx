@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaPrint, FaFileImport, SearchIcon } from './common/Icons';
@@ -5,6 +6,7 @@ import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
 import EntidadeDetailModal from './EntidadeDetailModal';
+import SortableHeader from './common/SortableHeader';
 
 interface InstituicaoDashboardProps {
   instituicoes: Instituicao[];
@@ -41,6 +43,12 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('');
     
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'name',
+        direction: 'ascending'
+    });
+
     const entidadesCountByInstituicao = useMemo(() => {
         return entidades.reduce((acc, curr) => {
             acc[curr.instituicaoId] = (acc[curr.instituicaoId] || 0) + 1;
@@ -48,13 +56,21 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
         }, {} as Record<string, number>);
     }, [entidades]);
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const handleItemsPerPageChange = (size: number) => {
         setItemsPerPage(size);
         setCurrentPage(1);
     };
     
     const filteredInstituicoes = useMemo(() => {
-        return instituicoes.filter(inst => {
+        let filtered = instituicoes.filter(inst => {
             const searchMatch = 
                 searchQuery === '' ||
                 inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -66,8 +82,37 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                 (filterStatus === 'active' ? inst.is_active !== false : inst.is_active === false);
 
             return searchMatch && statusMatch;
-        }).sort((a,b) => a.name.localeCompare(b.name));
-    }, [instituicoes, searchQuery, filterStatus]);
+        });
+
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'entidadesCount':
+                    valA = entidadesCountByInstituicao[a.id] || 0;
+                    valB = entidadesCountByInstituicao[b.id] || 0;
+                    break;
+                case 'status':
+                    valA = a.is_active !== false ? 'active' : 'inactive';
+                    valB = b.is_active !== false ? 'active' : 'inactive';
+                    break;
+                default:
+                    valA = a[sortConfig.key as keyof Instituicao];
+                    valB = b[sortConfig.key as keyof Instituicao];
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+
+        return filtered;
+    }, [instituicoes, searchQuery, filterStatus, sortConfig, entidadesCountByInstituicao]);
 
     const totalPages = Math.ceil(filteredInstituicoes.length / itemsPerPage);
     const paginatedInstituicoes = useMemo(() => {
@@ -178,11 +223,11 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
-              <th scope="col" className="px-6 py-3">Nome da Instituição</th>
-              <th scope="col" className="px-6 py-3">Código</th>
-              <th scope="col" className="px-6 py-3">Contactos</th>
-              <th scope="col" className="px-6 py-3 text-center">Nº de Entidades</th>
-              <th scope="col" className="px-6 py-3 text-center">Status</th>
+              <SortableHeader label="Nome da Instituição" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Código" sortKey="codigo" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Contactos" sortKey="email" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Nº de Entidades" sortKey="entidadesCount" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+              <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>
           </thead>

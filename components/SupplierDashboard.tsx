@@ -6,6 +6,7 @@ import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnve
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import SupplierDetailModal from './SupplierDetailModal';
+import SortableHeader from './common/SortableHeader';
 
 interface SupplierDashboardProps {
   suppliers: Supplier[];
@@ -92,9 +93,23 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
     const [filterRisk, setFilterRisk] = useState<string>('');
     const [filterIso, setFilterIso] = useState<string>(''); // 'yes' | 'no' | ''
     const [filterStatus, setFilterStatus] = useState<string>('');
+    
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'name',
+        direction: 'ascending'
+    });
+
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const filteredSuppliers = useMemo(() => {
-        return suppliers.filter(s => {
+        let filtered = suppliers.filter(s => {
             const searchMatch = searchQuery === '' ||
                 s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 s.nif?.includes(searchQuery);
@@ -108,8 +123,53 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                 (filterStatus === 'active' ? s.is_active !== false : s.is_active === false);
 
             return searchMatch && riskMatch && isoMatch && statusMatch;
-        }).sort((a,b) => a.name.localeCompare(b.name));
-    }, [suppliers, searchQuery, filterRisk, filterIso, filterStatus]);
+        });
+
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+            
+            // Priority for risk level sorting
+            const riskPriority: Record<string, number> = { 
+                [CriticalityLevel.Critical]: 4, 
+                [CriticalityLevel.High]: 3, 
+                [CriticalityLevel.Medium]: 2, 
+                [CriticalityLevel.Low]: 1 
+            };
+
+            switch (sortConfig.key) {
+                case 'contracts':
+                    valA = a.contracts?.length || 0;
+                    valB = b.contracts?.length || 0;
+                    break;
+                case 'risk_level':
+                    valA = riskPriority[a.risk_level] || 0;
+                    valB = riskPriority[b.risk_level] || 0;
+                    break;
+                case 'status':
+                     valA = a.is_active !== false ? 'active' : 'inactive';
+                     valB = b.is_active !== false ? 'active' : 'inactive';
+                     break;
+                case 'iso':
+                    valA = a.is_iso27001_certified ? 1 : 0;
+                    valB = b.is_iso27001_certified ? 1 : 0;
+                    break;
+                default:
+                    valA = a[sortConfig.key as keyof Supplier];
+                    valB = b[sortConfig.key as keyof Supplier];
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+
+        return filtered;
+    }, [suppliers, searchQuery, filterRisk, filterIso, filterStatus, sortConfig]);
 
     const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage);
     const paginatedSuppliers = useMemo(() => {
@@ -202,12 +262,12 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th scope="col" className="px-6 py-3">Fornecedor / NIF</th>
-                            <th scope="col" className="px-6 py-3 w-1/4">Contactos</th>
-                            <th scope="col" className="px-6 py-3 text-center">ISO 27001</th>
-                            <th scope="col" className="px-6 py-3 text-center">Nível de Risco</th>
-                            <th scope="col" className="px-6 py-3">Contratos</th>
-                            <th scope="col" className="px-6 py-3 text-center">Status</th>
+                            <SortableHeader label="Fornecedor / NIF" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Contactos" sortKey="contact_name" currentSort={sortConfig} onSort={handleSort} className="w-1/4" />
+                            <SortableHeader label="ISO 27001" sortKey="iso" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Nível de Risco" sortKey="risk_level" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Contratos" sortKey="contracts" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th scope="col" className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>

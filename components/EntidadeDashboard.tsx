@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo } from 'react';
 import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment, Brand, EquipmentType } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, SearchIcon, PlusIcon, FaPrint, FaFileImport } from './common/Icons';
@@ -9,6 +6,7 @@ import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import EntidadeDetailModal from './EntidadeDetailModal';
 import InstituicaoDetailModal from './InstituicaoDetailModal';
+import SortableHeader from './common/SortableHeader';
 
 interface EntidadeDashboardProps {
   escolasDepartamentos: Entidade[];
@@ -51,6 +49,12 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
     const [selectedEntidade, setSelectedEntidade] = useState<Entidade | null>(null);
     const [selectedInstitutionForDrillDown, setSelectedInstitutionForDrillDown] = useState<Instituicao | null>(null);
     
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'name',
+        direction: 'ascending'
+    });
+
     const instituicaoMap = useMemo(() => new Map(instituicoes.map(e => [e.id, e.name])), [instituicoes]);
 
     const collaboratorsByEntidade = React.useMemo(() => {
@@ -92,6 +96,14 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
         setCurrentPage(1);
     };
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const handleItemsPerPageChange = (size: number) => {
         setItemsPerPage(size);
         setCurrentPage(1);
@@ -99,7 +111,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
 
     const filteredEntidades = useMemo(() => {
         const query = searchQuery.toLowerCase();
-        return entidadesData.filter(entidade => {
+        let filtered = entidadesData.filter(entidade => {
             const searchMatch = query === '' || 
                 entidade.name.toLowerCase().includes(query) ||
                 entidade.codigo.toLowerCase().includes(query);
@@ -108,8 +120,37 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
             const statusMatch = filters.status === '' || entidade.status === filters.status;
             
             return searchMatch && instituicaoMatch && statusMatch;
-        }).sort((a,b) => a.name.localeCompare(b.name));
-    }, [entidadesData, filters, searchQuery]);
+        });
+
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'instituicao':
+                    valA = instituicaoMap.get(a.instituicaoId) || '';
+                    valB = instituicaoMap.get(b.instituicaoId) || '';
+                    break;
+                case 'collaborators':
+                    valA = collaboratorsByEntidade[a.id] || 0;
+                    valB = collaboratorsByEntidade[b.id] || 0;
+                    break;
+                default:
+                    valA = a[sortConfig.key as keyof Entidade];
+                    valB = b[sortConfig.key as keyof Entidade];
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+
+        return filtered;
+    }, [entidadesData, filters, searchQuery, sortConfig, instituicaoMap, collaboratorsByEntidade]);
 
     const totalPages = Math.ceil(filteredEntidades.length / itemsPerPage);
     const paginatedEntidades = useMemo(() => {
@@ -251,11 +292,11 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
-              <th scope="col" className="px-6 py-3">Entidade (Código)</th>
-              <th scope="col" className="px-6 py-3">Instituição</th>
-              <th scope="col" className="px-6 py-3">Responsável</th>
-              <th scope="col" className="px-6 py-3">Status</th>
-              <th scope="col" className="px-6 py-3 text-center">Colaboradores</th>
+              <SortableHeader label="Entidade (Código)" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Instituição" sortKey="instituicao" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Responsável" sortKey="responsavel" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Colaboradores" sortKey="collaborators" currentSort={sortConfig} onSort={handleSort} className="text-center" />
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>
           </thead>
