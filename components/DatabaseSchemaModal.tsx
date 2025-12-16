@@ -212,10 +212,9 @@ $$;
 `,
         policies: `
 -- ==================================================================================
--- 5. REPARAÇÃO TOTAL DE SEGURANÇA (RLS v6.2 - Bugfix UUIDs)
--- Correção: Remove o comando GRANT ON SEQUENCE que causava erro.
--- Adiciona permissões explícitas para tabelas auxiliares (CIBE, Conservação)
--- para evitar que apareçam UUIDs em vez de nomes.
+-- 5. REPARAÇÃO TOTAL DE SEGURANÇA (RLS v6.3 - Final Fix)
+-- Correção: Adiciona DROP POLICY em global_settings para evitar erro 42710.
+-- Garante que o script corre até ao fim para corrigir os UUIDs (tabelas auxiliares).
 -- ==================================================================================
 
 -- A. Limpeza Profunda de Políticas (Equipment & Types)
@@ -273,10 +272,12 @@ GRANT ALL ON TABLE public.equipment_types TO authenticated;
 GRANT ALL ON TABLE public.collaborators TO authenticated;
 -- NOTA: Sequence grant removido pois equipment_types usa UUID
 
--- 5. Configurações Globais
+-- 5. Configurações Globais (CORREÇÃO ERRO 42710)
 ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow read access for all users" ON public.global_settings;
 CREATE POLICY "Allow read access for all users" ON public.global_settings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow write access for all users" ON public.global_settings; -- Linha adicionada na v6.3
 CREATE POLICY "Allow write access for all users" ON public.global_settings FOR ALL USING (auth.role() = 'authenticated');
 
 -- 6. Tabelas Auxiliares de Configuração (CORREÇÃO DE UUIDs)
@@ -446,7 +447,7 @@ END $$;
                     {activeTab === 'updates' && renderScriptTab('updates', "Use este script para aplicar atualizações incrementais e adicionar campos novos (como a coluna 'Requer Backup' em falta).")}
                     {activeTab === 'triggers' && renderScriptTab('triggers', "Configura automatismos da base de dados, como atualização automática de datas de modificação e registo de logs de auditoria.")}
                     {activeTab === 'functions' && renderScriptTab('functions', "Funções de servidor (RPC) usadas pela aplicação para lógica complexa, como a verificação diária de aniversários ou cálculos de dashboard.")}
-                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Script v6.2 - Este script corrige o erro da sequência e força a aplicação das permissões nas tabelas de configuração.")}
+                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Script v6.3 - Este script garante a limpeza e recriação das políticas, permitindo que a aplicação leia os nomes das tabelas de configuração.")}
                     
                     {activeTab === 'ai_sql' && renderAiTab('sql')}
                     {activeTab === 'ai_e2e' && renderAiTab('e2e')}
