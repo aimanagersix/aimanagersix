@@ -120,7 +120,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt',
                 'equipment_naming_prefix', 'equipment_naming_digits',
                 'weekly_report_recipients', 'resend_api_key', 'resend_from_email',
-                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id'
+                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id',
+                'slack_webhook_url'
             ];
             
             const fetchedSettings: any = {};
@@ -143,6 +144,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 weekly_report_recipients: fetchedSettings.weekly_report_recipients || '',
                 resendApiKey: fetchedSettings.resend_api_key || '',
                 resendFromEmail: fetchedSettings.resend_from_email || '',
+                slackWebhookUrl: fetchedSettings.slack_webhook_url || '',
                 sbUrl: localStorage.getItem('SUPABASE_URL') || '',
                 sbKey: localStorage.getItem('SUPABASE_ANON_KEY') || '',
                 sbServiceKey: localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '',
@@ -257,7 +259,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'webhooks': return <WebhooksTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p:any) => ({...p, [k]:v}))} onSimulate={handleSimulateWebhook} onCreateSimulatedTicket={handleCreateSimulatedTicket} />;
             case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />;
             case 'general': return <GeneralScansTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />;
-            case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />;
+            case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); await dataService.updateGlobalSetting('slack_webhook_url', settings.slackWebhookUrl); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />;
             case 'roles': return <RoleManager roles={safeData(appData.customRoles)} onRefresh={refreshData} />;
             case 'brands': return <BrandDashboard brands={safeData(appData.brands)} equipment={safeData(appData.equipment)} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />;
             case 'equipment_types': return <EquipmentTypeDashboard equipmentTypes={safeData(appData.equipmentTypes)} equipment={safeData(appData.equipment)} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />;
