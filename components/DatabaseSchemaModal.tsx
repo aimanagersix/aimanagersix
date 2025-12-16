@@ -325,6 +325,7 @@ DECLARE
     i INT;
     v_inst_id UUID;
     v_ent_id UUID;
+    v_email TEXT;
 BEGIN
     -- Tenta encontrar uma instituição e entidade existente para ligar os dados
     -- Se não existirem, os campos ficarão NULL
@@ -333,32 +334,36 @@ BEGIN
 
     -- Loop para criar 1000 registos
     FOR i IN 1..1000 LOOP
-        INSERT INTO public.collaborators (
-            "fullName",
-            email,
-            role,
-            status,
-            "canLogin",
-            "receivesNotifications",
-            "numeroMecanografico",
-            nif,
-            telemovel,
-            "instituicaoId",
-            "entidadeId"
-        ) VALUES (
-            'Colaborador Bulk ' || lpad(i::text, 4, '0'),
-            'bulk.user.' || lpad(i::text, 4, '0') || '@empresa.local',
-            'Utilizador',
-            'Ativo',
-            false, -- Sem acesso de login
-            false,
-            'MEC-' || lpad(i::text, 4, '0'),
-            (100000000 + i)::text, -- NIF Fictício
-            '91' || lpad((1000000 + i)::text, 7, '0'), -- Telemóvel Fictício
-            v_inst_id,
-            v_ent_id
-        )
-        ON CONFLICT (email) DO NOTHING; -- Evita erro se já existir
+        v_email := 'bulk.user.' || lpad(i::text, 4, '0') || '@empresa.local';
+        
+        -- Verifica se já existe para evitar erro de constraint (ou falta dela)
+        IF NOT EXISTS (SELECT 1 FROM public.collaborators WHERE email = v_email) THEN
+            INSERT INTO public.collaborators (
+                "fullName",
+                email,
+                role,
+                status,
+                "canLogin",
+                "receivesNotifications",
+                "numeroMecanografico",
+                nif,
+                telemovel,
+                "instituicaoId",
+                "entidadeId"
+            ) VALUES (
+                'Colaborador Bulk ' || lpad(i::text, 4, '0'),
+                v_email,
+                'Utilizador',
+                'Ativo',
+                false, -- Sem acesso de login
+                false,
+                'MEC-' || lpad(i::text, 4, '0'),
+                (100000000 + i)::text, -- NIF Fictício
+                '91' || lpad((1000000 + i)::text, 7, '0'), -- Telemóvel Fictício
+                v_inst_id,
+                v_ent_id
+            );
+        END IF;
     END LOOP;
     
     RAISE NOTICE 'Seed concluído: 1000 colaboradores processados.';
