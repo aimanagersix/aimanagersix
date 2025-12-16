@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { AppData } from '../hooks/useAppData';
 import { FaFilter, FaSync, FaEuroSign, FaBoxOpen, FaFileInvoiceDollar, FaLaptop, FaPrint } from 'react-icons/fa';
+import * as dataService from '../services/dataService';
 
 // Helper component for multi-select filters
 const MultiSelectFilter: React.FC<{
@@ -185,10 +186,150 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
         setFilters({ institutionIds: [], entityIds: [], status: [], typeIds: [], dateFrom: '', dateTo: '' });
     };
 
+    const handlePrintReport = async () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        // 1. Get Branding
+        const [logoBase64, sizeStr, align, footerId] = await Promise.all([
+            dataService.getGlobalSetting('app_logo_base64'),
+            dataService.getGlobalSetting('app_logo_size'),
+            dataService.getGlobalSetting('app_logo_alignment'),
+            dataService.getGlobalSetting('report_footer_institution_id')
+        ]);
+        const logoSize = sizeStr ? parseInt(sizeStr) : 80;
+
+        // 2. Prepare Footer
+        let footerHtml = '';
+        if (footerId) {
+            const inst = appData.instituicoes.find((i: any) => i.id === footerId);
+            if (inst) {
+                footerHtml = `<div class="footer"><p><strong>${inst.name}</strong> | ${[inst.address_line, inst.postal_code, inst.city].filter(Boolean).join(', ')} | NIF: ${inst.nif}</p></div>`;
+            }
+        }
+
+        // 3. Generate Table Rows
+        const entityRows = costByEntity.map(item => `
+            <tr>
+                <td>${item.name}</td>
+                <td style="text-align: right;">€ ${item.value.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
+                <td style="text-align: right;">${kpiData.totalCost > 0 ? ((item.value / kpiData.totalCost) * 100).toFixed(1) : 0}%</td>
+            </tr>
+        `).join('');
+
+        const typeRows = costByType.map(item => `
+            <tr>
+                <td>${item.name}</td>
+                <td style="text-align: right;">€ ${item.value.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
+            </tr>
+        `).join('');
+
+        const statusRows = costByStatus.map(item => `
+            <tr>
+                <td>${item.name}</td>
+                <td style="text-align: right;">€ ${item.value.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
+            </tr>
+        `).join('');
+
+        // 4. Construct HTML
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Relatório Financeiro de Ativos</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; max-width: 210mm; margin: 0 auto; }
+                    .header-container { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #0D47A1; padding-bottom: 20px; margin-bottom: 30px; }
+                    .logo { max-height: ${logoSize}px; max-width: 250px; }
+                    .report-title { text-align: right; }
+                    h1 { margin: 0; color: #0D47A1; font-size: 24px; }
+                    .subtitle { font-size: 14px; color: #666; margin-top: 5px; }
+                    
+                    .summary-box { background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 5px; display: flex; justify-content: space-around; margin-bottom: 30px; }
+                    .kpi { text-align: center; }
+                    .kpi-val { font-size: 20px; font-weight: bold; color: #0D47A1; display: block; }
+                    .kpi-lbl { font-size: 11px; text-transform: uppercase; color: #666; }
+                    
+                    .section { margin-bottom: 30px; page-break-inside: avoid; }
+                    h3 { color: #333; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 0; text-transform: uppercase; }
+                    
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; font-weight: bold; color: #444; border-bottom: 2px solid #ddd; }
+                    tr:nth-child(even) { background-color: #fbfbfb; }
+                    
+                    .footer { position: fixed; bottom: 10px; left: 0; width: 100%; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; background: white; }
+                    @media print { body { padding: 0; } .footer { position: fixed; bottom: 0; } }
+                </style>
+            </head>
+            <body>
+                <div class="header-container">
+                    <div>
+                        ${logoBase64 ? `<img src="${logoBase64}" class="logo" />` : '<h2>AIManager</h2>'}
+                    </div>
+                    <div class="report-title">
+                        <h1>Relatório Financeiro</h1>
+                        <div class="subtitle">Análise de Custos e Inventário</div>
+                    </div>
+                </div>
+
+                <div class="summary-box">
+                    <div class="kpi">
+                        <span class="kpi-val">${kpiData.totalAssets}</span>
+                        <span class="kpi-lbl">Total Ativos</span>
+                    </div>
+                    <div class="kpi">
+                        <span class="kpi-val">€ ${kpiData.hardwareCost.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</span>
+                        <span class="kpi-lbl">Custo Hardware</span>
+                    </div>
+                    <div class="kpi">
+                        <span class="kpi-val">€ ${kpiData.softwareCost.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</span>
+                        <span class="kpi-lbl">Custo Software</span>
+                    </div>
+                    <div class="kpi">
+                        <span class="kpi-val">€ ${kpiData.totalCost.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</span>
+                        <span class="kpi-lbl">Custo Total</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Custos por Entidade (Top 50)</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Entidade</th><th style="text-align: right;">Custo Alocado</th><th style="text-align: right;">% do Total</th></tr>
+                        </thead>
+                        <tbody>${entityRows}</tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; gap: 40px;">
+                    <div class="section" style="flex: 1;">
+                        <h3>Custos por Tipo de Equipamento</h3>
+                        <table>
+                            <thead><tr><th>Tipo</th><th style="text-align: right;">Custo</th></tr></thead>
+                            <tbody>${typeRows}</tbody>
+                        </table>
+                    </div>
+                    <div class="section" style="flex: 1;">
+                        <h3>Custos por Estado</h3>
+                        <table>
+                            <thead><tr><th>Estado</th><th style="text-align: right;">Valor</th></tr></thead>
+                            <tbody>${statusRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+
+                ${footerHtml}
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in print:block">
+        <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in">
             {/* Filters Panel */}
-            <div className="w-full lg:w-1/4 xl:w-1/5 bg-gray-800/50 p-4 rounded-lg border border-gray-700 flex-shrink-0 print:hidden">
+            <div className="w-full lg:w-1/4 xl:w-1/5 bg-gray-800/50 p-4 rounded-lg border border-gray-700 flex-shrink-0">
                 <div className="flex justify-between items-center mb-4 border-b border-gray-600 pb-2">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2"><FaFilter /> Filtros</h2>
                     <button onClick={handleClearFilters} className="text-xs text-gray-400 hover:text-white flex items-center gap-1"><FaSync /> Limpar</button>
@@ -207,14 +348,14 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-y-auto print:overflow-visible">
-                 <div className="flex justify-between items-center mb-6 print:hidden">
+            <div className="flex-1 overflow-y-auto">
+                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-white">Relatório de Custos (BI)</h2>
                     <button
-                        onClick={() => window.print()}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
+                        onClick={handlePrintReport}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors shadow-lg"
                     >
-                        <FaPrint /> Imprimir / Guardar PDF
+                        <FaPrint /> Imprimir Relatório
                     </button>
                 </div>
                 {/* KPIs */}
