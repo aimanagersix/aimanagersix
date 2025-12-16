@@ -33,6 +33,11 @@ interface InstituicaoDashboardProps {
   onToggleStatus?: (id: string) => void;
 }
 
+const getStatusClass = (status: any) => {
+    // Basic styling for boolean status represented as active/inactive
+    return status !== false ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400';
+};
+
 const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment, onEditEntity, equipment = [], brands = [], equipmentTypes = [], onToggleStatus }) => {
     
     const [currentPage, setCurrentPage] = useState(1);
@@ -75,7 +80,7 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                 searchQuery === '' ||
                 inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 inst.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                inst.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (inst.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (inst.nif && inst.nif.includes(searchQuery));
                 
             const statusMatch = filterStatus === '' || 
@@ -127,8 +132,8 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
             <tr>
                 <td>${inst.name}</td>
                 <td>${inst.codigo}</td>
-                <td>${inst.email}</td>
-                <td>${inst.telefone}</td>
+                <td>${inst.email || ''}</td>
+                <td>${inst.telefone || ''}</td>
                 <td>${entidadesCountByInstituicao[inst.id] || 0}</td>
                 <td>${inst.is_active !== false ? 'Ativo' : 'Inativo'}</td>
             </tr>

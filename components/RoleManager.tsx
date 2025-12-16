@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
-import { FaPlus, FaTrash, FaSave, FaShieldAlt, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint } from 'react-icons/fa';
+import { FaPlus, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint, FaShieldAlt } from 'react-icons/fa';
 // FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
-import { EditIcon, FaTrash as DeleteIcon } from './common/Icons';
+import { EditIcon, FaTrash as DeleteIcon, FaSave, FaTrash } from './common/Icons';
 import * as dataService from '../services/dataService';
 
 interface RoleManagerProps {
@@ -139,7 +139,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         setCollapsedGroups(prev => ({ ...prev, [label]: !prev[label] }));
     };
 
-    const handlePermissionChange = (module: string, action: string, value: boolean) => {
+    const handlePermissionChange = (module: ModuleKey, action: PermissionAction, value: boolean) => {
         setEditedPermissions(prev => ({
             ...prev,
             [module]: {
