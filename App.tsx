@@ -351,6 +351,11 @@ export const App: React.FC = () => {
         setIsSidebarExpanded(state);
     };
 
+    // Calculate Dynamic Margin class based on sidebar state
+    const mainContentMargin = layoutMode === 'side' 
+        ? (isSidebarExpanded ? 'md:ml-64' : 'md:ml-20') 
+        : '';
+
     // --- Render ---
 
     if (isLoading) {
@@ -415,8 +420,10 @@ export const App: React.FC = () => {
                 />
             )}
 
-            <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar overflow-x-hidden ${layoutMode === 'side' ? (isSidebarExpanded ? 'ml-0 md:ml-64' : 'ml-0 md:ml-20') : ''}`}>
-                <div className={`w-full max-w-full p-2 md:p-6 ${layoutMode === 'side' ? 'pt-20 md:pt-6' : ''}`}> {/* Added top padding for mobile header in side mode */}
+            <main 
+                className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar overflow-x-hidden ${mainContentMargin}`}
+            >
+                <div className={`w-full max-w-full p-2 md:p-6 ${layoutMode === 'side' ? 'pt-20 md:pt-6' : ''}`}>
                     
                     {/* ---------------- DASHBOARDS ---------------- */}
 
