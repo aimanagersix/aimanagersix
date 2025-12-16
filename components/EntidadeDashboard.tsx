@@ -113,8 +113,9 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
         const query = searchQuery.toLowerCase();
         let filtered = entidadesData.filter(entidade => {
             const searchMatch = query === '' || 
-                entidade.name.toLowerCase().includes(query) ||
-                entidade.codigo.toLowerCase().includes(query);
+                (entidade.name && entidade.name.toLowerCase().includes(query)) ||
+                (entidade.codigo && entidade.codigo.toLowerCase().includes(query)) ||
+                (entidade.email && entidade.email.toLowerCase().includes(query));
 
             const instituicaoMatch = filters.instituicaoId === '' || entidade.instituicaoId === filters.instituicaoId;
             const statusMatch = filters.status === '' || entidade.status === filters.status;
@@ -245,8 +246,8 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                             type="text"
                             id="searchQuery"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Nome ou código da entidade..."
+                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                            placeholder="Nome, código ou email..."
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 pl-10 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
                         />
                     </div>

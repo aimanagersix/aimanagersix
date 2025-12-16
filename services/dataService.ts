@@ -117,15 +117,26 @@ export const fetchAllData = async () => {
 // --- PAGINATION HELPERS ---
 export const fetchEquipmentPaginated = async (params: any) => {
     let query = sb().from('equipment').select('*', { count: 'exact' });
+    
+    // Apply Filters
+    if (params.filters) {
+        if (params.filters.serialNumber) query = query.ilike('serialNumber', `%${params.filters.serialNumber}%`);
+        if (params.filters.description) query = query.ilike('description', `%${params.filters.description}%`);
+        if (params.filters.brandId) query = query.eq('brandId', params.filters.brandId);
+        if (params.filters.typeId) query = query.eq('typeId', params.filters.typeId);
+        if (params.filters.status) query = query.eq('status', params.filters.status);
+    }
+
+    if (params.sort) {
+        query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    }
+
     if (params.page && params.pageSize) {
         const from = (params.page - 1) * params.pageSize;
         const to = from + params.pageSize - 1;
         query = query.range(from, to);
     }
-    // Basic sorting and filtering could be added here
-    if (params.sort) {
-        query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
-    }
+    
     const { data, error, count } = await query;
     if (error) throw error;
     return { data: data as Equipment[], total: count || 0 };
@@ -133,6 +144,23 @@ export const fetchEquipmentPaginated = async (params: any) => {
 
 export const fetchCollaboratorsPaginated = async (params: any) => {
     let query = sb().from('collaborators').select('*', { count: 'exact' });
+
+    // Apply Filters
+    if (params.filters) {
+        if (params.filters.query) {
+            const q = `%${params.filters.query}%`;
+            query = query.or(`fullName.ilike.${q},email.ilike.${q},numeroMecanografico.ilike.${q}`);
+        }
+        if (params.filters.entidadeId) query = query.eq('entidadeId', params.filters.entidadeId);
+        if (params.filters.status) query = query.eq('status', params.filters.status);
+        if (params.filters.role) query = query.eq('role', params.filters.role);
+    }
+    
+    // Sort
+    if (params.sort) {
+        query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    }
+
     if (params.page && params.pageSize) {
         const from = (params.page - 1) * params.pageSize;
         const to = from + params.pageSize - 1;
@@ -145,6 +173,20 @@ export const fetchCollaboratorsPaginated = async (params: any) => {
 
 export const fetchTicketsPaginated = async (params: any) => {
     let query = sb().from('tickets').select('*', { count: 'exact' });
+
+    // Apply Filters
+    if (params.filters) {
+        if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
+        if (params.filters.status) query = query.eq('status', params.filters.status);
+        if (params.filters.category) query = query.eq('category', params.filters.category);
+        if (params.filters.team_id) query = query.eq('team_id', params.filters.team_id);
+    }
+
+    // Sort
+    if (params.sort) {
+        query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    }
+
     if (params.page && params.pageSize) {
         const from = (params.page - 1) * params.pageSize;
         const to = from + params.pageSize - 1;
