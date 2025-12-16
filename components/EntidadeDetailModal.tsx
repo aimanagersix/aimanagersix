@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
@@ -52,6 +49,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
+        // 1. Fetch Branding & Settings
         const [logoBase64, sizeStr, align, footerId] = await Promise.all([
             dataService.getGlobalSetting('app_logo_base64'),
             dataService.getGlobalSetting('app_logo_size'),
@@ -59,8 +57,8 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
             dataService.getGlobalSetting('report_footer_institution_id')
         ]);
         const logoSize = sizeStr ? parseInt(sizeStr) : 80;
-        const logoHtml = logoBase64 ? `<div style="display: flex; justify-content: ${align || 'center'}; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px;" /></div>` : '';
-
+        
+        // 2. Prepare Footer Data
         let footerHtml = '';
         if (footerId) {
             const allData = await dataService.fetchAllData();
@@ -70,15 +68,19 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
             }
         }
 
+        // 3. Calculate Financials
+        const totalAssetValue = associatedEquipment.reduce((sum, eq) => sum + (eq.acquisitionCost || 0), 0);
+
+        // 4. Generate Rows
         const collaboratorRows = activeCollaborators.map(col => {
             const phone = col.telemovel || col.telefoneInterno || '-';
             const name = (col.title ? col.title + ' ' : '') + col.fullName;
             return `
                 <tr>
                     <td>${name}</td>
+                    <td>${col.role}</td>
                     <td>${col.email}</td>
                     <td>${phone}</td>
-                    <td>${col.role}</td>
                 </tr>
             `;
         }).join('');
@@ -89,60 +91,105 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                 <td>${brandMap.get(eq.brandId || '')} ${typeMap.get(eq.typeId || '')}</td>
                 <td>${eq.serialNumber}</td>
                 <td>${eq.assignedToName}</td>
-                <td>${eq.assignmentDate}</td>
+                <td style="text-align: right;">€ ${(eq.acquisitionCost || 0).toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
             </tr>
         `).join('');
 
+        // 5. Construct HTML
         printWindow.document.write(`
             <html>
             <head>
                 <title>Ficha da Entidade - ${entidade.name}</title>
                 <style>
-                    body { font-family: sans-serif; padding: 20px; color: #333; }
-                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
-                    .section { margin-bottom: 20px; }
-                    .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
-                    .value { font-size: 16px; margin-bottom: 5px; }
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; max-width: 210mm; margin: 0 auto; }
+                    
+                    /* Header & Logo */
+                    .header-container { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #0D47A1; padding-bottom: 20px; margin-bottom: 30px; }
+                    .logo { max-height: ${logoSize}px; max-width: 250px; }
+                    .report-title { text-align: right; }
+                    h1 { margin: 0; color: #0D47A1; font-size: 24px; }
+                    .subtitle { font-size: 14px; color: #666; margin-top: 5px; }
+
+                    /* Sections */
+                    .section { margin-bottom: 30px; page-break-inside: avoid; }
+                    h3 { color: #333; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 0; text-transform: uppercase; letter-spacing: 1px; }
+                    
+                    /* Key-Value Grids */
+                    .grid-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+                    .info-item { margin-bottom: 8px; }
+                    .label { font-weight: bold; color: #555; font-size: 11px; text-transform: uppercase; }
+                    .value { font-size: 14px; }
+
+                    /* Summary Box */
+                    .summary-box { background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 5px; display: flex; justify-content: space-around; margin-bottom: 30px; }
+                    .kpi { text-align: center; }
+                    .kpi-val { font-size: 20px; font-weight: bold; color: #0D47A1; display: block; }
+                    .kpi-lbl { font-size: 11px; text-transform: uppercase; color: #666; }
+
+                    /* Tables */
                     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-                    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-                    th { background-color: #f2f2f2; font-weight: bold; }
-                    h3 { margin-top: 0; color: #444; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-                    .footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 9pt; color: #666; }
+                    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; font-weight: bold; color: #444; border-bottom: 2px solid #ddd; }
+                    tr:nth-child(even) { background-color: #fbfbfb; }
+
+                    /* Footer */
+                    .footer { position: fixed; bottom: 10px; left: 0; width: 100%; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; background: white; }
+                    
+                    @media print {
+                        body { padding: 0; }
+                        .footer { position: fixed; bottom: 0; }
+                    }
                 </style>
             </head>
             <body>
-                ${logoHtml}
-                <h1>${entidade.name}</h1>
-                <div class="section">
-                    <div class="label">Instituição</div>
-                    <div class="value">${instituicao?.name || 'N/A'}</div>
-                    <div class="label">Código</div>
-                    <div class="value">${entidade.codigo}</div>
-                    <div class="label">Website</div>
-                    <div class="value">${entidade.website || '-'}</div>
+                
+                <div class="header-container">
+                    <div>
+                        ${logoBase64 ? `<img src="${logoBase64}" class="logo" />` : '<h2>AIManager</h2>'}
+                    </div>
+                    <div class="report-title">
+                        <h1>Ficha da Entidade</h1>
+                        <div class="subtitle">Relatório de Inventário e RH</div>
+                    </div>
                 </div>
-                <div class="section">
-                    <h3>Contactos Principais</h3>
-                    <div class="label">Responsável</div>
-                    <div class="value">${entidade.responsavel || '-'}</div>
-                    <div class="label">Email</div>
-                    <div class="value">${entidade.email}</div>
-                    <div class="label">Telefone</div>
-                    <div class="value">${entidade.telefone || '-'}</div>
+
+                <div class="summary-box">
+                    <div class="kpi">
+                        <span class="kpi-val">${activeCollaborators.length}</span>
+                        <span class="kpi-lbl">Colaboradores</span>
+                    </div>
+                    <div class="kpi">
+                        <span class="kpi-val">${associatedEquipment.length}</span>
+                        <span class="kpi-lbl">Equipamentos</span>
+                    </div>
+                    <div class="kpi">
+                        <span class="kpi-val">€ ${totalAssetValue.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</span>
+                        <span class="kpi-lbl">Valor Patrimonial</span>
+                    </div>
                 </div>
+
                 <div class="section">
-                    <h3>Morada</h3>
-                    <div class="value">${entidade.address_line || ''}</div>
-                    <div class="value">${entidade.postal_code || ''} ${entidade.locality || ''}</div>
-                    <div class="value">${entidade.city || ''}</div>
+                    <h3>Identificação</h3>
+                    <div class="grid-info">
+                        <div>
+                            <div class="info-item"><span class="label">Nome da Entidade</span><div class="value">${entidade.name}</div></div>
+                            <div class="info-item"><span class="label">Código</span><div class="value">${entidade.codigo}</div></div>
+                            <div class="info-item"><span class="label">Instituição Mãe</span><div class="value">${instituicao?.name || 'N/A'}</div></div>
+                        </div>
+                        <div>
+                            <div class="info-item"><span class="label">Responsável</span><div class="value">${entidade.responsavel || '-'}</div></div>
+                            <div class="info-item"><span class="label">Email</span><div class="value">${entidade.email}</div></div>
+                            <div class="info-item"><span class="label">Telefone</span><div class="value">${entidade.telefone || '-'}</div></div>
+                        </div>
+                    </div>
                 </div>
                 
                 ${activeCollaborators.length > 0 ? `
                 <div class="section">
-                    <h3>Colaboradores Internos</h3>
+                    <h3>Recursos Humanos (${activeCollaborators.length})</h3>
                     <table>
                         <thead>
-                            <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Função</th></tr>
+                            <tr><th>Nome</th><th>Função</th><th>Email</th><th>Telefone</th></tr>
                         </thead>
                         <tbody>
                             ${collaboratorRows}
@@ -152,22 +199,23 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
 
                 ${associatedEquipment.length > 0 ? `
                 <div class="section">
-                    <h3>Inventário de Equipamentos</h3>
+                    <h3>Inventário de Ativos (${associatedEquipment.length})</h3>
                     <table>
                         <thead>
-                            <tr><th>Descrição</th><th>Marca/Tipo</th><th>S/N</th><th>Atribuído a</th><th>Data</th></tr>
+                            <tr><th>Descrição</th><th>Marca/Tipo</th><th>Nº Série</th><th>Atribuído a</th><th style="text-align: right;">Custo</th></tr>
                         </thead>
                         <tbody>
                             ${equipmentRows}
                         </tbody>
+                        <tfoot>
+                             <tr>
+                                <td colspan="4" style="text-align: right; font-weight: bold;">TOTAL:</td>
+                                <td style="text-align: right; font-weight: bold;">€ ${totalAssetValue.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
+                             </tr>
+                        </tfoot>
                     </table>
                 </div>` : ''}
 
-                <div class="section">
-                    <h3>Resumo</h3>
-                    <div class="value">Total Colaboradores: ${activeCollaborators.length}</div>
-                    <div class="value">Total Equipamentos: ${associatedEquipment.length}</div>
-                </div>
                 ${footerHtml}
                 <script>window.onload = function() { window.print(); }</script>
             </body>
@@ -209,7 +257,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                                 onClick={handlePrint} 
                                 className="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors flex items-center gap-2"
                             >
-                                <FaPrint /> Imprimir
+                                <FaPrint /> Imprimir Relatório
                             </button>
                             <button 
                                 onClick={() => { onClose(); onEdit(); }} 
@@ -246,7 +294,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                     </button>
                 </div>
 
-                {/* Content */}
+                {/* Content Area */}
                 <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
                     {activeTab === 'info' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -359,7 +407,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                                                 <th className="px-4 py-3">Marca / Tipo</th>
                                                 <th className="px-4 py-3">Nº Série</th>
                                                 <th className="px-4 py-3">Atribuído a</th>
-                                                <th className="px-4 py-3">Data</th>
+                                                <th className="px-4 py-3 text-right">Custo</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-700">
@@ -371,10 +419,20 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                                                     </td>
                                                     <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serialNumber}</td>
                                                     <td className="px-4 py-2 text-gray-300">{eq.assignedToName}</td>
-                                                    <td className="px-4 py-2 text-gray-400 text-xs">{eq.assignmentDate}</td>
+                                                    <td className="px-4 py-2 text-gray-400 text-xs text-right">
+                                                        € {(eq.acquisitionCost || 0).toLocaleString()}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
+                                        <tfoot className="bg-gray-800/50">
+                                            <tr>
+                                                <td colSpan={4} className="px-4 py-2 text-right font-bold text-white">TOTAL:</td>
+                                                <td className="px-4 py-2 text-right font-bold text-green-400">
+                                                    € {associatedEquipment.reduce((sum, e) => sum + (e.acquisitionCost||0), 0).toLocaleString()}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
                                     </table>
                                 </div>
                             ) : (

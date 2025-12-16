@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
@@ -65,10 +66,16 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
             .sort((a,b) => (a.description || '').localeCompare(b.description || ''));
     }, [assignments, relatedEntityIds, equipment, brands, equipmentTypes, entidades, collaborators]);
 
+    // Calculate Total Asset Value for display
+    const totalAssetValue = useMemo(() => {
+        return relatedEquipment.reduce((sum, eq) => sum + (eq.acquisitionCost || 0), 0);
+    }, [relatedEquipment]);
+
     const handlePrint = async () => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
+        // 1. Fetch Logo & Settings
         const [logoBase64, sizeStr, align, footerId] = await Promise.all([
             dataService.getGlobalSetting('app_logo_base64'),
             dataService.getGlobalSetting('app_logo_size'),
@@ -76,7 +83,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
             dataService.getGlobalSetting('report_footer_institution_id')
         ]);
         const logoSize = sizeStr ? parseInt(sizeStr) : 80;
-        const logoHtml = logoBase64 ? `<div style="display: flex; justify-content: ${align || 'center'}; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px;" /></div>` : '';
 
         let footerHtml = '';
         if (footerId) {
@@ -87,6 +93,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
             }
         }
 
+        // 3. Generate Tables
         const collaboratorRows = relatedCollaborators.map(col => {
             const entName = entidades.find(e => e.id === col.entidadeId)?.name || 'N/A';
             const phone = col.telemovel || col.telefoneInterno || '-';
@@ -94,9 +101,9 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
             return `
                 <tr>
                     <td>${name}</td>
+                    <td>${col.role}</td>
                     <td>${col.email}</td>
                     <td>${phone}</td>
-                    <td>${col.role}</td>
                     <td>${entName}</td>
                 </tr>
             `;
@@ -108,56 +115,98 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                 <td>${eq.entityName}</td>
                 <td>${eq.serialNumber}</td>
                 <td>${eq.assignedToName}</td>
-                <td>${eq.assignmentDate}</td>
+                <td style="text-align: right;">€ ${(eq.acquisitionCost || 0).toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
             </tr>
         `).join('');
 
+        // 4. Print Template
         printWindow.document.write(`
             <html>
             <head>
                 <title>Ficha da Instituição - ${instituicao.name}</title>
                 <style>
-                    body { font-family: sans-serif; padding: 20px; color: #333; }
-                    h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
-                    .section { margin-bottom: 20px; }
-                    .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
-                    .value { font-size: 16px; margin-bottom: 5px; }
-                    ul { list-style-type: none; padding: 0; }
-                    li { padding: 5px 0; border-bottom: 1px solid #eee; }
+                    body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; max-width: 210mm; margin: 0 auto; }
+                    
+                    .header-container { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #0D47A1; padding-bottom: 20px; margin-bottom: 30px; }
+                    .logo { max-height: ${logoSize}px; max-width: 250px; }
+                    .report-title { text-align: right; }
+                    h1 { margin: 0; color: #0D47A1; font-size: 24px; }
+                    .subtitle { font-size: 14px; color: #666; margin-top: 5px; }
+
+                    .section { margin-bottom: 30px; page-break-inside: avoid; }
+                    h3 { color: #333; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 0; text-transform: uppercase; }
+                    
+                    /* Summary Box */
+                    .summary-box { background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 5px; display: flex; justify-content: space-around; margin-bottom: 30px; }
+                    .kpi { text-align: center; }
+                    .kpi-val { font-size: 20px; font-weight: bold; color: #0D47A1; display: block; }
+                    .kpi-lbl { font-size: 11px; text-transform: uppercase; color: #666; }
+
+                    /* Data Grid */
+                    .grid-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+                    .info-item { margin-bottom: 8px; }
+                    .label { font-weight: bold; color: #555; font-size: 11px; text-transform: uppercase; }
+                    .value { font-size: 14px; }
+
+                    /* Tables */
                     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-                    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-                    th { background-color: #f2f2f2; font-weight: bold; }
-                    h3 { margin-top: 0; color: #444; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-                    .footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 9pt; color: #666; }
+                    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; font-weight: bold; border-bottom: 2px solid #ddd; }
+                    tr:nth-child(even) { background-color: #fbfbfb; }
+
+                    .footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; background:white;}
+                    @media print { body { padding: 0; } .footer { bottom: 0; } }
                 </style>
             </head>
             <body>
-                ${logoHtml}
-                <h1>${instituicao.name}</h1>
-                <div class="section">
-                    <div class="label">Código</div>
-                    <div class="value">${instituicao.codigo}</div>
-                    <div class="label">NIF</div>
-                    <div class="value">${instituicao.nif || 'N/A'}</div>
-                    <div class="label">Website</div>
-                    <div class="value">${instituicao.website || '-'}</div>
+                <div class="header-container">
+                    <div>
+                        ${logoBase64 ? `<img src="${logoBase64}" class="logo" />` : '<h2>AIManager</h2>'}
+                    </div>
+                    <div class="report-title">
+                        <h1>Ficha da Instituição</h1>
+                        <div class="subtitle">Relatório Consolidado</div>
+                    </div>
                 </div>
-                <div class="section">
-                    <h3>Contactos Gerais</h3>
-                    <div class="label">Email</div>
-                    <div class="value">${instituicao.email}</div>
-                    <div class="label">Telefone</div>
-                    <div class="value">${instituicao.telefone}</div>
+
+                <div class="summary-box">
+                    <div class="kpi">
+                        <span class="kpi-val">${relatedEntidades.length}</span>
+                        <span class="kpi-lbl">Entidades</span>
+                    </div>
+                    <div class="kpi">
+                        <span class="kpi-val">${relatedCollaborators.length}</span>
+                        <span class="kpi-lbl">Colaboradores</span>
+                    </div>
+                    <div class="kpi">
+                        <span class="kpi-val">${relatedEquipment.length}</span>
+                        <span class="kpi-lbl">Total Equipamentos</span>
+                    </div>
+                    <div class="kpi">
+                        <span class="kpi-val">€ ${totalAssetValue.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</span>
+                        <span class="kpi-lbl">Valor Patrimonial</span>
+                    </div>
                 </div>
+
                 <div class="section">
-                    <h3>Morada</h3>
-                    <div class="value">${instituicao.address_line || ''}</div>
-                    <div class="value">${instituicao.postal_code || ''} ${instituicao.locality || ''}</div>
-                    <div class="value">${instituicao.city || ''}</div>
+                    <h3>Identificação</h3>
+                    <div class="grid-info">
+                        <div>
+                            <div class="info-item"><span class="label">Nome</span><div class="value">${instituicao.name}</div></div>
+                            <div class="info-item"><span class="label">Código</span><div class="value">${instituicao.codigo}</div></div>
+                            <div class="info-item"><span class="label">NIF</span><div class="value">${instituicao.nif || 'N/A'}</div></div>
+                        </div>
+                        <div>
+                            <div class="info-item"><span class="label">Email</span><div class="value">${instituicao.email}</div></div>
+                            <div class="info-item"><span class="label">Telefone</span><div class="value">${instituicao.telefone}</div></div>
+                            <div class="info-item"><span class="label">Website</span><div class="value">${instituicao.website || '-'}</div></div>
+                        </div>
+                    </div>
+                    <div class="info-item"><span class="label">Morada</span><div class="value">${[instituicao.address_line, instituicao.postal_code, instituicao.city].filter(Boolean).join(', ')}</div></div>
                 </div>
                 
                 <div class="section">
-                    <h3>Entidades Associadas (${relatedEntidades.length})</h3>
+                    <h3>Entidades / Departamentos</h3>
                     <ul>
                         ${relatedEntidades.map(e => `<li>${e.name} (${e.codigo})</li>`).join('')}
                     </ul>
@@ -165,29 +214,32 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                 
                 ${relatedCollaborators.length > 0 ? `
                 <div class="section">
-                    <h3>Colaboradores Associados (${relatedCollaborators.length})</h3>
+                    <h3>Colaboradores (${relatedCollaborators.length})</h3>
                     <table>
                         <thead>
-                            <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Função</th><th>Entidade</th></tr>
+                            <tr><th>Nome</th><th>Função</th><th>Email</th><th>Telefone</th><th>Entidade</th></tr>
                         </thead>
-                        <tbody>
-                            ${collaboratorRows}
-                        </tbody>
+                        <tbody>${collaboratorRows}</tbody>
                     </table>
-                </div>` : '<div class="section"><h3>Colaboradores</h3><p>Não existem colaboradores associados.</p></div>'}
+                </div>` : ''}
 
                 ${relatedEquipment.length > 0 ? `
                 <div class="section">
-                    <h3>Equipamentos na Instituição (${relatedEquipment.length})</h3>
+                    <h3>Inventário Consolidado (${relatedEquipment.length})</h3>
                     <table>
                         <thead>
-                            <tr><th>Descrição</th><th>Entidade</th><th>S/N</th><th>Atribuído a</th><th>Data</th></tr>
+                            <tr><th>Descrição</th><th>Entidade</th><th>S/N</th><th>Atribuído a</th><th style="text-align: right;">Custo</th></tr>
                         </thead>
-                        <tbody>
-                            ${equipmentRows}
-                        </tbody>
+                        <tbody>${equipmentRows}</tbody>
+                         <tfoot>
+                             <tr>
+                                <td colspan="4" style="text-align: right; font-weight: bold;">TOTAL:</td>
+                                <td style="text-align: right; font-weight: bold;">€ ${totalAssetValue.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
+                             </tr>
+                        </tfoot>
                     </table>
                 </div>` : ''}
+
                 ${footerHtml}
                 <script>window.onload = function() { window.print(); }</script>
             </body>
@@ -219,7 +271,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                             onClick={handlePrint} 
                             className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors shadow-lg flex items-center gap-2"
                         >
-                            <FaPrint /> Imprimir Ficha
+                            <FaPrint /> Imprimir Relatório
                         </button>
                         <button 
                             onClick={() => { onClose(); onEdit(); }} 
@@ -389,7 +441,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                                                 <th className="px-4 py-3">Entidade</th>
                                                 <th className="px-4 py-3">S/N</th>
                                                 <th className="px-4 py-3">Atribuído a</th>
-                                                <th className="px-4 py-3">Data</th>
+                                                <th className="px-4 py-3 text-right">Custo</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-700">
@@ -399,10 +451,16 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                                                     <td className="px-4 py-2 text-gray-300 text-xs">{eq.entityName}</td>
                                                     <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serialNumber}</td>
                                                     <td className="px-4 py-2 text-gray-300">{eq.assignedToName}</td>
-                                                    <td className="px-4 py-2 text-gray-400 text-xs">{eq.assignmentDate}</td>
+                                                    <td className="px-4 py-2 text-gray-400 text-xs text-right">€ {(eq.acquisitionCost || 0).toLocaleString()}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
+                                        <tfoot className="bg-gray-800/50">
+                                             <tr>
+                                                <td colSpan={4} className="px-4 py-2 text-right font-bold text-white">TOTAL:</td>
+                                                <td className="px-4 py-2 text-right font-bold text-green-400">€ {totalAssetValue.toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
+                                             </tr>
+                                        </tfoot>
                                     </table>
                                 </div>
                             ) : (
