@@ -478,6 +478,7 @@ export const fetchAllData = async () => {
     const supabase = sb();
     
     // Critical tables - fail hard if missing
+    // FIX: INCREASE LIMIT TO 10,000 using .range(0, 9999)
     const [
         { data: equipment }, 
         { data: collaborators },
@@ -485,11 +486,11 @@ export const fetchAllData = async () => {
         { data: brands },
         { data: equipmentTypes },
     ] = await Promise.all([
-        supabase.from('equipment').select('*'), 
-        supabase.from('collaborators').select('*'),
-        supabase.from('tickets').select('*'),
-        supabase.from('brands').select('*'),
-        supabase.from('equipment_types').select('*'),
+        supabase.from('equipment').select('*').range(0, 9999), 
+        supabase.from('collaborators').select('*').range(0, 9999),
+        supabase.from('tickets').select('*').range(0, 9999),
+        supabase.from('brands').select('*').range(0, 9999),
+        supabase.from('equipment_types').select('*').range(0, 9999),
     ]);
 
     // Secondary / Feature tables - wrapped in safe() to allow partial load
@@ -541,12 +542,12 @@ export const fetchAllData = async () => {
         { data: collaborator_history },
         { data: document_templates } 
     ] = await Promise.all([
-        safe(supabase.from('instituicoes').select('*')),
-        safe(supabase.from('entidades').select('*')),
-        safe(supabase.from('assignments').select('*')),
-        safe(supabase.from('ticket_activities').select('*')),
-        safe(supabase.from('software_licenses').select('*')),
-        safe(supabase.from('license_assignments').select('*')),
+        safe(supabase.from('instituicoes').select('*').range(0, 9999)),
+        safe(supabase.from('entidades').select('*').range(0, 9999)),
+        safe(supabase.from('assignments').select('*').range(0, 9999)),
+        safe(supabase.from('ticket_activities').select('*').range(0, 9999)),
+        safe(supabase.from('software_licenses').select('*').range(0, 9999)),
+        safe(supabase.from('license_assignments').select('*').range(0, 9999)),
         safe(supabase.from('teams').select('*')),
         safe(supabase.from('team_members').select('*')),
         safe(supabase.from('messages').select('*').order('timestamp', { ascending: false }).limit(500)),
