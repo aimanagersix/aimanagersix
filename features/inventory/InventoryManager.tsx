@@ -272,6 +272,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     } : undefined}
                     onShowHistory={(eq) => { setDetailEquipment(eq); }} 
                     onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
+                    onDelete={checkPermission('equipment', 'delete') ? async (id) => { await dataService.deleteEquipment(id); fetchEquipment(); refreshGlobalData(); } : undefined} // ADDED DELETE HANDLER
                     onClone={checkPermission('equipment', 'create') ? handleCloneEquipment : undefined}
                     onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
                     onImportAgent={checkPermission('equipment', 'create') ? handleAgentImport : undefined} 

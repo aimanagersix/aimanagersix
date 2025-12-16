@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon, FaFileImport } from './common/Icons';
-import { FaHistory, FaSort, FaSortUp, FaSortDown, FaRobot, FaCopy } from 'react-icons/fa';
+import { FaHistory, FaSort, FaSortUp, FaSortDown, FaRobot, FaCopy, FaTrash } from 'react-icons/fa';
 import { XIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
@@ -27,6 +27,7 @@ interface EquipmentDashboardProps {
   onUpdateStatus?: (id: string, status: EquipmentStatus) => void;
   onShowHistory: (equipment: Equipment) => void;
   onEdit?: (equipment: Equipment) => void;
+  onDelete?: (id: string) => void; // New Prop
   onClone?: (equipment: Equipment) => void;
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
@@ -133,7 +134,7 @@ const SortableHeader: React.FC<{
 
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
-    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onClone, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate, onImportAgent,
+    equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onDelete, onClone, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate, onImportAgent,
     businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests, onViewItem,
     accountingCategories = [], conservationStates = [],
     totalItems = 0, loading = false, page = 1, pageSize = 20, sort, onPageChange, onPageSizeChange, onSortChange, onFilterChange
@@ -185,6 +186,38 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         });
         return map;
     }, [assignments]);
+    
+    // Calculate Dependencies to block deletion
+    const equipmentDependencies = useMemo(() => {
+        const deps = new Set<string>();
+
+        // 1. Service Dependencies (BIA)
+        serviceDependencies?.forEach(d => {
+            if (d.equipment_id) deps.add(d.equipment_id);
+        });
+
+        // 2. Active Tickets (Prevent deleting equip with active issues)
+        tickets?.forEach(t => {
+            if (t.equipmentId && t.status !== 'Finalizado' && t.status !== 'Cancelado') {
+                deps.add(t.equipmentId);
+            }
+        });
+
+        // 3. Active Licenses (Linked to hardware)
+        licenseAssignments?.forEach(la => {
+            if (la.equipmentId && !la.returnDate) deps.add(la.equipmentId);
+        });
+
+        // 4. Parent/Child Relationships (Cannot delete if it contains other items/components)
+        // We scan the full equipment list (or at least the current page) to see if anyone points to me
+        // Ideally this should be a check against the full dataset, but here we do best effort with current data
+        // For accurate check, the backend usually rejects it, but we try to disable UI button too.
+        equipment.forEach(e => {
+            if (e.parent_equipment_id) deps.add(e.parent_equipment_id);
+        });
+
+        return deps;
+    }, [serviceDependencies, tickets, licenseAssignments, equipment]);
     
     const equipmentCriticalityMap = useMemo(() => {
         const map = new Map<string, CriticalityLevel>();
@@ -405,6 +438,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     const linkedServiceCriticality = equipmentCriticalityMap.get(item.id);
                     const customColor = statusColors[item.status];
                     const statusStyle = customColor ? { backgroundColor: `${customColor}33`, color: customColor, borderColor: `${customColor}66` } : undefined;
+                    
+                    const hasDeps = equipmentDependencies.has(item.id);
+                    const canDelete = onDelete && !isAssigned && !hasDeps;
 
                     return (
                     <tr 
@@ -459,6 +495,23 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                 <button onClick={(e) => { e.stopPropagation(); setDetailEquipment(item); }} className="text-gray-400 hover:text-white" title="Histórico"><FaHistory /></button>
                                 {onManageKeys && <button onClick={(e) => { e.stopPropagation(); onManageKeys(item); }} className="text-yellow-400 hover:text-yellow-300" title="Licenças"><FaKey /></button>}
                                 {onEdit && <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>}
+                                {onDelete && (
+                                    <button 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            if (canDelete) {
+                                                if (window.confirm("Tem a certeza que deseja excluir permanentemente este equipamento?")) {
+                                                    onDelete(item.id);
+                                                }
+                                            }
+                                        }} 
+                                        className={canDelete ? "text-red-400 hover:text-red-300" : "text-gray-600 opacity-30 cursor-not-allowed"}
+                                        disabled={!canDelete}
+                                        title={canDelete ? "Excluir" : (isAssigned ? "Em uso (Atribuído)" : "Possui dependências (Tickets, Licenças ou Componentes)")}
+                                    >
+                                        <FaTrash />
+                                    </button>
+                                )}
                             </div>
                         </td>
                     </tr>
