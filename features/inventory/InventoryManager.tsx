@@ -288,6 +288,9 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     procurementRequests={appData.procurementRequests}
                     tooltipConfig={userTooltipConfig}
                     onViewItem={onViewItem}
+                    // PASS CONFIG PROPS
+                    accountingCategories={appData.configAccountingCategories}
+                    conservationStates={appData.configConservationStates}
                 />
             )}
 

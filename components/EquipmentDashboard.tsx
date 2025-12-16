@@ -43,6 +43,9 @@ interface EquipmentDashboardProps {
   procurementRequests?: ProcurementRequest[];
   tooltipConfig?: TooltipConfig;
   onViewItem?: (tab: string, filter: any) => void;
+  // Config Props for Name Resolution
+  accountingCategories?: ConfigItem[];
+  conservationStates?: ConfigItem[];
 
   // New Server-Side Props
   totalItems?: number;
@@ -132,6 +135,7 @@ const SortableHeader: React.FC<{
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onClone, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate, onImportAgent,
     businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests, onViewItem,
+    accountingCategories = [], conservationStates = [],
     totalItems = 0, loading = false, page = 1, pageSize = 20, sort, onPageChange, onPageSizeChange, onSortChange, onFilterChange
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
@@ -498,6 +502,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 suppliers={suppliers}
                 procurementRequests={procurementRequests}
                 onViewItem={onViewItem}
+                // PASSED CORRECTLY FROM PROPS
+                accountingCategories={accountingCategories}
+                conservationStates={conservationStates}
             />
         )}
     </div>
