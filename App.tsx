@@ -7,6 +7,7 @@ import * as dataService from './services/dataService';
 import { useAppData } from './hooks/useAppData';
 import { useLayout } from './contexts/LayoutContext';
 import { getSupabase } from './services/supabaseClient';
+import { FaBars } from 'react-icons/fa';
 
 // Components
 import Header from './components/Header';
@@ -352,6 +353,9 @@ export const App: React.FC = () => {
     };
 
     // Calculate Dynamic Margin class based on sidebar state
+    // We use standard tailwind classes for responsiveness
+    // On Desktop (md+), we enforce margin based on sidebar state
+    // On Mobile, margin is 0 because sidebar overlays
     const mainContentMargin = layoutMode === 'side' 
         ? (isSidebarExpanded ? 'md:ml-64' : 'md:ml-20') 
         : '';
@@ -389,7 +393,23 @@ export const App: React.FC = () => {
     }
 
     return (
-        <div className={`min-h-screen bg-background-dark flex ${layoutMode === 'top' ? 'flex-col' : 'flex-row'}`}>
+        // Use block for layout root to simplify stacking contexts when using fixed sidebar
+        <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : ''}`}>
+            
+            {/* Mobile Header for Side Layout - provides hamburger menu on mobile */}
+            {layoutMode === 'side' && (
+                <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900 border-b border-gray-800 flex items-center px-4 z-40 shadow-md">
+                    <button 
+                        onClick={() => setIsSidebarExpanded(!isSidebarExpanded)} 
+                        className="text-gray-400 p-2 hover:text-white"
+                        aria-label="Toggle Menu"
+                    >
+                        <FaBars className="h-6 w-6" />
+                    </button>
+                    <span className="ml-4 font-bold text-xl text-white">AI<span className="text-brand-secondary">Manager</span></span>
+                </div>
+            )}
+
             {layoutMode === 'side' ? (
                  <Sidebar 
                     currentUser={currentUser} 
@@ -423,6 +443,7 @@ export const App: React.FC = () => {
             <main 
                 className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar overflow-x-hidden ${mainContentMargin}`}
             >
+                {/* Add padding top on mobile side layout to account for fixed header */}
                 <div className={`w-full max-w-full p-2 md:p-6 ${layoutMode === 'side' ? 'pt-20 md:pt-6' : ''}`}>
                     
                     {/* ---------------- DASHBOARDS ---------------- */}
