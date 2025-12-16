@@ -15,6 +15,31 @@ export interface ConfigItem {
     is_active?: boolean;
 }
 
+// --- AUTOMATION ENGINE TYPES ---
+export interface AutomationRule {
+    id: string;
+    name: string;
+    description?: string;
+    trigger_event: 'TICKET_CREATED' | 'EQUIPMENT_CREATED';
+    conditions: RuleCondition[];
+    actions: RuleAction[];
+    is_active: boolean;
+    priority: number;
+}
+
+export interface RuleCondition {
+    field: string;
+    operator: 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+    value?: string | number | boolean;
+}
+
+export interface RuleAction {
+    type: 'ASSIGN_TEAM' | 'ASSIGN_USER' | 'SET_PRIORITY' | 'SET_STATUS' | 'SEND_EMAIL' | 'UPDATE_FIELD';
+    target_field?: string;
+    value: string;
+}
+// ------------------------------
+
 export interface Collaborator {
     id: string;
     fullName: string;

@@ -5,7 +5,7 @@ import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync, FaChevronRight, FaArrowLeft, FaBars
+    FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync, FaChevronRight, FaArrowLeft, FaBars, FaBolt
 } from 'react-icons/fa';
 import { ConfigItem } from '../../types';
 
@@ -15,6 +15,7 @@ import EquipmentTypeDashboard from '../../components/EquipmentTypeDashboard';
 import CategoryDashboard from '../../components/CategoryDashboard';
 import SecurityIncidentTypeDashboard from '../../components/SecurityIncidentTypeDashboard';
 import RoleManager from '../../components/RoleManager'; 
+import AutomationRulesDashboard from '../../components/AutomationRulesDashboard'; // NEW
 
 // Local Feature Components
 import BrandingTab from './BrandingTab';
@@ -164,6 +165,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             group: "Sistema & Automação",
             items: [
                 { id: 'general', label: 'Geral & Scans', icon: <FaRobot /> },
+                { id: 'config_automation', label: 'Regras de Automação', icon: <FaBolt /> }, // NEW
                 { id: 'connections', label: 'Conexões & APIs', icon: <FaKey /> },
                 { id: 'agents', label: 'Agentes (PowerShell)', icon: <FaRobot /> },
                 { id: 'webhooks', label: 'Webhooks (SIEM)', icon: <FaNetworkWired /> },
@@ -261,6 +263,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'general': return <GeneralScansTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />;
             case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); await dataService.updateGlobalSetting('slack_webhook_url', settings.slackWebhookUrl); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />;
             case 'roles': return <RoleManager roles={safeData(appData.customRoles)} onRefresh={refreshData} />;
+            case 'config_automation': return <AutomationRulesDashboard />;
             case 'brands': return <BrandDashboard brands={safeData(appData.brands)} equipment={safeData(appData.equipment)} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />;
             case 'equipment_types': return <EquipmentTypeDashboard equipmentTypes={safeData(appData.equipmentTypes)} equipment={safeData(appData.equipment)} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />;
             case 'ticket_categories': return <CategoryDashboard categories={safeData(appData.ticketCategories)} tickets={safeData(appData.tickets)} teams={safeData(appData.teams)} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />;

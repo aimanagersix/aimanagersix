@@ -1,7 +1,127 @@
 
 import * as dataService from './dataService';
 import { scanForVulnerabilities } from './geminiService';
-import { CriticalityLevel, VulnerabilityStatus } from '../types';
+import { CriticalityLevel, VulnerabilityStatus, AutomationRule, RuleCondition, RuleAction, Ticket, Equipment } from '../types';
+import { getSupabase } from './supabaseClient';
+
+// --- RULE ENGINE LOGIC ---
+
+// Cache rules locally to avoid fetching on every event (simple optimization)
+// In a real app, use React Query or SWR
+let ruleCache: AutomationRule[] | null = null;
+let lastCacheTime = 0;
+
+const fetchRules = async () => {
+    const now = Date.now();
+    // Cache for 1 minute
+    if (ruleCache && (now - lastCacheTime < 60000)) {
+        return ruleCache;
+    }
+    
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('automation_rules').select('*').eq('is_active', true).order('priority', { ascending: false });
+    
+    if (error) {
+        console.error("Failed to fetch automation rules", error);
+        return [];
+    }
+    
+    ruleCache = data as AutomationRule[];
+    lastCacheTime = now;
+    return ruleCache;
+};
+
+const evaluateCondition = (record: any, condition: RuleCondition): boolean => {
+    const value = record[condition.field];
+    const target = condition.value;
+
+    switch (condition.operator) {
+        case 'equals':
+            return String(value) === String(target);
+        case 'not_equals':
+            return String(value) !== String(target);
+        case 'contains':
+            return String(value || '').toLowerCase().includes(String(target).toLowerCase());
+        case 'starts_with':
+             return String(value || '').toLowerCase().startsWith(String(target).toLowerCase());
+        case 'greater_than':
+            return Number(value) > Number(target);
+        case 'less_than':
+             return Number(value) < Number(target);
+        case 'is_empty':
+             return !value || value === '';
+        case 'is_not_empty':
+             return !!value && value !== '';
+        default:
+            return false;
+    }
+};
+
+const executeAction = async (action: RuleAction, record: any, recordType: 'ticket' | 'equipment') => {
+    console.log(`[Automation] Executing ${action.type} on ${record.id}`);
+    
+    try {
+        switch (action.type) {
+            case 'ASSIGN_TEAM':
+                if (recordType === 'ticket') {
+                    await dataService.updateTicket(record.id, { team_id: action.value });
+                }
+                break;
+            case 'ASSIGN_USER':
+                if (recordType === 'ticket') {
+                    await dataService.updateTicket(record.id, { technicianId: action.value });
+                }
+                break;
+            case 'SET_PRIORITY':
+                 if (recordType === 'ticket') {
+                    // Check if value is a valid enum
+                    await dataService.updateTicket(record.id, { priority: action.value });
+                }
+                break;
+            case 'SET_STATUS':
+                 if (recordType === 'ticket') {
+                    await dataService.updateTicket(record.id, { status: action.value });
+                }
+                break;
+            case 'UPDATE_FIELD':
+                 // Generic update
+                 if (action.target_field) {
+                     const updates = { [action.target_field]: action.value };
+                     if (recordType === 'ticket') await dataService.updateTicket(record.id, updates);
+                     if (recordType === 'equipment') await dataService.updateEquipment(record.id, updates);
+                 }
+                 break;
+            case 'SEND_EMAIL':
+                // Send via generic email function (requires DB config)
+                // For MVP, we log this. Real implementation needs an email service.
+                console.log(`[Automation] Would send email to ${action.value} about ${record.id}`);
+                break;
+        }
+    } catch (e) {
+        console.error(`[Automation] Failed to execute action ${action.type}`, e);
+    }
+};
+
+export const runRules = async (trigger: 'TICKET_CREATED' | 'EQUIPMENT_CREATED', record: any) => {
+    const rules = await fetchRules();
+    const applicableRules = rules.filter(r => r.trigger_event === trigger);
+
+    console.log(`[Automation] Processing ${applicableRules.length} rules for ${trigger}`);
+
+    for (const rule of applicableRules) {
+        // Check ALL conditions (AND logic)
+        const matches = rule.conditions.every(c => evaluateCondition(record, c));
+        
+        if (matches) {
+            console.log(`[Automation] Rule Matched: ${rule.name}`);
+            for (const action of rule.actions) {
+                await executeAction(action, record, trigger === 'TICKET_CREATED' ? 'ticket' : 'equipment');
+            }
+        }
+    }
+};
+
+// --- EXISTING SCAN LOGIC ---
 
 export const checkAndRunAutoScan = async (force: boolean = false): Promise<number> => {
     let newVulnCount = 0;

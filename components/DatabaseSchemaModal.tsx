@@ -101,7 +101,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- B. Funções RPC para Inspeção (Permitem à App ler triggers/policies)
+-- B. Funções RPC para Inspeção
 CREATE OR REPLACE FUNCTION get_db_policies()
 RETURNS TABLE (tablename text, policyname text, cmd text, roles text[], qual text, with_check text) 
 LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -132,41 +132,23 @@ GRANT EXECUTE ON FUNCTION get_db_policies() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_db_triggers() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_db_functions() TO authenticated;
 
--- C. Tabelas Base (Se ainda não existirem)
-CREATE TABLE IF NOT EXISTS public.collaborators (
+-- C. Tabela de Automação (Workflows)
+CREATE TABLE IF NOT EXISTS public.automation_rules (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    "fullName" TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    role TEXT NOT NULL DEFAULT 'Utilizador',
-    status TEXT DEFAULT 'Ativo',
-    "canLogin" BOOLEAN DEFAULT false,
-    "entidadeId" UUID,
-    "instituicaoId" UUID,
-    "job_title_id" UUID,
-    "dateOfBirth" DATE,
+    name TEXT NOT NULL,
+    description TEXT,
+    trigger_event TEXT NOT NULL,
+    conditions JSONB NOT NULL DEFAULT '[]',
+    actions JSONB NOT NULL DEFAULT '[]',
+    is_active BOOLEAN DEFAULT true,
+    priority INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.equipment (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    "serialNumber" TEXT,
-    description TEXT NOT NULL,
-    status TEXT DEFAULT 'Stock',
-    "brandId" UUID, "typeId" UUID,
-    "acquisitionCost" NUMERIC, "purchaseDate" DATE,
-    "requiresBackupTest" BOOLEAN DEFAULT false,
-    "ip_address" TEXT,
-    "creationDate" TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    "modifiedDate" TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.tickets (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'Pedido',
-    "collaboratorId" UUID, "equipmentId" UUID, "requestDate" TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.global_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT);
+-- Políticas RLS para Automação (Leitura para todos, escrita para Admins via app logic)
+ALTER TABLE public.automation_rules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow read access for authenticated users" ON public.automation_rules FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow write access for authenticated users" ON public.automation_rules FOR ALL TO authenticated USING (true);
 
 -- D. Campos em Falta (Updates)
 ALTER TABLE IF EXISTS public.equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" BOOLEAN DEFAULT false;

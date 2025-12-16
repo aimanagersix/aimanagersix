@@ -6,8 +6,9 @@ import {
     Entidade, Instituicao, Team, TeamMember, Supplier, Ticket, TicketActivity, 
     BusinessService, ServiceDependency, Vulnerability, BackupExecution, ResilienceTest, 
     SecurityTrainingRecord, ConfigItem, CustomRole, Policy, ProcurementRequest, 
-    CalendarEvent, ContinuityPlan, SoftwareProduct, ContactRole, ContactTitle, JobTitle
+    CalendarEvent, ContinuityPlan, SoftwareProduct, ContactRole, ContactTitle, JobTitle, AutomationRule
 } from '../types';
+import { runRules } from './automationService';
 
 // Helper to get supabase client
 const sb = () => getSupabase();
@@ -201,7 +202,12 @@ export const fetchTicketsPaginated = async (params: any) => {
 // --- SPECIFIC ENTITY METHODS ---
 
 // Equipment
-export const addEquipment = (item: any) => createItem<Equipment>('equipment', item);
+export const addEquipment = async (item: any) => {
+    const eq = await createItem<Equipment>('equipment', item);
+    // Trigger Automation Rules
+    await runRules('EQUIPMENT_CREATED', eq);
+    return eq;
+};
 export const updateEquipment = (id: string, updates: any) => updateItem<Equipment>('equipment', id, updates);
 export const deleteEquipment = (id: string) => deleteItem('equipment', id);
 export const addMultipleEquipment = async (items: any[]) => {
@@ -252,7 +258,12 @@ export const adminResetPassword = async (id: string, password?: string) => {
 };
 
 // Tickets
-export const addTicket = (item: any) => createItem<Ticket>('tickets', item);
+export const addTicket = async (item: any) => {
+    const ticket = await createItem<Ticket>('tickets', item);
+    // Trigger Automation Rules
+    await runRules('TICKET_CREATED', ticket);
+    return ticket;
+};
 export const updateTicket = (id: string, updates: any) => updateItem<Ticket>('tickets', id, updates);
 export const getTicketActivities = async (ticketId: string) => {
     const { data } = await sb().from('ticket_activities').select('*').eq('ticketId', ticketId);
@@ -411,6 +422,12 @@ export const deleteTicketCategory = (id: string) => deleteItem('ticket_categorie
 export const addSecurityIncidentType = (item: any) => createItem('security_incident_types', item);
 export const updateSecurityIncidentType = (id: string, updates: any) => updateItem('security_incident_types', id, updates);
 export const deleteSecurityIncidentType = (id: string) => deleteItem('security_incident_types', id);
+
+// Automation Rules
+export const getAutomationRules = async () => fetchAll<AutomationRule>('automation_rules');
+export const addAutomationRule = (item: any) => createItem('automation_rules', item);
+export const updateAutomationRule = (id: string, updates: any) => updateItem('automation_rules', id, updates);
+export const deleteAutomationRule = (id: string) => deleteItem('automation_rules', id);
 
 // Settings & System
 export const getGlobalSetting = async (key: string): Promise<string | null> => {
