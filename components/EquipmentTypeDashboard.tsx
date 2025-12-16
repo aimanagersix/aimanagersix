@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { EquipmentType, Equipment } from '../types';
-import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaSync, FaExclamationTriangle } from './common/Icons';
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaSync, FaExclamationTriangle, FaBug } from './common/Icons';
 import Pagination from './common/Pagination';
+import { getSupabase } from '../services/supabaseClient';
 
 interface EquipmentTypeDashboardProps {
   equipmentTypes: EquipmentType[];
@@ -18,13 +19,17 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [isRefreshing, setIsRefreshing] = useState(false);
     
-    // Calculate counts safely
+    // Calculate counts safely with case-insensitive property check
     const equipmentCountByType = React.useMemo(() => {
         const counts: Record<string, number> = {};
         if (Array.isArray(equipment)) {
             equipment.forEach(item => {
-                if (item && item.typeId) {
-                     counts[item.typeId] = (counts[item.typeId] || 0) + 1;
+                if (item) {
+                    // Try different casings for typeId to be robust
+                    const tid = (item as any).typeId || (item as any).type_id || (item as any).typeid;
+                    if (tid) {
+                         counts[tid] = (counts[tid] || 0) + 1;
+                    }
                 }
             });
         }
@@ -42,10 +47,32 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
     
     const handleRefresh = () => {
         setIsRefreshing(true);
-        // Force a page reload to re-fetch data from DB
         setTimeout(() => {
             window.location.reload();
         }, 500);
+    };
+
+    const handleDiagnostic = async () => {
+        const supabase = getSupabase();
+        // Direct fetch bypassing RLS if possible (auth still required)
+        const { count, data, error } = await supabase.from('equipment').select('id, description, "typeId"', { count: 'exact', head: false }).limit(1);
+        
+        let msg = `DIAGNÓSTICO DIRECTO:\n`;
+        if (error) {
+            msg += `ERRO: ${error.message} (Code: ${error.code})`;
+        } else {
+            msg += `Total Equipamentos na BD (Count): ${count}\n`;
+            if (data && data.length > 0) {
+                msg += `Exemplo de Registo: ${JSON.stringify(data[0])}\n`;
+                // Check if typeId exists
+                if ('typeId' in data[0]) msg += `Coluna "typeId" existe.\n`;
+                if ('typeid' in data[0]) msg += `Coluna "typeid" existe.\n`;
+                if ('type_id' in data[0]) msg += `Coluna "type_id" existe.\n`;
+            } else {
+                msg += `Array de dados vazio. Possível bloqueio RLS.`;
+            }
+        }
+        alert(msg);
     };
     
     const totalPages = Math.ceil(sortedTypes.length / itemsPerPage);
@@ -60,11 +87,14 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
                 <h2 className="text-xl font-semibold text-white">Gerir Tipos de Equipamento</h2>
                 {equipment.length === 0 && (
                     <p className="text-xs text-yellow-500 mt-1 flex items-center gap-1">
-                        <FaExclamationTriangle /> Atenção: Total de equipamentos carregados é 0. Verifique as permissões de BD.
+                        <FaExclamationTriangle /> Atenção: A app carregou 0 equipamentos.
                     </p>
                 )}
             </div>
             <div className="flex gap-2">
+                 <button onClick={handleDiagnostic} className="flex items-center gap-2 px-3 py-2 bg-gray-800 text-gray-400 rounded-md hover:text-white transition-colors text-xs border border-gray-700" title="Executar teste de conexão direto">
+                    <FaBug /> Debug
+                </button>
                 <button onClick={handleRefresh} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors text-sm">
                     <FaSync className={isRefreshing ? "animate-spin" : ""} /> {isRefreshing ? 'A recarregar...' : 'Sincronizar'}
                 </button>
@@ -88,7 +118,8 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
             {paginatedTypes.length > 0 ? paginatedTypes.map((type) => {
                 const count = equipmentCountByType[type.id] || 0;
                 const isDeleteDisabled = count > 0;
-                const requiresBackup = type.requiresBackupTest; // using correct camelCase prop from types.ts
+                // Robust check for backup flag
+                const requiresBackup = (type as any).requiresBackupTest || (type as any).requires_backup_test || (type as any).requiresbackuptest;
                 
                 return (
               <tr key={type.id} className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50">

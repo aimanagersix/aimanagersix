@@ -212,57 +212,71 @@ $$;
 `,
         policies: `
 -- ==================================================================================
--- 5. REPARAÇÃO DE SEGURANÇA (RLS - Row Level Security)
--- Execute isto se os dados (Equipamentos, Tipos) não aparecerem na aplicação.
+-- 5. REPARAÇÃO TOTAL DE SEGURANÇA (RLS v6.0)
+-- Execute isto se os dados continuam a aparecer como '0' ou vazios.
+-- Este script força uma limpeza de TODAS as políticas antes de aplicar novas.
 -- ==================================================================================
 
--- 1. Tabela de EQUIPAMENTOS (O problema provável está aqui)
+-- A. Limpeza Profunda de Políticas (Equipment & Types)
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    -- Loop para apagar todas as policies da tabela equipment
+    FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'equipment') LOOP
+        EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON public.equipment';
+    END LOOP;
+    
+    -- Loop para apagar todas as policies da tabela equipment_types
+    FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'equipment_types') LOOP
+        EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON public.equipment_types';
+    END LOOP;
+END $$;
+
+-- B. Aplicar Novas Políticas Permissivas
+
+-- 1. Tabela de EQUIPAMENTOS
 ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
 
--- Remove políticas antigas que possam estar a bloquear acesso
-DROP POLICY IF EXISTS "Allow read access for all users" ON public.equipment;
-DROP POLICY IF EXISTS "Allow all access for admins" ON public.equipment;
-DROP POLICY IF EXISTS "Public Read" ON public.equipment;
-DROP POLICY IF EXISTS "Authenticated Read" ON public.equipment;
-
--- Cria política permissiva para leitura (qualquer utilizador autenticado vê tudo)
-CREATE POLICY "Authenticated Read" ON public.equipment 
+-- Leitura: Todos os utilizadores autenticados
+CREATE POLICY "Authenticated Read All" ON public.equipment 
 FOR SELECT USING (auth.role() = 'authenticated');
 
--- Cria política para escrita (apenas Admins/Técnicos ou via app logic)
--- Nesta versão simplificada, permitimos tudo a autenticados para evitar bloqueios.
--- Pode restringir depois se necessário.
-CREATE POLICY "Authenticated Write" ON public.equipment 
+-- Escrita: Todos os utilizadores autenticados (Para evitar bloqueios na UI)
+CREATE POLICY "Authenticated Write All" ON public.equipment 
 FOR ALL USING (auth.role() = 'authenticated');
-
 
 -- 2. Tabela de TIPOS DE EQUIPAMENTO
 ALTER TABLE public.equipment_types ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Authenticated Read" ON public.equipment_types;
-DROP POLICY IF EXISTS "Authenticated Write" ON public.equipment_types;
 
-CREATE POLICY "Authenticated Read" ON public.equipment_types FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Write" ON public.equipment_types FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated Read Types" ON public.equipment_types 
+FOR SELECT USING (auth.role() = 'authenticated');
 
+CREATE POLICY "Authenticated Write Types" ON public.equipment_types 
+FOR ALL USING (auth.role() = 'authenticated');
 
 -- 3. Tabela de COLABORADORES
 ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated Read" ON public.collaborators;
 DROP POLICY IF EXISTS "Authenticated Write" ON public.collaborators;
 
-CREATE POLICY "Authenticated Read" ON public.collaborators FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Write" ON public.collaborators FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated Read Collabs" ON public.collaborators 
+FOR SELECT USING (auth.role() = 'authenticated');
 
+CREATE POLICY "Authenticated Write Collabs" ON public.collaborators 
+FOR ALL USING (auth.role() = 'authenticated');
 
--- 4. Configurações Globais e Auditoria
+-- 4. Garantir Grant de Acesso Básico
+GRANT ALL ON TABLE public.equipment TO authenticated;
+GRANT ALL ON TABLE public.equipment_types TO authenticated;
+GRANT ALL ON TABLE public.collaborators TO authenticated;
+GRANT ALL ON SEQUENCE public.equipment_types_id_seq TO authenticated; -- Se existir sequência
+
+-- 5. Configurações Globais
 ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow read access for all users" ON public.global_settings;
 CREATE POLICY "Allow read access for all users" ON public.global_settings FOR SELECT USING (true);
 CREATE POLICY "Allow write access for all users" ON public.global_settings FOR ALL USING (auth.role() = 'authenticated');
-
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Audit Log Insert" ON public.audit_logs;
-CREATE POLICY "Audit Log Insert" ON public.audit_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
 `
     };
 
@@ -398,7 +412,7 @@ CREATE POLICY "Audit Log Insert" ON public.audit_logs FOR INSERT WITH CHECK (aut
                     {activeTab === 'updates' && renderScriptTab('updates', "Use este script para aplicar atualizações incrementais e adicionar campos novos (como a coluna 'Requer Backup' em falta).")}
                     {activeTab === 'triggers' && renderScriptTab('triggers', "Configura automatismos da base de dados, como atualização automática de datas de modificação e registo de logs de auditoria.")}
                     {activeTab === 'functions' && renderScriptTab('functions', "Funções de servidor (RPC) usadas pela aplicação para lógica complexa, como a verificação diária de aniversários ou cálculos de dashboard.")}
-                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Execute este script se os dados não aparecerem na aplicação. Ele reseta e corrige as permissões de leitura/escrita (RLS) para Equipamentos e outras tabelas críticas.")}
+                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Script v6.0 - Este script força a limpeza total das permissões antigas e aplica novas permissões permissivas para corrigir o problema de dados a zero.")}
                     
                     {activeTab === 'ai_sql' && renderAiTab('sql')}
                     {activeTab === 'ai_e2e' && renderAiTab('e2e')}
