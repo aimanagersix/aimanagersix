@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, SoftwareLicense, LicenseAssignment, Brand, EquipmentType, ConfigItem } from '../types';
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaEdit, FaKey, FaUserSlash, FaBoxOpen, FaPrint } from './common/Icons';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaEdit, FaKey, FaUserSlash, FaBoxOpen, FaPrint, FaExternalLinkAlt } from './common/Icons';
 import OffboardingModal from './OffboardingModal';
 import * as dataService from '../services/dataService';
 
@@ -23,11 +23,15 @@ interface CollaboratorDetailModalProps {
     onUnassignEquipment?: (equipmentId: string) => Promise<void>;
     onConfirmOffboarding?: (collaboratorId: string, reasonId?: string) => Promise<void>;
     deactivationReasons?: ConfigItem[];
+    // Drill-down handlers
+    onViewTicket?: (ticket: Ticket) => void;
+    onViewEquipment?: (equipment: Equipment) => void;
 }
 
 export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({ 
     collaborator, assignments, equipment, tickets, brandMap, equipmentTypeMap, licenseAssignments, softwareLicenses, 
-    onClose, onShowHistory, onStartChat, onEdit, onConfirmOffboarding, deactivationReasons = []
+    onClose, onShowHistory, onStartChat, onEdit, onConfirmOffboarding, deactivationReasons = [],
+    onViewTicket, onViewEquipment
 }) => {
     const [activeTab, setActiveTab] = useState('active_assets');
     const [showOffboardingModal, setShowOffboardingModal] = useState(false);
@@ -224,9 +228,17 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                     {assignedEquipment.length > 0 ? (
                                         <div className="space-y-2">
                                             {assignedEquipment.map(eq => (
-                                                <div key={eq.id} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center">
+                                                <div 
+                                                    key={eq.id} 
+                                                    className={`bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center transition-colors ${onViewEquipment ? 'hover:bg-gray-700 cursor-pointer group' : ''}`}
+                                                    onClick={() => onViewEquipment && onViewEquipment(eq)}
+                                                    title={onViewEquipment ? "Clique para ver detalhes do equipamento" : ""}
+                                                >
                                                     <div>
-                                                        <p className="font-bold text-white">{eq.description}</p>
+                                                        <p className="font-bold text-white flex items-center gap-2">
+                                                            {eq.description}
+                                                            {onViewEquipment && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-brand-secondary text-xs transition-opacity" />}
+                                                        </p>
                                                         <p className="text-xs text-gray-400">S/N: {eq.serialNumber} | Marca: {brandMap.get(eq.brandId)}</p>
                                                     </div>
                                                     <div className="text-right text-xs text-gray-500">
@@ -290,10 +302,18 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                 {collaboratorTickets.length > 0 ? (
                                     <div className="space-y-2">
                                         {collaboratorTickets.map(t => (
-                                            <div key={t.id} className="bg-gray-800 p-3 rounded border border-gray-700">
+                                            <div 
+                                                key={t.id} 
+                                                className={`bg-gray-800 p-3 rounded border border-gray-700 transition-colors ${onViewTicket ? 'hover:bg-gray-700 cursor-pointer group' : ''}`}
+                                                onClick={() => onViewTicket && onViewTicket(t)}
+                                                title={onViewTicket ? "Clique para abrir o ticket" : ""}
+                                            >
                                                 <div className="flex justify-between items-start">
                                                     <div>
-                                                        <p className="font-bold text-white text-sm">{t.title}</p>
+                                                        <p className="font-bold text-white text-sm flex items-center gap-2">
+                                                            {t.title}
+                                                            {onViewTicket && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-brand-secondary text-xs transition-opacity" />}
+                                                        </p>
                                                         <span className={`text-[10px] px-2 py-0.5 rounded border ${t.status === 'Finalizado' ? 'bg-green-900/30 text-green-300 border-green-500/30' : 'bg-blue-900/30 text-blue-300 border-blue-500/30'}`}>
                                                             {t.status}
                                                         </span>

@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { 
     Collaborator, Instituicao, Entidade, Team, Supplier, 
-    ModuleKey, PermissionAction, defaultTooltipConfig, Assignment, TicketStatus, ConfigItem, Brand
+    ModuleKey, PermissionAction, defaultTooltipConfig, Assignment, TicketStatus, ConfigItem, Brand, Equipment, Ticket
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -26,6 +26,9 @@ import { CollaboratorDetailModal } from '../../components/CollaboratorDetailModa
 import CredentialsModal from '../../components/CredentialsModal';
 import OffboardingModal from '../../components/OffboardingModal';
 import OnboardingModal from '../../components/OnboardingModal';
+// Added for Drill-Down
+import EquipmentHistoryModal from '../../components/EquipmentHistoryModal'; 
+import { AddTicketModal } from '../../components/AddTicketModal';
 
 interface OrganizationManagerProps {
     activeTab: string;
@@ -76,6 +79,11 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
     const [showOffboardingModal, setShowOffboardingModal] = useState(false);
     const [collaboratorToOffboard, setCollaboratorToOffboard] = useState<Collaborator | null>(null);
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+
+    // Drill-Down States (from Collaborator Detail)
+    const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
+    const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
+    const [showAddTicketModal, setShowAddTicketModal] = useState(false);
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
@@ -498,6 +506,9 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     onUnassignEquipment={checkPermission('equipment', 'edit') ? handleUnassignEquipment : undefined}
                     onConfirmOffboarding={checkPermission('organization', 'edit') ? handleConfirmOffboarding : undefined}
                     deactivationReasons={appData.configCollaboratorDeactivationReasons}
+                    // DRILL DOWN HANDLERS
+                    onViewEquipment={(eq) => setDetailEquipment(eq)}
+                    onViewTicket={(t) => { setTicketToEdit(t); setShowAddTicketModal(true); }}
                 />
             )}
             
@@ -533,6 +544,53 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     entidades={appData.entidades}
                     instituicoes={appData.instituicoes}
                     currentUser={currentUser}
+                />
+            )}
+
+            {/* DRILL DOWN MODALS */}
+            {detailEquipment && (
+                <EquipmentHistoryModal 
+                    equipment={detailEquipment}
+                    assignments={appData.assignments}
+                    collaborators={appData.collaborators}
+                    escolasDepartamentos={appData.entidades}
+                    tickets={appData.tickets}
+                    ticketActivities={appData.ticketActivities}
+                    onClose={() => setDetailEquipment(null)}
+                    onEdit={() => { alert('Use o menu de Ativos para editar.'); }}
+                    businessServices={appData.businessServices}
+                    serviceDependencies={appData.serviceDependencies}
+                    softwareLicenses={appData.softwareLicenses}
+                    licenseAssignments={appData.licenseAssignments}
+                    vulnerabilities={appData.vulnerabilities}
+                    suppliers={appData.suppliers}
+                    procurementRequests={appData.procurementRequests}
+                    accountingCategories={appData.configAccountingCategories}
+                    conservationStates={appData.configConservationStates}
+                />
+            )}
+
+            {showAddTicketModal && (
+                <AddTicketModal
+                    onClose={() => setShowAddTicketModal(false)}
+                    onSave={async (ticket) => {
+                        if (ticketToEdit) await dataService.updateTicket(ticketToEdit.id, ticket);
+                        else await dataService.addTicket(ticket);
+                        refreshData();
+                    }}
+                    ticketToEdit={ticketToEdit}
+                    escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
+                    collaborators={appData.collaborators}
+                    teams={appData.teams}
+                    currentUser={currentUser}
+                    userPermissions={{ viewScope: 'all' }}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    assignments={appData.assignments}
+                    categories={appData.ticketCategories}
+                    securityIncidentTypes={appData.securityIncidentTypes}
+                    pastTickets={appData.tickets}
                 />
             )}
         </>
