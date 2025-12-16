@@ -215,10 +215,37 @@ export const addCollaborator = async (item: any, password?: string) => {
 };
 export const updateCollaborator = (id: string, updates: any) => updateItem<Collaborator>('collaborators', id, updates);
 export const deleteCollaborator = (id: string) => deleteItem('collaborators', id);
+
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {
-    // Mock upload
-    console.log("Uploaded photo for", id);
+    const supabase = sb();
+    
+    // 1. Definir caminho do ficheiro (ex: collaborators/USER_UUID/TIMESTAMP.jpg)
+    const fileExt = file.name.split('.').pop();
+    const filePath = `collaborators/${id}/${Date.now()}.${fileExt}`;
+
+    // 2. Upload para o Bucket 'avatars'
+    const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    // 3. Obter URL Público
+    const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+    // 4. Atualizar registo do colaborador com o URL
+    const { error: updateError } = await supabase
+        .from('collaborators')
+        .update({ photoUrl: publicUrl })
+        .eq('id', id);
+
+    if (updateError) throw updateError;
+    
+    return publicUrl;
 };
+
 export const adminResetPassword = async (id: string, password?: string) => {
     // Mock reset
     console.log("Reset password for", id);
