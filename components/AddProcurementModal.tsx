@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand, Equipment } from '../types';
-import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags, FaMemory, FaHdd, FaListUl, FaLaptop } from 'react-icons/fa';
+import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags, FaMemory, FaHdd, FaListUl, FaLaptop, FaDownload } from 'react-icons/fa';
 import { SpinnerIcon, FaTrash as DeleteIcon } from './common/Icons';
 import * as dataService from '../services/dataService';
 import { getSupabase } from '../services/supabaseClient';
@@ -216,6 +216,7 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
     const steps: ProcurementStatus[] = [ProcurementStatus.Pending, ProcurementStatus.Approved, ProcurementStatus.Ordered, ProcurementStatus.Received, ProcurementStatus.Completed];
     const currentStepIdx = steps.indexOf((formData.status as ProcurementStatus) || ProcurementStatus.Pending);
     const isRejected = formData.status === ProcurementStatus.Rejected;
+    const isCompleted = formData.status === ProcurementStatus.Completed;
 
     const selectedType = equipmentTypes.find(t => t.id === formData.equipment_type_id);
 
@@ -495,12 +496,44 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
                                             <ul className="space-y-2 mb-3">
                                                 {attachments.map((file, index) => (
                                                     <li key={index} className="flex justify-between items-center text-sm p-2 bg-surface-dark rounded-md">
-                                                        <span className="truncate text-on-surface-dark-secondary max-w-[80%]">
-                                                            {file.name}
-                                                        </span>
-                                                        <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 ml-2">
-                                                            <DeleteIcon className="h-4 w-4" />
-                                                        </button>
+                                                        <div className="flex items-center gap-2 overflow-hidden max-w-[70%]">
+                                                            <FaPaperclip className="text-gray-500 flex-shrink-0" />
+                                                            {/* Make name clickable if dataUrl exists */}
+                                                            {file.dataUrl ? (
+                                                                <a 
+                                                                    href={file.dataUrl} 
+                                                                    download={file.name}
+                                                                    className="truncate text-blue-400 hover:underline cursor-pointer"
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    {file.name}
+                                                                </a>
+                                                            ) : (
+                                                                <span className="truncate text-on-surface-dark-secondary">{file.name}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            {file.dataUrl && (
+                                                                <a 
+                                                                    href={file.dataUrl} 
+                                                                    download={file.name} 
+                                                                    className="text-gray-400 hover:text-white p-1"
+                                                                    title="Download"
+                                                                >
+                                                                    <FaDownload />
+                                                                </a>
+                                                            )}
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => handleRemoveAttachment(index)} 
+                                                                className="text-red-400 hover:text-red-300 ml-2"
+                                                                disabled={isCompleted} // Optional: Lock deletion if completed
+                                                            >
+                                                                <DeleteIcon className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
                                                     </li>
                                                 ))}
                                             </ul>
