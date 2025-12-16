@@ -1,15 +1,10 @@
 
-
-
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import { SecurityIncidentTypeItem, Ticket } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import { FaToggleOn, FaToggleOff, FaShieldAlt } from 'react-icons/fa';
+import SortableHeader from './common/SortableHeader';
 
 interface SecurityIncidentTypeDashboardProps {
   incidentTypes: SecurityIncidentTypeItem[];
@@ -24,6 +19,12 @@ const SecurityIncidentTypeDashboard: React.FC<SecurityIncidentTypeDashboardProps
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'name',
+        direction: 'ascending'
+    });
 
     const ticketCountByType = React.useMemo(() => {
         return tickets.reduce((acc, curr) => {
@@ -34,9 +35,46 @@ const SecurityIncidentTypeDashboard: React.FC<SecurityIncidentTypeDashboardProps
         }, {} as Record<string, number>);
     }, [tickets]);
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const sortedTypes = useMemo(() => {
-        return [...incidentTypes].sort((a,b) => a.name.localeCompare(b.name));
-    }, [incidentTypes]);
+        const sorted = [...incidentTypes];
+        sorted.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'name':
+                    valA = a.name;
+                    valB = b.name;
+                    break;
+                case 'description':
+                    valA = a.description || '';
+                    valB = b.description || '';
+                    break;
+                case 'status':
+                    valA = a.is_active ? 1 : 0;
+                    valB = b.is_active ? 1 : 0;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    }, [incidentTypes, sortConfig]);
     
     const handleItemsPerPageChange = (size: number) => {
         setItemsPerPage(size);
@@ -53,7 +91,7 @@ const SecurityIncidentTypeDashboard: React.FC<SecurityIncidentTypeDashboardProps
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                 <FaShieldAlt className="text-red-500"/>
-                Gerenciar Tipos de Ataque (Segurança)
+                Tipos de Ataque (Segurança)
             </h2>
             <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                  <PlusIcon /> Adicionar Tipo
@@ -64,9 +102,9 @@ const SecurityIncidentTypeDashboard: React.FC<SecurityIncidentTypeDashboardProps
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
-              <th scope="col" className="px-6 py-3">Nome do Tipo</th>
-              <th scope="col" className="px-6 py-3">Descrição</th>
-              <th scope="col" className="px-6 py-3 text-center">Status</th>
+              <SortableHeader label="Nome do Tipo" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Descrição" sortKey="description" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
               <th scope="col" className="px-6 py-3 text-center">Incidentes Registados</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>

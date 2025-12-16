@@ -4,6 +4,7 @@ import { TicketCategoryItem, Ticket, Team } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
 import Pagination from './common/Pagination';
 import { FaToggleOn, FaToggleOff, FaUsers, FaShieldAlt } from 'react-icons/fa';
+import SortableHeader from './common/SortableHeader';
 
 interface CategoryDashboardProps {
   categories: TicketCategoryItem[];
@@ -20,6 +21,12 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories = [], 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'name',
+        direction: 'ascending'
+    });
+    
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
 
     const ticketCountByCategory = React.useMemo(() => {
@@ -31,9 +38,50 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories = [], 
         }, {} as Record<string, number>);
     }, [tickets]);
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const sortedCategories = useMemo(() => {
-        return [...(categories || [])].sort((a,b) => a.name.localeCompare(b.name));
-    }, [categories]);
+        const sorted = [...(categories || [])];
+        sorted.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'name':
+                    valA = a.name;
+                    valB = b.name;
+                    break;
+                case 'team':
+                    valA = a.default_team_id ? (teamMap.get(a.default_team_id) || '') : '';
+                    valB = b.default_team_id ? (teamMap.get(b.default_team_id) || '') : '';
+                    break;
+                case 'is_security':
+                    valA = a.is_security ? 1 : 0;
+                    valB = b.is_security ? 1 : 0;
+                    break;
+                 case 'status':
+                    valA = a.is_active ? 1 : 0;
+                    valB = b.is_active ? 1 : 0;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    }, [categories, sortConfig, teamMap]);
     
     const handleItemsPerPageChange = (size: number) => {
         setItemsPerPage(size);
@@ -48,7 +96,7 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories = [], 
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-white">Gerenciar Categorias de Tickets</h2>
+            <h2 className="text-xl font-semibold text-white">Categorias de Tickets</h2>
             <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">
                  <PlusIcon /> Adicionar Categoria
              </button>
@@ -58,10 +106,10 @@ const CategoryDashboard: React.FC<CategoryDashboardProps> = ({ categories = [], 
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
-              <th scope="col" className="px-6 py-3">Nome da Categoria</th>
-              <th scope="col" className="px-6 py-3">Equipa Padrão</th>
-              <th scope="col" className="px-6 py-3 text-center">Tipo</th>
-              <th scope="col" className="px-6 py-3 text-center">Status</th>
+              <SortableHeader label="Nome da Categoria" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Equipa Padrão" sortKey="team" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Tipo" sortKey="is_security" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+              <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
               <th scope="col" className="px-6 py-3 text-center">Nº de Tickets</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>

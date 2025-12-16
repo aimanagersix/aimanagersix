@@ -1,5 +1,12 @@
 
-export type UserRole = 'SuperAdmin' | 'Admin' | 'Técnico' | 'Utilizador' | 'Basic' | 'Normal';
+export enum UserRole {
+    SuperAdmin = 'SuperAdmin',
+    Admin = 'Admin',
+    Tecnico = 'Técnico',
+    Utilizador = 'Utilizador',
+    Basic = 'Basic',
+    Normal = 'Normal'
+}
 
 export interface ConfigItem {
     id: string;
@@ -32,6 +39,7 @@ export interface Collaborator {
     receivesNotifications?: boolean;
     preferences?: any;
     title?: string;
+    nif?: string;
 }
 
 export enum CollaboratorStatus {
@@ -84,6 +92,7 @@ export interface Equipment {
     creationDate: string;
     modifiedDate: string;
     procurement_request_id?: string;
+    expectedLifespanYears?: number;
 }
 
 export interface EquipmentType extends ConfigItem {
@@ -198,6 +207,29 @@ export enum TicketStatus {
     InProgress = 'Em progresso',
     Finished = 'Finalizado',
     Cancelled = 'Cancelado'
+}
+
+export enum TicketCategory {
+    Hardware = 'Hardware',
+    Software = 'Software',
+    Network = 'Rede',
+    Access = 'Acessos',
+    SecurityIncident = 'Incidente de Segurança',
+    TechnicalFault = 'Falha Técnica',
+    Other = 'Outro',
+    Maintenance = 'Manutenção',
+    RequestAccess = 'Pedido de Acesso'
+}
+
+export enum SecurityIncidentType {
+    Ransomware = 'Ransomware',
+    Phishing = 'Phishing',
+    Malware = 'Malware',
+    DDoS = 'DDoS',
+    DataLeak = 'Fuga de Dados',
+    UnauthorizedAccess = 'Acesso Não Autorizado',
+    VulnerabilityExploit = 'Exploração de Vulnerabilidade',
+    Other = 'Outro'
 }
 
 export interface TicketActivity {
@@ -576,104 +608,3 @@ export enum AuditAction {
 
 export interface TooltipConfig {
     showNomeNaRede: boolean;
-    showAssignedTo: boolean;
-    showOsVersion: boolean;
-    showLastPatch: boolean;
-    showFirmwareVersion: boolean;
-    showSerialNumber: boolean;
-    showBrand: boolean;
-    showWarranty: boolean;
-    showLocation: boolean;
-    
-    // Collaborator Tooltip
-    showCollabName?: boolean;
-    showCollabJob?: boolean;
-    showCollabEntity?: boolean;
-    showCollabContact?: boolean;
-}
-
-export const defaultTooltipConfig: TooltipConfig = {
-    showNomeNaRede: true,
-    showAssignedTo: true,
-    showOsVersion: false,
-    showLastPatch: false,
-    showFirmwareVersion: false,
-    showSerialNumber: true,
-    showBrand: true,
-    showWarranty: true,
-    showLocation: true,
-    
-    showCollabName: true,
-    showCollabJob: true,
-    showCollabEntity: true,
-    showCollabContact: false
-};
-
-export type ModuleKey = 
-    | 'widget_alerts' | 'widget_kpi_cards' | 'widget_inventory_charts' | 'widget_financial' | 'widget_operational_charts' | 'widget_activity'
-    | 'equipment' | 'licensing' | 'tickets' | 'organization' | 'suppliers' | 'procurement' | 'reports' | 'settings' | 'dashboard_smart'
-    | 'compliance_bia' | 'compliance_security' | 'compliance_backups' | 'compliance_resilience' | 'compliance_training' | 'compliance_policies' | 'compliance_continuity'
-    | 'brands' | 'equipment_types' | 'config_equipment_statuses' | 'config_cpus' | 'config_ram_sizes' | 'config_storage_types' | 'config_software_categories' | 'config_software_products' | 'config_decommission_reasons'
-    | 'ticket_categories' | 'security_incident_types' | 'contact_roles' | 'contact_titles' | 'config_custom_roles' | 'config_collaborator_deactivation_reasons' | 'config_accounting_categories' | 'config_conservation_states' | 'config_job_titles'
-    | 'config_automation' | 'config_criticality_levels' | 'config_cia_ratings' | 'config_service_statuses' | 'config_backup_types' | 'config_training_types' | 'config_resilience_test_types' | 'document_templates';
-
-export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
-
-export type PermissionMatrix = {
-    [key in ModuleKey]?: {
-        [action in PermissionAction]?: boolean;
-    };
-};
-
-export interface CustomRole {
-    id: string;
-    name: string;
-    permissions: PermissionMatrix;
-    is_system: boolean;
-    requires_mfa?: boolean;
-}
-
-export interface DocumentTemplate {
-    id: string;
-    name: string;
-    type: 'equipment' | 'collaborator' | 'generic';
-    template_json: any;
-    is_active: boolean;
-}
-
-export interface ContactRole extends ConfigItem {}
-export interface ContactTitle extends ConfigItem {}
-export interface JobTitle extends ConfigItem {}
-export interface SoftwareCategory extends ConfigItem {}
-export interface SoftwareProduct extends ConfigItem { category_id: string; }
-
-export interface VulnerabilityScanConfig {
-    includeEol?: boolean;
-    lookbackYears?: number;
-    customInstructions?: string;
-}
-
-// Database Inspector Types
-export interface DbPolicy {
-    tablename: string;
-    policyname: string;
-    cmd: string;
-    roles: string[];
-    qual: string;
-    with_check: string;
-}
-
-export interface DbTrigger {
-    table_name: string;
-    trigger_name: string;
-    event_manipulation: string;
-    action_statement: string;
-    action_timing: string;
-}
-
-export interface DbFunction {
-    routine_name: string;
-    data_type: string;
-    external_language: string;
-    definition: string;
-}

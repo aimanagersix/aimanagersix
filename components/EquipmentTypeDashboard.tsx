@@ -4,6 +4,7 @@ import { EquipmentType, Equipment } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaSync, FaExclamationTriangle, FaBug } from './common/Icons';
 import Pagination from './common/Pagination';
 import { getSupabase } from '../services/supabaseClient';
+import SortableHeader from './common/SortableHeader';
 
 interface EquipmentTypeDashboardProps {
   equipmentTypes: EquipmentType[];
@@ -19,6 +20,12 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [isRefreshing, setIsRefreshing] = useState(false);
     
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'name',
+        direction: 'ascending'
+    });
+
     // Calculate counts safely with aggressive normalization
     const equipmentCountByType = React.useMemo(() => {
         const counts: Record<string, number> = {};
@@ -47,9 +54,51 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
         return counts;
     }, [equipment]);
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const sortedTypes = useMemo(() => {
-        return [...equipmentTypes].sort((a,b) => a.name.localeCompare(b.name));
-    }, [equipmentTypes]);
+        const sorted = [...equipmentTypes];
+        sorted.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'name':
+                    valA = a.name;
+                    valB = b.name;
+                    break;
+                case 'count':
+                    // We need to use the calculated counts here
+                    const idA = a.id.trim().toLowerCase();
+                    const idB = b.id.trim().toLowerCase();
+                    valA = equipmentCountByType[idA] || 0;
+                    valB = equipmentCountByType[idB] || 0;
+                    break;
+                case 'backup':
+                    const backupA = (a as any).requiresBackupTest || (a as any).requires_backup_test || (a as any).requiresbackuptest;
+                    const backupB = (b as any).requiresBackupTest || (b as any).requires_backup_test || (b as any).requiresbackuptest;
+                    valA = backupA ? 1 : 0;
+                    valB = backupB ? 1 : 0;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    }, [equipmentTypes, sortConfig, equipmentCountByType]);
     
     const handleItemsPerPageChange = (size: number) => {
         setItemsPerPage(size);
@@ -106,7 +155,7 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-4">
             <div className="flex flex-col">
-                <h2 className="text-xl font-semibold text-white">Gerir Tipos de Equipamento</h2>
+                <h2 className="text-xl font-semibold text-white">Tipos de Equipamento</h2>
                 {equipment.length === 0 && (
                     <p className="text-xs text-yellow-500 mt-1 flex items-center gap-1">
                         <FaExclamationTriangle /> Atenção: A app carregou 0 equipamentos.
@@ -130,9 +179,9 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
-              <th scope="col" className="px-6 py-3">Nome do Tipo</th>
-              <th scope="col" className="px-6 py-3 text-center">Nº de Equipamentos</th>
-              <th scope="col" className="px-6 py-3 text-center">Requer Backup?</th>
+              <SortableHeader label="Nome do Tipo" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Nº de Equipamentos" sortKey="count" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+              <SortableHeader label="Requer Backup?" sortKey="backup" currentSort={sortConfig} onSort={handleSort} className="text-center" />
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>
           </thead>

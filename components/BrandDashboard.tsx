@@ -1,16 +1,9 @@
 
-
-
-
-
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import { Brand, Equipment, CriticalityLevel } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaCheckCircle, FaTimesCircle } from './common/Icons';
 import Pagination from './common/Pagination';
+import SortableHeader from './common/SortableHeader';
 
 interface BrandDashboardProps {
   brands: Brand[];
@@ -34,6 +27,12 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'name',
+        direction: 'ascending'
+    });
 
     const equipmentCountByBrand = React.useMemo(() => {
         return equipment.reduce((acc, curr) => {
@@ -42,9 +41,47 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
         }, {} as Record<string, number>);
     }, [equipment]);
     
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const sortedBrands = useMemo(() => {
-        return [...brands].sort((a,b) => a.name.localeCompare(b.name));
-    }, [brands]);
+        const sorted = [...brands];
+        sorted.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'name':
+                    valA = a.name;
+                    valB = b.name;
+                    break;
+                case 'risk_level':
+                     // Simple string sort for now, ideally mapped to severity value
+                    valA = a.risk_level || '';
+                    valB = b.risk_level || '';
+                    break;
+                case 'iso':
+                    valA = a.is_iso27001_certified ? 1 : 0;
+                    valB = b.is_iso27001_certified ? 1 : 0;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    }, [brands, sortConfig]);
 
     const handleItemsPerPageChange = (size: number) => {
         setItemsPerPage(size);
@@ -62,7 +99,7 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
             <div>
                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                     <FaShieldAlt className="text-brand-secondary"/>
-                    Gerenciar Marcas (Fabricantes)
+                    Marcas (Fabricantes)
                 </h2>
                 <p className="text-sm text-on-surface-dark-secondary mt-1">
                     Classifique o risco de segurança dos fabricantes de hardware e software.
@@ -77,9 +114,9 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
-              <th scope="col" className="px-6 py-3">Nome da Marca</th>
-              <th scope="col" className="px-6 py-3 text-center">Risco</th>
-              <th scope="col" className="px-6 py-3 text-center">ISO 27001</th>
+              <SortableHeader label="Nome da Marca" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Risco" sortKey="risk_level" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+              <SortableHeader label="ISO 27001" sortKey="iso" currentSort={sortConfig} onSort={handleSort} className="text-center" />
               <th scope="col" className="px-6 py-3">Contacto Segurança</th>
               <th scope="col" className="px-6 py-3 text-center">Nº de Equipamentos</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
