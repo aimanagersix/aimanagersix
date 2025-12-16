@@ -13,6 +13,12 @@
     <meta name="apple-mobile-web-app-title" content="AIManager">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     
+    <style>
+      /* Previne que o Google Translate injete a barra superior que desloca o layout */
+      .goog-te-banner-frame { display: none !important; }
+      body { top: 0px !important; }
+    </style>
+
     <script>
       // Apenas define se não existir, para não apagar o que o Vite injetou
       if (typeof window !== 'undefined' && !window.process) {
@@ -56,7 +62,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-background-dark text-on-surface-dark select-none md:select-auto">
+  <body class="bg-background-dark text-on-surface-dark select-none md:select-auto notranslate" translate="no">
     <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>
   <script type="module" src="/index.tsx"></script>

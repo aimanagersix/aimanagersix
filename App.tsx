@@ -125,7 +125,6 @@ export const App: React.FC = () => {
             const isForMyTeam = t.team_id && myTeamIds.has(t.team_id);
             const isAssignedToMe = t.technicianId === currentUser.id;
 
-            // CORRECTED: Show all tickets for my team, OR tickets directly assigned to me.
             return isForMyTeam || isAssignedToMe;
         });
     }, [appData.tickets, myTeamIds, currentUser]);
@@ -224,8 +223,6 @@ export const App: React.FC = () => {
         if (currentUser.role === UserRole.Utilizador || currentUser.role === 'Basic') {
             if (module === 'tickets' && action === 'create') return true;
             if (module === 'tickets' && action === 'view') return true;
-            // Dashboard widgets visible for basic users by default if not strictly denied (or handle via DB config if desired to be strict)
-            // For now, let's assume Basic users see KPI and Activity, but not financial or heavy charts unless configured.
              if (module === 'widget_kpi_cards' && action === 'view') return true;
              if (module === 'widget_activity' && action === 'view') return true;
             return false;
@@ -284,7 +281,6 @@ export const App: React.FC = () => {
     const pendingPolicies = useMemo(() => {
         if (!currentUser || appData.policies.length === 0) return [];
         
-        // Find mandatory active policies that user hasn't accepted the CURRENT version of
         return appData.policies.filter(p => {
             if (!p.is_active || !p.is_mandatory) return false;
             
@@ -347,20 +343,9 @@ export const App: React.FC = () => {
         setShowProfileModal(true);
     };
     
-    // NEW: Handle mobile menu close via layout context hook when expanding sidebar
     const handleSidebarHover = (state: boolean) => {
         setIsSidebarExpanded(state);
     };
-
-    // Calculate Dynamic Margin class based on sidebar state
-    // We use standard tailwind classes for responsiveness
-    // On Desktop (md+), we enforce margin based on sidebar state
-    // On Mobile, margin is 0 because sidebar overlays
-    const mainContentMargin = layoutMode === 'side' 
-        ? (isSidebarExpanded ? 'md:ml-64' : 'md:ml-20') 
-        : '';
-
-    // --- Render ---
 
     if (isLoading) {
         return (
@@ -379,24 +364,23 @@ export const App: React.FC = () => {
         </>
     );
 
-    // BLOCKING POLICY MODAL
     if (pendingPolicies.length > 0) {
         return (
             <PolicyAcceptanceModal 
                 policies={pendingPolicies}
                 onAccept={async (id, version) => {
                     await dataService.acceptPolicy(id, currentUser.id, version);
-                    refreshData(); // Refresh to update pending list
+                    refreshData();
                 }}
             />
         );
     }
 
+    // MAIN LAYOUT CHANGE: Flexbox container
     return (
-        // Use block for layout root to simplify stacking contexts when using fixed sidebar
-        <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : ''}`}>
+        <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : 'flex h-screen overflow-hidden'}`}>
             
-            {/* Mobile Header for Side Layout - provides hamburger menu on mobile */}
+            {/* Mobile Header for Side Layout */}
             {layoutMode === 'side' && (
                 <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900 border-b border-gray-800 flex items-center px-4 z-40 shadow-md">
                     <button 
@@ -440,14 +424,12 @@ export const App: React.FC = () => {
                 />
             )}
 
+            {/* Main Content Area - Flex Grow */}
             <main 
-                className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar overflow-x-hidden ${mainContentMargin}`}
+                className={`flex-1 bg-background-dark transition-all duration-300 ${layoutMode === 'side' ? 'overflow-y-auto custom-scrollbar' : 'overflow-y-auto custom-scrollbar overflow-x-hidden'}`}
             >
-                {/* Add padding top on mobile side layout to account for fixed header */}
                 <div className={`w-full max-w-full p-2 md:p-6 ${layoutMode === 'side' ? 'pt-20 md:pt-6' : ''}`}>
                     
-                    {/* ---------------- DASHBOARDS ---------------- */}
-
                     {activeTab === 'overview' && <OverviewDashboard 
                         equipment={appData.equipment} 
                         instituicoes={appData.instituicoes}
@@ -481,8 +463,6 @@ export const App: React.FC = () => {
                         />
                     )}
 
-                    {/* --- MODULARIZED MANAGERS --- */}
-                    
                     {(activeTab === 'equipment.inventory' || activeTab === 'licensing' || activeTab === 'equipment.procurement') && (
                         <InventoryManager 
                             activeTab={activeTab}
@@ -589,7 +569,7 @@ export const App: React.FC = () => {
                 <CalendarModal 
                     onClose={() => setShowCalendarModal(false)}
                     tickets={appData.tickets}
-                    calendarEvents={appData.calendarEvents} // Pass new events
+                    calendarEvents={appData.calendarEvents}
                     currentUser={currentUser}
                     teams={appData.teams}
                     teamMembers={appData.teamMembers}
@@ -615,7 +595,6 @@ export const App: React.FC = () => {
                 />
             )}
 
-            {/* Global Ticket Creation Modal */}
             {showAddTicketModal && (
                 <AddTicketModal
                     onClose={() => setShowAddTicketModal(false)}
@@ -640,7 +619,6 @@ export const App: React.FC = () => {
                 />
             )}
 
-            {/* Profile Modal */}
             {showProfileModal && (
                 <CollaboratorDetailModal
                     collaborator={currentUser}
@@ -674,7 +652,7 @@ export const App: React.FC = () => {
                         refreshData();
                     } catch (e: any) {
                         console.error("Send Message Error:", e);
-                        alert("Erro ao enviar mensagem. Se o erro persistir, vá a 'Configuração BD -> Reparar Chat' para corrigir a base de dados.");
+                        alert("Erro ao enviar mensagem.");
                     }
                 }}
                 onMarkMessagesAsRead={(senderId) => dataService.markMessagesAsRead(senderId)}
@@ -683,7 +661,6 @@ export const App: React.FC = () => {
                 activeChatCollaboratorId={activeChatCollaboratorId}
                 onSelectConversation={setActiveChatCollaboratorId}
                 unreadMessagesCount={appData.messages.filter((m: any) => m.receiverId === currentUser.id && !m.read).length}
-                // NEW PROP for Real-time status
                 onlineUserIds={onlineUserIds}
             />
             

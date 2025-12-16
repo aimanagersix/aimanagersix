@@ -97,8 +97,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
         />
 
         <aside 
-            className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-transform duration-300 ease-in-out 
-                md:translate-x-0 ${isExpanded ? 'translate-x-0 w-72 md:w-64' : '-translate-x-full md:w-20'}
+            className={`
+                z-50 flex flex-col border-r border-gray-800 bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out
+                /* Mobile: Fixed overlay */
+                fixed top-0 left-0 h-screen md:relative md:h-auto
+                /* Width Control */
+                ${isExpanded ? 'translate-x-0 w-72 md:w-64' : '-translate-x-full md:translate-x-0 md:w-20'}
             `}
             onMouseEnter={() => { if(window.innerWidth >= 768) onHover(true); }}
             onMouseLeave={() => {
