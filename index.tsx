@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
@@ -68,8 +69,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 const root = ReactDOM.createRoot(rootElement);
+
+// NOTA: React.StrictMode removido intencionalmente para resolver o erro "NotFoundError: Node.removeChild".
+// Este erro ocorre frequentemente devido a interferências de extensões do browser ou traduções automáticas
+// que alteram o DOM, confundindo o algoritmo de reconciliação do React.
 root.render(
-  <React.StrictMode>
     <ErrorBoundary>
       <LanguageProvider>
         <LayoutProvider>
@@ -77,5 +81,4 @@ root.render(
         </LayoutProvider>
       </LanguageProvider>
     </ErrorBoundary>
-  </React.StrictMode>
 );
