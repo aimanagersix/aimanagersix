@@ -1,14 +1,14 @@
 
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaTerminal, FaShieldAlt, FaTable, FaCode, FaRobot, FaMagic, FaPlay, FaBolt, FaCogs, FaSpinner } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaTerminal, FaShieldAlt, FaTable, FaCode, FaRobot, FaMagic, FaPlay, FaBolt, FaCogs, FaSpinner, FaSeedling } from 'react-icons/fa';
 import { generateSqlHelper, generatePlaywrightTest } from '../services/geminiService';
 
 interface DatabaseSchemaModalProps {
     onClose: () => void;
 }
 
-type TabType = 'init' | 'updates' | 'triggers' | 'functions' | 'policies' | 'ai_sql' | 'ai_e2e';
+type TabType = 'init' | 'updates' | 'triggers' | 'functions' | 'policies' | 'seed' | 'ai_sql' | 'ai_e2e';
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [activeTab, setActiveTab] = useState<TabType>('init');
@@ -312,6 +312,57 @@ BEGIN
         EXECUTE format('GRANT ALL ON TABLE public.%I TO authenticated', tbl);
     END LOOP;
 END $$;
+`,
+        seed: `
+-- ==================================================================================
+-- 6. SEED DATA (DADOS DE TESTE EM MASSA)
+-- Cria 1000 colaboradores fictícios instantaneamente. 
+-- NÃO execute em produção se não quiser dados de teste.
+-- ==================================================================================
+
+DO $$
+DECLARE
+    i INT;
+    v_inst_id UUID;
+    v_ent_id UUID;
+BEGIN
+    -- Tenta encontrar uma instituição e entidade existente para ligar os dados
+    -- Se não existirem, os campos ficarão NULL
+    SELECT id INTO v_inst_id FROM public.instituicoes LIMIT 1;
+    SELECT id INTO v_ent_id FROM public.entidades WHERE "instituicaoId" = v_inst_id LIMIT 1;
+
+    -- Loop para criar 1000 registos
+    FOR i IN 1..1000 LOOP
+        INSERT INTO public.collaborators (
+            "fullName",
+            email,
+            role,
+            status,
+            "canLogin",
+            "receivesNotifications",
+            "numeroMecanografico",
+            nif,
+            telemovel,
+            "instituicaoId",
+            "entidadeId"
+        ) VALUES (
+            'Colaborador Bulk ' || lpad(i::text, 4, '0'),
+            'bulk.user.' || lpad(i::text, 4, '0') || '@empresa.local',
+            'Utilizador',
+            'Ativo',
+            false, -- Sem acesso de login
+            false,
+            'MEC-' || lpad(i::text, 4, '0'),
+            (100000000 + i)::text, -- NIF Fictício
+            '91' || lpad((1000000 + i)::text, 7, '0'), -- Telemóvel Fictício
+            v_inst_id,
+            v_ent_id
+        )
+        ON CONFLICT (email) DO NOTHING; -- Evita erro se já existir
+    END LOOP;
+    
+    RAISE NOTICE 'Seed concluído: 1000 colaboradores processados.';
+END $$;
 `
     };
 
@@ -426,6 +477,12 @@ END $$;
                     >
                         <FaShieldAlt /> Políticas (RLS)
                     </button>
+                    <button 
+                        onClick={() => setActiveTab('seed')} 
+                        className={`px-3 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'seed' ? 'bg-green-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                    >
+                        <FaSeedling /> Seeding (Dados)
+                    </button>
                     <div className="w-px h-8 bg-gray-700 mx-2"></div>
                     <button 
                         onClick={() => setActiveTab('ai_sql')} 
@@ -448,6 +505,7 @@ END $$;
                     {activeTab === 'triggers' && renderScriptTab('triggers', "Configura automatismos da base de dados, como atualização automática de datas de modificação e registo de logs de auditoria.")}
                     {activeTab === 'functions' && renderScriptTab('functions', "Funções de servidor (RPC) usadas pela aplicação para lógica complexa, como a verificação diária de aniversários ou cálculos de dashboard.")}
                     {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Script v6.3 - Este script garante a limpeza e recriação das políticas, permitindo que a aplicação leia os nomes das tabelas de configuração.")}
+                    {activeTab === 'seed' && renderScriptTab('seed', "CUIDADO: Este script insere 1000 colaboradores fictícios na base de dados para testes de carga e paginação. Use apenas em ambientes de teste.")}
                     
                     {activeTab === 'ai_sql' && renderAiTab('sql')}
                     {activeTab === 'ai_e2e' && renderAiTab('e2e')}
