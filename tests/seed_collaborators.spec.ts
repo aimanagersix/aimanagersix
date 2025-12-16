@@ -8,15 +8,14 @@ const ADMIN_USER = {
     password: 'QSQmZf62!' 
 };
 
-// Quantidade de colaboradores a criar
-const TARGET_COUNT = 1000;
+// Quantidade de colaboradores a criar (REDUZIDO PARA SMOKE TEST)
+// Para bulk seeding real (1000+), use o script SQL disponível em "Configuração BD -> Seeding"
+const TARGET_COUNT = 2;
 
-test.describe('Data Seeding - Collaborators', () => {
-    // Desativar timeout do teste pois criar 1000 registos demora tempo
-    test.setTimeout(0); 
-
-    test('Seed 1000 Collaborators via UI without login access', async ({ page }) => {
-        console.log("Iniciando processo de criação em massa...");
+test.describe('Functional Test - Create Collaborator', () => {
+    
+    test('should allow creating collaborators manually', async ({ page }) => {
+        console.log("Iniciando teste funcional de criação...");
 
         // 1. Login
         await page.goto('/');
@@ -34,7 +33,7 @@ test.describe('Data Seeding - Collaborators', () => {
         await page.getByRole('link', { name: 'Colaboradores' }).click();
         await expect(page.getByRole('heading', { name: 'Gestão de Colaboradores' })).toBeVisible();
 
-        // 3. Loop de Criação
+        // 3. Loop de Criação (Teste de UI)
         for (let i = 1; i <= TARGET_COUNT; i++) {
             const startTime = Date.now();
             
@@ -44,15 +43,15 @@ test.describe('Data Seeding - Collaborators', () => {
 
             // Gerar Dados Sequenciais
             const pad = i.toString().padStart(4, '0');
-            const fakeName = `Colaborador Bulk ${pad}`;
-            const fakeEmail = `bulk.user.${pad}@empresa.local`;
-            const fakeMec = `MEC-${pad}`;
+            const fakeName = `Test User ${pad}`;
+            const fakeEmail = `test.ui.${pad}@empresa.local`;
+            const fakeMec = `UI-${pad}`;
             
             // Gerar NIF e Telemóvel válidos (Regex da app: 9 dígitos)
-            // NIF base 100000000 + i
-            const fakeNif = (100000000 + i).toString(); 
-            // Telemovel base 910000000 + i
-            const fakePhone = `91${(1000000 + i).toString().padStart(7, '0')}`;
+            // NIF base 200000000 + i (Evita conflito com o Seed SQL que usa 100...)
+            const fakeNif = (200000000 + i).toString(); 
+            // Telemovel base 920000000 + i
+            const fakePhone = `92${(1000000 + i).toString().padStart(7, '0')}`;
 
             // Preencher Formulário
             await page.locator('input[name="fullName"]').fill(fakeName);
@@ -62,9 +61,6 @@ test.describe('Data Seeding - Collaborators', () => {
             await page.locator('input[name="nif"]').fill(fakeNif);
             await page.locator('input[name="telemovel"]').fill(fakePhone);
 
-            // IMPORTANTE: "Permitir Login" vem desmarcado por defeito.
-            // Não clicamos nele, garantindo que o utilizador fica sem acesso.
-
             // Submeter
             await page.getByRole('button', { name: 'Salvar' }).click();
 
@@ -73,11 +69,9 @@ test.describe('Data Seeding - Collaborators', () => {
 
             // Log de progresso
             const duration = Date.now() - startTime;
-            if (i % 10 === 0) {
-                console.log(`Criado: ${i}/${TARGET_COUNT} (${fakeName}) - ${duration}ms`);
-            }
+            console.log(`UI Test Criado: ${i}/${TARGET_COUNT} (${fakeName}) - ${duration}ms`);
         }
 
-        console.log("Processo concluído com sucesso!");
+        console.log("Teste funcional concluído com sucesso!");
     });
 });
