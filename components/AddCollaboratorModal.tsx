@@ -272,7 +272,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const handleAddJobTitle = async () => {
         if (!newJobTitleName.trim()) return;
         try {
-            const newTitle = await dataService.addJobTitle({ name: newJobTitleName.trim() });
+            const newTitle = await dataService.addJobTitle({ name: newJobTitleName.trim() }) as JobTitle;
             setJobTitles(prev => [...prev, newTitle]);
             setFormData(prev => ({ ...prev, job_title_id: newTitle.id }));
             setNewJobTitleName('');

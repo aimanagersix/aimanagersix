@@ -67,7 +67,7 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
         setIsSaving(true);
         try {
             // Determine target status based on Loan flag
-            const targetStatus = equipment.isLoan ? EquipmentStatus.Emprestimo : EquipmentStatus.Operacional;
+            const targetStatus = equipment.isLoan ? EquipmentStatus.Empréstimo : EquipmentStatus.Operacional;
             await dataService.updateEquipment(equipment.id, { status: targetStatus });
 
             const payload: any = {
