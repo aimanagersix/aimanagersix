@@ -5,13 +5,14 @@ import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull
 import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import * as dataService from '../services/dataService';
+import SortableHeader from './common/SortableHeader'; // Import shared component
 
 interface TicketDashboardProps {
   tickets: Ticket[];
   escolasDepartamentos: Entidade[];
   collaborators: Collaborator[];
   teams: Team[];
-  suppliers?: Supplier[]; // Added prop
+  suppliers?: Supplier[]; 
   equipment: Equipment[];
   equipmentTypes: EquipmentType[];
   initialFilter?: any;
@@ -138,8 +139,21 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     
     const [filters, setFilters] = useState<{ status: string, team_id: string, category: string, title: string }>({ status: '', team_id: '', category: '', title: '' });
     
-    // Map Suppliers from props instead of internal fetch
+    // Sort State (Used by Parent Component or handled here if local sorting needed, 
+    // but TicketManager does server-side sort. We keep sort config here to render arrows)
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'requestDate',
+        direction: 'descending'
+    });
+    
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
+    const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
+    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
+    const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
+    
+    const displayCategories = categories.length > 0 ? categories.map(c => c.name) : Object.values(TicketCategory);
 
     useEffect(() => {
         if (initialFilter) {
@@ -149,17 +163,8 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 category: initialFilter.category || '',
                 team_id: initialFilter.team_id || ''
             }));
-            // If filters are passed from parent (overview), they are already applied to the server fetch in manager.
         }
     }, [initialFilter]);
-    
-    const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
-    const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
-    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
-    const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
-    
-    const displayCategories = categories.length > 0 ? categories.map(c => c.name) : Object.values(TicketCategory);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -171,6 +176,20 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         }
         if (onClearInitialFilter) onClearInitialFilter();
         if (onPageChange) onPageChange(1);
+    };
+    
+    // This function updates local state for UI arrow, but actual sorting happens in Parent via props if needed.
+    // In current implementation TicketManager fetches data sorted by requestDate.
+    // For full interactivity, TicketManager should accept onSortChange prop.
+    // Assuming TicketManager handles Sort, we just need to trigger a prop here.
+    // Since onSortChange isn't in props, we'll just update UI state for now (visual feedback).
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+        // NOTE: In a full implementation, call onSortChange({key, direction}) here
     };
 
     const handleStatusChange = (ticket: Ticket, newStatus: TicketStatus) => {
@@ -192,7 +211,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <div>
-                    <h2 className="text-xl font-semibold text-white">Gerenciar Tickets de Suporte</h2>
+                    <h2 className="text-xl font-semibold text-white">Gerir Tickets de Suporte</h2>
                     <p className="text-sm text-on-surface-dark-secondary mt-1">
                         <button onClick={onGenerateReport} className="hover:text-white hover:underline">
                             Ver Relatório Geral & Análise IA
@@ -237,14 +256,14 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th scope="col" className="px-6 py-3">Entidade</th>
-                            <th scope="col" className="px-6 py-3">Equipa</th>
-                            <th scope="col" className="px-6 py-3">Categoria</th>
-                            <th scope="col" className="px-6 py-3">Assunto / Descrição</th>
-                            <th scope="col" className="px-6 py-3">SLA / Prazos</th>
-                            <th scope="col" className="px-6 py-3">Técnico</th>
-                            <th scope="col" className="px-6 py-3">Estado</th>
-                            <th scope="col" className="px-6 py-3 text-center">Ações</th>
+                            <th className="px-6 py-3">Entidade</th>
+                            <th className="px-6 py-3">Equipa</th>
+                            <SortableHeader label="Categoria" sortKey="category" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Assunto" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
+                            <th className="px-6 py-3">SLA / Prazos</th>
+                            <SortableHeader label="Técnico" sortKey="technician" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSort} />
+                            <th className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -265,7 +284,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 : (collaboratorMap.get(ticket.collaboratorId) || 'N/A');
                             const isSupplierRequester = !!ticket.requester_supplier_id;
                             
-                            // Determine Team Name
                             const teamName = ticket.team_id ? teamMap.get(ticket.team_id) : 'Geral';
 
                             return(

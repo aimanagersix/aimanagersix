@@ -5,6 +5,7 @@ import { FaShieldAlt, FaSearch, FaPlus, FaCheckCircle, FaTimesCircle, FaClock, F
 import Pagination from './common/Pagination';
 import AddResilienceTestModal from './AddResilienceTestModal';
 import * as dataService from '../services/dataService';
+import SortableHeader from './common/SortableHeader';
 
 interface ResilienceDashboardProps {
     resilienceTests: ResilienceTest[];
@@ -31,6 +32,12 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
     const [showAddModal, setShowAddModal] = useState(false);
     const [testToEdit, setTestToEdit] = useState<ResilienceTest | null>(null);
     
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'planned_date',
+        direction: 'descending'
+    });
+    
     // Data for modal
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [entidades, setEntidades] = useState<Entidade[]>([]);
@@ -43,13 +50,58 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
         };
         loadData();
     }, []);
+    
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const filteredTests = useMemo(() => {
-        return resilienceTests.filter(t => 
+        let filtered = resilienceTests.filter(t => 
             t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.auditor_entity?.toLowerCase().includes(searchQuery.toLowerCase())
-        ).sort((a, b) => new Date(b.planned_date).getTime() - new Date(a.planned_date).getTime());
-    }, [resilienceTests, searchQuery]);
+        );
+
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'title':
+                    valA = a.title;
+                    valB = b.title;
+                    break;
+                case 'test_type':
+                    valA = a.test_type;
+                    valB = b.test_type;
+                    break;
+                case 'planned_date':
+                    valA = new Date(a.planned_date).getTime();
+                    valB = new Date(b.planned_date).getTime();
+                    break;
+                case 'status':
+                    valA = a.status;
+                    valB = b.status;
+                    break;
+                default:
+                    valA = a[sortConfig.key as keyof ResilienceTest];
+                    valB = b[sortConfig.key as keyof ResilienceTest];
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+
+        return filtered;
+    }, [resilienceTests, searchQuery, sortConfig]);
 
     const totalPages = Math.ceil(filteredTests.length / itemsPerPage);
     const paginatedTests = useMemo(() => {
@@ -66,7 +118,7 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
             window.location.reload(); 
         } catch (e) {
             console.error(e);
-            alert("Erro ao salvar teste.");
+            alert("Erro ao guardar teste.");
         }
     };
 
@@ -97,7 +149,7 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Procurar por título, auditor..."
+                    placeholder="Pesquisar por título, auditor..."
                     className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm focus:ring-purple-500 focus:border-purple-500"
                 />
             </div>
@@ -142,10 +194,10 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th className="px-6 py-3">Teste / Auditor</th>
-                            <th className="px-6 py-3">Tipo</th>
-                            <th className="px-6 py-3">Data Planeada</th>
-                            <th className="px-6 py-3 text-center">Estado</th>
+                            <SortableHeader label="Teste / Auditor" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Tipo" sortKey="test_type" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Data Planeada" sortKey="planned_date" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th className="px-6 py-3">Executado Em</th>
                             <th className="px-6 py-3 text-center">Relatório</th>
                             <th className="px-6 py-3 text-center">Ações</th>
@@ -179,7 +231,7 @@ const ResilienceDashboard: React.FC<ResilienceDashboardProps> = ({ resilienceTes
                                             <button onClick={() => { setTestToEdit(test); setShowAddModal(true); }} className="text-blue-400 hover:text-blue-300">Editar</button>
                                         )}
                                         {onDelete && (
-                                            <button onClick={() => onDelete(test.id)} className="text-red-400 hover:text-red-300">Excluir</button>
+                                            <button onClick={() => onDelete(test.id)} className="text-red-400 hover:text-red-300">Eliminar</button>
                                         )}
                                     </div>
                                 </td>

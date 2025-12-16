@@ -4,6 +4,7 @@ import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Tick
 import { EditIcon, FaTrash as DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
 import { FaHistory, FaToggleOn, FaToggleOff, FaPlaneArrival, FaPhone, FaEnvelope, FaIdCard } from 'react-icons/fa';
 import Pagination from './common/Pagination';
+import SortableHeader from './common/SortableHeader';
 
 interface CollaboratorDashboardProps {
   collaborators: Collaborator[];
@@ -95,6 +96,15 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     const [filters, setFilters] = useState({ query: '', entidadeId: '', status: '', role: '' });
     const [tooltip, setTooltip] = useState<TooltipState | null>(null);
     
+    // Sorting State (Local, assuming backend sorting is handled by parent if passed, else local sort)
+    // NOTE: If parent handles sort via props, this local state might be redundant or needs sync. 
+    // Assuming mixed mode: pagination is server, sort is client on current page OR server.
+    // For this implementation, we'll do client-side sort on the received page data for responsiveness.
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'fullName',
+        direction: 'ascending'
+    });
+    
     const entidadeMap = React.useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const instituicaoMap = React.useMemo(() => new Map(instituicoes.map(i => [i.id, i.name])), [instituicoes]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, `${e.description} (SN: ${e.serialNumber})`])), [equipment]);
@@ -142,6 +152,59 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         if (onFilterChange) onFilterChange(blank);
         if (onPageChange) onPageChange(1);
     };
+    
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedCollaborators = useMemo(() => {
+        const sorted = [...collaborators];
+        sorted.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'fullName':
+                    valA = a.fullName;
+                    valB = b.fullName;
+                    break;
+                case 'numeroMecanografico':
+                    valA = a.numeroMecanografico || '';
+                    valB = b.numeroMecanografico || '';
+                    break;
+                case 'email':
+                    valA = a.email;
+                    valB = b.email;
+                    break;
+                case 'role':
+                    valA = a.role;
+                    valB = b.role;
+                    break;
+                case 'status':
+                    valA = a.status;
+                    valB = b.status;
+                    break;
+                case 'association':
+                    valA = a.entidadeId ? (entidadeMap.get(a.entidadeId) || '') : (instituicaoMap.get(a.instituicaoId || '') || '');
+                    valB = b.entidadeId ? (entidadeMap.get(b.entidadeId) || '') : (instituicaoMap.get(b.instituicaoId || '') || '');
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    }, [collaborators, sortConfig, entidadeMap, instituicaoMap]);
 
     const handleMouseOver = (col: Collaborator, event: React.MouseEvent) => {
         if (window.innerWidth < 768) return; // Disable tooltip on mobile
@@ -282,7 +345,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         <>
         {/* MOBILE VIEW (CARDS) */}
         <div className="grid grid-cols-1 gap-4 md:hidden">
-            {collaborators.length > 0 ? collaborators.map((col) => {
+            {sortedCollaborators.length > 0 ? sortedCollaborators.map((col) => {
                 const equipmentCount = (equipmentByCollaborator.get(col.id) || []).length;
                 const dependencies = dependencyMap.get(col.id) || [];
                 const isSuperAdmin = col.role === UserRole.SuperAdmin;
@@ -377,18 +440,18 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         <table className="w-full text-sm text-left text-on-surface-dark-secondary">
           <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
             <tr>
-              <th scope="col" className="px-6 py-3">Nº Mec.</th>
-              <th scope="col" className="px-6 py-3">Nome Completo / Equipamentos</th>
-              <th scope="col" className="px-6 py-3">Contactos</th>
-              <th scope="col" className="px-6 py-3">Cargo / Perfil</th>
-              <th scope="col" className="px-6 py-3">Associação</th>
-              <th scope="col" className="px-6 py-3">Status</th>
+              <SortableHeader label="Nº Mec." sortKey="numeroMecanografico" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Nome / Equipamentos" sortKey="fullName" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Contactos" sortKey="email" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Cargo / Perfil" sortKey="role" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Associação" sortKey="association" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} />
               <th scope="col" className="px-6 py-3 text-center">Acesso</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>
           </thead>
           <tbody>
-            {collaborators.length > 0 ? collaborators.map((col) => {
+            {sortedCollaborators.length > 0 ? sortedCollaborators.map((col) => {
                  const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
                  const equipmentCount = assignedEquipment.length;
                  const dependencies = dependencyMap.get(col.id) || [];

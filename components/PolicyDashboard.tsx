@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Policy, PolicyAcceptance, Collaborator } from '../types';
 import { FaFileSignature, FaPlus, FaEdit, FaTrash, FaCheckCircle, FaTimesCircle, FaUsers } from 'react-icons/fa';
 import Pagination from './common/Pagination';
+import SortableHeader from './common/SortableHeader';
 
 interface PolicyDashboardProps {
     policies: Policy[];
@@ -16,6 +17,12 @@ interface PolicyDashboardProps {
 const PolicyDashboard: React.FC<PolicyDashboardProps> = ({ policies, acceptances, collaborators, onCreate, onEdit, onDelete }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'updated_at',
+        direction: 'descending'
+    });
 
     // Stats calculation
     const totalUsers = collaborators.filter(c => c.canLogin && c.status === 'Ativo').length;
@@ -25,9 +32,54 @@ const PolicyDashboard: React.FC<PolicyDashboardProps> = ({ policies, acceptances
         return Math.round((count / Math.max(totalUsers, 1)) * 100);
     };
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const sortedPolicies = useMemo(() => {
-        return [...policies].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-    }, [policies]);
+        const sorted = [...policies];
+        sorted.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'title':
+                    valA = a.title;
+                    valB = b.title;
+                    break;
+                case 'version':
+                    valA = parseFloat(a.version);
+                    valB = parseFloat(b.version);
+                    break;
+                case 'status':
+                    valA = a.is_active ? 1 : 0;
+                    valB = b.is_active ? 1 : 0;
+                    break;
+                case 'acceptance_rate':
+                    valA = getAcceptanceRate(a.id, a.version);
+                    valB = getAcceptanceRate(b.id, b.version);
+                    break;
+                case 'updated_at':
+                    valA = new Date(a.updated_at).getTime();
+                    valB = new Date(b.updated_at).getTime();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    }, [policies, sortConfig, acceptances, totalUsers]);
 
     const totalPages = Math.ceil(sortedPolicies.length / itemsPerPage);
     const paginatedPolicies = useMemo(() => {
@@ -57,11 +109,11 @@ const PolicyDashboard: React.FC<PolicyDashboardProps> = ({ policies, acceptances
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th className="px-6 py-3">Título da Política</th>
-                            <th className="px-6 py-3 text-center">Versão Atual</th>
-                            <th className="px-6 py-3 text-center">Estado</th>
-                            <th className="px-6 py-3 text-center">Taxa de Aceitação</th>
-                            <th className="px-6 py-3 text-center">Última Atualização</th>
+                            <SortableHeader label="Título da Política" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Versão Atual" sortKey="version" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Taxa de Aceitação" sortKey="acceptance_rate" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Última Atualização" sortKey="updated_at" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
@@ -99,7 +151,7 @@ const PolicyDashboard: React.FC<PolicyDashboardProps> = ({ policies, acceptances
                                                 </button>
                                             )}
                                             {onDelete && (
-                                                <button onClick={() => onDelete(policy.id)} className="text-red-400 hover:text-red-300" title="Excluir">
+                                                <button onClick={() => onDelete(policy.id)} className="text-red-400 hover:text-red-300" title="Apagar">
                                                     <FaTrash />
                                                 </button>
                                             )}

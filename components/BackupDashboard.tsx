@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { BackupExecution, Collaborator, BackupType, Equipment } from '../types';
-// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaServer, FaSearch, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaClock, FaPaperclip } from './common/Icons';
 import Pagination from './common/Pagination';
+import SortableHeader from './common/SortableHeader';
 
 interface BackupDashboardProps {
     backups: BackupExecution[];
@@ -37,12 +37,26 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
     const [filterStatus, setFilterStatus] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'test_date',
+        direction: 'descending'
+    });
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
+    
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const filteredBackups = useMemo(() => {
-        return backups.filter(b => {
+        let filtered = backups.filter(b => {
             const linkedEq = b.equipment_id ? equipmentMap.get(b.equipment_id) : null;
             const linkedEqName = linkedEq ? linkedEq.description : '';
 
@@ -54,7 +68,44 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
             const statusMatch = filterStatus === '' || b.status === filterStatus;
             return searchMatch && statusMatch;
         });
-    }, [backups, searchQuery, filterStatus, equipmentMap]);
+        
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'test_date':
+                    valA = new Date(a.test_date).getTime();
+                    valB = new Date(b.test_date).getTime();
+                    break;
+                case 'system_name':
+                    valA = a.system_name;
+                    valB = b.system_name;
+                    break;
+                case 'status':
+                    valA = a.status;
+                    valB = b.status;
+                    break;
+                case 'tester':
+                    valA = collaboratorMap.get(a.tester_id) || '';
+                    valB = collaboratorMap.get(b.tester_id) || '';
+                    break;
+                default:
+                    valA = a[sortConfig.key as keyof BackupExecution];
+                    valB = b[sortConfig.key as keyof BackupExecution];
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+
+        return filtered;
+    }, [backups, searchQuery, filterStatus, equipmentMap, sortConfig, collaboratorMap]);
 
     const totalPages = Math.ceil(filteredBackups.length / itemsPerPage);
     const paginatedBackups = useMemo(() => {
@@ -102,7 +153,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Procurar sistema, equipamento..."
+                        placeholder="Pesquisar sistema, equipamento..."
                         className="w-full bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm"
                     />
                 </div>
@@ -122,14 +173,14 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th className="px-6 py-3">Data Teste</th>
-                            <th className="px-6 py-3">Sistema / Equipamento</th>
-                            <th className="px-6 py-3">Tipo Backup</th>
-                            <th className="px-6 py-3">Data Backup</th>
+                            <SortableHeader label="Data Teste" sortKey="test_date" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Sistema / Equipamento" sortKey="system_name" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Tipo Backup" sortKey="type" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Data Backup" sortKey="backup_date" currentSort={sortConfig} onSort={handleSort} />
                             <th className="px-6 py-3 text-center">RTO (min)</th>
-                            <th className="px-6 py-3 text-center">Status</th>
+                            <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th className="px-6 py-3 text-center">Evidências</th>
-                            <th className="px-6 py-3">Testado Por</th>
+                            <SortableHeader label="Testado Por" sortKey="tester" currentSort={sortConfig} onSort={handleSort} />
                             <th className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>

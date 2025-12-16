@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { SecurityTrainingRecord, Collaborator, ConfigItem, TrainingType } from '../types';
 import { FaGraduationCap, FaSearch, FaPlus, FaCheckCircle, FaTimesCircle, FaUserGraduate } from 'react-icons/fa';
 import Pagination from './common/Pagination';
+import SortableHeader from './common/SortableHeader';
 
 interface TrainingDashboardProps {
     trainings: SecurityTrainingRecord[];
@@ -16,6 +17,12 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
     const [filterType, setFilterType] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
+        key: 'completion_date',
+        direction: 'descending'
+    });
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const trainingOptions = useMemo(() => {
@@ -23,15 +30,64 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
         return Object.values(TrainingType);
     }, [trainingTypes]);
 
+    const handleSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const filteredTrainings = useMemo(() => {
-        return trainings.filter(t => {
+        let filtered = trainings.filter(t => {
             const collabName = collaboratorMap.get(t.collaborator_id)?.toLowerCase() || '';
             const searchMatch = collabName.includes(searchQuery.toLowerCase()) || 
                                 t.training_type.toLowerCase().includes(searchQuery.toLowerCase());
             const typeMatch = filterType === '' || t.training_type === filterType;
             return searchMatch && typeMatch;
-        }).sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
-    }, [trainings, searchQuery, filterType, collaboratorMap]);
+        });
+
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let valA: any = '';
+            let valB: any = '';
+
+            switch (sortConfig.key) {
+                case 'completion_date':
+                    valA = new Date(a.completion_date).getTime();
+                    valB = new Date(b.completion_date).getTime();
+                    break;
+                case 'collaborator_name':
+                    valA = collaboratorMap.get(a.collaborator_id) || '';
+                    valB = collaboratorMap.get(b.collaborator_id) || '';
+                    break;
+                case 'training_type':
+                    valA = a.training_type;
+                    valB = b.training_type;
+                    break;
+                case 'score':
+                    valA = a.score || 0;
+                    valB = b.score || 0;
+                    break;
+                case 'status':
+                    valA = a.status;
+                    valB = b.status;
+                    break;
+                default:
+                    valA = a[sortConfig.key as keyof SecurityTrainingRecord];
+                    valB = b[sortConfig.key as keyof SecurityTrainingRecord];
+            }
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+
+        return filtered;
+    }, [trainings, searchQuery, filterType, collaboratorMap, sortConfig]);
 
     const totalPages = Math.ceil(filteredTrainings.length / itemsPerPage);
     const paginatedTrainings = useMemo(() => {
@@ -76,7 +132,7 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Procurar colaborador ou formação..."
+                        placeholder="Pesquisar colaborador ou formação..."
                         className="w-full bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm"
                     />
                 </div>
@@ -94,12 +150,12 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th className="px-6 py-3">Data Conclusão</th>
-                            <th className="px-6 py-3">Colaborador</th>
-                            <th className="px-6 py-3">Tipo de Formação</th>
-                            <th className="px-6 py-3 text-center">Score</th>
+                            <SortableHeader label="Data Conclusão" sortKey="completion_date" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Colaborador" sortKey="collaborator_name" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Tipo de Formação" sortKey="training_type" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Score" sortKey="score" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th className="px-6 py-3 text-center">Duração (H)</th>
-                            <th className="px-6 py-3 text-center">Estado</th>
+                            <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th className="px-6 py-3">Notas</th>
                         </tr>
                     </thead>
