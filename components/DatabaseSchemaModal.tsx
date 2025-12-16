@@ -212,8 +212,9 @@ $$;
 `,
         policies: `
 -- ==================================================================================
--- 5. REPARAÇÃO TOTAL DE SEGURANÇA (RLS v6.1 - Config Update)
--- Correção: Adiciona permissões explícitas para tabelas auxiliares (CIBE, Conservação)
+-- 5. REPARAÇÃO TOTAL DE SEGURANÇA (RLS v6.2 - Bugfix UUIDs)
+-- Correção: Remove o comando GRANT ON SEQUENCE que causava erro.
+-- Adiciona permissões explícitas para tabelas auxiliares (CIBE, Conservação)
 -- para evitar que apareçam UUIDs em vez de nomes.
 -- ==================================================================================
 
@@ -270,7 +271,7 @@ FOR ALL USING (auth.role() = 'authenticated');
 GRANT ALL ON TABLE public.equipment TO authenticated;
 GRANT ALL ON TABLE public.equipment_types TO authenticated;
 GRANT ALL ON TABLE public.collaborators TO authenticated;
-GRANT ALL ON SEQUENCE public.equipment_types_id_seq TO authenticated; -- Se existir sequência
+-- NOTA: Sequence grant removido pois equipment_types usa UUID
 
 -- 5. Configurações Globais
 ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
@@ -445,7 +446,7 @@ END $$;
                     {activeTab === 'updates' && renderScriptTab('updates', "Use este script para aplicar atualizações incrementais e adicionar campos novos (como a coluna 'Requer Backup' em falta).")}
                     {activeTab === 'triggers' && renderScriptTab('triggers', "Configura automatismos da base de dados, como atualização automática de datas de modificação e registo de logs de auditoria.")}
                     {activeTab === 'functions' && renderScriptTab('functions', "Funções de servidor (RPC) usadas pela aplicação para lógica complexa, como a verificação diária de aniversários ou cálculos de dashboard.")}
-                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Script v6.1 - Este script força a limpeza total das permissões antigas E CORRIGE a visualização de UUIDs nas listas de configuração (Marcas, CIBE, etc.).")}
+                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Script v6.2 - Este script corrige o erro da sequência e força a aplicação das permissões nas tabelas de configuração.")}
                     
                     {activeTab === 'ai_sql' && renderAiTab('sql')}
                     {activeTab === 'ai_e2e' && renderAiTab('e2e')}
