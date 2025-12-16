@@ -19,16 +19,27 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [isRefreshing, setIsRefreshing] = useState(false);
     
-    // Calculate counts safely with case-insensitive property check
+    // Calculate counts safely with aggressive normalization
     const equipmentCountByType = React.useMemo(() => {
         const counts: Record<string, number> = {};
+        
         if (Array.isArray(equipment)) {
             equipment.forEach(item => {
                 if (item) {
-                    // Try different casings for typeId to be robust
-                    const tid = (item as any).typeId || (item as any).type_id || (item as any).typeid;
-                    if (tid) {
-                         counts[tid] = (counts[tid] || 0) + 1;
+                    // 1. Tentar encontrar a propriedade correta
+                    let rawId = (item as any).typeId || (item as any).type_id || (item as any).typeid || (item as any).equipment_type_id;
+                    
+                    // 2. Se não encontrou, procurar chaves dinamicamente
+                    if (!rawId) {
+                        const keys = Object.keys(item);
+                        const typeKey = keys.find(k => k.toLowerCase().includes('type') && k.toLowerCase().includes('id'));
+                        if (typeKey) rawId = (item as any)[typeKey];
+                    }
+
+                    // 3. Normalizar e contar
+                    if (rawId && typeof rawId === 'string') {
+                         const cleanId = rawId.trim().toLowerCase();
+                         counts[cleanId] = (counts[cleanId] || 0) + 1;
                     }
                 }
             });
@@ -53,25 +64,36 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
     };
 
     const handleDiagnostic = async () => {
-        const supabase = getSupabase();
-        // Direct fetch bypassing RLS if possible (auth still required)
-        const { count, data, error } = await supabase.from('equipment').select('id, description, "typeId"', { count: 'exact', head: false }).limit(1);
+        // Diagnóstico Local (Props)
+        let msg = "DIAGNÓSTICO LOCAL (Props do React):\n";
+        msg += `Total Tipos Recebidos: ${equipmentTypes.length}\n`;
+        msg += `Total Equipamentos Recebidos: ${equipment.length}\n`;
         
-        let msg = `DIAGNÓSTICO DIRECTO:\n`;
-        if (error) {
-            msg += `ERRO: ${error.message} (Code: ${error.code})`;
-        } else {
-            msg += `Total Equipamentos na BD (Count): ${count}\n`;
-            if (data && data.length > 0) {
-                msg += `Exemplo de Registo: ${JSON.stringify(data[0])}\n`;
-                // Check if typeId exists
-                if ('typeId' in data[0]) msg += `Coluna "typeId" existe.\n`;
-                if ('typeid' in data[0]) msg += `Coluna "typeid" existe.\n`;
-                if ('type_id' in data[0]) msg += `Coluna "type_id" existe.\n`;
-            } else {
-                msg += `Array de dados vazio. Possível bloqueio RLS.`;
+        if (equipment.length > 0) {
+            const sample = equipment[0];
+            msg += `\nESTRUTURA DA AMOSTRA (Equipamento):\n`;
+            msg += JSON.stringify(sample, null, 2);
+            
+            // Teste de Cruzamento
+            if (equipmentTypes.length > 0) {
+                const testType = equipmentTypes[0];
+                msg += `\n\nTESTE DE CRUZAMENTO:\n`;
+                msg += `Procurando equipamentos para o Tipo: "${testType.name}" (ID: ${testType.id})\n`;
+                
+                // Manual check
+                let matches = 0;
+                equipment.forEach((eq: any) => {
+                    const eqTypeId = eq.typeId || eq.type_id || eq.typeid;
+                    if (String(eqTypeId).trim().toLowerCase() === String(testType.id).trim().toLowerCase()) {
+                        matches++;
+                    }
+                });
+                msg += `Encontrados manualmente neste teste: ${matches}`;
             }
+        } else {
+            msg += "\nATENÇÃO: A lista de equipamentos 'props.equipment' está vazia neste componente.";
         }
+
         alert(msg);
     };
     
@@ -92,8 +114,8 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
                 )}
             </div>
             <div className="flex gap-2">
-                 <button onClick={handleDiagnostic} className="flex items-center gap-2 px-3 py-2 bg-gray-800 text-gray-400 rounded-md hover:text-white transition-colors text-xs border border-gray-700" title="Executar teste de conexão direto">
-                    <FaBug /> Debug
+                 <button onClick={handleDiagnostic} className="flex items-center gap-2 px-3 py-2 bg-gray-800 text-gray-400 rounded-md hover:text-white transition-colors text-xs border border-gray-700" title="Verificar dados recebidos">
+                    <FaBug /> Debug Props
                 </button>
                 <button onClick={handleRefresh} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors text-sm">
                     <FaSync className={isRefreshing ? "animate-spin" : ""} /> {isRefreshing ? 'A recarregar...' : 'Sincronizar'}
@@ -116,7 +138,10 @@ const EquipmentTypeDashboard: React.FC<EquipmentTypeDashboardProps> = ({ equipme
           </thead>
           <tbody>
             {paginatedTypes.length > 0 ? paginatedTypes.map((type) => {
-                const count = equipmentCountByType[type.id] || 0;
+                // Normalize type ID for lookup
+                const lookupId = type.id.trim().toLowerCase();
+                const count = equipmentCountByType[lookupId] || 0;
+                
                 const isDeleteDisabled = count > 0;
                 // Robust check for backup flag
                 const requiresBackup = (type as any).requiresBackupTest || (type as any).requires_backup_test || (type as any).requiresbackuptest;
