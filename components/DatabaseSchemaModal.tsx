@@ -212,9 +212,9 @@ $$;
 `,
         policies: `
 -- ==================================================================================
--- 5. REPARAÇÃO TOTAL DE SEGURANÇA (RLS v6.0)
--- Execute isto se os dados continuam a aparecer como '0' ou vazios.
--- Este script força uma limpeza de TODAS as políticas antes de aplicar novas.
+-- 5. REPARAÇÃO TOTAL DE SEGURANÇA (RLS v6.1 - Config Update)
+-- Correção: Adiciona permissões explícitas para tabelas auxiliares (CIBE, Conservação)
+-- para evitar que apareçam UUIDs em vez de nomes.
 -- ==================================================================================
 
 -- A. Limpeza Profunda de Políticas (Equipment & Types)
@@ -277,6 +277,39 @@ ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow read access for all users" ON public.global_settings;
 CREATE POLICY "Allow read access for all users" ON public.global_settings FOR SELECT USING (true);
 CREATE POLICY "Allow write access for all users" ON public.global_settings FOR ALL USING (auth.role() = 'authenticated');
+
+-- 6. Tabelas Auxiliares de Configuração (CORREÇÃO DE UUIDs)
+DO $$
+DECLARE
+    tbl text;
+BEGIN
+    FOREACH tbl IN ARRAY ARRAY[
+        'config_accounting_categories', 
+        'config_conservation_states', 
+        'config_cpus', 
+        'config_ram_sizes', 
+        'config_storage_types', 
+        'config_software_categories', 
+        'config_software_products', 
+        'config_decommission_reasons', 
+        'config_collaborator_deactivation_reasons', 
+        'contact_roles', 
+        'contact_titles', 
+        'brands'
+    ] LOOP
+        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', tbl);
+        EXECUTE format('DROP POLICY IF EXISTS "Public Read %I" ON public.%I', tbl, tbl);
+        -- Permite leitura a todos os autenticados para que os dropdowns e nomes funcionem
+        EXECUTE format('CREATE POLICY "Public Read %I" ON public.%I FOR SELECT USING (auth.role() = ''authenticated'')', tbl, tbl);
+        
+        EXECUTE format('DROP POLICY IF EXISTS "Auth Write %I" ON public.%I', tbl, tbl);
+        -- Permite escrita a todos os autenticados (para facilitar gestão, pode restringir a admin se preferir)
+        EXECUTE format('CREATE POLICY "Auth Write %I" ON public.%I FOR ALL USING (auth.role() = ''authenticated'')', tbl, tbl);
+        
+        -- Garante permissões de SQL
+        EXECUTE format('GRANT ALL ON TABLE public.%I TO authenticated', tbl);
+    END LOOP;
+END $$;
 `
     };
 
@@ -412,7 +445,7 @@ CREATE POLICY "Allow write access for all users" ON public.global_settings FOR A
                     {activeTab === 'updates' && renderScriptTab('updates', "Use este script para aplicar atualizações incrementais e adicionar campos novos (como a coluna 'Requer Backup' em falta).")}
                     {activeTab === 'triggers' && renderScriptTab('triggers', "Configura automatismos da base de dados, como atualização automática de datas de modificação e registo de logs de auditoria.")}
                     {activeTab === 'functions' && renderScriptTab('functions', "Funções de servidor (RPC) usadas pela aplicação para lógica complexa, como a verificação diária de aniversários ou cálculos de dashboard.")}
-                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Script v6.0 - Este script força a limpeza total das permissões antigas e aplica novas permissões permissivas para corrigir o problema de dados a zero.")}
+                    {activeTab === 'policies' && renderScriptTab('policies', "IMPORTANTE: Script v6.1 - Este script força a limpeza total das permissões antigas E CORRIGE a visualização de UUIDs nas listas de configuração (Marcas, CIBE, etc.).")}
                     
                     {activeTab === 'ai_sql' && renderAiTab('sql')}
                     {activeTab === 'ai_e2e' && renderAiTab('e2e')}
