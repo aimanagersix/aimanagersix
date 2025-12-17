@@ -68,7 +68,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const ticketsMenuRef = useRef<HTMLDivElement>(null);
     const [isOverviewMenuOpen, setIsOverviewMenuOpen] = useState(false);
     const overviewMenuRef = useRef<HTMLDivElement>(null);
-    /* Fix: renamed isToolsMenuOpen to isToolsOpen to match usage in JSX and the setter name */
     const [isToolsOpen, setIsToolsOpen] = useState(false);
     const toolsMenuRef = useRef<HTMLDivElement>(null);
 
@@ -114,7 +113,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-        /* Fix: updated dependency from isToolsMenuOpen to isToolsOpen */
     }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isNis2MenuOpen, isUserMenuOpen, isTicketsMenuOpen, isOverviewMenuOpen, isToolsOpen]);
 
     const isOrganizationActive = activeTab.startsWith('organizacao') || activeTab === 'collaborators';
@@ -208,7 +206,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                   {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                   {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                   {tabConfig['collaborators'] && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                  {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={t('nav.teams')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig['organizacao.teams'] && <TabButton tab="collaborators" label={t('nav.teams')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                   {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                               </div>
                           </div>
@@ -226,7 +224,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                           <FaBoxOpen />
                           {t('nav.inventory')}
                           <svg className={`w-4 h-4 ml-1 transition-transform transform ${isInventarioMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                       </button>
                       {isInventarioMenuOpen && (
@@ -437,7 +435,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 {tabConfig['collaborators'] && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
-                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={t('nav.teams')} icon={<FaUsers />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                {tabConfig['organizacao.teams'] && <TabButton tab="collaborators" label={t('nav.teams')} icon={<FaUsers />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 
                 <div className="border-t border-gray-700 my-2"></div>
@@ -460,7 +458,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         <div className="border-t border-gray-700 my-2"></div>
                         <p className="px-4 text-xs text-gray-500 uppercase mt-2">{t('nav.tools')}</p>
                         {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
-                        {tabConfig['tools']?.map && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                        {tabConfig['tools']?.map && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} />}
                         {onOpenCalendar && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => { onOpenCalendar(); setIsMobileMenuOpen(false); }} />}
                         {onOpenManual && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => { onOpenManual(); setIsMobileMenuOpen(false); }} />}
                     </>
