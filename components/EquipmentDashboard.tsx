@@ -34,7 +34,7 @@ interface EquipmentDashboardProps {
   onCreate?: () => void;
   onImportAgent?: (e: React.ChangeEvent<HTMLInputElement>) => void; 
   businessServices?: BusinessService[];
-  serviceDependencies?: ServiceDependency[];
+  serviceDependencies?: ServiceDependencies[];
   tickets?: any[];
   ticketActivities?: any[];
   softwareLicenses?: SoftwareLicense[];
@@ -47,6 +47,7 @@ interface EquipmentDashboardProps {
   // Config Props for Name Resolution
   accountingCategories?: ConfigItem[];
   conservationStates?: ConfigItem[];
+  decommissionReasons?: ConfigItem[];
 
   // New Server-Side Props
   totalItems?: number;
@@ -75,6 +76,7 @@ const getStatusClass = (status: string) => {
         case 'Stock': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
         case 'Garantia': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
         case 'Abate': return 'bg-red-500/20 text-red-400 border-red-500/30';
+        case 'Retirado (Arquivo)': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
         case 'Empréstimo': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
         default: return 'bg-gray-700 text-gray-300 border-gray-600';
     }
@@ -136,7 +138,7 @@ const SortableHeader: React.FC<{
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onDelete, onClone, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate, onImportAgent,
     businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests, onViewItem,
-    accountingCategories = [], conservationStates = [],
+    accountingCategories = [], conservationStates = [], decommissionReasons = [],
     totalItems = 0, loading = false, page = 1, pageSize = 20, sort, onPageChange, onPageSizeChange, onSortChange, onFilterChange
 }) => {
     const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
@@ -169,8 +171,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     }, []);
     
     useEffect(() => {
-        // Sync local filters with initialFilter (passed from parent/sidebar/magic bar)
-        // BUT do not trigger onFilterChange here to avoid loops
         if (initialFilter) {
             setFilters(prev => ({ ...prev, ...initialFilter }));
         }
@@ -178,6 +178,14 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+    const decommissionReasonMap = useMemo(() => new Map(decommissionReasons.map(r => [r.id, r.name])), [decommissionReasons]);
+
+    // FILTER BRANDS BY ACTUAL USAGE
+    const filteredBrandOptions = useMemo(() => {
+        // If we have access to all equipment data, use it. Otherwise use the brands present in current list.
+        const usedBrandIds = new Set(equipment.map(e => e.brandId));
+        return brands.filter(b => usedBrandIds.has(b.id));
+    }, [brands, equipment]);
     
     const activeAssignmentsMap = useMemo(() => {
         const map = new Map<string, Assignment>();
@@ -190,32 +198,10 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     // Calculate Dependencies to block deletion
     const equipmentDependencies = useMemo(() => {
         const deps = new Set<string>();
-
-        // 1. Service Dependencies (BIA)
-        serviceDependencies?.forEach(d => {
-            if (d.equipment_id) deps.add(d.equipment_id);
-        });
-
-        // 2. Active Tickets (Prevent deleting equip with active issues)
-        tickets?.forEach(t => {
-            if (t.equipmentId && t.status !== 'Finalizado' && t.status !== 'Cancelado') {
-                deps.add(t.equipmentId);
-            }
-        });
-
-        // 3. Active Licenses (Linked to hardware)
-        licenseAssignments?.forEach(la => {
-            if (la.equipmentId && !la.returnDate) deps.add(la.equipmentId);
-        });
-
-        // 4. Parent/Child Relationships (Cannot delete if it contains other items/components)
-        // We scan the full equipment list (or at least the current page) to see if anyone points to me
-        // Ideally this should be a check against the full dataset, but here we do best effort with current data
-        // For accurate check, the backend usually rejects it, but we try to disable UI button too.
-        equipment.forEach(e => {
-            if (e.parent_equipment_id) deps.add(e.parent_equipment_id);
-        });
-
+        serviceDependencies?.forEach(d => { if (d.equipment_id) deps.add(d.equipment_id); });
+        tickets?.forEach(t => { if (t.equipmentId && t.status !== 'Finalizado' && t.status !== 'Cancelado') deps.add(t.equipmentId); });
+        licenseAssignments?.forEach(la => { if (la.equipmentId && !la.returnDate) deps.add(la.equipmentId); });
+        equipment.forEach(e => { if (e.parent_equipment_id) deps.add(e.parent_equipment_id); });
         return deps;
     }, [serviceDependencies, tickets, licenseAssignments, equipment]);
     
@@ -225,9 +211,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             serviceDependencies.forEach(dep => {
                 if (dep.equipment_id) {
                     const service = businessServices.find(s => s.id === dep.service_id);
-                    if (service) {
-                        map.set(dep.equipment_id, service.criticality);
-                    }
+                    if (service) map.set(dep.equipment_id, service.criticality);
                 }
             });
         }
@@ -239,12 +223,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         const { name, value } = e.target;
         const newFilters = { ...filters, [name]: value };
         setFilters(newFilters);
-        
-        // Notify parent about filter change (for server-side fetching)
-        if (onFilterChange) {
-             onFilterChange(newFilters);
-        }
-
+        if (onFilterChange) onFilterChange(newFilters);
         if (onPageChange) onPageChange(1);
     };
 
@@ -252,7 +231,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         const blank = { brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' };
         setFilters(blank);
         if (onFilterChange) onFilterChange(blank);
-        // We notify parent to clear its filter state too
         onClearInitialFilter();
         if (onPageChange) onPageChange(1);
     };
@@ -260,9 +238,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const requestSort = (key: string) => {
         if (!onSortChange) return;
         let direction: 'ascending' | 'descending' = 'ascending';
-        if (sort && sort.key === key && sort.direction === 'ascending') {
-            direction = 'descending';
-        }
+        if (sort && sort.key === key && sort.direction === 'ascending') direction = 'descending';
         onSortChange({ key, direction });
     };
 
@@ -277,7 +253,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            // Select all current page items if they are in stock
             const stockIds = equipment.filter(e => e.status === EquipmentStatus.Stock).map(e => e.id);
             setSelectedIds(new Set(stockIds));
         } else {
@@ -310,13 +285,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 {cfg.showNomeNaRede && <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>}
                 {cfg.showAssignedTo && <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{assignedTo || 'Stock'}</span></p>}
                 {cfg.showOsVersion && <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
-                {cfg.showLastPatch && <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
-                {cfg.showFirmwareVersion && <p><strong className="text-on-surface-dark-secondary">Firmware:</strong> <span className="text-white">{item.firmware_version || 'N/A'}</span></p>}
                 {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
                 {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</span></p>}
-                {cfg.showWarranty && <p><strong className="text-on-surface-dark-secondary">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
-                {cfg.showLocation && item.installationLocation && <p><strong className="text-on-surface-dark-secondary">Localização:</strong> <span className="text-white">{item.installationLocation}</span></p>}
-                {item.isLoan && <p className="text-purple-400 font-bold">Equipamento de Empréstimo</p>}
+                {(item.status === 'Abate' || item.status === 'Retirado (Arquivo)') && item.decommission_reason_id && (
+                    <p><strong className="text-red-400">Motivo Abate:</strong> <span className="text-white">{decommissionReasonMap.get(item.decommission_reason_id)}</span></p>
+                )}
             </div>
         );
         setTooltip({ visible: true, content: content, x: event.clientX, y: event.clientY });
@@ -342,13 +315,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 {onImportAgent && onCreate && (
                      <label className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer shadow-lg">
                         <FaRobot /> Importar JSON Agente
-                        <input 
-                            type="file" 
-                            accept=".json" 
-                            className="hidden" 
-                            onChange={onImportAgent} 
-                            onClick={(e) => (e.target as HTMLInputElement).value = ''} 
-                        />
+                        <input type="file" accept=".json" className="hidden" onChange={onImportAgent} onClick={(e) => (e.target as HTMLInputElement).value = ''} />
                     </label>
                 )}
                 {onGenerateReport && (
@@ -383,8 +350,8 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <input type="text" name="serialNumber" value={filters.serialNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Série..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                 <input type="text" name="description" value={filters.description} onChange={handleFilterChange} placeholder="Filtrar por Descrição..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                 <select name="brandId" value={filters.brandId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                    <option value="">Todas as Marcas</option>
-                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    <option value="">Todas as Marcas Ativas</option>
+                    {filteredBrandOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
                  <select name="typeId" value={filters.typeId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                     <option value="">Todos os Tipos</option>
@@ -406,9 +373,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
       
       <div className="overflow-x-auto min-h-[400px]">
         {loading ? (
-             <div className="flex justify-center items-center h-64 text-gray-400">
-                A carregar dados...
-             </div>
+             <div className="flex justify-center items-center h-64 text-gray-400">A carregar dados...</div>
         ) : (
             <table className="w-full text-sm text-left text-on-surface-dark-secondary">
             <thead className="text-xs text-on-surface-dark-secondary bg-gray-700/50">
@@ -420,7 +385,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <SortableHeader sortKey="serialNumber" title="Nº Série" sortConfig={sort} requestSort={requestSort} />
                 <th scope="col" className="px-6 py-3">Atribuído a</th>
                 <SortableHeader sortKey="criticality" title="Criticidade" sortConfig={sort} requestSort={requestSort} />
-                <SortableHeader sortKey="warrantyEndDate" title="Garantia" sortConfig={sort} requestSort={requestSort} />
                 <SortableHeader sortKey="status" title="Estado" sortConfig={sort} requestSort={requestSort} />
                 <th scope="col" className="px-6 py-3 text-center">Ações</th>
                 </tr>
@@ -433,7 +397,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                         if (assignment.collaboratorId) assignedTo = collaboratorMap.get(assignment.collaboratorId) || 'Colaborador';
                         else if (assignment.entidadeId) assignedTo = entidadeMap.get(assignment.entidadeId) || 'Entidade';
                     }
-                    const warrantyInfo = getWarrantyStatus(item.warrantyEndDate);
                     const isAssigned = assignedEquipmentIds.has(item.id);
                     const linkedServiceCriticality = equipmentCriticalityMap.get(item.id);
                     const customColor = statusColors[item.status];
@@ -457,22 +420,19 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                         <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                             <div className="flex items-center gap-2">
                                 {item.description}
-                                {linkedServiceCriticality && (
-                                    <span className="flex h-2 w-2 relative" title="Crítico">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                                    </span>
-                                )}
+                                {linkedServiceCriticality && <span className="flex h-2 w-2 relative" title="Crítico"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span>}
                                 {item.isLoan && <span className="text-[10px] bg-purple-900/30 text-purple-300 px-1 rounded border border-purple-500/30">LOAN</span>}
                             </div>
                             <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</div>
+                            {(item.status === 'Abate' || item.status === 'Retirado (Arquivo)') && item.decommission_reason_id && (
+                                <div className="text-[10px] text-red-400 font-bold mt-1">Motivo: {decommissionReasonMap.get(item.decommission_reason_id)}</div>
+                            )}
                         </td>
                         <td className="px-6 py-4">{item.serialNumber}</td>
                         <td className="px-6 py-4">{assignedTo}</td>
                         <td className="px-6 py-4">
                             <span className={`px-2 py-1 text-xs rounded-full border ${getCriticalityClass(item.criticality || CriticalityLevel.Low)}`}>{item.criticality || 'Baixa'}</span>
                         </td>
-                        <td className="px-6 py-4"><span className={warrantyInfo.className}>{warrantyInfo.text}</span></td>
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                              <select
                                 value={item.status}
@@ -507,7 +467,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                         }} 
                                         className={canDelete ? "text-red-400 hover:text-red-300" : "text-gray-600 opacity-30 cursor-not-allowed"}
                                         disabled={!canDelete}
-                                        title={canDelete ? "Excluir" : (isAssigned ? "Em uso (Atribuído)" : "Possui dependências (Tickets, Licenças ou Componentes)")}
+                                        title={canDelete ? "Excluir" : (isAssigned ? "Em uso (Atribuído)" : "Possui dependências")}
                                     >
                                         <FaTrash />
                                     </button>
@@ -517,25 +477,14 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     </tr>
                     )
                 }) : (
-                    <tr><td colSpan={9} className="text-center py-8 text-on-surface-dark-secondary">Nenhum equipamento encontrado.</td></tr>
+                    <tr><td colSpan={8} className="text-center py-8 text-on-surface-dark-secondary">Nenhum equipamento encontrado.</td></tr>
                 )}
             </tbody>
             </table>
         )}
-        {tooltip?.visible && (
-            <div style={{ position: 'fixed', top: tooltip.y + 15, left: tooltip.x + 15, pointerEvents: 'none' }} className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm">
-                {tooltip.content}
-            </div>
-        )}
+        {tooltip?.visible && <div style={{ position: 'fixed', top: tooltip.y + 15, left: tooltip.x + 15, pointerEvents: 'none' }} className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm">{tooltip.content}</div>}
       </div>
-       <Pagination
-            currentPage={page || 1}
-            totalPages={Math.ceil((totalItems || 0) / (pageSize || 20))}
-            onPageChange={(p) => onPageChange && onPageChange(p)}
-            itemsPerPage={pageSize || 20}
-            onItemsPerPageChange={(s) => onPageSizeChange && onPageSizeChange(s)}
-            totalItems={totalItems || 0}
-        />
+       <Pagination currentPage={page || 1} totalPages={Math.ceil((totalItems || 0) / (pageSize || 20))} onPageChange={(p) => onPageChange && onPageChange(p)} itemsPerPage={pageSize || 20} onItemsPerPageChange={(s) => onPageSizeChange && onPageSizeChange(s)} totalItems={totalItems || 0} />
 
         {detailEquipment && (
             <EquipmentHistoryModal
@@ -555,7 +504,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 suppliers={suppliers}
                 procurementRequests={procurementRequests}
                 onViewItem={onViewItem}
-                // PASSED CORRECTLY FROM PROPS
                 accountingCategories={accountingCategories}
                 conservationStates={conservationStates}
             />

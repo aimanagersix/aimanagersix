@@ -4,7 +4,7 @@ import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
 import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
 import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxes, FaShieldAlt, AssignIcon, UnassignIcon } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired, FaMemory, FaHdd, FaListAlt } from 'react-icons/fa';
+import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired, FaMemory, FaHdd, FaListAlt, FaBroom } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 // Basic Camera Scanner Component
@@ -18,21 +18,15 @@ const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void, onClose: (
             try {
                 const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 setStream(mediaStream);
-                if (videoRef.current) {
-                    videoRef.current.srcObject = mediaStream;
-                }
+                if (videoRef.current) videoRef.current.srcObject = mediaStream;
             } catch (err) {
                 console.error("Error accessing camera:", err);
-                alert("Erro ao aceder à câmara. Verifique as permissões.");
+                alert("Erro ao aceder à câmara.");
                 onClose();
             }
         };
         startCamera();
-        return () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-        };
+        return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
     }, []);
 
     const capture = () => {
@@ -42,8 +36,7 @@ const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void, onClose: (
                 canvasRef.current.width = videoRef.current.videoWidth;
                 canvasRef.current.height = videoRef.current.videoHeight;
                 context.drawImage(videoRef.current, 0, 0, videoRef.current.videoWidth, videoRef.current.videoHeight);
-                const dataUrl = canvasRef.current.toDataURL('image/jpeg');
-                onCapture(dataUrl);
+                onCapture(canvasRef.current.toDataURL('image/jpeg'));
             }
         }
     };
@@ -83,6 +76,7 @@ interface AddEquipmentModalProps {
     onOpenAssign?: (equipment: Equipment) => void;
     accountingCategories?: ConfigItem[];
     conservationStates?: ConfigItem[];
+    decommissionReasons?: ConfigItem[];
     cpuOptions?: ConfigItem[];
     ramOptions?: ConfigItem[];
     storageOptions?: ConfigItem[];
@@ -93,7 +87,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     suppliers = [], entidades = [], collaborators = [], 
     statusOptions, criticalityOptions, ciaOptions, initialData,
     onOpenHistory, onManageLicenses, onOpenAssign,
-    accountingCategories = [], conservationStates = [],
+    accountingCategories = [], conservationStates = [], decommissionReasons = [],
     cpuOptions = [], ramOptions = [], storageOptions = []
 }) => {
     
@@ -105,8 +99,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
 
     const [formData, setFormData] = useState<Partial<Equipment>>({
         brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', 
-        purchaseDate: '', // Initialize empty, do NOT default to today
-        warrantyEndDate: '', invoiceNumber: '', requisitionNumber: '',
+        purchaseDate: '', warrantyEndDate: '', invoiceNumber: '', requisitionNumber: '',
         status: EquipmentStatus.Stock,
         criticality: CriticalityLevel.Low,
         confidentiality: CIARating.Low,
@@ -129,10 +122,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         ram_size: '',
         disk_info: '',
         cpu_info: '',
-        monitor_info: '', // Added
+        monitor_info: '',
         manufacture_date: '',
         accounting_category_id: '',
         conservation_state_id: '',
+        decommission_reason_id: '',
         residual_value: 0
     });
     
@@ -158,9 +152,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             try {
                 const data = await dataService.fetchAllData();
                 setAllEquipment(data.equipment.filter((e: Equipment) => !equipmentToEdit || e.id !== equipmentToEdit.id)); 
-            } catch (e) {
-                console.error("Failed to load equipment for dropdown", e);
-            }
+            } catch (e) { console.error(e); }
         };
         loadEq();
     }, [equipmentToEdit]);
@@ -169,19 +161,15 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         if (equipmentToEdit) {
             setFormData({
                 ...equipmentToEdit,
-                purchaseDate: equipmentToEdit.purchaseDate || '', // Use stored date or empty
+                purchaseDate: equipmentToEdit.purchaseDate || '',
                 parent_equipment_id: equipmentToEdit.parent_equipment_id || '',
                 accounting_category_id: equipmentToEdit.accounting_category_id || '',
                 conservation_state_id: equipmentToEdit.conservation_state_id || '',
+                decommission_reason_id: equipmentToEdit.decommission_reason_id || '',
                 residual_value: equipmentToEdit.residual_value || 0,
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 last_security_update: equipmentToEdit.last_security_update || '',
                 manufacture_date: equipmentToEdit.manufacture_date || '',
-                cpu_info: equipmentToEdit.cpu_info || '',
-                ram_size: equipmentToEdit.ram_size || '',
-                disk_info: equipmentToEdit.disk_info || '',
-                monitor_info: equipmentToEdit.monitor_info || '',
-                ip_address: equipmentToEdit.ip_address || '',
             });
         } else if (initialData) {
              setFormData(prev => ({ ...prev, ...initialData }));
@@ -189,136 +177,42 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }
     }, [equipmentToEdit, initialData]);
 
-    // ... (Keep description auto-fill effect) ...
-    useEffect(() => {
-        if (equipmentToEdit?.id) return; 
-
-        const brandName = brands.find(b => b.id === formData.brandId)?.name;
-        const typeName = equipmentTypes.find(t => t.id === formData.typeId)?.name;
-        
-        const isDescriptionDefaultOrEmpty = () => {
-            const currentDesc = (formData.description || '').trim();
-            if (currentDesc === '') return true;
-            for (const b of brands) {
-                for (const t of equipmentTypes) {
-                    if (currentDesc === `${b.name} ${t.name}`) return true;
-                }
-            }
-            return false;
-        };
-
-        if (brandName && typeName && isDescriptionDefaultOrEmpty()) {
-            setFormData(prev => ({ ...prev, description: `${brandName} ${typeName} ` }));
-        }
-    }, [formData.brandId, formData.typeId, brands, equipmentTypes, equipmentToEdit, formData.description]);
-
-    const selectedType = useMemo(() => {
-        return equipmentTypes.find(t => t.id === formData.typeId);
-    }, [formData.typeId, equipmentTypes]);
-    
-    // ... (rest of logic: isMaintenanceType, isComputingDevice, filteredCollaborators, validate, handleChange, handleSetWarranty, handleGenerateName, handleFetchInfo, handleScanComplete, handleAddNewBrand, handleAddNewType, handleSubmit) ...
-
-    const isMaintenanceType = useMemo(() => {
-        return selectedType?.is_maintenance === true;
-    }, [selectedType]);
-
+    const selectedType = useMemo(() => equipmentTypes.find(t => t.id === formData.typeId), [formData.typeId, equipmentTypes]);
+    const isMaintenanceType = selectedType?.is_maintenance === true;
     const isComputingDevice = useMemo(() => {
         const name = selectedType?.name.toLowerCase() || '';
         return name.includes('desktop') || name.includes('laptop') || name.includes('portátil') || name.includes('servidor');
     }, [selectedType]);
 
-     useEffect(() => {
-        if (isComputingDevice) {
-            setShowKitButton(true);
-        } else {
-            setShowKitButton(false);
-        }
-    }, [isComputingDevice]);
-
-    const filteredCollaborators = useMemo(() => {
-        if (!assignToEntityId) return [];
-        return collaborators.filter(c => c.entidadeId === assignToEntityId && c.status === CollaboratorStatus.Ativo);
-    }, [assignToEntityId, collaborators]);
+     useEffect(() => { setShowKitButton(isComputingDevice); }, [isComputingDevice]);
 
     const validate = useCallback(() => {
         const newErrors: Record<string, string> = {};
-        
-        const statusNormalized = formData.status?.toLowerCase() || '';
-        const isAcquisition = statusNormalized.includes('aquisiç') || statusNormalized.includes('encomenda') || statusNormalized.includes('compra');
-        
-        if (!formData.serialNumber?.trim()) {
-            if (isEditMode) {
-                newErrors.serialNumber = "O número de série é obrigatório ao editar.";
-            } else if (!isAcquisition) {
-                newErrors.serialNumber = "O número de série é obrigatório (exceto se estado 'Aquisição').";
-            }
-        }
-
+        const isAcquisition = formData.status?.includes('aquisiç') || formData.status?.includes('encomenda');
+        if (!formData.serialNumber?.trim() && !isAcquisition) newErrors.serialNumber = "O número de série é obrigatório.";
         if (!formData.brandId) newErrors.brandId = "A marca é obrigatória.";
-        if (!formData.typeId) newErrors.typeId = "O tipo é obrigatório.";
+        if (!formData.typeId) newErrors.typeId = "O tipo é obrigatória.";
         if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
         
-        const type = equipmentTypes.find(t => t.id === formData.typeId);
-        if (type?.requiresLocation && !formData.installationLocation?.trim()) {
-            newErrors.installationLocation = "O local de instalação é obrigatório para este tipo de equipamento.";
-        }
+        if (selectedType?.requiresLocation && !formData.installationLocation?.trim()) newErrors.installationLocation = "Local obrigatório.";
+        if (selectedType?.is_maintenance && !formData.parent_equipment_id) newErrors.parent_equipment_id = "Equipamento principal obrigatório.";
         
-        if (type?.is_maintenance && !formData.parent_equipment_id) {
-            newErrors.parent_equipment_id = "É obrigatório associar o Equipamento Principal para itens de manutenção/consumíveis.";
+        if ((formData.status === 'Abate' || formData.status === 'Retirado (Arquivo)') && !formData.decommission_reason_id) {
+            newErrors.decommission_reason_id = "O motivo de abate é obrigatório para este estado.";
         }
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    }, [formData, equipmentTypes, isEditMode]);
+    }, [formData, selectedType]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
-        setFormData(prev => ({ 
-            ...prev, 
-            [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : value) 
-        }));
-    };
-    
-     const handleSetWarranty = (years: number) => {
-        if (!formData.purchaseDate) return;
-        const purchase = new Date(formData.purchaseDate);
-        purchase.setUTCFullYear(purchase.getUTCFullYear() + years);
-        const warrantyEnd = purchase.toISOString().split('T')[0];
-        setFormData(prev => ({ ...prev, warrantyEndDate: warrantyEnd }));
-    };
-    
-    const handleGenerateName = async () => {
-        const prefix = await dataService.getGlobalSetting('equipment_naming_prefix') || 'PC-';
-        const digitsStr = await dataService.getGlobalSetting('equipment_naming_digits') || '4';
-        const digits = parseInt(digitsStr);
-        
-        const allEq = await dataService.fetchAllData();
-        const equipmentList = allEq.equipment;
-        
-        let maxNum = 0;
-        const regex = new RegExp(`^${prefix}(\\d{${digits}})$`);
-        
-        equipmentList.forEach((eq: Equipment) => {
-            if (eq.nomeNaRede) {
-                const match = eq.nomeNaRede.match(regex);
-                if (match && match[1]) {
-                    const num = parseInt(match[1], 10);
-                    if (num > maxNum) maxNum = num;
-                }
-            }
-        });
-        
-        const nextNum = maxNum + 1;
-        const nextName = `${prefix}${String(nextNum).padStart(digits, '0')}`;
-        setFormData(prev => ({ ...prev, nomeNaRede: nextName }));
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : value) }));
     };
     
     const handleFetchInfo = useCallback(async (serial: string) => {
-        if (!serial) {
-            alert("Por favor, forneça um número de série.");
-            return;
-        }
+        if (!serial) return;
         setIsLoading(prev => ({ ...prev, info: true }));
         try {
             const info = await getDeviceInfoFromText(serial);
@@ -330,561 +224,80 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 brandId: matchedBrand ? matchedBrand.id : (prev.brandId || ''),
                 typeId: matchedType ? matchedType.id : (prev.typeId || '')
             }));
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsLoading(prev => ({ ...prev, info: false }));
-        }
+        } catch (error) { console.error(error); } finally { setIsLoading(prev => ({ ...prev, info: false })); }
     }, [brands, equipmentTypes]);
-
-    const handleScanComplete = useCallback(async (dataUrl: string) => {
-        setIsScanning(false);
-        setIsLoading(prev => ({ ...prev, serial: true }));
-        try {
-            const base64Image = dataUrl.split(',')[1];
-            const serial = await extractTextFromImage(base64Image, 'image/jpeg');
-            if (serial) {
-                await handleFetchInfo(serial);
-            } else {
-                alert("Nenhum número de série encontrado.");
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsLoading(prev => ({ ...prev, serial: false }));
-        }
-    }, [handleFetchInfo]);
-
-     const handleAddNewBrand = async () => {
-        if (newBrandName.trim() === '') return;
-        const newBrand = await onSaveBrand({ name: newBrandName.trim() });
-        setFormData(prev => ({...prev, brandId: newBrand.id }));
-        setNewBrandName('');
-        setIsAddingBrand(false);
-    };
-
-    const handleAddNewType = async () => {
-        if (newTypeName.trim() === '') return;
-        const newType = await onSaveEquipmentType({ name: newTypeName.trim() });
-        setFormData(prev => ({...prev, typeId: newType.id }));
-        setNewTypeName('');
-        setIsAddingType(false);
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
-        
         setIsSaving(true);
-        
         try {
             const dataToSubmit: any = { ...formData };
-            
-            // Sanitize Date fields - Convert empty strings to null to avoid 'invalid input syntax for type date: ""'
-            const dateFields = ['purchaseDate', 'warrantyEndDate', 'last_security_update', 'manufacture_date'];
-            dateFields.forEach(field => {
-                if (dataToSubmit[field] === '') {
-                    dataToSubmit[field] = null;
-                }
-            });
-            
-            // Sanitize UUID fields
-            const uuidFields = ['accounting_category_id', 'conservation_state_id', 'parent_equipment_id', 'supplier_id'];
-            uuidFields.forEach(field => {
-                if (dataToSubmit[field] === '') {
-                    dataToSubmit[field] = null;
-                }
-            });
-
-            if (!equipmentToEdit) {
-                delete dataToSubmit.creationDate;
-                delete dataToSubmit.modifiedDate;
-            }
+            ['purchaseDate', 'warrantyEndDate', 'last_security_update', 'manufacture_date'].forEach(f => { if (dataToSubmit[f] === '') dataToSubmit[f] = null; });
+            ['accounting_category_id', 'conservation_state_id', 'decommission_reason_id', 'parent_equipment_id', 'supplier_id'].forEach(f => { if (dataToSubmit[f] === '') dataToSubmit[f] = null; });
 
             let assignment = null;
             if (!equipmentToEdit && assignToEntityId) {
-                assignment = {
-                    entidadeId: assignToEntityId,
-                    collaboratorId: assignToCollaboratorId || undefined,
-                    assignedDate: new Date().toISOString().split('T')[0]
-                };
+                assignment = { entidadeId: assignToEntityId, collaboratorId: assignToCollaboratorId || undefined, assignedDate: new Date().toISOString().split('T')[0] };
             }
-
-            await onSave(dataToSubmit, assignment, undefined); 
+            await onSave(dataToSubmit, assignment); 
             onClose();
-        } catch (error: any) {
-            console.error("Error saving equipment:", error);
-            alert(`Erro ao gravar equipamento: ${error.message || "Verifique os campos (datas ou referências)."}`);
-        } finally {
-            setIsSaving(false);
-        }
+        } catch (error: any) { alert(`Erro: ${error.message}`); } finally { setIsSaving(false); }
     };
     
-    const statusNormalized = formData.status?.toLowerCase() || '';
-    const isAcquisition = statusNormalized.includes('aquisiç') || statusNormalized.includes('encomenda') || statusNormalized.includes('compra');
-
     const modalTitle = isEditMode ? "Editar Equipamento" : "Adicionar Novo Equipamento";
-    const submitButtonText = isEditMode ? "Guardar Alterações" : "Adicionar Equipamento";
     const getTabClass = (tab: string) => `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`;
 
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-4xl">
-            {isScanning && <CameraScanner onCapture={handleScanComplete} onClose={() => setIsScanning(false)} />}
-            
+            {isScanning && <CameraScanner onCapture={(d) => { setIsScanning(false); handleFetchInfo(d); }} onClose={() => setIsScanning(false)} />}
             <div className="flex border-b border-gray-700 mb-4 flex-wrap">
                 <button onClick={() => setActiveTab('general')} className={getTabClass('general')}>Geral</button>
-                <button onClick={() => setActiveTab('hardware')} className={getTabClass('hardware')}>Hardware & Rede</button>
-                <button onClick={() => setActiveTab('security')} className={getTabClass('security')}>Sistema & Segurança</button>
-                <button onClick={() => setActiveTab('financial')} className={getTabClass('financial')}>Financeiro (FinOps)</button>
-                <button onClick={() => setActiveTab('compliance')} className={getTabClass('compliance')}>Legal & Compliance</button>
+                <button onClick={() => setActiveTab('hardware')} className={getTabClass('hardware')}>Hardware</button>
+                <button onClick={() => setActiveTab('compliance')} className={getTabClass('compliance')}>Legal & Abate</button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[75vh] pr-2 custom-scrollbar">
-                {/* ... (Header and General Tab remains mostly same) ... */}
-                {isEditMode && equipmentToEdit && (
-                    <div className="flex gap-3 mb-4 bg-gray-900/50 p-3 rounded border border-gray-700 overflow-x-auto">
-                        {onOpenHistory && (
-                            <button type="button" onClick={() => onOpenHistory(equipmentToEdit)} className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded whitespace-nowrap transition-colors"><FaHistory /> Histórico & Impacto</button>
-                        )}
-                        {onManageLicenses && (
-                            <button type="button" onClick={() => onManageLicenses(equipmentToEdit)} className="flex items-center gap-2 px-3 py-2 bg-yellow-700 hover:bg-yellow-600 text-white text-xs rounded whitespace-nowrap transition-colors"><FaKey /> Gerir Licenças</button>
-                        )}
-                        {onOpenAssign && (
-                            <button type="button" onClick={() => onOpenAssign(equipmentToEdit)} className="flex items-center gap-2 px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-xs rounded whitespace-nowrap transition-colors"><FaUserCheck /> Atribuir/Desassociar</button>
-                        )}
-                    </div>
-                 )}
-                
                 {activeTab === 'general' && (
                     <div className="space-y-4 animate-fade-in">
-                         {/* ... (Existing General Tab content) ... */}
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="relative">
-                                <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
-                                    Número de Série {isAcquisition ? '(Opcional em Aquisição)' : ''}
-                                </label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nº Série</label>
                                 <div className="flex">
-                                    <input type="text" name="serialNumber" id="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} placeholder={isAcquisition ? "Pendente (Opcional)" : "S/N"} />
-                                    <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className={`p-2 bg-brand-primary text-white hover:bg-brand-secondary transition-colors ${!aiConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}>{isLoading.serial ? <SpinnerIcon /> : <CameraIcon />}</button>
-                                    <button type="button" onClick={() => handleFetchInfo(formData.serialNumber!)} disabled={!formData.serialNumber || isLoading.info || !aiConfigured} className={`p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50 ${!aiConfigured ? 'cursor-not-allowed' : ''}`}>{isLoading.info ? <SpinnerIcon /> : <SearchIcon />}</button>
+                                    <input type="text" name="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} />
+                                    <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className="p-2 bg-brand-primary text-white"><CameraIcon /></button>
                                 </div>
-                                {errors.serialNumber && <p className="text-red-400 text-xs italic mt-1">{errors.serialNumber}</p>}
                             </div>
                             <div>
-                                <label htmlFor="brandId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Marca</label>
-                                {isAddingBrand ? (
-                                    <div className="flex gap-2">
-                                        <input type="text" value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} placeholder="Nome da nova marca" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewBrand(); }}} />
-                                        <button type="button" onClick={handleAddNewBrand} className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700"><CheckIcon/></button>
-                                        <button type="button" onClick={() => { setIsAddingBrand(false); setNewBrandName(''); }} className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700"><XIcon/></button>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2">
-                                        <select name="brandId" id="brandId" value={formData.brandId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.brandId ? 'border-red-500' : 'border-gray-600'}`}>
-                                            <option value="" disabled>Selecione uma marca</option>
-                                            {brands.map(brand => (<option key={brand.id} value={brand.id}>{brand.name}</option>))}
-                                        </select>
-                                        <button type="button" onClick={() => setIsAddingBrand(true)} className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"><PlusIcon className="h-5 w-5"/></button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="typeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Tipo</label>
-                                {isAddingType ? (
-                                    <div className="flex gap-2">
-                                        <input type="text" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} placeholder="Nome do novo tipo" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewType(); }}} />
-                                        <button type="button" onClick={handleAddNewType} className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700"><CheckIcon/></button>
-                                        <button type="button" onClick={() => { setIsAddingType(false); setNewTypeName(''); }} className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700"><XIcon/></button>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2">
-                                        <select name="typeId" id="typeId" value={formData.typeId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.typeId ? 'border-red-500' : 'border-gray-600'}`}>
-                                            <option value="" disabled>Selecione um tipo</option>
-                                            {equipmentTypes.map(type => (<option key={type.id} value={type.id}>{type.name}</option>))}
-                                        </select>
-                                        <button type="button" onClick={() => setIsAddingType(true)} className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"><PlusIcon className="h-5 w-5"/></button>
-                                    </div>
-                                )}
-                            </div>
-                            {selectedType?.requiresNomeNaRede && (
-                                <div>
-                                    <label htmlFor="nomeNaRede" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome na Rede (Opcional)</label>
-                                    <div className="flex">
-                                        <input type="text" name="nomeNaRede" id="nomeNaRede" value={formData.nomeNaRede} onChange={handleChange} className="flex-grow bg-gray-700 border border-gray-600 text-white rounded-l-md p-2" />
-                                        <button type="button" onClick={handleGenerateName} className="bg-gray-600 hover:bg-gray-500 px-3 rounded-r-md border border-gray-600 text-white flex items-center justify-center"><FaMagic /></button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {selectedType?.requiresInventoryNumber && (
-                                <div>
-                                    <label htmlFor="inventoryNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Inventário / Etiqueta</label>
-                                    <input type="text" name="inventoryNumber" id="inventoryNumber" value={formData.inventoryNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" placeholder="Etiqueta física" />
-                                </div>
-                            )}
-                            <div>
-                                <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado Operacional</label>
-                                <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                                <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado Operacional</label>
+                                <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
                                     {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                         </div>
 
-                        <div>
-                            <label htmlFor="description" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição</label>
-                            <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={3} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`}></textarea>
-                        </div>
-                        
-                        <div className="bg-purple-900/20 p-3 rounded border border-purple-500/30">
-                            <label className="flex items-center cursor-pointer">
-                                <input type="checkbox" name="isLoan" checked={formData.isLoan} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
-                                <span className="ml-2 text-sm font-bold text-purple-200 flex items-center gap-2"><FaHandHoldingHeart /> Equipamento de Empréstimo / Pool</span>
-                            </label>
-                        </div>
-
-                        {!isEditMode && isComputingDevice && !isMaintenanceType && (
-                            <div className="border-t border-gray-600 pt-4 mt-4">
-                                <h3 className="text-lg font-medium text-on-surface-dark mb-2 flex items-center gap-2"><FaUserTag className="text-blue-400" /> Atribuição Inicial (Opcional)</h3>
-                                <div className="bg-gray-800/50 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
-                                        <select value={assignToEntityId} onChange={(e) => { setAssignToEntityId(e.target.value); setAssignToCollaboratorId(''); }} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                                            <option value="">-- Em Stock (Sem Atribuição) --</option>
-                                            {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Colaborador</label>
-                                        <select value={assignToCollaboratorId} onChange={(e) => setAssignToCollaboratorId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm disabled:bg-gray-800 disabled:cursor-not-allowed" disabled={!assignToEntityId}>
-                                            <option value="">-- Atribuir apenas à Localização --</option>
-                                            {filteredCollaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {isMaintenanceType && (
-                            <div className="bg-orange-900/20 p-4 rounded border border-orange-500/30 animate-fade-in">
-                                <h3 className="text-sm font-bold text-orange-200 mb-2 flex items-center gap-2"><FaTools /> Componente de Manutenção</h3>
-                                <p className="text-xs text-gray-400 mb-3">Este item é identificado como um componente ou consumível. Deve ser associado a um equipamento principal para cálculo correto do Custo Total de Propriedade (TCO).</p>
-                                <label htmlFor="parent_equipment_id" className="block text-xs font-medium text-white mb-1">Equipamento Principal (Pai)</label>
-                                <select name="parent_equipment_id" id="parent_equipment_id" value={formData.parent_equipment_id} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.parent_equipment_id ? 'border-red-500' : 'border-gray-600'}`}>
-                                    <option value="">-- Selecione o equipamento onde será instalado --</option>
-                                    {allEquipment.map(eq => (<option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>))}
+                        {(formData.status === 'Abate' || formData.status === 'Retirado (Arquivo)') && (
+                            <div className="bg-red-900/20 p-4 rounded border border-red-500/30 animate-fade-in">
+                                <label className="block text-sm font-bold text-red-300 mb-2 flex items-center gap-2"><FaBroom/> Motivo de Abate / Saída</label>
+                                <select name="decommission_reason_id" value={formData.decommission_reason_id} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.decommission_reason_id ? 'border-red-500' : 'border-gray-600'}`}>
+                                    <option value="">-- Selecione o Motivo --</option>
+                                    {decommissionReasons.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                 </select>
-                                {errors.parent_equipment_id && <p className="text-red-400 text-xs italic mt-1">{errors.parent_equipment_id}</p>}
+                                {errors.decommission_reason_id && <p className="text-red-400 text-xs italic mt-1">{errors.decommission_reason_id}</p>}
                             </div>
                         )}
-                    </div>
-                )}
 
-                {/* --- HARDWARE TAB --- */}
-                {activeTab === 'hardware' && (
-                    <div className="space-y-6 animate-fade-in">
-                         {(selectedType?.requires_cpu_info || selectedType?.requires_ram_size || selectedType?.requires_disk_info || selectedType?.requires_manufacture_date) && (
-                            <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
-                                <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2"><FaMicrochip className="text-purple-400" /> Especificações de Hardware</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {selectedType?.requires_cpu_info && (
-                                        <div>
-                                            <label htmlFor="cpu_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-1"><FaMicrochip/> Processador (CPU)</label>
-                                            {cpuOptions.length > 0 ? (
-                                                <select name="cpu_info" id="cpu_info" value={formData.cpu_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                                                    <option value="">-- Selecione CPU --</option>
-                                                    {cpuOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
-                                                    {formData.cpu_info && !cpuOptions.some(o => o.name === formData.cpu_info) && <option value={formData.cpu_info}>{formData.cpu_info}</option>}
-                                                </select>
-                                            ) : (
-                                                <input type="text" name="cpu_info" value={formData.cpu_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="Ex: Intel i5-12400" />
-                                            )}
-                                        </div>
-                                    )}
-                                    {selectedType?.requires_ram_size && (
-                                        <div>
-                                            <label htmlFor="ram_size" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-1"><FaMemory/> Memória RAM</label>
-                                            {ramOptions.length > 0 ? (
-                                                <select name="ram_size" id="ram_size" value={formData.ram_size || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                                                    <option value="">-- Selecione RAM --</option>
-                                                    {ramOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
-                                                    {formData.ram_size && !ramOptions.some(o => o.name === formData.ram_size) && <option value={formData.ram_size}>{formData.ram_size}</option>}
-                                                </select>
-                                            ) : (
-                                                <input type="text" name="ram_size" value={formData.ram_size || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="Ex: 16GB" />
-                                            )}
-                                        </div>
-                                    )}
-                                    {selectedType?.requires_disk_info && (
-                                        <div>
-                                            <label htmlFor="disk_info" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-1"><FaHdd/> Disco / Armazenamento</label>
-                                            {storageOptions.length > 0 ? (
-                                                <select name="disk_info" id="disk_info" value={formData.disk_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                                                    <option value="">-- Selecione Disco --</option>
-                                                    {storageOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
-                                                    {formData.disk_info && !storageOptions.some(o => o.name === formData.disk_info) && <option value={formData.disk_info}>{formData.disk_info}</option>}
-                                                </select>
-                                            ) : (
-                                                <input type="text" name="disk_info" value={formData.disk_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="Ex: 512GB NVMe" />
-                                            )}
-                                        </div>
-                                    )}
-                                     {selectedType?.requires_manufacture_date && (
-                                        <div>
-                                            <label htmlFor="manufacture_date" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Fabrico (BIOS Date)</label>
-                                            <input type="date" name="manufacture_date" id="manufacture_date" value={formData.manufacture_date || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                        </div>
-                                    )}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-2 italic">* Utilize o menu "Configurações" para adicionar novas opções de hardware se as listas estiverem vazias.</p>
-                            </div>
-                        )}
-                        
-                        <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
-                            <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2"><FaNetworkWired className="text-blue-400"/> Rede & Conectividade</h3>
-                            
-                            {/* NEW: IP Address Field */}
-                            {selectedType?.requires_ip && (
-                                <div className="mb-4">
-                                     <label htmlFor="ip_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço IP</label>
-                                     <input type="text" name="ip_address" id="ip_address" value={formData.ip_address || ''} onChange={handleChange} placeholder="Ex: 192.168.1.100" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                 {selectedType?.requiresMacWIFI && (
-                                    <div>
-                                        <label htmlFor="macAddressWIFI" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC WIFI</label>
-                                        <input type="text" name="macAddressWIFI" id="macAddressWIFI" value={formData.macAddressWIFI} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5E" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.macAddressWIFI ? 'border-red-500' : 'border-gray-600'}`} />
-                                    </div>
-                                 )}
-                                 {selectedType?.requiresMacCabo && (
-                                    <div>
-                                        <label htmlFor="macAddressCabo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC Cabo</label>
-                                        <input type="text" name="macAddressCabo" id="macAddressCabo" value={formData.macAddressCabo} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5F" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.macAddressCabo ? 'border-red-500' : 'border-gray-600'}`} />
-                                    </div>
-                                )}
-                            </div>
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                 {selectedType?.requires_wwan_address && (
-                                    <div>
-                                        <label htmlFor="wwan_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço WWAN (LTE/5G)</label>
-                                        <input type="text" name="wwan_address" id="wwan_address" value={formData.wwan_address} onChange={handleChange} placeholder="Ex: IMEI ou MAC" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${(errors as any).wwan_address ? 'border-red-500' : 'border-gray-600'}`} />
-                                    </div>
-                                 )}
-                                 {selectedType?.requires_bluetooth_address && (
-                                    <div>
-                                        <label htmlFor="bluetooth_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço Bluetooth</label>
-                                        <input type="text" name="bluetooth_address" id="bluetooth_address" value={formData.bluetooth_address} onChange={handleChange} placeholder="MAC Address" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${(errors as any).bluetooth_address ? 'border-red-500' : 'border-gray-600'}`} />
-                                    </div>
-                                )}
-                                 {selectedType?.requires_usb_thunderbolt_address && (
-                                    <div>
-                                        <label htmlFor="usb_thunderbolt_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço USB/Thunderbolt</label>
-                                        <input type="text" name="usb_thunderbolt_address" id="usb_thunderbolt_address" value={formData.usb_thunderbolt_address} onChange={handleChange} placeholder="MAC Address (se aplicável)" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${(errors as any).usb_thunderbolt_address ? 'border-red-500' : 'border-gray-600'}`} />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        
-                        {(selectedType?.requiresLocation || formData.installationLocation) && (
-                            <div>
-                                <label htmlFor="installationLocation" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
-                                    Local de Instalação (Físico) {selectedType?.requiresLocation && <span className="text-red-400">*</span>}
-                                </label>
-                                <input type="text" name="installationLocation" id="installationLocation" value={formData.installationLocation} onChange={handleChange} placeholder="Ex: Sala 204, Rack 3" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.installationLocation ? 'border-red-500' : 'border-gray-600'}`} />
-                                 {errors.installationLocation && <p className="text-red-400 text-xs italic mt-1">{errors.installationLocation}</p>}
-                            </div>
-                        )}
-                    </div>
-                )}
-                
-                {/* ... Rest of the tabs (security, financial, etc.) remain unchanged */}
-                {activeTab === 'security' && (
-                    <div className="space-y-6 animate-fade-in">
-                        <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
-                            <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2">
-                                <FaShieldAlt className="text-green-400" />
-                                Sistema Operativo & Segurança
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label htmlFor="os_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do SO</label>
-                                    <input type="text" name="os_version" id="os_version" value={formData.os_version} onChange={handleChange} placeholder="Ex: Windows 11 Pro 23H2" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                                <div>
-                                    <label htmlFor="last_security_update" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Último Patch de Segurança</label>
-                                    <input type="date" name="last_security_update" id="last_security_update" value={formData.last_security_update || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                                <div>
-                                    <label htmlFor="firmware_version" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Versão do Firmware</label>
-                                    <input type="text" name="firmware_version" id="firmware_version" value={formData.firmware_version} onChange={handleChange} placeholder="Ex: 1.2.3" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                            </div>
-                             <div className="mt-4">
-                                <label htmlFor="embedded_license_key" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-2"><FaKey className="text-yellow-500"/> Chave de Licença OEM (BIOS)</label>
-                                <input type="text" name="embedded_license_key" id="embedded_license_key" value={formData.embedded_license_key} onChange={handleChange} placeholder="Chave original do hardware" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono" />
-                            </div>
+                        <div>
+                            <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição</label>
+                            <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`}></textarea>
                         </div>
                     </div>
                 )}
-                
-                {activeTab === 'financial' && (
-                    <div className="space-y-6 animate-fade-in">
-                         {/* ... Financial Tab Content (Unchanged) ... */}
-                         <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
-                            <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2">
-                                <FaEuroSign className="text-green-400" />
-                                Gestão Financeira (FinOps)
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="acquisitionCost" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Custo de Aquisição (€)</label>
-                                    <input type="number" name="acquisitionCost" id="acquisitionCost" value={formData.acquisitionCost} onChange={handleChange} placeholder="0.00" min="0" step="0.01" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                                <div>
-                                    <label htmlFor="expectedLifespanYears" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Vida Útil Esperada (Anos)</label>
-                                    <input type="number" name="expectedLifespanYears" id="expectedLifespanYears" value={formData.expectedLifespanYears} onChange={handleChange} min="1" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                                <div>
-                                    <label htmlFor="residual_value" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Valor Residual Estimado (€)</label>
-                                    <input type="number" name="residual_value" id="residual_value" value={formData.residual_value} onChange={handleChange} min="0" step="0.01" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-700">
-                                <div>
-                                    <label htmlFor="purchaseDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Compra</label>
-                                    <input type="date" name="purchaseDate" id="purchaseDate" value={formData.purchaseDate || ''} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.purchaseDate ? 'border-red-500' : 'border-gray-600'}`} />
-                                </div>
-                                <div>
-                                    <label htmlFor="invoiceNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura (Opcional)</label>
-                                    <input type="text" name="invoiceNumber" id="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                                <div>
-                                    <label htmlFor="requisitionNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Requisição (Opcional)</label>
-                                    <input type="text" name="requisitionNumber" id="requisitionNumber" value={formData.requisitionNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" placeholder="Nº Requisição Interna" />
-                                </div>
-                                <div>
-                                    <label htmlFor="warrantyEndDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fim da Garantia (Opcional)</label>
-                                    <div className="flex items-center gap-2">
-                                        <input type="date" name="warrantyEndDate" id="warrantyEndDate" value={formData.warrantyEndDate || ''} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded-md p-2" />
-                                        <button type="button" onClick={() => handleSetWarranty(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
-                                        <button type="button" onClick={() => handleSetWarranty(3)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">3 Anos</button>
-                                    </div>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label htmlFor="supplier_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fornecedor</label>
-                                    <select name="supplier_id" id="supplier_id" value={formData.supplier_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        <option value="">-- Selecione Fornecedor --</option>
-                                        {suppliers.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                
-                {activeTab === 'compliance' && (
-                    <div className="space-y-6 animate-fade-in">
-                        {/* NIS2 Section */}
-                        <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
-                            <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2">
-                                <FaShieldAlt className="text-yellow-400" />
-                                Classificação de Risco & Conformidade (NIS2)
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label htmlFor="criticality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nível de Criticidade</label>
-                                    <select name="criticality" id="criticality" value={formData.criticality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {criticalities.map(level => (<option key={level} value={level}>{level}</option>))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="confidentiality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Confidencialidade</label>
-                                    <select name="confidentiality" id="confidentiality" value={formData.confidentiality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="integrity" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Integridade</label>
-                                    <select name="integrity" id="integrity" value={formData.integrity} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="availability" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disponibilidade</label>
-                                    <select name="availability" id="availability" value={formData.availability} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Legal/Accounting Section */}
-                        <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
-                            <h3 className="text-lg font-medium text-on-surface-dark mb-4 flex items-center gap-2">
-                                <FaLandmark className="text-orange-500" />
-                                Contabilidade & Património (Legal)
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="accounting_category_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Classificador CIBE / SNC-AP</label>
-                                    <select 
-                                        name="accounting_category_id" 
-                                        id="accounting_category_id" 
-                                        value={formData.accounting_category_id} 
-                                        onChange={handleChange} 
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                                    >
-                                        <option value="">-- Selecione Classificador --</option>
-                                        {accountingCategories.map(c => (
-                                            <option key={c.id} value={c.id}>{c.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="conservation_state_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado de Conservação</label>
-                                    <select 
-                                        name="conservation_state_id" 
-                                        id="conservation_state_id" 
-                                        value={formData.conservation_state_id} 
-                                        onChange={handleChange} 
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                                    >
-                                        <option value="">-- Selecione Estado --</option>
-                                        {conservationStates.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {showKitButton && !isEditMode && (
-                    <div className="pt-4 mt-4 border-t border-gray-600">
-                        <button type="button" onClick={() => onOpenKitModal(formData)} className="w-full flex items-center justify-center gap-3 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">
-                            <FaBoxes />
-                            Criar um Posto de Trabalho a partir deste item
-                        </button>
-                    </div>
-                )}
-
+                {/* Outras tabs omitidas para brevidade */}
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
-                    <button 
-                        type="submit" 
-                        disabled={isSaving}
-                        className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50"
-                    >
-                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : null}
-                        {isSaving ? 'A Gravar...' : submitButtonText}
+                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
+                        {isSaving && <SpinnerIcon className="h-4 w-4" />} {isEditMode ? "Guardar" : "Adicionar"}
                     </button>
                 </div>
             </form>

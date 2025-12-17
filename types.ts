@@ -113,6 +113,7 @@ export interface Equipment {
     availability?: CIARating;
     accounting_category_id?: string;
     conservation_state_id?: string;
+    decommission_reason_id?: string;
     residual_value?: number;
     creationDate: string;
     modifiedDate: string;
@@ -375,7 +376,7 @@ export enum EquipmentStatus {
     Abate = 'Abate',
     Empréstimo = 'Empréstimo',
     Acquisition = 'Aquisição',
-    Decommissioned = 'Decommissioned'
+    Retirado = 'Retirado (Arquivo)'
 }
 
 export interface Vulnerability {
@@ -674,7 +675,7 @@ export type ModuleKey =
     | 'ticket_categories' | 'security_incident_types' | 'contact_roles' | 'contact_titles' | 'config_custom_roles' | 'config_collaborator_deactivation_reasons' | 'config_accounting_categories' | 'config_conservation_states' | 'config_job_titles'
     | 'config_automation' | 'config_criticality_levels' | 'config_cia_ratings' | 'config_service_statuses' | 'config_backup_types' | 'config_training_types' | 'config_resilience_test_types' | 'document_templates';
 
-export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
+export type PermissionAction = 'view' | 'create' | 'edit' | 'delete' | 'manage';
 
 export type PermissionMatrix = {
     [key in ModuleKey]?: {
