@@ -36,6 +36,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     
     const activeCategories = useMemo(() => categories.filter(c => c.is_active).map(c => c.name), [categories]);
     const canManage = userPermissions.canManage || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
+    const modalTitle = ticketToEdit ? "Editar Ticket de Suporte" : "Abrir Novo Ticket de Suporte";
 
     const [formData, setFormData] = useState<Partial<Ticket>>(() => {
         if (ticketToEdit) return { ...ticketToEdit };
@@ -115,16 +116,20 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                             </select>
                         </div>
                     ) : (
-                        <div className="flex items-center text-xs text-gray-500 italic pt-6">A equipa será atribuída automaticamente pela triagem.</div>
+                        <div className="flex items-center text-xs text-gray-500 italic pt-6 bg-gray-800/30 px-3 rounded border border-gray-700">
+                           A equipa será atribuída automaticamente pela triagem técnica.
+                        </div>
                     )}
                 </div>
                 
-                {/* Rest of form remains same */}
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Assunto</label>
                     <input type="text" name="title" value={formData.title} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'}`} />
                 </div>
-                <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} placeholder="Descreva o problema..."></textarea>
+                <div>
+                    <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição do Problema</label>
+                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} placeholder="Descreva o problema..."></textarea>
+                </div>
                 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>

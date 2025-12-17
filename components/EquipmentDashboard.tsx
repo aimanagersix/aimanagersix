@@ -27,14 +27,14 @@ interface EquipmentDashboardProps {
   onUpdateStatus?: (id: string, status: EquipmentStatus) => void;
   onShowHistory: (equipment: Equipment) => void;
   onEdit?: (equipment: Equipment) => void;
-  onDelete?: (id: string) => void; // New Prop
+  onDelete?: (id: string) => void;
   onClone?: (equipment: Equipment) => void;
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
   onCreate?: () => void;
   onImportAgent?: (e: React.ChangeEvent<HTMLInputElement>) => void; 
   businessServices?: BusinessService[];
-  serviceDependencies?: ServiceDependencies[];
+  serviceDependencies?: ServiceDependency[];
   tickets?: any[];
   ticketActivities?: any[];
   softwareLicenses?: SoftwareLicense[];
@@ -44,12 +44,10 @@ interface EquipmentDashboardProps {
   procurementRequests?: ProcurementRequest[];
   tooltipConfig?: TooltipConfig;
   onViewItem?: (tab: string, filter: any) => void;
-  // Config Props for Name Resolution
   accountingCategories?: ConfigItem[];
   conservationStates?: ConfigItem[];
   decommissionReasons?: ConfigItem[];
 
-  // New Server-Side Props
   totalItems?: number;
   loading?: boolean;
   page?: number;
@@ -67,8 +65,6 @@ interface TooltipState {
     x: number;
     y: number;
 }
-
-type SortableKeys = keyof Equipment | 'brand' | 'type' | 'assignedTo';
 
 const getStatusClass = (status: string) => {
     switch (status) {
@@ -90,29 +86,6 @@ const getCriticalityClass = (level?: CriticalityLevel) => {
         case CriticalityLevel.Low: return 'bg-gray-600 text-white border-gray-700';
         default: return 'bg-gray-700 text-gray-300 border-gray-600';
     }
-};
-
-const getWarrantyStatus = (warrantyDate?: string): { text: string, className: string } => {
-    if (!warrantyDate) {
-        return { text: 'N/A', className: 'text-on-surface-dark-secondary' };
-    }
-
-    const endDate = new Date(warrantyDate);
-    const today = new Date();
-    
-    endDate.setUTCHours(0, 0, 0, 0);
-    today.setUTCHours(0, 0, 0, 0);
-
-    const thirtyDaysFromNow = new Date(today);
-    thirtyDaysFromNow.setUTCDate(today.getUTCDate() + 30);
-
-    if (endDate < today) {
-        return { text: warrantyDate, className: 'text-red-400 font-semibold' }; 
-    }
-    if (endDate <= thirtyDaysFromNow) {
-        return { text: warrantyDate, className: 'text-yellow-400' }; 
-    }
-    return { text: warrantyDate, className: 'text-on-surface-dark' }; 
 };
 
 const SortableHeader: React.FC<{
@@ -137,7 +110,7 @@ const SortableHeader: React.FC<{
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brands, equipmentTypes, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onDelete, onClone, onAssignMultiple, initialFilter, onClearInitialFilter, assignments, collaborators, entidades, onGenerateReport, onManageKeys, onCreate, onImportAgent,
-    businessServices, serviceDependencies, tickets = [], ticketActivities = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests, onViewItem,
+    businessServices, serviceDependencies, tickets = [], tooltipConfig = defaultTooltipConfig, softwareLicenses, licenseAssignments, vulnerabilities, suppliers, procurementRequests, onViewItem,
     accountingCategories = [], conservationStates = [], decommissionReasons = [],
     totalItems = 0, loading = false, page = 1, pageSize = 20, sort, onPageChange, onPageSizeChange, onSortChange, onFilterChange
 }) => {
@@ -146,7 +119,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const [tooltip, setTooltip] = useState<TooltipState | null>(null);
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
     
-    // Dynamic Status Colors
     const [statusColors, setStatusColors] = useState<Record<string, string>>({});
     const [statusOptions, setStatusOptions] = useState<string[]>(Object.values(EquipmentStatus));
 
@@ -155,13 +127,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             const data = await dataService.fetchAllData();
             const colors: Record<string, string> = {};
             const dynamicStatuses: string[] = [];
-
             data.configEquipmentStatuses.forEach((s: ConfigItem) => {
                 if (s.color) colors[s.name] = s.color;
                 dynamicStatuses.push(s.name);
             });
             setStatusColors(colors);
-            
             if (dynamicStatuses.length > 0) {
                 const merged = Array.from(new Set([...Object.values(EquipmentStatus), ...dynamicStatuses]));
                 setStatusOptions(merged);
@@ -180,9 +150,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const decommissionReasonMap = useMemo(() => new Map(decommissionReasons.map(r => [r.id, r.name])), [decommissionReasons]);
 
-    // FILTER BRANDS BY ACTUAL USAGE
     const filteredBrandOptions = useMemo(() => {
-        // If we have access to all equipment data, use it. Otherwise use the brands present in current list.
         const usedBrandIds = new Set(equipment.map(e => e.brandId));
         return brands.filter(b => usedBrandIds.has(b.id));
     }, [brands, equipment]);
@@ -195,7 +163,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         return map;
     }, [assignments]);
     
-    // Calculate Dependencies to block deletion
     const equipmentDependencies = useMemo(() => {
         const deps = new Set<string>();
         serviceDependencies?.forEach(d => { if (d.equipment_id) deps.add(d.equipment_id); });
@@ -260,14 +227,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         }
     };
 
-    const handleAssignSelected = () => {
-        if (onAssignMultiple) {
-            const selectedEquipment = equipment.filter(e => selectedIds.has(e.id));
-            onAssignMultiple(selectedEquipment);
-            setSelectedIds(new Set());
-        }
-    };
-
     const handleStatusChange = (item: Equipment, newStatus: EquipmentStatus) => {
         if (!onUpdateStatus || !onAssign) return;
         const isCurrentlyAssigned = assignedEquipmentIds.has(item.id);
@@ -288,7 +247,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
                 {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</span></p>}
                 {(item.status === 'Abate' || item.status === 'Retirado (Arquivo)') && item.decommission_reason_id && (
-                    <p><strong className="text-red-400">Motivo Abate:</strong> <span className="text-white">{decommissionReasonMap.get(item.decommission_reason_id)}</span></p>
+                    <p><strong className="text-red-400">Motivo Saída:</strong> <span className="text-white">{decommissionReasonMap.get(item.decommission_reason_id)}</span></p>
                 )}
             </div>
         );
@@ -301,31 +260,14 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
 
     const handleMouseLeave = () => setTooltip(null);
 
-    const initialFilterCollaboratorName = useMemo(() => {
-        if (!initialFilter?.collaboratorId) return null;
-        return collaborators.find(c => c.id === initialFilter.collaboratorId)?.fullName;
-    }, [initialFilter, collaborators]);
-
-
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
             <h2 className="text-xl font-semibold text-white">Inventário de Equipamentos</h2>
              <div className="flex items-center gap-2">
-                {onImportAgent && onCreate && (
-                     <label className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer shadow-lg">
-                        <FaRobot /> Importar JSON Agente
-                        <input type="file" accept=".json" className="hidden" onChange={onImportAgent} onClick={(e) => (e.target as HTMLInputElement).value = ''} />
-                    </label>
-                )}
                 {onGenerateReport && (
                     <button onClick={onGenerateReport} className="flex items-center gap-2 px-3 py-2 text-sm bg-brand-secondary text-white rounded-md hover:bg-brand-primary transition-colors">
                         <ReportIcon /> Relatório
-                    </button>
-                )}
-                {onAssignMultiple && selectedIds.size > 0 && (
-                    <button onClick={handleAssignSelected} className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
-                        <AssignIcon /> Atribuir Selecionados ({selectedIds.size})
                     </button>
                 )}
                 {onCreate && (
@@ -336,34 +278,17 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             </div>
         </div>
 
-        {initialFilterCollaboratorName && (
-            <div className="bg-brand-primary/20 border border-brand-secondary/50 text-brand-secondary text-sm rounded-lg p-3 mb-6 flex justify-between items-center">
-                <span>A mostrar equipamentos atribuídos a: <strong className="text-white">{initialFilterCollaboratorName}</strong></span>
-                <button onClick={clearFilters} className="flex items-center gap-1 hover:text-white">
-                    <XIcon className="h-4 w-4" /> Limpar Filtro
-                </button>
-            </div>
-        )}
-
         <div className="space-y-4 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <input type="text" name="serialNumber" value={filters.serialNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Série..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
-                <input type="text" name="description" value={filters.description} onChange={handleFilterChange} placeholder="Filtrar por Descrição..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                <input type="text" name="serialNumber" value={filters.serialNumber} onChange={handleFilterChange} placeholder="Nº Série..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                <input type="text" name="description" value={filters.description} onChange={handleFilterChange} placeholder="Descrição..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                 <select name="brandId" value={filters.brandId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                    <option value="">Todas as Marcas Ativas</option>
+                    <option value="">Marcas em Uso...</option>
                     {filteredBrandOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-                 <select name="typeId" value={filters.typeId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                    <option value="">Todos os Tipos</option>
-                    {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
                 <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                     <option value="">Todos os Estados</option>
                     {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select name="collaboratorId" value={filters.collaboratorId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                    <option value="">Todos os Colaboradores</option>
-                    {collaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
                 </select>
             </div>
             <div className="flex justify-end">
@@ -373,7 +298,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
       
       <div className="overflow-x-auto min-h-[400px]">
         {loading ? (
-             <div className="flex justify-center items-center h-64 text-gray-400">A carregar dados...</div>
+             <div className="flex justify-center items-center h-64 text-gray-400">A carregar...</div>
         ) : (
             <table className="w-full text-sm text-left text-on-surface-dark-secondary">
             <thead className="text-xs text-on-surface-dark-secondary bg-gray-700/50">
@@ -401,7 +326,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     const linkedServiceCriticality = equipmentCriticalityMap.get(item.id);
                     const customColor = statusColors[item.status];
                     const statusStyle = customColor ? { backgroundColor: `${customColor}33`, color: customColor, borderColor: `${customColor}66` } : undefined;
-                    
                     const hasDeps = equipmentDependencies.has(item.id);
                     const canDelete = onDelete && !isAssigned && !hasDeps;
 
@@ -412,7 +336,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                         onMouseOver={(e) => handleMouseOver(item, assignedTo, e)}
                         onMouseMove={handleMouseMove}
                         onMouseLeave={handleMouseLeave}
-                        onClick={() => setDetailEquipment(item)}
+                        onClick={() => onShowHistory(item)}
                     >
                         <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                             <input type="checkbox" className="rounded bg-gray-700 text-brand-secondary" checked={selectedIds.has(item.id)} onChange={() => handleSelect(item.id)} disabled={item.status !== EquipmentStatus.Stock} />
@@ -421,7 +345,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                             <div className="flex items-center gap-2">
                                 {item.description}
                                 {linkedServiceCriticality && <span className="flex h-2 w-2 relative" title="Crítico"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span>}
-                                {item.isLoan && <span className="text-[10px] bg-purple-900/30 text-purple-300 px-1 rounded border border-purple-500/30">LOAN</span>}
                             </div>
                             <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</div>
                             {(item.status === 'Abate' || item.status === 'Retirado (Arquivo)') && item.decommission_reason_id && (
@@ -431,7 +354,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                         <td className="px-6 py-4">{item.serialNumber}</td>
                         <td className="px-6 py-4">{assignedTo}</td>
                         <td className="px-6 py-4">
-                            <span className={`px-2 py-1 text-xs rounded-full border ${getCriticalityClass(item.criticality || CriticalityLevel.Low)}`}>{item.criticality || 'Baixa'}</span>
+                            <span className={`px-2 py-1 text-xs rounded-full border ${getCriticalityClass(item.criticality as CriticalityLevel || CriticalityLevel.Low)}`}>{item.criticality || 'Baixa'}</span>
                         </td>
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                              <select
@@ -452,8 +375,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                     <button onClick={(e) => { e.stopPropagation(); onAssign && onAssign(item); }} className="text-green-400 hover:text-green-300" title="Atribuir"><AssignIcon /></button>
                                 )}
                                 {onClone && <button onClick={(e) => { e.stopPropagation(); onClone(item); }} className="text-purple-400 hover:text-purple-300" title="Clonar"><FaCopy /></button>}
-                                <button onClick={(e) => { e.stopPropagation(); setDetailEquipment(item); }} className="text-gray-400 hover:text-white" title="Histórico"><FaHistory /></button>
-                                {onManageKeys && <button onClick={(e) => { e.stopPropagation(); onManageKeys(item); }} className="text-yellow-400 hover:text-yellow-300" title="Licenças"><FaKey /></button>}
+                                <button onClick={(e) => { e.stopPropagation(); onShowHistory(item); }} className="text-gray-400 hover:text-white" title="Histórico"><FaHistory /></button>
                                 {onEdit && <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>}
                                 {onDelete && (
                                     <button 
@@ -485,29 +407,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         {tooltip?.visible && <div style={{ position: 'fixed', top: tooltip.y + 15, left: tooltip.x + 15, pointerEvents: 'none' }} className="bg-gray-900 text-white text-sm rounded-md shadow-lg p-3 z-50 border border-gray-700 max-w-sm">{tooltip.content}</div>}
       </div>
        <Pagination currentPage={page || 1} totalPages={Math.ceil((totalItems || 0) / (pageSize || 20))} onPageChange={(p) => onPageChange && onPageChange(p)} itemsPerPage={pageSize || 20} onItemsPerPageChange={(s) => onPageSizeChange && onPageSizeChange(s)} totalItems={totalItems || 0} />
-
-        {detailEquipment && (
-            <EquipmentHistoryModal
-                equipment={detailEquipment}
-                assignments={assignments}
-                collaborators={collaborators}
-                escolasDepartamentos={entidades}
-                tickets={tickets}
-                ticketActivities={ticketActivities}
-                onClose={() => setDetailEquipment(null)}
-                onEdit={(eq) => { setDetailEquipment(null); if (onEdit) { onEdit(eq); } }}
-                businessServices={businessServices}
-                serviceDependencies={serviceDependencies}
-                softwareLicenses={softwareLicenses}
-                licenseAssignments={licenseAssignments}
-                vulnerabilities={vulnerabilities}
-                suppliers={suppliers}
-                procurementRequests={procurementRequests}
-                onViewItem={onViewItem}
-                accountingCategories={accountingCategories}
-                conservationStates={conservationStates}
-            />
-        )}
     </div>
   );
 };
