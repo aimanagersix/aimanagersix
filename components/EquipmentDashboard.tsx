@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon, FaFileImport, XIcon, FaHistory, FaSort, FaSortUp, FaSortDown, FaRobot, FaCopy, FaTrash } from './common/Icons';
@@ -25,7 +26,7 @@ interface EquipmentDashboardProps {
   onUpdateStatus?: (id: string, status: EquipmentStatus) => void;
   onShowHistory: (equipment: Equipment) => void;
   onEdit?: (equipment: Equipment) => void;
-  onDelete?: (id: string) => void; // New Prop
+  onDelete?: (id: string) => void; 
   onClone?: (equipment: Equipment) => void;
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
@@ -42,11 +43,8 @@ interface EquipmentDashboardProps {
   procurementRequests?: ProcurementRequest[];
   tooltipConfig?: TooltipConfig;
   onViewItem?: (tab: string, filter: any) => void;
-  // Config Props for Name Resolution
   accountingCategories?: ConfigItem[];
   conservationStates?: ConfigItem[];
-
-  // New Server-Side Props
   totalItems?: number;
   loading?: boolean;
   page?: number;
@@ -65,8 +63,6 @@ interface TooltipState {
     y: number;
 }
 
-type SortableKeys = keyof Equipment | 'brand' | 'type' | 'assignedTo';
-
 const getStatusClass = (status: string) => {
     switch (status) {
         case 'Operacional': return 'bg-green-500/20 text-green-400 border-green-500/30';
@@ -74,6 +70,7 @@ const getStatusClass = (status: string) => {
         case 'Garantia': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
         case 'Abate': return 'bg-red-500/20 text-red-400 border-red-500/30';
         case 'Empréstimo': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+        case 'Retirado (Arquivo)': return 'bg-gray-600/20 text-gray-400 border-gray-500/30';
         default: return 'bg-gray-700 text-gray-300 border-gray-600';
     }
 };
@@ -89,25 +86,15 @@ const getCriticalityClass = (level?: CriticalityLevel) => {
 };
 
 const getWarrantyStatus = (warrantyDate?: string): { text: string, className: string } => {
-    if (!warrantyDate) {
-        return { text: 'N/A', className: 'text-on-surface-dark-secondary' };
-    }
-
+    if (!warrantyDate) return { text: 'N/A', className: 'text-on-surface-dark-secondary' };
     const endDate = new Date(warrantyDate);
     const today = new Date();
-    
     endDate.setUTCHours(0, 0, 0, 0);
     today.setUTCHours(0, 0, 0, 0);
-
     const thirtyDaysFromNow = new Date(today);
     thirtyDaysFromNow.setUTCDate(today.getUTCDate() + 30);
-
-    if (endDate < today) {
-        return { text: warrantyDate, className: 'text-red-400 font-semibold' }; 
-    }
-    if (endDate <= thirtyDaysFromNow) {
-        return { text: warrantyDate, className: 'text-yellow-400' }; 
-    }
+    if (endDate < today) return { text: warrantyDate, className: 'text-red-400 font-semibold' }; 
+    if (endDate <= thirtyDaysFromNow) return { text: warrantyDate, className: 'text-yellow-400' }; 
     return { text: warrantyDate, className: 'text-on-surface-dark' }; 
 };
 
@@ -121,8 +108,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [tooltip, setTooltip] = useState<TooltipState | null>(null);
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
-    
-    // Dynamic Status Colors
     const [statusColors, setStatusColors] = useState<Record<string, string>>({});
     const [statusOptions, setStatusOptions] = useState<string[]>(Object.values(EquipmentStatus));
 
@@ -131,13 +116,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             const data = await dataService.fetchAllData();
             const colors: Record<string, string> = {};
             const dynamicStatuses: string[] = [];
-
             data.configEquipmentStatuses.forEach((s: ConfigItem) => {
                 if (s.color) colors[s.name] = s.color;
                 dynamicStatuses.push(s.name);
             });
             setStatusColors(colors);
-            
             if (dynamicStatuses.length > 0) {
                 const merged = Array.from(new Set([...Object.values(EquipmentStatus), ...dynamicStatuses]));
                 setStatusOptions(merged);
@@ -147,19 +130,14 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     }, []);
     
     useEffect(() => {
-        if (initialFilter) {
-            setFilters(prev => ({ ...prev, ...initialFilter }));
-        }
+        if (initialFilter) setFilters(prev => ({ ...prev, ...initialFilter }));
     }, [initialFilter]);
     
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
-    
     const activeAssignmentsMap = useMemo(() => {
         const map = new Map<string, Assignment>();
-        assignments.filter(a => !a.returnDate).forEach(a => {
-            map.set(a.equipmentId, a);
-        });
+        assignments.filter(a => !a.returnDate).forEach(a => map.set(a.equipmentId, a));
         return map;
     }, [assignments]);
     
@@ -204,9 +182,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     const requestSort = (key: string) => {
         if (!onSortChange) return;
         let direction: 'ascending' | 'descending' = 'ascending';
-        if (sort && sort.key === key && sort.direction === 'ascending') {
-            direction = 'descending';
-        }
+        if (sort && sort.key === key && sort.direction === 'ascending') direction = 'descending';
         onSortChange({ key, direction });
     };
 
@@ -223,9 +199,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         if (e.target.checked) {
             const stockIds = equipment.filter(e => e.status === EquipmentStatus.Stock).map(e => e.id);
             setSelectedIds(new Set(stockIds));
-        } else {
-            setSelectedIds(new Set());
-        }
+        } else setSelectedIds(new Set());
     };
 
     const handleAssignSelected = () => {
@@ -238,6 +212,13 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
 
     const handleStatusChange = (item: Equipment, newStatus: EquipmentStatus) => {
         if (!onUpdateStatus || !onAssign) return;
+        
+        // NOVO: Impedir mudança direta para estados que requerem motivo
+        if (newStatus === 'Abate' || newStatus === 'Retirado (Arquivo)') {
+            alert(`Para colocar em "${newStatus}", utilize o botão Editar (lápis) para selecionar obrigatoriamente o Motivo de Saída.`);
+            return;
+        }
+
         const isCurrentlyAssigned = assignedEquipmentIds.has(item.id);
         if (newStatus === EquipmentStatus.Operacional && !isCurrentlyAssigned) {
             onAssign(item);
@@ -252,13 +233,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             <div className="text-xs leading-tight space-y-1">
                 {cfg.showNomeNaRede && <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>}
                 {cfg.showAssignedTo && <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{assignedTo || 'Stock'}</span></p>}
-                {cfg.showOsVersion && <p><strong className="text-on-surface-dark-secondary">Versão do SO:</strong> <span className="text-white">{item.os_version || 'N/A'}</span></p>}
-                {cfg.showLastPatch && <p><strong className="text-on-surface-dark-secondary">Último Patch:</strong> <span className="text-white">{item.last_security_update || 'N/A'}</span></p>}
-                {cfg.showFirmwareVersion && <p><strong className="text-on-surface-dark-secondary">Firmware:</strong> <span className="text-white">{item.firmware_version || 'N/A'}</span></p>}
                 {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
-                {cfg.showBrand && <p><strong className="text-on-surface-dark-secondary">Marca/Tipo:</strong> <span className="text-white">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</span></p>}
-                {cfg.showWarranty && <p><strong className="text-on-surface-dark-secondary">Garantia:</strong> <span className="text-white">{item.warrantyEndDate || 'N/A'}</span></p>}
-                {cfg.showLocation && item.installationLocation && <p><strong className="text-on-surface-dark-secondary">Localização:</strong> <span className="text-white">{item.installationLocation}</span></p>}
                 {item.isLoan && <p className="text-purple-400 font-bold">Equipamento de Empréstimo</p>}
             </div>
         );
@@ -270,12 +245,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     };
 
     const handleMouseLeave = () => setTooltip(null);
-
-    const initialFilterCollaboratorName = useMemo(() => {
-        if (!initialFilter?.collaboratorId) return null;
-        return collaborators.find(c => c.id === initialFilter.collaboratorId)?.fullName;
-    }, [initialFilter, collaborators]);
-
 
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
@@ -306,15 +275,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             </div>
         </div>
 
-        {initialFilterCollaboratorName && (
-            <div className="bg-brand-primary/20 border border-brand-secondary/50 text-brand-secondary text-sm rounded-lg p-3 mb-6 flex justify-between items-center">
-                <span>A mostrar equipamentos atribuídos a: <strong className="text-white">{initialFilterCollaboratorName}</strong></span>
-                <button onClick={clearFilters} className="flex items-center gap-1 hover:text-white">
-                    <XIcon className="h-4 w-4" /> Limpar Filtro
-                </button>
-            </div>
-        )}
-
         <div className="space-y-4 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <input type="text" name="serialNumber" value={filters.serialNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Série..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
@@ -330,10 +290,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                     <option value="">Todos os Estados</option>
                     {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select name="collaboratorId" value={filters.collaboratorId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                    <option value="">Todos os Colaboradores</option>
-                    {collaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
                 </select>
             </div>
             <div className="flex justify-end">
@@ -351,16 +307,11 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <th scope="col" className="px-4 py-3 w-12">
                     <input type="checkbox" className="rounded bg-gray-700 text-brand-secondary" onChange={handleSelectAll} />
                 </th>
-                {/* FIX: Changed props 'title', 'sortConfig', and 'requestSort' to 'label', 'currentSort', and 'onSort' to match SortableHeaderProps interface. Added fallback for optional 'sort' prop. */}
                 <SortableHeader label="Equipamento" sortKey="description" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
-                {/* FIX: Changed props 'title', 'sortConfig', and 'requestSort' to 'label', 'currentSort', and 'onSort' to match SortableHeaderProps interface. Added fallback for optional 'sort' prop. */}
                 <SortableHeader label="Nº Série" sortKey="serialNumber" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
                 <th scope="col" className="px-6 py-3">Atribuído a</th>
-                {/* FIX: Changed props 'title', 'sortConfig', and 'requestSort' to 'label', 'currentSort', and 'onSort' to match SortableHeaderProps interface. Added fallback for optional 'sort' prop. */}
                 <SortableHeader label="Criticidade" sortKey="criticality" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
-                {/* FIX: Changed props 'title', 'sortConfig', and 'requestSort' to 'label', 'currentSort', and 'onSort' to match SortableHeaderProps interface. Added fallback for optional 'sort' prop. */}
                 <SortableHeader label="Garantia" sortKey="warrantyEndDate" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
-                {/* FIX: Changed props 'title', 'sortConfig', and 'requestSort' to 'label', 'currentSort', and 'onSort' to match SortableHeaderProps interface. Added fallback for optional 'sort' prop. */}
                 <SortableHeader label="Estado" sortKey="status" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
                 <th scope="col" className="px-6 py-3 text-center">Ações</th>
                 </tr>
@@ -378,7 +329,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     const linkedServiceCriticality = equipmentCriticalityMap.get(item.id);
                     const customColor = statusColors[item.status];
                     const statusStyle = customColor ? { backgroundColor: `${customColor}33`, color: customColor, borderColor: `${customColor}66` } : undefined;
-                    
                     const hasDeps = equipmentDependencies.has(item.id);
                     const canDelete = onDelete && !isAssigned && !hasDeps;
 
@@ -420,15 +370,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                 ) : (
                                     <button onClick={(e) => { e.stopPropagation(); onAssign && onAssign(item); }} className="text-green-400 hover:text-green-300" title="Atribuir"><AssignIcon /></button>
                                 )}
-                                {onClone && <button onClick={(e) => { e.stopPropagation(); onClone(item); }} className="text-purple-400 hover:text-purple-300" title="Clonar"><FaCopy /></button>}
-                                <button onClick={(e) => { e.stopPropagation(); setDetailEquipment(item); }} className="text-gray-400 hover:text-white" title="Histórico"><FaHistory /></button>
-                                {onManageKeys && <button onClick={(e) => { e.stopPropagation(); onManageKeys(item); }} className="text-yellow-400 hover:text-yellow-300" title="Licenças"><FaKey /></button>}
-                                {onEdit && <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>}
-                                {onDelete && (
-                                    <button onClick={(e) => { e.stopPropagation(); if (canDelete && window.confirm("Tem a certeza?")) onDelete(item.id); }} className={canDelete ? "text-red-400 hover:text-red-300" : "text-gray-600 opacity-30 cursor-not-allowed"} disabled={!canDelete} title={canDelete ? "Excluir" : (isAssigned ? "Em uso" : "Possui dependências")}>
-                                        <FaTrash />
-                                    </button>
-                                )}
+                                <button onClick={(e) => { e.stopPropagation(); onEdit && onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>
                             </div>
                         </td>
                     </tr>

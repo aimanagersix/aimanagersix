@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -82,7 +83,7 @@ interface AddEquipmentModalProps {
     onOpenAssign?: (equipment: Equipment) => void;
     accountingCategories?: ConfigItem[];
     conservationStates?: ConfigItem[];
-    decommissionReasons?: ConfigItem[]; // Added decommissionReasons
+    decommissionReasons?: ConfigItem[];
     cpuOptions?: ConfigItem[];
     ramOptions?: ConfigItem[];
     storageOptions?: ConfigItem[];
@@ -870,7 +871,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     </div>
                 )}
 
-                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-auto">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
                     <button 
                         type="submit" 

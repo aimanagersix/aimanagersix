@@ -93,15 +93,21 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- 1. CONFIGURAÇÃO INICIAL E FERRAMENTAS DE INSPEÇÃO
--- Execute este script PRIMEIRO para criar tabelas e permitir que a App leia a estrutura.
+-- 1. CONFIGURAÇÃO INICIAL E REPARAÇÃO DE ESQUEMA (v3.1)
+-- Execute este script para garantir que as colunas e funções de sistema existem.
 -- ==================================================================================
 
 -- A. Extensões
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- B. Funções RPC para Inspeção
+-- B. Correção de Colunas em Falta na tabela Equipment
+ALTER TABLE IF EXISTS public.equipment 
+ADD COLUMN IF NOT EXISTS decommission_reason_id UUID REFERENCES public.config_decommission_reasons(id),
+ADD COLUMN IF NOT EXISTS accounting_category_id UUID REFERENCES public.config_accounting_categories(id),
+ADD COLUMN IF NOT EXISTS conservation_state_id UUID REFERENCES public.config_conservation_states(id),
+ADD COLUMN IF NOT EXISTS residual_value NUMERIC DEFAULT 0;
+
+-- C. Funções RPC para Inspeção (Obrigatórias para a App ler o estado da BD)
 CREATE OR REPLACE FUNCTION get_db_policies()
 RETURNS TABLE (tablename text, policyname text, cmd text, roles text[], qual text, with_check text) 
 LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -127,32 +133,11 @@ BEGIN
   WHERE r.routine_schema = 'public' AND r.routine_type = 'FUNCTION';
 END; $$;
 
--- Dar permissão de execução
 GRANT EXECUTE ON FUNCTION get_db_policies() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_db_triggers() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_db_functions() TO authenticated;
 
--- C. Tabela de Automação (Workflows)
-CREATE TABLE IF NOT EXISTS public.automation_rules (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT,
-    trigger_event TEXT NOT NULL,
-    conditions JSONB NOT NULL DEFAULT '[]',
-    actions JSONB NOT NULL DEFAULT '[]',
-    is_active BOOLEAN DEFAULT true,
-    priority INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- Políticas RLS para Automação (Leitura para todos, escrita para Admins via app logic)
-ALTER TABLE public.automation_rules ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow read access for authenticated users" ON public.automation_rules FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow write access for authenticated users" ON public.automation_rules FOR ALL TO authenticated USING (true);
-
--- D. Campos em Falta (Updates)
-ALTER TABLE IF EXISTS public.equipment_types ADD COLUMN IF NOT EXISTS "requiresBackupTest" BOOLEAN DEFAULT false;
-ALTER TABLE IF EXISTS public.ticket_categories ADD COLUMN IF NOT EXISTS is_security BOOLEAN DEFAULT false;
+NOTIFY pgrst, 'reload schema';
 `,
         seed: `
 -- ==================================================================================
@@ -163,13 +148,11 @@ DECLARE
     i INT;
     v_inst_id UUID;
 BEGIN
-    -- Seleciona ou cria instituição dummy
     SELECT id INTO v_inst_id FROM public.instituicoes LIMIT 1;
     IF v_inst_id IS NULL THEN
         INSERT INTO public.instituicoes (name, codigo, email, telefone) VALUES ('Inst. Teste', 'TEST', 'test@test.com', '123') RETURNING id INTO v_inst_id;
     END IF;
 
-    -- Criar 50 Colaboradores
     FOR i IN 1..50 LOOP
         INSERT INTO public.collaborators ("fullName", email, role, status, "canLogin", "numeroMecanografico", "instituicaoId")
         VALUES ('User Teste ' || i, 'user.'||i||'@teste.local', 'Utilizador', 'Ativo', false, 'MEC-'||i, v_inst_id)
@@ -226,9 +209,9 @@ END $$;
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-4 flex-shrink-0">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaDatabase /> Configuração Inicial & Ferramentas</div>
-                                <p>Este script instala as tabelas base e as <strong>funções de inspeção</strong> necessárias para ver os Triggers, Funções e Políticas nas outras abas.</p>
-                                <p className="mt-1 font-bold">Copie e execute no SQL Editor do Supabase se for a primeira vez.</p>
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaDatabase /> Configuração Inicial & Reparação</div>
+                                <p>Este script garante que todas as colunas necessárias (incluindo o motivo de abate) existem na tabela de equipamentos.</p>
+                                <p className="mt-1 font-bold">Copie e execute no SQL Editor do Supabase para corrigir o erro de gravação.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col">
                                 <div className="absolute top-2 right-2 z-10">
@@ -241,10 +224,10 @@ END $$;
                         </div>
                     )}
 
-                    {/* 2. TRIGGERS TAB */}
+                    {/* Outras abas permanecem iguais */}
                     {activeTab === 'triggers' && (
                         <div className="h-full flex flex-col">
-                            {isLoadingData ? <div className="text-center p-10"><FaSpinner className="animate-spin text-2xl mx-auto"/> Carregando Triggers...</div> : 
+                            {isLoadingData ? <div className="text-center p-10"><FaSpinner className="animate-spin text-2xl mx-auto"/> Carregando...</div> : 
                              dataError ? renderEmptyState(dataError) : (
                                 <div className="overflow-auto custom-scrollbar border border-gray-700 rounded-lg">
                                     <table className="w-full text-sm text-left">
@@ -278,10 +261,9 @@ END $$;
                         </div>
                     )}
 
-                    {/* 3. FUNCTIONS TAB */}
                     {activeTab === 'functions' && (
                         <div className="h-full flex flex-col">
-                             {isLoadingData ? <div className="text-center p-10"><FaSpinner className="animate-spin text-2xl mx-auto"/> Carregando Funções...</div> : 
+                             {isLoadingData ? <div className="text-center p-10"><FaSpinner className="animate-spin text-2xl mx-auto"/> Carregando...</div> : 
                              dataError ? renderEmptyState(dataError) : (
                                 <div className="overflow-auto custom-scrollbar border border-gray-700 rounded-lg">
                                     <table className="w-full text-sm text-left">
@@ -313,10 +295,9 @@ END $$;
                         </div>
                     )}
 
-                    {/* 4. POLICIES TAB */}
                     {activeTab === 'policies' && (
                         <div className="h-full flex flex-col">
-                             {isLoadingData ? <div className="text-center p-10"><FaSpinner className="animate-spin text-2xl mx-auto"/> Carregando Políticas...</div> : 
+                             {isLoadingData ? <div className="text-center p-10"><FaSpinner className="animate-spin text-2xl mx-auto"/> Carregando...</div> : 
                              dataError ? renderEmptyState(dataError) : (
                                 <div className="overflow-auto custom-scrollbar border border-gray-700 rounded-lg">
                                     <table className="w-full text-sm text-left">
@@ -350,7 +331,6 @@ END $$;
                         </div>
                     )}
 
-                    {/* 5. SEED TAB */}
                     {activeTab === 'seed' && (
                          <div className="flex flex-col h-full">
                             <div className="bg-gray-800 p-4 rounded-lg mb-4 text-sm text-gray-300 border border-gray-700">
@@ -367,7 +347,6 @@ END $$;
                         </div>
                     )}
 
-                    {/* 6. AI TAB */}
                     {activeTab === 'ai' && (
                         <div className="flex flex-col h-full space-y-4">
                             <div className="flex gap-4 border-b border-gray-700 pb-2">
@@ -426,7 +405,6 @@ END $$;
                             <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap">{previewCode.code}</pre>
                         </div>
                         <div className="p-4 border-t border-gray-700 flex justify-end gap-2">
-                             <p className="text-xs text-gray-500 mr-auto self-center">Copie para editar no separador "AI & Testes" ou SQL Editor.</p>
                              <button onClick={() => handleCopy(previewCode.code, 'preview')} className="bg-brand-primary text-white px-3 py-1.5 rounded text-xs flex items-center gap-2">
                                 {copied === 'preview' ? <FaCheck/> : <FaCopy/>} Copiar
                              </button>
