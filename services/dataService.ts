@@ -1,528 +1,782 @@
 
 import { getSupabase } from './supabaseClient';
 import { 
-    AuditLogEntry, DiagnosticResult, 
-    Equipment, Brand, EquipmentType, Collaborator, Assignment, SoftwareLicense, LicenseAssignment, 
-    Entidade, Instituicao, Team, TeamMember, Supplier, Ticket, TicketActivity, 
-    BusinessService, ServiceDependency, Vulnerability, BackupExecution, ResilienceTest, 
-    SecurityTrainingRecord, ConfigItem, CustomRole, Policy, ProcurementRequest, 
-    CalendarEvent, ContinuityPlan, SoftwareProduct, ContactRole, ContactTitle, JobTitle, AutomationRule
+    Equipment, Brand, EquipmentType, Instituicao, Entidade, Collaborator, 
+    Assignment, Ticket, TicketActivity, SoftwareLicense, LicenseAssignment, 
+    Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
+    SecurityIncidentTypeItem, BusinessService, ServiceDependency, 
+    Vulnerability, BackupExecution, ResilienceTest, SecurityTrainingRecord,
+    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest, 
+    CalendarEvent, ContinuityPlan, SoftwareProduct, AuditLogEntry, DiagnosticResult, ResourceContact
 } from '../types';
-import { runRules } from './automationService';
 
-// Helper to get supabase client
+// Helper to get supabase instance
 const sb = () => getSupabase();
 
-// --- GENERIC CRUD ---
-const fetchAll = async <T>(table: string): Promise<T[]> => {
-    const { data, error } = await sb().from(table).select('*');
-    if (error) { console.error(`Error fetching ${table}:`, error); return []; }
-    return data as T[];
+// --- AUTH & USER ---
+/**
+ * Resets a user's password using admin privileges or simulated flow.
+ */
+export const adminResetPassword = async (userId: string, newPassword: string) => {
+    // In a real app, this would use a secure edge function or service role.
+    console.debug(`Resetting password for user ${userId}`);
+    return { success: true };
 };
 
-const createItem = async <T>(table: string, item: any): Promise<T> => {
+// --- GENERIC CONFIG TABLES ---
+/**
+ * Adds a generic configuration item to any specified table.
+ */
+export const addConfigItem = async (table: string, item: any) => {
     const { data, error } = await sb().from(table).insert(item).select().single();
     if (error) throw error;
-    return data as T;
+    return data;
 };
 
-const updateItem = async <T>(table: string, id: string, updates: any): Promise<T> => {
+/**
+ * Updates a generic configuration item.
+ */
+export const updateConfigItem = async (table: string, id: string, updates: any) => {
     const { data, error } = await sb().from(table).update(updates).eq('id', id).select().single();
     if (error) throw error;
-    return data as T;
+    return data;
 };
 
-const deleteItem = async (table: string, id: string): Promise<void> => {
+/**
+ * Deletes a generic configuration item.
+ */
+export const deleteConfigItem = async (table: string, id: string) => {
     const { error } = await sb().from(table).delete().eq('id', id);
     if (error) throw error;
 };
 
-// --- DATA FETCHING AGGREGATOR ---
+// --- GLOBAL SETTINGS ---
+/**
+ * Fetches a global setting value from the database.
+ */
+export const getGlobalSetting = async (key: string): Promise<string | null> => {
+    const { data, error } = await sb().from('global_settings').select('setting_value').eq('setting_key', key).maybeSingle();
+    if (error) return null;
+    return data?.setting_value || null;
+};
+
+/**
+ * Updates or creates a global setting.
+ */
+export const updateGlobalSetting = async (key: string, value: string) => {
+    const { error } = await sb().from('global_settings').upsert({ setting_key: key, setting_value: value }, { onConflict: 'setting_key' });
+    if (error) throw error;
+};
+
+// --- BATCH DATA FETCH ---
+/**
+ * Fetches all essential application data in parallel for initial loading.
+ */
 export const fetchAllData = async () => {
     const [
-        equipment, brands, equipmentTypes, instituicoes, entidades, collaborators, 
-        assignments, tickets, softwareLicenses, licenseAssignments, teams, teamMembers, 
-        messages, ticketCategories, securityIncidentTypes, businessServices, serviceDependencies,
-        vulnerabilities, suppliers, backupExecutions, resilienceTests, securityTrainings,
-        configCustomRoles, softwareCategories, softwareProducts, configEquipmentStatuses,
-        contactRoles, contactTitles, configCriticalityLevels, configCiaRatings, configServiceStatuses,
-        configBackupTypes, configTrainingTypes, configResilienceTestTypes, configDecommissionReasons,
-        configCollaboratorDeactivationReasons, configAccountingCategories, configConservationStates,
-        configCpus, configRamSizes, configStorageTypes, configJobTitles, policies, policyAcceptances,
-        procurementRequests, calendarEvents, continuityPlans
+        {data: equipment}, {data: brands}, {data: equipmentTypes}, 
+        {data: instituicoes}, {data: entidades}, {data: collaborators}, 
+        {data: assignments}, {data: tickets}, {data: softwareLicenses}, 
+        {data: licenseAssignments}, {data: teams}, {data: teamMembers}, 
+        {data: messages}, {data: ticketCategories}, {data: securityIncidentTypes},
+        {data: businessServices}, {data: serviceDependencies}, {data: vulnerabilities},
+        {data: suppliers}, {data: backupExecutions}, {data: resilienceTests},
+        {data: securityTrainings}, {data: configCustomRoles}, {data: softwareCategories},
+        {data: softwareProducts}, {data: configEquipmentStatuses}, {data: contactRoles},
+        {data: contactTitles}, {data: configCriticalityLevels}, {data: configCiaRatings},
+        {data: configServiceStatuses}, {data: configBackupTypes}, {data: configTrainingTypes},
+        {data: configResilienceTestTypes}, {data: configDecommissionReasons},
+        {data: configCollaboratorDeactivationReasons}, {data: configAccountingCategories},
+        {data: configConservationStates}, {data: configCpus}, {data: configRamSizes},
+        {data: configStorageTypes}, {data: configJobTitles}, {data: policies},
+        {data: policyAcceptances}, {data: procurementRequests}, {data: calendarEvents},
+        {data: continuityPlans}
     ] = await Promise.all([
-        fetchAll<Equipment>('equipment'),
-        fetchAll<Brand>('brands'),
-        fetchAll<EquipmentType>('equipment_types'),
-        fetchAll<Instituicao>('instituicoes'),
-        fetchAll<Entidade>('entidades'),
-        fetchAll<Collaborator>('collaborators'),
-        fetchAll<Assignment>('assignments'),
-        fetchAll<Ticket>('tickets'),
-        fetchAll<SoftwareLicense>('software_licenses'),
-        fetchAll<LicenseAssignment>('license_assignments'),
-        fetchAll<Team>('teams'),
-        fetchAll<TeamMember>('team_members'),
-        fetchAll<any>('messages'),
-        fetchAll<any>('ticket_categories'),
-        fetchAll<any>('security_incident_types'),
-        fetchAll<BusinessService>('business_services'),
-        fetchAll<ServiceDependency>('service_dependencies'),
-        fetchAll<Vulnerability>('vulnerabilities'),
-        fetchAll<Supplier>('suppliers'),
-        fetchAll<BackupExecution>('backup_executions'),
-        fetchAll<ResilienceTest>('resilience_tests'),
-        fetchAll<SecurityTrainingRecord>('security_training_records'),
-        fetchAll<CustomRole>('config_custom_roles'),
-        fetchAll<ConfigItem>('config_software_categories'),
-        fetchAll<SoftwareProduct>('config_software_products'),
-        fetchAll<ConfigItem>('config_equipment_statuses'),
-        fetchAll<ContactRole>('contact_roles'),
-        fetchAll<ContactTitle>('contact_titles'),
-        fetchAll<ConfigItem>('config_criticality_levels'),
-        fetchAll<ConfigItem>('config_cia_ratings'),
-        fetchAll<ConfigItem>('config_service_statuses'),
-        fetchAll<ConfigItem>('config_backup_types'),
-        fetchAll<ConfigItem>('config_training_types'),
-        fetchAll<ConfigItem>('config_resilience_test_types'),
-        fetchAll<ConfigItem>('config_decommission_reasons'),
-        fetchAll<ConfigItem>('config_collaborator_deactivation_reasons'),
-        fetchAll<ConfigItem>('config_accounting_categories'),
-        fetchAll<ConfigItem>('config_conservation_states'),
-        fetchAll<ConfigItem>('config_cpus'),
-        fetchAll<ConfigItem>('config_ram_sizes'),
-        fetchAll<ConfigItem>('config_storage_types'),
-        fetchAll<JobTitle>('config_job_titles'),
-        fetchAll<Policy>('policies'),
-        fetchAll<any>('policy_acceptances'),
-        fetchAll<ProcurementRequest>('procurement_requests'),
-        fetchAll<CalendarEvent>('calendar_events'),
-        fetchAll<ContinuityPlan>('continuity_plans'),
+        sb().from('equipment').select('*'),
+        sb().from('brands').select('*'),
+        sb().from('equipment_types').select('*'),
+        sb().from('instituicoes').select('*'),
+        sb().from('entidades').select('*'),
+        sb().from('collaborators').select('*'),
+        sb().from('assignments').select('*'),
+        sb().from('tickets').select('*'),
+        sb().from('software_licenses').select('*'),
+        sb().from('license_assignments').select('*'),
+        sb().from('teams').select('*'),
+        sb().from('team_members').select('*'),
+        sb().from('messages').select('*'),
+        sb().from('ticket_categories').select('*'),
+        sb().from('security_incident_types').select('*'),
+        sb().from('business_services').select('*'),
+        sb().from('service_dependencies').select('*'),
+        sb().from('vulnerabilities').select('*'),
+        sb().from('suppliers').select('*'),
+        sb().from('backup_executions').select('*'),
+        sb().from('resilience_tests').select('*'),
+        sb().from('security_trainings').select('*'),
+        sb().from('config_custom_roles').select('*'),
+        sb().from('config_software_categories').select('*'),
+        sb().from('config_software_products').select('*'),
+        sb().from('config_equipment_statuses').select('*'),
+        sb().from('contact_roles').select('*'),
+        sb().from('contact_titles').select('*'),
+        sb().from('config_criticality_levels').select('*'),
+        sb().from('config_cia_ratings').select('*'),
+        sb().from('config_service_statuses').select('*'),
+        sb().from('config_backup_types').select('*'),
+        sb().from('config_training_types').select('*'),
+        sb().from('config_resilience_test_types').select('*'),
+        sb().from('config_decommission_reasons').select('*'),
+        sb().from('config_collaborator_deactivation_reasons').select('*'),
+        sb().from('config_accounting_categories').select('*'),
+        sb().from('config_conservation_states').select('*'),
+        sb().from('config_cpus').select('*'),
+        sb().from('config_ram_sizes').select('*'),
+        sb().from('config_storage_types').select('*'),
+        sb().from('config_job_titles').select('*'),
+        sb().from('policies').select('*'),
+        sb().from('policy_acceptances').select('*'),
+        sb().from('procurement_requests').select('*'),
+        sb().from('calendar_events').select('*'),
+        sb().from('continuity_plans').select('*')
     ]);
 
     return {
-        equipment, brands, equipmentTypes, instituicoes, entidades, collaborators, assignments,
-        tickets, softwareLicenses, licenseAssignments, teams, teamMembers, messages,
-        ticketCategories, securityIncidentTypes, businessServices, serviceDependencies,
-        vulnerabilities, suppliers, backupExecutions, resilienceTests, securityTrainings,
-        configCustomRoles, softwareCategories, softwareProducts, configEquipmentStatuses,
-        contactRoles, contactTitles, configCriticalityLevels, configCiaRatings, configServiceStatuses,
-        configBackupTypes, configTrainingTypes, configResilienceTestTypes, configDecommissionReasons,
-        configCollaboratorDeactivationReasons, configAccountingCategories, configConservationStates,
-        configCpus, configRamSizes, configStorageTypes, configJobTitles, policies, policyAcceptances,
-        procurementRequests, calendarEvents, continuityPlans,
-        collaboratorHistory: [], ticketActivities: []
+        equipment: equipment || [],
+        brands: brands || [],
+        equipmentTypes: equipmentTypes || [],
+        instituicoes: instituicoes || [],
+        entidades: entidades || [],
+        collaborators: collaborators || [],
+        assignments: assignments || [],
+        tickets: tickets || [],
+        softwareLicenses: softwareLicenses || [],
+        licenseAssignments: licenseAssignments || [],
+        teams: teams || [],
+        teamMembers: teamMembers || [],
+        messages: messages || [],
+        ticketCategories: ticketCategories || [],
+        securityIncidentTypes: securityIncidentTypes || [],
+        businessServices: businessServices || [],
+        serviceDependencies: serviceDependencies || [],
+        vulnerabilities: vulnerabilities || [],
+        suppliers: suppliers || [],
+        backupExecutions: backupExecutions || [],
+        resilienceTests: resilienceTests || [],
+        securityTrainings: securityTrainings || [],
+        configCustomRoles: configCustomRoles || [],
+        softwareCategories: softwareCategories || [],
+        softwareProducts: softwareProducts || [],
+        configEquipmentStatuses: configEquipmentStatuses || [],
+        contactRoles: contactRoles || [],
+        contactTitles: contactTitles || [],
+        configCriticalityLevels: configCriticalityLevels || [],
+        configCiaRatings: configCiaRatings || [],
+        configServiceStatuses: configServiceStatuses || [],
+        configBackupTypes: configBackupTypes || [],
+        configTrainingTypes: configTrainingTypes || [],
+        configResilienceTestTypes: configResilienceTestTypes || [],
+        configDecommissionReasons: configDecommissionReasons || [],
+        configCollaboratorDeactivationReasons: configCollaboratorDeactivationReasons || [],
+        configAccountingCategories: configAccountingCategories || [],
+        configConservationStates: configConservationStates || [],
+        configCpus: configCpus || [],
+        configRamSizes: configRamSizes || [],
+        configStorageTypes: configStorageTypes || [],
+        configJobTitles: configJobTitles || [],
+        policies: policies || [],
+        policyAcceptances: policyAcceptances || [],
+        procurementRequests: procurementRequests || [],
+        calendarEvents: calendarEvents || [],
+        continuityPlans: continuityPlans || []
     };
 };
 
-// --- PAGINATION HELPERS ---
-export const fetchEquipmentPaginated = async (params: any) => {
+// --- PAGINATED FETCHING ---
+export const fetchEquipmentPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
     let query = sb().from('equipment').select('*', { count: 'exact' });
-    
-    // Apply Filters
     if (params.filters) {
         if (params.filters.serialNumber) query = query.ilike('serialNumber', `%${params.filters.serialNumber}%`);
         if (params.filters.description) query = query.ilike('description', `%${params.filters.description}%`);
         if (params.filters.brandId) query = query.eq('brandId', params.filters.brandId);
         if (params.filters.typeId) query = query.eq('typeId', params.filters.typeId);
         if (params.filters.status) query = query.eq('status', params.filters.status);
-        if (params.filters.criticality) query = query.eq('criticality', params.filters.criticality);
-        
-        // Date Filters
-        if (params.filters.creationDateFrom) query = query.gte('creationDate', params.filters.creationDateFrom);
-        if (params.filters.creationDateTo) query = query.lte('creationDate', params.filters.creationDateTo);
-        if (params.filters.warrantyDateFrom) query = query.gte('warrantyEndDate', params.filters.warrantyDateFrom);
-        if (params.filters.warrantyDateTo) query = query.lte('warrantyEndDate', params.filters.warrantyDateTo);
-
-        // Filter by Assigned To (Complex: via assignments table)
-        if (params.filters.collaboratorId) {
-             // If we have a direct ID
-             const { data: assignments } = await sb()
-                .from('assignments')
-                .select('equipmentId')
-                .eq('collaboratorId', params.filters.collaboratorId)
-                .is('returnDate', null);
-             
-             if (assignments && assignments.length > 0) {
-                 query = query.in('id', assignments.map(a => a.equipmentId));
-             } else {
-                 return { data: [], total: 0 };
-             }
-        }
     }
-
-    if (params.sort) {
-        query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
-    }
-
-    if (params.page && params.pageSize) {
-        const from = (params.page - 1) * params.pageSize;
-        const to = from + params.pageSize - 1;
-        query = query.range(from, to);
-    }
-    
-    const { data, error, count } = await query;
+    if (params.sort) query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    const from = (params.page - 1) * params.pageSize;
+    const to = from + params.pageSize - 1;
+    const { data, count, error } = await query.range(from, to);
     if (error) throw error;
-    return { data: data as Equipment[], total: count || 0 };
+    return { data: data || [], total: count || 0 };
 };
 
-export const fetchCollaboratorsPaginated = async (params: any) => {
+export const fetchCollaboratorsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
     let query = sb().from('collaborators').select('*', { count: 'exact' });
-
-    // Apply Filters
     if (params.filters) {
-        if (params.filters.query) {
-            const q = `%${params.filters.query}%`;
-            query = query.or(`fullName.ilike.${q},email.ilike.${q},numeroMecanografico.ilike.${q}`);
-        }
+        if (params.filters.query) query = query.or(`fullName.ilike.%${params.filters.query}%,email.ilike.%${params.filters.query}%,numeroMecanografico.ilike.%${params.filters.query}%`);
         if (params.filters.entidadeId) query = query.eq('entidadeId', params.filters.entidadeId);
         if (params.filters.status) query = query.eq('status', params.filters.status);
         if (params.filters.role) query = query.eq('role', params.filters.role);
     }
-    
-    // Sort
-    if (params.sort) {
-        query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
-    }
-
-    if (params.page && params.pageSize) {
-        const from = (params.page - 1) * params.pageSize;
-        const to = from + params.pageSize - 1;
-        query = query.range(from, to);
-    }
-    const { data, error, count } = await query;
+    if (params.sort) query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    const from = (params.page - 1) * params.pageSize;
+    const to = from + params.pageSize - 1;
+    const { data, count, error } = await query.range(from, to);
     if (error) throw error;
-    return { data: data as Collaborator[], total: count || 0 };
+    return { data: data || [], total: count || 0 };
 };
 
-export const fetchTicketsPaginated = async (params: any) => {
+export const fetchTicketsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
     let query = sb().from('tickets').select('*', { count: 'exact' });
-
-    // Apply Filters
     if (params.filters) {
-        if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
-        if (params.filters.status) {
-            if (Array.isArray(params.filters.status)) {
-                query = query.in('status', params.filters.status);
-            } else {
-                query = query.eq('status', params.filters.status);
-            }
-        }
+        if (params.filters.status) query = query.eq('status', params.filters.status);
         if (params.filters.category) query = query.eq('category', params.filters.category);
         if (params.filters.team_id) query = query.eq('team_id', params.filters.team_id);
+        if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
     }
-
-    // Sort
-    if (params.sort) {
-        query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
-    }
-
-    if (params.page && params.pageSize) {
-        const from = (params.page - 1) * params.pageSize;
-        const to = from + params.pageSize - 1;
-        query = query.range(from, to);
-    }
-    const { data, error, count } = await query;
+    if (params.sort) query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    const from = (params.page - 1) * params.pageSize;
+    const to = from + params.pageSize - 1;
+    const { data, count, error } = await query.range(from, to);
     if (error) throw error;
-    return { data: data as Ticket[], total: count || 0 };
+    return { data: data || [], total: count || 0 };
 };
 
-
-// --- SPECIFIC ENTITY METHODS ---
-
-// Equipment
-export const addEquipment = async (item: any) => {
-    const eq = await createItem<Equipment>('equipment', item);
-    // Trigger Automation Rules
-    await runRules('EQUIPMENT_CREATED', eq);
-    return eq;
+// --- ASSET MANAGEMENT ---
+export const addEquipment = async (eq: any) => {
+    const { data, error } = await sb().from('equipment').insert(eq).select().single();
+    if (error) throw error;
+    return data;
 };
-export const updateEquipment = (id: string, updates: any) => updateItem<Equipment>('equipment', id, updates);
-export const deleteEquipment = (id: string) => deleteItem('equipment', id);
+
 export const addMultipleEquipment = async (items: any[]) => {
     const { error } = await sb().from('equipment').insert(items);
     if (error) throw error;
 };
 
-// Collaborator
-export const addCollaborator = async (item: any, password?: string) => {
-    return createItem<Collaborator>('collaborators', item);
+export const updateEquipment = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('equipment').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
 };
-export const updateCollaborator = (id: string, updates: any) => updateItem<Collaborator>('collaborators', id, updates);
-export const deleteCollaborator = (id: string) => deleteItem('collaborators', id);
+
+export const deleteEquipment = async (id: string) => {
+    const { error } = await sb().from('equipment').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const addBrand = async (brand: any) => {
+    const { data, error } = await sb().from('brands').insert(brand).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateBrand = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('brands').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteBrand = async (id: string) => {
+    const { error } = await sb().from('brands').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const addEquipmentType = async (type: any) => {
+    const { data, error } = await sb().from('equipment_types').insert(type).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateEquipmentType = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('equipment_types').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteEquipmentType = async (id: string) => {
+    const { error } = await sb().from('equipment_types').delete().eq('id', id);
+    if (error) throw error;
+};
+
+// --- ORGANIZATION ---
+export const addInstituicao = async (inst: any) => {
+    const { data, error } = await sb().from('instituicoes').insert(inst).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateInstituicao = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('instituicoes').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteInstituicao = async (id: string) => {
+    const { error } = await sb().from('instituicoes').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const addEntidade = async (ent: any) => {
+    const { data, error } = await sb().from('entidades').insert(ent).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateEntidade = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('entidades').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteEntidade = async (id: string) => {
+    const { error } = await sb().from('entidades').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const addCollaborator = async (col: any, password?: string) => {
+    const { data, error } = await sb().from('collaborators').insert(col).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateCollaborator = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('collaborators').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteCollaborator = async (id: string) => {
+    const { error } = await sb().from('collaborators').delete().eq('id', id);
+    if (error) throw error;
+};
 
 export const uploadCollaboratorPhoto = async (id: string, file: File) => {
-    const supabase = sb();
-    
-    // 1. Definir caminho do ficheiro (ex: collaborators/USER_UUID/TIMESTAMP.jpg)
-    const fileExt = file.name.split('.').pop();
-    const filePath = `collaborators/${id}/${Date.now()}.${fileExt}`;
-
-    // 2. Upload para o Bucket 'avatars'
-    const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
+    const filePath = `avatars/${id}-${file.name}`;
+    const { error: uploadError } = await sb().storage.from('avatars').upload(filePath, file, { upsert: true });
     if (uploadError) throw uploadError;
-
-    // 3. Obter URL Público
-    const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-    // 4. Atualizar registo do colaborador com o URL
-    const { error: updateError } = await supabase
-        .from('collaborators')
-        .update({ photoUrl: publicUrl })
-        .eq('id', id);
-
-    if (updateError) throw updateError;
-    
+    const { data: { publicUrl } } = sb().storage.from('avatars').getPublicUrl(filePath);
+    await updateCollaborator(id, { photoUrl: publicUrl });
     return publicUrl;
 };
 
-export const adminResetPassword = async (id: string, password?: string) => {
-    // Mock reset
-    console.log("Reset password for", id);
+// --- ASSIGNMENTS & LICENSING ---
+export const addAssignment = async (assignment: any) => {
+    const { data, error } = await sb().from('assignments').insert(assignment).select().single();
+    if (error) throw error;
+    return data;
 };
 
-// Tickets
-export const addTicket = async (item: any) => {
-    const ticket = await createItem<Ticket>('tickets', item);
-    // Trigger Automation Rules
-    await runRules('TICKET_CREATED', ticket);
-    return ticket;
+export const addLicense = async (lic: any) => {
+    const { data, error } = await sb().from('software_licenses').insert(lic).select().single();
+    if (error) throw error;
+    return data;
 };
-export const updateTicket = (id: string, updates: any) => updateItem<Ticket>('tickets', id, updates);
-export const getTicketActivities = async (ticketId: string) => {
-    const { data } = await sb().from('ticket_activities').select('*').eq('ticketId', ticketId);
-    return data as TicketActivity[];
-};
-export const addTicketActivity = (item: any) => createItem<TicketActivity>('ticket_activities', item);
 
-// Licenses
-export const addLicense = (item: any) => createItem<SoftwareLicense>('software_licenses', item);
-export const updateLicense = (id: string, updates: any) => updateItem<SoftwareLicense>('software_licenses', id, updates);
-export const deleteLicense = (id: string) => deleteItem('software_licenses', id);
-export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
-    await sb().from('license_assignments').update({ returnDate: new Date().toISOString() }).eq('equipmentId', equipmentId).is('returnDate', null);
-    if (licenseIds.length > 0) {
-        const toInsert = licenseIds.map(lid => ({
-            equipmentId,
-            softwareLicenseId: lid,
-            assignedDate: new Date().toISOString()
-        }));
-        await sb().from('license_assignments').insert(toInsert);
-    }
-};
 export const addMultipleLicenses = async (items: any[]) => {
     const { error } = await sb().from('software_licenses').insert(items);
     if (error) throw error;
 };
 
+export const updateLicense = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('software_licenses').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
 
-// Assignments
-export const addAssignment = (item: any) => createItem<Assignment>('assignments', item);
+export const deleteLicense = async (id: string) => {
+    const { error } = await sb().from('software_licenses').delete().eq('id', id);
+    if (error) throw error;
+};
 
-// Brands & Types
-export const addBrand = (item: any) => createItem<Brand>('brands', item);
-export const updateBrand = (id: string, updates: any) => updateItem<Brand>('brands', id, updates);
-export const deleteBrand = (id: string) => deleteItem('brands', id);
-
-export const addEquipmentType = (item: any) => createItem<EquipmentType>('equipment_types', item);
-export const updateEquipmentType = (id: string, updates: any) => updateItem<EquipmentType>('equipment_types', id, updates);
-export const deleteEquipmentType = (id: string) => deleteItem('equipment_types', id);
-
-// Institutions & Entities
-export const addInstituicao = (item: any) => createItem<Instituicao>('instituicoes', item);
-export const updateInstituicao = (id: string, updates: any) => updateItem<Instituicao>('instituicoes', id, updates);
-export const deleteInstituicao = (id: string) => deleteItem('instituicoes', id);
-
-export const addEntidade = (item: any) => createItem<Entidade>('entidades', item);
-export const updateEntidade = (id: string, updates: any) => updateItem<Entidade>('entidades', id, updates);
-export const deleteEntidade = (id: string) => deleteItem('entidades', id);
-
-// Teams
-export const addTeam = (item: any) => createItem<Team>('teams', item);
-export const updateTeam = (id: string, updates: any) => updateItem<Team>('teams', id, updates);
-export const deleteTeam = (id: string) => deleteItem('teams', id);
-export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
-    await sb().from('team_members').delete().eq('team_id', teamId);
-    if (memberIds.length > 0) {
-        await sb().from('team_members').insert(memberIds.map(mid => ({ team_id: teamId, collaborator_id: mid })));
+export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
+    await sb().from('license_assignments').update({ returnDate: new Date().toISOString().split('T')[0] }).eq('equipmentId', equipmentId).is('returnDate', null);
+    if (licenseIds.length > 0) {
+        const items = licenseIds.map(id => ({ equipmentId, softwareLicenseId: id, assignedDate: new Date().toISOString().split('T')[0] }));
+        await sb().from('license_assignments').insert(items);
     }
 };
 
-// Suppliers
-export const addSupplier = (item: any) => createItem<Supplier>('suppliers', item);
-export const updateSupplier = (id: string, updates: any) => updateItem<Supplier>('suppliers', id, updates);
-export const deleteSupplier = (id: string) => deleteItem('suppliers', id);
+// --- TICKETS & SUPPORT ---
+export const addTicket = async (ticket: any) => {
+    const { data, error } = await sb().from('tickets').insert(ticket).select().single();
+    if (error) throw error;
+    return data;
+};
 
-// Configs (Generic)
-export const addConfigItem = (table: string, item: any) => createItem<ConfigItem>(table, item);
-export const updateConfigItem = (table: string, id: string, updates: any) => updateItem<ConfigItem>(table, id, updates);
-export const deleteConfigItem = (table: string, id: string) => deleteItem(table, id);
+export const updateTicket = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('tickets').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
 
-// Messages
-export const addMessage = (item: any) => createItem('messages', item);
+export const getTicketActivities = async (ticketId: string) => {
+    const { data, error } = await sb().from('ticket_activities').select('*').eq('ticketId', ticketId);
+    if (error) throw error;
+    return data || [];
+};
+
+export const addTicketActivity = async (activity: any) => {
+    const { data, error } = await sb().from('ticket_activities').insert(activity).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const addTicketCategory = async (cat: any) => {
+    const { data, error } = await sb().from('ticket_categories').insert(cat).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateTicketCategory = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('ticket_categories').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const addSecurityIncidentType = async (type: any) => {
+    const { data, error } = await sb().from('security_incident_types').insert(type).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateSecurityIncidentType = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('security_incident_types').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+// --- TEAMS ---
+export const addTeam = async (team: any) => {
+    const { data, error } = await sb().from('teams').insert(team).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateTeam = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('teams').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteTeam = async (id: string) => {
+    const { error } = await sb().from('teams').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
+    await sb().from('team_members').delete().eq('team_id', teamId);
+    if (memberIds.length > 0) {
+        const items = memberIds.map(id => ({ team_id: teamId, collaborator_id: id }));
+        await sb().from('team_members').insert(items);
+    }
+};
+
+// --- MESSAGES & CHAT ---
+export const addMessage = async (msg: any) => {
+    const { data, error } = await sb().from('messages').insert(msg).select().single();
+    if (error) throw error;
+    return data;
+};
+
 export const markMessagesAsRead = async (senderId: string) => {
     await sb().from('messages').update({ read: true }).eq('senderId', senderId);
 };
 
-// Procurement
-export const addProcurement = (item: any) => createItem<ProcurementRequest>('procurement_requests', item);
-export const updateProcurement = (id: string, updates: any) => updateItem<ProcurementRequest>('procurement_requests', id, updates);
-export const deleteProcurement = (id: string) => deleteItem('procurement_requests', id);
-
-// Calendar
-export const addCalendarEvent = (item: any) => createItem<CalendarEvent>('calendar_events', item);
-export const updateCalendarEvent = (id: string, updates: any) => updateItem<CalendarEvent>('calendar_events', id, updates);
-export const deleteCalendarEvent = (id: string) => deleteItem('calendar_events', id);
-
-// Continuity
-export const addContinuityPlan = (item: any) => createItem('continuity_plans', item);
-export const updateContinuityPlan = (id: string, updates: any) => updateItem('continuity_plans', id, updates);
-export const deleteContinuityPlan = (id: string) => deleteItem('continuity_plans', id);
-
-// Compliance
-export const addBusinessService = (item: any) => createItem('business_services', item);
-export const updateBusinessService = (id: string, updates: any) => updateItem('business_services', id, updates);
-export const deleteBusinessService = (id: string) => deleteItem('business_services', id);
-
-export const addServiceDependency = (item: any) => createItem('service_dependencies', item);
-export const deleteServiceDependency = (id: string) => deleteItem('service_dependencies', id);
-
-export const addVulnerability = (item: any) => createItem('vulnerabilities', item);
-export const updateVulnerability = (id: string, updates: any) => updateItem('vulnerabilities', id, updates);
-export const deleteVulnerability = (id: string) => deleteItem('vulnerabilities', id);
-
-export const addBackupExecution = (item: any) => createItem('backup_executions', item);
-export const updateBackupExecution = (id: string, updates: any) => updateItem('backup_executions', id, updates);
-export const deleteBackupExecution = (id: string) => deleteItem('backup_executions', id);
-
-export const addResilienceTest = (item: any) => createItem('resilience_tests', item);
-export const updateResilienceTest = (id: string, updates: any) => updateItem('resilience_tests', id, updates);
-export const deleteResilienceTest = (id: string) => deleteItem('resilience_tests', id);
-
-export const addSecurityTraining = (item: any) => createItem('security_training_records', item);
-
-export const addPolicy = (item: any) => createItem('policies', item);
-export const updatePolicy = (id: string, updates: any) => updateItem('policies', id, updates);
-export const deletePolicy = (id: string) => deleteItem('policies', id);
-export const acceptPolicy = async (policyId: string, userId: string, version: string) => {
-    await sb().from('policy_acceptances').insert({ policy_id: policyId, user_id: userId, version, accepted_at: new Date().toISOString() });
+// --- COMPLIANCE, VULNERABILITIES & BACKUPS ---
+export const fetchLastAccessReviewDate = async () => {
+    const { data } = await sb().from('audit_log').select('timestamp').eq('action', 'ACCESS_REVIEW').order('timestamp', { ascending: false }).limit(1).maybeSingle();
+    return data?.timestamp || null;
 };
 
-// Roles
-export const getCustomRoles = async () => fetchAll<CustomRole>('config_custom_roles');
-export const addCustomRole = (item: any) => createItem('config_custom_roles', item);
-export const updateCustomRole = (id: string, updates: any) => updateItem('config_custom_roles', id, updates);
-export const deleteCustomRole = (id: string) => deleteItem('config_custom_roles', id);
-
-// Contacts
-export const syncResourceContacts = async (type: string, id: string, contacts: any[]) => {
-    await sb().from('resource_contacts').delete().eq('resource_type', type).eq('resource_id', id);
-    if(contacts.length > 0) {
-        const toInsert = contacts.map(c => ({ ...c, resource_type: type, resource_id: id, id: undefined }));
-        await sb().from('resource_contacts').insert(toInsert);
-    }
+export const fetchLastRiskAcknowledgement = async () => {
+    const { data } = await sb().from('audit_log').select('timestamp, user_email').eq('action', 'RISK_ACKNOWLEDGE').order('timestamp', { ascending: false }).limit(1).maybeSingle();
+    return data || null;
 };
 
-export const addContactRole = (item: any) => createItem('contact_roles', item);
-export const updateContactRole = (id: string, updates: any) => updateItem('contact_roles', id, updates);
-export const deleteContactRole = (id: string) => deleteItem('contact_roles', id);
-
-export const addContactTitle = (item: any) => createItem('contact_titles', item);
-export const updateContactTitle = (id: string, updates: any) => updateItem('contact_titles', id, updates);
-export const deleteContactTitle = (id: string) => deleteItem('contact_titles', id);
-
-export const addJobTitle = (item: any) => createItem('config_job_titles', item);
-
-// Software Products
-export const addSoftwareProduct = (item: any) => createItem('config_software_products', item);
-export const updateSoftwareProduct = (id: string, updates: any) => updateItem('config_software_products', id, updates);
-export const deleteSoftwareProduct = (id: string) => deleteItem('config_software_products', id);
-
-// Ticket Categories & Incidents
-export const addTicketCategory = (item: any) => createItem('ticket_categories', item);
-export const updateTicketCategory = (id: string, updates: any) => updateItem('ticket_categories', id, updates);
-export const deleteTicketCategory = (id: string) => deleteItem('ticket_categories', id);
-
-export const addSecurityIncidentType = (item: any) => createItem('security_incident_types', item);
-export const updateSecurityIncidentType = (id: string, updates: any) => updateItem('security_incident_types', id, updates);
-export const deleteSecurityIncidentType = (id: string) => deleteItem('security_incident_types', id);
-
-// Automation Rules
-export const getAutomationRules = async () => fetchAll<AutomationRule>('automation_rules');
-export const addAutomationRule = (item: any) => createItem('automation_rules', item);
-export const updateAutomationRule = (id: string, updates: any) => updateItem('automation_rules', id, updates);
-export const deleteAutomationRule = (id: string) => deleteItem('automation_rules', id);
-
-// Settings & System
-export const getGlobalSetting = async (key: string): Promise<string | null> => {
-    const { data } = await sb().from('global_settings').select('setting_value').eq('setting_key', key).single();
-    return data ? data.setting_value : null;
+export const logAction = async (action: string, resourceType: string, details?: string, resourceId?: string) => {
+    await sb().from('audit_log').insert({ action, resource_type: resourceType, details, resource_id: resourceId });
 };
-export const updateGlobalSetting = async (key: string, value: string) => {
-    const { error } = await sb().from('global_settings').upsert({ setting_key: key, setting_value: value });
+
+export const fetchAuditLogs = async () => {
+    const { data } = await sb().from('audit_log').select('*').order('timestamp', { ascending: false });
+    return data || [];
+};
+
+export const addBusinessService = async (svc: any) => {
+    const { data, error } = await sb().from('business_services').insert(svc).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateBusinessService = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('business_services').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteBusinessService = async (id: string) => {
+    const { error } = await sb().from('business_services').delete().eq('id', id);
     if (error) throw error;
 };
 
-export const logAction = async (action: string, type: string, details: string, resourceId?: string) => {
-    const { error } = await sb().from('audit_logs').insert({ 
-        action, resource_type: type, details, resource_id: resourceId, timestamp: new Date().toISOString() 
-    });
-    if (error) console.error("Audit Log Failed", error);
+export const addServiceDependency = async (dep: any) => {
+    const { error } = await sb().from('service_dependencies').insert(dep);
+    if (error) throw error;
 };
 
-export const fetchAuditLogs = async (): Promise<AuditLogEntry[]> => {
-    const { data } = await sb().from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(1000);
-    return data as AuditLogEntry[];
+export const deleteServiceDependency = async (id: string) => {
+    const { error } = await sb().from('service_dependencies').delete().eq('id', id);
+    if (error) throw error;
 };
 
-export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
-    return [
-        { module: 'Database', status: 'Success', message: 'Connection OK' },
-        { module: 'Auth', status: 'Success', message: 'User authenticated' },
-        { module: 'Storage', status: 'Warning', message: 'Bucket check mocked' }
-    ];
-};
-
-export const fetchLastAccessReviewDate = async () => {
-    const { data } = await sb().from('audit_logs').select('timestamp').eq('action', 'ACCESS_REVIEW').order('timestamp', { ascending: false }).limit(1).single();
-    return data ? data.timestamp : null;
-};
-export const fetchLastRiskAcknowledgement = async () => {
-    const { data } = await sb().from('audit_logs').select('timestamp, user_email').eq('action', 'RISK_ACKNOWLEDGE').order('timestamp', { ascending: false }).limit(1).single();
+export const addVulnerability = async (vuln: any) => {
+    const { data, error } = await sb().from('vulnerabilities').insert(vuln).select().single();
+    if (error) throw error;
     return data;
 };
+
+export const updateVulnerability = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('vulnerabilities').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteVulnerability = async (id: string) => {
+    const { error } = await sb().from('vulnerabilities').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const addBackupExecution = async (b: any) => {
+    const { data, error } = await sb().from('backup_executions').insert(b).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateBackupExecution = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('backup_executions').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteBackupExecution = async (id: string) => {
+    const { error } = await sb().from('backup_executions').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const addResilienceTest = async (t: any) => {
+    const { data, error } = await sb().from('resilience_tests').insert(t).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateResilienceTest = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('resilience_tests').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteResilienceTest = async (id: string) => {
+    const { error } = await sb().from('resilience_tests').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const addSecurityTraining = async (t: any) => {
+    const { data, error } = await sb().from('security_trainings').insert(t).select().single();
+    if (error) throw error;
+    return data;
+};
+
+// --- PROCUREMENT ---
+export const addProcurement = async (p: any) => {
+    const { data, error } = await sb().from('procurement_requests').insert(p).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateProcurement = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('procurement_requests').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteProcurement = async (id: string) => {
+    const { error } = await sb().from('procurement_requests').delete().eq('id', id);
+    if (error) throw error;
+};
+
+// --- AUTOMATION ---
+export const getAutomationRules = async () => {
+    const { data } = await sb().from('automation_rules').select('*');
+    return data || [];
+};
+
+export const addAutomationRule = async (rule: any) => {
+    await sb().from('automation_rules').insert(rule);
+};
+
+export const updateAutomationRule = async (id: string, updates: any) => {
+    await sb().from('automation_rules').update(updates).eq('id', id);
+};
+
+export const deleteAutomationRule = async (id: string) => {
+    await sb().from('automation_rules').delete().eq('id', id);
+};
+
+// --- DATABASE INSPECTION (RPC) ---
+export const fetchDbPolicies = async (): Promise<DbPolicy[]> => {
+    const { data } = await sb().rpc('get_db_policies');
+    return data || [];
+};
+
+export const fetchDbTriggers = async (): Promise<DbTrigger[]> => {
+    const { data } = await sb().rpc('get_db_triggers');
+    return data || [];
+};
+
+export const fetchDbFunctions = async (): Promise<DbFunction[]> => {
+    const { data } = await sb().rpc('get_db_functions');
+    return data || [];
+};
+
+// --- CALENDAR & POLICIES ---
+export const addCalendarEvent = async (event: any) => {
+    const { data, error } = await sb().from('calendar_events').insert(event).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateCalendarEvent = async (id: string, updates: any) => {
+    await sb().from('calendar_events').update(updates).eq('id', id);
+};
+
+export const deleteCalendarEvent = async (id: string) => {
+    await sb().from('calendar_events').delete().eq('id', id);
+};
+
+export const addPolicy = async (p: any) => {
+    await sb().from('policies').insert(p);
+};
+
+export const updatePolicy = async (id: string, updates: any) => {
+    await sb().from('policies').update(updates).eq('id', id);
+};
+
+export const deletePolicy = async (id: string) => {
+    await sb().from('policies').delete().eq('id', id);
+};
+
+// --- SUPPLIERS & CONTACTS ---
+export const addSupplier = async (sup: any) => {
+    const { data, error } = await sb().from('suppliers').insert(sup).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateSupplier = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('suppliers').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteSupplier = async (id: string) => {
+    const { error } = await sb().from('suppliers').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const syncResourceContacts = async (type: string, id: string, contacts: ResourceContact[]) => {
+    await sb().from('resource_contacts').delete().eq('resource_type', type).eq('resource_id', id);
+    if (contacts.length > 0) {
+        const items = contacts.map(c => ({ ...c, resource_type: type, resource_id: id }));
+        await sb().from('resource_contacts').insert(items);
+    }
+};
+
+export const addContactRole = async (role: any) => {
+    await sb().from('contact_roles').insert(role);
+};
+
+export const updateContactRole = async (id: string, updates: any) => {
+    await sb().from('contact_roles').update(updates).eq('id', id);
+};
+
+export const deleteContactRole = async (id: string) => {
+    await sb().from('contact_roles').delete().eq('id', id);
+};
+
+export const addContactTitle = async (title: any) => {
+    await sb().from('contact_titles').insert(title);
+};
+
+export const updateContactTitle = async (id: string, updates: any) => {
+    await sb().from('contact_titles').update(updates).eq('id', id);
+};
+
+export const deleteContactTitle = async (id: string) => {
+    await sb().from('contact_titles').delete().eq('id', id);
+};
+
+// --- CUSTOM ROLES, PRODUCTS & JOBS ---
+export const getCustomRoles = async () => {
+    const { data } = await sb().from('config_custom_roles').select('*');
+    return data || [];
+};
+
+export const addCustomRole = async (role: any) => {
+    await sb().from('config_custom_roles').insert(role);
+};
+
+export const updateCustomRole = async (id: string, updates: any) => {
+    await sb().from('config_custom_roles').update(updates).eq('id', id);
+};
+
+export const addSoftwareProduct = async (p: any) => {
+    await sb().from('config_software_products').insert(p);
+};
+
+export const updateSoftwareProduct = async (id: string, updates: any) => {
+    await sb().from('config_software_products').update(updates).eq('id', id);
+};
+
+export const deleteSoftwareProduct = async (id: string) => {
+    await sb().from('config_software_products').delete().eq('id', id);
+};
+
+export const addJobTitle = async (j: any) => {
+    const { data, error } = await sb().from('config_job_titles').insert(j).select().single();
+    if (error) throw error;
+    return data;
+};
+
+// --- DIAGNOSTICS ---
+export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => {
+    const results: DiagnosticResult[] = [];
+    try {
+        await sb().from('equipment').select('id').limit(1);
+        results.push({ module: 'Database Connectivity', status: 'Success', message: 'Successfully reached Supabase.' });
+    } catch (e: any) {
+        results.push({ module: 'Database Connectivity', status: 'Failure', message: e.message });
+    }
+    return results;
+};
+
+// --- CRON TRIGGERS ---
 export const triggerBirthdayCron = async () => {
     const { error } = await sb().rpc('send_daily_birthday_emails');
     if (error) throw error;
 };
+
+export const triggerSophosSync = async () => {
+    const { error } = await sb().functions.invoke('sync-sophos');
+    if (error) throw error;
+};
+
+// --- LOCAL UTILS ---
 export const snoozeNotification = (id: string) => {
     const existing = localStorage.getItem('snoozed_notifications');
-    const snoozed = existing ? JSON.parse(existing) : [];
-    const snoozeUntil = new Date();
-    snoozeUntil.setDate(snoozeUntil.getDate() + 7); 
-    snoozed.push({ id, until: snoozeUntil.toISOString() });
+    let snoozed = existing ? JSON.parse(existing) : [];
+    const until = new Date();
+    until.setDate(until.getDate() + 7); 
+    snoozed.push({ id, until: until.toISOString() });
     localStorage.setItem('snoozed_notifications', JSON.stringify(snoozed));
-};
-
-export const fetchDbPolicies = async () => {
-    const { data, error } = await sb().rpc('get_db_policies');
-    if (error) { console.warn("get_db_policies not found."); return []; }
-    return data || [];
-};
-
-export const fetchDbTriggers = async () => {
-    const { data, error } = await sb().rpc('get_db_triggers');
-    if (error) { console.warn("get_db_triggers not found."); return []; }
-    return data || [];
-};
-
-export const fetchDbFunctions = async () => {
-    const { data, error } = await sb().rpc('get_db_functions');
-    if (error) { console.warn("get_db_functions not found."); return []; }
-    return data || [];
 };
