@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, UserRole } from '../types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaDownload, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown, FaBars, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown, FaBars, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -69,7 +68,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const ticketsMenuRef = useRef<HTMLDivElement>(null);
     const [isOverviewMenuOpen, setIsOverviewMenuOpen] = useState(false);
     const overviewMenuRef = useRef<HTMLDivElement>(null);
-    const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+    /* Fix: renamed isToolsMenuOpen to isToolsOpen to match usage in JSX and the setter name */
+    const [isToolsOpen, setIsToolsOpen] = useState(false);
     const toolsMenuRef = useRef<HTMLDivElement>(null);
 
     // Modals
@@ -100,7 +100,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 setIsOverviewMenuOpen(false);
             }
             if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
-                setIsToolsMenuOpen(false);
+                setIsToolsOpen(false);
             }
             if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
                 setIsUserMenuOpen(false);
@@ -114,7 +114,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isNis2MenuOpen, isUserMenuOpen, isTicketsMenuOpen, isOverviewMenuOpen, isToolsMenuOpen]);
+        /* Fix: updated dependency from isToolsMenuOpen to isToolsOpen */
+    }, [isMobileMenuOpen, isOrganizacaoMenuOpen, isInventarioMenuOpen, isNis2MenuOpen, isUserMenuOpen, isTicketsMenuOpen, isOverviewMenuOpen, isToolsOpen]);
 
     const isOrganizationActive = activeTab.startsWith('organizacao') || activeTab === 'collaborators';
     const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
@@ -215,12 +216,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                   </div>
               )}
 
-              {/* Inventário */}
+              {/* Inventário - ORDEM CORRIGIDA */}
               {hasInventarioTabs && (
                   <div className="relative" ref={inventarioMenuRef}>
                       <button
                           onClick={() => setInventarioMenuOpen(prev => !prev)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isInventarioMenuOpen ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isInventoryActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                       >
                           <FaBoxOpen />
                           {t('nav.inventory')}
@@ -232,8 +233,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                           <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                               <div className="py-1">
                                   {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                  {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                   {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                  {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                               </div>
                           </div>
                       )}
@@ -273,7 +274,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                   <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>
               )}
               
-              {/* Reports - NEW */}
+              {/* Reports */}
               {hasReportsTabs && (
                   <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>
               )}
@@ -282,16 +283,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
               {hasToolsTabs && (
                   <div className="relative" ref={toolsMenuRef}>
                       <button
-                          onClick={() => setIsToolsMenuOpen(prev => !prev)}
+                          onClick={() => setIsToolsOpen(prev => !prev)}
                           className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isToolsActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
                       >
                           <FaToolbox />
                           {t('nav.tools')}
-                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isToolsMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className={`w-4 h-4 ml-1 transition-transform transform ${isToolsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                       </button>
-                      {isToolsMenuOpen && (
+                      {isToolsOpen && (
                           <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                               <div className="py-1">
                                   {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
@@ -305,7 +306,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
               )}
           </nav>
 
-          {/* Right Side Icons - NOTA: Esta secção foi restaurada! */}
+          {/* Right Side Icons */}
           <div className="flex items-center space-x-4">
             <button onClick={onNotificationClick} className="relative p-2 text-gray-400 hover:text-white transition-colors">
                 <FaBell className="w-6 h-6" />
@@ -355,7 +356,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                 <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
                             </button>
                             
-                            {/* Install App Button for Desktop User Menu */}
                             <div className="px-4 py-2">
                                 <InstallAppButton 
                                     className="flex w-full items-center justify-center gap-2 px-2 py-2 text-xs font-bold text-gray-900 bg-brand-secondary rounded-md hover:bg-brand-primary hover:text-white transition-colors"
@@ -364,16 +364,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                 />
                             </div>
 
-                            {/* Language Switch */}
+                            {/* Language Switch - FUNDO CORRIGIDO */}
                             <div className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer" onClick={(e) => {e.stopPropagation()}}>
                                 <FaGlobe className="mr-3 text-blue-400" />
                                 <select 
                                     value={language} 
                                     onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
-                                    className="bg-transparent border-none text-white text-sm focus:ring-0 cursor-pointer p-0 w-full"
+                                    className="bg-gray-800 border-none text-white text-sm focus:ring-0 cursor-pointer p-1 rounded w-full"
                                 >
-                                    <option value="pt">Português</option>
-                                    <option value="en">English</option>
+                                    <option value="pt" className="bg-gray-800 text-white">Português</option>
+                                    <option value="en" className="bg-gray-800 text-white">English</option>
                                 </select>
                             </div>
 
@@ -415,7 +415,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
       {isMobileMenuOpen && (
         <div className="md:hidden bg-gray-900 border-t border-gray-700 absolute w-full left-0 top-20 shadow-2xl overflow-y-auto max-h-[80vh] z-40" ref={mobileMenuRef}>
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                 {/* Install App Button for Mobile Menu */}
                  <div className="px-4 py-2">
                     <InstallAppButton 
                         className="flex w-full items-center justify-center gap-2 px-2 py-3 text-sm font-bold text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors shadow-lg"
@@ -424,18 +423,15 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     />
                 </div>
                 
-                {/* Overview */}
                 <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
                 {tabConfig['overview.smart'] && <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
 
-                {/* Inventory */}
                 <div className="border-t border-gray-700 my-2"></div>
                 <p className="px-4 text-xs text-gray-500 uppercase mt-2">{t('nav.inventory')}</p>
                 {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
-                {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
 
-                {/* Organization */}
                 <div className="border-t border-gray-700 my-2"></div>
                 <p className="px-4 text-xs text-gray-500 uppercase mt-2">{t('nav.organization')}</p>
                 {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
@@ -444,7 +440,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={t('nav.teams')} icon={<FaUsers />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 
-                {/* Support & Compliance */}
                 <div className="border-t border-gray-700 my-2"></div>
                 <p className="px-4 text-xs text-gray-500 uppercase mt-2">{t('nav.support')} & {t('nav.compliance')}</p>
                 {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
@@ -455,25 +450,22 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 {tabConfig.nis2?.training && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap className="text-green-400"/>} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 {tabConfig.nis2?.policies && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature className="text-yellow-400"/>} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                 
-                {/* Reports */}
                 <div className="border-t border-gray-700 my-2"></div>
                 {tabConfig['reports'] && (
                     <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
                 )}
 
-                {/* Tools */}
                 {hasToolsTabs && (
                      <>
                         <div className="border-t border-gray-700 my-2"></div>
                         <p className="px-4 text-xs text-gray-500 uppercase mt-2">{t('nav.tools')}</p>
                         {tabConfig['tools']?.agenda && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
-                        {tabConfig['tools']?.map && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
+                        {tabConfig['tools']?.map && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
                         {onOpenCalendar && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => { onOpenCalendar(); setIsMobileMenuOpen(false); }} />}
                         {onOpenManual && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => { onOpenManual(); setIsMobileMenuOpen(false); }} />}
                     </>
                 )}
 
-                {/* User Profile & Actions (Crucial for Mobile) */}
                 <div className="border-t border-gray-700 my-2"></div>
                 <p className="px-4 text-xs text-gray-500 uppercase mt-2">{currentUser?.fullName}</p>
                 

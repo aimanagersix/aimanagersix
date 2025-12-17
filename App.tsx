@@ -121,12 +121,13 @@ export const App: React.FC = () => {
         checkPermission('compliance_policies', 'view'), 
     [currentUser, appData.customRoles]);
 
+    // ORDEM ALTERADA CONFORME PEDIDO: Equipamento, Licenças, Aquisições
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
         'overview.smart': canViewSmartDashboard ? 'C-Level Dashboard' : undefined,
         'equipment.inventory': checkPermission('equipment', 'view') ? 'Inventário' : undefined,
-        'equipment.procurement': checkPermission('procurement', 'view') ? 'Aquisições' : undefined,
         'licensing': checkPermission('licensing', 'view') ? 'Licenciamento' : undefined,
+        'equipment.procurement': checkPermission('procurement', 'view') ? 'Aquisições' : undefined,
         'organizacao.instituicoes': checkPermission('organization', 'view') ? 'Instituições' : undefined,
         'organizacao.entidades': checkPermission('organization', 'view') ? 'Entidades' : undefined,
         'organizacao.teams': checkPermission('organization', 'view') ? 'Equipas' : undefined,

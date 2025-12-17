@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Collaborator, UserRole } from './types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './components/common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt, FaTimes } from 'react-icons/fa';
 import { useLanguage } from './contexts/LanguageContext';
 import { useLayout } from './contexts/LayoutContext';
 import MFASetupModal from './components/MFASetupModal';
@@ -43,7 +43,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const hasOverviewTabs = tabConfig['overview'] || tabConfig['overview.smart'];
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.procurement'];
-    // Check granular compliance tabs
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience || tabConfig.nis2?.training || tabConfig.nis2?.policies;
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
@@ -66,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 onClick={handleClick}
                 className={`flex items-center gap-3 w-full text-left transition-colors duration-200 rounded-md overflow-hidden whitespace-nowrap cursor-pointer no-underline ${
                     isDropdownItem 
-                    ? `px-4 py-2 text-sm ${tab && activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
+                    ? `px-4 py-3 text-sm ${tab && activeTab === tab ? 'bg-brand-secondary text-white' : 'text-on-surface-dark hover:bg-gray-700'}` 
                     : `px-4 py-3 text-sm font-medium ${tab && activeTab === tab ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`
                 } ${className}`}
                 role={isDropdownItem ? 'menuitem' : 'tab'}
@@ -164,6 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     </div>
                 )}
 
+                {/* Inventário - ORDEM CORRIGIDA */}
                 {hasInventarioTabs && (
                     <div className="space-y-1">
                         <button
@@ -184,8 +184,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         {isInventarioOpen && isExpanded && (
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
                                 {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                             </div>
                         )}
                     </div>
@@ -259,7 +259,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             </nav>
 
             <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0 relative">
-                {/* Install Button */}
                 {isExpanded && (
                     <div className="mb-2">
                          <InstallAppButton 
@@ -308,10 +307,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                     <select 
                                         value={language} 
                                         onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
-                                        className="bg-transparent border-none text-white text-sm focus:ring-0 cursor-pointer p-0 w-full"
+                                        className="bg-gray-800 border-none text-white text-sm focus:ring-0 cursor-pointer p-1 rounded w-full"
                                     >
-                                        <option value="pt">Português</option>
-                                        <option value="en">English</option>
+                                        <option value="pt" className="bg-gray-800 text-white">Português</option>
+                                        <option value="en" className="bg-gray-800 text-white">English</option>
                                     </select>
                                 </div>
 

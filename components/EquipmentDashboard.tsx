@@ -104,7 +104,20 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     accountingCategories = [], conservationStates = [],
     totalItems = 0, loading = false, page = 1, pageSize = 20, sort, onPageChange, onPageSizeChange, onSortChange, onFilterChange
 }) => {
-    const [filters, setFilters] = useState({ brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' });
+    const [filters, setFilters] = useState({ 
+        brandId: '', 
+        typeId: '', 
+        status: '', 
+        description: '', 
+        serialNumber: '', 
+        nomeNaRede: '', 
+        collaboratorId: '',
+        criticality: '',
+        creationDateFrom: '',
+        creationDateTo: '',
+        warrantyDateFrom: '',
+        warrantyDateTo: ''
+    });
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [tooltip, setTooltip] = useState<TooltipState | null>(null);
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
@@ -172,7 +185,20 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
     };
 
     const clearFilters = () => {
-        const blank = { brandId: '', typeId: '', status: '', creationDateFrom: '', creationDateTo: '', description: '', serialNumber: '', nomeNaRede: '', collaboratorId: '' };
+        const blank = { 
+            brandId: '', 
+            typeId: '', 
+            status: '', 
+            description: '', 
+            serialNumber: '', 
+            nomeNaRede: '', 
+            collaboratorId: '', 
+            criticality: '',
+            creationDateFrom: '',
+            creationDateTo: '',
+            warrantyDateFrom: '',
+            warrantyDateTo: ''
+        };
         setFilters(blank);
         if (onFilterChange) onFilterChange(blank);
         onClearInitialFilter();
@@ -273,7 +299,8 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             </div>
         </div>
 
-        <div className="space-y-4 mb-6">
+        {/* --- FILTROS AVANÇADOS --- */}
+        <div className="space-y-4 mb-6 bg-gray-900/40 p-4 rounded-lg border border-gray-700/50">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <input type="text" name="serialNumber" value={filters.serialNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Série..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                 <input type="text" name="description" value={filters.description} onChange={handleFilterChange} placeholder="Filtrar por Descrição..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
@@ -285,13 +312,43 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     <option value="">Todos os Tipos</option>
                     {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                     <option value="">Todos os Estados</option>
                     {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
+                <select name="criticality" value={filters.criticality} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                    <option value="">Todas as Criticidades</option>
+                    {Object.values(CriticalityLevel).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select name="collaboratorId" value={filters.collaboratorId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                    <option value="">Atribuído a (Qualquer)</option>
+                    {collaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                </select>
+                <div className="flex gap-2">
+                    <button onClick={clearFilters} className="flex-1 px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Limpar Tudo</button>
+                </div>
             </div>
-            <div className="flex justify-end">
-                <button onClick={clearFilters} className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Limpar Filtros</button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
+                <div className="space-y-2">
+                    <label className="block text-[10px] uppercase font-bold text-gray-500">Intervalo de Inserção</label>
+                    <div className="flex items-center gap-2">
+                        <input type="date" name="creationDateFrom" value={filters.creationDateFrom} onChange={handleFilterChange} className="flex-1 bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-xs" />
+                        <span className="text-gray-600 text-xs">até</span>
+                        <input type="date" name="creationDateTo" value={filters.creationDateTo} onChange={handleFilterChange} className="flex-1 bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-xs" />
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <label className="block text-[10px] uppercase font-bold text-gray-500">Intervalo de Garantia</label>
+                    <div className="flex items-center gap-2">
+                        <input type="date" name="warrantyDateFrom" value={filters.warrantyDateFrom} onChange={handleFilterChange} className="flex-1 bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-xs" />
+                        <span className="text-gray-600 text-xs">até</span>
+                        <input type="date" name="warrantyDateTo" value={filters.warrantyDateTo} onChange={handleFilterChange} className="flex-1 bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-xs" />
+                    </div>
+                </div>
             </div>
         </div>
       

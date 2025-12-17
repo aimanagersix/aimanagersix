@@ -126,6 +126,29 @@ export const fetchEquipmentPaginated = async (params: any) => {
         if (params.filters.brandId) query = query.eq('brandId', params.filters.brandId);
         if (params.filters.typeId) query = query.eq('typeId', params.filters.typeId);
         if (params.filters.status) query = query.eq('status', params.filters.status);
+        if (params.filters.criticality) query = query.eq('criticality', params.filters.criticality);
+        
+        // Date Filters
+        if (params.filters.creationDateFrom) query = query.gte('creationDate', params.filters.creationDateFrom);
+        if (params.filters.creationDateTo) query = query.lte('creationDate', params.filters.creationDateTo);
+        if (params.filters.warrantyDateFrom) query = query.gte('warrantyEndDate', params.filters.warrantyDateFrom);
+        if (params.filters.warrantyDateTo) query = query.lte('warrantyEndDate', params.filters.warrantyDateTo);
+
+        // Filter by Assigned To (Complex: via assignments table)
+        if (params.filters.collaboratorId) {
+             // If we have a direct ID
+             const { data: assignments } = await sb()
+                .from('assignments')
+                .select('equipmentId')
+                .eq('collaboratorId', params.filters.collaboratorId)
+                .is('returnDate', null);
+             
+             if (assignments && assignments.length > 0) {
+                 query = query.in('id', assignments.map(a => a.equipmentId));
+             } else {
+                 return { data: [], total: 0 };
+             }
+        }
     }
 
     if (params.sort) {
@@ -178,7 +201,13 @@ export const fetchTicketsPaginated = async (params: any) => {
     // Apply Filters
     if (params.filters) {
         if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
-        if (params.filters.status) query = query.eq('status', params.filters.status);
+        if (params.filters.status) {
+            if (Array.isArray(params.filters.status)) {
+                query = query.in('status', params.filters.status);
+            } else {
+                query = query.eq('status', params.filters.status);
+            }
+        }
         if (params.filters.category) query = query.eq('category', params.filters.category);
         if (params.filters.team_id) query = query.eq('team_id', params.filters.team_id);
     }

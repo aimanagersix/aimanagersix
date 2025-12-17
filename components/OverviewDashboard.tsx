@@ -174,7 +174,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             .sort((a, b) => b.value - a.value);
 
         return { chartData, totalValue };
-    }, [equipment, equipment.length]); // Added .length to force recalculation if array mutates
+    }, [equipment]);
 
     // --- Enhanced Ticket Stats ---
     const ticketStats = useMemo(() => {
@@ -200,15 +200,22 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         const avgResolutionHours = resolvedTickets.length > 0 ? Math.round(totalDuration / resolvedTickets.length / (1000 * 60 * 60)) : 0;
 
         return { open, securityIncidents, avgResolutionHours };
-    }, [tickets, tickets.length]);
+    }, [tickets]);
     
     // --- Other Metrics ---
     const healthStats = useMemo(() => {
+        const now = new Date();
+        const nextMonth = new Date();
+        nextMonth.setDate(now.getDate() + 30);
+        
+        const warranties = equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) >= now && new Date(e.warrantyEndDate) <= nextMonth).length;
+        const licenses = softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) >= now && new Date(l.expiryDate) <= nextMonth).length;
+
         return {
-            expiringWarranties: expiringWarranties.length,
-            expiringLicenses: expiringLicenses.length,
+            expiringWarranties: warranties,
+            expiringLicenses: licenses,
         };
-    }, [expiringWarranties, expiringLicenses]);
+    }, [equipment, softwareLicenses]);
     
     const securityStats = useMemo(() => {
         const openCritical = vulnerabilities.filter(v => 
@@ -220,7 +227,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             openCritical,
             total: vulnerabilities.length
         };
-    }, [vulnerabilities, vulnerabilities.length]);
+    }, [vulnerabilities]);
 
     const equipmentByAge = useMemo(() => {
         const now = new Date();
@@ -238,7 +245,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             else ageGroups['> 5 anos']++;
         });
         return Object.entries(ageGroups).map(([name, value]) => ({ name, value }));
-    }, [equipment, equipment.length]);
+    }, [equipment]);
 
     const ticketsByTeam = useMemo(() => {
         const teamMap = new Map(teams.map(t => [t.id, t.name]));
@@ -253,7 +260,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         return Array.from(counts.entries())
             .map(([name, value]) => ({ name, value }))
             .sort((a,b) => b.value - a.value);
-    }, [tickets, tickets.length, teams]);
+    }, [tickets, teams]);
     
     const recentActivity = useMemo(() => {
         const equipmentMap = new Map(equipment.map(e => [e.id, e.description]));
@@ -322,7 +329,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             </div>
                         </div>
                         <button 
-                            onClick={() => onViewItem('nis2.security', { severity: CriticalityLevel.Critical, status: VulnerabilityStatus.Open })}
+                            onClick={() => onViewItem('nis2.security', { severity: 'Crítica', status: 'Open' })}
                             className="w-full sm:w-auto whitespace-nowrap px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md shadow-lg transition-all hover:scale-105"
                         >
                             Resolver Agora
@@ -388,7 +395,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                         value={ticketStats.open} 
                         icon={<FaTicketAlt className="h-6 w-6" />} 
                         color={ticketStats.open > 5 ? "bg-yellow-600" : "bg-blue-600"} 
-                        onClick={() => onViewItem('tickets', { status: [TicketStatus.Requested, TicketStatus.InProgress] })} 
+                        onClick={() => onViewItem('tickets', { status: ['Pedido', 'Em progresso'] })} 
                         subtext="A aguardar resolução"
                     />
                 </div>
@@ -432,7 +439,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             value={healthStats.expiringWarranties} 
                             icon={<FaShieldAlt className="h-5 w-5" />} 
                             color={healthStats.expiringWarranties > 0 ? "bg-yellow-600" : "bg-gray-600"} 
-                            onClick={() => onViewItem('equipment.inventory', {})} 
+                            onClick={() => onViewItem('equipment.inventory', { serialNumber: '' })} 
                             subtext="Nos próximos 30 dias"
                         />
                         <StatCard 
