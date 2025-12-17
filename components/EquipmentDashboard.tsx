@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
+import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest, Ticket, TicketActivity } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, PlusIcon } from './common/Icons';
 import { FaHistory, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -19,17 +20,30 @@ interface EquipmentDashboardProps {
   initialFilter: any;
   onClearInitialFilter: () => void;
   onAssign?: (equipment: Equipment) => void;
-  // FIX: Added missing onAssignMultiple property to resolve TS error in InventoryManager
   onAssignMultiple?: (equipmentList: Equipment[]) => void;
   onUnassign?: (equipmentId: string) => void;
-  onUpdateStatus?: (id: string, status: EquipmentStatus) => void;
   onShowHistory: (equipment: Equipment) => void;
   onEdit?: (equipment: Equipment) => void;
   onDelete?: (id: string) => void;
   onClone?: (equipment: Equipment) => void;
   onCreate?: () => void;
+  onImportAgent?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onManageKeys?: (equipment: Equipment) => void;
+  /* FIX: Added onGenerateReport property to EquipmentDashboardProps */
+  onGenerateReport?: () => void;
+  onUpdateStatus?: (id: string, status: EquipmentStatus) => void;
+  businessServices?: BusinessService[];
+  serviceDependencies?: ServiceDependency[];
+  tickets?: Ticket[];
+  ticketActivities?: TicketActivity[];
+  softwareLicenses?: SoftwareLicense[];
+  licenseAssignments?: LicenseAssignment[];
+  vulnerabilities?: Vulnerability[];
+  suppliers?: Supplier[];
+  procurementRequests?: ProcurementRequest[];
   tooltipConfig?: TooltipConfig;
   onFilterChange?: (filter: any) => void;
+  onViewItem?: (tab: string, filter: any) => void;
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
   onSortChange?: (sort: { key: string, direction: 'ascending' | 'descending' }) => void;
@@ -38,6 +52,8 @@ interface EquipmentDashboardProps {
   page?: number;
   pageSize?: number;
   sort?: { key: string, direction: 'ascending' | 'descending' };
+  accountingCategories?: ConfigItem[];
+  conservationStates?: ConfigItem[];
 }
 
 const getStatusClass = (status: string) => {
@@ -52,6 +68,8 @@ const getStatusClass = (status: string) => {
 
 const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({ 
     equipment, brandMap, equipmentTypeMap, onAssign, onUnassign, onUpdateStatus, assignedEquipmentIds, onShowHistory, onEdit, onDelete, onClone, onCreate,
+    /* FIX: Added onGenerateReport to destructuring */
+    onGenerateReport,
     totalItems = 0, loading = false, page = 1, pageSize = 20, sort, onPageChange, onPageSizeChange, onSortChange, onFilterChange
 }) => {
     
@@ -67,6 +85,12 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <h2 className="text-xl font-semibold text-white">Inventário de Equipamentos</h2>
                 <div className="flex items-center gap-2">
+                    /* FIX: Added Report button if onGenerateReport is provided */
+                    {onGenerateReport && (
+                        <button onClick={onGenerateReport} className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors border border-gray-600">
+                             <ReportIcon /> Relatório
+                        </button>
+                    )}
                     {onCreate && (
                         <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-all font-bold">
                             <PlusIcon /> Adicionar Ativo

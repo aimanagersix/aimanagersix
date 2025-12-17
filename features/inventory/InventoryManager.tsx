@@ -258,32 +258,33 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     instituicoes={appData.instituicoes}
                     initialFilter={dashboardFilter}
                     onClearInitialFilter={() => setDashboardFilter(null)}
-                    onAssign={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); } : undefined}
-                    onAssignMultiple={checkPermission('equipment', 'edit') ? (eqs) => { setEquipmentListToAssign(eqs); setShowAssignMultipleModal(true); } : undefined}
-                    onUnassign={checkPermission('equipment', 'edit') ? async (id) => {
+                    onAssign={checkPermission('equipment', 'edit') ? (eq: Equipment) => { setEquipmentToAssign(eq); setShowAssignModal(true); } : undefined}
+                    onAssignMultiple={checkPermission('equipment', 'edit') ? (eqs: Equipment[]) => { setEquipmentListToAssign(eqs); setShowAssignMultipleModal(true); } : undefined}
+                    onUnassign={checkPermission('equipment', 'edit') ? async (id: string) => {
                         if(window.confirm("Deseja desassociar este equipamento? O estado passará para 'Stock'.")) {
                             await dataService.addAssignment({ equipmentId: id, returnDate: new Date().toISOString().split('T')[0] });
                             fetchEquipment();
                         }
                     } : undefined}
-                    onUpdateStatus={checkPermission('equipment', 'edit') ? async (id, status) => {
+                    onUpdateStatus={checkPermission('equipment', 'edit') ? async (id: string, status: EquipmentStatus) => {
                         await dataService.updateEquipment(id, { status });
                         fetchEquipment();
                     } : undefined}
-                    onShowHistory={(eq) => { setDetailEquipment(eq); }} 
-                    onEdit={checkPermission('equipment', 'edit') ? (eq) => { setEquipmentToEdit(eq); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
-                    onDelete={checkPermission('equipment', 'delete') ? async (id) => { await dataService.deleteEquipment(id); fetchEquipment(); refreshGlobalData(); } : undefined} // ADDED DELETE HANDLER
-                    onClone={checkPermission('equipment', 'create') ? handleCloneEquipment : undefined}
+                    onShowHistory={(eq: Equipment) => { setDetailEquipment(eq); }} 
+                    onEdit={checkPermission('equipment', 'edit') ? (eq: Equipment) => { setEquipmentToEdit(eq); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
+                    onDelete={checkPermission('equipment', 'delete') ? async (id: string) => { await dataService.deleteEquipment(id); fetchEquipment(); refreshGlobalData(); } : undefined} 
+                    onClone={checkPermission('equipment', 'create') ? (eq: Equipment) => handleCloneEquipment(eq) : undefined}
                     onCreate={checkPermission('equipment', 'create') ? () => { setEquipmentToEdit(null); setEquipmentInitialData(null); setShowAddEquipmentModal(true); } : undefined}
-                    onImportAgent={checkPermission('equipment', 'create') ? handleAgentImport : undefined} 
+                    onImportAgent={checkPermission('equipment', 'create') ? (e: React.ChangeEvent<HTMLInputElement>) => handleAgentImport(e) : undefined} 
                     onGenerateReport={checkPermission('reports', 'view') ? () => setReportType('equipment') : undefined}
-                    onManageKeys={checkPermission('licensing', 'edit') ? (eq) => { setDetailEquipment(eq); } : undefined}
+                    onManageKeys={checkPermission('licensing', 'edit') ? (eq: Equipment) => { setDetailEquipment(eq); } : undefined}
                     businessServices={appData.businessServices}
                     serviceDependencies={appData.serviceDependencies}
                     tickets={appData.tickets}
                     ticketActivities={appData.ticketActivities}
                     softwareLicenses={appData.softwareLicenses}
                     licenseAssignments={appData.licenseAssignments}
+                    /* FIX: Removed duplicate vulnerabilities prop */
                     vulnerabilities={appData.vulnerabilities}
                     suppliers={appData.suppliers}
                     procurementRequests={appData.procurementRequests}
@@ -295,7 +296,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                 />
             )}
 
-            {/* ... Rest of the file (Licensing, Procurement) remains unchanged ... */}
             {activeTab === 'licensing' && (
                 <LicenseDashboard 
                     licenses={appData.softwareLicenses}
@@ -305,13 +305,13 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     collaborators={appData.collaborators}
                     brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))}
                     equipmentTypeMap={new Map(appData.equipmentTypes.map((t: EquipmentType) => [t.id, t.name]))}
-                    onEdit={checkPermission('licensing', 'edit') ? (l) => { setLicenseToEdit(l); setShowAddLicenseModal(true); } : undefined}
-                    onDelete={checkPermission('licensing', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteLicense(id); refreshGlobalData(); } } : undefined}
+                    onEdit={checkPermission('licensing', 'edit') ? (l: SoftwareLicense) => { setLicenseToEdit(l); setShowAddLicenseModal(true); } : undefined}
+                    onDelete={checkPermission('licensing', 'delete') ? async (id: string) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteLicense(id); refreshGlobalData(); } } : undefined}
                     onCreate={checkPermission('licensing', 'create') ? () => { setLicenseToEdit(null); setShowAddLicenseModal(true); } : undefined}
                     onGenerateReport={() => setReportType('licensing')}
                     initialFilter={dashboardFilter}
                     onClearInitialFilter={() => setDashboardFilter(null)}
-                    onToggleStatus={checkPermission('licensing', 'edit') ? async (id) => {
+                    onToggleStatus={checkPermission('licensing', 'edit') ? async (id: string) => {
                         const lic = appData.softwareLicenses.find((l: SoftwareLicense) => l.id === id);
                         if (lic) await dataService.updateLicense(id, { status: lic.status === 'Ativo' ? 'Inativo' : 'Ativo' });
                         refreshGlobalData();
@@ -329,9 +329,9 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     suppliers={appData.suppliers}
                     currentUser={currentUser}
                     onCreate={checkPermission('procurement', 'create') ? () => { setProcurementToEdit(null); setShowAddProcurementModal(true); } : undefined}
-                    onEdit={checkPermission('procurement', 'edit') ? (req) => { setProcurementToEdit(req); setShowAddProcurementModal(true); } : undefined}
-                    onReceive={checkPermission('equipment', 'create') ? (req) => { setProcurementToReceive(req); setShowReceiveAssetsModal(true); } : undefined}
-                    onDelete={checkPermission('procurement', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteProcurement(id); refreshGlobalData(); } } : undefined}
+                    onEdit={checkPermission('procurement', 'edit') ? (req: ProcurementRequest) => { setProcurementToEdit(req); setShowAddProcurementModal(true); } : undefined}
+                    onReceive={checkPermission('equipment', 'create') ? (req: ProcurementRequest) => { setProcurementToReceive(req); setShowReceiveAssetsModal(true); } : undefined}
+                    onDelete={checkPermission('procurement', 'delete') ? async (id: string) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteProcurement(id); refreshGlobalData(); } } : undefined}
                     canApprove={canApproveProcurement}
                 />
             )}
@@ -347,16 +347,16 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     initialData={equipmentInitialData} 
                     onSaveBrand={dataService.addBrand}
                     onSaveEquipmentType={dataService.addEquipmentType}
-                    onOpenKitModal={(data) => { setKitInitialData(data); setShowAddEquipmentModal(false); setShowKitModal(true); }}
+                    onOpenKitModal={(data: Partial<Equipment>) => { setKitInitialData(data); setShowAddEquipmentModal(false); setShowKitModal(true); }}
                     suppliers={appData.suppliers}
                     softwareLicenses={appData.softwareLicenses}
                     entidades={appData.entidades}
                     collaborators={appData.collaborators}
                     statusOptions={appData.configEquipmentStatuses}
                     licenseAssignments={appData.licenseAssignments}
-                    onOpenHistory={(eq) => { setDetailEquipment(eq); }}
-                    onManageLicenses={(eq) => { setDetailEquipment(eq); }} 
-                    onOpenAssign={(eq) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
+                    onOpenHistory={(eq: Equipment) => { setDetailEquipment(eq); }}
+                    onManageLicenses={(eq: Equipment) => { setDetailEquipment(eq); }} 
+                    onOpenAssign={(eq: Equipment) => { setEquipmentToAssign(eq); setShowAssignModal(true); }}
                     accountingCategories={appData.configAccountingCategories}
                     conservationStates={appData.configConservationStates}
                     cpuOptions={appData.configCpus}
@@ -387,7 +387,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     tickets={appData.tickets}
                     ticketActivities={appData.ticketActivities}
                     onClose={() => setDetailEquipment(null)}
-                    onEdit={(eq) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipmentModal(true); }}
+                    onEdit={(eq: Equipment) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipmentModal(true); }}
                     businessServices={appData.businessServices}
                     serviceDependencies={appData.serviceDependencies}
                     softwareLicenses={appData.softwareLicenses}
@@ -405,7 +405,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             {showKitModal && (
                 <AddEquipmentKitModal
                     onClose={() => setShowKitModal(false)}
-                    onSaveKit={async (items) => {
+                    onSaveKit={async (items: any[]) => {
                         await dataService.addMultipleEquipment(items);
                         fetchEquipment(); // Refresh list
                         refreshGlobalData(); // Refresh global
@@ -426,7 +426,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     escolasDepartamentos={appData.entidades}
                     collaborators={appData.collaborators}
                     onClose={() => setShowAssignMultipleModal(false)}
-                    onAssign={async (assignment) => {
+                    onAssign={async (assignment: any) => {
                         for (const eq of equipmentListToAssign) {
                             await dataService.addAssignment({ ...assignment, equipmentId: eq.id });
                         }
@@ -440,7 +440,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             {showAddLicenseModal && (
                 <AddLicenseModal 
                     onClose={() => setShowAddLicenseModal(false)}
-                    onSave={async (lic) => {
+                    onSave={async (lic: any) => {
                         if (licenseToEdit) await dataService.updateLicense(licenseToEdit.id, lic);
                         else await dataService.addLicense(lic);
                         refreshGlobalData();
@@ -454,7 +454,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             {showAddProcurementModal && (
                 <AddProcurementModal 
                     onClose={() => setShowAddProcurementModal(false)}
-                    onSave={async (req) => {
+                    onSave={async (req: any) => {
                         if (procurementToEdit) await dataService.updateProcurement(procurementToEdit.id, req);
                         else await dataService.addProcurement(req);
                         refreshGlobalData();
@@ -477,7 +477,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     request={procurementToReceive}
                     brands={appData.brands}
                     types={appData.equipmentTypes}
-                    onSave={async (assets) => {
+                    onSave={async (assets: any[]) => {
                          if (procurementToReceive.resource_type === 'Software') {
                              await dataService.addMultipleLicenses(assets);
                          } else {
