@@ -1,57 +1,10 @@
-
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
-import { extractTextFromImage, getDeviceInfoFromText, isAiConfigured } from '../services/geminiService';
-import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon } from './common/Icons';
-import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired, FaMemory, FaHdd, FaListAlt, FaBroom, FaLaptopCode, FaShieldAlt } from 'react-icons/fa';
-import * as dataService from '../services/dataService';
-
-// Basic Camera Scanner Component
-const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void, onClose: () => void }> = ({ onCapture, onClose }) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [stream, setStream] = useState<MediaStream | null>(null);
-
-    useEffect(() => {
-        const startCamera = async () => {
-            try {
-                const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                setStream(mediaStream);
-                if (videoRef.current) videoRef.current.srcObject = mediaStream;
-            } catch (err) {
-                console.error("Error accessing camera:", err);
-                alert("Erro ao aceder à câmara.");
-                onClose();
-            }
-        };
-        startCamera();
-        return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
-    }, []);
-
-    const capture = () => {
-        if (videoRef.current && canvasRef.current) {
-            const context = canvasRef.current.getContext('2d');
-            if (context) {
-                canvasRef.current.width = videoRef.current.videoWidth;
-                canvasRef.current.height = videoRef.current.videoHeight;
-                context.drawImage(videoRef.current, 0, 0, videoRef.current.videoWidth, videoRef.current.videoHeight);
-                onCapture(canvasRef.current.toDataURL('image/jpeg'));
-            }
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
-            <video ref={videoRef} autoPlay playsInline className="w-full max-w-md" />
-            <canvas ref={canvasRef} className="hidden" />
-            <div className="absolute bottom-10 flex gap-4">
-                <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-full">Cancelar</button>
-                <button onClick={capture} className="px-6 py-2 bg-white text-black rounded-full font-bold">Capturar</button>
-            </div>
-        </div>
-    );
-};
+// FIX: Added SoftwareLicense and LicenseAssignment to imports
+import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, Entidade, Collaborator, ConfigItem, EquipmentStatus, SoftwareLicense, LicenseAssignment } from '../types';
+import { isAiConfigured } from '../services/geminiService';
+import { CameraIcon, SpinnerIcon } from './common/Icons';
+import { FaSave, FaMicrochip, FaMemory, FaHdd, FaShieldAlt, FaEuroSign, FaLandmark, FaBroom, FaLaptopCode } from 'react-icons/fa';
 
 interface AddEquipmentModalProps {
     onClose: () => void;
@@ -73,46 +26,35 @@ interface AddEquipmentModalProps {
     ramOptions?: ConfigItem[];
     storageOptions?: ConfigItem[];
     initialData?: Partial<Equipment> | null;
+    // FIX: Added missing properties to resolve TS error in InventoryManager
+    softwareLicenses?: SoftwareLicense[];
+    licenseAssignments?: LicenseAssignment[];
+    onOpenHistory?: (equipment: Equipment) => void;
+    onManageLicenses?: (equipment: Equipment) => void;
+    onOpenAssign?: (equipment: Equipment) => void;
 }
 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ 
-    onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, 
-    suppliers = [], entidades = [], collaborators = [], 
-    statusOptions = [], accountingCategories = [], conservationStates = [], decommissionReasons = [],
+    onClose, onSave, brands, equipmentTypes, equipmentToEdit, suppliers = [], statusOptions = [], 
+    accountingCategories = [], conservationStates = [], decommissionReasons = [],
     cpuOptions = [], ramOptions = [], storageOptions = [], initialData
 }) => {
     
     const [activeTab, setActiveTab] = useState<'general' | 'hardware' | 'security' | 'financial' | 'legal'>('general');
     const [formData, setFormData] = useState<Partial<Equipment>>({
-        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', 
-        purchaseDate: '', warrantyEndDate: '', invoiceNumber: '', requisitionNumber: '',
-        status: EquipmentStatus.Stock,
-        criticality: CriticalityLevel.Low,
-        confidentiality: CIARating.Low,
-        integrity: CIARating.Low,
-        availability: CIARating.Low,
-        supplier_id: '',
-        acquisitionCost: 0,
-        expectedLifespanYears: 4,
-        os_version: '',
-        cpu_info: '',
-        ram_size: '',
-        disk_info: '',
-        ip_address: '',
-        last_security_update: '',
-        manufacture_date: '',
-        accounting_category_id: '',
-        conservation_state_id: '',
-        decommission_reason_id: '',
-        residual_value: 0
+        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', 
+        macAddressWIFI: '', macAddressCabo: '', purchaseDate: '', warrantyEndDate: '', 
+        invoiceNumber: '', requisitionNumber: '', status: EquipmentStatus.Stock,
+        criticality: CriticalityLevel.Low, confidentiality: CIARating.Low, integrity: CIARating.Low, availability: CIARating.Low,
+        supplier_id: '', acquisitionCost: 0, os_version: '', cpu_info: '', ram_size: '', disk_info: '',
+        ip_address: '', last_security_update: '', manufacture_date: '', accounting_category_id: '',
+        conservation_state_id: '', decommission_reason_id: '', residual_value: 0
     });
     
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [isScanning, setIsScanning] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
     const isEditMode = !!(equipmentToEdit && equipmentToEdit.id);
-    const aiConfigured = isAiConfigured();
 
     useEffect(() => {
         if (equipmentToEdit) {
@@ -122,29 +64,22 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
                 last_security_update: equipmentToEdit.last_security_update || '',
                 manufacture_date: equipmentToEdit.manufacture_date || '',
-                accounting_category_id: equipmentToEdit.accounting_category_id || '',
-                conservation_state_id: equipmentToEdit.conservation_state_id || '',
-                decommission_reason_id: equipmentToEdit.decommission_reason_id || '',
             });
         } else if (initialData) {
              setFormData(prev => ({ ...prev, ...initialData }));
         }
     }, [equipmentToEdit, initialData]);
 
-    const validate = useCallback(() => {
+    const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.serialNumber?.trim()) newErrors.serialNumber = "Nº Série obrigatório.";
         if (!formData.brandId) newErrors.brandId = "Marca obrigatória.";
         if (!formData.typeId) newErrors.typeId = "Tipo obrigatório.";
         if (!formData.description?.trim()) newErrors.description = "Descrição obrigatória.";
         
-        if ((formData.status === 'Abate' || formData.status === 'Retirado (Arquivo)') && !formData.decommission_reason_id) {
-            newErrors.decommission_reason_id = "Motivo de saída obrigatório para este estado.";
-        }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    }, [formData]);
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -157,14 +92,16 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         setIsSaving(true);
         try {
             const dataToSubmit = { ...formData };
-            // Limpeza de strings vazias para o Postgres não dar erro de UUID
-            ['brandId', 'typeId', 'supplier_id', 'accounting_category_id', 'conservation_state_id', 'decommission_reason_id', 'parent_equipment_id'].forEach(f => {
+            // Limpeza de campos UUID para evitar erro de string vazia no Postgres
+            const uuidFields = ['brandId', 'typeId', 'supplier_id', 'accounting_category_id', 'conservation_state_id', 'decommission_reason_id'];
+            uuidFields.forEach(f => {
                 if (dataToSubmit[f as keyof Equipment] === '') (dataToSubmit as any)[f] = null;
             });
+            
             await onSave(dataToSubmit);
             onClose();
         } catch (error: any) {
-            alert(`Erro: ${error.message}`);
+            alert(`Erro ao gravar: ${error.message}`);
         } finally {
             setIsSaving(false);
         }
@@ -175,11 +112,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     return (
         <Modal title={isEditMode ? "Editar Equipamento" : "Novo Equipamento"} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex border-b border-gray-700 mb-6 bg-gray-900/50 rounded-t-lg overflow-x-auto no-scrollbar">
-                <button onClick={() => setActiveTab('general')} className={getTabClass('general')}>Identificação</button>
-                <button onClick={() => setActiveTab('hardware')} className={getTabClass('hardware')}>Hardware / Técnica</button>
-                <button onClick={() => setActiveTab('security')} className={getTabClass('security')}>Segurança & SO</button>
-                <button onClick={() => setActiveTab('financial')} className={getTabClass('financial')}>Financeiro</button>
-                <button onClick={() => setActiveTab('legal')} className={getTabClass('legal')}>Legal & Saída</button>
+                <button type="button" onClick={() => setActiveTab('general')} className={getTabClass('general')}>Geral</button>
+                <button type="button" onClick={() => setActiveTab('hardware')} className={getTabClass('hardware')}>Hardware</button>
+                <button type="button" onClick={() => setActiveTab('security')} className={getTabClass('security')}>Segurança & SO</button>
+                <button type="button" onClick={() => setActiveTab('financial')} className={getTabClass('financial')}>Financeiro</button>
+                <button type="button" onClick={() => setActiveTab('legal')} className={getTabClass('legal')}>Legal & Saída</button>
             </div>
 
             <form onSubmit={handleSaveLocal} className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar pb-4">
@@ -189,10 +126,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Número de Série *</label>
-                                <div className="flex">
-                                    <input type="text" name="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} required />
-                                    <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className="p-2 bg-brand-primary text-white rounded-r-md" title="Scan via Câmera"><CameraIcon /></button>
-                                </div>
+                                <input type="text" name="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 focus:ring-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} required />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Descrição Comercial *</label>
@@ -252,7 +186,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1"><FaHdd/> Armazenamento (Disco)</label>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1"><FaHdd/> Disco / Armazenamento</label>
                                 <select name="disk_info" value={formData.disk_info} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                                     <option value="">-- Selecione --</option>
                                     {storageOptions.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
@@ -265,12 +199,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 <input type="text" name="ip_address" value={formData.ip_address} onChange={handleChange} placeholder="0.0.0.0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono text-sm" />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">MAC Address (Cabo)</label>
-                                <input type="text" name="macAddressCabo" value={formData.macAddressCabo} onChange={handleChange} placeholder="00:00:00..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono text-sm" />
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">MAC WIFI</label>
+                                <input type="text" name="macAddressWIFI" value={formData.macAddressWIFI} onChange={handleChange} placeholder="00:00:00:00:00:00" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono text-sm" />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">MAC Address (WIFI)</label>
-                                <input type="text" name="macAddressWIFI" value={formData.macAddressWIFI} onChange={handleChange} placeholder="00:00:00..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono text-sm" />
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">MAC Cabo (Ethernet)</label>
+                                <input type="text" name="macAddressCabo" value={formData.macAddressCabo} onChange={handleChange} placeholder="00:00:00:00:00:00" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 font-mono text-sm" />
                             </div>
                         </div>
                     </div>
@@ -290,7 +224,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nível de Criticidade (BIA)</label>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Criticidade (BIA organizativo)</label>
                                 <select name="criticality" value={formData.criticality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
                                     {Object.values(CriticalityLevel).map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
@@ -307,9 +241,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     <div className="space-y-4 animate-fade-in">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Fornecedor de Aquisição</label>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Fornecedor</label>
                                 <select name="supplier_id" value={formData.supplier_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                    <option value="">-- Selecione --</option>
+                                    <option value="">-- Selecione Fornecedor --</option>
                                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
                             </div>
@@ -320,7 +254,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nº Fatura / Documento</label>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nº Fatura</label>
                                 <input type="text" name="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                             </div>
                             <div>
@@ -345,26 +279,26 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     <div className="space-y-4 animate-fade-in">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1"><FaLandmark/> Classificador CIBE / SNC-AP</label>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1"><FaLandmark/> Classificador CIBE</label>
                                 <select name="accounting_category_id" value={formData.accounting_category_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                    <option value="">-- Selecione --</option>
+                                    <option value="">-- Selecione Categoria --</option>
                                     {accountingCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Estado de Conservação</label>
                                 <select name="conservation_state_id" value={formData.conservation_state_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                    <option value="">-- Selecione --</option>
+                                    <option value="">-- Selecione Estado --</option>
                                     {conservationStates.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
                             </div>
                         </div>
                         <div className="bg-red-900/10 p-4 rounded border border-red-500/20 mt-4">
-                            <h4 className="text-red-400 font-bold text-sm mb-3 flex items-center gap-2"><FaBroom/> Secção de Abate</h4>
+                            <h4 className="text-red-400 font-bold text-sm mb-3 flex items-center gap-2"><FaBroom/> Abate / Fim de Vida</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Motivo da Saída / Abate</label>
-                                    <select name="decommission_reason_id" value={formData.decommission_reason_id} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.decommission_reason_id ? 'border-red-500' : 'border-gray-600'}`}>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Motivo do Abate</label>
+                                    <select name="decommission_reason_id" value={formData.decommission_reason_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
                                         <option value="">-- Selecione Motivo --</option>
                                         {decommissionReasons.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                     </select>
@@ -382,11 +316,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors" disabled={isSaving}>Cancelar</button>
                     <button type="submit" disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 font-bold shadow-lg transition-all">
                         {isSaving ? <SpinnerIcon className="h-5 w-5" /> : <FaSave />} 
-                        {isEditMode ? "Guardar Alterações" : "Adicionar Equipamento"}
+                        {isEditMode ? "Atualizar Ficha" : "Gravar Equipamento"}
                     </button>
                 </div>
             </form>
-            {isScanning && <CameraScanner onCapture={(d) => { setIsScanning(false); }} onClose={() => setIsScanning(false)} />}
         </Modal>
     );
 };

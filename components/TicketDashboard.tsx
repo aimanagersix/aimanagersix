@@ -141,15 +141,15 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 {loading ? (
                     <div className="p-20 text-center text-gray-500">
                         <FaClock className="animate-spin text-4xl mx-auto mb-4 opacity-20" />
-                        A carregar base de dados de tickets...
+                        A carregar tickets...
                     </div>
                 ) : (
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-800/80 sticky top-0 z-10">
                         <tr>
-                            <th className="px-6 py-4 w-[40%]">Assunto / Detalhes</th>
+                            <th className="px-6 py-4 w-[40%]">Assunto / Categoria</th>
                             <SortableHeader label="Requerente / Local" sortKey="entidadeId" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} />
-                            <SortableHeader label="Criado em" sortKey="requestDate" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} />
+                            <SortableHeader label="Data" sortKey="requestDate" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} />
                             <th className="px-6 py-4">Equipa / Técnico</th>
                             <SortableHeader label="Prioridade" sortKey="priority" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} className="text-center" />
                             <SortableHeader label="Estado" sortKey="status" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} className="text-center" />
@@ -224,7 +224,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                             <tr>
                                 <td colSpan={6} className="text-center py-20 text-gray-500 italic">
                                     <FaTicketAlt className="text-4xl mx-auto mb-3 opacity-10" />
-                                    Nenhum ticket encontrado para os critérios selecionados.
+                                    Nenhum ticket encontrado.
                                 </td>
                             </tr>
                         )}

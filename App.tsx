@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Collaborator, UserRole, ModuleKey, PermissionAction, defaultTooltipConfig, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember
+    Collaborator, UserRole, ModuleKey, PermissionAction, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember
 } from './types';
 import * as dataService from './services/dataService';
 import { useAppData } from './hooks/useAppData';
 import { useLayout } from './contexts/LayoutContext';
 import { getSupabase } from './services/supabaseClient';
-import { FaBars } from 'react-icons/fa';
 
 // Components
 import Header from './components/Header';
@@ -15,7 +14,6 @@ import Sidebar from './components/Sidebar';
 import LoginPage from './components/LoginPage';
 import ConfigurationSetup from './components/ConfigurationSetup';
 import ForgotPasswordModal from './components/ForgotPasswordModal';
-import ResetPasswordModal from './components/ResetPasswordModal';
 
 // Feature Managers (Modules)
 import InventoryManager from './features/inventory/InventoryManager';
@@ -31,16 +29,9 @@ import AgendaDashboard from './components/AgendaDashboard';
 import MapDashboard from './components/MapDashboard';
 import BIReportDashboard from './components/BIReportDashboard';
 
-// Modals (Global or Non-Refactored)
-import { AddTicketModal } from './components/AddTicketModal';
-import ReportModal from './components/ReportModal';
-import UserManualModal from './components/UserManualModal';
-import CalendarModal from './components/CalendarModal';
-import MagicCommandBar from './components/MagicCommandBar';
+// Modals
 import { ChatWidget } from './components/ChatWidget';
 import NotificationsModal from './components/NotificationsModal';
-import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
-import { CollaboratorDetailModal } from './components/CollaboratorDetailModal';
 
 
 export const App: React.FC = () => {
@@ -98,23 +89,17 @@ export const App: React.FC = () => {
     }, [activeTab]);
 
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
-    const [showReportModal, setShowReportModal] = useState(false);
-    const [reportType, setReportType] = useState<string>('equipment');
-    const [showUserManualModal, setShowUserManualModal] = useState(false);
-    const [showCalendarModal, setShowCalendarModal] = useState(false);
     const [showNotificationsModal, setShowNotificationsModal] = useState(false);
     const [showChatWidget, setShowChatWidget] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-    const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
-    const [showProfileModal, setShowProfileModal] = useState(false);
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
 
-    // --- CRITICAL PERMISSION OVERRIDE ---
+    // --- CRITICAL PERMISSION OVERRIDE (SUPERADMIN GOD MODE) ---
     const checkPermission = (module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
         
-        // SuperAdmin can do EVERYTHING
+        // SuperAdmin can do EVERYTHING - Absolute override
         if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) {
             return true;
         }
@@ -182,19 +167,19 @@ export const App: React.FC = () => {
     return (
         <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : 'flex h-screen overflow-hidden'}`}>
             {layoutMode === 'side' ? (
-                 <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={tabConfig} notificationCount={notificationCount} onNotificationClick={() => setShowNotificationsModal(true)} isExpanded={isSidebarExpanded} onHover={setIsSidebarExpanded} onOpenProfile={() => setShowProfileModal(true)} onOpenCalendar={() => setShowCalendarModal(true)} onOpenManual={() => setShowUserManualModal(true)} />
+                 <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={tabConfig} notificationCount={notificationCount} onNotificationClick={() => setShowNotificationsModal(true)} isExpanded={isSidebarExpanded} onHover={setIsSidebarExpanded} />
             ) : (
-                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={tabConfig} notificationCount={notificationCount} onNotificationClick={() => setShowNotificationsModal(true)} onOpenProfile={() => setShowProfileModal(true)} onOpenCalendar={() => setShowCalendarModal(true)} onOpenManual={() => setShowUserManualModal(true)} />
+                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={tabConfig} notificationCount={notificationCount} onNotificationClick={() => setShowNotificationsModal(true)} />
             )}
 
             <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar`}>
                 <div className={`w-full max-w-[1800px] mx-auto p-4 md:p-8`}>
                     {activeTab === 'overview' && <OverviewDashboard equipment={appData.equipment} instituicoes={appData.instituicoes} entidades={appData.entidades} assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={appData.tickets} collaborators={appData.collaborators} teams={appData.teams} expiringWarranties={[]} expiringLicenses={[]} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} vulnerabilities={appData.vulnerabilities} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} onGenerateComplianceReport={() => {}} onRefresh={refreshData} checkPermission={checkPermission} />}
                     {activeTab === 'overview.smart' && canViewSmartDashboard && <SmartDashboard tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions} trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser} />}
-                    {activeTab.startsWith('tickets') && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} />}
-                    {(activeTab.startsWith('equipment') || activeTab === 'licensing') && <InventoryManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} />}
-                    {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && <OrganizationManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} currentUser={currentUser} setActiveTab={setActiveTab} onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }} setReportType={setReportType} />}
-                    {activeTab.startsWith('nis2') && <ComplianceManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} />}
+                    {activeTab.startsWith('tickets') && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
+                    {(activeTab.startsWith('equipment') || activeTab === 'licensing') && <InventoryManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} />}
+                    {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && <OrganizationManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} currentUser={currentUser} setActiveTab={setActiveTab} onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }} setReportType={() => {}} />}
+                    {activeTab.startsWith('nis2') && <ComplianceManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
                     {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={refreshData} />}
                     {activeTab === 'reports' && <BIReportDashboard appData={appData} />}
                     {activeTab === 'tools.agenda' && <AgendaDashboard />}
