@@ -74,7 +74,6 @@ export const App: React.FC = () => {
     }, [isConfigured, currentUser]);
 
     const notificationCount = useMemo(() => {
-        // Simple mock count for now
         return appData.tickets.filter(t => t.status === 'Pedido').length;
     }, [appData.tickets]);
     
@@ -100,7 +99,6 @@ export const App: React.FC = () => {
 
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
-    // FIX: Changed state type to string to match child component props expectation of (type: string) => void
     const [reportType, setReportType] = useState<string>('equipment');
     const [showUserManualModal, setShowUserManualModal] = useState(false);
     const [showCalendarModal, setShowCalendarModal] = useState(false);
