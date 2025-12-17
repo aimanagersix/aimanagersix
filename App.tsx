@@ -116,6 +116,15 @@ export const App: React.FC = () => {
     const isBasic = !checkPermission('equipment', 'view') && !checkPermission('organization', 'view');
     const canViewSmartDashboard = checkPermission('dashboard_smart', 'view');
 
+    const hasAnyComplianceTab = useMemo(() => 
+        checkPermission('compliance_bia', 'view') || 
+        checkPermission('compliance_security', 'view') || 
+        checkPermission('compliance_backups', 'view') || 
+        checkPermission('compliance_resilience', 'view') || 
+        checkPermission('compliance_training', 'view') || 
+        checkPermission('compliance_policies', 'view'), 
+    [currentUser, appData.customRoles]);
+
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
         'overview.smart': canViewSmartDashboard ? 'C-Level Dashboard' : undefined,
@@ -128,7 +137,15 @@ export const App: React.FC = () => {
         'organizacao.suppliers': checkPermission('suppliers', 'view') ? 'Fornecedores' : undefined,
         'collaborators': checkPermission('organization', 'view') ? 'Colaboradores' : undefined,
         'tickets': checkPermission('tickets', 'view') ? { title: 'Tickets', list: 'Lista de Tickets' } : undefined,
-        'nis2': checkPermission('compliance_bia', 'view') ? { title: 'Compliance', bia: 'BIA', security: 'Segurança', backups: 'Backups' } : undefined,
+        'nis2': hasAnyComplianceTab ? {
+            title: 'Compliance',
+            bia: checkPermission('compliance_bia', 'view') ? 'BIA' : undefined,
+            security: checkPermission('compliance_security', 'view') ? 'Segurança' : undefined,
+            backups: checkPermission('compliance_backups', 'view') ? 'Backups' : undefined,
+            resilience: checkPermission('compliance_resilience', 'view') ? 'Resiliência' : undefined,
+            training: checkPermission('compliance_training', 'view') ? 'Formações' : undefined,
+            policies: checkPermission('compliance_policies', 'view') ? 'Políticas' : undefined,
+        } : undefined,
         'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,
         'tools': { title: 'Tools', agenda: 'Agenda', map: 'Mapa' },
         'settings': checkPermission('settings', 'view') ? 'Configurações' : undefined
