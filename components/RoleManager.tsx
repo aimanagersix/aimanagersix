@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
 import { FaPlus, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint, FaShieldAlt } from 'react-icons/fa';
-// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { EditIcon, FaTrash as DeleteIcon, FaSave, FaTrash } from './common/Icons';
 import * as dataService from '../services/dataService';
 
@@ -11,7 +10,6 @@ interface RoleManagerProps {
     onRefresh: () => void;
 }
 
-// Define the tree structure for the permissions UI
 interface PermissionGroup {
     label: string;
     items: { key: ModuleKey; label: string }[];
@@ -56,56 +54,23 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
         ]
     },
     {
-        label: 'Configuração: Ativos & Hardware',
+        label: 'Tabelas de Configuração',
         items: [
-            { key: 'brands', label: 'Marcas (Fabricantes)' },
+            { key: 'brands', label: 'Marcas' },
             { key: 'equipment_types', label: 'Tipos de Equipamento' },
-            { key: 'config_equipment_statuses', label: 'Estados de Equipamento' },
-            { key: 'config_cpus', label: 'Processadores (CPU)' },
-            { key: 'config_ram_sizes', label: 'Memória RAM' },
-            { key: 'config_storage_types', label: 'Armazenamento (Discos)' },
-            { key: 'config_software_categories', label: 'Categorias de Software' },
-            { key: 'config_software_products', label: 'Catálogo de Software' },
-            { key: 'config_decommission_reasons', label: 'Motivos de Abate' },
-        ]
-    },
-    {
-        label: 'Configuração: Suporte',
-        items: [
             { key: 'ticket_categories', label: 'Categorias de Tickets' },
             { key: 'security_incident_types', label: 'Tipos de Incidente' },
-        ]
-    },
-    {
-        label: 'Configuração: Pessoas & Entidades',
-        items: [
-            { key: 'contact_roles', label: 'Funções de Contacto' },
-            { key: 'contact_titles', label: 'Tratos (Honoríficos)' },
             { key: 'config_custom_roles', label: 'Perfis de Acesso (RBAC)' },
-            { key: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação' },
-            { key: 'config_accounting_categories', label: 'Classificador Contabilístico (CIBE)' },
-            { key: 'config_conservation_states', label: 'Estados de Conservação' },
-        ]
-    },
-    {
-        label: 'Configuração: Sistema & Compliance',
-        items: [
-            { key: 'config_automation', label: 'Automação & Integrações' },
-            { key: 'config_criticality_levels', label: 'Níveis de Criticidade' },
-            { key: 'config_cia_ratings', label: 'Classificação CIA' },
-            { key: 'config_service_statuses', label: 'Estados de Serviço (BIA)' },
-            { key: 'config_backup_types', label: 'Tipos de Backup' },
-            { key: 'config_training_types', label: 'Tipos de Formação' },
-            { key: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência' },
-            { key: 'document_templates', label: 'Modelos de Documentos (PDF)' },
         ]
     }
 ];
 
+// ADICIONADO: Coluna 'manage' (Gerir)
 const ACTIONS: { key: PermissionAction; label: string }[] = [
     { key: 'view', label: 'Ver' },
     { key: 'create', label: 'Criar' },
     { key: 'edit', label: 'Editar' },
+    { key: 'manage', label: 'Gerir' },
     { key: 'delete', label: 'Apagar' },
 ];
 
@@ -116,11 +81,8 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const [requiresMfa, setRequiresMfa] = useState(false);
     const [newRoleName, setNewRoleName] = useState('');
     const [showNewRoleInput, setShowNewRoleInput] = useState(false);
-    
-    // State for collapsible groups
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-    // Select first role on load if available
     useEffect(() => {
         if (!selectedRole && roles.length > 0) {
             setSelectedRole(roles[0]);
@@ -129,7 +91,6 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
 
     useEffect(() => {
         if (selectedRole) {
-            // Deep copy permissions to avoid reference issues
             setEditedPermissions(JSON.parse(JSON.stringify(selectedRole.permissions || {})));
             setRequiresMfa(selectedRole.requires_mfa || false);
         }
@@ -143,7 +104,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         setEditedPermissions(prev => ({
             ...prev,
             [module]: {
-                ...(prev[module] || { view: false, create: false, edit: false, delete: false }),
+                ...(prev[module] || { view: false, create: false, edit: false, manage: false, delete: false }),
                 [action]: value
             }
         }));
@@ -165,9 +126,9 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const handleCreateRole = async () => {
         if (!newRoleName.trim()) return;
         try {
-            const newRole = await dataService.addCustomRole({
+            await dataService.addCustomRole({
                 name: newRoleName.trim(),
-                permissions: {}, // Start empty
+                permissions: {},
                 is_system: false
             });
             setNewRoleName('');
@@ -178,25 +139,13 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         }
     };
 
-    const handleDeleteRole = async (id: string) => {
-        if (!confirm("Tem a certeza? Utilizadores com este perfil ficarão sem acesso.")) return;
-        try {
-            await dataService.deleteCustomRole(id);
-            if (selectedRole?.id === id) setSelectedRole(null);
-            onRefresh();
-        } catch (e) {
-            alert("Erro ao apagar perfil.");
-        }
-    };
-
     return (
         <div className="flex flex-col md:flex-row bg-surface-dark text-white min-h-[600px]">
-            {/* Sidebar List - Mobile top, Desktop side */}
             <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-700 flex flex-col bg-gray-900/50 flex-shrink-0">
-                <div className="p-4 border-b border-gray-700 flex-shrink-0">
+                <div className="p-4 border-b border-gray-700">
                     <h3 className="font-bold flex items-center gap-2"><FaShieldAlt className="text-purple-500"/> Perfis de Acesso</h3>
                 </div>
-                <div className="p-2 space-y-1">
+                <div className="p-2 space-y-1 overflow-y-auto">
                     {roles.map(role => (
                         <div 
                             key={role.id}
@@ -204,28 +153,18 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                             className={`flex justify-between items-center p-3 rounded cursor-pointer transition-colors ${selectedRole?.id === role.id ? 'bg-brand-primary text-white' : 'hover:bg-gray-800 text-gray-400'}`}
                         >
                             <span className="font-medium text-sm">{role.name}</span>
-                            {role.is_system && <FaLock className="h-3 w-3 opacity-50" title="Sistema (Não apagável)" />}
+                            {role.is_system && <FaLock className="h-3 w-3 opacity-50" />}
                         </div>
                     ))}
                 </div>
                 <div className="p-3 border-t border-gray-700 mt-auto">
                     {!showNewRoleInput ? (
-                        <button 
-                            onClick={() => setShowNewRoleInput(true)}
-                            className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 p-2 rounded text-sm text-gray-300 border border-gray-600"
-                        >
+                        <button onClick={() => setShowNewRoleInput(true)} className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 p-2 rounded text-sm text-gray-300 border border-gray-600">
                             <FaPlus /> Novo Perfil
                         </button>
                     ) : (
                         <div className="flex gap-2">
-                            <input 
-                                type="text" 
-                                value={newRoleName} 
-                                onChange={(e) => setNewRoleName(e.target.value)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded px-2 text-sm"
-                                placeholder="Nome..."
-                                autoFocus
-                            />
+                            <input type="text" value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-2 text-sm" placeholder="Nome..." autoFocus />
                             <button onClick={handleCreateRole} className="bg-green-600 p-2 rounded text-white"><FaCheck/></button>
                             <button onClick={() => setShowNewRoleInput(false)} className="bg-red-600 p-2 rounded text-white"><FaTimes/></button>
                         </div>
@@ -233,132 +172,68 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                 </div>
             </div>
 
-            {/* Permissions Matrix */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col overflow-hidden">
                 {selectedRole ? (
                     <>
-                        <div className="p-4 md:p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface-dark gap-4">
+                        <div className="p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-center bg-surface-dark gap-4">
                             <div>
-                                <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
+                                <h2 className="text-2xl font-bold flex items-center gap-3">
                                     {selectedRole.name}
-                                    {selectedRole.is_system && <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded border border-gray-600">Sistema</span>}
+                                    {selectedRole.is_system && <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">Sistema</span>}
                                 </h2>
-                                <p className="text-xs md:text-sm text-gray-400 mt-1">Defina as permissões granulares para este perfil.</p>
+                                <p className="text-sm text-gray-400 mt-1">Configure o acesso aos módulos.</p>
                             </div>
-                            <div className="flex gap-3 w-full sm:w-auto">
-                                {!selectedRole.is_system && (
-                                    <button 
-                                        onClick={() => handleDeleteRole(selectedRole.id)}
-                                        className="px-3 py-2 bg-red-900/20 text-red-400 border border-red-500/30 rounded hover:bg-red-900/40 text-xs md:text-sm flex items-center gap-2 flex-1 sm:flex-none justify-center"
-                                    >
-                                        <FaTrash /> <span className="hidden sm:inline">Apagar</span>
-                                    </button>
-                                )}
+                            <div className="flex gap-3">
                                 {isEditing ? (
                                     <>
-                                        <button onClick={() => setIsEditing(false)} className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 text-xs md:text-sm">Cancelar</button>
-                                        <button onClick={handleSavePermissions} className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-500 flex items-center gap-2 text-xs md:text-sm">
+                                        <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
+                                        <button onClick={handleSavePermissions} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 flex items-center gap-2">
                                             <FaSave /> Guardar
                                         </button>
                                     </>
                                 ) : (
-                                    <button onClick={() => setIsEditing(true)} className="px-3 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2 text-xs md:text-sm flex-1 sm:flex-none justify-center">
-                                        <EditIcon /> Editar
+                                    <button onClick={() => setIsEditing(true)} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2">
+                                        <EditIcon /> Editar Permissões
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        <div className="flex-1 p-4 md:p-6">
-                             {!isEditing && (
-                                <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded flex items-center gap-2 text-xs md:text-sm text-blue-200">
-                                    <FaInfoCircle /> 
-                                    <span>Modo de Leitura. Clique em "Editar" para alterar.</span>
-                                </div>
-                            )}
-                            
-                            <div className={`p-4 rounded border mb-6 ${requiresMfa ? 'bg-purple-900/20 border-purple-500/50' : 'bg-gray-800/50 border-gray-700'}`}>
-                                <label className="flex items-center cursor-pointer">
-                                    <input 
-                                        type="checkbox"
-                                        checked={requiresMfa}
-                                        onChange={(e) => setRequiresMfa(e.target.checked)}
-                                        disabled={!isEditing}
-                                        className="h-5 w-5 rounded border-gray-500 bg-gray-700 text-purple-500 focus:ring-purple-600"
-                                    />
-                                    <div className="ml-3">
-                                        <span className="text-sm font-bold text-white flex items-center gap-2"><FaFingerprint className="text-purple-400" /> Exigir Autenticação de 2 Fatores (MFA)</span>
-                                        <p className="text-xs text-gray-400 mt-1">Se ativado, utilizadores com este perfil serão forçados a configurar e usar 2FA para fazer login.</p>
-                                    </div>
-                                </label>
-                            </div>
-
+                        <div className="flex-1 overflow-y-auto p-6">
                             <div className="space-y-6 pb-10">
                                 {PERMISSION_GROUPS.map((group, gIdx) => (
                                     <div key={gIdx} className="border border-gray-700 rounded-lg overflow-hidden">
-                                        <div 
-                                            className="bg-gray-800 p-3 flex justify-between items-center cursor-pointer hover:bg-gray-700 transition-colors"
-                                            onClick={() => toggleGroup(group.label)}
-                                        >
+                                        <div className="bg-gray-800 p-3 flex justify-between items-center cursor-pointer" onClick={() => toggleGroup(group.label)}>
                                             <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wider">{group.label}</h4>
                                             {collapsedGroups[group.label] ? <FaChevronRight className="text-gray-500"/> : <FaChevronDown className="text-gray-500"/>}
                                         </div>
                                         
                                         {!collapsedGroups[group.label] && (
                                             <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse bg-gray-900/30 min-w-[500px]">
+                                            <table className="w-full text-left border-collapse bg-gray-900/30">
                                                 <thead>
                                                     <tr>
-                                                        <th className="p-3 border-b border-gray-700 text-gray-500 font-medium text-xs w-1/3">Módulo / Tabela</th>
+                                                        <th className="p-3 border-b border-gray-700 text-gray-500 font-medium text-xs w-1/3">Módulo</th>
                                                         {ACTIONS.map(action => (
-                                                            <th key={action.key} className="p-3 border-b border-gray-700 text-gray-500 font-medium text-xs text-center">
-                                                                {action.label}
-                                                            </th>
+                                                            <th key={action.key} className="p-3 border-b border-gray-700 text-gray-500 font-medium text-xs text-center">{action.label}</th>
                                                         ))}
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {group.items.map(item => (
                                                         <tr key={item.key} className="hover:bg-gray-800/50 border-b border-gray-800 last:border-0">
-                                                            <td className="p-3 text-sm font-medium text-gray-300 pl-4">
-                                                                {item.label}
-                                                            </td>
-                                                            {/* Custom Logic for Dashboard Widgets: Only show 'View' checkbox */}
-                                                            {item.key.startsWith('widget_') ? (
-                                                                 <td colSpan={4} className="p-3 text-center">
-                                                                    <label className={`inline-flex items-center justify-center w-5 h-5 rounded border ${isEditing ? 'cursor-pointer hover:border-brand-secondary' : 'cursor-default opacity-50'} ${editedPermissions[item.key]?.['view'] ? 'bg-green-600 border-green-500' : 'bg-gray-800 border-gray-600'}`}>
-                                                                        {isEditing ? (
-                                                                            <input 
-                                                                                type="checkbox" 
-                                                                                className="hidden"
-                                                                                checked={editedPermissions[item.key]?.['view'] || false}
-                                                                                onChange={(e) => handlePermissionChange(item.key, 'view', e.target.checked)}
-                                                                            />
-                                                                        ) : null}
-                                                                        {editedPermissions[item.key]?.['view'] && <FaCheck className="text-white text-[10px]" />}
-                                                                    </label>
-                                                                    <span className="text-xs text-gray-500 ml-2">Visível no Dashboard</span>
-                                                                 </td>
-                                                            ) : (
-                                                                ACTIONS.map(action => {
-                                                                    const isChecked = editedPermissions[item.key]?.[action.key] || false;
-                                                                    return (
-                                                                        <td key={action.key} className="p-3 text-center">
-                                                                            <label className={`inline-flex items-center justify-center w-5 h-5 rounded border ${isEditing ? 'cursor-pointer hover:border-brand-secondary' : 'cursor-default opacity-50'} ${isChecked ? 'bg-green-600 border-green-500' : 'bg-gray-800 border-gray-600'}`}>
-                                                                                {isEditing ? (
-                                                                                    <input 
-                                                                                        type="checkbox" 
-                                                                                        className="hidden"
-                                                                                        checked={isChecked}
-                                                                                        onChange={(e) => handlePermissionChange(item.key, action.key, e.target.checked)}
-                                                                                    />
-                                                                                ) : null}
-                                                                                {isChecked && <FaCheck className="text-white text-[10px]" />}
-                                                                            </label>
-                                                                        </td>
-                                                                    );
-                                                                })
-                                                            )}
+                                                            <td className="p-3 text-sm font-medium text-gray-300 pl-4">{item.label}</td>
+                                                            {ACTIONS.map(action => (
+                                                                <td key={action.key} className="p-3 text-center">
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={editedPermissions[item.key]?.[action.key] || false}
+                                                                        onChange={(e) => handlePermissionChange(item.key, action.key, e.target.checked)}
+                                                                        disabled={!isEditing}
+                                                                        className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-brand-primary focus:ring-brand-secondary disabled:opacity-30"
+                                                                    />
+                                                                </td>
+                                                            ))}
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -371,9 +246,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                         </div>
                     </>
                 ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500 p-10">
-                        Selecione um perfil para gerir.
-                    </div>
+                    <div className="flex items-center justify-center h-full text-gray-500">Selecione um perfil.</div>
                 )}
             </div>
         </div>

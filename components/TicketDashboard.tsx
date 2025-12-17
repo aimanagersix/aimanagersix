@@ -1,10 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategory, TicketCategoryItem, SecurityIncidentType, Supplier } from '../types';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentType, Supplier, CriticalityLevel } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers } from './common/Icons';
-import { FaPaperclip } from 'react-icons/fa';
 import Pagination from './common/Pagination';
-import * as dataService from '../services/dataService';
 import SortableHeader from './common/SortableHeader';
 
 interface TicketDashboardProps {
@@ -25,8 +23,6 @@ interface TicketDashboardProps {
   onGenerateSecurityReport?: (ticket: Ticket) => void;
   categories: TicketCategoryItem[];
   onCreate?: () => void;
-  
-  // Server-Side Pagination Props
   totalItems?: number;
   loading?: boolean;
   page?: number;
@@ -47,6 +43,35 @@ const getStatusClass = (status: TicketStatus) => {
     }
 };
 
+const getPriorityClass = (priority?: string) => {
+    switch (priority) {
+        case 'Crítica': return 'text-red-500 font-bold';
+        case 'Alta': return 'text-orange-400 font-bold';
+        case 'Média': return 'text-yellow-400';
+        default: return 'text-gray-400';
+    }
+};
+
+const NIS2Alerts: React.FC<{ ticket: Ticket }> = ({ ticket }) => {
+    const isSecurity = !!ticket.securityIncidentType || ticket.category?.toLowerCase().includes('segurança');
+    if (!isSecurity || ticket.status === TicketStatus.Finished) return null;
+
+    const requestDate = new Date(ticket.requestDate);
+    const now = new Date();
+    const diffHours = Math.floor((now.getTime() - requestDate.getTime()) / (1000 * 60 * 60));
+
+    return (
+        <div className="flex gap-2 mt-2">
+            <div className={`text-[10px] px-2 py-0.5 rounded flex items-center gap-1 border ${diffHours >= 24 ? 'bg-red-900/40 text-red-400 border-red-500/50' : 'bg-green-900/20 text-green-400 border-green-500/30'}`}>
+                <FaClock /> 24h: {diffHours >= 24 ? 'ATRASADO' : `${24 - diffHours}h restantes`}
+            </div>
+            <div className={`text-[10px] px-2 py-0.5 rounded flex items-center gap-1 border ${diffHours >= 72 ? 'bg-red-900/40 text-red-400 border-red-500/50' : 'bg-blue-900/20 text-blue-400 border-blue-500/30'}`}>
+                <FaLandmark /> 72h: {diffHours >= 72 ? 'ATRASADO' : `${72 - diffHours}h restantes`}
+            </div>
+        </div>
+    );
+};
+
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
     tickets, escolasDepartamentos: entidades, collaborators, teams, suppliers = [], equipment, 
     onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, 
@@ -58,6 +83,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     
     const entidadMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
+    const collabMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     
     useEffect(() => {
         if (initialFilter) {
@@ -108,28 +134,46 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
-                            <th className="px-6 py-3">Entidade</th>
-                            <SortableHeader label="Assunto" sortKey="title" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} />
+                            <th className="px-6 py-3">Assunto / Detalhes</th>
+                            <SortableHeader label="Entidade" sortKey="entidadeId" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} />
                             <SortableHeader label="Data" sortKey="requestDate" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} />
-                            <th className="px-6 py-3">Equipa</th>
-                            <SortableHeader label="Estado" sortKey="status" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} />
-                            <th className="px-6 py-3 text-center">Ações</th>
+                            <th className="px-6 py-3">Equipa / Técnico</th>
+                            <SortableHeader label="Prioridade" sortKey="priority" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Estado" sortKey="status" currentSort={sort || {key:'', direction:'ascending'}} onSort={handleSort} className="text-center" />
                         </tr>
                     </thead>
                     <tbody>
                         {tickets.length > 0 ? tickets.map((ticket) => (
-                            <tr key={ticket.id} className="border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer" onClick={() => onOpenActivities && onOpenActivities(ticket)}>
-                                <td className="px-6 py-4">{entidadMap.get(ticket.entidadeId || '') || 'N/A'}</td>
-                                <td className="px-6 py-4 font-bold text-white max-w-xs truncate">{ticket.title}</td>
-                                <td className="px-6 py-4">{new Date(ticket.requestDate).toLocaleDateString()}</td>
-                                <td className="px-6 py-4">{teamMap.get(ticket.team_id || '') || '—'}</td>
+                            <tr key={ticket.id} className="border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer transition-colors" onClick={() => onOpenActivities && onOpenActivities(ticket)}>
                                 <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 rounded text-xs border ${getStatusClass(ticket.status)}`}>{ticket.status}</span>
+                                    <div className="font-bold text-white max-w-md truncate mb-1">{ticket.title}</div>
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                        <span className="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-400 border border-gray-700 uppercase">{ticket.category}</span>
+                                        {ticket.securityIncidentType && (
+                                            <span className="text-[10px] bg-red-900/20 px-1.5 py-0.5 rounded text-red-400 border border-red-500/30 flex items-center gap-1 font-bold">
+                                                <FaShieldAlt /> {ticket.securityIncidentType}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <NIS2Alerts ticket={ticket} />
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="text-white">{entidadMap.get(ticket.entidadeId || '') || 'N/A'}</div>
+                                    <div className="text-[10px] text-gray-500">Por: {collabMap.get(ticket.collaboratorId)}</div>
+                                </td>
+                                <td className="px-6 py-4 text-xs whitespace-nowrap">
+                                    {new Date(ticket.requestDate).toLocaleDateString()}
+                                    <div className="text-gray-600">{new Date(ticket.requestDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="text-brand-secondary font-medium">{teamMap.get(ticket.team_id || '') || '—'}</div>
+                                    <div className="text-[10px] text-gray-500">{collabMap.get(ticket.technicianId || '') || 'Não atribuído'}</div>
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                    <div className="flex justify-center gap-3">
-                                        {onEdit && <button onClick={(e) => { e.stopPropagation(); onEdit(ticket); }} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>}
-                                    </div>
+                                    <span className={`text-xs ${getPriorityClass(ticket.priority)}`}>{ticket.priority || 'Normal'}</span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${getStatusClass(ticket.status)}`}>{ticket.status}</span>
                                 </td>
                             </tr>
                         )) : <tr><td colSpan={6} className="text-center py-8">Nenhum ticket encontrado.</td></tr>}
