@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Collaborator, UserRole, ModuleKey, PermissionAction, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember
+    Collaborator, UserRole, ModuleKey, PermissionAction, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember, Assignment
 } from './types';
 import * as dataService from './services/dataService';
 import { useAppData } from './hooks/useAppData';
@@ -121,6 +121,30 @@ export const App: React.FC = () => {
         checkPermission('compliance_policies', 'view'), 
     [currentUser, appData.customRoles]);
 
+    // Lógica para dados de notificações (Garantias e Licenças a expirar)
+    const notificationsData = useMemo(() => {
+        const now = new Date();
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(now.getDate() + 30);
+
+        const expiringWarranties = appData.equipment.filter(e => {
+            if (!e.warrantyEndDate) return false;
+            const d = new Date(e.warrantyEndDate);
+            return d >= now && d <= thirtyDaysFromNow;
+        });
+
+        const expiringLicenses = appData.softwareLicenses.filter(l => {
+            if (!l.expiryDate) return false;
+            const d = new Date(l.expiryDate);
+            return d >= now && d <= thirtyDaysFromNow;
+        });
+
+        // Tickets pendentes (Estado 'Pedido')
+        const pendingTickets = appData.tickets.filter(t => t.status === 'Pedido');
+
+        return { expiringWarranties, expiringLicenses, pendingTickets };
+    }, [appData.equipment, appData.softwareLicenses, appData.tickets]);
+
     // ORDEM ALTERADA CONFORME PEDIDO: Equipamento, Licenças, Aquisições
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
@@ -231,6 +255,24 @@ export const App: React.FC = () => {
 
             <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={async (rxId, content) => { await dataService.addMessage({ senderId: currentUser.id, receiverId: rxId, content, timestamp: new Date().toISOString(), read: false }); refreshData(); }} onMarkMessagesAsRead={(senderId) => dataService.markMessagesAsRead(senderId)} isOpen={showChatWidget} onToggle={() => setShowChatWidget(!showChatWidget)} activeChatCollaboratorId={activeChatCollaboratorId} onSelectConversation={setActiveChatCollaboratorId} unreadMessagesCount={0} onlineUserIds={onlineUserIds} />
             
+            {showNotificationsModal && (
+                <NotificationsModal 
+                    onClose={() => setShowNotificationsModal(false)}
+                    expiringWarranties={notificationsData.expiringWarranties}
+                    expiringLicenses={notificationsData.expiringLicenses}
+                    teamTickets={notificationsData.pendingTickets}
+                    collaborators={appData.collaborators}
+                    teams={appData.teams}
+                    onViewItem={(t, f) => {
+                        setActiveTab(t);
+                        setDashboardFilter(f);
+                        setShowNotificationsModal(false);
+                    }}
+                    currentUser={currentUser}
+                    licenseAssignments={appData.licenseAssignments}
+                />
+            )}
+
             {showCalendarModal && (
                 <CalendarModal 
                     onClose={() => setShowCalendarModal(false)}
