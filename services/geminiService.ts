@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { getSupabase } from "./supabaseClient";
 import { VulnerabilityScanConfig } from "../types";
@@ -9,14 +10,10 @@ const flashModel = "gemini-2.5-flash";
 const proModel = "gemini-3-pro-preview";
 
 // --- SECURITY LOGIC ---
-// If API_KEY is present in env (Dev mode), we use direct client.
-// If NOT present, we fall back to Supabase Edge Function (Prod/Secure mode).
 const API_KEY = process.env.API_KEY;
 const USE_PROXY = !API_KEY;
 
 export const isAiConfigured = (): boolean => {
-    // In Proxy mode, we assume the backend is configured. 
-    // In Direct mode, we need the key.
     return USE_PROXY || (!!API_KEY && API_KEY.length > 0);
 };
 
@@ -31,8 +28,6 @@ const getAiClient = (): GoogleGenAI => {
     return aiInstance;
 };
 
-// --- HELPER: CENTRALIZED REQUEST HANDLER ---
-// This function decides whether to call Google directly or via Supabase Proxy
 const runGeminiRequest = async (
     modelName: string, 
     prompt: string, 
@@ -40,8 +35,6 @@ const runGeminiRequest = async (
     schema?: any,
     responseMimeType?: string
 ): Promise<string> => {
-    
-    // 1. SECURE MODE (PROXY VIA SUPABASE)
     if (USE_PROXY) {
         const supabase = getSupabase();
         const { data, error } = await supabase.functions.invoke('ai-proxy', {
@@ -60,17 +53,11 @@ const runGeminiRequest = async (
             console.error("Edge Function Error:", error);
             throw new Error(`Erro no servidor de IA: ${error.message}`);
         }
-        
-        // The Edge Function should return { text: "..." }
         return data?.text || "";
     }
 
-    // 2. DEV MODE (DIRECT CLIENT)
     const ai = getAiClient();
-    
     const parts: any[] = [];
-    
-    // Add Images
     images.forEach(img => {
         parts.push({
             inlineData: {
@@ -79,8 +66,6 @@ const runGeminiRequest = async (
             },
         });
     });
-
-    // Add Text Prompt
     parts.push({ text: prompt });
 
     const config: any = {};
@@ -95,9 +80,6 @@ const runGeminiRequest = async (
 
     return response.text ? response.text.trim() : "";
 };
-
-
-// --- EXPORTED FUNCTIONS (Refactored to use runGeminiRequest) ---
 
 export const extractTextFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
   try {
@@ -241,7 +223,15 @@ export const analyzeTicketRequest = async (description: string): Promise<TicketT
 
 export const parseSecurityAlert = async (rawJson: string): Promise<any> => {
     try {
-        const prompt = `Act as SOC Analyst. Parse security alert JSON: ${rawJson.substring(0,10000)}. Extract title, description, severity (Baixa/Média/Alta/Crítica), affectedAsset, incidentType, sourceSystem.`;
+        const prompt = `Act as SOC Analyst. Parse security alert JSON (often from Sophos Central): ${rawJson.substring(0,10000)}. 
+        Extract:
+        - title: Short summary
+        - description: Details of the threat
+        - severity: map to (Baixa/Média/Alta/Crítica). High/Critical in source = Crítica.
+        - affectedAsset: This is the HOSTNAME or COMPUTER NAME found in fields like 'full_name', 'hostname', or 'endpoint_id'.
+        - incidentType: Type of threat (Malware, Ransomware, etc.)
+        - sourceSystem: The system that sent it (Sophos, etc.)`;
+        
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -252,12 +242,12 @@ export const parseSecurityAlert = async (rawJson: string): Promise<any> => {
                 incidentType: { type: Type.STRING },
                 sourceSystem: { type: Type.STRING }
             },
-            required: ["title", "description"]
+            required: ["title", "description", "affectedAsset"]
         };
         const jsonStr = await runGeminiRequest(proModel, prompt, [], schema, "application/json");
         return JSON.parse(jsonStr || "{}");
     } catch (error) {
-        return { title: "Parse Failed", description: rawJson };
+        return { title: "Parse Failed", description: rawJson, affectedAsset: "Unknown" };
     }
 };
 

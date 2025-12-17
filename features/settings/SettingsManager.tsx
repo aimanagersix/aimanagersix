@@ -6,7 +6,8 @@ import {
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
     FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync, FaChevronRight, FaArrowLeft, FaBars, FaBolt
 } from 'react-icons/fa';
-import { ConfigItem, Brand, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem } from '../../types';
+import { ConfigItem, Brand, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, TicketStatus } from '../../types';
+import { parseSecurityAlert } from '../../services/geminiService';
 
 // Child Dashboards/Components (Shared)
 import BrandDashboard from '../../components/BrandDashboard';
@@ -54,16 +55,55 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [showDiagnostics, setShowDiagnostics] = useState(false);
     
     const [settings, setSettings] = useState<any>({
-        webhookJson: '{\n  "alert_name": "Possible Ransomware Detected",\n  "hostname": "PC-FIN-01",\n  "severity": "critical",\n  "source": "SentinelOne",\n  "timestamp": "2024-05-20T10:00:00Z"\n}',
+        webhookJson: '{\n  "alert_type": "Event::Endpoint::Threat::Detected",\n  "severity": "high",\n  "full_name": "PC-FINANCEIRO-01",\n  "description": "Malware detected"\n}',
         simulatedTicket: null,
         isSimulating: false,
     });
 
     const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
 
-    const handleCopyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        alert('Copiado para a área de transferência!');
+    const handleSimulateWebhook = async () => {
+        setSettings((prev:any) => ({ ...prev, isSimulating: true, simulatedTicket: null }));
+        try {
+            const result = await parseSecurityAlert(settings.webhookJson);
+            setSettings((prev:any) => ({ ...prev, simulatedTicket: result }));
+        } catch (e) {
+            alert("Erro na simulação IA.");
+        } finally {
+            setSettings((prev:any) => ({ ...prev, isSimulating: false }));
+        }
+    };
+
+    const handleCreateRealTicketFromSim = async () => {
+        if (!settings.simulatedTicket) return;
+        
+        const sim = settings.simulatedTicket;
+        
+        // Tentar encontrar o ID do equipamento pelo nome extraído pela IA
+        const foundEq = appData.equipment.find((e:any) => 
+            e.nomeNaRede?.toLowerCase() === sim.affectedAsset?.toLowerCase() ||
+            e.description?.toLowerCase().includes(sim.affectedAsset?.toLowerCase())
+        );
+
+        try {
+            await dataService.addTicket({
+                title: sim.title,
+                description: `[ALERTA AUTOMÁTICO - ${sim.sourceSystem || 'EXTERNO'}]\n\n${sim.description}\n\nAtivo Detetado: ${sim.affectedAsset}`,
+                status: TicketStatus.Requested,
+                category: 'Incidente de Segurança',
+                securityIncidentType: sim.incidentType || 'Malware',
+                impactCriticality: sim.severity || 'Alta',
+                requestDate: new Date().toISOString(),
+                equipmentId: foundEq?.id,
+                collaboratorId: appData.collaborators[0]?.id // Fallback ao admin ou sistema
+            });
+            
+            alert("Ticket de Segurança criado com sucesso e associado ao ativo " + (foundEq ? foundEq.nomeNaRede : "Desconhecido"));
+            refreshData();
+            setSettings((prev:any) => ({ ...prev, simulatedTicket: null }));
+        } catch (e) {
+            alert("Erro ao criar ticket real.");
+        }
     };
 
     const handleTestCron = async () => {
@@ -140,9 +180,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onToggleStatus={(id) => {}} onDelete={(id) => {}} />;
             case 'config_software_products': return <SoftwareProductDashboard products={safeData(appData.softwareProducts)} categories={safeData(appData.softwareCategories)} onRefresh={refreshData} />;
             case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} />;
-            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} onTest={handleTestCron} onCopy={handleCopyToClipboard} />;
+            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} onTest={handleTestCron} onCopy={(t) => navigator.clipboard.writeText(t)} />;
             case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} instituicoes={appData.instituicoes} />;
             case 'agents': return <AgentsTab />;
+            case 'webhooks': return <WebhooksTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSimulate={handleSimulateWebhook} onCreateSimulatedTicket={handleCreateRealTicketFromSim} />;
             default: return <div className="p-10 text-center text-gray-500">Selecione uma opção no menu à esquerda.</div>;
         }
     };
