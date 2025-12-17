@@ -218,10 +218,6 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         onUpdateStatus(item.id, newStatus);
     };
 
-    /**
-     * Fix: Added missing handleAssignSelected function to resolve reference error.
-     * This function collects all selected equipment and passes them to the onAssignMultiple handler.
-     */
     const handleAssignSelected = () => {
         if (onAssignMultiple) {
             const selectedEquipment = equipment.filter(e => selectedIds.has(e.id));
@@ -373,6 +369,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                     <button onClick={(e) => { e.stopPropagation(); onAssign && onAssign(item); }} className="text-green-400 hover:text-green-300" title="Atribuir"><AssignIcon /></button>
                                 )}
                                 <button onClick={(e) => { e.stopPropagation(); onShowHistory(item); }} className="text-teal-400 hover:text-teal-300" title="Histórico"><FaHistory /></button>
+                                {onManageKeys && (
+                                    <button onClick={(e) => { e.stopPropagation(); onManageKeys(item); }} className="text-yellow-400 hover:text-yellow-300" title="Gerir Licenças"><FaKey /></button>
+                                )}
                                 <button onClick={(e) => { e.stopPropagation(); onEdit && onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>
                                 <button onClick={(e) => { e.stopPropagation(); onClone && onClone(item); }} className="text-indigo-400 hover:text-indigo-300" title="Clonar"><FaCopy /></button>
                                 {onDelete && (
