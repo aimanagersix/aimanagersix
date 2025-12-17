@@ -80,7 +80,7 @@ const getCriticalityClass = (level?: CriticalityLevel) => {
         case CriticalityLevel.Critical: return 'bg-red-600 text-white border-red-700';
         case CriticalityLevel.High: return 'bg-orange-600 text-white border-orange-700';
         case CriticalityLevel.Medium: return 'bg-yellow-600 text-white border-yellow-700';
-        case CriticalityLevel.Low: return 'bg-gray-600 text-white border-gray-700';
+        case CriticalityLevel.Low: return 'bg-green-600 text-white border-green-700';
         default: return 'bg-gray-700 text-gray-300 border-gray-600';
     }
 };
@@ -202,18 +202,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         } else setSelectedIds(new Set());
     };
 
-    const handleAssignSelected = () => {
-        if (onAssignMultiple) {
-            const selectedEquipment = equipment.filter(e => selectedIds.has(e.id));
-            onAssignMultiple(selectedEquipment);
-            setSelectedIds(new Set());
-        }
-    };
-
     const handleStatusChange = (item: Equipment, newStatus: EquipmentStatus) => {
         if (!onUpdateStatus || !onAssign) return;
         
-        // NOVO: Impedir mudança direta para estados que requerem motivo
         if (newStatus === 'Abate' || newStatus === 'Retirado (Arquivo)') {
             alert(`Para colocar em "${newStatus}", utilize o botão Editar (lápis) para selecionar obrigatoriamente o Motivo de Saída.`);
             return;
@@ -225,6 +216,17 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             return;
         }
         onUpdateStatus(item.id, newStatus);
+    };
+
+    /**
+     * Fix: Added missing handleAssignSelected function to resolve reference error.
+     * This function collects all selected equipment and passes them to the onAssignMultiple handler.
+     */
+    const handleAssignSelected = () => {
+        if (onAssignMultiple) {
+            const selectedEquipment = equipment.filter(e => selectedIds.has(e.id));
+            onAssignMultiple(selectedEquipment);
+        }
     };
 
     const handleMouseOver = (item: Equipment, assignedTo: string, event: React.MouseEvent) => {
@@ -364,13 +366,25 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                             </select>
                         </td>
                         <td className="px-6 py-4 text-center">
-                            <div className="flex justify-center items-center gap-4">
+                            <div className="flex justify-center items-center gap-3">
                                 {isAssigned ? (
                                     <button onClick={(e) => { e.stopPropagation(); if(window.confirm("Desassociar?")) onUnassign && onUnassign(item.id); }} className="text-red-400 hover:text-red-300" title="Desassociar"><UnassignIcon /></button>
                                 ) : (
                                     <button onClick={(e) => { e.stopPropagation(); onAssign && onAssign(item); }} className="text-green-400 hover:text-green-300" title="Atribuir"><AssignIcon /></button>
                                 )}
+                                <button onClick={(e) => { e.stopPropagation(); onShowHistory(item); }} className="text-teal-400 hover:text-teal-300" title="Histórico"><FaHistory /></button>
                                 <button onClick={(e) => { e.stopPropagation(); onEdit && onEdit(item); }} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>
+                                <button onClick={(e) => { e.stopPropagation(); onClone && onClone(item); }} className="text-indigo-400 hover:text-indigo-300" title="Clonar"><FaCopy /></button>
+                                {onDelete && (
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); if(confirm("Deseja apagar este equipamento?")) onDelete(item.id); }} 
+                                        className={`${canDelete ? 'text-red-400 hover:text-red-300' : 'text-gray-600 opacity-30 cursor-not-allowed'}`} 
+                                        disabled={!canDelete}
+                                        title={canDelete ? "Eliminar" : "Impossível eliminar: Existem registos associados"}
+                                    >
+                                        <FaTrash />
+                                    </button>
+                                )}
                             </div>
                         </td>
                     </tr>
