@@ -161,7 +161,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 status: Array.isArray(initialFilter.status) ? '' : (initialFilter.status || ''),
                 category: initialFilter.category || '',
                 team_id: initialFilter.team_id || '',
-                title: initialFilter.title || '' // FIX: Ensure title is synced
+                title: initialFilter.title || ''
             }));
         }
     }, [initialFilter]);
@@ -174,7 +174,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         if (onFilterChange) {
             onFilterChange(newFilters);
         }
-        if (onClearInitialFilter) onClearInitialFilter();
+        // Removed onClearInitialFilter() from here to allow typing without clearing state
         if (onPageChange) onPageChange(1);
     };
     
