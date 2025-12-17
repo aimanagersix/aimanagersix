@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { FaKey, FaSave, FaSlack, FaCheckCircle, FaTimesCircle, FaEdit, FaTimes } from 'react-icons/fa';
+import { FaKey, FaSave, FaSlack, FaCheckCircle, FaTimesCircle, FaEdit, FaTimes, FaShieldAlt } from 'react-icons/fa';
 
 interface ConnectionsTabProps {
     settings: any;
@@ -8,7 +7,6 @@ interface ConnectionsTabProps {
     onSave: () => void;
 }
 
-// Componente auxiliar para mostrar estado e permitir edição cega
 const SecretStatusItem = ({ 
     label, 
     value, 
@@ -65,7 +63,7 @@ const SecretStatusItem = ({
                         value={newValue} 
                         onChange={(e) => setNewValue(e.target.value)} 
                         className="w-full bg-gray-900 border border-brand-secondary text-white rounded-md p-2 text-sm font-mono mb-2 focus:ring-1 focus:ring-brand-secondary outline-none"
-                        placeholder={placeholder || "Insira a nova chave..."}
+                        placeholder={placeholder || "Insira o valor..."}
                         autoFocus
                     />
                     <div className="flex gap-2 justify-end">
@@ -82,7 +80,7 @@ const SecretStatusItem = ({
                     onClick={() => setIsEditing(true)} 
                     className="mt-1 text-xs text-brand-secondary hover:text-white flex items-center gap-1 transition-colors"
                 >
-                    <FaEdit /> {isConfigured ? 'Alterar Chave' : 'Configurar Agora'}
+                    <FaEdit /> {isConfigured ? 'Alterar' : 'Configurar'}
                 </button>
             )}
         </div>
@@ -96,9 +94,29 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
             
             <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 mb-6">
                 <p>
-                    <strong>Nota de Segurança:</strong> As chaves de API não são mostradas por motivos de segurança. 
-                    O estado indica apenas se o sistema detetou uma configuração válida.
+                    <strong>Segurança de Credenciais:</strong> As chaves são armazenadas de forma cifrada. O estado indica apenas a presença de uma configuração ativa.
                 </p>
+            </div>
+
+            {/* Sophos Central Integration */}
+            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaShieldAlt className="text-blue-400"/> Sophos Central (Security Link)</h3>
+                <p className="text-xs text-gray-500 mb-4">Credenciais para correlação automática de incidentes e criação de tickets NIS2.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <SecretStatusItem 
+                        label="Sophos Client ID"
+                        value={settings.sophos_client_id}
+                        onChange={(val) => onSettingsChange('sophos_client_id', val)}
+                        placeholder="Ex: d45c..."
+                    />
+                    <SecretStatusItem 
+                        label="Sophos Client Secret"
+                        value={settings.sophos_client_secret}
+                        onChange={(val) => onSettingsChange('sophos_client_secret', val)}
+                        placeholder="****************"
+                    />
+                </div>
             </div>
 
             {/* Slack Integration */}
@@ -131,15 +149,6 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                         onChange={(val) => onSettingsChange('sbKey', val)}
                     />
                 </div>
-
-                <div className="mt-2 border-t border-gray-700 pt-4">
-                     <SecretStatusItem 
-                        label="Service Role Key (Admin)"
-                        value={settings.sbServiceKey}
-                        onChange={(val) => onSettingsChange('sbServiceKey', val)}
-                        description="Necessária apenas para operações administrativas (ex: redefinir passwords de outros utilizadores)."
-                    />
-                </div>
             </div>
 
             {/* Resend Connection */}
@@ -152,18 +161,6 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                     onChange={(val) => onSettingsChange('resendApiKey', val)}
                     description="Usada para enviar relatórios automáticos e notificações."
                 />
-                
-                <div className="mt-4">
-                    <label className="block text-xs text-gray-500 uppercase mb-1">Email de Envio (From)</label>
-                    <input 
-                        type="email" 
-                        value={settings.resendFromEmail || ''} 
-                        onChange={(e) => onSettingsChange('resendFromEmail', e.target.value)} 
-                        className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm font-mono" 
-                        placeholder="ex: noreply@seu-dominio.com"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Este email deve estar verificado no painel do Resend.</p>
-                </div>
             </div>
 
             {/* Save Button */}
