@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaShieldAlt, FaSync, FaTerminal } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaShieldAlt, FaSync, FaTerminal, FaBullhorn } from 'react-icons/fa';
 import { getSupabase } from '../../services/supabaseClient';
 
 interface CronJobsTabProps {
@@ -55,7 +56,6 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
         setIsSyncing(true);
         try {
             const supabase = getSupabase();
-            // Invoca a Edge Function que faz o polling real do Sophos
             const { data, error } = await supabase.functions.invoke('sync-sophos');
             if (error) throw error;
             alert("Sincronização concluída! Verifique a lista de tickets para novos alertas [SOPHOS].");
@@ -109,11 +109,6 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                     {isSyncing ? <FaSpinner className="animate-spin"/> : <FaSync />} Sincronizar Agora
                                 </button>
                             </div>
-                            
-                            <div className="bg-blue-900/10 p-3 rounded border border-blue-800/30 text-xs text-blue-300">
-                                <p><strong>Frequência Recomendada:</strong> 15 minutos (configurável via pg_cron).</p>
-                                <p className="mt-1">Esta tarefa utiliza o Client ID e Secret configurados em "Conexões".</p>
-                            </div>
                         </div>
 
                         <div className="bg-black/30 p-4 rounded-lg border border-gray-700">
@@ -132,17 +127,34 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
 
                 {activeSubTab === 'birthdays' && (
                     <div className="space-y-6 animate-fade-in">
-                        {/* Conteúdo existente de aniversários mantido... */}
-                        <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg space-y-4 border-l-4 border-l-pink-500">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaBirthdayCake className="text-pink-400"/> Rotina de Aniversários</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-3">
-                                    <label className="block text-xs text-gray-500 uppercase font-bold">Email de Envio</label>
-                                    <input type="text" value={settings.resendFromEmail || ''} onChange={(e) => onSettingsChange('resendFromEmail', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="onboarding@resend.dev"/>
-                                    <button onClick={onSave} className="w-full bg-brand-primary hover:bg-brand-secondary text-white py-2 rounded text-sm font-bold">Guardar Configuração</button>
-                                </div>
-                                <div className="flex items-center justify-center">
-                                    <button onClick={onTest} className="px-6 py-3 bg-pink-600 hover:bg-pink-500 text-white rounded-lg flex items-center gap-2 font-bold shadow-xl transition-transform active:scale-95"><FaPlay /> Testar Agora</button>
+                        <div className="bg-gray-900 border border-gray-700 p-5 rounded-lg space-y-4 border-l-4 border-l-pink-500">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaBirthdayCake className="text-pink-400"/> Rotina de Aniversários</h3>
+                                <button onClick={onTest} className="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded flex items-center gap-2 font-bold shadow-lg transition-transform active:scale-95"><FaPlay /> Testar Agora</button>
+                            </div>
+                            
+                            <p className="text-sm text-gray-400">Configure as mensagens enviadas automaticamente para o <strong>Canal Geral</strong> e <strong>Email</strong> quando um colaborador faz anos.</p>
+
+                            <div className="grid grid-cols-1 gap-6 bg-black/20 p-5 rounded-xl border border-gray-800">
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase font-bold mb-2 tracking-widest">Email de Envio (SMTP/Resend)</label>
+                                        <input type="text" value={settings.resendFromEmail || ''} onChange={(e) => onSettingsChange('resendFromEmail', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-3 text-sm focus:border-pink-500 outline-none" placeholder="ex: parabens@empresa.com"/>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase font-bold mb-2 tracking-widest">Assunto da Mensagem</label>
+                                        <input type="text" value={settings.birthday_email_subject || ''} onChange={(e) => onSettingsChange('birthday_email_subject', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-3 text-sm focus:border-pink-500 outline-none" placeholder="Ex: Muitos Parabéns! 🎂"/>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs text-gray-500 uppercase font-bold mb-2 tracking-widest">Corpo da Mensagem (Suporta HTML)</label>
+                                        <textarea value={settings.birthday_email_body || ''} onChange={(e) => onSettingsChange('birthday_email_body', e.target.value)} rows={5} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-3 text-sm font-mono focus:border-pink-500 outline-none custom-scrollbar" placeholder="Olá {{nome}}, a equipa deseja-te um feliz aniversário!"/>
+                                        {/* Fixed: Escaped double curly braces in JSX text to prevent them from being interpreted as an object literal expression. */}
+                                        <p className="text-[10px] text-gray-500 mt-2 italic flex items-center gap-1"><FaBullhorn className="text-pink-500"/> Use <strong>{'{{nome}}'}</strong> para inserir o nome do colaborador automaticamente.</p>
+                                    </div>
+
+                                    <button onClick={onSave} className="w-full bg-brand-primary hover:bg-brand-secondary text-white py-3 rounded-lg text-sm font-bold shadow-xl flex items-center justify-center gap-2"><FaSave /> Guardar Configuração de Texto</button>
                                 </div>
                             </div>
                         </div>
@@ -150,7 +162,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                 )}
 
                 {activeSubTab === 'reports' && (
-                    <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg space-y-4 animate-fade-in border-l-4 border-l-yellow-500">
+                    <div className="bg-gray-900 border border-gray-700 p-5 rounded-lg space-y-4 animate-fade-in border-l-4 border-l-yellow-500">
                         <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaClock className="text-yellow-400"/> Relatórios Semanais</h3>
                         <div className="bg-black/30 p-4 rounded border border-gray-700">
                             <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Destinatários</label>
