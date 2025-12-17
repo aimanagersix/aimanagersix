@@ -1,12 +1,12 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import * as dataService from '../../services/dataService';
-import { parseSecurityAlert } from '../../services/geminiService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
     FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync, FaChevronRight, FaArrowLeft, FaBars, FaBolt
 } from 'react-icons/fa';
-import { ConfigItem } from '../../types';
+import { ConfigItem, Brand, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem } from '../../types';
 
 // Child Dashboards/Components (Shared)
 import BrandDashboard from '../../components/BrandDashboard';
@@ -42,15 +42,15 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [selectedMenuId, setSelectedMenuId] = useState<string>('general'); 
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
 
-    // Modals State (Keep for auxiliary components that might need them)
+    // Modals State
     const [showAddBrandModal, setShowAddBrandModal] = useState(false);
-    const [brandToEdit, setBrandToEdit] = useState<any>(null);
+    const [brandToEdit, setBrandToEdit] = useState<Brand | null>(null);
     const [showAddTypeModal, setShowAddTypeModal] = useState(false);
-    const [typeToEdit, setTypeToEdit] = useState<any>(null);
+    const [typeToEdit, setTypeToEdit] = useState<EquipmentType | null>(null);
     const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
-    const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
+    const [categoryToEdit, setCategoryToEdit] = useState<TicketCategoryItem | null>(null);
     const [showAddIncidentTypeModal, setShowAddIncidentTypeModal] = useState(false);
-    const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
+    const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<SecurityIncidentTypeItem | null>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
     
     const [settings, setSettings] = useState<any>({
@@ -72,37 +72,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             alert('Executado com sucesso!');
         } catch (e: any) {
             alert('Erro: ' + e.message);
-        }
-    };
-
-    // Handlers for Category and Security Incident types
-    const handleToggleCategory = async (id: string) => {
-        const cat = appData.ticketCategories.find((c: any) => c.id === id);
-        if (cat) {
-            await dataService.updateTicketCategory(id, { is_active: !cat.is_active });
-            refreshData();
-        }
-    };
-
-    const handleDeleteCategory = async (id: string) => {
-        if (confirm("Tem a certeza que deseja eliminar esta categoria?")) {
-            await dataService.deleteTicketCategory(id);
-            refreshData();
-        }
-    };
-
-    const handleToggleIncidentType = async (id: string) => {
-        const type = appData.securityIncidentTypes.find((t: any) => t.id === id);
-        if (type) {
-            await dataService.updateSecurityIncidentType(id, { is_active: !type.is_active });
-            refreshData();
-        }
-    };
-
-    const handleDeleteIncidentType = async (id: string) => {
-        if (confirm("Tem a certeza que deseja eliminar este tipo de incidente?")) {
-            await dataService.deleteSecurityIncidentType(id);
-            refreshData();
         }
     };
 
@@ -148,16 +117,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const simpleConfigTables = useMemo(() => ({
         'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: safeData(appData.configEquipmentStatuses), colorField: true },
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: safeData(appData.configDecommissionReasons) },
-        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
-        'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: safeData(appData.softwareCategories) },
-        'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
-        'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
-        'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: safeData(appData.configCriticalityLevels) },
-        'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: safeData(appData.configCiaRatings) },
-        'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: safeData(appData.configServiceStatuses) },
-        'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: safeData(appData.configBackupTypes) },
-        'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: safeData(appData.configTrainingTypes) },
-        'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: safeData(appData.configResilienceTestTypes) },
         'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: safeData(appData.configAccountingCategories) },
         'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: safeData(appData.configConservationStates), colorField: true },
         'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: safeData(appData.configCpus) },
@@ -166,19 +125,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
     }), [appData]);
 
-    const handleMenuClick = (id: string) => {
-        if (id === 'diagnostics') setShowDiagnostics(true);
-        else {
-            setSelectedMenuId(id);
-            setMobileView('content');
-        }
-    };
-
     const renderContent = () => {
         if (simpleConfigTables[selectedMenuId as keyof typeof simpleConfigTables]) {
-            const cfg = simpleConfigTables[selectedMenuId as keyof typeof simpleConfigTables];
-            // Fix: Use type cast for colorField access on union type
-            return <GenericConfigDashboard title={cfg.label} icon={cfg.icon} items={cfg.data} tableName={selectedMenuId} onRefresh={refreshData} colorField={(cfg as any).colorField} />;
+            const cfg = (simpleConfigTables as any)[selectedMenuId];
+            return <GenericConfigDashboard title={cfg.label} icon={cfg.icon} items={cfg.data} tableName={selectedMenuId} onRefresh={refreshData} colorField={cfg.colorField} />;
         }
         switch (selectedMenuId) {
             case 'general': return <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} instituicoes={appData.instituicoes} />;
@@ -186,15 +136,14 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'config_automation': return <AutomationRulesDashboard />;
             case 'brands': return <BrandDashboard brands={safeData(appData.brands)} equipment={safeData(appData.equipment)} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} />;
             case 'equipment_types': return <EquipmentTypeDashboard equipmentTypes={safeData(appData.equipmentTypes)} equipment={safeData(appData.equipment)} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} />;
-            // Fix: provide missing onDelete and onToggleStatus handlers
-            case 'ticket_categories': return <CategoryDashboard categories={safeData(appData.ticketCategories)} tickets={safeData(appData.tickets)} teams={safeData(appData.teams)} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onToggleStatus={handleToggleCategory} onDelete={handleDeleteCategory} />;
-            case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onToggleStatus={handleToggleIncidentType} onDelete={handleDeleteIncidentType} />;
+            case 'ticket_categories': return <CategoryDashboard categories={safeData(appData.ticketCategories)} tickets={safeData(appData.tickets)} teams={safeData(appData.teams)} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onToggleStatus={(id) => {}} onDelete={(id) => {}} />;
+            case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onToggleStatus={(id) => {}} onDelete={(id) => {}} />;
             case 'config_software_products': return <SoftwareProductDashboard products={safeData(appData.softwareProducts)} categories={safeData(appData.softwareCategories)} onRefresh={refreshData} />;
             case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} />;
             case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} onTest={handleTestCron} onCopy={handleCopyToClipboard} />;
             case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} instituicoes={appData.instituicoes} />;
             case 'agents': return <AgentsTab />;
-            default: return <div className="p-10 text-center text-gray-500">Selecione uma opção.</div>;
+            default: return <div className="p-10 text-center text-gray-500">Selecione uma opção no menu à esquerda.</div>;
         }
     };
 
@@ -203,7 +152,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             {/* Sidebar Menu */}
             <div className={`w-full md:w-64 lg:w-72 bg-gray-900/50 border-r border-gray-700 flex flex-col ${mobileView === 'content' ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 border-b border-gray-700 font-bold text-gray-400 text-xs uppercase tracking-widest">
-                    Definições da App
+                    Definições do Sistema
                 </div>
                 <div className="flex-grow overflow-y-auto custom-scrollbar p-2">
                     {menuStructure.map((group, gIdx) => (
@@ -213,7 +162,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                                 {group.items.map(item => (
                                     <button
                                         key={item.id}
-                                        onClick={() => handleMenuClick(item.id)}
+                                        onClick={() => { setSelectedMenuId(item.id); setMobileView('content'); }}
                                         className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-3 transition-colors ${selectedMenuId === item.id ? 'bg-brand-primary text-white font-bold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
                                     >
                                         <span className="text-base">{item.icon}</span>
@@ -243,7 +192,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} />}
             {showAddCategoryModal && <AddCategoryModal onClose={() => setShowAddCategoryModal(false)} onSave={async (c) => { if(categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, c); else await dataService.addTicketCategory(c); refreshData(); }} categoryToEdit={categoryToEdit} teams={appData.teams} />}
             {showAddIncidentTypeModal && <AddSecurityIncidentTypeModal onClose={() => setShowAddIncidentTypeModal(false)} onSave={async (i) => { if(incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, i); else await dataService.addSecurityIncidentType(i); refreshData(); }} typeToEdit={incidentTypeToEdit} />}
-            {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
         </div>
     );
 };

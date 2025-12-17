@@ -48,14 +48,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     const [showRegulatoryModal, setShowRegulatoryModal] = useState(false);
     const [ticketForRegulatoryReport, setTicketForRegulatoryReport] = useState<Ticket | null>(null);
 
-    // --- DEFAULT FILTER LOGIC ---
-    useEffect(() => {
-        // Se não houver filtro, aplicar o padrão de "Abertos"
-        if (!dashboardFilter || Object.keys(dashboardFilter).length === 0) {
-            setDashboardFilter({ status: [TicketStatus.Requested, TicketStatus.InProgress] });
-        }
-    }, []);
-
     const fetchTickets = useCallback(async () => {
         setTicketsLoading(true);
         try {
@@ -83,6 +75,19 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     const handleRefresh = async () => {
         await fetchTickets();
         refreshData(); 
+    };
+
+    const handleAddActivity = async (activity: { description: string, equipmentId?: string }) => {
+        if (!ticketForActivities) return;
+        await dataService.addTicketActivity({
+            ticketId: ticketForActivities.id,
+            technicianId: currentUser?.id,
+            description: activity.description,
+            equipmentId: activity.equipmentId,
+            date: new Date().toISOString()
+        });
+        // Activities load internally in the modal, but we trigger a refresh of the list too
+        handleRefresh();
     };
 
     return (
@@ -144,7 +149,47 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     pastTickets={ticketsData} 
                 />
             )}
-            {/* Outros modais omitidos */}
+
+            {showTicketActivitiesModal && ticketForActivities && (
+                <TicketActivitiesModal
+                    ticket={ticketForActivities}
+                    activities={appData.ticketActivities}
+                    collaborators={appData.collaborators}
+                    currentUser={currentUser}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    entidades={appData.entidades}
+                    onClose={() => setShowTicketActivitiesModal(false)}
+                    onAddActivity={handleAddActivity}
+                    assignments={appData.assignments}
+                />
+            )}
+
+            {showCloseTicketModal && ticketToClose && (
+                <CloseTicketModal
+                    ticket={ticketToClose}
+                    collaborators={appData.collaborators}
+                    onClose={() => setShowCloseTicketModal(false)}
+                    onConfirm={async (techId, summary) => {
+                        await dataService.updateTicket(ticketToClose.id, { 
+                            status: TicketStatus.Finished, 
+                            technicianId: techId, 
+                            finishDate: new Date().toISOString(),
+                            resolution_summary: summary
+                        });
+                        handleRefresh();
+                        setShowCloseTicketModal(false);
+                    }}
+                />
+            )}
+
+            {showRegulatoryModal && ticketForRegulatoryReport && (
+                <RegulatoryNotificationModal 
+                    ticket={ticketForRegulatoryReport}
+                    activities={[]} // Fetched inside or passed
+                    onClose={() => setShowRegulatoryModal(false)}
+                />
+            )}
         </>
     );
 };

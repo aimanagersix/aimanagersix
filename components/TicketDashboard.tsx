@@ -1,6 +1,6 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentType, Supplier, CriticalityLevel } from '../types';
-// Add FaTicketAlt to imports
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers, FaEye, FaTicketAlt } from './common/Icons';
 import Pagination from './common/Pagination';
 import SortableHeader from './common/SortableHeader';
