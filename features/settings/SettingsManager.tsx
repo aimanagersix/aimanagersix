@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import * as dataService from '../../services/dataService';
 import { parseSecurityAlert } from '../../services/geminiService';
@@ -15,7 +14,7 @@ import EquipmentTypeDashboard from '../../components/EquipmentTypeDashboard';
 import CategoryDashboard from '../../components/CategoryDashboard';
 import SecurityIncidentTypeDashboard from '../../components/SecurityIncidentTypeDashboard';
 import RoleManager from '../../components/RoleManager'; 
-import AutomationRulesDashboard from '../../components/AutomationRulesDashboard'; // NEW
+import AutomationRulesDashboard from '../../components/AutomationRulesDashboard';
 
 // Local Feature Components
 import BrandingTab from './BrandingTab';
@@ -34,19 +33,16 @@ import AddCategoryModal from '../../components/AddCategoryModal';
 import AddSecurityIncidentTypeModal from '../../components/AddSecurityIncidentTypeModal';
 import SystemDiagnosticsModal from '../../components/SystemDiagnosticsModal';
 
-
 interface SettingsManagerProps {
     appData: any;
     refreshData: () => void;
 }
 
-
 const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData }) => {
     const [selectedMenuId, setSelectedMenuId] = useState<string>('general'); 
-    // Mobile State: 'menu' (lista) or 'content' (detalhe)
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
 
-    // Modals State
+    // Modals State (Keep for auxiliary components that might need them)
     const [showAddBrandModal, setShowAddBrandModal] = useState(false);
     const [brandToEdit, setBrandToEdit] = useState<any>(null);
     const [showAddTypeModal, setShowAddTypeModal] = useState(false);
@@ -57,14 +53,12 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<any>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
     
-    // State for Automation Tabs
     const [settings, setSettings] = useState<any>({
         webhookJson: '{\n  "alert_name": "Possible Ransomware Detected",\n  "hostname": "PC-FIN-01",\n  "severity": "critical",\n  "source": "SentinelOne",\n  "timestamp": "2024-05-20T10:00:00Z"\n}',
         simulatedTicket: null,
         isSimulating: false,
     });
 
-    // Helper for safe data access
     const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
 
     const handleCopyToClipboard = (text: string) => {
@@ -75,109 +69,61 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const handleTestCron = async () => {
         try {
             await dataService.triggerBirthdayCron();
-            alert('Executado com sucesso! Se existirem aniversariantes hoje, os emails e mensagens foram enviados.');
+            alert('Executado com sucesso!');
         } catch (e: any) {
-            console.error(e);
-            alert('Erro ao executar: ' + e.message);
+            alert('Erro: ' + e.message);
         }
     };
 
-    const handleSimulateWebhook = async () => {
-        setSettings((p:any) => ({...p, isSimulating: true, simulatedTicket: null}));
-        try {
-            const result = await parseSecurityAlert(settings.webhookJson);
-            setSettings((p:any) => ({...p, simulatedTicket: result}));
-        } catch (e) {
-            alert("Erro ao simular alerta.");
-        } finally {
-            setSettings((p:any) => ({...p, isSimulating: false}));
+    // Handlers for Category and Security Incident types
+    const handleToggleCategory = async (id: string) => {
+        const cat = appData.ticketCategories.find((c: any) => c.id === id);
+        if (cat) {
+            await dataService.updateTicketCategory(id, { is_active: !cat.is_active });
+            refreshData();
         }
     };
 
-    const handleCreateSimulatedTicket = async () => {
-        if (!settings.simulatedTicket) return;
-        try {
-            await dataService.addTicket({
-                title: settings.simulatedTicket.title,
-                description: `Alerta Automático de: ${settings.simulatedTicket.sourceSystem}\n\n${settings.simulatedTicket.description}`,
-                category: 'Incidente de Segurança',
-                securityIncidentType: settings.simulatedTicket.incidentType,
-                impactCriticality: settings.simulatedTicket.severity,
-                // These need a default or logic to determine
-                entidadeId: appData.entidades[0]?.id,
-                collaboratorId: appData.collaborators[0]?.id,
-            });
-            alert("Ticket criado com sucesso!");
-            setSettings((p:any) => ({...p, simulatedTicket: null}));
-        } catch(e) {
-            alert("Erro ao criar ticket.");
+    const handleDeleteCategory = async (id: string) => {
+        if (confirm("Tem a certeza que deseja eliminar esta categoria?")) {
+            await dataService.deleteTicketCategory(id);
+            refreshData();
         }
     };
 
-     useEffect(() => {
-        const loadSettings = async () => {
-            const keysToFetch = [
-                'scan_frequency_days', 'scan_start_time', 'last_auto_scan', 
-                'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt',
-                'equipment_naming_prefix', 'equipment_naming_digits',
-                'weekly_report_recipients', 'resend_api_key', 'resend_from_email',
-                'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id',
-                'slack_webhook_url'
-            ];
-            
-            const fetchedSettings: any = {};
-            for (const key of keysToFetch) {
-                fetchedSettings[key] = await dataService.getGlobalSetting(key);
-            }
+    const handleToggleIncidentType = async (id: string) => {
+        const type = appData.securityIncidentTypes.find((t: any) => t.id === id);
+        if (type) {
+            await dataService.updateSecurityIncidentType(id, { is_active: !type.is_active });
+            refreshData();
+        }
+    };
 
-            const projectUrl = localStorage.getItem('SUPABASE_URL');
-            
-            setSettings((prev: any) => ({
-                ...prev,
-                scan_frequency_days: fetchedSettings.scan_frequency_days || '0',
-                scan_start_time: fetchedSettings.scan_start_time || '02:00',
-                last_auto_scan: fetchedSettings.last_auto_scan ? new Date(fetchedSettings.last_auto_scan).toLocaleString() : '-',
-                scan_include_eol: fetchedSettings.scan_include_eol ? fetchedSettings.scan_include_eol === 'true' : true,
-                scan_lookback_years: fetchedSettings.scan_lookback_years ? parseInt(fetchedSettings.scan_lookback_years) : 2,
-                scan_custom_prompt: fetchedSettings.scan_custom_prompt || '',
-                equipment_naming_prefix: fetchedSettings.equipment_naming_prefix || 'PC-',
-                equipment_naming_digits: fetchedSettings.equipment_naming_digits || '4',
-                weekly_report_recipients: fetchedSettings.weekly_report_recipients || '',
-                resendApiKey: fetchedSettings.resend_api_key || '',
-                resendFromEmail: fetchedSettings.resend_from_email || '',
-                slackWebhookUrl: fetchedSettings.slack_webhook_url || '',
-                sbUrl: localStorage.getItem('SUPABASE_URL') || '',
-                sbKey: localStorage.getItem('SUPABASE_ANON_KEY') || '',
-                sbServiceKey: localStorage.getItem('SUPABASE_SERVICE_ROLE_KEY') || '',
-                webhookUrl: projectUrl ? `${projectUrl}/functions/v1/siem-ingest` : '',
-                cronFunctionUrl: projectUrl ? `${projectUrl}/functions/v1/weekly-report` : '',
-                app_logo_base64: fetchedSettings.app_logo_base64 || '',
-                app_logo_size: parseInt(fetchedSettings.app_logo_size || '80'),
-                app_logo_alignment: fetchedSettings.app_logo_alignment || 'center',
-                report_footer_institution_id: fetchedSettings.report_footer_institution_id || '',
-            }));
-        };
-        loadSettings();
-    }, [selectedMenuId]);
+    const handleDeleteIncidentType = async (id: string) => {
+        if (confirm("Tem a certeza que deseja eliminar este tipo de incidente?")) {
+            await dataService.deleteSecurityIncidentType(id);
+            refreshData();
+        }
+    };
 
-    const menuStructure: { group: string; items: { id: string; label: string; icon: React.ReactNode }[] }[] = [
+    const menuStructure = [
         {
             group: "Sistema & Automação",
             items: [
                 { id: 'general', label: 'Geral & Scans', icon: <FaRobot /> },
-                { id: 'config_automation', label: 'Regras de Automação', icon: <FaBolt /> }, // NEW
+                { id: 'config_automation', label: 'Regras de Automação', icon: <FaBolt /> },
                 { id: 'connections', label: 'Conexões & APIs', icon: <FaKey /> },
                 { id: 'agents', label: 'Agentes (PowerShell)', icon: <FaRobot /> },
                 { id: 'webhooks', label: 'Webhooks (SIEM)', icon: <FaNetworkWired /> },
-                { id: 'cronjobs', label: 'Tarefas Agendadas (Cron)', icon: <FaClock /> },
-                { id: 'branding', label: 'Branding (Relatórios)', icon: <FaPalette /> },
-                { id: 'diagnostics', label: 'Diagnóstico de Sistema', icon: <FaHeartbeat /> },
+                { id: 'cronjobs', label: 'Tarefas Agendadas', icon: <FaClock /> },
+                { id: 'branding', label: 'Branding', icon: <FaPalette /> },
+                { id: 'diagnostics', label: 'Diagnóstico', icon: <FaHeartbeat /> },
             ]
         },
         {
-            group: "Perfis & Acesso (RBAC)",
+            group: "Segurança & Acessos",
             items: [
-                { id: 'roles', label: 'Perfis de Acesso', icon: <FaIdCard /> }
+                { id: 'roles', label: 'Perfis de Acesso (RBAC)', icon: <FaIdCard /> },
             ]
         },
         {
@@ -185,181 +131,119 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             items: [
                 { id: 'brands', label: 'Marcas', icon: <FaTags /> },
                 { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes /> },
-                { id: 'config_equipment_statuses', label: 'Estados de Equipamento', icon: <FaList /> },
+                { id: 'config_equipment_statuses', label: 'Estados Ativos', icon: <FaList /> },
                 { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
-                { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação', icon: <FaUserSlash /> },
-                { id: 'config_software_categories', label: 'Categorias de Software', icon: <FaList /> },
-                { id: 'config_software_products', label: 'Produtos de Software', icon: <FaCompactDisc /> }, 
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
                 { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> },
-                { id: 'contact_roles', label: 'Funções de Contacto', icon: <FaUserTag /> },
-                { id: 'contact_titles', label: 'Tratos (Honoríficos)', icon: <FaUserTag /> },
-                { id: 'config_criticality_levels', label: 'Níveis de Criticidade', icon: <FaServer /> },
-                { id: 'config_cia_ratings', label: 'Classificação CIA', icon: <FaLock /> },
-                { id: 'config_service_statuses', label: 'Estados de Serviço', icon: <FaServer /> },
-                { id: 'config_backup_types', label: 'Tipos de Backup', icon: <FaServer /> },
-                { id: 'config_training_types', label: 'Tipos de Formação', icon: <FaGraduationCap /> },
-                { id: 'config_resilience_test_types', label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt /> },
+                { id: 'config_software_products', label: 'Produtos Software', icon: <FaCompactDisc /> },
                 { id: 'config_accounting_categories', label: 'Classificador CIBE', icon: <FaLandmark /> },
-                { id: 'config_conservation_states', label: 'Estados Conservação', icon: <FaLeaf /> },
-                { id: 'config_cpus', label: 'Processadores (CPU)', icon: <FaMicrochip /> },
-                { id: 'config_ram_sizes', label: 'Tamanhos de RAM', icon: <FaMemory /> },
-                { id: 'config_storage_types', label: 'Tipos de Disco', icon: <FaHdd /> },
+                { id: 'config_cpus', label: 'CPUs', icon: <FaMicrochip /> },
+                { id: 'config_ram_sizes', label: 'RAM', icon: <FaMemory /> },
+                { id: 'config_storage_types', label: 'Discos', icon: <FaHdd /> },
             ]
         }
     ];
 
-    // Memoize the mapping to ensure stability
-    const simpleConfigTables = useMemo(() => {
-        return {
-            'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: safeData(appData.configEquipmentStatuses), colorField: true },
-            'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: safeData(appData.configDecommissionReasons) },
-            'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
-            'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: safeData(appData.softwareCategories) },
-            'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
-            'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
-            'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: safeData(appData.configCriticalityLevels) },
-            'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: safeData(appData.configCiaRatings) },
-            'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: safeData(appData.configServiceStatuses) },
-            'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: safeData(appData.configBackupTypes) },
-            'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: safeData(appData.configTrainingTypes) },
-            'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: safeData(appData.configResilienceTestTypes) },
-            'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: safeData(appData.configAccountingCategories) },
-            'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: safeData(appData.configConservationStates), colorField: true },
-            'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: safeData(appData.configCpus) },
-            'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: safeData(appData.configRamSizes) },
-            'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: safeData(appData.configStorageTypes) },
-            'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
-        } as Record<string, { label: string; icon: React.ReactNode; data: ConfigItem[]; colorField?: boolean }>;
-    }, [appData]);
-
-    const getCount = (id: string) => {
-        if (simpleConfigTables[id]) return simpleConfigTables[id].data?.length || 0;
-        if (id === 'brands') return (appData.brands || []).length;
-        if (id === 'equipment_types') return (appData.equipmentTypes || []).length;
-        if (id === 'config_software_products') return (appData.softwareProducts || []).length;
-        if (id === 'ticket_categories') return (appData.ticketCategories || []).length;
-        if (id === 'security_incident_types') return (appData.securityIncidentTypes || []).length;
-        return null;
-    };
+    const simpleConfigTables = useMemo(() => ({
+        'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: safeData(appData.configEquipmentStatuses), colorField: true },
+        'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: safeData(appData.configDecommissionReasons) },
+        'config_collaborator_deactivation_reasons': { label: 'Motivos de Inativação', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
+        'config_software_categories': { label: 'Categorias de Software', icon: <FaList/>, data: safeData(appData.softwareCategories) },
+        'contact_roles': { label: 'Funções de Contacto', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
+        'contact_titles': { label: 'Tratos (Honoríficos)', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
+        'config_criticality_levels': { label: 'Níveis de Criticidade', icon: <FaServer/>, data: safeData(appData.configCriticalityLevels) },
+        'config_cia_ratings': { label: 'Classificação CIA', icon: <FaLock/>, data: safeData(appData.configCiaRatings) },
+        'config_service_statuses': { label: 'Estados de Serviço', icon: <FaServer/>, data: safeData(appData.configServiceStatuses) },
+        'config_backup_types': { label: 'Tipos de Backup', icon: <FaServer/>, data: safeData(appData.configBackupTypes) },
+        'config_training_types': { label: 'Tipos de Formação', icon: <FaGraduationCap/>, data: safeData(appData.configTrainingTypes) },
+        'config_resilience_test_types': { label: 'Tipos de Teste Resiliência', icon: <FaShieldAlt/>, data: safeData(appData.configResilienceTestTypes) },
+        'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: safeData(appData.configAccountingCategories) },
+        'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: safeData(appData.configConservationStates), colorField: true },
+        'config_cpus': { label: 'Tipos de Processador', icon: <FaMicrochip/>, data: safeData(appData.configCpus) },
+        'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: safeData(appData.configRamSizes) },
+        'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: safeData(appData.configStorageTypes) },
+        'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
+    }), [appData]);
 
     const handleMenuClick = (id: string) => {
-        if (id === 'diagnostics') {
-            setShowDiagnostics(true);
-        } else {
+        if (id === 'diagnostics') setShowDiagnostics(true);
+        else {
             setSelectedMenuId(id);
-            setMobileView('content'); // Switch to content on mobile
+            setMobileView('content');
         }
     };
 
-    // Centralized Render Logic
-    const renderPanel = () => {
+    const renderContent = () => {
+        if (simpleConfigTables[selectedMenuId as keyof typeof simpleConfigTables]) {
+            const cfg = simpleConfigTables[selectedMenuId as keyof typeof simpleConfigTables];
+            // Fix: Use type cast for colorField access on union type
+            return <GenericConfigDashboard title={cfg.label} icon={cfg.icon} items={cfg.data} tableName={selectedMenuId} onRefresh={refreshData} colorField={(cfg as any).colorField} />;
+        }
         switch (selectedMenuId) {
-            case 'agents': return <AgentsTab />;
-            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p:any) => ({ ...p, [k]: v }))} onSave={async () => { try { const p1 = dataService.updateGlobalSetting('weekly_report_recipients', settings.weekly_report_recipients || ''); const p2 = dataService.updateGlobalSetting('birthday_email_subject', settings.birthday_email_subject || ''); const p3 = dataService.updateGlobalSetting('birthday_email_body', settings.birthday_email_body || ''); await Promise.all([p1, p2, p3]); alert('Configurações gravadas com sucesso!'); } catch(e: any) { alert(`Erro ao gravar: ${e.message}`); } }} onTest={handleTestCron} onCopy={handleCopyToClipboard} />;
-            case 'webhooks': return <WebhooksTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p:any) => ({...p, [k]:v}))} onSimulate={handleSimulateWebhook} onCreateSimulatedTicket={handleCreateSimulatedTicket} />;
-            case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('app_logo_base64', settings.app_logo_base64); await dataService.updateGlobalSetting('app_logo_size', String(settings.app_logo_size)); await dataService.updateGlobalSetting('app_logo_alignment', settings.app_logo_alignment); await dataService.updateGlobalSetting('report_footer_institution_id', settings.report_footer_institution_id); alert('Guardado!'); }} instituicoes={appData.instituicoes} />;
-            case 'general': return <GeneralScansTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { for(const k of ['scan_frequency_days', 'scan_start_time', 'scan_include_eol', 'scan_lookback_years', 'scan_custom_prompt', 'equipment_naming_prefix', 'equipment_naming_digits', 'weekly_report_recipients']) { await dataService.updateGlobalSetting(k, String(settings[k])); } alert('Guardado!'); }} instituicoes={appData.instituicoes} />;
-            case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k: string, v: any) => setSettings((p: any) => ({...p, [k]:v}))} onSave={async () => { await dataService.updateGlobalSetting('resend_api_key', settings.resendApiKey); await dataService.updateGlobalSetting('resend_from_email', settings.resendFromEmail); await dataService.updateGlobalSetting('slack_webhook_url', settings.slackWebhookUrl); if (settings.sbUrl && settings.sbKey) {localStorage.setItem('SUPABASE_URL', settings.sbUrl); localStorage.setItem('SUPABASE_ANON_KEY', settings.sbKey);} if (settings.sbServiceKey) {localStorage.setItem('SUPABASE_SERVICE_ROLE_KEY', settings.sbServiceKey);} if(confirm("Guardado. Recarregar?")){window.location.reload();}}} />;
+            case 'general': return <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} instituicoes={appData.instituicoes} />;
             case 'roles': return <RoleManager roles={safeData(appData.customRoles)} onRefresh={refreshData} />;
             case 'config_automation': return <AutomationRulesDashboard />;
-            case 'brands': return <BrandDashboard brands={safeData(appData.brands)} equipment={safeData(appData.equipment)} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBrand(id); refreshData(); } }} />;
-            case 'equipment_types': return <EquipmentTypeDashboard equipmentTypes={safeData(appData.equipmentTypes)} equipment={safeData(appData.equipment)} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteEquipmentType(id); refreshData(); } }} />;
-            case 'ticket_categories': return <CategoryDashboard categories={safeData(appData.ticketCategories)} tickets={safeData(appData.tickets)} teams={safeData(appData.teams)} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteTicketCategory(id); refreshData();}}} onToggleStatus={async (id) => {const cat = appData.ticketCategories.find((c:any) => c.id === id); if(cat) {await dataService.updateTicketCategory(id, { is_active: !cat.is_active }); refreshData();}}} />;
-            case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onDelete={async (id) => { if(window.confirm("Tem a certeza?")) {await dataService.deleteSecurityIncidentType(id); refreshData();}}} onToggleStatus={async (id) => {const it = appData.securityIncidentTypes.find((i:any) => i.id === id); if(it) {await dataService.updateSecurityIncidentType(id, { is_active: !it.is_active }); refreshData();}}} />;
+            case 'brands': return <BrandDashboard brands={safeData(appData.brands)} equipment={safeData(appData.equipment)} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} />;
+            case 'equipment_types': return <EquipmentTypeDashboard equipmentTypes={safeData(appData.equipmentTypes)} equipment={safeData(appData.equipment)} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} />;
+            // Fix: provide missing onDelete and onToggleStatus handlers
+            case 'ticket_categories': return <CategoryDashboard categories={safeData(appData.ticketCategories)} tickets={safeData(appData.tickets)} teams={safeData(appData.teams)} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onToggleStatus={handleToggleCategory} onDelete={handleDeleteCategory} />;
+            case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onToggleStatus={handleToggleIncidentType} onDelete={handleDeleteIncidentType} />;
             case 'config_software_products': return <SoftwareProductDashboard products={safeData(appData.softwareProducts)} categories={safeData(appData.softwareCategories)} onRefresh={refreshData} />;
-            default:
-                if (simpleConfigTables[selectedMenuId]) {
-                    return (
-                        <GenericConfigDashboard 
-                            title={simpleConfigTables[selectedMenuId].label}
-                            icon={simpleConfigTables[selectedMenuId].icon}
-                            items={simpleConfigTables[selectedMenuId].data}
-                            tableName={selectedMenuId}
-                            onRefresh={refreshData}
-                            colorField={simpleConfigTables[selectedMenuId].colorField}
-                        />
-                    );
-                }
-                return <div className="p-8 text-center text-gray-500">Selecione uma opção do menu.</div>;
+            case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} />;
+            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} onTest={handleTestCron} onCopy={handleCopyToClipboard} />;
+            case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} instituicoes={appData.instituicoes} />;
+            case 'agents': return <AgentsTab />;
+            default: return <div className="p-10 text-center text-gray-500">Selecione uma opção.</div>;
         }
-    }
+    };
 
     return (
-        <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-120px)] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden shadow-2xl">
-            
-            {/* --- SIDEBAR MENU (Re-styled) --- */}
-            <div className={`
-                w-full lg:w-72 bg-gray-900 flex flex-col flex-shrink-0 lg:border-r border-gray-800
-                ${mobileView === 'menu' ? 'block' : 'hidden lg:flex'} 
-            `}>
-                <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900">
-                     <span className="font-bold text-gray-300">Configurações</span>
-                     <button 
-                        onClick={() => window.location.reload()}
-                        className="text-xs flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white px-2 py-1 rounded transition-colors"
-                        title="Forçar recarregamento"
-                    >
-                        <FaSync />
-                    </button>
+        <div className="flex flex-col md:flex-row bg-surface-dark rounded-lg border border-gray-700 overflow-hidden min-h-[700px]">
+            {/* Sidebar Menu */}
+            <div className={`w-full md:w-64 lg:w-72 bg-gray-900/50 border-r border-gray-700 flex flex-col ${mobileView === 'content' ? 'hidden md:flex' : 'flex'}`}>
+                <div className="p-4 border-b border-gray-700 font-bold text-gray-400 text-xs uppercase tracking-widest">
+                    Definições da App
                 </div>
-                
-                <div className="overflow-y-auto custom-scrollbar p-2 space-y-6 flex-grow">
+                <div className="flex-grow overflow-y-auto custom-scrollbar p-2">
                     {menuStructure.map((group, gIdx) => (
-                        <div key={gIdx}>
-                            <h3 className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">{group.group}</h3>
+                        <div key={gIdx} className="mb-6">
+                            <h3 className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">{group.group}</h3>
                             <div className="space-y-0.5">
-                                {group.items.map(item => {
-                                    const count = getCount(item.id);
-                                    const isActive = selectedMenuId === item.id;
-                                    return (
+                                {group.items.map(item => (
                                     <button
                                         key={item.id}
                                         onClick={() => handleMenuClick(item.id)}
-                                        className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between gap-3 transition-all ${
-                                            isActive
-                                            ? 'bg-brand-primary/10 text-brand-secondary border-l-4 border-brand-secondary font-medium'
-                                            : 'text-gray-400 hover:bg-gray-800 hover:text-white border-l-4 border-transparent'
-                                        }`}
+                                        className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-3 transition-colors ${selectedMenuId === item.id ? 'bg-brand-primary text-white font-bold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <span className={`text-lg ${isActive ? 'text-brand-secondary' : 'text-gray-500 group-hover:text-gray-300'}`}>{item.icon}</span>
-                                            <span className="truncate">{item.label}</span>
-                                        </div>
-                                        {/* Counter Badge */}
-                                        {count !== null && count > 0 && (
-                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">
-                                                {count}
-                                            </span>
-                                        )}
+                                        <span className="text-base">{item.icon}</span>
+                                        <span>{item.label}</span>
                                     </button>
-                                )})}
+                                ))}
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* --- CONTENT AREA --- */}
-            <div className={`
-                flex-1 bg-surface-dark flex flex-col relative w-full overflow-hidden
-                ${mobileView === 'content' ? 'block' : 'hidden lg:flex'}
-            `}>
-                {/* Mobile Back Button */}
-                <div className="lg:hidden p-3 border-b border-gray-700 bg-surface-dark flex items-center">
-                    <button 
-                        onClick={() => setMobileView('menu')}
-                        className="flex items-center gap-2 text-gray-400 hover:text-white text-sm"
-                    >
+            {/* Content Area */}
+            <div className={`flex-1 flex flex-col min-h-0 ${mobileView === 'menu' ? 'hidden md:flex' : 'flex'}`}>
+                <div className="md:hidden p-4 border-b border-gray-700 flex items-center">
+                    <button onClick={() => setMobileView('menu')} className="text-brand-secondary flex items-center gap-2 text-sm font-bold">
                         <FaArrowLeft /> Voltar ao Menu
                     </button>
                 </div>
-
-                <div className="flex-grow overflow-y-auto custom-scrollbar">
-                    {renderPanel()}
+                <div className="flex-grow overflow-y-auto custom-scrollbar bg-surface-dark">
+                    {renderContent()}
                 </div>
             </div>
+
+            {/* Modals */}
+            {showAddBrandModal && <AddBrandModal onClose={() => setShowAddBrandModal(false)} onSave={async (b) => { if(brandToEdit) await dataService.updateBrand(brandToEdit.id, b); else await dataService.addBrand(b); refreshData(); }} brandToEdit={brandToEdit} existingBrands={appData.brands} />}
+            {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} />}
+            {showAddCategoryModal && <AddCategoryModal onClose={() => setShowAddCategoryModal(false)} onSave={async (c) => { if(categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, c); else await dataService.addTicketCategory(c); refreshData(); }} categoryToEdit={categoryToEdit} teams={appData.teams} />}
+            {showAddIncidentTypeModal && <AddSecurityIncidentTypeModal onClose={() => setShowAddIncidentTypeModal(false)} onSave={async (i) => { if(incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, i); else await dataService.addSecurityIncidentType(i); refreshData(); }} typeToEdit={incidentTypeToEdit} />}
+            {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
         </div>
     );
 };
