@@ -139,8 +139,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     
     const [filters, setFilters] = useState<{ status: string, team_id: string, category: string, title: string }>({ status: '', team_id: '', category: '', title: '' });
     
-    // Sort State (Used by Parent Component or handled here if local sorting needed, 
-    // but TicketManager does server-side sort. We keep sort config here to render arrows)
+    // Sort State
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
         key: 'requestDate',
         direction: 'descending'
@@ -161,7 +160,8 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 ...prev,
                 status: Array.isArray(initialFilter.status) ? '' : (initialFilter.status || ''),
                 category: initialFilter.category || '',
-                team_id: initialFilter.team_id || ''
+                team_id: initialFilter.team_id || '',
+                title: initialFilter.title || '' // FIX: Ensure title is synced
             }));
         }
     }, [initialFilter]);
@@ -178,18 +178,12 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         if (onPageChange) onPageChange(1);
     };
     
-    // This function updates local state for UI arrow, but actual sorting happens in Parent via props if needed.
-    // In current implementation TicketManager fetches data sorted by requestDate.
-    // For full interactivity, TicketManager should accept onSortChange prop.
-    // Assuming TicketManager handles Sort, we just need to trigger a prop here.
-    // Since onSortChange isn't in props, we'll just update UI state for now (visual feedback).
     const handleSort = (key: string) => {
         let direction: 'ascending' | 'descending' = 'ascending';
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
             direction = 'descending';
         }
         setSortConfig({ key, direction });
-        // NOTE: In a full implementation, call onSortChange({key, direction}) here
     };
 
     const handleStatusChange = (ticket: Ticket, newStatus: TicketStatus) => {
