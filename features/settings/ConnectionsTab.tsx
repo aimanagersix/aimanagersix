@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FaKey, FaSave, FaSlack, FaCheckCircle, FaTimesCircle, FaEdit, FaTimes, FaShieldAlt } from 'react-icons/fa';
 
@@ -22,7 +23,9 @@ const SecretStatusItem = ({
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [newValue, setNewValue] = useState('');
-    const isConfigured = value && value.length > 0;
+    
+    // Consideramos configurado se houver qualquer valor preenchido
+    const isConfigured = typeof value === 'string' && value.trim().length > 0;
 
     const handleSaveLocal = () => {
         if (newValue.trim()) {
@@ -94,7 +97,7 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
             
             <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 mb-6">
                 <p>
-                    <strong>Segurança de Credenciais:</strong> As chaves são armazenadas de forma cifrada. O estado indica apenas a presença de uma configuração ativa.
+                    <strong>Segurança de Credenciais:</strong> As chaves são armazenadas na tabela de configurações globais. O estado indica apenas a presença de uma configuração ativa.
                 </p>
             </div>
 

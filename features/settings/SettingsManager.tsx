@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as dataService from '../../services/dataService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
@@ -58,7 +58,107 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         webhookJson: '{\n  "alert_type": "Event::Endpoint::Threat::Detected",\n  "severity": "high",\n  "full_name": "PC-FINANCEIRO-01",\n  "description": "Malware detected"\n}',
         simulatedTicket: null,
         isSimulating: false,
+        // API Connections
+        sophos_client_id: '',
+        sophos_client_secret: '',
+        slackWebhookUrl: '',
+        sbUrl: '',
+        sbKey: '',
+        resendApiKey: '',
+        resendFromEmail: '',
+        // General
+        scan_frequency_days: '0',
+        scan_start_time: '09:00',
+        equipment_naming_prefix: 'PC-',
+        equipment_naming_digits: '4',
+        // Branding
+        app_logo_base64: '',
+        app_logo_size: 80,
+        app_logo_alignment: 'center',
+        report_footer_institution_id: '',
+        // Birthdays
+        birthday_email_subject: 'Feliz Aniversário!',
+        birthday_email_body: 'Parabéns {{nome}}! Desejamos-te um dia fantástico.',
+        weekly_report_recipients: ''
     });
+
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+    // --- CARREGAR CONFIGURAÇÕES DO SUPABASE ---
+    const loadGlobalSettings = useCallback(async () => {
+        const keys = [
+            'sophos_client_id', 'sophos_client_secret', 'slack_webhook_url',
+            'supabase_url', 'supabase_anon_key', 'resend_api_key', 'resend_from_email',
+            'scan_frequency_days', 'scan_start_time', 'equipment_naming_prefix', 'equipment_naming_digits',
+            'app_logo_base64', 'app_logo_size', 'app_logo_alignment', 'report_footer_institution_id',
+            'birthday_email_subject', 'birthday_email_body', 'weekly_report_recipients', 'last_auto_scan'
+        ];
+        
+        const loadedSettings: any = { ...settings };
+        
+        try {
+            for (const key of keys) {
+                const value = await dataService.getGlobalSetting(key);
+                if (value !== null) {
+                    // Mapeamento de chaves DB -> State se nomes forem diferentes
+                    if (key === 'slack_webhook_url') loadedSettings.slackWebhookUrl = value;
+                    else if (key === 'supabase_url') loadedSettings.sbUrl = value;
+                    else if (key === 'supabase_anon_key') loadedSettings.sbKey = value;
+                    else if (key === 'resend_api_key') loadedSettings.resendApiKey = value;
+                    else if (key === 'resend_from_email') loadedSettings.resendFromEmail = value;
+                    else loadedSettings[key] = value;
+                }
+            }
+            setSettings(loadedSettings);
+        } catch (e) {
+            console.error("Erro ao carregar configurações globais:", e);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadGlobalSettings();
+    }, [loadGlobalSettings]);
+
+    // --- SALVAR CONFIGURAÇÕES NO SUPABASE ---
+    const handleSaveSettings = async () => {
+        setIsSavingSettings(true);
+        try {
+            const mapping: any = {
+                'sophos_client_id': settings.sophos_client_id,
+                'sophos_client_secret': settings.sophos_client_secret,
+                'slack_webhook_url': settings.slackWebhookUrl,
+                'supabase_url': settings.sbUrl,
+                'supabase_anon_key': settings.sbKey,
+                'resend_api_key': settings.resendApiKey,
+                'resend_from_email': settings.resendFromEmail,
+                'scan_frequency_days': settings.scan_frequency_days,
+                'scan_start_time': settings.scan_start_time,
+                'equipment_naming_prefix': settings.equipment_naming_prefix,
+                'equipment_naming_digits': settings.equipment_naming_digits,
+                'app_logo_base64': settings.app_logo_base64,
+                'app_logo_size': String(settings.app_logo_size),
+                'app_logo_alignment': settings.app_logo_alignment,
+                'report_footer_institution_id': settings.report_footer_institution_id,
+                'birthday_email_subject': settings.birthday_email_subject,
+                'birthday_email_body': settings.birthday_email_body,
+                'weekly_report_recipients': settings.weekly_report_recipients
+            };
+
+            for (const [dbKey, value] of Object.entries(mapping)) {
+                if (value !== undefined && value !== null) {
+                    await dataService.updateGlobalSetting(dbKey, String(value));
+                }
+            }
+            
+            alert("Configurações gravadas com sucesso no Supabase.");
+            refreshData();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao gravar as configurações.");
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
 
     const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
 
@@ -171,7 +271,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             return <GenericConfigDashboard title={cfg.label} icon={cfg.icon} items={cfg.data} tableName={selectedMenuId} onRefresh={refreshData} colorField={cfg.colorField} />;
         }
         switch (selectedMenuId) {
-            case 'general': return <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} instituicoes={appData.instituicoes} />;
+            case 'general': return <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} instituicoes={appData.instituicoes} />;
             case 'roles': return <RoleManager roles={safeData(appData.customRoles)} onRefresh={refreshData} />;
             case 'config_automation': return <AutomationRulesDashboard />;
             case 'brands': return <BrandDashboard brands={safeData(appData.brands)} equipment={safeData(appData.equipment)} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} />;
@@ -179,9 +279,9 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'ticket_categories': return <CategoryDashboard categories={safeData(appData.ticketCategories)} tickets={safeData(appData.tickets)} teams={safeData(appData.teams)} onCreate={() => { setCategoryToEdit(null); setShowAddCategoryModal(true); }} onEdit={(c) => { setCategoryToEdit(c); setShowAddCategoryModal(true); }} onToggleStatus={(id) => {}} onDelete={(id) => {}} />;
             case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onToggleStatus={(id) => {}} onDelete={(id) => {}} />;
             case 'config_software_products': return <SoftwareProductDashboard products={safeData(appData.softwareProducts)} categories={safeData(appData.softwareCategories)} onRefresh={refreshData} />;
-            case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} />;
-            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} onTest={handleTestCron} onCopy={(t) => navigator.clipboard.writeText(t)} />;
-            case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={() => alert('Gravado')} instituicoes={appData.instituicoes} />;
+            case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} />;
+            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} onTest={handleTestCron} onCopy={(t) => navigator.clipboard.writeText(t)} />;
+            case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} instituicoes={appData.instituicoes} />;
             case 'agents': return <AgentsTab />;
             case 'webhooks': return <WebhooksTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSimulate={handleSimulateWebhook} onCreateSimulatedTicket={handleCreateRealTicketFromSim} />;
             default: return <div className="p-10 text-center text-gray-500">Selecione uma opção no menu à esquerda.</div>;
