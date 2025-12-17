@@ -287,94 +287,80 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     }
 
     return (
-        <>
-            {/* 
-               LAYOUT FIX: Use standard flex layout that works on desktop always.
-               On mobile, we hide one column or the other based on 'mobileView' state.
-            */}
-            <div className="flex flex-col lg:flex-row gap-6 pb-10 h-full min-h-[600px]">
-                
-                {/* --- SIDEBAR MENU --- */}
-                <div className={`
-                    w-full lg:w-72 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col flex-shrink-0 h-fit self-start max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar
-                    ${mobileView === 'menu' ? 'block' : 'hidden lg:block'} 
-                `}>
-                    {/* Reload Button */}
-                    <div className="p-2 border-b border-gray-700 flex-shrink-0 sticky top-0 bg-surface-dark z-10">
-                         <button 
-                            onClick={() => window.location.reload()}
-                            className="w-full flex items-center justify-center gap-2 bg-green-700 hover:bg-green-600 text-white p-2 rounded text-sm transition-colors font-bold"
-                        >
-                            <FaSync /> Forçar Recarregamento
-                        </button>
-                    </div>
-                    {/* Menu List */}
-                    <div className="p-2 space-y-4">
-                        {menuStructure.map((group, gIdx) => (
-                            <div key={gIdx}>
-                                <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{group.group}</h3>
-                                <div className="space-y-1">
-                                    {group.items.map(item => {
-                                        const count = getCount(item.id);
-                                        return (
-                                        <button
-                                            key={item.id}
-                                            onClick={() => handleMenuClick(item.id)}
-                                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md flex items-center justify-between gap-3 transition-colors ${
-                                                selectedMenuId === item.id && item.id !== 'diagnostics'
-                                                ? 'bg-brand-primary text-white shadow-md'
-                                                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                {item.icon}
-                                                {item.label}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {count !== null && (
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${count > 0 ? 'bg-gray-700 text-gray-300' : 'bg-red-900/50 text-red-200'}`}>
-                                                        {count}
-                                                    </span>
-                                                )}
-                                                {/* Only show arrow on Desktop, on Mobile it's implicit nav */}
-                                                <FaChevronRight className="w-2 h-2 hidden lg:block" />
-                                            </div>
-                                        </button>
-                                    )})}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+        <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-120px)] bg-gray-900 border border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+            
+            {/* --- SIDEBAR MENU (Re-styled) --- */}
+            <div className={`
+                w-full lg:w-72 bg-gray-900 flex flex-col flex-shrink-0 lg:border-r border-gray-800
+                ${mobileView === 'menu' ? 'block' : 'hidden lg:flex'} 
+            `}>
+                <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900">
+                     <span className="font-bold text-gray-300">Configurações</span>
+                     <button 
+                        onClick={() => window.location.reload()}
+                        className="text-xs flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white px-2 py-1 rounded transition-colors"
+                        title="Forçar recarregamento"
+                    >
+                        <FaSync />
+                    </button>
                 </div>
-
-                {/* --- CONTENT AREA --- */}
-                <div className={`
-                    flex-1 bg-surface-dark rounded-lg shadow-xl border border-gray-700 flex flex-col relative min-h-[600px] w-full
-                    ${mobileView === 'content' ? 'block' : 'hidden lg:flex'}
-                `}>
-                    {/* Mobile Back Button */}
-                    <div className="lg:hidden p-2 border-b border-gray-700 mb-2">
-                        <button 
-                            onClick={() => setMobileView('menu')}
-                            className="flex items-center gap-2 text-gray-300 hover:text-white"
-                        >
-                            <FaArrowLeft /> Voltar ao Menu
-                        </button>
-                    </div>
-
-                    <div className="flex-grow w-full">
-                        {renderPanel()}
-                    </div>
+                
+                <div className="overflow-y-auto custom-scrollbar p-2 space-y-6 flex-grow">
+                    {menuStructure.map((group, gIdx) => (
+                        <div key={gIdx}>
+                            <h3 className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">{group.group}</h3>
+                            <div className="space-y-0.5">
+                                {group.items.map(item => {
+                                    const count = getCount(item.id);
+                                    const isActive = selectedMenuId === item.id;
+                                    return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => handleMenuClick(item.id)}
+                                        className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between gap-3 transition-all ${
+                                            isActive
+                                            ? 'bg-brand-primary/10 text-brand-secondary border-l-4 border-brand-secondary font-medium'
+                                            : 'text-gray-400 hover:bg-gray-800 hover:text-white border-l-4 border-transparent'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-lg ${isActive ? 'text-brand-secondary' : 'text-gray-500 group-hover:text-gray-300'}`}>{item.icon}</span>
+                                            <span className="truncate">{item.label}</span>
+                                        </div>
+                                        {/* Counter Badge */}
+                                        {count !== null && count > 0 && (
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">
+                                                {count}
+                                            </span>
+                                        )}
+                                    </button>
+                                )})}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
 
-            {/* Modals */}
-            {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
-            {showAddBrandModal && <AddBrandModal onClose={() => setShowAddBrandModal(false)} onSave={async (b) => { if(brandToEdit) await dataService.updateBrand(brandToEdit.id, b); else await dataService.addBrand(b); refreshData(); }} brandToEdit={brandToEdit} existingBrands={appData.brands} />}
-            {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} existingTypes={appData.equipmentTypes} />}
-            {showAddCategoryModal && <AddCategoryModal onClose={() => setShowAddCategoryModal(false)} onSave={async (c) => { if(categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, c); else await dataService.addTicketCategory(c); refreshData(); }} categoryToEdit={categoryToEdit} teams={appData.teams} />}
-            {showAddIncidentTypeModal && <AddSecurityIncidentTypeModal onClose={() => setShowAddIncidentTypeModal(false)} onSave={async (i) => { if(incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, i); else await dataService.addSecurityIncidentType(i); refreshData(); }} typeToEdit={incidentTypeToEdit} />}
-        </>
+            {/* --- CONTENT AREA --- */}
+            <div className={`
+                flex-1 bg-surface-dark flex flex-col relative w-full overflow-hidden
+                ${mobileView === 'content' ? 'block' : 'hidden lg:flex'}
+            `}>
+                {/* Mobile Back Button */}
+                <div className="lg:hidden p-3 border-b border-gray-700 bg-surface-dark flex items-center">
+                    <button 
+                        onClick={() => setMobileView('menu')}
+                        className="flex items-center gap-2 text-gray-400 hover:text-white text-sm"
+                    >
+                        <FaArrowLeft /> Voltar ao Menu
+                    </button>
+                </div>
+
+                <div className="flex-grow overflow-y-auto custom-scrollbar">
+                    {renderPanel()}
+                </div>
+            </div>
+        </div>
     );
 };
 

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
-import { FaBuilding as OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint, FaGlobe } from './common/Icons';
+import { FaBuilding as OfficeBuildingIcon, FaPhone, FaEnvelope, FaUserTag, FaMapMarkerAlt, FaPlus, FaUsers, FaLaptop, FaPrint, FaGlobe, FaExternalLinkAlt } from './common/Icons';
 import * as dataService from '../services/dataService';
 
 interface EntidadeDetailModalProps {
@@ -15,12 +15,19 @@ interface EntidadeDetailModalProps {
     onAddCollaborator?: (entidadeId: string) => void;
     onAssignEquipment?: (entidadeId: string) => void;
     onOpenInstitution?: (instituicao: Instituicao) => void;
+    // New Drill-down handlers
+    onOpenCollaborator?: (collaborator: Collaborator) => void;
+    onOpenEquipment?: (equipment: Equipment) => void;
     equipment?: Equipment[];
     brands?: Brand[];
     equipmentTypes?: EquipmentType[];
 }
 
-const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, instituicao, collaborators, assignments = [], onClose, onEdit, onAddCollaborator, onAssignEquipment, onOpenInstitution, equipment = [], brands = [], equipmentTypes = [] }) => {
+const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ 
+    entidade, instituicao, collaborators, assignments = [], onClose, onEdit, 
+    onAddCollaborator, onAssignEquipment, onOpenInstitution, onOpenCollaborator, onOpenEquipment,
+    equipment = [], brands = [], equipmentTypes = [] 
+}) => {
     const [activeTab, setActiveTab] = useState<'info' | 'collaborators' | 'equipment'>('info');
     
     const activeCollaborators = collaborators.filter(c => c.entidadeId === entidade.id);
@@ -241,7 +248,7 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                                 onClick={() => onOpenInstitution && onOpenInstitution(instituicao)}
                                 title={onOpenInstitution ? "Ver detalhes da instituição" : undefined}
                             >
-                                {instituicao.name}
+                                {instituicao.name} <FaExternalLinkAlt className="inline h-3 w-3 ml-1 opacity-50"/>
                             </p>
                         )}
                         {!instituicao && <p className="text-sm text-gray-500 mt-1">Instituição não definida</p>}
@@ -361,13 +368,20 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                             {activeCollaborators.length > 0 ? (
                                 <div className="space-y-2">
                                     {activeCollaborators.map(col => (
-                                        <div key={col.id} className="flex justify-between items-center bg-gray-800/50 p-3 rounded border border-gray-700">
+                                        <div 
+                                            key={col.id} 
+                                            className={`flex justify-between items-center bg-gray-800/50 p-3 rounded border border-gray-700 transition-colors ${onOpenCollaborator ? 'hover:bg-gray-700 cursor-pointer group' : ''}`}
+                                            onClick={() => onOpenCollaborator && onOpenCollaborator(col)}
+                                        >
                                             <div className="flex items-center gap-3">
                                                 <div className="bg-gray-700 p-2 rounded-full">
-                                                    <FaUsers className="text-gray-400"/>
+                                                    <FaUsers className="text-gray-400 group-hover:text-white"/>
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-white">{col.fullName}</p>
+                                                    <p className="font-bold text-white flex items-center gap-2">
+                                                        {col.fullName}
+                                                        {onOpenCollaborator && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
+                                                    </p>
                                                     <p className="text-xs text-gray-400">{col.email}</p>
                                                 </div>
                                             </div>
@@ -412,8 +426,15 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({ entidade, ins
                                         </thead>
                                         <tbody className="divide-y divide-gray-700">
                                             {associatedEquipment.map(eq => (
-                                                <tr key={eq.id || Math.random()} className="bg-surface-dark hover:bg-gray-700/50">
-                                                    <td className="px-4 py-2 text-white font-medium">{eq.description}</td>
+                                                <tr 
+                                                    key={eq.id || Math.random()} 
+                                                    className={`bg-surface-dark ${onOpenEquipment ? 'hover:bg-gray-700/50 cursor-pointer' : ''}`}
+                                                    onClick={() => onOpenEquipment && onOpenEquipment(eq as Equipment)}
+                                                >
+                                                    <td className="px-4 py-2 text-white font-medium flex items-center gap-2">
+                                                        {eq.description}
+                                                        {onOpenEquipment && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
+                                                    </td>
                                                     <td className="px-4 py-2 text-gray-300 text-xs">
                                                         {brandMap.get(eq.brandId || '')} {typeMap.get(eq.typeId || '')}
                                                     </td>

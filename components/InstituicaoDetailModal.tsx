@@ -14,13 +14,20 @@ interface InstituicaoDetailModalProps {
     onAddEntity?: (instituicaoId: string) => void;
     onCreateCollaborator?: () => void; 
     onOpenEntity?: (entidade: Entidade) => void;
+    // New Drill-down handlers
+    onOpenCollaborator?: (collaborator: Collaborator) => void;
+    onOpenEquipment?: (equipment: Equipment) => void;
     assignments?: Assignment[];
     equipment?: Equipment[];
     brands?: Brand[];
     equipmentTypes?: EquipmentType[];
 }
 
-const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ instituicao, entidades, collaborators = [], onClose, onEdit, onAddEntity, onCreateCollaborator, onOpenEntity, assignments = [], equipment = [], brands = [], equipmentTypes = [] }) => {
+const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ 
+    instituicao, entidades, collaborators = [], onClose, onEdit, 
+    onAddEntity, onCreateCollaborator, onOpenEntity, onOpenCollaborator, onOpenEquipment,
+    assignments = [], equipment = [], brands = [], equipmentTypes = [] 
+}) => {
     const [activeTab, setActiveTab] = useState<'info' | 'collabs' | 'equipment'>('info');
     
     // Filter and Deduplicate Entities
@@ -397,13 +404,20 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                                     {relatedCollaborators.map(col => {
                                         const entName = relatedEntidades.find(e => e.id === col.entidadeId)?.name || 'N/A';
                                         return (
-                                            <div key={col.id} className="flex justify-between items-center bg-gray-800/50 p-3 rounded border border-gray-700">
+                                            <div 
+                                                key={col.id} 
+                                                className={`flex justify-between items-center bg-gray-800/50 p-3 rounded border border-gray-700 ${onOpenCollaborator ? 'cursor-pointer hover:bg-gray-700 transition-colors group' : ''}`}
+                                                onClick={() => onOpenCollaborator && onOpenCollaborator(col)}
+                                            >
                                                 <div className="flex items-center gap-3">
                                                     <div className="bg-gray-700 p-2 rounded-full">
-                                                        <FaUsers className="text-gray-400"/>
+                                                        <FaUsers className="text-gray-400 group-hover:text-white"/>
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-white">{col.fullName}</p>
+                                                        <p className="font-bold text-white flex items-center gap-2">
+                                                            {col.fullName}
+                                                            {onOpenCollaborator && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
+                                                        </p>
                                                         <p className="text-xs text-gray-400">{col.email}</p>
                                                     </div>
                                                 </div>
@@ -446,8 +460,15 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({ institu
                                         </thead>
                                         <tbody className="divide-y divide-gray-700">
                                             {relatedEquipment.map(eq => (
-                                                <tr key={eq.id || Math.random()} className="bg-surface-dark hover:bg-gray-700/50">
-                                                    <td className="px-4 py-2 text-white font-medium">{eq.description}</td>
+                                                <tr 
+                                                    key={eq.id || Math.random()} 
+                                                    className={`bg-surface-dark ${onOpenEquipment ? 'hover:bg-gray-700 cursor-pointer' : ''}`}
+                                                    onClick={() => onOpenEquipment && onOpenEquipment(eq as Equipment)}
+                                                >
+                                                    <td className="px-4 py-2 text-white font-medium flex items-center gap-2">
+                                                        {eq.description}
+                                                        {onOpenEquipment && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
+                                                    </td>
                                                     <td className="px-4 py-2 text-gray-300 text-xs">{eq.entityName}</td>
                                                     <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serialNumber}</td>
                                                     <td className="px-4 py-2 text-gray-300">{eq.assignedToName}</td>

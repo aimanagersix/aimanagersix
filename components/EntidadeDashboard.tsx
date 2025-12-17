@@ -27,6 +27,9 @@ interface EntidadeDashboardProps {
   equipment?: Equipment[];
   brands?: Brand[];
   equipmentTypes?: EquipmentType[];
+  // Drill-down handlers
+  onViewCollaborator?: (collaborator: Collaborator) => void;
+  onViewEquipment?: (equipment: Equipment) => void;
 }
 
 const getStatusClass = (status: EntidadeStatus) => {
@@ -40,7 +43,7 @@ const getStatusClass = (status: EntidadeStatus) => {
     }
 };
 
-const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate, onAddCollaborator, onAssignEquipment, onImport, equipment = [], brands = [], equipmentTypes = [] }) => {
+const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, assignments, tickets, collaboratorHistory, onEdit, onDelete, onToggleStatus, onCreate, onAddCollaborator, onAssignEquipment, onImport, equipment = [], brands = [], equipmentTypes = [], onViewCollaborator, onViewEquipment }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ instituicaoId: '', status: '' });
@@ -392,6 +395,8 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                 onAddCollaborator={onAddCollaborator}
                 onAssignEquipment={onAssignEquipment}
                 onOpenInstitution={handleOpenInstitution}
+                onOpenCollaborator={onViewCollaborator} // Pass the handler
+                onOpenEquipment={onViewEquipment}     // Pass the handler
                 // Pass equipment data
                 equipment={equipment}
                 brands={brands}
@@ -412,6 +417,8 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                     setSelectedInstitutionForDrillDown(null);
                     if (ent) setSelectedEntidade(ent);
                 }}
+                onOpenCollaborator={onViewCollaborator} // Pass the handler
+                onOpenEquipment={onViewEquipment}     // Pass the handler
                 // Pass assignments and equipment for drilldown (though Institution Detail Modal needs to accept them too)
                 assignments={assignments}
                 equipment={equipment}

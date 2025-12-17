@@ -376,7 +376,7 @@ export const App: React.FC = () => {
         );
     }
 
-    // MAIN LAYOUT CHANGE: Flexbox container
+    // MAIN LAYOUT CHANGE: Flexbox container with Max Width constraint
     return (
         <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : 'flex h-screen overflow-hidden'}`}>
             
@@ -424,11 +424,17 @@ export const App: React.FC = () => {
                 />
             )}
 
-            {/* Main Content Area - Flex Grow */}
+            {/* Main Content Area - Flex Grow with Max Width Limit */}
             <main 
                 className={`flex-1 bg-background-dark transition-all duration-300 ${layoutMode === 'side' ? 'overflow-y-auto custom-scrollbar' : 'overflow-y-auto custom-scrollbar overflow-x-hidden'}`}
             >
-                <div className={`w-full max-w-full p-2 md:p-6 ${layoutMode === 'side' ? 'pt-20 md:pt-6' : ''}`}>
+                {/* 
+                   UPDATED CONTAINER: 
+                   - Added max-w-[1600px] (or xl/2xl) to constrain width 
+                   - Added mx-auto to center it
+                   - Kept w-full to fill up to max-width
+                */}
+                <div className={`w-full max-w-[1800px] mx-auto p-4 md:p-8 ${layoutMode === 'side' ? 'pt-20 md:pt-8' : ''}`}>
                     
                     {activeTab === 'overview' && <OverviewDashboard 
                         equipment={appData.equipment} 

@@ -80,7 +80,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
     const [collaboratorToOffboard, setCollaboratorToOffboard] = useState<Collaborator | null>(null);
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
-    // Drill-Down States (from Collaborator Detail)
+    // Drill-Down States (from Collaborator/Institution Detail)
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
     const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
@@ -238,6 +238,9 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                         const inst = appData.instituicoes.find((i: Instituicao) => i.id === id);
                         if (inst) { await dataService.updateInstituicao(id, { is_active: inst.is_active === false }); refreshData(); }
                     } : undefined}
+                    // DRILL DOWN Handlers
+                    onViewCollaborator={(c) => { setDetailCollaborator(c); setShowCollaboratorDetailModal(true); }}
+                    onViewEquipment={(eq) => setDetailEquipment(eq)}
                 />
             )}
 
@@ -261,6 +264,9 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                         const ent = appData.entidades.find((e: Entidade) => e.id === id);
                         if (ent) { await dataService.updateEntidade(id, { status: ent.status === 'Ativo' ? 'Inativo' : 'Ativo' }); refreshData(); }
                     } : undefined}
+                    // DRILL DOWN Handlers
+                    onViewCollaborator={(c) => { setDetailCollaborator(c); setShowCollaboratorDetailModal(true); }}
+                    onViewEquipment={(eq) => setDetailEquipment(eq)}
                 />
             )}
 

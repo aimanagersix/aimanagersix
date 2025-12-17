@@ -31,6 +31,9 @@ interface InstituicaoDashboardProps {
   equipmentTypes?: EquipmentType[];
   // New Toggle Handler
   onToggleStatus?: (id: string) => void;
+  // Drill-down handlers
+  onViewCollaborator?: (collaborator: Collaborator) => void;
+  onViewEquipment?: (equipment: Equipment) => void;
 }
 
 const getStatusClass = (status: any) => {
@@ -38,7 +41,12 @@ const getStatusClass = (status: any) => {
     return status !== false ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400';
 };
 
-const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoes, escolasDepartamentos: entidades, collaborators, assignments, onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, onAddCollaborator, onAssignEquipment, onEditEntity, equipment = [], brands = [], equipmentTypes = [], onToggleStatus }) => {
+const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ 
+    instituicoes, escolasDepartamentos: entidades, collaborators, assignments, 
+    onEdit, onDelete, onCreate, onAddEntity, onCreateCollaborator, onImport, 
+    onAddCollaborator, onAssignEquipment, onEditEntity, equipment = [], brands = [], 
+    equipmentTypes = [], onToggleStatus, onViewCollaborator, onViewEquipment 
+}) => {
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -324,6 +332,8 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({ instituicoe
                 onAddEntity={onAddEntity}
                 onCreateCollaborator={onCreateCollaborator}
                 onOpenEntity={handleOpenEntity}
+                onOpenCollaborator={onViewCollaborator} // Pass the handler
+                onOpenEquipment={onViewEquipment}     // Pass the handler
                 // Pass assignments and equipment for drilldown
                 assignments={assignments}
                 equipment={equipment}
