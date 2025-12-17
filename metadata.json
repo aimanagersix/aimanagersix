@@ -1,4 +1,3 @@
-
 {
   "name": "Gestão de Equipamentos",
   "description": "Uma aplicação web para gerir o ciclo de vida de equipamentos de TI, desde o stock até o abate, incluindo atribuições a entidades e colaboradores. Utiliza a câmera para fazer o scan de números de série e a API Gemini para identificar dispositivos.",
