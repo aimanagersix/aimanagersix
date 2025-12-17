@@ -7,7 +7,8 @@ import {
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, 
     Vulnerability, BackupExecution, ResilienceTest, SecurityTrainingRecord,
     Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest, 
-    CalendarEvent, ContinuityPlan, SoftwareProduct, AuditLogEntry, DiagnosticResult, ResourceContact
+    CalendarEvent, ContinuityPlan, SoftwareProduct, AuditLogEntry, DiagnosticResult, ResourceContact,
+    DbPolicy, DbTrigger, DbFunction
 } from '../types';
 
 // Helper to get supabase instance
