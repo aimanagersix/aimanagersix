@@ -32,6 +32,8 @@ import BIReportDashboard from './components/BIReportDashboard';
 // Modals
 import { ChatWidget } from './components/ChatWidget';
 import NotificationsModal from './components/NotificationsModal';
+import CalendarModal from './components/CalendarModal';
+import UserManualModal from './components/UserManualModal';
 
 
 export const App: React.FC = () => {
@@ -93,23 +95,17 @@ export const App: React.FC = () => {
     const [showChatWidget, setShowChatWidget] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+    const [showCalendarModal, setShowCalendarModal] = useState(false);
+    const [showUserManualModal, setShowUserManualModal] = useState(false);
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
 
-    // --- CRITICAL PERMISSION OVERRIDE (SUPERADMIN GOD MODE) ---
+    // --- PERMISSION CHECK ---
     const checkPermission = (module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
-        
-        // SuperAdmin can do EVERYTHING - Absolute override
-        if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) {
-            return true;
-        }
-        
+        if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
         const role = appData.customRoles.find((r:any) => r.name === currentUser.role);
         if (role) return role.permissions[module]?.[action] ?? false;
-        
-        // Legacy Admin fallback
         if (currentUser.role === 'Admin') return true;
-        
         return false;
     };
     
@@ -147,7 +143,13 @@ export const App: React.FC = () => {
             policies: checkPermission('compliance_policies', 'view') ? 'Políticas' : undefined,
         } : undefined,
         'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,
-        'tools': { title: 'Tools', agenda: 'Agenda', map: 'Mapa' },
+        'tools': { 
+            title: 'Ferramentas', 
+            agenda: 'Agenda', 
+            map: 'Mapa',
+            calendar: 'Calendário',
+            manual: 'Manual'
+        },
         'settings': checkPermission('settings', 'view') ? 'Configurações' : undefined
     };
 
@@ -184,9 +186,31 @@ export const App: React.FC = () => {
     return (
         <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : 'flex h-screen overflow-hidden'}`}>
             {layoutMode === 'side' ? (
-                 <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={tabConfig} notificationCount={notificationCount} onNotificationClick={() => setShowNotificationsModal(true)} isExpanded={isSidebarExpanded} onHover={setIsSidebarExpanded} />
+                 <Sidebar 
+                    currentUser={currentUser} 
+                    activeTab={activeTab} 
+                    setActiveTab={setActiveTab} 
+                    onLogout={handleLogout} 
+                    tabConfig={tabConfig} 
+                    notificationCount={notificationCount} 
+                    onNotificationClick={() => setShowNotificationsModal(true)} 
+                    isExpanded={isSidebarExpanded} 
+                    onHover={setIsSidebarExpanded}
+                    onOpenCalendar={() => setShowCalendarModal(true)}
+                    onOpenManual={() => setShowUserManualModal(true)}
+                 />
             ) : (
-                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={tabConfig} notificationCount={notificationCount} onNotificationClick={() => setShowNotificationsModal(true)} />
+                <Header 
+                    currentUser={currentUser} 
+                    activeTab={activeTab} 
+                    setActiveTab={setActiveTab} 
+                    onLogout={handleLogout} 
+                    tabConfig={tabConfig} 
+                    notificationCount={notificationCount} 
+                    onNotificationClick={() => setShowNotificationsModal(true)} 
+                    onOpenCalendar={() => setShowCalendarModal(true)}
+                    onOpenManual={() => setShowUserManualModal(true)}
+                />
             )}
 
             <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar`}>
@@ -205,6 +229,21 @@ export const App: React.FC = () => {
             </main>
 
             <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={async (rxId, content) => { await dataService.addMessage({ senderId: currentUser.id, receiverId: rxId, content, timestamp: new Date().toISOString(), read: false }); refreshData(); }} onMarkMessagesAsRead={(senderId) => dataService.markMessagesAsRead(senderId)} isOpen={showChatWidget} onToggle={() => setShowChatWidget(!showChatWidget)} activeChatCollaboratorId={activeChatCollaboratorId} onSelectConversation={setActiveChatCollaboratorId} unreadMessagesCount={0} onlineUserIds={onlineUserIds} />
+            
+            {showCalendarModal && (
+                <CalendarModal 
+                    onClose={() => setShowCalendarModal(false)}
+                    tickets={appData.tickets}
+                    currentUser={currentUser}
+                    teams={appData.teams}
+                    teamMembers={appData.teamMembers}
+                    collaborators={appData.collaborators}
+                    onViewTicket={(t) => { setActiveTab('tickets'); setDashboardFilter({ title: t.title }); setShowCalendarModal(false); }}
+                    calendarEvents={appData.calendarEvents}
+                />
+            )}
+
+            {showUserManualModal && <UserManualModal onClose={() => setShowUserManualModal(false)} />}
         </div>
     );
 };
