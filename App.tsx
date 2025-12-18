@@ -126,7 +126,6 @@ export const App: React.FC = () => {
 
     const pendingPolicies = useMemo(() => {
         if (!currentUser) return [];
-        // SuperAdmin bypass para nunca bloquear o gestor raiz
         if (currentUser.role === UserRole.SuperAdmin) return [];
         return appData.policies.filter(p => {
             if (!p.is_active || !p.is_mandatory) return false;
@@ -141,11 +140,14 @@ export const App: React.FC = () => {
 
     const unreadCount = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
 
-    // Cálculo da margem esquerda para o layout com Sidebar
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
+    
+    // CORREÇÃO: O contentor raiz só deve ser md:flex-row se estivermos no modo Sidebar.
+    // No modo Menu Superior, deve manter-se flex-col para que o conteúdo fique abaixo.
+    const containerClasses = `min-h-screen bg-background-dark text-on-surface-dark flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`;
 
     return (
-        <div className="min-h-screen bg-background-dark text-on-surface-dark flex flex-col md:flex-row">
+        <div className={containerClasses}>
             {layoutMode === 'side' ? (
                 <Sidebar 
                     currentUser={currentUser}
@@ -178,7 +180,6 @@ export const App: React.FC = () => {
                 />
             )}
 
-            {/* A classe ${mainMarginClass} garante que o conteúdo não fique debaixo da Sidebar fixa */}
             <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
                 <div className="max-w-7xl mx-auto">
                     {activeTab === 'overview' && (
