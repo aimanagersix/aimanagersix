@@ -59,19 +59,20 @@ export const App: React.FC = () => {
         
         const modulePerms = role.permissions[module] || {};
         
-        // Regra especial: se tem 'view_own', tem acesso de 'view' limitado
+        // Se pedir 'view' (visibilidade da aba) e tiver 'view_own', autoriza a ver a aba
         if (action === 'view' && modulePerms['view_own']) return true;
         
         return !!modulePerms[action];
     }, [currentUser, appData.customRoles]);
 
     const tabConfig = useMemo(() => {
-        // Aba Overview é visível se tiver A Minha Área OU KPIs Globais
-        const showOverview = checkPermission('my_area', 'view') || checkPermission('widget_kpi_cards', 'view');
+        // Visão Geral visível se tiver Minha Área OU KPIs Globais
+        const canSeeMyArea = checkPermission('my_area', 'view');
+        const canSeeKpis = checkPermission('widget_kpi_cards', 'view');
         
         return {
-            'overview': showOverview,
-            'my_area': checkPermission('my_area', 'view'),
+            'overview': canSeeMyArea || canSeeKpis,
+            'my_area': canSeeMyArea,
             'overview.smart': checkPermission('dashboard_smart', 'view'),
             'equipment.inventory': checkPermission('equipment', 'view'),
             'equipment.procurement': checkPermission('procurement', 'view'),

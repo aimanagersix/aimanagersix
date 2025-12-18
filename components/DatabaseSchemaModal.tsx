@@ -45,7 +45,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
                     setFunctions(data);
                 }
             } catch (e: any) {
-                setDataError("Erro ao carregar dados. Verifique se executou o script '1. Instalação & Ferramentas'.");
+                setDataError("Erro ao carregar dados.");
             } finally {
                 setIsLoadingData(false);
             }
@@ -76,8 +76,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
             result = result.replace(/```sql/g, '').replace(/```typescript/g, '').replace(/```/g, '');
             setAiOutput(result);
         } catch (error: any) {
-            console.error("AI Error:", error);
-            setAiOutput(`-- Erro ao gerar resposta.\n-- Detalhes: ${error.message || 'Verifique a chave da API Gemini.'}`);
+            setAiOutput(`-- Erro ao gerar resposta.`);
         } finally {
             setIsGenerating(false);
         }
@@ -86,19 +85,21 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- 1. REPARAÇÃO TOTAL E SEGURANÇA INTELIGENTE (v4.2 - Fix All/Own)
+-- 1. REPARAÇÃO TOTAL E SEGURANÇA INTELIGENTE (v4.3 - Fixed Function Params)
 -- Execute este script para garantir que utilizadores veem apenas o que lhes é devido.
 -- ==================================================================================
 
--- A. FUNÇÃO AUXILIAR DE PERMISSÃO (CRÍTICA)
--- Esta função permite que as políticas RLS verifiquem o JSON de permissões no Supabase.
-CREATE OR REPLACE FUNCTION public.has_permission(p_module text, p_action text)
+-- A. REMOVER FUNÇÃO ANTIGA PARA EVITAR CONFLITO DE PARÂMETROS
+DROP FUNCTION IF EXISTS public.has_permission(text, text);
+
+-- B. RE-CRIAR FUNÇÃO AUXILIAR DE PERMISSÃO
+CREATE OR REPLACE FUNCTION public.has_permission(requested_module text, requested_action text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     v_role_name text;
     v_perms jsonb;
 BEGIN
-    -- 1. Obter o papel do utilizador atual (pelo email no JWT)
+    -- 1. Obter o papel do utilizador atual
     SELECT role INTO v_role_name FROM public.collaborators WHERE email = auth.jwt()->>'email';
     
     -- 2. SuperAdmin tem sempre acesso total
@@ -108,24 +109,21 @@ BEGIN
     SELECT permissions INTO v_perms FROM public.config_custom_roles WHERE name = v_role_name;
 
     -- 4. Verificar se a ação é permitida no módulo
-    RETURN COALESCE((v_perms->p_module->>p_action)::boolean, false);
+    RETURN COALESCE((v_perms->requested_module->>requested_action)::boolean, false);
 END; $$;
 
--- B. REINICIAR POLÍTICAS (LIMPEZA TOTAL)
-DROP POLICY IF EXISTS "User view own equipment" ON public.equipment;
-DROP POLICY IF EXISTS "Admin view all equipment" ON public.equipment;
-DROP POLICY IF EXISTS "User view own tickets" ON public.tickets;
-DROP POLICY IF EXISTS "Admin view all tickets" ON public.tickets;
-DROP POLICY IF EXISTS "User view own trainings" ON public.security_trainings;
-DROP POLICY IF EXISTS "Admin view all trainings" ON public.security_trainings;
+-- C. REINICIAR POLÍTICAS (LIMPEZA TOTAL DE SELEÇÃO)
+DROP POLICY IF EXISTS "Unified equipment select" ON public.equipment;
+DROP POLICY IF EXISTS "Unified tickets select" ON public.tickets;
+DROP POLICY IF EXISTS "Unified trainings select" ON public.security_trainings;
 
--- C. NOVAS POLÍTICAS UNIFICADAS
--- 1. Equipamentos: Vejo se tenho permissão GLOBAL OU se me está atribuído
+-- D. NOVAS POLÍTICAS UNIFICADAS COM ASPAS DUPLAS (CamelCase)
+-- 1. Equipamentos
 CREATE POLICY "Unified equipment select" ON public.equipment
 FOR SELECT TO authenticated 
 USING (
-    public.has_permission('equipment', 'view') -- Tenho permissão de ver tudo
-    OR EXISTS ( -- OU o item está atribuído a mim
+    public.has_permission('equipment', 'view') -- Permissão GLOBAL
+    OR EXISTS ( -- OU atribuição pessoal ATIVA
         SELECT 1 FROM public.assignments 
         WHERE "equipmentId" = public.equipment.id 
         AND "returnDate" IS NULL 
@@ -133,26 +131,21 @@ USING (
     )
 );
 
--- 2. Tickets: Vejo se tenho permissão GLOBAL OU se fui eu que pedi
+-- 2. Tickets
 CREATE POLICY "Unified tickets select" ON public.tickets
 FOR SELECT TO authenticated 
 USING (
-    public.has_permission('tickets', 'view')
-    OR "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
+    public.has_permission('tickets', 'view') -- Permissão GLOBAL
+    OR "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email') -- OU sou o dono
 );
 
--- 3. Formações: Vejo se tenho permissão GLOBAL OU se é a minha formação
+-- 3. Formações
 CREATE POLICY "Unified trainings select" ON public.security_trainings
 FOR SELECT TO authenticated 
 USING (
-    public.has_permission('compliance_training', 'view')
-    OR collaborator_id = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
+    public.has_permission('compliance_training', 'view') -- Permissão GLOBAL
+    OR collaborator_id = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email') -- OU é a minha
 );
-
--- D. GARANTIR PERMISSÃO NAS TABELAS DE CONFIGURAÇÃO (RBAC Read Only para utilizadores)
-ALTER TABLE public.config_custom_roles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Authenticated read roles" ON public.config_custom_roles;
-CREATE POLICY "Authenticated read roles" ON public.config_custom_roles FOR SELECT TO authenticated USING (true);
 
 -- E. RECARREGAR CACHE
 NOTIFY pgrst, 'reload schema';
@@ -165,7 +158,7 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex flex-wrap gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-3 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> 1. Instalação & Segurança v4.2
+                        <FaTerminal /> 1. Instalação & Segurança v4.3
                     </button>
                     {/* ... (outros botões) ... */}
                 </div>
@@ -173,8 +166,8 @@ NOTIFY pgrst, 'reload schema';
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-4 flex-shrink-0">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaDatabase /> Segurança Inteligente v4.2</div>
-                                <p>Este script resolve o problema das permissões cruzadas. Ele instala a função <strong>has_permission</strong> que faz com que as tabelas mostrem apenas o que o utilizador tem direito (Tudo ou Próprios).</p>
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaDatabase /> Segurança Inteligente v4.3</div>
+                                <p>Este script resolve o erro de parâmetros da função e aplica as regras RLS corretamente.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">
