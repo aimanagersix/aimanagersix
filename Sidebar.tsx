@@ -27,7 +27,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenProfile, onOpenCalendar, onOpenManual, checkPermission }) => {
-    const { t, setLanguage, language } = useLanguage();
+    const { t } = useLanguage();
     const { setLayoutMode } = useLayout();
     
     // Estados para controlar o colapso de grupos no Sidebar
@@ -46,8 +46,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.procurement'];
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience || tabConfig.nis2?.training || tabConfig.nis2?.policies;
     
-    const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
-    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
+    // Verificação robusta de permissões (Enum + String literal)
+    const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
+    const isSuperAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.SuperAdmin;
 
     const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
         const handleClick = (e: React.MouseEvent) => {
@@ -70,7 +71,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
     return (
         <>
-        <aside className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-all duration-300 ${isExpanded ? 'w-64' : 'w-20'}`} onMouseEnter={() => onHover(true)} onMouseLeave={() => { onHover(false); setIsUserMenuOpen(false); }}>
+        <aside 
+            className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-all duration-300 ${isExpanded ? 'w-64' : 'w-20'}`} 
+            onMouseEnter={() => onHover(true)} 
+            onMouseLeave={() => onHover(false)}
+        >
             <div className="flex items-center justify-center h-20 bg-gray-900 border-b border-gray-800 overflow-hidden cursor-pointer" onClick={() => setActiveTab('overview')}>
                 <span className="font-bold text-2xl text-white">{isExpanded ? <>AI<span className="text-brand-secondary">Manager</span></> : <span className="text-brand-secondary">AI</span>}</span>
             </div>
@@ -183,18 +188,28 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 </div>
             </nav>
 
-            <div className="p-4 border-t border-gray-800 bg-gray-900">
-                <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-gray-800 transition-colors">
+            <div className="p-4 border-t border-gray-800 bg-gray-900 relative">
+                <button 
+                    onClick={(e) => { e.stopPropagation(); setIsUserMenuOpen(!isUserMenuOpen); }} 
+                    className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-gray-800 transition-colors cursor-pointer"
+                >
                     {currentUser?.photoUrl ? (
                         <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" />
                     ) : (
                         <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser?.fullName.charAt(0)}</div>
                     )}
-                    {isExpanded && <span className="text-sm font-medium text-white truncate">{currentUser?.fullName}</span>}
+                    {isExpanded && (
+                        <div className="overflow-hidden flex-grow">
+                            <p className="text-xs font-bold text-white truncate">{currentUser?.fullName}</p>
+                            <p className="text-[10px] text-gray-500 truncate uppercase">{currentUser?.role}</p>
+                        </div>
+                    )}
+                    {isExpanded && <FaChevronDown className={`w-2 h-2 text-gray-600 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />}
                 </button>
+
                 {isUserMenuOpen && currentUser && (
-                    <div className="absolute bottom-full left-2 w-64 mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50 overflow-hidden">
-                        {/* Cabeçalho do Perfil idêntico ao Top Menu */}
+                    <div className="absolute bottom-full left-2 w-64 mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-2xl py-1 z-[100] overflow-hidden">
+                        {/* Cabeçalho do Perfil */}
                         <div className="px-4 py-3 border-b border-gray-700 bg-gray-900/50">
                             <p className="text-sm text-white font-medium truncate">{currentUser.fullName}</p>
                             <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
@@ -203,16 +218,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                             <button onClick={() => { onOpenProfile?.(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
                                 <FaUserCircle className="mr-3 text-brand-secondary" /> {t('common.profile')}
                             </button>
-                            <button onClick={() => setLayoutMode('top')} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                            <button onClick={() => { setLayoutMode('top'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
                                 <FaColumns className="mr-3 text-gray-400" /> Menu Superior
                             </button>
                             <button onClick={() => { setShowMFA(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
                                 <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
                             </button>
-                            {/* Botão de Instalação no Menu lateral */}
-                            <div className="px-4 py-2">
-                                <InstallAppButton className="w-full py-2 text-xs font-bold text-gray-900 bg-brand-secondary rounded-md" label="Instalar App" icon={<FaMobileAlt />} />
+                            
+                            {/* Botão de Instalação */}
+                            <div className="px-4 py-2 border-b border-gray-700/50 mb-1">
+                                <InstallAppButton className="w-full py-2 text-[10px] font-bold text-gray-900 bg-brand-secondary rounded hover:bg-brand-primary hover:text-white transition-all flex items-center justify-center gap-2" label="INSTALAR APP" icon={<FaMobileAlt />} />
                             </div>
+
+                            {/* Menus Administrativos baseados em isAdmin/isSuperAdmin reais */}
                             {isAdmin && (
                                 <>
                                     <button onClick={() => { setActiveTab('settings'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
@@ -228,14 +246,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                     )}
                                 </>
                             )}
-                            <button onClick={onLogout} className="flex w-full items-center px-4 py-2 text-sm text-red-400 hover:bg-gray-700 border-t border-gray-700 mt-1">
-                                <LogoutIcon className="mr-3" /> {t('common.logout')}
-                            </button>
+                            
+                            <div className="border-t border-gray-700 mt-1">
+                                <button onClick={onLogout} className="flex w-full items-center px-4 py-2 text-sm text-red-400 hover:bg-red-900/20">
+                                    <LogoutIcon className="mr-3" /> {t('common.logout')}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
         </aside>
+
         {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
         {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
         {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}
