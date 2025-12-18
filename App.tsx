@@ -126,6 +126,7 @@ export const App: React.FC = () => {
 
     const pendingPolicies = useMemo(() => {
         if (!currentUser) return [];
+        // SuperAdmin bypass para nunca bloquear o gestor raiz
         if (currentUser.role === UserRole.SuperAdmin) return [];
         return appData.policies.filter(p => {
             if (!p.is_active || !p.is_mandatory) return false;
@@ -135,10 +136,13 @@ export const App: React.FC = () => {
     }, [appData.policies, appData.policyAcceptances, currentUser]);
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white">Carregando...</div>;
+    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A carregar sistema...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const unreadCount = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
+
+    // Cálculo da margem esquerda para o layout com Sidebar
+    const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
 
     return (
         <div className="min-h-screen bg-background-dark text-on-surface-dark flex flex-col md:flex-row">
@@ -174,7 +178,8 @@ export const App: React.FC = () => {
                 />
             )}
 
-            <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300">
+            {/* A classe ${mainMarginClass} garante que o conteúdo não fique debaixo da Sidebar fixa */}
+            <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
                 <div className="max-w-7xl mx-auto">
                     {activeTab === 'overview' && (
                         checkPermission('widget_kpi_cards', 'view') ? (
