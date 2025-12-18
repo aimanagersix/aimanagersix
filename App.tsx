@@ -126,9 +126,7 @@ export const App: React.FC = () => {
 
     const pendingPolicies = useMemo(() => {
         if (!currentUser) return [];
-        // SuperAdmin bypass para evitar bloqueio de sistema
         if (currentUser.role === UserRole.SuperAdmin) return [];
-        
         return appData.policies.filter(p => {
             if (!p.is_active || !p.is_mandatory) return false;
             const accepted = appData.policyAcceptances.find(a => a.collaborator_id === currentUser.id && a.policy_id === p.id && a.version === p.version);
@@ -137,13 +135,13 @@ export const App: React.FC = () => {
     }, [appData.policies, appData.policyAcceptances, currentUser]);
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A carregar sistema...</div>;
+    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white">Carregando...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const unreadCount = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
 
     return (
-        <div className="min-h-screen bg-background-dark text-on-surface-dark flex flex-col md:flex-row overflow-hidden">
+        <div className="min-h-screen bg-background-dark text-on-surface-dark flex flex-col md:flex-row">
             {layoutMode === 'side' ? (
                 <Sidebar 
                     currentUser={currentUser}
@@ -176,7 +174,7 @@ export const App: React.FC = () => {
                 />
             )}
 
-            <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${layoutMode === 'side' && !sidebarExpanded ? 'md:ml-0' : ''}`}>
+            <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300">
                 <div className="max-w-7xl mx-auto">
                     {activeTab === 'overview' && (
                         checkPermission('widget_kpi_cards', 'view') ? (
@@ -198,7 +196,7 @@ export const App: React.FC = () => {
                                 onGenerateComplianceReport={() => setReportType('compliance')}
                                 checkPermission={checkPermission}
                             />
-                        ) : checkPermission('my_area', 'view') ? (
+                        ) : (
                             <SelfServiceDashboard 
                                 currentUser={currentUser}
                                 equipment={appData.equipment}
@@ -212,10 +210,10 @@ export const App: React.FC = () => {
                                 acceptances={appData.policyAcceptances}
                                 tickets={appData.tickets}
                             />
-                        ) : null
+                        )
                     )}
 
-                    {activeTab === 'my_area' && (
+                    {activeTab === 'my_area' && currentUser && (
                         <SelfServiceDashboard 
                             currentUser={currentUser}
                             equipment={appData.equipment}
@@ -303,8 +301,8 @@ export const App: React.FC = () => {
                 isOpen={chatOpen}
                 onToggle={() => setChatOpen(!chatOpen)}
                 activeChatCollaboratorId={activeChatCollaboratorId}
-                onSelectConversation={setActiveChatCollaboratorId}
                 unreadMessagesCount={unreadCount}
+                onSelectConversation={setActiveChatCollaboratorId}
             />
 
             {showNotifications && (
