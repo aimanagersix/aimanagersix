@@ -27,10 +27,9 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenProfile, onOpenCalendar, onOpenManual, checkPermission }) => {
-    const { t } = useLanguage();
+    const { t, setLanguage, language } = useLanguage();
     const { setLayoutMode } = useLayout();
     
-    // Estados para controlar o colapso de grupos no Sidebar
     const [isOverviewOpen, setIsOverviewOpen] = useState(activeTab.startsWith('overview') || activeTab === 'my_area');
     const [isOrganizationOpen, setOrganizationOpen] = useState(activeTab.startsWith('organizacao') || activeTab === 'collaborators');
     const [isInventoryOpen, setInventoryOpen] = useState(activeTab.startsWith('equipment') || activeTab === 'licensing');
@@ -46,7 +45,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.procurement'];
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience || tabConfig.nis2?.training || tabConfig.nis2?.policies;
     
-    // Verificação robusta de permissões (Enum + String literal)
     const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.SuperAdmin;
 
@@ -81,7 +79,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             </div>
 
             <nav className="flex-grow py-4 px-2 space-y-1 overflow-y-auto custom-scrollbar overflow-x-hidden">
-                {/* GRUPO: VISÃO GERAL */}
                 <div className="space-y-1">
                     <button onClick={() => setIsOverviewOpen(!isOverviewOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
                         <div className="flex items-center gap-3 overflow-hidden">
@@ -99,7 +96,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     )}
                 </div>
 
-                {/* GRUPO: ORGANIZAÇÃO */}
                 {hasOrganizacaoTabs && (
                     <div className="space-y-1">
                         <button onClick={() => setOrganizationOpen(!isOrganizationOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isOrganizationOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
@@ -121,7 +117,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     </div>
                 )}
 
-                {/* GRUPO: INVENTÁRIO */}
                 {hasInventarioTabs && (
                     <div className="space-y-1">
                         <button onClick={() => setInventoryOpen(!isInventoryOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isInventoryOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
@@ -141,7 +136,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     </div>
                 )}
 
-                {/* GRUPO: COMPLIANCE */}
                 {hasNis2Tabs && (
                     <div className="space-y-1">
                         <button onClick={() => setIsNis2Open(!isNis2Open)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isNis2Open ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
@@ -164,11 +158,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     </div>
                 )}
 
-                {/* LINKS DIRETOS */}
                 {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab} />}
                 {tabConfig['reports'] && <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab} />}
 
-                {/* GRUPO: FERRAMENTAS */}
                 <div className="space-y-1">
                     <button onClick={() => setIsToolsOpen(!isToolsOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
                         <div className="flex items-center gap-3 overflow-hidden">
@@ -199,7 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser?.fullName.charAt(0)}</div>
                     )}
                     {isExpanded && (
-                        <div className="overflow-hidden flex-grow">
+                        <div className="overflow-hidden flex-grow text-left">
                             <p className="text-xs font-bold text-white truncate">{currentUser?.fullName}</p>
                             <p className="text-[10px] text-gray-500 truncate uppercase">{currentUser?.role}</p>
                         </div>
@@ -209,7 +201,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
                 {isUserMenuOpen && currentUser && (
                     <div className="absolute bottom-full left-2 w-64 mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-2xl py-1 z-[100] overflow-hidden">
-                        {/* Cabeçalho do Perfil */}
                         <div className="px-4 py-3 border-b border-gray-700 bg-gray-900/50">
                             <p className="text-sm text-white font-medium truncate">{currentUser.fullName}</p>
                             <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
@@ -225,12 +216,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                 <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
                             </button>
                             
-                            {/* Botão de Instalação */}
+                            <div className="px-4 py-2 border-b border-gray-700/50 mb-1 flex justify-between items-center">
+                                <div className="flex gap-2">
+                                    <button onClick={() => setLanguage('pt')} className={`w-8 h-6 flex items-center justify-center rounded text-[10px] font-bold ${language === 'pt' ? 'bg-brand-primary text-white' : 'bg-gray-700 text-gray-400'}`}>PT</button>
+                                    <button onClick={() => setLanguage('en')} className={`w-8 h-6 flex items-center justify-center rounded text-[10px] font-bold ${language === 'en' ? 'bg-brand-primary text-white' : 'bg-gray-700 text-gray-400'}`}>EN</button>
+                                </div>
+                                <span className="text-[10px] text-gray-500 uppercase font-bold">Idioma</span>
+                            </div>
+
                             <div className="px-4 py-2 border-b border-gray-700/50 mb-1">
                                 <InstallAppButton className="w-full py-2 text-[10px] font-bold text-gray-900 bg-brand-secondary rounded hover:bg-brand-primary hover:text-white transition-all flex items-center justify-center gap-2" label="INSTALAR APP" icon={<FaMobileAlt />} />
                             </div>
 
-                            {/* Menus Administrativos baseados em isAdmin/isSuperAdmin reais */}
                             {isAdmin && (
                                 <>
                                     <button onClick={() => { setActiveTab('settings'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">

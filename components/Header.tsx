@@ -97,14 +97,13 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
     const isNis2Active = activeTab.startsWith('nis2');
     const isOverviewActive = activeTab.startsWith('overview') || activeTab === 'my_area';
-    const isToolsActive = activeTab.startsWith('tools');
 
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
     const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.procurement'];
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience || tabConfig.nis2?.training || tabConfig.nis2?.policies;
     
-    const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
-    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
+    const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
+    const isSuperAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.SuperAdmin;
 
   return (
     <>
@@ -242,6 +241,15 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             <button onClick={() => setShowMFA(true)} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
                                 <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
                             </button>
+                            
+                            <div className="px-4 py-2 border-b border-gray-700/50 mb-1 flex justify-between items-center bg-gray-900/30">
+                                <div className="flex gap-2">
+                                    <button onClick={() => setLanguage('pt')} className={`w-8 h-6 flex items-center justify-center rounded text-[10px] font-bold ${language === 'pt' ? 'bg-brand-primary text-white border border-brand-secondary' : 'bg-gray-700 text-gray-400 border border-transparent'}`}>PT</button>
+                                    <button onClick={() => setLanguage('en')} className={`w-8 h-6 flex items-center justify-center rounded text-[10px] font-bold ${language === 'en' ? 'bg-brand-primary text-white border border-brand-secondary' : 'bg-gray-700 text-gray-400 border border-transparent'}`}>EN</button>
+                                </div>
+                                <span className="text-[10px] text-gray-500 uppercase font-bold">Língua</span>
+                            </div>
+
                             <div className="px-4 py-2"><InstallAppButton className="w-full py-2 text-xs font-bold text-gray-900 bg-brand-secondary rounded-md" label="Instalar App" icon={<FaMobileAlt />} /></div>
                             {isAdmin && (
                                 <>

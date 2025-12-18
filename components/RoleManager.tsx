@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { CustomRole, ModuleKey, PermissionAction } from '../types';
 import * as dataService from '../services/dataService';
-import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield } from 'react-icons/fa';
+// Added FaSpinner to the imports
+import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner } from 'react-icons/fa';
 
 interface PermissionItem {
     key: ModuleKey;
@@ -82,6 +83,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const [showNewRoleInput, setShowNewRoleInput] = useState(false);
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
+    const isSuperAdminRole = selectedRole?.name === 'SuperAdmin';
 
     useEffect(() => {
         if (selectedRole) {
@@ -92,6 +94,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     }, [selectedRole]);
 
     const handleTogglePermission = (moduleKey: string, action: PermissionAction) => {
+        if (isSuperAdminRole) return; // SuperAdmin é imutável
         setEditingPermissions(prev => {
             const modulePerms = prev[moduleKey] || {};
             return {
@@ -104,8 +107,19 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         });
     };
 
+    const handleSelectAll = () => {
+        if (isSuperAdminRole) return;
+        const allPerms: Record<string, any> = {};
+        PERMISSION_GROUPS.forEach(group => {
+            group.items.forEach(item => {
+                allPerms[item.key] = { view: true, create: true, edit: true, delete: true };
+            });
+        });
+        setEditingPermissions(allPerms);
+    };
+
     const handleSavePermissions = async () => {
-        if (!selectedRoleId) return;
+        if (!selectedRoleId || isSuperAdminRole) return;
         setIsSaving(true);
         try {
             await dataService.updateCustomRole(selectedRoleId, { permissions: editingPermissions });
@@ -136,6 +150,21 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         }
     };
 
+    const handleDeleteRole = async (id: string, name: string) => {
+        if (name === 'SuperAdmin' || name === 'Admin') {
+            alert("Perfis de sistema (SuperAdmin/Admin) não podem ser removidos.");
+            return;
+        }
+        if (!confirm(`Deseja apagar o perfil "${name}"?`)) return;
+        try {
+            await dataService.deleteConfigItem('config_custom_roles', id);
+            setSelectedRoleId(null);
+            onRefresh();
+        } catch (e) {
+            alert("Erro ao apagar perfil.");
+        }
+    };
+
     return (
         <div className="flex flex-col md:flex-row h-full gap-6 p-6">
             {/* Sidebar: Role List */}
@@ -150,32 +179,42 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                     </button>
                 </div>
                 
-                <div className="flex-grow overflow-y-auto p-2 space-y-1">
+                <div className="flex-grow overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     {showNewRoleInput && (
-                        <div className="p-2 bg-gray-700 rounded mb-2">
+                        <div className="p-2 bg-gray-700 rounded mb-2 border border-brand-primary">
                             <input 
                                 type="text" 
                                 value={newRoleName}
                                 onChange={e => setNewRoleName(e.target.value)}
-                                className="w-full bg-gray-900 text-white text-xs p-1.5 rounded mb-2 outline-none border border-brand-primary"
+                                className="w-full bg-gray-900 text-white text-xs p-1.5 rounded mb-2 outline-none"
                                 placeholder="Nome do perfil..."
                                 autoFocus
                             />
                             <div className="flex gap-2">
-                                <button onClick={handleCreateRole} className="flex-1 bg-green-600 text-white text-[10px] py-1 rounded">OK</button>
+                                <button onClick={handleCreateRole} className="flex-1 bg-green-600 text-white text-[10px] py-1 rounded font-bold">CRIAR</button>
                                 <button onClick={() => setShowNewRoleInput(false)} className="flex-1 bg-gray-600 text-white text-[10px] py-1 rounded">X</button>
                             </div>
                         </div>
                     )}
                     
                     {roles.map(role => (
-                        <button
-                            key={role.id}
-                            onClick={() => setSelectedRoleId(role.id)}
-                            className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${selectedRoleId === role.id ? 'bg-brand-primary text-white font-bold' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
-                        >
-                            {role.name}
-                        </button>
+                        <div key={role.id} className="group relative">
+                            <button
+                                onClick={() => setSelectedRoleId(role.id)}
+                                className={`w-full text-left px-3 py-3 rounded text-sm transition-colors flex justify-between items-center ${selectedRoleId === role.id ? 'bg-brand-primary text-white font-bold' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
+                            >
+                                <span className="truncate pr-4">{role.name}</span>
+                                {role.name === 'SuperAdmin' && <FaLock className="text-[10px] opacity-50" />}
+                            </button>
+                            {role.name !== 'SuperAdmin' && role.name !== 'Admin' && (
+                                <button 
+                                    onClick={() => handleDeleteRole(role.id, role.name)}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-red-400 hover:bg-red-900/30 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <FaTrash size={10} />
+                                </button>
+                            )}
+                        </div>
                     ))}
                 </div>
             </div>
@@ -189,23 +228,46 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                     </div>
                 ) : (
                     <>
-                        <div className="p-4 border-b border-gray-700 bg-gray-900/50 flex justify-between items-center">
+                        <div className="p-4 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div>
-                                <h3 className="text-lg font-bold text-white">{selectedRole?.name}</h3>
-                                <p className="text-xs text-gray-400">Configure o acesso granular para cada módulo.</p>
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    {selectedRole?.name}
+                                    {isSuperAdminRole && <span className="text-[10px] bg-red-900/40 text-red-300 border border-red-500/30 px-2 py-0.5 rounded ml-2 uppercase">Bloqueado</span>}
+                                </h3>
+                                <p className="text-xs text-gray-400">
+                                    {isSuperAdminRole ? "Este perfil tem acesso root absoluto via sistema e não pode ser editado." : "Configure o acesso granular para cada módulo."}
+                                </p>
                             </div>
-                            <button 
-                                onClick={handleSavePermissions}
-                                disabled={isSaving}
-                                className="bg-brand-primary hover:bg-brand-secondary text-white px-4 py-2 rounded flex items-center gap-2 text-sm font-bold disabled:opacity-50"
-                            >
-                                {isSaving ? <FaLock className="animate-spin" /> : <FaSave />}
-                                Guardar Alterações
-                            </button>
+                            
+                            {!isSuperAdminRole && (
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                    <button 
+                                        onClick={handleSelectAll}
+                                        className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded flex items-center gap-2 text-xs font-bold transition-colors"
+                                    >
+                                        <FaCheckDouble /> Selecionar Tudo
+                                    </button>
+                                    <button 
+                                        onClick={handleSavePermissions}
+                                        disabled={isSaving}
+                                        className="bg-brand-primary hover:bg-brand-secondary text-white px-4 py-2 rounded flex items-center gap-2 text-xs font-bold disabled:opacity-50 transition-all shadow-lg"
+                                    >
+                                        {/* Added FaSpinner which was missing in imports */}
+                                        {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />}
+                                        Guardar
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
-                            <div className="space-y-8">
+                            {isSuperAdminRole && (
+                                <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg mb-4 text-blue-200 text-sm">
+                                    <strong>Nota de Sistema:</strong> O SuperAdmin ignora as verificações de permissões e tem acesso total a todos os componentes, tabelas de base de dados e configurações globais.
+                                </div>
+                            )}
+                            
+                            <div className={`space-y-8 ${isSuperAdminRole ? 'opacity-40 pointer-events-none' : ''}`}>
                                 {PERMISSION_GROUPS.map(group => (
                                     <div key={group.label} className="space-y-3">
                                         <h4 className="text-xs font-black text-brand-secondary uppercase tracking-widest border-b border-gray-700 pb-1">
@@ -215,14 +277,14 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                             {group.items.map(item => {
                                                 const perms = editingPermissions[item.key] || {};
                                                 return (
-                                                    <div key={item.key} className="bg-gray-900/50 p-3 rounded border border-gray-700">
+                                                    <div key={item.key} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-gray-600 transition-colors">
                                                         <p className="text-sm font-bold text-white mb-3">{item.label}</p>
                                                         <div className="flex flex-wrap gap-x-4 gap-y-2">
                                                             {(['view', 'create', 'edit', 'delete'] as PermissionAction[]).map(action => (
                                                                 <label key={action} className="flex items-center gap-2 cursor-pointer group">
                                                                     <input 
                                                                         type="checkbox"
-                                                                        checked={!!perms[action]}
+                                                                        checked={isSuperAdminRole || !!perms[action]}
                                                                         onChange={() => handleTogglePermission(item.key, action)}
                                                                         className="rounded border-gray-600 bg-gray-800 text-brand-primary focus:ring-brand-primary"
                                                                     />
