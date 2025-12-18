@@ -57,11 +57,16 @@ export const App: React.FC = () => {
         if (currentUser.role === UserRole.SuperAdmin) return true;
         const role = appData.customRoles.find(r => r.name === currentUser.role);
         if (!role || !role.permissions) return false;
+        
+        // Se pedir 'view' e não tiver, mas tiver 'view_own', retorna true para permitir ver a aba
+        if (action === 'view' && role.permissions[module]?.['view_own']) return true;
+        
         return !!role.permissions[module]?.[action];
     }, [currentUser, appData.customRoles]);
 
     const tabConfig = useMemo(() => ({
         'overview': checkPermission('widget_kpi_cards', 'view') || checkPermission('my_area', 'view'),
+        'my_area': checkPermission('my_area', 'view'),
         'overview.smart': checkPermission('dashboard_smart', 'view'),
         'equipment.inventory': checkPermission('equipment', 'view'),
         'equipment.procurement': checkPermission('procurement', 'view'),
@@ -146,14 +151,9 @@ export const App: React.FC = () => {
         });
     }, [appData.policies, appData.policyAcceptances, currentUser]);
 
-    // Enhanced unreadCount to include system alerts (Requirement 3)
     const unreadCount = useMemo(() => {
         if (!currentUser) return 0;
-        
-        // 1. Unread chat messages
         const unreadMessages = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
-        
-        // 2. Expiring Warranties (30 days)
         const now = new Date();
         const nextMonth = new Date();
         nextMonth.setDate(now.getDate() + 30);
@@ -164,14 +164,12 @@ export const App: React.FC = () => {
             new Date(e.warrantyEndDate) <= nextMonth
         ).length;
         
-        // 3. Expiring Licenses (30 days)
         const licensesCount = appData.softwareLicenses.filter(l => 
             l.expiryDate && 
             new Date(l.expiryDate) >= now && 
             new Date(l.expiryDate) <= nextMonth
         ).length;
         
-        // 4. Pending Tickets for me or my team
         const myTeamIds = new Set(appData.teamMembers
             .filter((tm: any) => tm.collaborator_id === currentUser.id)
             .map((tm: any) => tm.team_id));

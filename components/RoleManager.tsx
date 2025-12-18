@@ -2,12 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { CustomRole, ModuleKey, PermissionAction } from '../types';
 import * as dataService from '../services/dataService';
-// Added FaSpinner to the imports
-import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner } from 'react-icons/fa';
+import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck } from 'react-icons/fa';
 
 interface PermissionItem {
     key: ModuleKey;
     label: string;
+    supportsOwn?: boolean; // Se suporta a lógica de "Ver Próprios"
 }
 
 interface PermissionGroup {
@@ -36,9 +36,9 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     {
         label: 'Módulos Operacionais',
         items: [
-            { key: 'equipment', label: 'Gestão de Equipamentos' },
-            { key: 'licensing', label: 'Gestão de Licenciamento' },
-            { key: 'tickets', label: 'Service Desk (Tickets)' },
+            { key: 'equipment', label: 'Gestão de Equipamentos', supportsOwn: true },
+            { key: 'licensing', label: 'Gestão de Licenciamento', supportsOwn: true },
+            { key: 'tickets', label: 'Service Desk (Tickets)', supportsOwn: true },
             { key: 'organization', label: 'Estrutura Organizacional' },
             { key: 'suppliers', label: 'Gestão de Fornecedores' },
             { key: 'procurement', label: 'Aquisições / Compras' },
@@ -53,8 +53,8 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'compliance_security', label: 'Vulnerabilidades (CVE)' },
             { key: 'compliance_backups', label: 'Controlo de Backups' },
             { key: 'compliance_resilience', label: 'Testes de Resiliência' },
-            { key: 'compliance_training', label: 'Registo de Formações' },
-            { key: 'compliance_policies', label: 'Políticas de Segurança' },
+            { key: 'compliance_training', label: 'Registo de Formações', supportsOwn: true },
+            { key: 'compliance_policies', label: 'Políticas de Segurança', supportsOwn: true },
             { key: 'compliance_continuity', label: 'Planos de Continuidade' },
         ]
     },
@@ -94,7 +94,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     }, [selectedRole]);
 
     const handleTogglePermission = (moduleKey: string, action: PermissionAction) => {
-        if (isSuperAdminRole) return; // SuperAdmin é imutável
+        if (isSuperAdminRole) return;
         setEditingPermissions(prev => {
             const modulePerms = prev[moduleKey] || {};
             return {
@@ -112,7 +112,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         const allPerms: Record<string, any> = {};
         PERMISSION_GROUPS.forEach(group => {
             group.items.forEach(item => {
-                allPerms[item.key] = { view: true, create: true, edit: true, delete: true };
+                allPerms[item.key] = { view: true, create: true, edit: true, delete: true, view_own: true };
             });
         });
         setEditingPermissions(allPerms);
@@ -252,7 +252,6 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                         disabled={isSaving}
                                         className="bg-brand-primary hover:bg-brand-secondary text-white px-4 py-2 rounded flex items-center gap-2 text-xs font-bold disabled:opacity-50 transition-all shadow-lg"
                                     >
-                                        {/* Added FaSpinner which was missing in imports */}
                                         {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />}
                                         Guardar
                                     </button>
@@ -276,20 +275,32 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             {group.items.map(item => {
                                                 const perms = editingPermissions[item.key] || {};
+                                                const actions: {key: PermissionAction, label: string, icon?: React.ReactNode}[] = [
+                                                    {key: 'view', label: 'Ver Global'},
+                                                    {key: 'create', label: 'Criar'},
+                                                    {key: 'edit', label: 'Editar'},
+                                                    {key: 'delete', label: 'Apagar'}
+                                                ];
+                                                
+                                                if (item.supportsOwn) {
+                                                    actions.splice(1, 0, {key: 'view_own', label: 'Ver Próprios', icon: <FaUserCheck className="text-blue-400" />});
+                                                }
+
                                                 return (
                                                     <div key={item.key} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-gray-600 transition-colors">
                                                         <p className="text-sm font-bold text-white mb-3">{item.label}</p>
-                                                        <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                                            {(['view', 'create', 'edit', 'delete'] as PermissionAction[]).map(action => (
-                                                                <label key={action} className="flex items-center gap-2 cursor-pointer group">
+                                                        <div className="flex flex-col gap-2">
+                                                            {actions.map(action => (
+                                                                <label key={action.key} className="flex items-center gap-2 cursor-pointer group">
                                                                     <input 
                                                                         type="checkbox"
-                                                                        checked={isSuperAdminRole || !!perms[action]}
-                                                                        onChange={() => handleTogglePermission(item.key, action)}
+                                                                        checked={isSuperAdminRole || !!perms[action.key]}
+                                                                        onChange={() => handleTogglePermission(item.key, action.key)}
                                                                         className="rounded border-gray-600 bg-gray-800 text-brand-primary focus:ring-brand-primary"
                                                                     />
-                                                                    <span className={`text-[10px] uppercase font-bold ${perms[action] ? 'text-green-400' : 'text-gray-500 group-hover:text-gray-300'}`}>
-                                                                        {action === 'view' ? 'Ver' : action === 'create' ? 'Criar' : action === 'edit' ? 'Edit' : 'Del'}
+                                                                    <span className={`text-[10px] uppercase font-bold flex items-center gap-1 ${perms[action.key] ? 'text-green-400' : 'text-gray-500 group-hover:text-gray-300'}`}>
+                                                                        {action.icon}
+                                                                        {action.label}
                                                                     </span>
                                                                 </label>
                                                             ))}

@@ -24,7 +24,7 @@ export type ModuleKey =
     | 'config_automation' | 'config_criticality_levels' | 'config_cia_ratings' | 'config_service_statuses' | 'config_backup_types' | 'config_training_types' | 'config_resilience_test_types' | 'document_templates'
     | 'my_area';
 
-export type PermissionAction = 'view' | 'create' | 'edit' | 'delete' | 'manage';
+export type PermissionAction = 'view' | 'view_own' | 'create' | 'edit' | 'delete' | 'manage';
 
 export enum EquipmentStatus {
     Operacional = 'Operacional',
@@ -517,7 +517,6 @@ export interface Policy {
     is_mandatory: boolean;
     created_at: string;
     updated_at: string;
-    // Fix: Added missing compliance target fields for NIS2/Governance
     target_type?: 'Global' | 'Instituicao' | 'Entidade';
     target_instituicao_ids?: string[];
     target_entidade_ids?: string[];
