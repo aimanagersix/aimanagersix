@@ -185,38 +185,53 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
             <div className="p-4 border-t border-gray-800 bg-gray-900">
                 <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-gray-800 transition-colors">
-                    <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser?.fullName.charAt(0)}</div>
+                    {currentUser?.photoUrl ? (
+                        <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" />
+                    ) : (
+                        <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser?.fullName.charAt(0)}</div>
+                    )}
                     {isExpanded && <span className="text-sm font-medium text-white truncate">{currentUser?.fullName}</span>}
                 </button>
-                {isUserMenuOpen && (
-                    <div className="absolute bottom-full left-2 w-56 mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50">
-                        <button onClick={() => { onOpenProfile?.(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                            <FaUserCircle className="mr-3 text-brand-secondary" /> {t('common.profile')}
-                        </button>
-                        <button onClick={() => setLayoutMode('top')} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                            <FaColumns className="mr-3 text-gray-400" /> Menu Superior
-                        </button>
-                        <button onClick={() => setShowMFA(true)} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                            <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
-                        </button>
-                        {isAdmin && (
-                            <>
-                                <button onClick={() => { setActiveTab('settings'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                    <FaCog className="mr-3 text-brand-secondary" /> {t('common.settings')}
-                                </button>
-                                <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                    <FaClipboardList className="mr-3 text-yellow-400" /> {t('common.audit')}
-                                </button>
-                                {isSuperAdmin && (
-                                    <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                        <FaDatabase className="mr-3 text-green-400" /> {t('common.database')}
+                {isUserMenuOpen && currentUser && (
+                    <div className="absolute bottom-full left-2 w-64 mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-xl py-1 z-50 overflow-hidden">
+                        {/* Cabeçalho do Perfil idêntico ao Top Menu */}
+                        <div className="px-4 py-3 border-b border-gray-700 bg-gray-900/50">
+                            <p className="text-sm text-white font-medium truncate">{currentUser.fullName}</p>
+                            <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
+                        </div>
+                        <div className="py-1">
+                            <button onClick={() => { onOpenProfile?.(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                                <FaUserCircle className="mr-3 text-brand-secondary" /> {t('common.profile')}
+                            </button>
+                            <button onClick={() => setLayoutMode('top')} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                                <FaColumns className="mr-3 text-gray-400" /> Menu Superior
+                            </button>
+                            <button onClick={() => { setShowMFA(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                                <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
+                            </button>
+                            {/* Botão de Instalação no Menu lateral */}
+                            <div className="px-4 py-2">
+                                <InstallAppButton className="w-full py-2 text-xs font-bold text-gray-900 bg-brand-secondary rounded-md" label="Instalar App" icon={<FaMobileAlt />} />
+                            </div>
+                            {isAdmin && (
+                                <>
+                                    <button onClick={() => { setActiveTab('settings'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                                        <FaCog className="mr-3 text-brand-secondary" /> {t('common.settings')}
                                     </button>
-                                )}
-                            </>
-                        )}
-                        <button onClick={onLogout} className="flex w-full items-center px-4 py-2 text-sm text-red-400 hover:bg-gray-700 border-t border-gray-700 mt-1">
-                            <LogoutIcon className="mr-3" /> {t('common.logout')}
-                        </button>
+                                    <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                                        <FaClipboardList className="mr-3 text-yellow-400" /> {t('common.audit')}
+                                    </button>
+                                    {isSuperAdmin && (
+                                        <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                                            <FaDatabase className="mr-3 text-green-400" /> {t('common.database')}
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            <button onClick={onLogout} className="flex w-full items-center px-4 py-2 text-sm text-red-400 hover:bg-gray-700 border-t border-gray-700 mt-1">
+                                <LogoutIcon className="mr-3" /> {t('common.logout')}
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
