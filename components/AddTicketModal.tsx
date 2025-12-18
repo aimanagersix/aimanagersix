@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentType, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier, Instituicao } from '../types';
 import { FaTrash as DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark, FaDownload, SpinnerIcon } from './common/Icons';
 import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
+// Fix: Use correct FontAwesome icon names from react-icons/fa
 import { FaLightbulb, FaLock, FaUserTie, FaTruck, FaUsers, FaBuilding, FaTools } from 'react-icons/fa';
 import RegulatoryNotificationModal from './RegulatoryNotificationModal';
 import * as dataService from '../services/dataService';
@@ -112,7 +112,13 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Categoria</label>
-                        <select name="category" value={formData.category} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                        <select 
+                            name="category" 
+                            value={formData.category} 
+                            onChange={handleChange} 
+                            disabled={!canManage}
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
                             {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
                         </select>
                     </div>

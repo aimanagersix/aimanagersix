@@ -788,7 +788,8 @@ export const triggerBirthdayCron = async () => {
 };
 
 export const triggerSophosSync = async () => {
-    const { error } = await sb().functions.invoke('sync-sophos');
+    // Explicitly providing an empty object as body to satisfy network requirements for Edge Functions
+    const { error } = await sb().functions.invoke('sync-sophos', { body: {} });
     if (error) throw error;
 };
 

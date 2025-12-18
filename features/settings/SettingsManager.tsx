@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fa';
 import { ConfigItem, Brand, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, TicketStatus, Team } from '../../types';
 import { parseSecurityAlert } from '../../services/geminiService';
+import { getSupabase } from '../../services/supabaseClient';
 
 // Child Dashboards/Components (Shared)
 import BrandDashboard from '../../components/BrandDashboard';
@@ -220,6 +221,22 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         }
     };
 
+    const handleTriggerSophosSync = async () => {
+        setIsSyncing(true);
+        try {
+            const supabase = getSupabase();
+            // Fixing the missing body in invoke which often triggers networking errors in the Supabase JS client
+            const { data, error } = await supabase.functions.invoke('sync-sophos', { body: {} });
+            if (error) throw error;
+            alert("Sincronização concluída! Verifique a lista de tickets para novos alertas [SOPHOS].");
+        } catch (e: any) {
+            console.error("Sophos Sync Error:", e);
+            alert("Erro na sincronização: " + (e.message || "Falha na comunicação com o servidor."));
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
     const handleTestCron = async () => {
         try {
             await dataService.triggerBirthdayCron();
@@ -228,6 +245,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             alert('Erro: ' + e.message);
         }
     };
+
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const menuStructure = [
         {
