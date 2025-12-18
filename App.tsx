@@ -30,7 +30,6 @@ import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, TicketStat
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 import AgendaDashboard from './components/AgendaDashboard';
 
-// Fix: Redefined full App component with state and logic to resolve multiple 'Cannot find name' errors.
 export const App: React.FC = () => {
     const { isConfigured, setIsConfigured, currentUser, setCurrentUser, appData, refreshData, isLoading } = useAppData();
     const { layoutMode } = useLayout();
@@ -48,20 +47,16 @@ export const App: React.FC = () => {
     const [chatOpen, setChatOpen] = useState(false);
     const [session, setSession] = useState<any>(null);
 
-    // Permission check helper
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
         if (currentUser.role === UserRole.SuperAdmin) return true;
-        
         const role = appData.customRoles.find(r => r.name === currentUser.role);
         if (!role || !role.permissions) return false;
-        
         return !!role.permissions[module]?.[action];
     }, [currentUser, appData.customRoles]);
 
-    // Derived tab configuration for Header/Sidebar
     const tabConfig = useMemo(() => ({
-        'overview': checkPermission('widget_kpi_cards', 'view'),
+        'overview': checkPermission('widget_kpi_cards', 'view') || checkPermission('my_area', 'view'),
         'overview.smart': checkPermission('dashboard_smart', 'view'),
         'equipment.inventory': checkPermission('equipment', 'view'),
         'equipment.procurement': checkPermission('procurement', 'view'),
@@ -88,18 +83,15 @@ export const App: React.FC = () => {
         }
     }), [checkPermission]);
 
-    // Handle session and password reset redirection
     useEffect(() => {
         const supabase = getSupabase();
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
         });
-
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             if (_event === 'PASSWORD_RECOVERY') setShowResetPassword(true);
         });
-
         return () => subscription.unsubscribe();
     }, []);
 
@@ -134,6 +126,9 @@ export const App: React.FC = () => {
 
     const pendingPolicies = useMemo(() => {
         if (!currentUser) return [];
+        // SuperAdmin bypass para evitar bloqueio de sistema
+        if (currentUser.role === UserRole.SuperAdmin) return [];
+        
         return appData.policies.filter(p => {
             if (!p.is_active || !p.is_mandatory) return false;
             const accepted = appData.policyAcceptances.find(a => a.collaborator_id === currentUser.id && a.policy_id === p.id && a.version === p.version);
@@ -142,13 +137,13 @@ export const App: React.FC = () => {
     }, [appData.policies, appData.policyAcceptances, currentUser]);
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white">Carregando...</div>;
+    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A carregar sistema...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const unreadCount = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
 
     return (
-        <div className="min-h-screen bg-background-dark text-on-surface-dark flex flex-col md:flex-row">
+        <div className="min-h-screen bg-background-dark text-on-surface-dark flex flex-col md:flex-row overflow-hidden">
             {layoutMode === 'side' ? (
                 <Sidebar 
                     currentUser={currentUser}
@@ -163,6 +158,7 @@ export const App: React.FC = () => {
                     onOpenProfile={() => setActiveTab('my_area')}
                     onOpenManual={() => setShowUserManual(true)}
                     onOpenCalendar={() => setShowCalendar(true)}
+                    checkPermission={checkPermission}
                 />
             ) : (
                 <Header 
@@ -176,29 +172,62 @@ export const App: React.FC = () => {
                     onOpenProfile={() => setActiveTab('my_area')}
                     onOpenManual={() => setShowUserManual(true)}
                     onOpenCalendar={() => setShowCalendar(true)}
+                    checkPermission={checkPermission}
                 />
             )}
 
-            <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300">
+            <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${layoutMode === 'side' && !sidebarExpanded ? 'md:ml-0' : ''}`}>
                 <div className="max-w-7xl mx-auto">
                     {activeTab === 'overview' && (
-                        <OverviewDashboard 
+                        checkPermission('widget_kpi_cards', 'view') ? (
+                            <OverviewDashboard 
+                                equipment={appData.equipment}
+                                instituicoes={appData.instituicoes}
+                                entidades={appData.entidades}
+                                assignments={appData.assignments}
+                                equipmentTypes={appData.equipmentTypes}
+                                tickets={appData.tickets}
+                                collaborators={appData.collaborators}
+                                teams={appData.teams}
+                                expiringWarranties={appData.equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
+                                expiringLicenses={appData.softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
+                                softwareLicenses={appData.softwareLicenses}
+                                licenseAssignments={appData.licenseAssignments}
+                                vulnerabilities={appData.vulnerabilities}
+                                onViewItem={handleViewItem}
+                                onGenerateComplianceReport={() => setReportType('compliance')}
+                                checkPermission={checkPermission}
+                            />
+                        ) : checkPermission('my_area', 'view') ? (
+                            <SelfServiceDashboard 
+                                currentUser={currentUser}
+                                equipment={appData.equipment}
+                                assignments={appData.assignments}
+                                softwareLicenses={appData.softwareLicenses}
+                                licenseAssignments={appData.licenseAssignments}
+                                trainings={appData.securityTrainings}
+                                brands={appData.brands}
+                                types={appData.equipmentTypes}
+                                policies={appData.policies}
+                                acceptances={appData.policyAcceptances}
+                                tickets={appData.tickets}
+                            />
+                        ) : null
+                    )}
+
+                    {activeTab === 'my_area' && (
+                        <SelfServiceDashboard 
+                            currentUser={currentUser}
                             equipment={appData.equipment}
-                            instituicoes={appData.instituicoes}
-                            entidades={appData.entidades}
                             assignments={appData.assignments}
-                            equipmentTypes={appData.equipmentTypes}
-                            tickets={appData.tickets}
-                            collaborators={appData.collaborators}
-                            teams={appData.teams}
-                            expiringWarranties={appData.equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
-                            expiringLicenses={appData.softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
                             softwareLicenses={appData.softwareLicenses}
                             licenseAssignments={appData.licenseAssignments}
-                            vulnerabilities={appData.vulnerabilities}
-                            onViewItem={handleViewItem}
-                            onGenerateComplianceReport={() => setReportType('compliance')}
-                            checkPermission={checkPermission}
+                            trainings={appData.securityTrainings}
+                            brands={appData.brands}
+                            types={appData.equipmentTypes}
+                            policies={appData.policies}
+                            acceptances={appData.policyAcceptances}
+                            tickets={appData.tickets}
                         />
                     )}
 
@@ -260,23 +289,6 @@ export const App: React.FC = () => {
                     {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={refreshData} />}
                     {activeTab === 'tools.agenda' && <AgendaDashboard />}
                     {activeTab === 'tools.map' && <MapDashboard instituicoes={appData.instituicoes} entidades={appData.entidades} suppliers={appData.suppliers} equipment={appData.equipment} assignments={appData.assignments} />}
-
-                    {/* NEW RENDER CONDITION FOR PERSONAL AREA */}
-                    {activeTab === 'my_area' && currentUser && (
-                        <SelfServiceDashboard 
-                            currentUser={currentUser}
-                            equipment={appData.equipment}
-                            assignments={appData.assignments}
-                            softwareLicenses={appData.softwareLicenses}
-                            licenseAssignments={appData.licenseAssignments}
-                            trainings={appData.securityTrainings}
-                            brands={appData.brands}
-                            types={appData.equipmentTypes}
-                            policies={appData.policies}
-                            acceptances={appData.policyAcceptances}
-                            tickets={appData.tickets}
-                        />
-                    )}
                 </div>
             </main>
 

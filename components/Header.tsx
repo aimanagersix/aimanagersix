@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Collaborator, UserRole } from '../types';
+import { Collaborator, UserRole, ModuleKey, PermissionAction } from '../types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown, FaBars, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaSync, FaGlobe, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaLock, FaUnlock, FaColumns, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaChevronDown, FaBars, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt, FaUserTie } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useLayout } from '../contexts/LayoutContext';
 import MFASetupModal from './MFASetupModal';
@@ -22,6 +22,7 @@ interface HeaderProps {
   onOpenProfile?: () => void;
   onOpenCalendar?: () => void;
   onOpenManual?: () => void;
+  checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
 }
 
 const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
@@ -52,7 +53,7 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
     );
 };
 
-const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenProfile, onOpenCalendar, onOpenManual }) => {
+const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, onResetData, tabConfig, notificationCount, onNotificationClick, onOpenProfile, onOpenCalendar, onOpenManual, checkPermission }) => {
     const { t, setLanguage, language } = useLanguage();
     const { setLayoutMode } = useLayout();
     
@@ -120,7 +121,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
     const isNis2Active = activeTab.startsWith('nis2');
     const isTicketsActive = activeTab.startsWith('tickets');
-    const isOverviewActive = activeTab.startsWith('overview');
+    const isOverviewActive = activeTab.startsWith('overview') || activeTab === 'my_area';
     const isToolsActive = activeTab.startsWith('tools');
 
     const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
@@ -128,7 +129,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience || tabConfig.nis2?.training || tabConfig.nis2?.policies;
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
-    const hasReportsTabs = tabConfig['reports']; 
     
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
@@ -139,7 +139,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
           
-          {/* Left Side: Logo & Mobile Toggle */}
           <div className="flex items-center gap-4">
             <button 
                 ref={mobileMenuButtonRef}
@@ -156,17 +155,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
             </div>
           </div>
 
-          {/* Center: Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-2">
-              {/* Visão Geral */}
               {tabConfig['overview'] && (
-                  tabConfig['overview.smart'] ? (
                     <div className="relative" ref={overviewMenuRef}>
                         <button
                             onClick={() => setIsOverviewMenuOpen(prev => !prev)}
                             className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isOverviewActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}
-                            aria-haspopup="true"
-                            aria-expanded={isOverviewMenuOpen}
                         >
                             <FaChartBar />
                             {t('nav.overview')}
@@ -177,18 +171,21 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         {isOverviewMenuOpen && (
                             <div className="absolute z-20 mt-2 w-60 origin-top-left rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                                 <div className="py-1" role="menu" aria-orientation="vertical">
-                                    <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
-                                    <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                    {checkPermission('widget_kpi_cards', 'view') && (
+                                        <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                    )}
+                                    {checkPermission('my_area', 'view') && (
+                                        <TabButton tab="my_area" label="A Minha Área" icon={<FaUserTie className="text-brand-secondary" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                    )}
+                                    {tabConfig['overview.smart'] && (
+                                        <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
-                  ) : (
-                    <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={setActiveTab}/>
-                  )
               )}
 
-              {/* Organização */}
               {hasOrganizacaoTabs && (
                   <div className="relative" ref={organizacaoMenuRef}>
                       <button
@@ -215,7 +212,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                   </div>
               )}
 
-              {/* Inventário - ORDEM CORRIGIDA */}
               {hasInventarioTabs && (
                   <div className="relative" ref={inventarioMenuRef}>
                       <button
@@ -240,7 +236,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                   </div>
               )}
 
-              {/* NIS2 */}
               {hasNis2Tabs && (
                   <div className="relative" ref={nis2MenuRef}>
                       <button
@@ -268,17 +263,14 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                   </div>
               )}
 
-              {/* Tickets */}
               {hasTicketTabs && (
                   <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>
               )}
               
-              {/* Reports */}
-              {hasReportsTabs && (
+              {tabConfig['reports'] && (
                   <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>
               )}
 
-              {/* Tools */}
               {hasToolsTabs && (
                   <div className="relative" ref={toolsMenuRef}>
                       <button
@@ -305,7 +297,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
               )}
           </nav>
 
-          {/* Right Side Icons */}
           <div className="flex items-center space-x-4">
             <button onClick={onNotificationClick} className="relative p-2 text-gray-400 hover:text-white transition-colors">
                 <FaBell className="w-6 h-6" />
@@ -316,7 +307,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 )}
             </button>
 
-            {/* User Menu */}
             <div className="relative" ref={userMenuRef}>
                 <button 
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -363,7 +353,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                 />
                             </div>
 
-                            {/* Language Switch - FUNDO CORRIGIDO */}
                             <div className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer" onClick={(e) => {e.stopPropagation()}}>
                                 <FaGlobe className="mr-3 text-blue-400" />
                                 <select 
@@ -410,7 +399,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
       </div> 
     </header>
 
-      {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-gray-900 border-t border-gray-700 absolute w-full left-0 top-20 shadow-2xl overflow-y-auto max-h-[80vh] z-40" ref={mobileMenuRef}>
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
@@ -422,7 +410,13 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     />
                 </div>
                 
-                <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
+                <p className="px-4 text-xs text-gray-500 uppercase mt-2">{t('nav.overview')}</p>
+                {checkPermission('widget_kpi_cards', 'view') && (
+                    <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
+                )}
+                {checkPermission('my_area', 'view') && (
+                    <TabButton tab="my_area" label="A Minha Área" icon={<FaUserTie />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
+                )}
                 {tabConfig['overview.smart'] && <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
 
                 <div className="border-t border-gray-700 my-2"></div>

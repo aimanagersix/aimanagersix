@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { Collaborator, UserRole } from './types';
+import { Collaborator, UserRole, ModuleKey, PermissionAction } from './types';
 import { FaClipboardList, FaBuilding, FaUsers, FaDoorOpen as LogoutIcon, FaKey, FaBell, FaFingerprint, FaUserShield, FaDatabase, FaUserCircle, FaCalendarAlt, FaBook, FaQuestionCircle } from './components/common/Icons';
-import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt, FaTimes } from 'react-icons/fa';
+import { FaShapes, FaTags, FaChartBar, FaTicketAlt, FaSitemap, FaNetworkWired, FaShieldAlt, FaBoxOpen, FaServer, FaColumns, FaChevronRight, FaChevronDown, FaRobot, FaTachometerAlt, FaAddressBook, FaCog, FaToolbox, FaGlobe, FaMapMarkedAlt, FaFileSignature, FaGraduationCap, FaShoppingCart, FaMobileAlt, FaTimes, FaUserTie } from 'react-icons/fa';
 import { useLanguage } from './contexts/LanguageContext';
 import { useLayout } from './contexts/LayoutContext';
 import MFASetupModal from './components/MFASetupModal';
@@ -23,16 +23,17 @@ interface SidebarProps {
   onOpenProfile?: () => void;
   onOpenCalendar?: () => void;
   onOpenManual?: () => void;
+  checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenProfile, onOpenCalendar, onOpenManual }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, isExpanded, onHover, onOpenProfile, onOpenCalendar, onOpenManual, checkPermission }) => {
     const { t, setLanguage, language } = useLanguage();
     const { layoutMode, setLayoutMode } = useLayout();
     
     const [isOrganizacaoOpen, setOrganizacaoOpen] = useState(activeTab.startsWith('organizacao') || activeTab === 'collaborators');
     const [isInventarioOpen, setInventarioOpen] = useState(activeTab.startsWith('equipment') || activeTab === 'licensing');
     const [isNis2Open, setIsNis2Open] = useState(activeTab.startsWith('nis2'));
-    const [isOverviewOpen, setIsOverviewOpen] = useState(activeTab.startsWith('overview'));
+    const [isOverviewOpen, setIsOverviewOpen] = useState(activeTab.startsWith('overview') || activeTab === 'my_area');
     const [isToolsOpen, setIsToolsOpen] = useState(activeTab.startsWith('tools'));
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -46,7 +47,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience || tabConfig.nis2?.training || tabConfig.nis2?.policies;
     const hasTicketTabs = tabConfig['tickets'];
     const hasToolsTabs = tabConfig['tools'] || onOpenCalendar || onOpenManual;
-    const hasReportsTabs = tabConfig['reports'];
     
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
@@ -104,32 +104,33 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 
                 {hasOverviewTabs && (
                     <div className="space-y-1">
-                        {tabConfig['overview.smart'] ? (
-                            <>
-                                <button
-                                    onClick={() => setIsOverviewOpen(!isOverviewOpen)}
-                                    className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
-                                    title={!isExpanded ? t('nav.overview') : undefined}
-                                >
-                                    <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                                        <FaChartBar className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                        <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.overview')}</span>
-                                    </div>
-                                    {isExpanded && (
-                                        <span className={`transition-transform duration-200 ${isOverviewOpen ? 'rotate-90' : ''}`}>
-                                            <FaChevronRight className="w-3 h-3" />
-                                        </span>
-                                    )}
-                                </button>
-                                {isOverviewOpen && isExpanded && (
-                                    <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
-                                        <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
-                                        <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
-                                    </div>
+                        <button
+                            onClick={() => setIsOverviewOpen(!isOverviewOpen)}
+                            className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}
+                            title={!isExpanded ? t('nav.overview') : undefined}
+                        >
+                            <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
+                                <FaChartBar className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.overview')}</span>
+                            </div>
+                            {isExpanded && (
+                                <span className={`transition-transform duration-200 ${isOverviewOpen ? 'rotate-90' : ''}`}>
+                                    <FaChevronRight className="w-3 h-3" />
+                                </span>
+                            )}
+                        </button>
+                        {isOverviewOpen && isExpanded && (
+                            <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
+                                {checkPermission('widget_kpi_cards', 'view') && (
+                                    <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
                                 )}
-                            </>
-                        ) : (
-                            <TabButton tab="overview" label={t('nav.overview')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                {checkPermission('my_area', 'view') && (
+                                    <TabButton tab="my_area" label="A Minha Área" icon={<FaUserTie className="text-brand-secondary" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                )}
+                                {tabConfig['overview.smart'] && (
+                                    <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
@@ -163,7 +164,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     </div>
                 )}
 
-                {/* Inventário - ORDEM CORRIGIDA */}
                 {hasInventarioTabs && (
                     <div className="space-y-1">
                         <button
@@ -225,7 +225,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>
                 )}
                 
-                {hasReportsTabs && (
+                {tabConfig['reports'] && (
                     <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>
                 )}
 
