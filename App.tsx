@@ -26,9 +26,10 @@ import MapDashboard from './components/MapDashboard';
 import SettingsManager from './features/settings/SettingsManager';
 import { getSupabase } from './services/supabaseClient';
 import * as dataService from './services/dataService';
-import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, TicketStatus, PolicyAcceptance } from './types';
+import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, TicketStatus, PolicyAcceptance, Policy } from './types';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 import AgendaDashboard from './components/AgendaDashboard';
+import { AddTicketModal } from './components/AddTicketModal';
 
 export const App: React.FC = () => {
     const { isConfigured, setIsConfigured, currentUser, setCurrentUser, appData, refreshData, isLoading } = useAppData();
@@ -46,6 +47,10 @@ export const App: React.FC = () => {
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
     const [session, setSession] = useState<any>(null);
+
+    // Drilled modal states
+    const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
+    const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
 
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
@@ -242,6 +247,7 @@ export const App: React.FC = () => {
                                 onViewItem={handleViewItem}
                                 onGenerateComplianceReport={() => setReportType('compliance')}
                                 checkPermission={checkPermission}
+                                onRefresh={refreshData}
                             />
                         ) : (
                             <SelfServiceDashboard 
@@ -256,6 +262,8 @@ export const App: React.FC = () => {
                                 policies={appData.policies}
                                 acceptances={appData.policyAcceptances}
                                 tickets={appData.tickets}
+                                onViewTicket={setViewingTicket}
+                                onViewPolicy={setReadingPolicy}
                             />
                         )
                     )}
@@ -273,6 +281,8 @@ export const App: React.FC = () => {
                             policies={appData.policies}
                             acceptances={appData.policyAcceptances}
                             tickets={appData.tickets}
+                            onViewTicket={setViewingTicket}
+                            onViewPolicy={setReadingPolicy}
                         />
                     )}
 
@@ -404,6 +414,53 @@ export const App: React.FC = () => {
                             version: version,
                             accepted_at: new Date().toISOString()
                         });
+                        refreshData();
+                    }}
+                />
+            )}
+
+            {viewingTicket && (
+                <AddTicketModal
+                    onClose={() => setViewingTicket(null)}
+                    onSave={async (ticket) => {
+                        await dataService.updateTicket(viewingTicket.id, ticket);
+                        refreshData();
+                    }}
+                    ticketToEdit={viewingTicket}
+                    escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
+                    collaborators={appData.collaborators}
+                    teams={appData.teams}
+                    currentUser={currentUser}
+                    userPermissions={{ viewScope: 'own', canManage: checkPermission('tickets', 'manage') }}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    assignments={appData.assignments}
+                    categories={appData.ticketCategories}
+                    securityIncidentTypes={appData.securityIncidentTypes}
+                    pastTickets={appData.tickets}
+                />
+            )}
+
+            {readingPolicy && (
+                <PolicyAcceptanceModal 
+                    policies={[readingPolicy]}
+                    onAccept={async (policyId, version) => {
+                        // Just a reread check if already accepted
+                        const alreadyAccepted = appData.policyAcceptances.find(a => 
+                            a.collaborator_id === currentUser?.id && 
+                            a.policy_id === policyId && 
+                            String(a.version) === String(version)
+                        );
+                        if (!alreadyAccepted) {
+                            await getSupabase().from('policy_acceptances').insert({
+                                policy_id: policyId,
+                                collaborator_id: currentUser?.id,
+                                version: version,
+                                accepted_at: new Date().toISOString()
+                            });
+                        }
+                        setReadingPolicy(null);
                         refreshData();
                     }}
                 />

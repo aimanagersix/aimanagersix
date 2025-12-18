@@ -5,7 +5,6 @@ import {
     Assignment, LicenseAssignment, Brand, EquipmentType, 
     Policy, PolicyAcceptance, Ticket 
 } from '../../types';
-// Fix: Added missing FaCheck import to resolve 'Cannot find name FaCheck' error
 import { 
     FaLaptop, FaKey, FaGraduationCap, FaInfoCircle, FaCalendarCheck, 
     FaShieldAlt, FaExclamationTriangle, FaFileSignature, FaTicketAlt, FaClock, FaCheck 
@@ -23,11 +22,14 @@ interface SelfServiceDashboardProps {
     policies: Policy[];
     acceptances: PolicyAcceptance[];
     tickets: Ticket[];
+    onViewTicket?: (ticket: Ticket) => void;
+    onViewPolicy?: (policy: Policy) => void;
 }
 
 const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({ 
     currentUser, equipment, assignments, softwareLicenses, licenseAssignments, 
-    trainings, brands, types, policies, acceptances, tickets 
+    trainings, brands, types, policies, acceptances, tickets,
+    onViewTicket, onViewPolicy
 }) => {
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const typeMap = useMemo(() => new Map(types.map(t => [t.id, t.name])), [types]);
@@ -117,13 +119,17 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
                         {myActiveTickets.length > 0 ? myActiveTickets.map(t => (
-                            <div key={t.id} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-purple-500/50 transition-colors">
+                            <button 
+                                key={t.id} 
+                                onClick={() => onViewTicket?.(t)}
+                                className="w-full text-left bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800 transition-colors group"
+                            >
                                 <div className="flex justify-between items-start mb-1">
-                                    <p className="font-bold text-white text-sm truncate pr-2">{t.title}</p>
+                                    <p className="font-bold text-white text-sm truncate pr-2 group-hover:text-purple-300">{t.title}</p>
                                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-500/30 uppercase">{t.status}</span>
                                 </div>
                                 <p className="text-[10px] text-gray-500 flex items-center gap-1"><FaClock/> Aberto em {new Date(t.requestDate).toLocaleDateString()}</p>
-                            </div>
+                            </button>
                         )) : <p className="text-gray-500 text-sm italic text-center py-4">Não tem nenhum ticket em aberto.</p>}
                     </div>
                 </section>
@@ -137,7 +143,11 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
                         {myAcceptedPolicies.map(p => (
-                            <div key={p.id} className={`p-3 rounded border flex justify-between items-center ${p.acceptance ? 'bg-green-900/10 border-green-500/20' : 'bg-red-900/10 border-red-500/30'}`}>
+                            <button 
+                                key={p.id} 
+                                onClick={() => onViewPolicy?.(p)}
+                                className={`w-full text-left p-3 rounded border flex justify-between items-center transition-colors hover:brightness-110 ${p.acceptance ? 'bg-green-900/10 border-green-500/20' : 'bg-red-900/10 border-red-500/30'}`}
+                            >
                                 <div>
                                     <p className="font-bold text-white text-sm">{p.title}</p>
                                     <p className="text-[10px] text-gray-500">Versão {p.version} {p.is_mandatory && <span className="text-red-400 font-bold ml-1">• Obrigatória</span>}</p>
@@ -152,7 +162,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                                         <span className="text-[10px] text-red-400 font-bold animate-pulse flex items-center gap-1"><FaExclamationTriangle/> Leitura Pendente</span>
                                     )}
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 </section>

@@ -42,22 +42,17 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     const [formData, setFormData] = useState<Partial<Ticket>>(() => {
         if (ticketToEdit) return { ...ticketToEdit };
         
-        // Nova Lógica de Triagem: Geral + Pendente Atribuição
         const triageTeam = teams.find(t => t.name === 'Pendente Atribuição');
         const generalCategory = categories.find(c => c.name === 'Geral');
 
         const baseData: any = {
             title: initialData?.title || '',
             description: initialData?.description || '',
-            // Atribui a equipa de triagem por defeito se existir
             team_id: triageTeam?.id || '',
-            // Atribui a categoria Geral por defeito se existir
             category: initialData?.category || generalCategory?.name || activeCategories[0] || 'Geral',
             impactCriticality: (initialData?.impactCriticality as CriticalityLevel) || CriticalityLevel.Low,
         };
         
-        // Mantém a compatibilidade: se a categoria sugerida tiver uma equipa específica 
-        // e não for a inicialização padrão "Geral", respeita a configuração da categoria.
         if (!generalCategory || baseData.category !== 'Geral') {
             const defaultCatObj = categories.find(c => c.name === baseData.category);
             if (defaultCatObj?.default_team_id) baseData.team_id = defaultCatObj.default_team_id;
@@ -71,10 +66,20 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
         return baseData;
     });
 
+    // Ensure currentUser data is synced if it loads late
+    useEffect(() => {
+        if (!ticketToEdit && currentUser && !formData.collaboratorId) {
+            setFormData(prev => ({
+                ...prev,
+                collaboratorId: currentUser.id,
+                entidadeId: currentUser.entidadeId
+            }));
+        }
+    }, [currentUser, ticketToEdit]);
+
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const aiConfigured = isAiConfigured();
+    const [isSaving, setIsSaving] = useState(false);
      
     const isSecurityIncident = useMemo(() => {
         const selectedCatObj = categories.find(c => c.name === formData.category);
@@ -100,11 +105,26 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
+        setIsSaving(true);
         try {
-            const dataToSave: any = { ...formData, attachments: attachments.map(a => ({ name: a.name, dataUrl: a.dataUrl })) };
+            const dataToSave: any = { 
+                ...formData, 
+                attachments: attachments.map(a => ({ name: a.name, dataUrl: a.dataUrl })) 
+            };
+            
+            // Clean up empty UUIDs to null
+            if (!dataToSave.team_id) dataToSave.team_id = null;
+            if (!dataToSave.equipmentId) dataToSave.equipmentId = null;
+            if (!dataToSave.technicianId) dataToSave.technicianId = null;
+
             await onSave(ticketToEdit ? { ...ticketToEdit, ...dataToSave } : dataToSave);
             onClose();
-        } catch (error) { console.error(error); }
+        } catch (error: any) { 
+            console.error("Error saving ticket:", error);
+            alert("Erro ao gravar ticket: " + (error.message || "Erro desconhecido. Verifique as suas permissões."));
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -123,11 +143,10 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                             {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
                         </select>
                     </div>
-                    {/* HIDE TEAM SELECTION FOR NORMAL USERS */}
                     {canManage ? (
                         <div>
                             <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa de Suporte</label>
-                            <select name="team_id" value={formData.team_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
+                            <select name="team_id" value={formData.team_id || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
                                 <option value="">-- Sem Equipa (Geral) --</option>
                                 {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
@@ -142,15 +161,20 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Assunto</label>
                     <input type="text" name="title" value={formData.title} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'}`} />
+                    {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição do Problema</label>
                     <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} placeholder="Descreva o problema..."></textarea>
+                    {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
                 </div>
                 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
+                        {isSaving ? <FaSpinner className="animate-spin" /> : null}
+                        {isSaving ? 'A Gravar...' : 'Salvar'}
+                    </button>
                 </div>
             </form>
         </Modal>
