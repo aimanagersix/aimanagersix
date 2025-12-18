@@ -45,7 +45,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
                     setFunctions(data);
                 }
             } catch (e: any) {
-                setDataError("Erro ao carregar dados.");
+                setDataError("Erro ao carregar metadados.");
             } finally {
                 setIsLoadingData(false);
             }
@@ -67,16 +67,11 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setIsGenerating(true);
         setAiOutput('');
         try {
-            let result = '';
-            if (aiMode === 'sql') {
-                result = await generateSqlHelper(aiInput);
-            } else {
-                result = await generatePlaywrightTest(aiInput, { email: 'admin@exemplo.com', pass: '******' });
-            }
-            result = result.replace(/```sql/g, '').replace(/```typescript/g, '').replace(/```/g, '');
+            let result = await generateSqlHelper(aiInput);
+            result = result.replace(/```sql/g, '').replace(/```/g, '');
             setAiOutput(result);
         } catch (error: any) {
-            setAiOutput(`-- Erro ao gerar resposta.`);
+            setAiOutput(`-- Erro ao gerar SQL.`);
         } finally {
             setIsGenerating(false);
         }
@@ -85,45 +80,44 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- 1. REPARAÇÃO TOTAL E SEGURANÇA INTELIGENTE (v4.3 - Fixed Function Params)
--- Execute este script para garantir que utilizadores veem apenas o que lhes é devido.
+-- REPARAÇÃO TOTAL DE SEGURANÇA (v4.5 - THE MASTER FIX)
+-- 1. Resolve erro "cannot drop function because other objects depend on it"
+-- 2. Garante que Utilizadores vêem os seus equipamentos na "Minha Área"
 -- ==================================================================================
 
--- A. REMOVER FUNÇÃO ANTIGA PARA EVITAR CONFLITO DE PARÂMETROS
-DROP FUNCTION IF EXISTS public.has_permission(text, text);
+-- A. LIMPEZA RADICAL DE DEPENDÊNCIAS
+-- O CASCADE remove todas as políticas que usam a função automaticamente.
+DROP FUNCTION IF EXISTS public.has_permission(text, text) CASCADE;
 
--- B. RE-CRIAR FUNÇÃO AUXILIAR DE PERMISSÃO
-CREATE OR REPLACE FUNCTION public.has_permission(requested_module text, requested_action text)
+-- B. RE-CRIAÇÃO DA FUNÇÃO DE PERMISSÃO (RBAC)
+CREATE OR REPLACE FUNCTION public.has_permission(p_module text, p_action text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     v_role_name text;
     v_perms jsonb;
 BEGIN
-    -- 1. Obter o papel do utilizador atual
+    -- 1. Obter o papel do utilizador pelo email do JWT
     SELECT role INTO v_role_name FROM public.collaborators WHERE email = auth.jwt()->>'email';
     
-    -- 2. SuperAdmin tem sempre acesso total
+    -- 2. SuperAdmin tem sempre acesso total (bypass)
     IF v_role_name = 'SuperAdmin' THEN RETURN true; END IF;
 
-    -- 3. Obter o JSON de permissões para o papel
+    -- 3. Obter o JSON de permissões
     SELECT permissions INTO v_perms FROM public.config_custom_roles WHERE name = v_role_name;
 
-    -- 4. Verificar se a ação é permitida no módulo
-    RETURN COALESCE((v_perms->requested_module->>requested_action)::boolean, false);
+    -- 4. Retornar permissão (Default FALSE se nulo)
+    RETURN COALESCE((v_perms->p_module->>p_action)::boolean, false);
 END; $$;
 
--- C. REINICIAR POLÍTICAS (LIMPEZA TOTAL DE SELEÇÃO)
-DROP POLICY IF EXISTS "Unified equipment select" ON public.equipment;
-DROP POLICY IF EXISTS "Unified tickets select" ON public.tickets;
-DROP POLICY IF EXISTS "Unified trainings select" ON public.security_trainings;
+-- C. REAPLICAÇÃO DE POLÍTICAS RLS (Após o CASCADE)
 
--- D. NOVAS POLÍTICAS UNIFICADAS COM ASPAS DUPLAS (CamelCase)
--- 1. Equipamentos
+-- 1. EQUIPAMENTOS (Crucial para a Minha Área)
+-- Vejo se tenho 'view' global OU se o item está atribuído a mim.
 CREATE POLICY "Unified equipment select" ON public.equipment
 FOR SELECT TO authenticated 
 USING (
-    public.has_permission('equipment', 'view') -- Permissão GLOBAL
-    OR EXISTS ( -- OU atribuição pessoal ATIVA
+    public.has_permission('equipment', 'view') 
+    OR EXISTS (
         SELECT 1 FROM public.assignments 
         WHERE "equipmentId" = public.equipment.id 
         AND "returnDate" IS NULL 
@@ -131,43 +125,52 @@ USING (
     )
 );
 
--- 2. Tickets
+-- 2. TICKETS
 CREATE POLICY "Unified tickets select" ON public.tickets
 FOR SELECT TO authenticated 
 USING (
-    public.has_permission('tickets', 'view') -- Permissão GLOBAL
-    OR "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email') -- OU sou o dono
+    public.has_permission('tickets', 'view')
+    OR "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
 );
 
--- 3. Formações
+-- 3. FORMAÇÕES
 CREATE POLICY "Unified trainings select" ON public.security_trainings
 FOR SELECT TO authenticated 
 USING (
-    public.has_permission('compliance_training', 'view') -- Permissão GLOBAL
-    OR collaborator_id = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email') -- OU é a minha
+    public.has_permission('compliance_training', 'view')
+    OR collaborator_id = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
 );
 
--- E. RECARREGAR CACHE
+-- 4. ATRIBUIÇÕES (Necessário para a lógica de ver o meu equipamento)
+CREATE POLICY "Unified assignments select" ON public.assignments
+FOR SELECT TO authenticated USING (true); -- Leitura aberta, o filtro final é feito no Equipamento
+
+-- 5. TABELAS DE CONFIGURAÇÃO (Sempre legíveis para autenticados)
+ALTER TABLE public.config_custom_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Read config" ON public.config_custom_roles;
+CREATE POLICY "Read config" ON public.config_custom_roles FOR SELECT TO authenticated USING (true);
+
+-- D. RECARREGAR
 NOTIFY pgrst, 'reload schema';
 `,
         seed: `-- SEED DATA...`
     };
 
     return (
-        <Modal title="Configuração e Manutenção da Base de Dados" onClose={onClose} maxWidth="max-w-7xl">
+        <Modal title="Manutenção da Base de Dados" onClose={onClose} maxWidth="max-w-7xl">
             <div className="flex flex-col h-[85vh]">
                 <div className="flex flex-wrap gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-3 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> 1. Instalação & Segurança v4.3
+                        <FaTerminal /> 1. Reparação Master v4.5 (CASCADE)
                     </button>
-                    {/* ... (outros botões) ... */}
+                    {/* ... outros botões se necessário ... */}
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
-                            <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-4 flex-shrink-0">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaDatabase /> Segurança Inteligente v4.3</div>
-                                <p>Este script resolve o erro de parâmetros da função e aplica as regras RLS corretamente.</p>
+                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4 flex-shrink-0">
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Reparação Crítica</div>
+                                <p>Este script utiliza <strong>CASCADE</strong> para forçar a atualização da segurança, resolvendo o erro de dependências. Execute e recarregue a página.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">

@@ -41,12 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const [showAudit, setShowAudit] = useState(false);
     const [showDbSchema, setShowDbSchema] = useState(false);
 
-    const hasOrganizacaoTabs = tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators'] || tabConfig['organizacao.teams'] || tabConfig['organizacao.suppliers'];
-    const hasInventarioTabs = tabConfig['licensing'] || tabConfig['equipment.inventory'] || tabConfig['equipment.procurement'];
-    const hasNis2Tabs = tabConfig.nis2?.bia || tabConfig.nis2?.security || tabConfig.nis2?.backups || tabConfig.nis2?.resilience || tabConfig.nis2?.training || tabConfig.nis2?.policies;
-    
     const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
-    const isSuperAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.SuperAdmin;
 
     const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
         const handleClick = (e: React.MouseEvent) => {
@@ -69,94 +64,85 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
 
     return (
         <>
-        <aside 
-            className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-all duration-300 ${isExpanded ? 'w-64' : 'w-20'}`} 
-            onMouseEnter={() => onHover(true)} 
-            onMouseLeave={() => onHover(false)}
-        >
+        <aside className={`fixed top-0 left-0 h-screen bg-gray-900 shadow-2xl z-50 flex flex-col border-r border-gray-800 transition-all duration-300 ${isExpanded ? 'w-64' : 'w-20'}`} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
             <div className="flex items-center justify-center h-20 bg-gray-900 border-b border-gray-800 overflow-hidden cursor-pointer" onClick={() => setActiveTab('overview')}>
                 <span className="font-bold text-2xl text-white">{isExpanded ? <>AI<span className="text-brand-secondary">Manager</span></> : <span className="text-brand-secondary">AI</span>}</span>
             </div>
 
             <nav className="flex-grow py-4 px-2 space-y-1 overflow-y-auto custom-scrollbar overflow-x-hidden">
+                {tabConfig['overview'] && (
+                    <div className="space-y-1">
+                        <button onClick={() => setIsOverviewOpen(!isOverviewOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
+                            <div className="flex items-center gap-3 overflow-hidden">
+                                <FaChartBar className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.overview')}</span>
+                            </div>
+                            {isExpanded && <FaChevronRight className={`w-3 h-3 transition-transform ${isOverviewOpen ? 'rotate-90' : ''}`} />}
+                        </button>
+                        {isOverviewOpen && isExpanded && (
+                            <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
+                                {checkPermission('widget_kpi_cards', 'view') && <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                                {checkPermission('my_area', 'view') && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie className="text-brand-secondary" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                                {tabConfig['overview.smart'] && <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="space-y-1">
-                    <button onClick={() => setIsOverviewOpen(!isOverviewOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isOverviewOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
+                    <button onClick={() => setOrganizationOpen(!isOrganizationOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isOrganizationOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
                         <div className="flex items-center gap-3 overflow-hidden">
-                            <FaChartBar className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                            <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.overview')}</span>
+                            <FaSitemap className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                            <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.organization')}</span>
                         </div>
-                        {isExpanded && <FaChevronRight className={`w-3 h-3 transition-transform ${isOverviewOpen ? 'rotate-90' : ''}`} />}
+                        {isExpanded && <FaChevronRight className={`w-3 h-3 transition-transform ${isOrganizationOpen ? 'rotate-90' : ''}`} />}
                     </button>
-                    {isOverviewOpen && isExpanded && (
+                    {isOrganizationOpen && isExpanded && (
                         <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
-                            {checkPermission('widget_kpi_cards', 'view') && <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
-                            {checkPermission('my_area', 'view') && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie className="text-brand-secondary" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
-                            {tabConfig['overview.smart'] && <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                            {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig['collaborators'] && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                         </div>
                     )}
                 </div>
 
-                {hasOrganizacaoTabs && (
-                    <div className="space-y-1">
-                        <button onClick={() => setOrganizationOpen(!isOrganizationOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isOrganizationOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
-                            <div className="flex items-center gap-3 overflow-hidden">
-                                <FaSitemap className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.organization')}</span>
-                            </div>
-                            {isExpanded && <FaChevronRight className={`w-3 h-3 transition-transform ${isOrganizationOpen ? 'rotate-90' : ''}`} />}
-                        </button>
-                        {isOrganizationOpen && isExpanded && (
-                            <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
-                                {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['collaborators'] && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['organizacao.teams'] && <TabButton tab="organizacao.teams" label={t('nav.teams')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['organizacao.suppliers'] && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                            </div>
-                        )}
-                    </div>
-                )}
+                <div className="space-y-1">
+                    <button onClick={() => setInventoryOpen(!isInventoryOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isInventoryOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <FaBoxOpen className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                            <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.inventory')}</span>
+                        </div>
+                        {isExpanded && <FaChevronRight className={`w-3 h-3 transition-transform ${isInventoryOpen ? 'rotate-90' : ''}`} />}
+                    </button>
+                    {isInventoryOpen && isExpanded && (
+                        <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
+                            {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                        </div>
+                    )}
+                </div>
 
-                {hasInventarioTabs && (
-                    <div className="space-y-1">
-                        <button onClick={() => setInventoryOpen(!isInventoryOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isInventoryOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
-                            <div className="flex items-center gap-3 overflow-hidden">
-                                <FaBoxOpen className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.inventory')}</span>
-                            </div>
-                            {isExpanded && <FaChevronRight className={`w-3 h-3 transition-transform ${isInventoryOpen ? 'rotate-90' : ''}`} />}
-                        </button>
-                        {isInventoryOpen && isExpanded && (
-                            <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
-                                {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {hasNis2Tabs && (
-                    <div className="space-y-1">
-                        <button onClick={() => setIsNis2Open(!isNis2Open)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isNis2Open ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
-                            <div className="flex items-center gap-3 overflow-hidden">
-                                <FaShieldAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
-                                <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.compliance')}</span>
-                            </div>
-                            {isExpanded && <FaChevronRight className={`w-3 h-3 transition-transform ${isNis2Open ? 'rotate-90' : ''}`} />}
-                        </button>
-                        {isNis2Open && isExpanded && (
-                            <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
-                                {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={t('nav.backups')} icon={<FaServer />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={t('nav.resilience')} icon={<FaShieldAlt className="text-purple-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig.nis2?.training && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap className="text-green-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                {tabConfig.nis2?.policies && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature className="text-yellow-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                            </div>
-                        )}
-                    </div>
-                )}
+                <div className="space-y-1">
+                    <button onClick={() => setIsNis2Open(!isNis2Open)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isNis2Open ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <FaShieldAlt className="text-lg flex-shrink-0 w-6 flex justify-center" />
+                            <span className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{t('nav.compliance')}</span>
+                        </div>
+                        {isExpanded && <FaChevronRight className={`w-3 h-3 transition-transform ${isNis2Open ? 'rotate-90' : ''}`} />}
+                    </button>
+                    {isNis2Open && isExpanded && (
+                        <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
+                            {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={t('nav.backups')} icon={<FaServer />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={t('nav.resilience')} icon={<FaShieldAlt className="text-purple-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig.nis2?.training && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap className="text-green-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig.nis2?.policies && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature className="text-yellow-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                        </div>
+                    )}
+                </div>
 
                 {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab} />}
                 {tabConfig['reports'] && <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab} />}
@@ -181,80 +167,33 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
             </nav>
 
             <div className="p-4 border-t border-gray-800 bg-gray-900 relative">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); setIsUserMenuOpen(!isUserMenuOpen); }} 
-                    className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-gray-800 transition-colors cursor-pointer"
-                >
-                    {currentUser?.photoUrl ? (
-                        <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" />
-                    ) : (
-                        <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser?.fullName.charAt(0)}</div>
-                    )}
+                <button onClick={(e) => { e.stopPropagation(); setIsUserMenuOpen(!isUserMenuOpen); }} className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-gray-800 transition-colors cursor-pointer">
+                    {currentUser?.photoUrl ? <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" /> : <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser?.fullName.charAt(0)}</div>}
                     {isExpanded && (
                         <div className="overflow-hidden flex-grow text-left">
                             <p className="text-xs font-bold text-white truncate">{currentUser?.fullName}</p>
                             <p className="text-[10px] text-gray-500 truncate uppercase">{currentUser?.role}</p>
                         </div>
                     )}
-                    {isExpanded && <FaChevronDown className={`w-2 h-2 text-gray-600 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />}
                 </button>
-
                 {isUserMenuOpen && currentUser && (
                     <div className="absolute bottom-full left-2 w-64 mb-2 bg-surface-dark border border-gray-700 rounded-md shadow-2xl py-1 z-[100] overflow-hidden">
-                        <div className="px-4 py-3 border-b border-gray-700 bg-gray-900/50">
-                            <p className="text-sm text-white font-medium truncate">{currentUser.fullName}</p>
-                            <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
-                        </div>
                         <div className="py-1">
-                            <button onClick={() => { onOpenProfile?.(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                <FaUserCircle className="mr-3 text-brand-secondary" /> {t('common.profile')}
-                            </button>
-                            <button onClick={() => { setLayoutMode('top'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                <FaColumns className="mr-3 text-gray-400" /> Menu Superior
-                            </button>
-                            <button onClick={() => { setShowMFA(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
-                            </button>
-                            
-                            <div className="px-4 py-2 border-b border-gray-700/50 mb-1 flex justify-between items-center">
-                                <div className="flex gap-2">
-                                    <button onClick={() => setLanguage('pt')} className={`w-8 h-6 flex items-center justify-center rounded text-[10px] font-bold ${language === 'pt' ? 'bg-brand-primary text-white' : 'bg-gray-700 text-gray-400'}`}>PT</button>
-                                    <button onClick={() => setLanguage('en')} className={`w-8 h-6 flex items-center justify-center rounded text-[10px] font-bold ${language === 'en' ? 'bg-brand-primary text-white' : 'bg-gray-700 text-gray-400'}`}>EN</button>
-                                </div>
-                                <span className="text-[10px] text-gray-500 uppercase font-bold">Idioma</span>
-                            </div>
-
-                            <div className="px-4 py-2 border-b border-gray-700/50 mb-1">
-                                <InstallAppButton className="w-full py-2 text-[10px] font-bold text-gray-900 bg-brand-secondary rounded hover:bg-brand-primary hover:text-white transition-all flex items-center justify-center gap-2" label="INSTALAR APP" icon={<FaMobileAlt />} />
-                            </div>
-
+                            <button onClick={() => { onOpenProfile?.(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"><FaUserCircle className="mr-3 text-brand-secondary" /> {t('common.profile')}</button>
+                            <button onClick={() => { setLayoutMode('top'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"><FaColumns className="mr-3 text-gray-400" /> Menu Superior</button>
                             {isAdmin && (
                                 <>
-                                    <button onClick={() => { setActiveTab('settings'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                        <FaCog className="mr-3 text-brand-secondary" /> {t('common.settings')}
-                                    </button>
-                                    <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                        <FaClipboardList className="mr-3 text-yellow-400" /> {t('common.audit')}
-                                    </button>
-                                    {isSuperAdmin && (
-                                        <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                            <FaDatabase className="mr-3 text-green-400" /> {t('common.database')}
-                                        </button>
-                                    )}
+                                    <button onClick={() => { setActiveTab('settings'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"><FaCog className="mr-3 text-brand-secondary" /> {t('common.settings')}</button>
+                                    <button onClick={() => { setShowAudit(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"><FaClipboardList className="mr-3 text-yellow-400" /> {t('common.audit')}</button>
+                                    {currentUser.role === 'SuperAdmin' && <button onClick={() => { setShowDbSchema(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"><FaDatabase className="mr-3 text-green-400" /> {t('common.database')}</button>}
                                 </>
                             )}
-                            
-                            <div className="border-t border-gray-700 mt-1">
-                                <button onClick={onLogout} className="flex w-full items-center px-4 py-2 text-sm text-red-400 hover:bg-red-900/20">
-                                    <LogoutIcon className="mr-3" /> {t('common.logout')}
-                                </button>
-                            </div>
+                            <div className="border-t border-gray-700 mt-1"><button onClick={onLogout} className="flex w-full items-center px-4 py-2 text-sm text-red-400 hover:bg-red-900/20"><LogoutIcon className="mr-3" /> {t('common.logout')}</button></div>
                         </div>
                     </div>
                 )}
             </div>
         </aside>
-
         {showMFA && <MFASetupModal onClose={() => setShowMFA(false)} />}
         {showAudit && <AuditLogModal onClose={() => setShowAudit(false)} />}
         {showDbSchema && <DatabaseSchemaModal onClose={() => setShowDbSchema(false)} />}

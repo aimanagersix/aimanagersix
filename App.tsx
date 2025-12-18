@@ -53,20 +53,18 @@ export const App: React.FC = () => {
 
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
-        if (currentUser.role === UserRole.SuperAdmin) return true;
+        // SUPER ADMIN TEM ACESSO TOTAL SEMPRE
+        if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
+        
         const role = appData.customRoles.find(r => r.name === currentUser.role);
         if (!role || !role.permissions) return false;
         
         const modulePerms = role.permissions[module] || {};
-        
-        // Se pedir 'view' (visibilidade da aba) e tiver 'view_own', autoriza a ver a aba
         if (action === 'view' && modulePerms['view_own']) return true;
-        
         return !!modulePerms[action];
     }, [currentUser, appData.customRoles]);
 
     const tabConfig = useMemo(() => {
-        // Visão Geral visível se tiver Minha Área OU KPIs Globais
         const canSeeMyArea = checkPermission('my_area', 'view');
         const canSeeKpis = checkPermission('widget_kpi_cards', 'view');
         
@@ -123,7 +121,7 @@ export const App: React.FC = () => {
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A carregar sistema...</div>;
+    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">Carregando Sistema...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
@@ -170,13 +168,20 @@ export const App: React.FC = () => {
                         )
                     )}
 
-                    {activeTab === 'my_area' && currentUser && (
+                    {activeTab === 'my_area' && (
                         <SelfServiceDashboard 
                             currentUser={currentUser} equipment={appData.equipment} assignments={appData.assignments}
                             softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
                             trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes}
                             policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets}
                             onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy}
+                        />
+                    )}
+
+                    {activeTab === 'overview.smart' && (
+                        <SmartDashboard 
+                            tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions}
+                            trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser}
                         />
                     )}
 
