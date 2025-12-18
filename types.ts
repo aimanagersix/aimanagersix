@@ -517,6 +517,10 @@ export interface Policy {
     is_mandatory: boolean;
     created_at: string;
     updated_at: string;
+    // Fix: Added missing compliance target fields for NIS2/Governance
+    target_type?: 'Global' | 'Instituicao' | 'Entidade';
+    target_instituicao_ids?: string[];
+    target_entidade_ids?: string[];
 }
 
 export interface PolicyAcceptance {

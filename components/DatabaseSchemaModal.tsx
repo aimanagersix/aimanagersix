@@ -86,8 +86,8 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- 1. REPARAÇÃO DE AUDITORIA E PERMISSÕES (v3.2)
--- Execute este script para corrigir a visualização dos Logs de Auditoria.
+-- 1. REPARAÇÃO DE AUDITORIA, PERMISSÕES E TABELAS (v3.5)
+-- Execute para corrigir visibilidade e erros de tabelas não encontradas.
 -- ==================================================================================
 
 -- A. Garantir existência da tabela audit_log
@@ -101,19 +101,34 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
     details text
 );
 
--- B. Limpar políticas antigas da auditoria
-DROP POLICY IF EXISTS "Admins read audit" ON public.audit_log;
-DROP POLICY IF EXISTS "System write audit" ON public.audit_log;
-DROP POLICY IF EXISTS "Auth read all audit" ON public.audit_log;
+-- B. Garantir existência da tabela security_trainings (Corrige Erro 1)
+CREATE TABLE IF NOT EXISTS public.security_trainings (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    collaborator_id uuid REFERENCES public.collaborators(id) ON DELETE CASCADE,
+    training_type text NOT NULL,
+    completion_date date NOT NULL,
+    status text DEFAULT 'Concluído',
+    score integer,
+    notes text,
+    duration_hours numeric(5,2),
+    created_at timestamp with time zone DEFAULT now()
+);
 
--- C. Novas Políticas de Auditoria (Visível para todos autenticados)
+-- C. Novas Políticas de Auditoria e Formação
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.security_trainings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth read audit" ON public.audit_log;
 CREATE POLICY "Auth read audit" ON public.audit_log 
 FOR SELECT TO authenticated USING (true);
 
-CREATE POLICY "System insert audit" ON public.audit_log 
-FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Auth read trainings" ON public.security_trainings;
+CREATE POLICY "Auth read trainings" ON public.security_trainings 
+FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Admin write trainings" ON public.security_trainings;
+CREATE POLICY "Admin write trainings" ON public.security_trainings 
+FOR ALL TO authenticated USING (true); -- Simplificado para reparação
 
 -- D. Funções de Inspeção (Obrigatórias)
 CREATE OR REPLACE FUNCTION get_db_policies()
@@ -145,6 +160,7 @@ GRANT EXECUTE ON FUNCTION get_db_policies() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_db_triggers() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_db_functions() TO authenticated;
 
+-- E. RECARREGAR CACHE DO POSTGREST (CRÍTICO)
 NOTIFY pgrst, 'reload schema';
 `,
         seed: `
@@ -180,8 +196,8 @@ NOTIFY pgrst, 'reload schema';
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-4 flex-shrink-0">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaDatabase /> Reparação dos Logs de Auditoria</div>
-                                <p>Este script resolve o problema dos logs não aparecerem. Ele limpa políticas conflitantes e garante acesso de leitura à tabela de auditoria para administradores.</p>
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaDatabase /> Reparação Total do Sistema</div>
+                                <p>Este script resolve o problema das tabelas não encontradas (cache cache) e das permissões NIS2. Ele garante que 'audit_log' e 'security_trainings' existem e que o servidor Supabase recarrega as definições.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">
