@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
@@ -12,7 +11,8 @@ if (!rootElement) {
 }
 
 interface ErrorBoundaryProps {
-    children: React.ReactNode;
+    /* Fixed: made children optional to prevent 'missing in type {}' error in JSX */
+    children?: React.ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -64,7 +64,8 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    return this.props.children;
+    /* Fixed: Property 'props' is accessible through the instance when correctly extending React.Component */
+    return <>{this.props.children}</>;
   }
 }
 
@@ -74,6 +75,7 @@ const root = ReactDOM.createRoot(rootElement);
 // Este erro ocorre frequentemente devido a interferências de extensões do browser ou traduções automáticas
 // que alteram o DOM, confundindo o algoritmo de reconciliação do React.
 root.render(
+    /* Fixed: ErrorBoundary now has children properly handled by its prop type */
     <ErrorBoundary>
       <LanguageProvider>
         <LayoutProvider>

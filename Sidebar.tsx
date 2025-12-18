@@ -307,10 +307,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                     <select 
                                         value={language} 
                                         onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
-                                        className="bg-gray-800 border-none text-white text-sm focus:ring-0 cursor-pointer p-1 rounded w-full"
+                                        className="bg-transparent border-none text-white text-sm focus:ring-0 cursor-pointer p-0 w-full"
                                     >
-                                        <option value="pt" className="bg-gray-800 text-white">Português</option>
-                                        <option value="en" className="bg-gray-800 text-white">English</option>
+                                        <option value="pt">Português</option>
+                                        <option value="en">English</option>
                                     </select>
                                 </div>
 

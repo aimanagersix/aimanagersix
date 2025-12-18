@@ -121,7 +121,7 @@ export const App: React.FC = () => {
         checkPermission('compliance_policies', 'view'), 
     [currentUser, appData.customRoles]);
 
-    // Lógica para dados de notificações (Garantias e Licenças a expirar)
+    // Lógica para dados de notificações
     const notificationsData = useMemo(() => {
         const now = new Date();
         const thirtyDaysFromNow = new Date();
@@ -139,13 +139,11 @@ export const App: React.FC = () => {
             return d >= now && d <= thirtyDaysFromNow;
         });
 
-        // Tickets pendentes (Estado 'Pedido')
         const pendingTickets = appData.tickets.filter(t => t.status === 'Pedido');
 
         return { expiringWarranties, expiringLicenses, pendingTickets };
     }, [appData.equipment, appData.softwareLicenses, appData.tickets]);
 
-    // ORDEM ALTERADA CONFORME PEDIDO: Equipamento, Licenças, Aquisições
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
         'overview.smart': canViewSmartDashboard ? 'C-Level Dashboard' : undefined,

@@ -6,7 +6,8 @@ import { VulnerabilityScanConfig } from "../types";
 let aiInstance: GoogleGenAI | null = null;
 
 // Model Definitions
-const flashModel = "gemini-2.5-flash";
+// Fix: Use recommended model names as per @google/genai coding guidelines.
+const flashModel = "gemini-3-flash-preview";
 const proModel = "gemini-3-pro-preview";
 
 // --- SECURITY LOGIC ---
@@ -78,6 +79,7 @@ const runGeminiRequest = async (
         config: config
     });
 
+    // Fix: access .text property directly instead of calling it as a method.
     return response.text ? response.text.trim() : "";
 };
 
