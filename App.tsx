@@ -26,7 +26,7 @@ import MapDashboard from './components/MapDashboard';
 import SettingsManager from './features/settings/SettingsManager';
 import { getSupabase } from './services/supabaseClient';
 import * as dataService from './services/dataService';
-import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, TicketStatus } from './types';
+import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, TicketStatus, PolicyAcceptance } from './types';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 import AgendaDashboard from './components/AgendaDashboard';
 
@@ -127,9 +127,18 @@ export const App: React.FC = () => {
     const pendingPolicies = useMemo(() => {
         if (!currentUser) return [];
         if (currentUser.role === UserRole.SuperAdmin) return [];
+        
+        // Requisito 1: Lógica robusta para detetar aceitação de versões específicas
         return appData.policies.filter(p => {
             if (!p.is_active || !p.is_mandatory) return false;
-            const accepted = appData.policyAcceptances.find(a => a.collaborator_id === currentUser.id && a.policy_id === p.id && a.version === p.version);
+            
+            // Procura aceitação para este colaborador, esta política E esta versão exata
+            const accepted = appData.policyAcceptances.find(a => 
+                a.collaborator_id === currentUser.id && 
+                a.policy_id === p.id && 
+                String(a.version) === String(p.version)
+            );
+            
             return !accepted;
         });
     }, [appData.policies, appData.policyAcceptances, currentUser]);
@@ -141,9 +150,6 @@ export const App: React.FC = () => {
     const unreadCount = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
-    
-    // CORREÇÃO: O contentor raiz só deve ser md:flex-row se estivermos no modo Sidebar.
-    // No modo Menu Superior, deve manter-se flex-col para que o conteúdo fique abaixo.
     const containerClasses = `min-h-screen bg-background-dark text-on-surface-dark flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`;
 
     return (

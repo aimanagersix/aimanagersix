@@ -7,10 +7,6 @@ import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxe
 import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired, FaMemory, FaHdd, FaListAlt, FaBroom } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
-/**
- * CameraScanner component for serial number OCR.
- * Fix: Implemented the missing component.
- */
 const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void; onClose: () => void }> = ({ onCapture, onClose }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -287,6 +283,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : value) 
         }));
     };
+
+    // Fix: Added missing handleEntityChange handler
+    const handleEntityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setAssignToEntityId(e.target.value);
+        setAssignToCollaboratorId('');
+    };
     
      const handleSetWarranty = (years: number) => {
         if (!formData.purchaseDate) return;
@@ -405,6 +407,17 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         try {
             const dataToSubmit: any = { ...formData };
             
+            // Requisito 4: Aquisição -> Stock se tiver S/N
+            if (dataToSubmit.status === EquipmentStatus.Acquisition && dataToSubmit.serialNumber) {
+                dataToSubmit.status = EquipmentStatus.Stock;
+            }
+
+            // Requisito 5: Stock -> Operacional se houver atribuição
+            const hasInitialAssignment = !isEditMode && assignToEntityId;
+            if (dataToSubmit.status === EquipmentStatus.Stock && hasInitialAssignment) {
+                dataToSubmit.status = dataToSubmit.isLoan ? EquipmentStatus.Empréstimo : EquipmentStatus.Operacional;
+            }
+
             const dateFields = ['purchaseDate', 'warrantyEndDate', 'last_security_update', 'manufacture_date'];
             dateFields.forEach(field => {
                 if (dataToSubmit[field] === '') {
@@ -594,7 +607,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 <div className="bg-gray-800/50 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
-                                        <select value={assignToEntityId} onChange={(e) => { setAssignToEntityId(e.target.value); setAssignToCollaboratorId(''); }} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                                        <select value={assignToEntityId} onChange={handleEntityChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                                             <option value="">-- Em Stock (Sem Atribuição) --</option>
                                             {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                                         </select>

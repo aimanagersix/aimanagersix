@@ -228,8 +228,8 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         } else setSelectedIds(new Set());
     };
 
-    const handleStatusChange = (item: Equipment, newStatus: EquipmentStatus) => {
-        if (!onUpdateStatus || !onAssign) return;
+    const handleStatusChange = async (item: Equipment, newStatus: EquipmentStatus) => {
+        if (!onUpdateStatus || !onAssign || !onUnassign) return;
         
         if (newStatus === 'Abate' || newStatus === 'Retirado (Arquivo)') {
             alert(`Para colocar em "${newStatus}", utilize o botão Editar (lápis) para selecionar obrigatoriamente o Motivo de Saída.`);
@@ -237,10 +237,22 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         }
 
         const isCurrentlyAssigned = assignedEquipmentIds.has(item.id);
+        
+        // 1. Se mudar para Operacional e NÃO estiver atribuído, abre modal de atribuição
         if (newStatus === EquipmentStatus.Operacional && !isCurrentlyAssigned) {
             onAssign(item);
             return;
         }
+
+        // 2. Se mudar para Stock e ESTIVER atribuído, força a desassociação automática (Requisito 2)
+        if (newStatus === EquipmentStatus.Stock && isCurrentlyAssigned) {
+            if (confirm(`Ao mudar para 'Stock', o equipamento será automaticamente desassociado do atual detentor. Deseja continuar?`)) {
+                await onUnassign(item.id);
+            } else {
+                return; // Cancela a mudança
+            }
+        }
+
         onUpdateStatus(item.id, newStatus);
     };
 
