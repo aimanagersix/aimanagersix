@@ -10,15 +10,12 @@ import * as dataService from '../../services/dataService';
 import InstituicaoDashboard from '../../components/InstituicaoDashboard';
 import EntidadeDashboard from '../../components/EntidadeDashboard';
 import CollaboratorDashboard from '../../components/CollaboratorDashboard';
-import TeamDashboard from '../../components/TeamDashboard';
 import SupplierDashboard from '../../components/SupplierDashboard';
 
 // Modals
 import AddInstituicaoModal from '../../components/AddInstituicaoModal';
 import AddEntidadeModal from '../../components/AddEntidadeModal';
 import AddCollaboratorModal from '../../components/AddCollaboratorModal';
-import AddTeamModal from '../../components/AddTeamModal';
-import ManageTeamMembersModal from '../../components/ManageTeamMembersModal';
 import AddSupplierModal from '../../components/AddSupplierModal';
 import ImportModal from '../../components/ImportModal';
 import CollaboratorHistoryModal from '../../components/CollaboratorHistoryModal';
@@ -62,10 +59,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
     const [entidadeToEdit, setEntidadeToEdit] = useState<Entidade | null>(null);
     const [showAddCollaboratorModal, setShowAddCollaboratorModal] = useState(false);
     const [collaboratorToEdit, setCollaboratorToEdit] = useState<Collaborator | null>(null);
-    const [showAddTeamModal, setShowAddTeamModal] = useState(false);
-    const [teamToEdit, setTeamToEdit] = useState<Team | null>(null);
-    const [showManageTeamMembersModal, setShowManageTeamMembersModal] = useState(false);
-    const [teamToManage, setTeamToManage] = useState<Team | null>(null);
     const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
     const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
     const [showImportModal, setShowImportModal] = useState(false);
@@ -319,25 +312,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                 </>
             )}
 
-            {/* ... (Team and Supplier Dashboards - unchanged logic) ... */}
-            {activeTab === 'organizacao.teams' && (
-                <TeamDashboard 
-                    teams={appData.teams}
-                    teamMembers={appData.teamMembers}
-                    collaborators={appData.collaborators} // Dropdowns need full list
-                    tickets={appData.tickets}
-                    equipmentTypes={appData.equipmentTypes}
-                    onEdit={checkPermission('organization', 'edit') ? (t) => { setTeamToEdit(t); setShowAddTeamModal(true); } : undefined}
-                    onDelete={checkPermission('organization', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteTeam(id); refreshData(); } } : undefined}
-                    onCreate={checkPermission('organization', 'create') ? () => { setTeamToEdit(null); setShowAddTeamModal(true); } : undefined}
-                    onManageMembers={checkPermission('organization', 'edit') ? (t) => { setTeamToManage(t); setShowManageTeamMembersModal(true); } : undefined}
-                    onToggleStatus={checkPermission('organization', 'edit') ? async (id) => {
-                        const t = appData.teams.find((team: Team) => team.id === id);
-                        if (t) { await dataService.updateTeam(id, { is_active: t.is_active === false }); refreshData(); }
-                    } : undefined}
-                />
-            )}
-
             {activeTab === 'organizacao.suppliers' && (
                 <SupplierDashboard 
                     suppliers={appData.suppliers}
@@ -412,30 +386,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                     currentUser={currentUser}
                     roleOptions={appData.customRoles.map((r:any) => ({ id: r.id, name: r.name }))}
                     titleOptions={appData.contactTitles.map((t:any) => ({ id: t.id, name: t.name }))}
-                />
-            )}
-            {showAddTeamModal && (
-                <AddTeamModal
-                    onClose={() => setShowAddTeamModal(false)}
-                    onSave={async (team) => {
-                        if (teamToEdit) await dataService.updateTeam(teamToEdit.id, team);
-                        else await dataService.addTeam(team);
-                        refreshData();
-                    }}
-                    teamToEdit={teamToEdit}
-                />
-            )}
-            {showManageTeamMembersModal && teamToManage && (
-                <ManageTeamMembersModal 
-                    onClose={() => setShowManageTeamMembersModal(false)}
-                    onSave={async (teamId, memberIds) => {
-                        await dataService.syncTeamMembers(teamId, memberIds);
-                        refreshData();
-                        setShowManageTeamMembersModal(false);
-                    }}
-                    team={teamToManage}
-                    allCollaborators={appData.collaborators}
-                    teamMembers={appData.teamMembers}
                 />
             )}
             {showAddSupplierModal && (

@@ -152,7 +152,6 @@ export const App: React.FC = () => {
         'equipment.procurement': checkPermission('procurement', 'view') ? 'Aquisições' : undefined,
         'organizacao.instituicoes': checkPermission('organization', 'view') ? 'Instituições' : undefined,
         'organizacao.entidades': checkPermission('organization', 'view') ? 'Entidades' : undefined,
-        'organizacao.teams': checkPermission('organization', 'view') ? 'Equipas' : undefined,
         'organizacao.suppliers': checkPermission('suppliers', 'view') ? 'Fornecedores' : undefined,
         'collaborators': checkPermission('organization', 'view') ? 'Colaboradores' : undefined,
         'tickets': checkPermission('tickets', 'view') ? { title: 'Tickets', list: 'Lista de Tickets' } : undefined,
@@ -243,8 +242,8 @@ export const App: React.FC = () => {
                     {activeTab.startsWith('tickets') && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
                     {(activeTab.startsWith('equipment') || activeTab === 'licensing') && <InventoryManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} />}
                     {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && <OrganizationManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} currentUser={currentUser} setActiveTab={setActiveTab} onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }} setReportType={() => {}} />}
+                    {activeTab.startsWith('settings') && <SettingsManager appData={appData} refreshData={refreshData} />}
                     {activeTab.startsWith('nis2') && <ComplianceManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
-                    {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={refreshData} />}
                     {activeTab === 'reports' && <BIReportDashboard appData={appData} />}
                     {activeTab === 'tools.agenda' && <AgendaDashboard />}
                     {activeTab === 'tools.map' && <MapDashboard instituicoes={appData.instituicoes} entidades={appData.entidades} suppliers={appData.suppliers} equipment={appData.equipment} assignments={appData.assignments} onClose={() => setActiveTab('overview')} />}

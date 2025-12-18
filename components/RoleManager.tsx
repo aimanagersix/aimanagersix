@@ -54,18 +54,41 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
         ]
     },
     {
-        label: 'Tabelas de Configuração',
+        label: 'Tabelas de Configuração (Equipamentos)',
         items: [
             { key: 'brands', label: 'Marcas' },
             { key: 'equipment_types', label: 'Tipos de Equipamento' },
+            { key: 'config_equipment_statuses', label: 'Estados de Equipamento' },
+            { key: 'config_decommission_reasons', label: 'Motivos de Saída/Abate' },
+            { key: 'config_conservation_states', label: 'Estados de Conservação' },
+            { key: 'config_accounting_categories', label: 'Classificador CIBE/Legal' },
+            { key: 'config_cpus', label: 'CPUs' },
+            { key: 'config_ram_sizes', label: 'Tamanhos RAM' },
+            { key: 'config_storage_types', label: 'Tipos de Disco' },
+        ]
+    },
+    {
+        label: 'Tabelas de Configuração (Software)',
+        items: [
+            { key: 'config_software_categories', label: 'Categorias de Software' },
+            { key: 'config_software_products', label: 'Produtos de Software' },
+        ]
+    },
+    {
+        label: 'Tabelas de Configuração (Suporte & RH)',
+        items: [
             { key: 'ticket_categories', label: 'Categorias de Tickets' },
-            { key: 'security_incident_types', label: 'Tipos de Incidente' },
+            { key: 'security_incident_types', label: 'Tipos de Incidente de Segurança' },
+            { key: 'config_job_titles', label: 'Cargos e Funções' },
+            { key: 'config_collaborator_deactivation_reasons', label: 'Motivos de Inativação' },
+            { key: 'contact_roles', label: 'Papéis de Contacto' },
+            { key: 'contact_titles', label: 'Tratos Honoríficos' },
             { key: 'config_custom_roles', label: 'Perfis de Acesso (RBAC)' },
+            { key: 'config_automation', label: 'Regras de Automação' },
         ]
     }
 ];
 
-// ADICIONADO: Coluna 'manage' (Gerir)
 const ACTIONS: { key: PermissionAction; label: string }[] = [
     { key: 'view', label: 'Ver' },
     { key: 'create', label: 'Criar' },
