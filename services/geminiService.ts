@@ -3,31 +3,23 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { getSupabase } from "./supabaseClient";
 import { VulnerabilityScanConfig } from "../types";
 
-let aiInstance: GoogleGenAI | null = null;
-
 // Model Definitions
-const flashModel = "gemini-2.5-flash";
+// Use recommended model names as per @google/genai coding guidelines.
+const flashModel = "gemini-3-flash-preview";
 const proModel = "gemini-3-pro-preview";
 
 // --- SECURITY LOGIC ---
-const API_KEY = process.env.API_KEY;
-const USE_PROXY = !API_KEY;
+const USE_PROXY = !process.env.API_KEY;
 
 export const isAiConfigured = (): boolean => {
-    return USE_PROXY || (!!API_KEY && API_KEY.length > 0);
+    return USE_PROXY || (!!process.env.API_KEY && process.env.API_KEY.length > 0);
 };
 
-const getAiClient = (): GoogleGenAI => {
-    if (USE_PROXY) {
-        throw new Error("Client-side Gemini instance prohibited in Proxy Mode.");
-    }
-    if (aiInstance) return aiInstance;
-    if (!API_KEY) throw new Error("API Key missing for direct mode.");
-    
-    aiInstance = new GoogleGenAI({ apiKey: API_KEY });
-    return aiInstance;
-};
-
+/**
+ * Executes a request to Gemini models.
+ * Fix: Removed singleton caching of aiInstance to ensure most up-to-date key usage.
+ * Fix: Strictly follow initialization guidelines using process.env.API_KEY.
+ */
 const runGeminiRequest = async (
     modelName: string, 
     prompt: string, 
@@ -56,7 +48,10 @@ const runGeminiRequest = async (
         return data?.text || "";
     }
 
-    const ai = getAiClient();
+    // Fix: Create a new GoogleGenAI instance right before making an API call.
+    // Fix: Use process.env.API_KEY directly in the named parameter.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    
     const parts: any[] = [];
     images.forEach(img => {
         parts.push({
@@ -78,6 +73,7 @@ const runGeminiRequest = async (
         config: config
     });
 
+    // Fix: access .text property directly instead of calling it as a method.
     return response.text ? response.text.trim() : "";
 };
 

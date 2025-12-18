@@ -1,292 +1,467 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-    Collaborator, UserRole, ModuleKey, PermissionAction, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember, Assignment
-} from './types';
-import * as dataService from './services/dataService';
-import { useAppData } from './hooks/useAppData';
-import { useLayout } from './contexts/LayoutContext';
-import { getSupabase } from './services/supabaseClient';
-
-// Components
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from './components/Header';
-import Sidebar from './components/Sidebar';
+import Sidebar from './Sidebar';
+import { useAppData } from './hooks/useAppData';
 import LoginPage from './components/LoginPage';
 import ConfigurationSetup from './components/ConfigurationSetup';
-import ForgotPasswordModal from './components/ForgotPasswordModal';
-
-// Feature Managers (Modules)
+import { useLayout } from './contexts/LayoutContext';
+import { useLanguage } from './contexts/LanguageContext';
 import InventoryManager from './features/inventory/InventoryManager';
 import OrganizationManager from './features/organization/OrganizationManager';
 import TicketManager from './features/tickets/TicketManager';
 import ComplianceManager from './features/compliance/ComplianceManager';
-import SettingsManager from './features/settings/SettingsManager';
-
-// Dashboards (Non-Refactored Modules)
+import SelfServiceDashboard from './features/selfservice/SelfServiceDashboard';
 import OverviewDashboard from './components/OverviewDashboard';
 import SmartDashboard from './components/SmartDashboard';
-import AgendaDashboard from './components/AgendaDashboard';
-import MapDashboard from './components/MapDashboard';
 import BIReportDashboard from './components/BIReportDashboard';
-
-// Modals
+import MagicCommandBar from './components/MagicCommandBar';
 import { ChatWidget } from './components/ChatWidget';
 import NotificationsModal from './components/NotificationsModal';
-import CalendarModal from './components/CalendarModal';
+import ResetPasswordModal from './components/ResetPasswordModal';
+import ReportModal from './components/ReportModal';
 import UserManualModal from './components/UserManualModal';
-
+import CalendarModal from './components/CalendarModal';
+import MapDashboard from './components/MapDashboard';
+import SettingsManager from './features/settings/SettingsManager';
+import { getSupabase } from './services/supabaseClient';
+import * as dataService from './services/dataService';
+import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, TicketStatus, PolicyAcceptance, Policy } from './types';
+import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
+import AgendaDashboard from './components/AgendaDashboard';
+import { AddTicketModal } from './components/AddTicketModal';
 
 export const App: React.FC = () => {
-    const { 
-        isConfigured, setIsConfigured, 
-        currentUser, setCurrentUser, 
-        appData, refreshData,
-        isLoading 
-    } = useAppData();
-    
+    const { isConfigured, setIsConfigured, currentUser, setCurrentUser, appData, refreshData, isLoading } = useAppData();
     const { layoutMode } = useLayout();
-    const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+    const { t } = useLanguage();
 
-    useEffect(() => {
-        if (!isConfigured || !currentUser) return;
-        const supabase = getSupabase();
-        const channel = supabase.channel('global_presence', { config: { presence: { key: currentUser.id } } });
-        channel
-            .on('presence', { event: 'sync' }, () => {
-                const newState = channel.presenceState();
-                const onlineIds = new Set<string>();
-                for (const key in newState) onlineIds.add(key);
-                setOnlineUserIds(onlineIds);
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    await channel.track({ user_id: currentUser.id, online_at: new Date().toISOString() });
-                }
-            });
-        return () => { supabase.removeChannel(channel); };
-    }, [isConfigured, currentUser]);
-
-    const notificationCount = useMemo(() => {
-        return appData.tickets.filter(t => t.status === 'Pedido').length;
-    }, [appData.tickets]);
-    
-    const [activeTab, setActiveTabState] = useState(() => {
-        const hash = window.location.hash.replace('#', '');
-        return hash || 'overview';
-    });
-
-    const setActiveTab = (tab: string) => {
-        setActiveTabState(tab);
-        window.location.hash = tab;
-    };
-
-    useEffect(() => {
-        const handleHashChange = () => {
-            const hash = window.location.hash.replace('#', '');
-            if (hash && hash !== activeTab) setActiveTabState(hash);
-            else if (!hash) setActiveTabState('overview');
-        };
-        window.addEventListener('hashchange', handleHashChange);
-        return () => window.removeEventListener('hashchange', handleHashChange);
-    }, [activeTab]);
-
-    const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
-    const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-    const [showChatWidget, setShowChatWidget] = useState(false);
-    const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
-    const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-    const [showCalendarModal, setShowCalendarModal] = useState(false);
-    const [showUserManualModal, setShowUserManualModal] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview');
+    const [sidebarExpanded, setSidebarExpanded] = useState(false);
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
+    const [reportType, setReportType] = useState<string | null>(null);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [showUserManual, setShowUserManual] = useState(false);
+    const [showCalendar, setShowCalendar] = useState(false);
+    const [showResetPassword, setShowResetPassword] = useState(false);
+    const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
+    const [chatOpen, setChatOpen] = useState(false);
+    const [session, setSession] = useState<any>(null);
 
-    // --- PERMISSION CHECK ---
-    const checkPermission = (module: ModuleKey, action: PermissionAction): boolean => {
+    // Drilled modal states
+    const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
+    const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
+
+    const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
-        if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
-        const role = appData.customRoles.find((r:any) => r.name === currentUser.role);
-        if (role) return role.permissions[module]?.[action] ?? false;
-        if (currentUser.role === 'Admin') return true;
-        return false;
-    };
-    
-    const isBasic = !checkPermission('equipment', 'view') && !checkPermission('organization', 'view');
-    const canViewSmartDashboard = checkPermission('dashboard_smart', 'view');
+        if (currentUser.role === UserRole.SuperAdmin) return true;
+        const role = appData.customRoles.find(r => r.name === currentUser.role);
+        if (!role || !role.permissions) return false;
+        
+        // Se pedir 'view' e não tiver, mas tiver 'view_own', retorna true para permitir ver a aba
+        if (action === 'view' && role.permissions[module]?.['view_own']) return true;
+        
+        return !!role.permissions[module]?.[action];
+    }, [currentUser, appData.customRoles]);
 
-    const hasAnyComplianceTab = useMemo(() => 
-        checkPermission('compliance_bia', 'view') || 
-        checkPermission('compliance_security', 'view') || 
-        checkPermission('compliance_backups', 'view') || 
-        checkPermission('compliance_resilience', 'view') || 
-        checkPermission('compliance_training', 'view') || 
-        checkPermission('compliance_policies', 'view'), 
-    [currentUser, appData.customRoles]);
-
-    // Lógica para dados de notificações (Garantias e Licenças a expirar)
-    const notificationsData = useMemo(() => {
-        const now = new Date();
-        const thirtyDaysFromNow = new Date();
-        thirtyDaysFromNow.setDate(now.getDate() + 30);
-
-        const expiringWarranties = appData.equipment.filter(e => {
-            if (!e.warrantyEndDate) return false;
-            const d = new Date(e.warrantyEndDate);
-            return d >= now && d <= thirtyDaysFromNow;
-        });
-
-        const expiringLicenses = appData.softwareLicenses.filter(l => {
-            if (!l.expiryDate) return false;
-            const d = new Date(l.expiryDate);
-            return d >= now && d <= thirtyDaysFromNow;
-        });
-
-        // Tickets pendentes (Estado 'Pedido')
-        const pendingTickets = appData.tickets.filter(t => t.status === 'Pedido');
-
-        return { expiringWarranties, expiringLicenses, pendingTickets };
-    }, [appData.equipment, appData.softwareLicenses, appData.tickets]);
-
-    // ORDEM ALTERADA CONFORME PEDIDO: Equipamento, Licenças, Aquisições
-    const tabConfig: any = {
-        'overview': !isBasic ? 'Visão Geral' : undefined,
-        'overview.smart': canViewSmartDashboard ? 'C-Level Dashboard' : undefined,
-        'equipment.inventory': checkPermission('equipment', 'view') ? 'Inventário' : undefined,
-        'licensing': checkPermission('licensing', 'view') ? 'Licenciamento' : undefined,
-        'equipment.procurement': checkPermission('procurement', 'view') ? 'Aquisições' : undefined,
-        'organizacao.instituicoes': checkPermission('organization', 'view') ? 'Instituições' : undefined,
-        'organizacao.entidades': checkPermission('organization', 'view') ? 'Entidades' : undefined,
-        'organizacao.teams': checkPermission('organization', 'view') ? 'Equipas' : undefined,
-        'organizacao.suppliers': checkPermission('suppliers', 'view') ? 'Fornecedores' : undefined,
-        'collaborators': checkPermission('organization', 'view') ? 'Colaboradores' : undefined,
-        'tickets': checkPermission('tickets', 'view') ? { title: 'Tickets', list: 'Lista de Tickets' } : undefined,
-        'nis2': hasAnyComplianceTab ? {
-            title: 'Compliance',
-            bia: checkPermission('compliance_bia', 'view') ? 'BIA' : undefined,
-            security: checkPermission('compliance_security', 'view') ? 'Segurança' : undefined,
-            backups: checkPermission('compliance_backups', 'view') ? 'Backups' : undefined,
-            resilience: checkPermission('compliance_resilience', 'view') ? 'Resiliência' : undefined,
-            training: checkPermission('compliance_training', 'view') ? 'Formações' : undefined,
-            policies: checkPermission('compliance_policies', 'view') ? 'Políticas' : undefined,
-        } : undefined,
-        'reports': checkPermission('reports', 'view') ? 'Relatórios' : undefined,
-        'tools': { 
-            title: 'Ferramentas', 
-            agenda: 'Agenda', 
-            map: 'Mapa',
-            calendar: 'Calendário',
-            manual: 'Manual'
+    const tabConfig = useMemo(() => ({
+        'overview': checkPermission('widget_kpi_cards', 'view') || checkPermission('my_area', 'view'),
+        'my_area': checkPermission('my_area', 'view'),
+        'overview.smart': checkPermission('dashboard_smart', 'view'),
+        'equipment.inventory': checkPermission('equipment', 'view'),
+        'equipment.procurement': checkPermission('procurement', 'view'),
+        'licensing': checkPermission('licensing', 'view'),
+        'organizacao.instituicoes': checkPermission('organization', 'view'),
+        'organizacao.entidades': checkPermission('organization', 'view'),
+        'collaborators': checkPermission('organization', 'view'),
+        'organizacao.teams': checkPermission('organization', 'view'),
+        'organizacao.suppliers': checkPermission('suppliers', 'view'),
+        'tickets': checkPermission('tickets', 'view'),
+        'reports': checkPermission('reports', 'view'),
+        'settings': checkPermission('settings', 'view'),
+        'nis2': {
+            bia: checkPermission('compliance_bia', 'view'),
+            security: checkPermission('compliance_security', 'view'),
+            backups: checkPermission('compliance_backups', 'view'),
+            resilience: checkPermission('compliance_resilience', 'view'),
+            training: checkPermission('compliance_training', 'view'),
+            policies: checkPermission('compliance_policies', 'view'),
         },
-        'settings': checkPermission('settings', 'view') ? 'Configurações' : undefined
-    };
+        'tools': {
+            agenda: true,
+            map: true
+        }
+    }), [checkPermission]);
 
-    const handleLogin = async (email: string, password: string) => {
-        try {
-            const supabase = getSupabase();
-            const { data, error } = await (supabase.auth as any).signInWithPassword({ email, password });
-            if (error) throw error;
-            if (data.user) {
-                await refreshData();
-                const freshData = await dataService.fetchAllData();
-                const user = freshData.collaborators.find((c: Collaborator) => c.email.toLowerCase() === email.toLowerCase());
-                if (user) {
-                    if (!user.canLogin) { await (supabase.auth as any).signOut(); return { success: false, error: "Sem permissão." }; }
-                    setCurrentUser(user);
-                    return { success: true };
-                }
-            }
-            return { success: false, error: "Falhou." };
-        } catch (error: any) { return { success: false, error: error.message }; }
-    };
+    useEffect(() => {
+        const supabase = getSupabase();
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+        });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            if (_event === 'PASSWORD_RECOVERY') setShowResetPassword(true);
+        });
+        return () => subscription.unsubscribe();
+    }, []);
 
     const handleLogout = async () => {
         const supabase = getSupabase();
-        await (supabase.auth as any).signOut();
+        await supabase.auth.signOut();
         setCurrentUser(null);
-        setActiveTab('overview');
+        window.location.reload();
     };
 
-    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary"></div></div>;
+    const handleViewItem = (tab: string, filter: any) => {
+        setActiveTab(tab);
+        setDashboardFilter(filter);
+    };
+
+    const handleSendMessage = async (receiverId: string, content: string) => {
+        if (!currentUser) return;
+        await dataService.addMessage({
+            senderId: currentUser.id,
+            receiverId,
+            content,
+            timestamp: new Date().toISOString(),
+            read: false
+        });
+        refreshData();
+    };
+
+    const handleMarkAsRead = async (senderId: string) => {
+        await dataService.markMessagesAsRead(senderId);
+        refreshData();
+    };
+
+    const pendingPolicies = useMemo(() => {
+        if (!currentUser) return [];
+        if (currentUser.role === UserRole.SuperAdmin) return [];
+        
+        return appData.policies.filter(p => {
+            if (!p.is_active || !p.is_mandatory) return false;
+            
+            const accepted = appData.policyAcceptances.find(a => {
+                const cId = (a as any).collaborator_id || (a as any).collaboratorId;
+                const pId = (a as any).policy_id || (a as any).policyId;
+                return cId === currentUser.id && pId === p.id && String(a.version) === String(p.version);
+            });
+            
+            return !accepted;
+        });
+    }, [appData.policies, appData.policyAcceptances, currentUser]);
+
+    const unreadCount = useMemo(() => {
+        if (!currentUser) return 0;
+        const unreadMessages = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
+        const now = new Date();
+        const nextMonth = new Date();
+        nextMonth.setDate(now.getDate() + 30);
+        
+        const warrantiesCount = appData.equipment.filter(e => 
+            e.warrantyEndDate && 
+            new Date(e.warrantyEndDate) >= now && 
+            new Date(e.warrantyEndDate) <= nextMonth
+        ).length;
+        
+        const licensesCount = appData.softwareLicenses.filter(l => 
+            l.expiryDate && 
+            new Date(l.expiryDate) >= now && 
+            new Date(l.expiryDate) <= nextMonth
+        ).length;
+        
+        const myTeamIds = new Set(appData.teamMembers
+            .filter((tm: any) => tm.collaborator_id === currentUser.id)
+            .map((tm: any) => tm.team_id));
+            
+        const pendingTickets = appData.tickets.filter((t: Ticket) => 
+            t.status !== TicketStatus.Finished && 
+            t.status !== TicketStatus.Cancelled &&
+            (t.technicianId === currentUser.id || (t.team_id && myTeamIds.has(t.team_id)))
+        ).length;
+
+        return unreadMessages + warrantiesCount + licensesCount + pendingTickets;
+    }, [appData.messages, appData.equipment, appData.softwareLicenses, appData.tickets, appData.teamMembers, currentUser]);
+
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (!currentUser) return (<><LoginPage onLogin={handleLogin} onForgotPassword={() => setShowForgotPasswordModal(true)} />{showForgotPasswordModal && <ForgotPasswordModal onClose={() => setShowForgotPasswordModal(false)} />}</>);
+    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A carregar sistema...</div>;
+    if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
+
+    const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
+    const containerClasses = `min-h-screen bg-background-dark text-on-surface-dark flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`;
 
     return (
-        <div className={`min-h-screen bg-background-dark ${layoutMode === 'top' ? 'flex flex-col' : 'flex h-screen overflow-hidden'}`}>
+        <div className={containerClasses}>
             {layoutMode === 'side' ? (
-                 <Sidebar 
-                    currentUser={currentUser} 
-                    activeTab={activeTab} 
-                    setActiveTab={setActiveTab} 
-                    onLogout={handleLogout} 
-                    tabConfig={tabConfig} 
-                    notificationCount={notificationCount} 
-                    onNotificationClick={() => setShowNotificationsModal(true)} 
-                    isExpanded={isSidebarExpanded} 
-                    onHover={setIsSidebarExpanded}
-                    onOpenCalendar={() => setShowCalendarModal(true)}
-                    onOpenManual={() => setShowUserManualModal(true)}
-                 />
+                <Sidebar 
+                    currentUser={currentUser}
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    onLogout={handleLogout}
+                    tabConfig={tabConfig}
+                    notificationCount={unreadCount}
+                    onNotificationClick={() => setShowNotifications(true)}
+                    isExpanded={sidebarExpanded}
+                    onHover={setSidebarExpanded}
+                    onOpenProfile={() => setActiveTab('my_area')}
+                    onOpenManual={() => setShowUserManual(true)}
+                    onOpenCalendar={() => setShowCalendar(true)}
+                    checkPermission={checkPermission}
+                />
             ) : (
                 <Header 
-                    currentUser={currentUser} 
-                    activeTab={activeTab} 
-                    setActiveTab={setActiveTab} 
-                    onLogout={handleLogout} 
-                    tabConfig={tabConfig} 
-                    notificationCount={notificationCount} 
-                    onNotificationClick={() => setShowNotificationsModal(true)} 
-                    onOpenCalendar={() => setShowCalendarModal(true)}
-                    onOpenManual={() => setShowUserManualModal(true)}
+                    currentUser={currentUser}
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    onLogout={handleLogout}
+                    tabConfig={tabConfig}
+                    notificationCount={unreadCount}
+                    onNotificationClick={() => setShowNotifications(true)}
+                    onOpenProfile={() => setActiveTab('my_area')}
+                    onOpenManual={() => setShowUserManual(true)}
+                    onOpenCalendar={() => setShowCalendar(true)}
+                    checkPermission={checkPermission}
                 />
             )}
 
-            <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar`}>
-                <div className={`w-full max-w-[1800px] mx-auto p-4 md:p-8`}>
-                    {activeTab === 'overview' && <OverviewDashboard equipment={appData.equipment} instituicoes={appData.instituicoes} entidades={appData.entidades} assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={appData.tickets} collaborators={appData.collaborators} teams={appData.teams} expiringWarranties={[]} expiringLicenses={[]} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} vulnerabilities={appData.vulnerabilities} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} onGenerateComplianceReport={() => {}} onRefresh={refreshData} checkPermission={checkPermission} />}
-                    {activeTab === 'overview.smart' && canViewSmartDashboard && <SmartDashboard tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions} trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser} />}
-                    {activeTab.startsWith('tickets') && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
-                    {(activeTab.startsWith('equipment') || activeTab === 'licensing') && <InventoryManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} />}
-                    {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && <OrganizationManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} currentUser={currentUser} setActiveTab={setActiveTab} onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }} setReportType={() => {}} />}
-                    {activeTab.startsWith('nis2') && <ComplianceManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
-                    {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={refreshData} />}
+            <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
+                <div className="max-w-7xl mx-auto">
+                    {activeTab === 'overview' && (
+                        checkPermission('widget_kpi_cards', 'view') ? (
+                            <OverviewDashboard 
+                                equipment={appData.equipment}
+                                instituicoes={appData.instituicoes}
+                                entidades={appData.entidades}
+                                assignments={appData.assignments}
+                                equipmentTypes={appData.equipmentTypes}
+                                tickets={appData.tickets}
+                                collaborators={appData.collaborators}
+                                teams={appData.teams}
+                                expiringWarranties={appData.equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
+                                expiringLicenses={appData.softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
+                                softwareLicenses={appData.softwareLicenses}
+                                licenseAssignments={appData.licenseAssignments}
+                                vulnerabilities={appData.vulnerabilities}
+                                onViewItem={handleViewItem}
+                                onGenerateComplianceReport={() => setReportType('compliance')}
+                                checkPermission={checkPermission}
+                                onRefresh={refreshData}
+                            />
+                        ) : (
+                            <SelfServiceDashboard 
+                                currentUser={currentUser}
+                                equipment={appData.equipment}
+                                assignments={appData.assignments}
+                                softwareLicenses={appData.softwareLicenses}
+                                licenseAssignments={appData.licenseAssignments}
+                                trainings={appData.securityTrainings}
+                                brands={appData.brands}
+                                types={appData.equipmentTypes}
+                                policies={appData.policies}
+                                acceptances={appData.policyAcceptances}
+                                tickets={appData.tickets}
+                                onViewTicket={setViewingTicket}
+                                onViewPolicy={setReadingPolicy}
+                            />
+                        )
+                    )}
+
+                    {activeTab === 'my_area' && currentUser && (
+                        <SelfServiceDashboard 
+                            currentUser={currentUser}
+                            equipment={appData.equipment}
+                            assignments={appData.assignments}
+                            softwareLicenses={appData.softwareLicenses}
+                            licenseAssignments={appData.licenseAssignments}
+                            trainings={appData.securityTrainings}
+                            brands={appData.brands}
+                            types={appData.equipmentTypes}
+                            policies={appData.policies}
+                            acceptances={appData.policyAcceptances}
+                            tickets={appData.tickets}
+                            onViewTicket={setViewingTicket}
+                            onViewPolicy={setReadingPolicy}
+                        />
+                    )}
+
+                    {activeTab === 'overview.smart' && <SmartDashboard tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions} trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser} />}
+                    
+                    {(activeTab.startsWith('equipment') || activeTab === 'licensing') && (
+                        <InventoryManager 
+                            activeTab={activeTab}
+                            appData={appData}
+                            checkPermission={checkPermission}
+                            refreshData={refreshData}
+                            dashboardFilter={dashboardFilter}
+                            setDashboardFilter={setDashboardFilter}
+                            setReportType={setReportType}
+                            currentUser={currentUser}
+                            onViewItem={handleViewItem}
+                        />
+                    )}
+
+                    {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && (
+                        <OrganizationManager 
+                            activeTab={activeTab}
+                            appData={appData}
+                            checkPermission={checkPermission}
+                            refreshData={refreshData}
+                            currentUser={currentUser}
+                            setActiveTab={setActiveTab}
+                            onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setChatOpen(true); }}
+                            setReportType={setReportType}
+                        />
+                    )}
+
+                    {activeTab === 'tickets.list' && (
+                        <TicketManager 
+                            appData={appData}
+                            checkPermission={checkPermission}
+                            refreshData={refreshData}
+                            dashboardFilter={dashboardFilter}
+                            setDashboardFilter={setDashboardFilter}
+                            setReportType={setReportType}
+                            currentUser={currentUser}
+                        />
+                    )}
+
+                    {activeTab.startsWith('nis2') && (
+                        <ComplianceManager 
+                            activeTab={activeTab}
+                            appData={appData}
+                            checkPermission={checkPermission}
+                            refreshData={refreshData}
+                            dashboardFilter={dashboardFilter}
+                            setDashboardFilter={setDashboardFilter}
+                            setReportType={setReportType}
+                            currentUser={currentUser}
+                        />
+                    )}
+
                     {activeTab === 'reports' && <BIReportDashboard appData={appData} />}
+                    {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={refreshData} />}
                     {activeTab === 'tools.agenda' && <AgendaDashboard />}
-                    {activeTab === 'tools.map' && <MapDashboard instituicoes={appData.instituicoes} entidades={appData.entidades} suppliers={appData.suppliers} equipment={appData.equipment} assignments={appData.assignments} onClose={() => setActiveTab('overview')} />}
+                    {activeTab === 'tools.map' && <MapDashboard instituicoes={appData.instituicoes} entidades={appData.entidades} suppliers={appData.suppliers} equipment={appData.equipment} assignments={appData.assignments} />}
                 </div>
             </main>
 
-            <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={async (rxId, content) => { await dataService.addMessage({ senderId: currentUser.id, receiverId: rxId, content, timestamp: new Date().toISOString(), read: false }); refreshData(); }} onMarkMessagesAsRead={(senderId) => dataService.markMessagesAsRead(senderId)} isOpen={showChatWidget} onToggle={() => setShowChatWidget(!showChatWidget)} activeChatCollaboratorId={activeChatCollaboratorId} onSelectConversation={setActiveChatCollaboratorId} unreadMessagesCount={0} onlineUserIds={onlineUserIds} />
+            <MagicCommandBar brands={appData.brands} types={appData.equipmentTypes} collaborators={appData.collaborators} currentUser={currentUser} onAction={(intent, data) => console.log(intent, data)} />
             
-            {showNotificationsModal && (
+            <ChatWidget 
+                currentUser={currentUser}
+                collaborators={appData.collaborators}
+                messages={appData.messages}
+                onSendMessage={handleSendMessage}
+                onMarkMessagesAsRead={handleMarkAsRead}
+                isOpen={chatOpen}
+                onToggle={() => setChatOpen(!chatOpen)}
+                activeChatCollaboratorId={activeChatCollaboratorId}
+                unreadMessagesCount={unreadCount}
+                onSelectConversation={setActiveChatCollaboratorId}
+            />
+
+            {showNotifications && (
                 <NotificationsModal 
-                    onClose={() => setShowNotificationsModal(false)}
-                    expiringWarranties={notificationsData.expiringWarranties}
-                    expiringLicenses={notificationsData.expiringLicenses}
-                    teamTickets={notificationsData.pendingTickets}
+                    onClose={() => setShowNotifications(false)}
+                    expiringWarranties={appData.equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
+                    expiringLicenses={appData.softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
+                    teamTickets={appData.tickets.filter(t => t.status !== TicketStatus.Finished)}
                     collaborators={appData.collaborators}
                     teams={appData.teams}
-                    onViewItem={(t, f) => {
-                        setActiveTab(t);
-                        setDashboardFilter(f);
-                        setShowNotificationsModal(false);
-                    }}
+                    onViewItem={handleViewItem}
                     currentUser={currentUser}
                     licenseAssignments={appData.licenseAssignments}
                 />
             )}
 
-            {showCalendarModal && (
+            {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
+            {showCalendar && (
                 <CalendarModal 
-                    onClose={() => setShowCalendarModal(false)}
-                    tickets={appData.tickets}
-                    currentUser={currentUser}
-                    teams={appData.teams}
-                    teamMembers={appData.teamMembers}
-                    collaborators={appData.collaborators}
-                    onViewTicket={(t) => { setActiveTab('tickets'); setDashboardFilter({ title: t.title }); setShowCalendarModal(false); }}
+                    onClose={() => setShowCalendar(false)} 
+                    tickets={appData.tickets} 
+                    currentUser={currentUser} 
+                    teams={appData.teams} 
+                    teamMembers={appData.teamMembers} 
+                    collaborators={appData.collaborators} 
+                    onViewTicket={(t) => { handleViewItem('tickets.list', { id: t.id }); setShowCalendar(false); }}
                     calendarEvents={appData.calendarEvents}
                 />
             )}
 
-            {showUserManualModal && <UserManualModal onClose={() => setShowUserManualModal(false)} />}
+            {showResetPassword && session && (
+                <ResetPasswordModal onClose={() => setShowResetPassword(false)} session={session} />
+            )}
+
+            {reportType && (
+                <ReportModal 
+                    type={reportType} 
+                    onClose={() => setReportType(null)} 
+                    equipment={appData.equipment}
+                    tickets={appData.tickets}
+                    collaborators={appData.collaborators}
+                />
+            )}
+
+            {pendingPolicies.length > 0 && (
+                <PolicyAcceptanceModal 
+                    policies={pendingPolicies}
+                    onAccept={async (policyId, version) => {
+                        await getSupabase().from('policy_acceptances').insert({
+                            policy_id: policyId,
+                            collaborator_id: currentUser.id,
+                            version: version,
+                            accepted_at: new Date().toISOString()
+                        });
+                        refreshData();
+                    }}
+                />
+            )}
+
+            {viewingTicket && (
+                <AddTicketModal
+                    onClose={() => setViewingTicket(null)}
+                    onSave={async (ticket) => {
+                        await dataService.updateTicket(viewingTicket.id, ticket);
+                        refreshData();
+                    }}
+                    ticketToEdit={viewingTicket}
+                    escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
+                    collaborators={appData.collaborators}
+                    teams={appData.teams}
+                    currentUser={currentUser}
+                    userPermissions={{ viewScope: 'own', canManage: checkPermission('tickets', 'manage') }}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    assignments={appData.assignments}
+                    categories={appData.ticketCategories}
+                    securityIncidentTypes={appData.securityIncidentTypes}
+                    pastTickets={appData.tickets}
+                />
+            )}
+
+            {readingPolicy && (
+                <PolicyAcceptanceModal 
+                    policies={[readingPolicy]}
+                    onAccept={async (policyId, version) => {
+                        const alreadyAccepted = appData.policyAcceptances.find(a => {
+                             const cId = (a as any).collaborator_id || (a as any).collaboratorId;
+                             const pId = (a as any).policy_id || (a as any).policyId;
+                             return cId === currentUser?.id && pId === policyId && String(a.version) === String(version);
+                        });
+                        if (!alreadyAccepted) {
+                            await getSupabase().from('policy_acceptances').insert({
+                                policy_id: policyId,
+                                collaborator_id: currentUser?.id,
+                                version: version,
+                                accepted_at: new Date().toISOString()
+                            });
+                        }
+                        setReadingPolicy(null);
+                        refreshData();
+                    }}
+                />
+            )}
         </div>
     );
 };

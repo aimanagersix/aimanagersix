@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand } from '../types';
@@ -50,7 +51,25 @@ const AddEquipmentKitModal: React.FC<AddEquipmentKitModalProps> = ({ onClose, on
         let typesWereAdded = false;
         for (const name of requiredPeripherals) {
             if (!updatedTypes.some(t => t.name.toLowerCase() === name.toLowerCase())) {
-                const newType = await onSaveEquipmentType({ name });
+                // Fix: Provided all required properties for Omit<EquipmentType, 'id'>
+                const newType = await onSaveEquipmentType({ 
+                    name,
+                    requiresNomeNaRede: false,
+                    requiresMacWIFI: false,
+                    requiresMacCabo: false,
+                    requiresInventoryNumber: false,
+                    requiresBackupTest: false,
+                    requiresLocation: false,
+                    is_maintenance: false,
+                    requires_wwan_address: false,
+                    requires_bluetooth_address: false,
+                    requires_usb_thunderbolt_address: false,
+                    requires_ram_size: false,
+                    requires_disk_info: false,
+                    requires_cpu_info: false,
+                    requires_manufacture_date: false,
+                    requires_ip: false
+                });
                 updatedTypes.push(newType);
                 typesWereAdded = true;
             }
@@ -233,6 +252,7 @@ const AddEquipmentKitModal: React.FC<AddEquipmentKitModalProps> = ({ onClose, on
         e.preventDefault();
         if (!validate()) return;
 
+        // Fix: Added isLoan property to match Omit<Equipment, "id" | "status" | "creationDate" | "modifiedDate">
         const itemsToSave = items.map(item => ({
             brandId: item.brandId!,
             typeId: item.typeId!,
@@ -245,6 +265,7 @@ const AddEquipmentKitModal: React.FC<AddEquipmentKitModalProps> = ({ onClose, on
             macAddressWIFI: item.macAddressWIFI || undefined,
             macAddressCabo: item.macAddressCabo || undefined,
             warrantyEndDate: commonData.warrantyEndDate || undefined,
+            isLoan: item.isLoan || false,
         }));
         
         onSaveKit(itemsToSave);

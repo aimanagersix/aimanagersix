@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, AuditAction, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory, ProcurementRequest, ModuleKey, PermissionAction } from '../types';
+import { Equipment, Instituicao, Entidade, Assignment, EquipmentStatus, EquipmentType, Ticket, TicketStatus, Collaborator, Team, SoftwareLicense, LicenseAssignment, LicenseStatus, CriticalityLevel, BusinessService, Vulnerability, VulnerabilityStatus, TicketCategory, ProcurementRequest, ModuleKey, PermissionAction } from '../types';
 import { FaCheckCircle, FaTools, FaTimesCircle, FaWarehouse, FaTicketAlt, FaShieldAlt, FaKey, FaBoxOpen, FaHistory, FaUsers, FaCalendarAlt, FaExclamationTriangle, FaLaptop, FaDesktop, FaUserShield, FaNetworkWired, FaChartPie, FaSkull, FaChartLine, FaStopwatch, FaSync, FaEuroSign, FaServer } from './common/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as dataService from '../services/dataService';
@@ -164,7 +164,8 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             const status = item.status || 'Desconhecido';
             counts[status] = (counts[status] || 0) + 1;
             
-            if (item.status !== 'Abate' && item.status !== 'Decommissioned') {
+            // Fix: Replaced incorrect "Decommissioned" status comparison with Enum values.
+            if (item.status !== EquipmentStatus.Abate && item.status !== EquipmentStatus.Retirado) {
                 totalValue += (item.acquisitionCost || 0);
             }
         });

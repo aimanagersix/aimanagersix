@@ -1,252 +1,319 @@
 
 import React, { useState, useEffect } from 'react';
-import { CustomRole, PermissionMatrix, ModuleKey, PermissionAction } from '../types';
-import { FaPlus, FaCheck, FaTimes, FaLock, FaInfoCircle, FaChevronDown, FaChevronRight, FaFingerprint, FaShieldAlt } from 'react-icons/fa';
-import { EditIcon, FaTrash as DeleteIcon, FaSave, FaTrash } from './common/Icons';
+import { CustomRole, ModuleKey, PermissionAction } from '../types';
 import * as dataService from '../services/dataService';
+import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck } from 'react-icons/fa';
+
+interface PermissionItem {
+    key: ModuleKey;
+    label: string;
+    supportsOwn?: boolean; // Se suporta a lógica de "Ver Próprios"
+}
+
+interface PermissionGroup {
+    label: string;
+    items: PermissionItem[];
+}
+
+const PERMISSION_GROUPS: PermissionGroup[] = [
+    {
+        label: 'Acesso Pessoal (Self-Service)',
+        items: [
+            { key: 'my_area', label: 'A Minha Área (Meus Ativos/Formações)' },
+        ]
+    },
+    {
+        label: 'Configuração: Dashboard Widgets',
+        items: [
+            { key: 'widget_alerts', label: 'Alertas de Segurança' },
+            { key: 'widget_kpi_cards', label: 'Cartões KPI (Contagens)' },
+            { key: 'widget_inventory_charts', label: 'Gráficos de Inventário' },
+            { key: 'widget_financial', label: 'Dados Financeiros (Custos)' },
+            { key: 'widget_operational_charts', label: 'Gráficos Operacionais' },
+            { key: 'widget_activity', label: 'Histórico de Atividade' },
+        ]
+    },
+    {
+        label: 'Módulos Operacionais',
+        items: [
+            { key: 'equipment', label: 'Gestão de Equipamentos', supportsOwn: true },
+            { key: 'licensing', label: 'Gestão de Licenciamento', supportsOwn: true },
+            { key: 'tickets', label: 'Service Desk (Tickets)', supportsOwn: true },
+            { key: 'organization', label: 'Estrutura Organizacional' },
+            { key: 'suppliers', label: 'Gestão de Fornecedores' },
+            { key: 'procurement', label: 'Aquisições / Compras' },
+            { key: 'reports', label: 'Relatórios e BI' },
+            { key: 'dashboard_smart', label: 'Dashboard C-Level' },
+        ]
+    },
+    {
+        label: 'Módulos Compliance (NIS2/DORA)',
+        items: [
+            { key: 'compliance_bia', label: 'Análise de Impacto (BIA)' },
+            { key: 'compliance_security', label: 'Vulnerabilidades (CVE)' },
+            { key: 'compliance_backups', label: 'Controlo de Backups' },
+            { key: 'compliance_resilience', label: 'Testes de Resiliência' },
+            { key: 'compliance_training', label: 'Registo de Formações', supportsOwn: true },
+            { key: 'compliance_policies', label: 'Políticas de Segurança', supportsOwn: true },
+            { key: 'compliance_continuity', label: 'Planos de Continuidade' },
+        ]
+    },
+    {
+        label: 'Administração e Tabelas Auxiliares',
+        items: [
+            { key: 'settings', label: 'Configurações Globais' },
+            { key: 'config_custom_roles', label: 'Gestão de Perfis (RBAC)' },
+            { key: 'config_automation', label: 'Regras de Automação' },
+            { key: 'brands', label: 'Tabela de Marcas' },
+            { key: 'equipment_types', label: 'Tipos de Equipamento' },
+        ]
+    }
+];
 
 interface RoleManagerProps {
     roles: CustomRole[];
     onRefresh: () => void;
 }
 
-interface PermissionGroup {
-    label: string;
-    items: { key: ModuleKey; label: string }[];
-}
-
-const PERMISSION_GROUPS: PermissionGroup[] = [
-    {
-        label: 'Configuração: Dashboard Widgets',
-        items: [
-            { key: 'widget_alerts', label: 'Alertas de Segurança' },
-            { key: 'widget_kpi_cards', label: 'Cartões KPI (Topo)' },
-            { key: 'widget_inventory_charts', label: 'Gráficos de Inventário' },
-            { key: 'widget_financial', label: 'Resumo Financeiro' },
-            { key: 'widget_operational_charts', label: 'Gráficos Operacionais (Idade/Tickets)' },
-            { key: 'widget_activity', label: 'Atividade Recente' },
-        ]
-    },
-    {
-        label: 'Módulos Principais',
-        items: [
-            { key: 'equipment', label: 'Inventário de Equipamentos' },
-            { key: 'licensing', label: 'Licenciamento de Software' },
-            { key: 'tickets', label: 'Suporte & Tickets' },
-            { key: 'organization', label: 'Organização (RH/Entidades)' },
-            { key: 'suppliers', label: 'Fornecedores' },
-            { key: 'procurement', label: 'Aquisições (Procurement)' },
-            { key: 'reports', label: 'Relatórios' },
-            { key: 'settings', label: 'Configurações (Geral)' },
-            { key: 'dashboard_smart', label: 'Dashboard (C-Level)' },
-        ]
-    },
-    {
-        label: 'Módulos de Compliance (NIS2/DORA)',
-        items: [
-            { key: 'compliance_bia', label: 'BIA (Serviços de Negócio)' },
-            { key: 'compliance_security', label: 'Segurança (Vulnerabilidades/CVE)' },
-            { key: 'compliance_backups', label: 'Backups & Restauros' },
-            { key: 'compliance_resilience', label: 'Testes de Resiliência' },
-            { key: 'compliance_training', label: 'Formação & Consciencialização' },
-            { key: 'compliance_policies', label: 'Políticas & Governance' },
-            { key: 'compliance_continuity', label: 'Planos de Continuidade' },
-        ]
-    },
-    {
-        label: 'Tabelas de Configuração',
-        items: [
-            { key: 'brands', label: 'Marcas' },
-            { key: 'equipment_types', label: 'Tipos de Equipamento' },
-            { key: 'ticket_categories', label: 'Categorias de Tickets' },
-            { key: 'security_incident_types', label: 'Tipos de Incidente' },
-            { key: 'config_custom_roles', label: 'Perfis de Acesso (RBAC)' },
-        ]
-    }
-];
-
-// ADICIONADO: Coluna 'manage' (Gerir)
-const ACTIONS: { key: PermissionAction; label: string }[] = [
-    { key: 'view', label: 'Ver' },
-    { key: 'create', label: 'Criar' },
-    { key: 'edit', label: 'Editar' },
-    { key: 'manage', label: 'Gerir' },
-    { key: 'delete', label: 'Apagar' },
-];
-
 const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
-    const [selectedRole, setSelectedRole] = useState<CustomRole | null>(null);
-    const [isEditing, setIsEditing] = useState(false);
-    const [editedPermissions, setEditedPermissions] = useState<PermissionMatrix>({});
-    const [requiresMfa, setRequiresMfa] = useState(false);
+    const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+    const [editingPermissions, setEditingPermissions] = useState<Record<string, any>>({});
+    const [isSaving, setIsSaving] = useState(false);
     const [newRoleName, setNewRoleName] = useState('');
     const [showNewRoleInput, setShowNewRoleInput] = useState(false);
-    const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-    useEffect(() => {
-        if (!selectedRole && roles.length > 0) {
-            setSelectedRole(roles[0]);
-        }
-    }, [roles, selectedRole]);
+    const selectedRole = roles.find(r => r.id === selectedRoleId);
+    const isSuperAdminRole = selectedRole?.name === 'SuperAdmin';
 
     useEffect(() => {
         if (selectedRole) {
-            setEditedPermissions(JSON.parse(JSON.stringify(selectedRole.permissions || {})));
-            setRequiresMfa(selectedRole.requires_mfa || false);
+            setEditingPermissions(selectedRole.permissions || {});
+        } else {
+            setEditingPermissions({});
         }
     }, [selectedRole]);
 
-    const toggleGroup = (label: string) => {
-        setCollapsedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+    const handleTogglePermission = (moduleKey: string, action: PermissionAction) => {
+        if (isSuperAdminRole) return;
+        setEditingPermissions(prev => {
+            const modulePerms = prev[moduleKey] || {};
+            return {
+                ...prev,
+                [moduleKey]: {
+                    ...modulePerms,
+                    [action]: !modulePerms[action]
+                }
+            };
+        });
     };
 
-    const handlePermissionChange = (module: ModuleKey, action: PermissionAction, value: boolean) => {
-        setEditedPermissions(prev => ({
-            ...prev,
-            [module]: {
-                ...(prev[module] || { view: false, create: false, edit: false, manage: false, delete: false }),
-                [action]: value
-            }
-        }));
+    const handleSelectAll = () => {
+        if (isSuperAdminRole) return;
+        const allPerms: Record<string, any> = {};
+        PERMISSION_GROUPS.forEach(group => {
+            group.items.forEach(item => {
+                allPerms[item.key] = { view: true, create: true, edit: true, delete: true, view_own: true };
+            });
+        });
+        setEditingPermissions(allPerms);
     };
-    
+
     const handleSavePermissions = async () => {
-        if (!selectedRole) return;
+        if (!selectedRoleId || isSuperAdminRole) return;
+        setIsSaving(true);
         try {
-            await dataService.updateCustomRole(selectedRole.id, { permissions: editedPermissions, requires_mfa: requiresMfa });
-            alert("Permissões atualizadas com sucesso!");
-            setIsEditing(false);
+            await dataService.updateCustomRole(selectedRoleId, { permissions: editingPermissions });
             onRefresh();
+            alert("Permissões atualizadas com sucesso.");
         } catch (e) {
             console.error(e);
-            alert("Erro ao guardar permissões.");
+            alert("Erro ao gravar permissões.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const handleCreateRole = async () => {
         if (!newRoleName.trim()) return;
         try {
-            await dataService.addCustomRole({
-                name: newRoleName.trim(),
-                permissions: {},
-                is_system: false
+            await dataService.addCustomRole({ 
+                name: newRoleName.trim(), 
+                description: 'Perfil personalizado',
+                permissions: {} 
             });
             setNewRoleName('');
             setShowNewRoleInput(false);
             onRefresh();
-        } catch (e: any) {
-            alert("Erro ao criar perfil: " + e.message);
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao criar perfil.");
+        }
+    };
+
+    const handleDeleteRole = async (id: string, name: string) => {
+        if (name === 'SuperAdmin' || name === 'Admin') {
+            alert("Perfis de sistema (SuperAdmin/Admin) não podem ser removidos.");
+            return;
+        }
+        if (!confirm(`Deseja apagar o perfil "${name}"?`)) return;
+        try {
+            await dataService.deleteConfigItem('config_custom_roles', id);
+            setSelectedRoleId(null);
+            onRefresh();
+        } catch (e) {
+            alert("Erro ao apagar perfil.");
         }
     };
 
     return (
-        <div className="flex flex-col md:flex-row bg-surface-dark text-white min-h-[600px]">
-            <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-700 flex flex-col bg-gray-900/50 flex-shrink-0">
-                <div className="p-4 border-b border-gray-700">
-                    <h3 className="font-bold flex items-center gap-2"><FaShieldAlt className="text-purple-500"/> Perfis de Acesso</h3>
+        <div className="flex flex-col md:flex-row h-full gap-6 p-6">
+            {/* Sidebar: Role List */}
+            <div className="w-full md:w-64 bg-gray-800 rounded-lg border border-gray-700 flex flex-col">
+                <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+                    <h3 className="font-bold text-white text-sm uppercase tracking-wider">Perfis de Acesso</h3>
+                    <button 
+                        onClick={() => setShowNewRoleInput(true)} 
+                        className="p-1.5 bg-brand-primary text-white rounded hover:bg-brand-secondary"
+                    >
+                        <FaPlus size={12} />
+                    </button>
                 </div>
-                <div className="p-2 space-y-1 overflow-y-auto">
+                
+                <div className="flex-grow overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                    {showNewRoleInput && (
+                        <div className="p-2 bg-gray-700 rounded mb-2 border border-brand-primary">
+                            <input 
+                                type="text" 
+                                value={newRoleName}
+                                onChange={e => setNewRoleName(e.target.value)}
+                                className="w-full bg-gray-900 text-white text-xs p-1.5 rounded mb-2 outline-none"
+                                placeholder="Nome do perfil..."
+                                autoFocus
+                            />
+                            <div className="flex gap-2">
+                                <button onClick={handleCreateRole} className="flex-1 bg-green-600 text-white text-[10px] py-1 rounded font-bold">CRIAR</button>
+                                <button onClick={() => setShowNewRoleInput(false)} className="flex-1 bg-gray-600 text-white text-[10px] py-1 rounded">X</button>
+                            </div>
+                        </div>
+                    )}
+                    
                     {roles.map(role => (
-                        <div 
-                            key={role.id}
-                            onClick={() => { setSelectedRole(role); setIsEditing(false); }}
-                            className={`flex justify-between items-center p-3 rounded cursor-pointer transition-colors ${selectedRole?.id === role.id ? 'bg-brand-primary text-white' : 'hover:bg-gray-800 text-gray-400'}`}
-                        >
-                            <span className="font-medium text-sm">{role.name}</span>
-                            {role.is_system && <FaLock className="h-3 w-3 opacity-50" />}
+                        <div key={role.id} className="group relative">
+                            <button
+                                onClick={() => setSelectedRoleId(role.id)}
+                                className={`w-full text-left px-3 py-3 rounded text-sm transition-colors flex justify-between items-center ${selectedRoleId === role.id ? 'bg-brand-primary text-white font-bold' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
+                            >
+                                <span className="truncate pr-4">{role.name}</span>
+                                {role.name === 'SuperAdmin' && <FaLock className="text-[10px] opacity-50" />}
+                            </button>
+                            {role.name !== 'SuperAdmin' && role.name !== 'Admin' && (
+                                <button 
+                                    onClick={() => handleDeleteRole(role.id, role.name)}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-red-400 hover:bg-red-900/30 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <FaTrash size={10} />
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>
-                <div className="p-3 border-t border-gray-700 mt-auto">
-                    {!showNewRoleInput ? (
-                        <button onClick={() => setShowNewRoleInput(true)} className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 p-2 rounded text-sm text-gray-300 border border-gray-600">
-                            <FaPlus /> Novo Perfil
-                        </button>
-                    ) : (
-                        <div className="flex gap-2">
-                            <input type="text" value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-2 text-sm" placeholder="Nome..." autoFocus />
-                            <button onClick={handleCreateRole} className="bg-green-600 p-2 rounded text-white"><FaCheck/></button>
-                            <button onClick={() => setShowNewRoleInput(false)} className="bg-red-600 p-2 rounded text-white"><FaTimes/></button>
-                        </div>
-                    )}
-                </div>
             </div>
 
-            <div className="flex-1 flex flex-col overflow-hidden">
-                {selectedRole ? (
+            {/* Main: Permissions Grid */}
+            <div className="flex-1 bg-gray-800 rounded-lg border border-gray-700 flex flex-col overflow-hidden">
+                {!selectedRoleId ? (
+                    <div className="flex-grow flex flex-col items-center justify-center text-gray-500 space-y-4">
+                        <FaUserShield size={48} className="opacity-20" />
+                        <p>Selecione um perfil à esquerda para gerir as suas permissões.</p>
+                    </div>
+                ) : (
                     <>
-                        <div className="p-6 border-b border-gray-700 flex flex-col sm:flex-row justify-between items-center bg-surface-dark gap-4">
+                        <div className="p-4 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div>
-                                <h2 className="text-2xl font-bold flex items-center gap-3">
-                                    {selectedRole.name}
-                                    {selectedRole.is_system && <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">Sistema</span>}
-                                </h2>
-                                <p className="text-sm text-gray-400 mt-1">Configure o acesso aos módulos.</p>
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    {selectedRole?.name}
+                                    {isSuperAdminRole && <span className="text-[10px] bg-red-900/40 text-red-300 border border-red-500/30 px-2 py-0.5 rounded ml-2 uppercase">Bloqueado</span>}
+                                </h3>
+                                <p className="text-xs text-gray-400">
+                                    {isSuperAdminRole ? "Este perfil tem acesso root absoluto via sistema e não pode ser editado." : "Configure o acesso granular para cada módulo."}
+                                </p>
                             </div>
-                            <div className="flex gap-3">
-                                {isEditing ? (
-                                    <>
-                                        <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
-                                        <button onClick={handleSavePermissions} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500 flex items-center gap-2">
-                                            <FaSave /> Guardar
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button onClick={() => setIsEditing(true)} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2">
-                                        <EditIcon /> Editar Permissões
+                            
+                            {!isSuperAdminRole && (
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                    <button 
+                                        onClick={handleSelectAll}
+                                        className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded flex items-center gap-2 text-xs font-bold transition-colors"
+                                    >
+                                        <FaCheckDouble /> Selecionar Tudo
                                     </button>
-                                )}
-                            </div>
+                                    <button 
+                                        onClick={handleSavePermissions}
+                                        disabled={isSaving}
+                                        className="bg-brand-primary hover:bg-brand-secondary text-white px-4 py-2 rounded flex items-center gap-2 text-xs font-bold disabled:opacity-50 transition-all shadow-lg"
+                                    >
+                                        {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />}
+                                        Guardar
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-6">
-                            <div className="space-y-6 pb-10">
-                                {PERMISSION_GROUPS.map((group, gIdx) => (
-                                    <div key={gIdx} className="border border-gray-700 rounded-lg overflow-hidden">
-                                        <div className="bg-gray-800 p-3 flex justify-between items-center cursor-pointer" onClick={() => toggleGroup(group.label)}>
-                                            <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wider">{group.label}</h4>
-                                            {collapsedGroups[group.label] ? <FaChevronRight className="text-gray-500"/> : <FaChevronDown className="text-gray-500"/>}
-                                        </div>
-                                        
-                                        {!collapsedGroups[group.label] && (
-                                            <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse bg-gray-900/30">
-                                                <thead>
-                                                    <tr>
-                                                        <th className="p-3 border-b border-gray-700 text-gray-500 font-medium text-xs w-1/3">Módulo</th>
-                                                        {ACTIONS.map(action => (
-                                                            <th key={action.key} className="p-3 border-b border-gray-700 text-gray-500 font-medium text-xs text-center">{action.label}</th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {group.items.map(item => (
-                                                        <tr key={item.key} className="hover:bg-gray-800/50 border-b border-gray-800 last:border-0">
-                                                            <td className="p-3 text-sm font-medium text-gray-300 pl-4">{item.label}</td>
-                                                            {ACTIONS.map(action => (
-                                                                <td key={action.key} className="p-3 text-center">
+                        <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
+                            {isSuperAdminRole && (
+                                <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg mb-4 text-blue-200 text-sm">
+                                    <strong>Nota de Sistema:</strong> O SuperAdmin ignora as verificações de permissões e tem acesso total a todos os componentes, tabelas de base de dados e configurações globais.
+                                </div>
+                            )}
+                            
+                            <div className={`space-y-8 ${isSuperAdminRole ? 'opacity-40 pointer-events-none' : ''}`}>
+                                {PERMISSION_GROUPS.map(group => (
+                                    <div key={group.label} className="space-y-3">
+                                        <h4 className="text-xs font-black text-brand-secondary uppercase tracking-widest border-b border-gray-700 pb-1">
+                                            {group.label}
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            {group.items.map(item => {
+                                                const perms = editingPermissions[item.key] || {};
+                                                const actions: {key: PermissionAction, label: string, icon?: React.ReactNode}[] = [
+                                                    {key: 'view', label: 'Ver Global'},
+                                                    {key: 'create', label: 'Criar'},
+                                                    {key: 'edit', label: 'Editar'},
+                                                    {key: 'delete', label: 'Apagar'}
+                                                ];
+                                                
+                                                if (item.supportsOwn) {
+                                                    actions.splice(1, 0, {key: 'view_own', label: 'Ver Próprios', icon: <FaUserCheck className="text-blue-400" />});
+                                                }
+
+                                                return (
+                                                    <div key={item.key} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-gray-600 transition-colors">
+                                                        <p className="text-sm font-bold text-white mb-3">{item.label}</p>
+                                                        <div className="flex flex-col gap-2">
+                                                            {actions.map(action => (
+                                                                <label key={action.key} className="flex items-center gap-2 cursor-pointer group">
                                                                     <input 
-                                                                        type="checkbox" 
-                                                                        checked={editedPermissions[item.key]?.[action.key] || false}
-                                                                        onChange={(e) => handlePermissionChange(item.key, action.key, e.target.checked)}
-                                                                        disabled={!isEditing}
-                                                                        className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-brand-primary focus:ring-brand-secondary disabled:opacity-30"
+                                                                        type="checkbox"
+                                                                        checked={isSuperAdminRole || !!perms[action.key]}
+                                                                        onChange={() => handleTogglePermission(item.key, action.key)}
+                                                                        className="rounded border-gray-600 bg-gray-800 text-brand-primary focus:ring-brand-primary"
                                                                     />
-                                                                </td>
+                                                                    <span className={`text-[10px] uppercase font-bold flex items-center gap-1 ${perms[action.key] ? 'text-green-400' : 'text-gray-500 group-hover:text-gray-300'}`}>
+                                                                        {action.icon}
+                                                                        {action.label}
+                                                                    </span>
+                                                                </label>
                                                             ))}
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                            </div>
-                                        )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </>
-                ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">Selecione um perfil.</div>
                 )}
             </div>
         </div>

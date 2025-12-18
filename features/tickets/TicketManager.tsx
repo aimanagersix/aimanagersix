@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
     Ticket, Collaborator, ModuleKey, PermissionAction, TicketStatus
 } from '../../types';
@@ -48,14 +48,28 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     const [showRegulatoryModal, setShowRegulatoryModal] = useState(false);
     const [ticketForRegulatoryReport, setTicketForRegulatoryReport] = useState<Ticket | null>(null);
 
+    // Get User's teams for filtered fetch
+    const userTeamIds = useMemo(() => {
+        if (!currentUser || !appData.teamMembers) return [];
+        return appData.teamMembers
+            .filter((tm: any) => tm.collaborator_id === currentUser.id)
+            .map((tm: any) => tm.team_id);
+    }, [appData.teamMembers, currentUser]);
+
     const fetchTickets = useCallback(async () => {
+        if (!currentUser) return;
         setTicketsLoading(true);
         try {
             const { data, total } = await dataService.fetchTicketsPaginated({
                 page: ticketPage,
                 pageSize: ticketPageSize,
                 filters: dashboardFilter,
-                sort: ticketSort
+                sort: ticketSort,
+                userContext: {
+                    id: currentUser.id,
+                    role: currentUser.role,
+                    teamIds: userTeamIds
+                }
             });
             setTicketsData(data);
             setTotalTickets(total);
@@ -66,7 +80,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
         } finally {
             setTicketsLoading(false);
         }
-    }, [ticketPage, ticketPageSize, dashboardFilter, ticketSort]);
+    }, [ticketPage, ticketPageSize, dashboardFilter, ticketSort, currentUser, userTeamIds]);
 
     useEffect(() => {
         fetchTickets();

@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { 
     Collaborator, BusinessService, ServiceDependency, Vulnerability, 
@@ -13,7 +12,7 @@ import VulnerabilityDashboard from '../../components/VulnerabilityDashboard';
 import BackupDashboard from '../../components/BackupDashboard';
 import ResilienceDashboard from '../../components/ResilienceDashboard';
 import TrainingDashboard from '../../components/TrainingDashboard';
-import PolicyDashboard from '../../components/PolicyDashboard'; // New
+import PolicyDashboard from '../../components/PolicyDashboard';
 
 // Modals
 import AddServiceModal from '../../components/AddServiceModal';
@@ -23,7 +22,7 @@ import AddBackupModal from '../../components/AddBackupModal';
 import AddResilienceTestModal from '../../components/AddResilienceTestModal';
 import { AddTicketModal } from '../../components/AddTicketModal';
 import AddTrainingSessionModal from '../../components/AddTrainingSessionModal';
-import AddPolicyModal from '../../components/AddPolicyModal'; // New
+import AddPolicyModal from '../../components/AddPolicyModal';
 
 interface ComplianceManagerProps {
     activeTab: string;
@@ -74,27 +73,29 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
         score: number;
         duration_hours?: number;
     }) => {
-        // Create records for each collaborator
-        const promises = data.collaboratorIds.map(collabId => {
-            const record: any = {
-                collaborator_id: collabId,
-                training_type: data.training_type,
-                completion_date: data.completion_date,
-                status: 'Concluído',
-                score: data.score,
-                notes: data.notes,
-                duration_hours: data.duration_hours,
-            };
-            return dataService.addSecurityTraining(record);
-        });
-
         try {
+            // Sequencial ou Promise.all? Supabase prefere sequencial se houver RLS complexo em alguns ambientes
+            // Vamos usar Promise.all mas com tratamento individual
+            const promises = data.collaboratorIds.map(collabId => {
+                const record: any = {
+                    collaborator_id: collabId,
+                    training_type: data.training_type,
+                    completion_date: data.completion_date,
+                    status: 'Concluído',
+                    score: data.score,
+                    notes: data.notes,
+                    duration_hours: data.duration_hours,
+                };
+                return dataService.addSecurityTraining(record);
+            });
+
             await Promise.all(promises);
             refreshData();
             alert(`Sessão registada com sucesso para ${data.collaboratorIds.length} colaboradores.`);
-        } catch (e) {
+            setShowAddTrainingSessionModal(false);
+        } catch (e: any) {
             console.error("Batch training failed", e);
-            alert("Erro ao registar sessões em lote.");
+            alert("Erro ao registar sessões em lote: " + (e.message || "Verifique as permissões de acesso."));
         }
     };
 

@@ -7,33 +7,30 @@ import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxe
 import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired, FaMemory, FaHdd, FaListAlt, FaBroom } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
-// Basic Camera Scanner Component
-const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void, onClose: () => void }> = ({ onCapture, onClose }) => {
+const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void; onClose: () => void }> = ({ onCapture, onClose }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [stream, setStream] = useState<MediaStream | null>(null);
 
     useEffect(() => {
         const startCamera = async () => {
             try {
-                const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                setStream(mediaStream);
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 if (videoRef.current) {
-                    videoRef.current.srcObject = mediaStream;
+                    videoRef.current.srcObject = stream;
                 }
             } catch (err) {
                 console.error("Error accessing camera:", err);
-                alert("Erro ao aceder à câmara. Verifique as permissões.");
+                alert("Não foi possível aceder à câmara.");
                 onClose();
             }
         };
         startCamera();
         return () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+            if (videoRef.current && videoRef.current.srcObject) {
+                (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
             }
         };
-    }, []);
+    }, [onClose]);
 
     const capture = () => {
         if (videoRef.current && canvasRef.current) {
@@ -41,20 +38,21 @@ const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void, onClose: (
             if (context) {
                 canvasRef.current.width = videoRef.current.videoWidth;
                 canvasRef.current.height = videoRef.current.videoHeight;
-                context.drawImage(videoRef.current, 0, 0, videoRef.current.videoWidth, videoRef.current.videoHeight);
-                const dataUrl = canvasRef.current.toDataURL('image/jpeg');
-                onCapture(dataUrl);
+                context.drawImage(videoRef.current, 0, 0);
+                onCapture(canvasRef.current.toDataURL('image/jpeg'));
             }
         }
     };
 
     return (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
-            <video ref={videoRef} autoPlay playsInline className="w-full max-w-md" />
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4">
+            <video ref={videoRef} autoPlay playsInline className="max-w-full max-h-[70vh] rounded-lg border-2 border-brand-primary shadow-2xl" />
             <canvas ref={canvasRef} className="hidden" />
-            <div className="absolute bottom-10 flex gap-4">
-                <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-full">Cancelar</button>
-                <button onClick={capture} className="px-6 py-2 bg-white text-black rounded-full font-bold">Capturar</button>
+            <div className="mt-6 flex gap-4">
+                <button onClick={onClose} className="px-6 py-3 bg-gray-700 text-white rounded-full font-bold transition-colors hover:bg-gray-600">Cancelar</button>
+                <button onClick={capture} className="px-8 py-4 bg-brand-primary text-white rounded-full font-bold shadow-xl flex items-center gap-2 transition-transform hover:scale-105">
+                    <CameraIcon /> Capturar
+                </button>
             </div>
         </div>
     );
@@ -92,7 +90,7 @@ interface AddEquipmentModalProps {
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ 
     onClose, onSave, brands, equipmentTypes, equipmentToEdit, onSaveBrand, onSaveEquipmentType, onOpenKitModal, 
     suppliers = [], entidades = [], collaborators = [], 
-    statusOptions, criticalityOptions, ciaOptions, initialData,
+    statusOptions = [], criticalityOptions = [], ciaOptions = [], initialData,
     onOpenHistory, onManageLicenses, onOpenAssign,
     accountingCategories = [], conservationStates = [],
     decommissionReasons = [],
@@ -257,7 +255,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }
 
         if (!formData.brandId) newErrors.brandId = "A marca é obrigatória.";
-        if (!formData.typeId) newErrors.typeId = "O tipo é obrigatório.";
+        if (!formData.typeId) newErrors.typeId = "O tipo é obrigatória.";
         if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
         
         if (isDecommissioned && !formData.decommission_reason_id) {
@@ -284,6 +282,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             ...prev, 
             [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : value) 
         }));
+    };
+
+    // Fix: Added missing handleEntityChange handler
+    const handleEntityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setAssignToEntityId(e.target.value);
+        setAssignToCollaboratorId('');
     };
     
      const handleSetWarranty = (years: number) => {
@@ -363,7 +367,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
 
      const handleAddNewBrand = async () => {
         if (newBrandName.trim() === '') return;
-        const newBrand = await onSaveBrand({ name: newBrandName.trim() });
+        const newBrand = await onSaveBrand({ name: newBrandName.trim(), risk_level: CriticalityLevel.Low, is_iso27001_certified: false });
         setFormData(prev => ({...prev, brandId: newBrand.id }));
         setNewBrandName('');
         setIsAddingBrand(false);
@@ -371,7 +375,24 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
 
     const handleAddNewType = async () => {
         if (newTypeName.trim() === '') return;
-        const newType = await onSaveEquipmentType({ name: newTypeName.trim() });
+        const newType = await onSaveEquipmentType({ 
+            name: newTypeName.trim(),
+            requiresNomeNaRede: false,
+            requiresMacWIFI: false,
+            requiresMacCabo: false,
+            requiresInventoryNumber: false,
+            requiresBackupTest: false,
+            requiresLocation: false,
+            is_maintenance: false,
+            requires_wwan_address: false,
+            requires_bluetooth_address: false,
+            requires_usb_thunderbolt_address: false,
+            requires_ram_size: false,
+            requires_disk_info: false,
+            requires_cpu_info: false,
+            requires_manufacture_date: false,
+            requires_ip: false
+        });
         setFormData(prev => ({...prev, typeId: newType.id }));
         setNewTypeName('');
         setIsAddingType(false);
@@ -386,6 +407,17 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         try {
             const dataToSubmit: any = { ...formData };
             
+            // Requisito 4: Aquisição -> Stock se tiver S/N
+            if (dataToSubmit.status === EquipmentStatus.Acquisition && dataToSubmit.serialNumber) {
+                dataToSubmit.status = EquipmentStatus.Stock;
+            }
+
+            // Requisito 5: Stock -> Operacional se houver atribuição
+            const hasInitialAssignment = !isEditMode && assignToEntityId;
+            if (dataToSubmit.status === EquipmentStatus.Stock && hasInitialAssignment) {
+                dataToSubmit.status = dataToSubmit.isLoan ? EquipmentStatus.Empréstimo : EquipmentStatus.Operacional;
+            }
+
             const dateFields = ['purchaseDate', 'warrantyEndDate', 'last_security_update', 'manufacture_date'];
             dateFields.forEach(field => {
                 if (dataToSubmit[field] === '') {
@@ -485,7 +517,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     <div className="flex items-center gap-2">
                                         <select name="brandId" id="brandId" value={formData.brandId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.brandId ? 'border-red-500' : 'border-gray-600'}`}>
                                             <option value="" disabled>Selecione uma marca</option>
-                                            {brands.map(brand => (<option key={brand.id} value={brand.id}>{brand.name}</option>))}
+                                            {brands.map(brand => (<option key={brand.id as string} value={brand.id as string}>{brand.name as string}</option>))}
                                         </select>
                                         <button type="button" onClick={() => setIsAddingBrand(true)} className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-500"><PlusIcon className="h-5 w-5"/></button>
                                     </div>
@@ -533,7 +565,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             <div>
                                 <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado Operacional</label>
                                 <select name="status" id="status" value={formData.status} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                    {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                    {statuses.map(s => <option key={s as string} value={s as string}>{s as string}</option>)}
                                 </select>
                             </div>
                         </div>
@@ -551,7 +583,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     required
                                 >
                                     <option value="">-- Selecione o Motivo --</option>
-                                    {decommissionReasons.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                    {decommissionReasons.map(r => <option key={r.id as string} value={r.id as string}>{r.name as string}</option>)}
                                 </select>
                                 {errors.decommission_reason_id && <p className="text-red-400 text-xs italic mt-1">{errors.decommission_reason_id}</p>}
                             </div>
@@ -575,7 +607,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 <div className="bg-gray-800/50 p-3 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Entidade</label>
-                                        <select value={assignToEntityId} onChange={(e) => { setAssignToEntityId(e.target.value); setAssignToCollaboratorId(''); }} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                                        <select value={assignToEntityId} onChange={handleEntityChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                                             <option value="">-- Em Stock (Sem Atribuição) --</option>
                                             {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                                         </select>
@@ -618,7 +650,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                             {cpuOptions.length > 0 ? (
                                                 <select name="cpu_info" id="cpu_info" value={formData.cpu_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                                                     <option value="">-- Selecione CPU --</option>
-                                                    {cpuOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
+                                                    {cpuOptions.map(opt => (<option key={opt.id as string} value={opt.name as string}>{opt.name as string}</option>))}
                                                     {formData.cpu_info && !cpuOptions.some(o => o.name === formData.cpu_info) && <option value={formData.cpu_info}>{formData.cpu_info}</option>}
                                                 </select>
                                             ) : (
@@ -632,7 +664,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                             {ramOptions.length > 0 ? (
                                                 <select name="ram_size" id="ram_size" value={formData.ram_size || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                                                     <option value="">-- Selecione RAM --</option>
-                                                    {ramOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
+                                                    {ramOptions.map(opt => (<option key={opt.id as string} value={opt.name as string}>{opt.name as string}</option>))}
                                                     {formData.ram_size && !ramOptions.some(o => o.name === formData.ram_size) && <option value={formData.ram_size}>{formData.ram_size}</option>}
                                                 </select>
                                             ) : (
@@ -646,7 +678,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                             {storageOptions.length > 0 ? (
                                                 <select name="disk_info" id="disk_info" value={formData.disk_info || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                                                     <option value="">-- Selecione Disco --</option>
-                                                    {storageOptions.map(opt => (<option key={opt.id} value={opt.name}>{opt.name}</option>))}
+                                                    {storageOptions.map(opt => (<option key={opt.id as string} value={opt.name as string}>{opt.name as string}</option>))}
                                                     {formData.disk_info && !storageOptions.some(o => o.name === formData.disk_info) && <option value={formData.disk_info}>{formData.disk_info}</option>}
                                                 </select>
                                             ) : (
@@ -797,25 +829,25 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 <div>
                                     <label htmlFor="criticality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nível de Criticidade</label>
                                     <select name="criticality" id="criticality" value={formData.criticality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {criticalities.map(level => (<option key={level} value={level}>{level}</option>))}
+                                        {criticalities.map(level => (<option key={level as string} value={level as string}>{level as string}</option>))}
                                     </select>
                                 </div>
                                 <div>
                                     <label htmlFor="confidentiality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Confidencialidade</label>
                                     <select name="confidentiality" id="confidentiality" value={formData.confidentiality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
+                                        {ciaRatings.map(rating => (<option key={rating as string} value={rating as string}>{rating as string}</option>))}
                                     </select>
                                 </div>
                                 <div>
                                     <label htmlFor="integrity" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Integridade</label>
                                     <select name="integrity" id="integrity" value={formData.integrity} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
+                                        {ciaRatings.map(rating => (<option key={rating as string} value={rating as string}>{rating as string}</option>))}
                                     </select>
                                 </div>
                                 <div>
                                     <label htmlFor="availability" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disponibilidade</label>
                                     <select name="availability" id="availability" value={formData.availability} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {ciaRatings.map(rating => (<option key={rating} value={rating}>{rating}</option>))}
+                                        {ciaRatings.map(rating => (<option key={rating as string} value={rating as string}>{rating as string}</option>))}
                                     </select>
                                 </div>
                             </div>
@@ -838,7 +870,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     >
                                         <option value="">-- Selecione Classificador --</option>
                                         {accountingCategories.map(c => (
-                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                            <option key={c.id as string} value={c.id as string}>{c.name as string}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -853,7 +885,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     >
                                         <option value="">-- Selecione Estado --</option>
                                         {conservationStates.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name}</option>
+                                            <option key={s.id as string} value={s.id as string}>{s.name as string}</option>
                                         ))}
                                     </select>
                                 </div>

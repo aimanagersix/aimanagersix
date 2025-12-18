@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Modal from './common/Modal';
 import { AuditLogEntry } from '../types';
 import * as dataService from '../services/dataService';
 import Pagination from './common/Pagination';
-import { FaClipboardList, FaSearch, FaFilter } from 'react-icons/fa';
+import { FaClipboardList, FaSearch, FaSync, FaExclamationTriangle } from 'react-icons/fa';
 
 interface AuditLogModalProps {
     onClose: () => void;
@@ -13,23 +13,28 @@ interface AuditLogModalProps {
 const AuditLogModal: React.FC<AuditLogModalProps> = ({ onClose }) => {
     const [logs, setLogs] = useState<AuditLogEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
-    useEffect(() => {
-        const loadLogs = async () => {
-            try {
-                const data = await dataService.fetchAuditLogs();
-                setLogs(data);
-            } catch (e) {
-                console.error("Failed to load audit logs", e);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        loadLogs();
+    const loadLogs = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const data = await dataService.fetchAuditLogs();
+            setLogs(data);
+        } catch (e: any) {
+            console.error("Failed to load audit logs", e);
+            setError(e.message || "Erro ao comunicar com a base de dados.");
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        loadLogs();
+    }, [loadLogs]);
 
     const filteredLogs = useMemo(() => {
         return logs.filter(log => 
@@ -55,9 +60,18 @@ const AuditLogModal: React.FC<AuditLogModalProps> = ({ onClose }) => {
         <Modal title="Logs de Auditoria do Sistema" onClose={onClose} maxWidth="max-w-6xl">
             <div className="flex flex-col h-[70vh]">
                 <div className="flex justify-between items-center mb-4 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
-                    <div className="flex items-center gap-2 text-on-surface-dark-secondary text-sm">
-                        <FaClipboardList className="text-brand-secondary" />
-                        <span>Monitorização de ações críticas (NIS2)</span>
+                    <div className="flex items-center gap-4 text-on-surface-dark-secondary text-sm">
+                        <div className="flex items-center gap-2">
+                            <FaClipboardList className="text-brand-secondary" />
+                            <span>Monitorização NIS2</span>
+                        </div>
+                        <button 
+                            onClick={loadLogs} 
+                            disabled={isLoading}
+                            className="flex items-center gap-2 px-3 py-1 bg-gray-800 hover:bg-gray-700 text-white rounded border border-gray-600 disabled:opacity-50"
+                        >
+                            <FaSync className={isLoading ? 'animate-spin' : ''} /> Sincronizar
+                        </button>
                     </div>
                     <div className="relative w-64">
                         <input 
@@ -65,15 +79,25 @@ const AuditLogModal: React.FC<AuditLogModalProps> = ({ onClose }) => {
                             placeholder="Filtrar logs..." 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-8 pr-2 py-1 text-sm"
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-8 pr-2 py-1 text-sm focus:border-brand-secondary outline-none"
                         />
                         <FaSearch className="absolute left-2.5 top-2 text-gray-400 h-3 w-3" />
                     </div>
                 </div>
 
-                <div className="flex-grow overflow-auto border border-gray-700 rounded-lg">
+                {error && (
+                    <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200 text-sm flex items-center gap-3">
+                        <FaExclamationTriangle className="flex-shrink-0" />
+                        <div>
+                            <p className="font-bold">Erro de Carregamento</p>
+                            <p className="opacity-80">{error}. Verifique se a tabela 'audit_log' e as políticas RLS estão configuradas.</p>
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex-grow overflow-auto border border-gray-700 rounded-lg bg-black/20">
                     <table className="w-full text-sm text-left text-on-surface-dark-secondary">
-                        <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-800 sticky top-0">
+                        <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-800 sticky top-0 z-10">
                             <tr>
                                 <th className="px-6 py-3">Data/Hora</th>
                                 <th className="px-6 py-3">Utilizador</th>
@@ -82,9 +106,9 @@ const AuditLogModal: React.FC<AuditLogModalProps> = ({ onClose }) => {
                                 <th className="px-6 py-3">Detalhes</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {isLoading ? (
-                                <tr><td colSpan={5} className="p-8 text-center">A carregar logs...</td></tr>
+                        <tbody className="divide-y divide-gray-800">
+                            {isLoading && logs.length === 0 ? (
+                                <tr><td colSpan={5} className="p-8 text-center text-gray-500">A carregar logs...</td></tr>
                             ) : paginatedLogs.length > 0 ? (
                                 paginatedLogs.map((log) => (
                                     <tr key={log.id} className="border-b border-gray-700 hover:bg-gray-800/50">
@@ -96,7 +120,7 @@ const AuditLogModal: React.FC<AuditLogModalProps> = ({ onClose }) => {
                                     </tr>
                                 ))
                             ) : (
-                                <tr><td colSpan={5} className="p-8 text-center text-gray-500">Nenhum registo encontrado.</td></tr>
+                                <tr><td colSpan={5} className="p-8 text-center text-gray-500 italic">Nenhum registo encontrado.</td></tr>
                             )}
                         </tbody>
                     </table>

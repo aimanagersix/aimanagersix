@@ -4,10 +4,11 @@ import * as dataService from '../../services/dataService';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaUserTag, FaServer, 
     FaGraduationCap, FaLock, FaIdCard, FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
-    FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync, FaChevronRight, FaArrowLeft, FaBars, FaBolt
+    FaBroom, FaUserSlash, FaCompactDisc, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaSync, FaChevronRight, FaArrowLeft, FaBars, FaBolt, FaUsers
 } from 'react-icons/fa';
-import { ConfigItem, Brand, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, TicketStatus } from '../../types';
+import { ConfigItem, Brand, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, TicketStatus, Team } from '../../types';
 import { parseSecurityAlert } from '../../services/geminiService';
+import { getSupabase } from '../../services/supabaseClient';
 
 // Child Dashboards/Components (Shared)
 import BrandDashboard from '../../components/BrandDashboard';
@@ -16,6 +17,7 @@ import CategoryDashboard from '../../components/CategoryDashboard';
 import SecurityIncidentTypeDashboard from '../../components/SecurityIncidentTypeDashboard';
 import RoleManager from '../../components/RoleManager'; 
 import AutomationRulesDashboard from '../../components/AutomationRulesDashboard';
+import TeamDashboard from '../../components/TeamDashboard';
 
 // Local Feature Components
 import BrandingTab from './BrandingTab';
@@ -33,6 +35,8 @@ import AddEquipmentTypeModal from '../../components/AddEquipmentTypeModal';
 import AddCategoryModal from '../../components/AddCategoryModal';
 import AddSecurityIncidentTypeModal from '../../components/AddSecurityIncidentTypeModal';
 import SystemDiagnosticsModal from '../../components/SystemDiagnosticsModal';
+import AddTeamModal from '../../components/AddTeamModal';
+import ManageTeamMembersModal from '../../components/ManageTeamMembersModal';
 
 interface SettingsManagerProps {
     appData: any;
@@ -40,7 +44,11 @@ interface SettingsManagerProps {
 }
 
 const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData }) => {
-    const [selectedMenuId, setSelectedMenuId] = useState<string>('general'); 
+    const [selectedMenuId, setSelectedMenuId] = useState<string>(() => {
+        const hash = window.location.hash.replace('#settings.', '');
+        if (hash && hash !== 'settings') return hash;
+        return 'general';
+    });
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
 
     // Modals State
@@ -53,6 +61,10 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     const [showAddIncidentTypeModal, setShowAddIncidentTypeModal] = useState(false);
     const [incidentTypeToEdit, setIncidentTypeToEdit] = useState<SecurityIncidentTypeItem | null>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
+    const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+    const [teamToEdit, setTeamToEdit] = useState<Team | null>(null);
+    const [showManageTeamMembersModal, setShowManageTeamMembersModal] = useState(false);
+    const [teamToManage, setTeamToManage] = useState<Team | null>(null);
     
     const [settings, setSettings] = useState<any>({
         webhookJson: '{\n  "alert_type": "Event::Endpoint::Threat::Detected",\n  "severity": "high",\n  "full_name": "PC-FINANCEIRO-01",\n  "description": "Malware detected"\n}',
@@ -100,7 +112,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             for (const key of keys) {
                 const value = await dataService.getGlobalSetting(key);
                 if (value !== null) {
-                    // Mapeamento de chaves DB -> State se nomes forem diferentes
                     if (key === 'slack_webhook_url') loadedSettings.slackWebhookUrl = value;
                     else if (key === 'supabase_url') loadedSettings.sbUrl = value;
                     else if (key === 'supabase_anon_key') loadedSettings.sbKey = value;
@@ -119,7 +130,13 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         loadGlobalSettings();
     }, [loadGlobalSettings]);
 
-    // --- SALVAR CONFIGURAÇÕES NO SUPABASE ---
+    // Update hash for deep linking in settings
+    useEffect(() => {
+        if (selectedMenuId) {
+             window.location.hash = `settings.${selectedMenuId}`;
+        }
+    }, [selectedMenuId]);
+
     const handleSaveSettings = async () => {
         setIsSavingSettings(true);
         try {
@@ -178,8 +195,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         if (!settings.simulatedTicket) return;
         
         const sim = settings.simulatedTicket;
-        
-        // Tentar encontrar o ID do equipamento pelo nome extraído pela IA
         const foundEq = appData.equipment.find((e:any) => 
             e.nomeNaRede?.toLowerCase() === sim.affectedAsset?.toLowerCase() ||
             e.description?.toLowerCase().includes(sim.affectedAsset?.toLowerCase())
@@ -195,14 +210,30 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 impactCriticality: sim.severity || 'Alta',
                 requestDate: new Date().toISOString(),
                 equipmentId: foundEq?.id,
-                collaboratorId: appData.collaborators[0]?.id // Fallback ao admin ou sistema
+                collaboratorId: appData.collaborators[0]?.id 
             });
             
-            alert("Ticket de Segurança criado com sucesso e associado ao ativo " + (foundEq ? foundEq.nomeNaRede : "Desconhecido"));
+            alert("Ticket de Segurança criado com sucesso.");
             refreshData();
             setSettings((prev:any) => ({ ...prev, simulatedTicket: null }));
         } catch (e) {
             alert("Erro ao criar ticket real.");
+        }
+    };
+
+    const handleTriggerSophosSync = async () => {
+        setIsSyncing(true);
+        try {
+            const supabase = getSupabase();
+            // Fixing the missing body in invoke which often triggers networking errors in the Supabase JS client
+            const { data, error } = await supabase.functions.invoke('sync-sophos', { body: {} });
+            if (error) throw error;
+            alert("Sincronização concluída! Verifique a lista de tickets para novos alertas [SOPHOS].");
+        } catch (e: any) {
+            console.error("Sophos Sync Error:", e);
+            alert("Erro na sincronização: " + (e.message || "Falha na comunicação com o servidor."));
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -214,6 +245,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             alert('Erro: ' + e.message);
         }
     };
+
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const menuStructure = [
         {
@@ -233,6 +266,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             group: "Segurança & Acessos",
             items: [
                 { id: 'roles', label: 'Perfis de Acesso (RBAC)', icon: <FaIdCard /> },
+                { id: 'teams', label: 'Equipas de Suporte', icon: <FaUsers /> },
             ]
         },
         {
@@ -273,6 +307,23 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         switch (selectedMenuId) {
             case 'general': return <GeneralScansTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} instituicoes={appData.instituicoes} />;
             case 'roles': return <RoleManager roles={safeData(appData.customRoles)} onRefresh={refreshData} />;
+            case 'teams': return (
+                <TeamDashboard 
+                    teams={appData.teams}
+                    teamMembers={appData.teamMembers}
+                    collaborators={appData.collaborators}
+                    tickets={appData.tickets}
+                    equipmentTypes={appData.equipmentTypes}
+                    onEdit={(t) => { setTeamToEdit(t); setShowAddTeamModal(true); }}
+                    onDelete={async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteTeam(id); refreshData(); } }}
+                    onCreate={() => { setTeamToEdit(null); setShowAddTeamModal(true); }}
+                    onManageMembers={(t) => { setTeamToManage(t); setShowManageTeamMembersModal(true); }}
+                    onToggleStatus={async (id) => {
+                        const t = appData.teams.find((team: Team) => team.id === id);
+                        if (t) { await dataService.updateTeam(id, { is_active: t.is_active === false }); refreshData(); }
+                    }}
+                />
+            );
             case 'config_automation': return <AutomationRulesDashboard />;
             case 'brands': return <BrandDashboard brands={safeData(appData.brands)} equipment={safeData(appData.equipment)} onCreate={() => { setBrandToEdit(null); setShowAddBrandModal(true); }} onEdit={(b) => { setBrandToEdit(b); setShowAddBrandModal(true); }} />;
             case 'equipment_types': return <EquipmentTypeDashboard equipmentTypes={safeData(appData.equipmentTypes)} equipment={safeData(appData.equipment)} onCreate={() => { setTypeToEdit(null); setShowAddTypeModal(true); }} onEdit={(t) => { setTypeToEdit(t); setShowAddTypeModal(true); }} />;
@@ -333,6 +384,30 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} />}
             {showAddCategoryModal && <AddCategoryModal onClose={() => setShowAddCategoryModal(false)} onSave={async (c) => { if(categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, c); else await dataService.addTicketCategory(c); refreshData(); }} categoryToEdit={categoryToEdit} teams={appData.teams} />}
             {showAddIncidentTypeModal && <AddSecurityIncidentTypeModal onClose={() => setShowAddIncidentTypeModal(false)} onSave={async (i) => { if(incidentTypeToEdit) await dataService.updateSecurityIncidentType(incidentTypeToEdit.id, i); else await dataService.addSecurityIncidentType(i); refreshData(); }} typeToEdit={incidentTypeToEdit} />}
+            {showAddTeamModal && (
+                <AddTeamModal
+                    onClose={() => setShowAddTeamModal(false)}
+                    onSave={async (team) => {
+                        if (teamToEdit) await dataService.updateTeam(teamToEdit.id, team);
+                        else await dataService.addTeam(team);
+                        refreshData();
+                    }}
+                    teamToEdit={teamToEdit}
+                />
+            )}
+            {showManageTeamMembersModal && teamToManage && (
+                <ManageTeamMembersModal 
+                    onClose={() => setShowManageTeamMembersModal(false)}
+                    onSave={async (teamId, memberIds) => {
+                        await dataService.syncTeamMembers(teamId, memberIds);
+                        refreshData();
+                        setShowManageTeamMembersModal(false);
+                    }}
+                    team={teamToManage}
+                    allCollaborators={appData.collaborators}
+                    teamMembers={appData.teamMembers}
+                />
+            )}
         </div>
     );
 };

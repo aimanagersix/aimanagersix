@@ -15,64 +15,42 @@ import {
 const sb = () => getSupabase();
 
 // --- AUTH & USER ---
-/**
- * Resets a user's password using admin privileges or simulated flow.
- */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
-    // In a real app, this would use a secure edge function or service role.
     console.debug(`Resetting password for user ${userId}`);
     return { success: true };
 };
 
 // --- GENERIC CONFIG TABLES ---
-/**
- * Adds a generic configuration item to any specified table.
- */
 export const addConfigItem = async (table: string, item: any) => {
     const { data, error } = await sb().from(table).insert(item).select().single();
     if (error) throw error;
     return data;
 };
 
-/**
- * Updates a generic configuration item.
- */
 export const updateConfigItem = async (table: string, id: string, updates: any) => {
     const { data, error } = await sb().from(table).update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data;
 };
 
-/**
- * Deletes a generic configuration item.
- */
 export const deleteConfigItem = async (table: string, id: string) => {
     const { error } = await sb().from(table).delete().eq('id', id);
     if (error) throw error;
 };
 
 // --- GLOBAL SETTINGS ---
-/**
- * Fetches a global setting value from the database.
- */
 export const getGlobalSetting = async (key: string): Promise<string | null> => {
     const { data, error } = await sb().from('global_settings').select('setting_value').eq('setting_key', key).maybeSingle();
     if (error) return null;
     return data?.setting_value || null;
 };
 
-/**
- * Updates or creates a global setting.
- */
 export const updateGlobalSetting = async (key: string, value: string) => {
     const { error } = await sb().from('global_settings').upsert({ setting_key: key, setting_value: value }, { onConflict: 'setting_key' });
     if (error) throw error;
 };
 
 // --- BATCH DATA FETCH ---
-/**
- * Fetches all essential application data in parallel for initial loading.
- */
 export const fetchAllData = async () => {
     const [
         {data: equipment}, {data: brands}, {data: equipmentTypes}, 
@@ -227,8 +205,27 @@ export const fetchCollaboratorsPaginated = async (params: { page: number, pageSi
     return { data: data || [], total: count || 0 };
 };
 
-export const fetchTicketsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
+export const fetchTicketsPaginated = async (params: { 
+    page: number, 
+    pageSize: number, 
+    filters?: any, 
+    sort?: { key: string, direction: 'ascending' | 'descending' },
+    userContext?: { id: string, role: string, teamIds: string[] }
+}) => {
     let query = sb().from('tickets').select('*', { count: 'exact' });
+
+    if (params.userContext && 
+        params.userContext.role !== 'SuperAdmin' && 
+        params.userContext.role !== 'Admin') {
+        
+        const { id, teamIds } = params.userContext;
+        if (teamIds && teamIds.length > 0) {
+            query = query.or(`collaboratorId.eq.${id},team_id.in.(${teamIds.join(',')})`);
+        } else {
+            query = query.eq('collaboratorId', id);
+        }
+    }
+
     if (params.filters) {
         if (params.filters.status) query = query.eq('status', params.filters.status);
         if (params.filters.category) query = query.eq('category', params.filters.category);
@@ -768,7 +765,7 @@ export const triggerBirthdayCron = async () => {
 };
 
 export const triggerSophosSync = async () => {
-    const { error } = await sb().functions.invoke('sync-sophos');
+    const { error } = await sb().functions.invoke('sync-sophos', { body: {} });
     if (error) throw error;
 };
 

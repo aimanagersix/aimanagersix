@@ -82,6 +82,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                     <FaShieldAlt /> Segurança (Sophos)
                 </button>
                 <button 
+                    // Fix: Changed setActiveTab to setActiveSubTab to match component state setter definition.
                     onClick={() => setActiveSubTab('reports')} 
                     className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeSubTab === 'reports' ? 'border-yellow-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                 >
@@ -150,7 +151,6 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                     <div>
                                         <label className="block text-xs text-gray-500 uppercase font-bold mb-2 tracking-widest">Corpo da Mensagem (Suporta HTML)</label>
                                         <textarea value={settings.birthday_email_body || ''} onChange={(e) => onSettingsChange('birthday_email_body', e.target.value)} rows={5} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-3 text-sm font-mono focus:border-pink-500 outline-none custom-scrollbar" placeholder="Olá {{nome}}, a equipa deseja-te um feliz aniversário!"/>
-                                        {/* Fixed: Escaped double curly braces in JSX text to prevent them from being interpreted as an object literal expression. */}
                                         <p className="text-[10px] text-gray-500 mt-2 italic flex items-center gap-1"><FaBullhorn className="text-pink-500"/> Use <strong>{'{{nome}}'}</strong> para inserir o nome do colaborador automaticamente.</p>
                                     </div>
 
