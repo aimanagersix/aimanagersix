@@ -34,44 +34,60 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const typeMap = useMemo(() => new Map(types.map(t => [t.id, t.name])), [types]);
 
-    // 1. Meus Equipamentos
+    // 1. Meus Equipamentos - Robusto para snake_case/camelCase
     const myEquipment = useMemo(() => {
         const activeIds = assignments
-            .filter(a => a.collaboratorId === currentUser.id && !a.returnDate)
+            .filter(a => {
+                const collabId = (a as any).collaboratorId || (a as any).collaborator_id;
+                return collabId === currentUser.id && !a.returnDate;
+            })
             .map(a => a.equipmentId);
         return equipment.filter(e => activeIds.includes(e.id));
     }, [assignments, equipment, currentUser.id]);
 
-    // 2. Minhas Licenças
+    // 2. Minhas Licenças - Robusto para snake_case/camelCase
     const myLicenses = useMemo(() => {
         const myEqIds = new Set(myEquipment.map(e => e.id));
         const licenseIds = licenseAssignments
-            .filter(la => myEqIds.has(la.equipmentId) && !la.returnDate)
-            .map(la => la.softwareLicenseId);
+            .filter(la => {
+                const eqId = (la as any).equipmentId || (la as any).equipment_id;
+                return myEqIds.has(eqId) && !la.returnDate;
+            })
+            .map(la => (la as any).softwareLicenseId || (la as any).software_license_id);
         return softwareLicenses.filter(l => licenseIds.includes(l.id));
     }, [myEquipment, licenseAssignments, softwareLicenses]);
 
-    // 3. Minhas Formações
+    // 3. Minhas Formações - Robusto para collaborator_id
     const myTrainings = useMemo(() => {
-        return trainings.filter(t => t.collaborator_id === currentUser.id)
-            .sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
+        return trainings.filter(t => {
+            const collabId = (t as any).collaborator_id || (t as any).collaboratorId;
+            return collabId === currentUser.id;
+        }).sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
     }, [trainings, currentUser.id]);
 
-    // 4. Minhas Políticas Aceites
+    // 4. Minhas Políticas Aceites - Robusto para policy_id e collaborator_id
     const myAcceptedPolicies = useMemo(() => {
-        const myAcceptanceMap = new Map(
-            acceptances.filter(a => a.collaborator_id === currentUser.id).map(a => [a.policy_id, a])
-        );
+        const myAcceptanceMap = new Map();
+        acceptances.forEach(a => {
+            const cId = (a as any).collaborator_id || (a as any).collaboratorId;
+            const pId = (a as any).policy_id || (a as any).policyId;
+            if (cId === currentUser.id) {
+                myAcceptanceMap.set(pId, a);
+            }
+        });
+        
         return policies.map(p => ({
             ...p,
             acceptance: myAcceptanceMap.get(p.id)
         })).sort((a, b) => (a.acceptance ? 0 : 1) - (b.acceptance ? 0 : 1));
     }, [policies, acceptances, currentUser.id]);
 
-    // 5. Meus Tickets Ativos
+    // 5. Meus Tickets Ativos - Robusto para collaboratorId
     const myActiveTickets = useMemo(() => {
-        return tickets.filter(t => t.collaboratorId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado')
-            .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+        return tickets.filter(t => {
+            const cId = (t as any).collaboratorId || (t as any).collaborator_id;
+            return cId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado';
+        }).sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     }, [tickets, currentUser.id]);
 
     return (

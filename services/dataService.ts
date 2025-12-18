@@ -15,64 +15,42 @@ import {
 const sb = () => getSupabase();
 
 // --- AUTH & USER ---
-/**
- * Resets a user's password using admin privileges or simulated flow.
- */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
-    // In a real app, this would use a secure edge function or service role.
     console.debug(`Resetting password for user ${userId}`);
     return { success: true };
 };
 
 // --- GENERIC CONFIG TABLES ---
-/**
- * Adds a generic configuration item to any specified table.
- */
 export const addConfigItem = async (table: string, item: any) => {
     const { data, error } = await sb().from(table).insert(item).select().single();
     if (error) throw error;
     return data;
 };
 
-/**
- * Updates a generic configuration item.
- */
 export const updateConfigItem = async (table: string, id: string, updates: any) => {
     const { data, error } = await sb().from(table).update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data;
 };
 
-/**
- * Deletes a generic configuration item.
- */
 export const deleteConfigItem = async (table: string, id: string) => {
     const { error } = await sb().from(table).delete().eq('id', id);
     if (error) throw error;
 };
 
 // --- GLOBAL SETTINGS ---
-/**
- * Fetches a global setting value from the database.
- */
 export const getGlobalSetting = async (key: string): Promise<string | null> => {
     const { data, error } = await sb().from('global_settings').select('setting_value').eq('setting_key', key).maybeSingle();
     if (error) return null;
     return data?.setting_value || null;
 };
 
-/**
- * Updates or creates a global setting.
- */
 export const updateGlobalSetting = async (key: string, value: string) => {
     const { error } = await sb().from('global_settings').upsert({ setting_key: key, setting_value: value }, { onConflict: 'setting_key' });
     if (error) throw error;
 };
 
 // --- BATCH DATA FETCH ---
-/**
- * Fetches all essential application data in parallel for initial loading.
- */
 export const fetchAllData = async () => {
     const [
         {data: equipment}, {data: brands}, {data: equipmentTypes}, 
@@ -236,7 +214,6 @@ export const fetchTicketsPaginated = async (params: {
 }) => {
     let query = sb().from('tickets').select('*', { count: 'exact' });
 
-    // Filter by ownership or team membership for non-admins
     if (params.userContext && 
         params.userContext.role !== 'SuperAdmin' && 
         params.userContext.role !== 'Admin') {
@@ -788,7 +765,6 @@ export const triggerBirthdayCron = async () => {
 };
 
 export const triggerSophosSync = async () => {
-    // Explicitly providing an empty object as body to satisfy network requirements for Edge Functions
     const { error } = await sb().functions.invoke('sync-sophos', { body: {} });
     if (error) throw error;
 };

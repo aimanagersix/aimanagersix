@@ -136,11 +136,11 @@ export const App: React.FC = () => {
         return appData.policies.filter(p => {
             if (!p.is_active || !p.is_mandatory) return false;
             
-            const accepted = appData.policyAcceptances.find(a => 
-                a.collaborator_id === currentUser.id && 
-                a.policy_id === p.id && 
-                String(a.version) === String(p.version)
-            );
+            const accepted = appData.policyAcceptances.find(a => {
+                const cId = (a as any).collaborator_id || (a as any).collaboratorId;
+                const pId = (a as any).policy_id || (a as any).policyId;
+                return cId === currentUser.id && pId === p.id && String(a.version) === String(p.version);
+            });
             
             return !accepted;
         });
@@ -446,12 +446,11 @@ export const App: React.FC = () => {
                 <PolicyAcceptanceModal 
                     policies={[readingPolicy]}
                     onAccept={async (policyId, version) => {
-                        // Just a reread check if already accepted
-                        const alreadyAccepted = appData.policyAcceptances.find(a => 
-                            a.collaborator_id === currentUser?.id && 
-                            a.policy_id === policyId && 
-                            String(a.version) === String(version)
-                        );
+                        const alreadyAccepted = appData.policyAcceptances.find(a => {
+                             const cId = (a as any).collaborator_id || (a as any).collaboratorId;
+                             const pId = (a as any).policy_id || (a as any).policyId;
+                             return cId === currentUser?.id && pId === policyId && String(a.version) === String(version);
+                        });
                         if (!alreadyAccepted) {
                             await getSupabase().from('policy_acceptances').insert({
                                 policy_id: policyId,
