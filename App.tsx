@@ -236,7 +236,7 @@ export const App: React.FC = () => {
             )}
 
             <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar`}>
-                <div className={`w-full max-w-[1000px] mx-auto p-4 md:p-8 lg:px-16 xl:px-24 2xl:px-32`}>
+                <div className={`w-full max-w-[1100px] mx-auto px-4 sm:px-10 md:px-16 lg:px-24 xl:px-32 py-4 md:py-8`}>
                     {activeTab === 'overview' && <OverviewDashboard equipment={appData.equipment} instituicoes={appData.instituicoes} entidades={appData.entidades} assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={appData.tickets} collaborators={appData.collaborators} teams={appData.teams} expiringWarranties={[]} expiringLicenses={[]} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} vulnerabilities={appData.vulnerabilities} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} onGenerateComplianceReport={() => {}} onRefresh={refreshData} checkPermission={checkPermission} />}
                     {activeTab === 'overview.smart' && canViewSmartDashboard && <SmartDashboard tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions} trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser} />}
                     {activeTab.startsWith('tickets') && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
