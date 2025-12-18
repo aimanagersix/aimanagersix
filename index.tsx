@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { Component, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './index.css';
@@ -11,8 +12,7 @@ if (!rootElement) {
 }
 
 interface ErrorBoundaryProps {
-    /* Fixed: made children optional to prevent 'missing in type {}' error in JSX */
-    children?: React.ReactNode;
+    children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -21,7 +21,8 @@ interface ErrorBoundaryState {
 }
 
 // Simple Error Boundary to catch rendering errors
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Use Component from named imports and ensure types are explicitly passed
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {
@@ -64,18 +65,17 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    /* Fixed: Property 'props' is accessible through the instance when correctly extending React.Component */
-    return <>{this.props.children}</>;
+    // Fix: Properly access inherited props
+    return <React.Fragment>{this.props.children}</React.Fragment>;
   }
 }
 
-const root = ReactDOM.createRoot(rootElement);
+const root = ReactDOM.createRoot(rootElement as HTMLElement);
 
 // NOTA: React.StrictMode removido intencionalmente para resolver o erro "NotFoundError: Node.removeChild".
 // Este erro ocorre frequentemente devido a interferências de extensões do browser ou traduções automáticas
 // que alteram o DOM, confundindo o algoritmo de reconciliação do React.
 root.render(
-    /* Fixed: ErrorBoundary now has children properly handled by its prop type */
     <ErrorBoundary>
       <LanguageProvider>
         <LayoutProvider>

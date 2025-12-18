@@ -41,16 +41,26 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
     const [formData, setFormData] = useState<Partial<Ticket>>(() => {
         if (ticketToEdit) return { ...ticketToEdit };
         
+        // Nova Lógica de Triagem: Geral + Pendente Atribuição
+        const triageTeam = teams.find(t => t.name === 'Pendente Atribuição');
+        const generalCategory = categories.find(c => c.name === 'Geral');
+
         const baseData: any = {
             title: initialData?.title || '',
             description: initialData?.description || '',
-            team_id: '',
-            category: initialData?.category || activeCategories[0] || 'Falha Técnica',
+            // Atribui a equipa de triagem por defeito se existir
+            team_id: triageTeam?.id || '',
+            // Atribui a categoria Geral por defeito se existir
+            category: initialData?.category || generalCategory?.name || activeCategories[0] || 'Geral',
             impactCriticality: (initialData?.impactCriticality as CriticalityLevel) || CriticalityLevel.Low,
         };
         
-        const defaultCatObj = categories.find(c => c.name === baseData.category);
-        if (defaultCatObj?.default_team_id) baseData.team_id = defaultCatObj.default_team_id;
+        // Mantém a compatibilidade: se a categoria sugerida tiver uma equipa específica 
+        // e não for a inicialização padrão "Geral", respeita a configuração da categoria.
+        if (!generalCategory || baseData.category !== 'Geral') {
+            const defaultCatObj = categories.find(c => c.name === baseData.category);
+            if (defaultCatObj?.default_team_id) baseData.team_id = defaultCatObj.default_team_id;
+        }
 
         if (currentUser) {
             baseData.entidadeId = currentUser.entidadeId;
