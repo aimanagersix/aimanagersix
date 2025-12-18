@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Collaborator, UserRole, ModuleKey, PermissionAction, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember, Assignment
+    Collaborator, UserRole, ModuleKey, PermissionAction, Ticket, Brand, EquipmentType, Equipment, SoftwareLicense, TeamMember, Assignment, TicketStatus
 } from './types';
 import * as dataService from './services/dataService';
 import { useAppData } from './hooks/useAppData';
@@ -66,9 +66,28 @@ export const App: React.FC = () => {
         return () => { supabase.removeChannel(channel); };
     }, [isConfigured, currentUser]);
 
+    // Visiblity Logic for standard collaborators
+    const userTeamIds = useMemo(() => {
+        if (!currentUser || !appData.teamMembers) return new Set<string>();
+        return new Set(appData.teamMembers
+            .filter((tm: any) => tm.collaborator_id === currentUser.id)
+            .map((tm: any) => tm.team_id));
+    }, [appData.teamMembers, currentUser]);
+
+    const scopedTickets = useMemo(() => {
+        if (!currentUser) return [];
+        // Admins see all
+        if (currentUser.role === 'SuperAdmin' || currentUser.role === 'Admin') return appData.tickets;
+        // Standard users see own tickets OR tickets assigned to their teams
+        return appData.tickets.filter(t => 
+            t.collaboratorId === currentUser.id || 
+            (t.team_id && userTeamIds.has(t.team_id))
+        );
+    }, [appData.tickets, currentUser, userTeamIds]);
+
     const notificationCount = useMemo(() => {
-        return appData.tickets.filter(t => t.status === 'Pedido').length;
-    }, [appData.tickets]);
+        return scopedTickets.filter(t => t.status === TicketStatus.Requested).length;
+    }, [scopedTickets]);
     
     const [activeTab, setActiveTabState] = useState(() => {
         const hash = window.location.hash.replace('#', '');
@@ -139,10 +158,11 @@ export const App: React.FC = () => {
             return d >= now && d <= thirtyDaysFromNow;
         });
 
-        const pendingTickets = appData.tickets.filter(t => t.status === 'Pedido');
+        // Filtered pending tickets using visibility logic
+        const pendingTickets = scopedTickets.filter(t => t.status === TicketStatus.Requested);
 
         return { expiringWarranties, expiringLicenses, pendingTickets };
-    }, [appData.equipment, appData.softwareLicenses, appData.tickets]);
+    }, [appData.equipment, appData.softwareLicenses, scopedTickets]);
 
     const tabConfig: any = {
         'overview': !isBasic ? 'Visão Geral' : undefined,
@@ -237,8 +257,8 @@ export const App: React.FC = () => {
 
             <main className={`flex-1 bg-background-dark transition-all duration-300 overflow-y-auto custom-scrollbar`}>
                 <div className={`w-full max-w-[1100px] mx-auto px-4 sm:px-10 md:px-16 lg:px-24 xl:px-32 py-4 md:py-8`}>
-                    {activeTab === 'overview' && <OverviewDashboard equipment={appData.equipment} instituicoes={appData.instituicoes} entidades={appData.entidades} assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={appData.tickets} collaborators={appData.collaborators} teams={appData.teams} expiringWarranties={[]} expiringLicenses={[]} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} vulnerabilities={appData.vulnerabilities} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} onGenerateComplianceReport={() => {}} onRefresh={refreshData} checkPermission={checkPermission} />}
-                    {activeTab === 'overview.smart' && canViewSmartDashboard && <SmartDashboard tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions} trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser} />}
+                    {activeTab === 'overview' && <OverviewDashboard equipment={appData.equipment} instituicoes={appData.instituicoes} entidades={appData.entidades} assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={scopedTickets} collaborators={appData.collaborators} teams={appData.teams} expiringWarranties={[]} expiringLicenses={[]} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} vulnerabilities={appData.vulnerabilities} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} onGenerateComplianceReport={() => {}} onRefresh={refreshData} checkPermission={checkPermission} />}
+                    {activeTab === 'overview.smart' && canViewSmartDashboard && <SmartDashboard tickets={scopedTickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions} trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser} />}
                     {activeTab.startsWith('tickets') && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
                     {(activeTab.startsWith('equipment') || activeTab === 'licensing') && <InventoryManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} onViewItem={(t,f) => {setActiveTab(t); setDashboardFilter(f);}} />}
                     {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && <OrganizationManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={refreshData} currentUser={currentUser} setActiveTab={setActiveTab} onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setShowChatWidget(true); }} setReportType={() => {}} />}
@@ -273,7 +293,7 @@ export const App: React.FC = () => {
             {showCalendarModal && (
                 <CalendarModal 
                     onClose={() => setShowCalendarModal(false)}
-                    tickets={appData.tickets}
+                    tickets={scopedTickets}
                     currentUser={currentUser}
                     teams={appData.teams}
                     teamMembers={appData.teamMembers}

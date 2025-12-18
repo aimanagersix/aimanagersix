@@ -227,8 +227,28 @@ export const fetchCollaboratorsPaginated = async (params: { page: number, pageSi
     return { data: data || [], total: count || 0 };
 };
 
-export const fetchTicketsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
+export const fetchTicketsPaginated = async (params: { 
+    page: number, 
+    pageSize: number, 
+    filters?: any, 
+    sort?: { key: string, direction: 'ascending' | 'descending' },
+    userContext?: { id: string, role: string, teamIds: string[] }
+}) => {
     let query = sb().from('tickets').select('*', { count: 'exact' });
+
+    // Filter by ownership or team membership for non-admins
+    if (params.userContext && 
+        params.userContext.role !== 'SuperAdmin' && 
+        params.userContext.role !== 'Admin') {
+        
+        const { id, teamIds } = params.userContext;
+        if (teamIds && teamIds.length > 0) {
+            query = query.or(`collaboratorId.eq.${id},team_id.in.(${teamIds.join(',')})`);
+        } else {
+            query = query.eq('collaboratorId', id);
+        }
+    }
+
     if (params.filters) {
         if (params.filters.status) query = query.eq('status', params.filters.status);
         if (params.filters.category) query = query.eq('category', params.filters.category);
