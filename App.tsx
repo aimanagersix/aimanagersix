@@ -128,11 +128,9 @@ export const App: React.FC = () => {
         if (!currentUser) return [];
         if (currentUser.role === UserRole.SuperAdmin) return [];
         
-        // Requisito 1: Lógica robusta para detetar aceitação de versões específicas
         return appData.policies.filter(p => {
             if (!p.is_active || !p.is_mandatory) return false;
             
-            // Procura aceitação para este colaborador, esta política E esta versão exata
             const accepted = appData.policyAcceptances.find(a => 
                 a.collaborator_id === currentUser.id && 
                 a.policy_id === p.id && 
@@ -143,11 +141,48 @@ export const App: React.FC = () => {
         });
     }, [appData.policies, appData.policyAcceptances, currentUser]);
 
+    // Enhanced unreadCount to include system alerts (Requirement 3)
+    const unreadCount = useMemo(() => {
+        if (!currentUser) return 0;
+        
+        // 1. Unread chat messages
+        const unreadMessages = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
+        
+        // 2. Expiring Warranties (30 days)
+        const now = new Date();
+        const nextMonth = new Date();
+        nextMonth.setDate(now.getDate() + 30);
+        
+        const warrantiesCount = appData.equipment.filter(e => 
+            e.warrantyEndDate && 
+            new Date(e.warrantyEndDate) >= now && 
+            new Date(e.warrantyEndDate) <= nextMonth
+        ).length;
+        
+        // 3. Expiring Licenses (30 days)
+        const licensesCount = appData.softwareLicenses.filter(l => 
+            l.expiryDate && 
+            new Date(l.expiryDate) >= now && 
+            new Date(l.expiryDate) <= nextMonth
+        ).length;
+        
+        // 4. Pending Tickets for me or my team
+        const myTeamIds = new Set(appData.teamMembers
+            .filter((tm: any) => tm.collaborator_id === currentUser.id)
+            .map((tm: any) => tm.team_id));
+            
+        const pendingTickets = appData.tickets.filter((t: Ticket) => 
+            t.status !== TicketStatus.Finished && 
+            t.status !== TicketStatus.Cancelled &&
+            (t.technicianId === currentUser.id || (t.team_id && myTeamIds.has(t.team_id)))
+        ).length;
+
+        return unreadMessages + warrantiesCount + licensesCount + pendingTickets;
+    }, [appData.messages, appData.equipment, appData.softwareLicenses, appData.tickets, appData.teamMembers, currentUser]);
+
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A carregar sistema...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
-
-    const unreadCount = appData.messages.filter(m => m.receiverId === currentUser.id && !m.read).length;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
     const containerClasses = `min-h-screen bg-background-dark text-on-surface-dark flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`;

@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { SoftwareLicense, LicenseAssignment, LicenseStatus, Equipment, Assignment, Collaborator, CriticalityLevel, BusinessService, ServiceDependency, SoftwareCategory } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, ReportIcon, PlusIcon, MailIcon, FaPrint } from './common/Icons';
@@ -97,7 +98,7 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
 
 
     useEffect(() => {
-        if (initialFilter) {
+        if (initialFilter && Object.keys(initialFilter).length > 0) {
             const blankFilters = { productName: '', licenseKey: '', status: '', invoiceNumber: '', categoryId: '' };
             setFilters({ ...blankFilters, ...initialFilter });
         }
@@ -123,11 +124,10 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
 
     const assignmentsByLicense = useMemo(() => {
         const map = new Map<string, { equipment: Equipment, user?: string }[]>();
-        // Track equipment IDs already added per license to avoid visual duplicates
         const addedEquipmentPerLicense = new Map<string, Set<string>>();
 
         licenseAssignments.forEach(la => {
-            if (la.returnDate) return; // Skip non-active
+            if (la.returnDate) return; 
 
             const eq = equipmentMap.get(la.equipmentId);
             if (eq) {
@@ -149,22 +149,6 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
         return map;
     }, [licenseAssignments, equipmentMap, activeAssignmentsMap, collaboratorMap]);
     
-    // Map licenses to critical services (BIA)
-    const licenseCriticalityMap = useMemo(() => {
-        const map = new Map<string, { level: CriticalityLevel, serviceName: string }>();
-        if (serviceDependencies && businessServices) {
-            serviceDependencies.forEach(dep => {
-                if (dep.software_license_id) {
-                    const service = businessServices.find(s => s.id === dep.service_id);
-                    if (service) {
-                         map.set(dep.software_license_id, { level: service.criticality, serviceName: service.name });
-                    }
-                }
-            });
-        }
-        return map;
-    }, [serviceDependencies, businessServices]);
-
     const handleToggleExpand = (licenseId: string) => {
         setExpandedLicenseId(prev => (prev === licenseId ? null : licenseId));
     };
@@ -197,8 +181,8 @@ export const LicenseDashboard: React.FC<LicenseDashboardProps> = ({
 
     const filteredLicenses = useMemo(() => {
         let items = licenses.filter(l => {
-            const matchName = filters.productName === '' || l.productName.toLowerCase().includes(filters.productName.toLowerCase());
-            const matchKey = filters.licenseKey === '' || l.licenseKey.toLowerCase().includes(filters.licenseKey.toLowerCase());
+            const matchName = filters.productName === '' || (l.productName && l.productName.toLowerCase().includes(filters.productName.toLowerCase()));
+            const matchKey = filters.licenseKey === '' || (l.licenseKey && l.licenseKey.toLowerCase().includes(filters.licenseKey.toLowerCase()));
             const matchStatus = filters.status === '' || l.status === filters.status;
             const matchCategory = filters.categoryId === '' || l.category_id === filters.categoryId;
             return matchName && matchKey && matchStatus && matchCategory;

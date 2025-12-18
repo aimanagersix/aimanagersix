@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     Equipment, Brand, EquipmentType, Collaborator, 
     SoftwareLicense, Assignment, 
@@ -46,7 +46,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     const [equipmentLoading, setEquipmentLoading] = useState(false);
     const [equipmentPage, setEquipmentPage] = useState(1);
     const [equipmentPageSize, setEquipmentPageSize] = useState(20);
-    // Fix: Default sort to creationDate to prevent items from jumping on edit (Requirement 3)
     const [equipmentSort, setEquipmentSort] = useState<{ key: string, direction: 'ascending' | 'descending' }>({ key: 'creationDate', direction: 'descending' });
     
     // Local State for Inventory Modals
@@ -141,7 +140,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
         if (assignment) await dataService.addAssignment({ ...assignment, equipmentId: eqId });
         if (licenseIds && licenseIds.length > 0) await dataService.syncLicenseAssignments(eqId, licenseIds);
         
-        // Refetch to ensure data is in sync
         fetchEquipment();
         refreshGlobalData();
         setShowAddEquipmentModal(false);
@@ -223,6 +221,19 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     };
     
     const canApproveProcurement = checkPermission('procurement', 'delete');
+
+    // Fix: Refined procurement filtering logic to avoid hiding all items when no filter title is present
+    // Fix: Added useMemo to React imports to solve 'Cannot find name useMemo' error
+    const filteredProcurementRequests = useMemo(() => {
+        if (!appData.procurementRequests) return [];
+        if (!dashboardFilter || Object.keys(dashboardFilter).length === 0) return appData.procurementRequests;
+        
+        return appData.procurementRequests.filter((r: any) => {
+            if (dashboardFilter.title) return r.title === dashboardFilter.title;
+            if (dashboardFilter.status) return r.status === dashboardFilter.status;
+            return true;
+        });
+    }, [appData.procurementRequests, dashboardFilter]);
 
     return (
         <>
@@ -313,7 +324,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             
             {activeTab === 'equipment.procurement' && (
                 <ProcurementDashboard 
-                    requests={appData.procurementRequests.filter((r: any) => !dashboardFilter || (dashboardFilter.title && r.title === dashboardFilter.title))}
+                    requests={filteredProcurementRequests}
                     collaborators={appData.collaborators}
                     suppliers={appData.suppliers}
                     currentUser={currentUser}
