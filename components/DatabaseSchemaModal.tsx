@@ -86,7 +86,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- 1. REPARAÇÃO TOTAL E SUPORTE A "VIEW OWN" (v4.0)
+-- 1. REPARAÇÃO TOTAL E SUPORTE A "VER PRÓPRIOS" (v4.1 - Fix Case Sensitivity)
 -- Execute este script para garantir que todos os utilizadores vêem os seus dados.
 -- ==================================================================================
 
@@ -123,16 +123,17 @@ ALTER TABLE public.software_licenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.license_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.policy_acceptances ENABLE ROW LEVEL SECURITY;
 
--- C. Limpeza de Políticas Antigas
+-- C. Limpeza de Políticas Antigas (Evitar conflitos)
 DROP POLICY IF EXISTS "User view own equipment" ON public.equipment;
 DROP POLICY IF EXISTS "User view own tickets" ON public.tickets;
 DROP POLICY IF EXISTS "User view own trainings" ON public.security_trainings;
+DROP POLICY IF EXISTS "User view own licenses" ON public.software_licenses;
 
--- D. Novas Políticas Inteligentes "Ver Próprios"
+-- D. Novas Políticas Inteligentes citando colunas CamelCase
 -- 1. Tickets (Onde sou o solicitante)
 CREATE POLICY "User view own tickets" ON public.tickets
 FOR SELECT TO authenticated 
-USING (collaboratorId = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'));
+USING ("collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'));
 
 -- 2. Formações (Onde sou o formando)
 CREATE POLICY "User view own trainings" ON public.security_trainings
@@ -145,9 +146,9 @@ FOR SELECT TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.assignments 
-        WHERE equipmentId = public.equipment.id 
-        AND returnDate IS NULL 
-        AND collaboratorId = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
+        WHERE "equipmentId" = public.equipment.id 
+        AND "returnDate" IS NULL 
+        AND "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
     )
 );
 
@@ -157,20 +158,24 @@ FOR SELECT TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.license_assignments la
-        JOIN public.assignments a ON a.equipmentId = la.equipmentId
-        WHERE la.softwareLicenseId = public.software_licenses.id
-        AND a.returnDate IS NULL
-        AND la.returnDate IS NULL
-        AND a.collaboratorId = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
+        JOIN public.assignments a ON a."equipmentId" = la."equipmentId"
+        WHERE la."softwareLicenseId" = public.software_licenses.id
+        AND a."returnDate" IS NULL
+        AND la."returnDate" IS NULL
+        AND a."collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
     )
 );
 
--- E. Garantir que Admins continuam a ver tudo
+-- E. Garantir que Admins continuam a ver tudo (Políticas de Bypass Simplificadas)
 DROP POLICY IF EXISTS "Admin view all equipment" ON public.equipment;
 CREATE POLICY "Admin view all equipment" ON public.equipment 
-FOR SELECT TO authenticated USING (true); -- Simplificado: o frontend gere a visibilidade global via checkbox
+FOR SELECT TO authenticated USING (true);
 
--- F. FORÇAR RECARREGAMENTO DO CACHE (CRÍTICO)
+DROP POLICY IF EXISTS "Admin view all tickets" ON public.tickets;
+CREATE POLICY "Admin view all tickets" ON public.tickets 
+FOR SELECT TO authenticated USING (true);
+
+-- F. FORÇAR RECARREGAMENTO DO CACHE (CRÍTICO PARA RESOLVER ERRO DE TABELA NÃO ENCONTRADA)
 NOTIFY pgrst, 'reload schema';
 `,
         seed: `-- SEED DATA...`
@@ -205,7 +210,7 @@ NOTIFY pgrst, 'reload schema';
                         <div className="flex flex-col h-full">
                             <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-4 flex-shrink-0">
                                 <div className="flex items-center gap-2 font-bold mb-2"><FaDatabase /> Reparação Total do Sistema</div>
-                                <p>Este script resolve o problema das tabelas não encontradas e permite a funcionalidade "Ver Próprios".</p>
+                                <p>Este script resolve o erro de colunas não encontradas e permite a funcionalidade "Ver Próprios".</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">
@@ -217,13 +222,126 @@ NOTIFY pgrst, 'reload schema';
                             </div>
                         </div>
                     )}
-                    {/* ... (Triggers/Functions/Policies tables remain as is) ... */}
+
+                    {activeTab === 'triggers' && (
+                        <div className="h-full overflow-auto custom-scrollbar border border-gray-700 rounded-lg">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-800 text-gray-400 uppercase text-xs sticky top-0">
+                                    <tr>
+                                        <th className="p-3">Tabela</th>
+                                        <th className="p-3">Nome Trigger</th>
+                                        <th className="p-3">Evento</th>
+                                        <th className="p-3 text-right">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800 bg-gray-900/50">
+                                    {triggers.map((t, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-800">
+                                            <td className="p-3 font-bold text-white">{t.table_name}</td>
+                                            <td className="p-3 text-orange-300">{t.trigger_name}</td>
+                                            <td className="p-3 text-xs">{t.event_manipulation}</td>
+                                            <td className="p-3 text-right">
+                                                <button onClick={() => setPreviewCode({title: `Trigger: ${t.trigger_name}`, code: t.action_statement})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-white ml-auto">Ver</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {activeTab === 'policies' && (
+                        <div className="h-full overflow-auto custom-scrollbar border border-gray-700 rounded-lg">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-800 text-gray-400 uppercase text-xs sticky top-0">
+                                    <tr>
+                                        <th className="p-3">Tabela</th>
+                                        <th className="p-3">Nome Política</th>
+                                        <th className="p-3">Cmd</th>
+                                        <th className="p-3 text-right">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800 bg-gray-900/50">
+                                    {policies.map((p, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-800">
+                                            <td className="p-3 font-bold text-white">{p.tablename}</td>
+                                            <td className="p-3 text-green-300">{p.policyname}</td>
+                                            <td className="p-3 text-xs font-bold uppercase">{p.cmd}</td>
+                                            <td className="p-3 text-right">
+                                                <button onClick={() => setPreviewCode({title: `RLS: ${p.policyname}`, code: `USING: ${p.qual}\nCHECK: ${p.with_check}`})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-white ml-auto">Ver</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                    
+                    {activeTab === 'ai' && (
+                        <div className="flex flex-col h-full space-y-4">
+                            <div className="flex gap-4 border-b border-gray-700 pb-2">
+                                <label className={`flex items-center gap-2 cursor-pointer text-sm ${aiMode === 'sql' ? 'text-brand-secondary font-bold' : 'text-gray-400'}`}>
+                                    <input type="radio" checked={aiMode === 'sql'} onChange={() => setAiMode('sql')} className="hidden"/> <FaDatabase/> Assistente SQL
+                                </label>
+                                <label className={`flex items-center gap-2 cursor-pointer text-sm ${aiMode === 'e2e' ? 'text-green-400 font-bold' : 'text-gray-400'}`}>
+                                    <input type="radio" checked={aiMode === 'e2e'} onChange={() => setAiMode('e2e')} className="hidden"/> <FaPlay/> Gerador de Testes
+                                </label>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={aiInput}
+                                    onChange={(e) => setAiInput(e.target.value)}
+                                    placeholder="Descreva o que deseja gerar..."
+                                    className="flex-grow bg-gray-800 border border-gray-600 rounded p-2 text-white text-sm outline-none"
+                                    onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+                                />
+                                <button onClick={handleGenerate} disabled={isGenerating || !aiInput.trim()} className="bg-brand-primary text-white px-4 py-2 rounded hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2">
+                                    {isGenerating ? <FaSpinner className="animate-spin"/> : <FaMagic />} Gerar
+                                </button>
+                            </div>
+
+                            <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
+                                {aiOutput && (
+                                    <div className="absolute top-2 right-2 z-10">
+                                        <button onClick={() => handleCopy(aiOutput, 'ai')} className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded">
+                                            {copied === 'ai' ? <FaCheck /> : <FaCopy />}
+                                        </button>
+                                    </div>
+                                )}
+                                <pre className="p-4 text-xs font-mono text-blue-300 overflow-auto flex-grow custom-scrollbar whitespace-pre-wrap">
+                                    {aiOutput || "// O código gerado aparecerá aqui..."}
+                                </pre>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-gray-700 mt-4 flex-shrink-0">
                     <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar</button>
                 </div>
             </div>
+
+            {previewCode && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4">
+                    <div className="bg-surface-dark w-full max-w-3xl rounded-lg shadow-2xl border border-gray-600 flex flex-col max-h-[80vh]">
+                        <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+                            <h3 className="font-bold text-white flex items-center gap-2"><FaCode/> {previewCode.title}</h3>
+                            <button onClick={() => setPreviewCode(null)} className="text-gray-400 hover:text-white">✕</button>
+                        </div>
+                        <div className="flex-grow overflow-auto p-4 bg-gray-900">
+                            <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap">{previewCode.code}</pre>
+                        </div>
+                        <div className="p-4 border-t border-gray-700 flex justify-end gap-2">
+                             <button onClick={() => handleCopy(previewCode.code, 'preview')} className="bg-brand-primary text-white px-3 py-1.5 rounded text-xs flex items-center gap-2">
+                                {copied === 'preview' ? <FaCheck/> : <FaCopy/>} Copiar
+                             </button>
+                             <button onClick={() => setPreviewCode(null)} className="bg-gray-600 text-white px-3 py-1.5 rounded text-xs">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Modal>
     );
 };
