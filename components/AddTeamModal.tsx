@@ -37,9 +37,11 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
         setIsSaving(true);
         
         try {
-            const dataToSave = {
+            // Fix: Provided is_active property to match Omit<Team, 'id'> | Team
+            const dataToSave: Omit<Team, 'id'> = {
                 name: formData.name,
-                description: formData.description || undefined
+                description: formData.description || undefined,
+                is_active: teamToEdit ? teamToEdit.is_active : true
             };
 
             if (teamToEdit) {

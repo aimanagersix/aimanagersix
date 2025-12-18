@@ -1,5 +1,4 @@
 
-// ... existing imports
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -8,7 +7,60 @@ import { CameraIcon, SearchIcon, SpinnerIcon, PlusIcon, XIcon, CheckIcon, FaBoxe
 import { FaExclamationTriangle, FaEuroSign, FaUserTag, FaKey, FaHistory, FaUserCheck, FaMagic, FaHandHoldingHeart, FaTools, FaMicrochip, FaLandmark, FaNetworkWired, FaMemory, FaHdd, FaListAlt, FaBroom } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
-// ... CameraScanner component kept same
+/**
+ * CameraScanner component for serial number OCR.
+ * Fix: Implemented the missing component.
+ */
+const CameraScanner: React.FC<{ onCapture: (dataUrl: string) => void; onClose: () => void }> = ({ onCapture, onClose }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const startCamera = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (err) {
+                console.error("Error accessing camera:", err);
+                alert("Não foi possível aceder à câmara.");
+                onClose();
+            }
+        };
+        startCamera();
+        return () => {
+            if (videoRef.current && videoRef.current.srcObject) {
+                (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [onClose]);
+
+    const capture = () => {
+        if (videoRef.current && canvasRef.current) {
+            const context = canvasRef.current.getContext('2d');
+            if (context) {
+                canvasRef.current.width = videoRef.current.videoWidth;
+                canvasRef.current.height = videoRef.current.videoHeight;
+                context.drawImage(videoRef.current, 0, 0);
+                onCapture(canvasRef.current.toDataURL('image/jpeg'));
+            }
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4">
+            <video ref={videoRef} autoPlay playsInline className="max-w-full max-h-[70vh] rounded-lg border-2 border-brand-primary shadow-2xl" />
+            <canvas ref={canvasRef} className="hidden" />
+            <div className="mt-6 flex gap-4">
+                <button onClick={onClose} className="px-6 py-3 bg-gray-700 text-white rounded-full font-bold transition-colors hover:bg-gray-600">Cancelar</button>
+                <button onClick={capture} className="px-8 py-4 bg-brand-primary text-white rounded-full font-bold shadow-xl flex items-center gap-2 transition-transform hover:scale-105">
+                    <CameraIcon /> Capturar
+                </button>
+            </div>
+        </div>
+    );
+};
 
 interface AddEquipmentModalProps {
     onClose: () => void;
@@ -207,7 +259,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }
 
         if (!formData.brandId) newErrors.brandId = "A marca é obrigatória.";
-        if (!formData.typeId) newErrors.typeId = "O tipo é obrigatório.";
+        if (!formData.typeId) newErrors.typeId = "O tipo é obrigatória.";
         if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
         
         if (isDecommissioned && !formData.decommission_reason_id) {

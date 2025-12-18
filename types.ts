@@ -549,6 +549,7 @@ export interface ProcurementRequest {
     received_date?: string;
     equipment_type_id?: string;
     software_category_id?: string;
+    order_date?: string;
 }
 
 export interface CalendarEvent {
@@ -693,4 +694,13 @@ export interface ContactRole {
 export interface JobTitle {
     id: string;
     name: string;
+}
+
+export interface DocumentTemplate {
+    id: string;
+    name: string;
+    type: 'equipment' | 'collaborator' | 'generic';
+    template_json: any;
+    is_active: boolean;
+    created_at?: string;
 }
