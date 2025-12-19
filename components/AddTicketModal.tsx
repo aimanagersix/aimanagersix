@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier, Instituicao } from '../types';
+import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier, Instituicao, ConfigItem } from '../types';
 import { FaTrash as DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark, FaDownload, SpinnerIcon } from './common/Icons';
 import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
-// Fix: Use correct FontAwesome icon names from react-icons/fa
 import { FaLightbulb, FaLock, FaUserTie, FaTruck, FaUsers, FaBuilding, FaTools } from 'react-icons/fa';
 import RegulatoryNotificationModal from './RegulatoryNotificationModal';
 import * as dataService from '../services/dataService';
@@ -28,15 +27,16 @@ interface AddTicketModalProps {
     securityIncidentTypes?: SecurityIncidentTypeItem[]; 
     pastTickets?: Ticket[];
     initialData?: Partial<Ticket> | null;
+    statusOptions?: ConfigItem[];
 }
 
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
-export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, instituicoes, collaborators, suppliers = [], teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [], initialData }) => {
+export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, instituicoes, collaborators, suppliers = [], teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [], initialData, statusOptions = [] }) => {
     
     const activeCategories = useMemo(() => categories.filter(c => c.is_active).map(c => c.name), [categories]);
-    const canManage = userPermissions.canManage || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin';
+    const canManage = userPermissions.canManage || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === 'Técnico';
     const modalTitle = ticketToEdit ? "Editar Ticket de Suporte" : "Abrir Novo Ticket de Suporte";
 
     const [formData, setFormData] = useState<Partial<Ticket>>(() => {
@@ -51,6 +51,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
             team_id: triageTeam?.id || '',
             category: initialData?.category || generalCategory?.name || activeCategories[0] || 'Geral',
             impactCriticality: (initialData?.impactCriticality as CriticalityLevel) || CriticalityLevel.Low,
+            status: 'Pedido'
         };
         
         if (!generalCategory || baseData.category !== 'Geral') {
@@ -66,7 +67,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
         return baseData;
     });
 
-    // Ensure currentUser data is synced if it loads late
     useEffect(() => {
         if (!ticketToEdit && currentUser && !formData.collaboratorId) {
             setFormData(prev => ({
@@ -112,7 +112,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                 attachments: attachments.map(a => ({ name: a.name, dataUrl: a.dataUrl })) 
             };
             
-            // Clean up empty UUIDs to null
             if (!dataToSave.team_id) dataToSave.team_id = null;
             if (!dataToSave.equipmentId) dataToSave.equipmentId = null;
             if (!dataToSave.technicianId) dataToSave.technicianId = null;
@@ -143,7 +142,26 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                             {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
                         </select>
                     </div>
-                    {canManage ? (
+                    {ticketToEdit && canManage ? (
+                        <div>
+                            <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado</label>
+                            <select 
+                                name="status" 
+                                value={formData.status} 
+                                onChange={handleChange} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                            >
+                                {statusOptions.length > 0 ? statusOptions.map(opt => <option key={opt.id} value={opt.name}>{opt.name}</option>) : (
+                                    <>
+                                        <option value="Pedido">Pedido</option>
+                                        <option value="Em progresso">Em progresso</option>
+                                        <option value="Finalizado">Finalizado</option>
+                                        <option value="Cancelado">Cancelado</option>
+                                    </>
+                                )}
+                            </select>
+                        </div>
+                    ) : canManage ? (
                         <div>
                             <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa de Suporte</label>
                             <select name="team_id" value={formData.team_id || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">

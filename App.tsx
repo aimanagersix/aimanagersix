@@ -209,7 +209,8 @@ export const App: React.FC = () => {
     const handleSendMessage = async (receiverId: string, content: string) => {
         if (!currentUser) return;
         await dataService.addMessage({ senderId: currentUser.id, receiverId, content, timestamp: new Date().toISOString(), read: false });
-        support.refresh();
+        // suporte.refresh() foi removido daqui para evitar disparar o efeito de loop se estivermos no chat
+        // O refresh agora é feito apenas nos locais específicos se não estivermos no widget de chat aberto.
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;

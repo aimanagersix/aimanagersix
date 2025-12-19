@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaList, FaThLarge, FaCalendarAlt, PlusIcon, FaFileContract } from './common/Icons';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ConfigItem } from '../types';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaList, FaThLarge, FaCalendarAlt, PlusIcon, FaFileContract, FaSearch, FaSync } from './common/Icons';
 import Pagination from './common/Pagination';
 import SortableHeader from './common/SortableHeader';
 
@@ -32,15 +32,26 @@ interface TicketDashboardProps {
   onFilterChange?: (filter: any) => void;
   sort?: { key: string, direction: 'ascending' | 'descending' };
   onSortChange?: (sort: { key: string, direction: 'ascending' | 'descending' }) => void;
+  statusOptions?: ConfigItem[];
 }
 
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
     tickets, escolasDepartamentos: entidades, collaborators, teams, suppliers = [], equipment, 
     onEdit, initialFilter, onClearInitialFilter, 
     onGenerateReport, onOpenActivities, onGenerateSecurityReport, categories, onCreate,
-    totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onSortChange, sort
+    totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onSortChange, sort,
+    statusOptions = [],
+    // Fix: Added missing onFilterChange to destructuring
+    onFilterChange
 }) => {
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+    const [localFilters, setLocalFilters] = useState({
+        status: initialFilter?.status || '',
+        category: initialFilter?.category || '',
+        team_id: initialFilter?.team_id || '',
+        title: initialFilter?.title || ''
+    });
+
     const sortConfig = sort || { key: 'requestDate', direction: 'descending' };
     
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
@@ -49,8 +60,24 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
 
+    const handleLocalFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        const newFilters = { ...localFilters, [name]: value };
+        setLocalFilters(newFilters);
+        // Fix: onFilterChange is now accessible via destructured props
+        if (onFilterChange) onFilterChange(newFilters);
+    };
+
+    const clearFilters = () => {
+        const blank = { status: '', category: '', team_id: '', title: '' };
+        setLocalFilters(blank);
+        // Fix: onFilterChange is now accessible via destructured props
+        if (onFilterChange) onFilterChange(blank);
+        if (onClearInitialFilter) onClearInitialFilter();
+    };
+
     const getSLAStatus = (ticket: Ticket) => {
-        if (ticket.status === 'Finalizado' || ticket.status === 'Cancelado') return { label: 'Concluído', color: 'text-gray-500 bg-gray-500/10 border-gray-700' };
+        if (ticket.status === 'Finalizado' || ticket.status === 'Cancelado') return { label: ticket.status, color: 'text-gray-500 bg-gray-500/10 border-gray-700' };
         
         const cat = categoryMap.get(ticket.category);
         if (!cat || (!cat.sla_warning_hours && !cat.sla_critical_hours)) return { label: ticket.status, color: 'text-blue-400 bg-blue-400/10 border-blue-500/30' };
@@ -60,12 +87,12 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         const hoursElapsed = (now - start) / (1000 * 3600);
 
         if (cat.sla_critical_hours && hoursElapsed > cat.sla_critical_hours) {
-            return { label: 'SLA Crítico!', color: 'text-red-500 bg-red-500/20 border-red-500/50 font-black animate-pulse' };
+            return { label: 'Crítico (SLA)', color: 'text-red-500 bg-red-500/20 border-red-500/50 font-black animate-pulse' };
         }
         if (cat.sla_warning_hours && hoursElapsed > cat.sla_warning_hours) {
-            return { label: 'SLA Alerta', color: 'text-yellow-500 bg-yellow-500/20 border-yellow-500/50 font-bold' };
+            return { label: 'Atrasado (SLA)', color: 'text-yellow-500 bg-yellow-500/20 border-yellow-500/50 font-bold' };
         }
-        return { label: 'SLA OK', color: 'text-green-400 bg-green-400/10 border-green-500/30 font-medium' };
+        return { label: ticket.status, color: 'text-green-400 bg-green-400/10 border-green-500/30 font-medium' };
     };
 
     const handleSort = (key: string) => {
@@ -117,7 +144,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                     <p className="text-xs text-gray-500 mt-1">SLA e Atendimento Técnico</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    {/* View Switcher */}
                     <div className="flex bg-gray-900 p-1 rounded-lg border border-gray-700">
                         <button 
                             onClick={() => setViewMode('list')} 
@@ -139,6 +165,58 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 </div>
             </div>
 
+            {/* BARRA DE FILTROS REINTRODUZIDA */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-gray-900/40 p-4 rounded-lg border border-gray-700/50">
+                <div className="relative">
+                    <FaSearch className="absolute left-3 top-3 text-gray-500 text-xs" />
+                    <input 
+                        type="text" 
+                        name="title" 
+                        placeholder="Pesquisar assunto..." 
+                        value={localFilters.title}
+                        onChange={handleLocalFilterChange}
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 pl-8 text-xs focus:border-brand-secondary outline-none"
+                    />
+                </div>
+                <select 
+                    name="status" 
+                    value={localFilters.status} 
+                    onChange={handleLocalFilterChange}
+                    className="bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none"
+                >
+                    <option value="">Todos os Estados</option>
+                    {statusOptions.length > 0 ? statusOptions.map(opt => <option key={opt.id} value={opt.name}>{opt.name}</option>) : (
+                        <>
+                            <option value="Pedido">Pedido</option>
+                            <option value="Em progresso">Em progresso</option>
+                            <option value="Finalizado">Finalizado</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </>
+                    )}
+                </select>
+                <select 
+                    name="category" 
+                    value={localFilters.category} 
+                    onChange={handleLocalFilterChange}
+                    className="bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none"
+                >
+                    <option value="">Todas as Categorias</option>
+                    {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                </select>
+                <div className="flex gap-2">
+                    <select 
+                        name="team_id" 
+                        value={localFilters.team_id} 
+                        onChange={handleLocalFilterChange}
+                        className="flex-grow bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none"
+                    >
+                        <option value="">Todas as Equipas</option>
+                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <button onClick={clearFilters} className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded" title="Limpar Filtros"><FaSync /></button>
+                </div>
+            </div>
+
             {loading ? (
                 <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary"></div></div>
             ) : (
@@ -148,6 +226,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                             <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                                 <tr>
                                     <SortableHeader label="SLA / Data" sortKey="requestDate" currentSort={sortConfig} onSort={handleSort} />
+                                    <th className="px-6 py-3">Estado</th>
                                     <th className="px-6 py-3">Equipa</th>
                                     <SortableHeader label="Assunto / Solicitante" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
                                     <SortableHeader label="Técnico" sortKey="technician" currentSort={sortConfig} onSort={handleSort} />
@@ -161,8 +240,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                     return (
                                         <tr key={ticket.id} className="hover:bg-gray-800/50 cursor-pointer" onClick={() => onOpenActivities?.(ticket)}>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className={`text-[10px] px-2 py-0.5 rounded border mb-1 text-center font-bold ${sla.color}`}>{sla.label}</div>
-                                                <div className="flex items-center gap-2 text-gray-500 text-[10px]"><FaCalendarAlt/> {new Date(ticket.requestDate).toLocaleDateString()}</div>
+                                                <div className="flex items-center gap-2 text-white font-bold text-xs"><FaCalendarAlt className="text-gray-500"/> {new Date(ticket.requestDate).toLocaleDateString()}</div>
+                                                <div className="text-[9px] text-gray-500 mt-0.5">#{ticket.id.substring(0,8)}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] px-2 py-0.5 rounded border inline-block font-bold uppercase tracking-wider ${sla.color}`}>{sla.label}</div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="bg-gray-800 border border-gray-600 px-2 py-1 rounded text-[10px] text-white uppercase font-bold">
@@ -182,7 +264,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                             </td>
                                         </tr>
                                     );
-                                }) : <tr><td colSpan={5} className="text-center py-10 text-gray-500 italic">Nenhum ticket encontrado.</td></tr>}
+                                }) : <tr><td colSpan={6} className="text-center py-10 text-gray-500 italic">Nenhum ticket encontrado.</td></tr>}
                             </tbody>
                         </table>
                     </div>

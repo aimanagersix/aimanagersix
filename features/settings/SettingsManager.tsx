@@ -71,7 +71,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         webhookJson: '{\n  "alert_type": "Event::Endpoint::Threat::Detected",\n  "severity": "high",\n  "full_name": "PC-FINANCEIRO-01",\n  "description": "Malware detected"\n}',
         simulatedTicket: null,
         isSimulating: false,
-        // API Connections
         sophos_client_id: '',
         sophos_client_secret: '',
         slackWebhookUrl: '',
@@ -79,17 +78,14 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         sbKey: '',
         resendApiKey: '',
         resendFromEmail: '',
-        // General
         scan_frequency_days: '0',
         scan_start_time: '09:00',
         equipment_naming_prefix: 'PC-',
         equipment_naming_digits: '4',
-        // Branding
         app_logo_base64: '',
         app_logo_size: 80,
         app_logo_alignment: 'center',
         report_footer_institution_id: '',
-        // Birthdays
         birthday_email_subject: 'Feliz Aniversário!',
         birthday_email_body: 'Parabéns {{nome}}! Desejamos-te um dia fantástico.',
         weekly_report_recipients: ''
@@ -185,22 +181,11 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 body: {},
                 headers: { "Content-Type": "application/json" }
             });
-            
-            // Se o invoke retornar erro, o objeto error do Supabase contém os detalhes
-            if (error) {
-                // Tentar ler o body se o erro for uma falha HTTP
-                let serverMessage = error.message;
-                try {
-                    const errorDetails = await error.context?.json();
-                    if (errorDetails?.error) serverMessage = errorDetails.error;
-                } catch(e) {}
-                throw new Error(serverMessage);
-            }
-
-            alert("Sincronização concluída com sucesso: " + (data?.message || "Concluída."));
+            if (error) throw error;
+            alert("Sincronização concluída: " + (data?.message || "Concluída."));
         } catch (e: any) {
             console.error("Sophos Sync Error:", e);
-            alert(`Falha na Sincronização: ${e.message}\n\nNota: Verifique se as credenciais estão preenchidas em 'Conexões & APIs' e se a função foi publicada corretamente.`);
+            alert(`Falha na Sincronização: ${e.message}`);
         } finally {
             setIsSyncing(false);
         }
@@ -235,6 +220,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'brands', label: 'Marcas', icon: <FaTags /> },
                 { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes /> },
                 { id: 'config_equipment_statuses', label: 'Estados Ativos', icon: <FaList /> },
+                { id: 'config_ticket_statuses', label: 'Estados de Tickets', icon: <FaTicketAlt /> },
+                { id: 'config_license_statuses', label: 'Estados de Licenças', icon: <FaKey /> },
                 { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
                 { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
                 { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
@@ -250,6 +237,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     const simpleConfigTables = useMemo(() => ({
         'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: safeData(appData.configEquipmentStatuses), colorField: true },
+        'config_ticket_statuses': { label: 'Estados de Tickets', icon: <FaTicketAlt/>, data: safeData(appData.configTicketStatuses), colorField: true },
+        'config_license_statuses': { label: 'Estados de Licenças', icon: <FaKey/>, data: safeData(appData.configLicenseStatuses), colorField: true },
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: safeData(appData.configDecommissionReasons) },
         'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: safeData(appData.configAccountingCategories) },
         'config_conservation_states': { label: 'Estados de Conservação', icon: <FaLeaf/>, data: safeData(appData.configConservationStates), colorField: true },
@@ -302,7 +291,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     return (
         <div className="flex flex-col md:flex-row bg-surface-dark rounded-lg border border-gray-700 overflow-hidden min-h-[700px]">
-            {/* Sidebar Menu */}
             <div className={`w-full md:w-64 lg:w-72 bg-gray-900/50 border-r border-gray-700 flex flex-col ${mobileView === 'content' ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 border-b border-gray-700 font-bold text-gray-400 text-xs uppercase tracking-widest">
                     Definições do Sistema
@@ -328,7 +316,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 </div>
             </div>
 
-            {/* Content Area */}
             <div className={`flex-1 flex flex-col min-h-0 ${mobileView === 'menu' ? 'hidden md:flex' : 'flex'}`}>
                 <div className="md:hidden p-4 border-b border-gray-700 flex items-center">
                     <button onClick={() => setMobileView('menu')} className="text-brand-secondary flex items-center gap-2 text-sm font-bold">
@@ -340,7 +327,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 </div>
             </div>
 
-            {/* Modals */}
             {showAddBrandModal && <AddBrandModal onClose={() => setShowAddBrandModal(false)} onSave={async (b) => { if(brandToEdit) await dataService.updateBrand(brandToEdit.id, b); else await dataService.addBrand(b); refreshData(); }} brandToEdit={brandToEdit} existingBrands={appData.brands} />}
             {showAddTypeModal && <AddEquipmentTypeModal onClose={() => setShowAddTypeModal(false)} onSave={async (t) => { if(typeToEdit) await dataService.updateEquipmentType(typeToEdit.id, t); else await dataService.addEquipmentType(t); refreshData(); }} typeToEdit={typeToEdit} teams={appData.teams} />}
             {showAddCategoryModal && <AddCategoryModal onClose={() => setShowAddCategoryModal(false)} onSave={async (c) => { if(categoryToEdit) await dataService.updateTicketCategory(categoryToEdit.id, c); else await dataService.addTicketCategory(c); refreshData(); }} categoryToEdit={categoryToEdit} teams={appData.teams} />}

@@ -95,12 +95,21 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ currentUser, collaborato
             });
     }, [messages, currentUser, onlineUserIds, canChatP2P, canChatGeneral, collaboratorMap]);
     
+    // CORREÇÃO: Removido dependência em 'messages' para evitar loop infinito
     useEffect(() => {
         if (isOpen && activeChatCollaboratorId && activeChatCollaboratorId !== GENERAL_CHANNEL_ID) {
-            onMarkMessagesAsRead(activeChatCollaboratorId);
+            const hasUnread = conversations.find(c => c.collaboratorId === activeChatCollaboratorId)?.unreadCount || 0;
+            if (hasUnread > 0) {
+                onMarkMessagesAsRead(activeChatCollaboratorId);
+            }
         }
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [isOpen, activeChatCollaboratorId, messages]);
+    }, [isOpen, activeChatCollaboratorId]);
+
+    useEffect(() => {
+        if (isOpen) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [isOpen, activeChatCollaboratorId, messages.length]);
 
     if (!currentUser) return null;
 
