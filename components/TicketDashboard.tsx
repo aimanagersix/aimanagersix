@@ -45,15 +45,6 @@ const getStatusClass = (status: TicketStatus) => {
     }
 };
 
-const getSecurityIcon = (type?: string) => {
-    if (!type) return <FaShieldAlt className="text-red-500" />;
-    const lowerType = type.toLowerCase();
-    if (lowerType.includes('ransomware')) return <FaSkull className="text-red-500" title="Ransomware" />;
-    if (lowerType.includes('phishing')) return <FaUserSecret className="text-orange-500" title="Phishing" />;
-    if (lowerType.includes('malware')) return <FaBug className="text-yellow-500" title="Malware" />;
-    return <FaShieldAlt className="text-red-500" />;
-};
-
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
     tickets, escolasDepartamentos: entidades, collaborators, teams, suppliers = [], equipment, 
     onUpdateTicket, onEdit, onOpenCloseTicketModal, initialFilter, onClearInitialFilter, 
@@ -61,7 +52,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange,
     sort, onSortChange
 }) => {
-    const [filters, setFilters] = useState<{ status: string, team_id: string, category: string, title: string }>({ status: '', team_id: '', category: '', title: '' });
     const sortConfig = sort || { key: 'requestDate', direction: 'descending' };
     
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
@@ -69,8 +59,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
-    
-    const displayCategories = categories.length > 0 ? categories.map(c => c.name) : Object.values(TicketCategory);
 
     const handleSort = (key: string) => {
         if (!onSortChange) return;
@@ -81,10 +69,14 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
 
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-            <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                <h2 className="text-xl font-semibold text-white">Gestão de Tickets</h2>
+            <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+                <div>
+                    <h2 className="text-xl font-semibold text-white">Gestão de Tickets</h2>
+                    <p className="text-xs text-gray-500 mt-1">Lista geral de pedidos e intervenções técnicas.</p>
+                </div>
                 <div className="flex items-center gap-2">
-                    {onCreate && <button onClick={onCreate} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2"><PlusIcon /> Abrir Ticket</button>}
+                    {onGenerateReport && <button onClick={onGenerateReport} className="px-3 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 text-sm flex items-center gap-2"><FaFileContract/> Relatório</button>}
+                    {onCreate && <button onClick={onCreate} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 font-bold shadow-lg"><PlusIcon /> Abrir Ticket</button>}
                 </div>
             </div>
         
@@ -93,49 +85,50 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                     <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                         <tr>
                             <SortableHeader label="Data Criação" sortKey="requestDate" currentSort={sortConfig} onSort={handleSort} />
-                            <th className="px-6 py-3">Entidade</th>
+                            <th className="px-6 py-3">Entidade / Dep.</th>
                             <th className="px-6 py-3">Equipa</th>
-                            <SortableHeader label="Assunto" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Assunto / Solicitante" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
                             <SortableHeader label="Técnico" sortKey="technician" currentSort={sortConfig} onSort={handleSort} />
-                            <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSort} />
+                            <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <th className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-800">
                         {tickets.length > 0 ? tickets.map((ticket) => {
                             const isRealSecurity = (ticket.category || '').toLowerCase().includes('segurança') || !!ticket.securityIncidentType;
                             const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : (collaboratorMap.get(ticket.collaboratorId) || 'N/A');
                             return (
-                                <tr key={ticket.id} className={`border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer ${isRealSecurity ? 'bg-red-900/10' : 'bg-surface-dark'}`} onClick={() => onOpenActivities?.(ticket)}>
+                                <tr key={ticket.id} className={`hover:bg-gray-800/50 cursor-pointer ${isRealSecurity ? 'bg-red-900/10' : ''}`} onClick={() => onOpenActivities?.(ticket)}>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center gap-2 text-white font-medium">
                                             <FaCalendarAlt className="text-gray-500 text-xs"/>
                                             {new Date(ticket.requestDate).toLocaleDateString()}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">{entidadeMap.get(ticket.entidadeId || '') || 'N/A'}</td>
+                                    <td className="px-6 py-4">{entidadeMap.get(ticket.entidadeId || '') || 'Geral'}</td>
                                     <td className="px-6 py-4">
-                                        <span className="bg-gray-800 border border-gray-600 px-2 py-1 rounded text-xs text-white">
-                                            {ticket.team_id ? teamMap.get(ticket.team_id) : 'Geral'}
+                                        <span className="bg-gray-800 border border-gray-600 px-2 py-1 rounded text-[10px] text-white uppercase font-bold">
+                                            {ticket.team_id ? teamMap.get(ticket.team_id) : 'Pendente'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 font-medium text-on-surface-dark max-w-xs">
-                                        <div className="font-bold text-white">{ticket.title}</div>
-                                        <div className="text-xs text-gray-400">Solicitante: {requesterName}</div>
+                                        <div className="font-bold text-white truncate">{ticket.title}</div>
+                                        <div className="text-[10px] text-gray-500 uppercase">{requesterName}</div>
                                     </td>
-                                    <td className="px-6 py-4">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : '—'}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-md text-xs border ${getStatusClass(ticket.status)}`}>{ticket.status}</span>
-                                    </td>
+                                    <td className="px-6 py-4 text-xs">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : <span className="text-gray-600 italic">Por atribuir</span>}</td>
                                     <td className="px-6 py-4 text-center">
+                                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase border ${getStatusClass(ticket.status)}`}>{ticket.status}</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex justify-center items-center gap-3">
-                                            {onOpenActivities && <button onClick={(e) => { e.stopPropagation(); onOpenActivities(ticket); }} className="text-teal-400 hover:text-teal-300"><FaTasks/></button>}
-                                            {onEdit && <button onClick={(e) => { e.stopPropagation(); onEdit(ticket); }} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>}
+                                            {onOpenActivities && <button onClick={() => onOpenActivities(ticket)} className="text-teal-400 hover:text-teal-300" title="Atividades"><FaTasks/></button>}
+                                            {isRealSecurity && onGenerateSecurityReport && <button onClick={() => onGenerateSecurityReport(ticket)} className="text-red-400 hover:text-red-300" title="Relatório NIS2"><FaShieldAlt/></button>}
+                                            {onEdit && <button onClick={() => onEdit(ticket)} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>}
                                         </div>
                                     </td>
                                 </tr>
                             )
-                        }) : <tr><td colSpan={7} className="text-center py-8 text-gray-500">Nenhum ticket encontrado.</td></tr>}
+                        }) : <tr><td colSpan={7} className="text-center py-10 text-gray-500 italic">Nenhum ticket encontrado.</td></tr>}
                     </tbody>
                 </table>
             </div>

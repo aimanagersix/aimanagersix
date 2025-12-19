@@ -77,7 +77,6 @@ export const App: React.FC = () => {
     // Viewing States (Modais)
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
-    // Fix: Corrected useState initializers to null instead of referencing themselves before declaration
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
     const [viewingLicense, setViewingLicense] = useState<SoftwareLicense | null>(null);
     const [viewingTraining, setViewingTraining] = useState<SecurityTrainingRecord | null>(null);
@@ -178,7 +177,6 @@ export const App: React.FC = () => {
             'organizacao.entidades': checkPermission('org_entities', 'view'),
             'collaborators': checkPermission('org_collaborators', 'view'),
             'organizacao.suppliers': checkPermission('org_suppliers', 'view'),
-            'organizacao.teams': checkPermission('organization', 'view'),
             'tickets': checkPermission('tickets', 'view') || checkPermission('tickets', 'view_own'),
             'reports': checkPermission('reports', 'view'),
             'settings': checkPermission('settings', 'view'),
@@ -268,8 +266,13 @@ export const App: React.FC = () => {
 
             <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
                 <div className="max-w-7xl mx-auto">
-                    {(activeTab === 'overview' || activeTab === 'my_area') && (
-                        checkPermission('widget_kpi_cards', 'view') && activeTab === 'overview' ? (
+                    {(activeTab === 'overview' || activeTab === 'my_area' || activeTab === 'overview.smart') && (
+                        activeTab === 'overview.smart' ? (
+                            <SmartDashboard 
+                                tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions}
+                                trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser}
+                            />
+                        ) : checkPermission('widget_kpi_cards', 'view') && activeTab === 'overview' ? (
                             <OverviewDashboard 
                                 equipment={appData.equipment} instituicoes={appData.instituicoes} entidades={appData.entidades}
                                 assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={appData.tickets}
@@ -344,6 +347,86 @@ export const App: React.FC = () => {
             />
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
+            
+            {viewingEquipment && (
+                <EquipmentHistoryModal 
+                    equipment={viewingEquipment} assignments={appData.assignments} collaborators={appData.collaborators}
+                    escolasDepartamentos={appData.entidades} tickets={appData.tickets} ticketActivities={appData.ticketActivities}
+                    onClose={() => setViewingEquipment(null)} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }}
+                    businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies}
+                    softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
+                    vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers}
+                    accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates}
+                />
+            )}
+
+            {viewingTicket && (
+                <TicketActivitiesModal
+                    ticket={viewingTicket}
+                    activities={appData.ticketActivities}
+                    collaborators={appData.collaborators}
+                    currentUser={currentUser}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    entidades={appData.entidades}
+                    onClose={() => setViewingTicket(null)}
+                    onAddActivity={async (act) => {
+                        await dataService.addTicketActivity({ ...act, ticketId: viewingTicket.id, technicianId: currentUser.id, date: new Date().toISOString() });
+                        support.refresh();
+                    }}
+                    assignments={appData.assignments}
+                />
+            )}
+
+            {viewingLicense && (
+                <Modal title="Consulta de Licença" onClose={() => setViewingLicense(null)}>
+                    <div className="space-y-4">
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                            <h3 className="text-xl font-bold text-white mb-2">{viewingLicense.productName}</h3>
+                            <p className="text-sm text-gray-400 font-mono tracking-wider bg-black/30 p-2 rounded">{viewingLicense.licenseKey}</p>
+                            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                                <div><span className="text-gray-500">Estado:</span> <span className="text-green-400 font-bold">{viewingLicense.status}</span></div>
+                                <div><span className="text-gray-500">Expira em:</span> <span className="text-white">{viewingLicense.expiryDate || 'Vitalícia'}</span></div>
+                                <div><span className="text-gray-500">Tipo:</span> <span className="text-white">{viewingLicense.is_oem ? 'OEM / Volume' : 'Retail'}</span></div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end pt-4"><button onClick={() => setViewingLicense(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
+                    </div>
+                </Modal>
+            )}
+
+            {viewingTraining && (
+                <Modal title="Consulta de Formação" onClose={() => setViewingTraining(null)}>
+                    <div className="space-y-4">
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                            <h3 className="text-xl font-bold text-white mb-2">{viewingTraining.training_type}</h3>
+                            <p className="text-sm text-gray-300">{viewingTraining.notes || 'Sem observações registadas.'}</p>
+                            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                                <div><span className="text-gray-500">Concluído em:</span> <span className="text-white">{new Date(viewingTraining.completion_date).toLocaleDateString()}</span></div>
+                                <div><span className="text-gray-500">Pontuação:</span> <span className="text-green-400 font-bold">{viewingTraining.score}%</span></div>
+                                <div><span className="text-gray-500">Duração:</span> <span className="text-white">{viewingTraining.duration_hours} Hora(s)</span></div>
+                                <div><span className="text-gray-500">Status:</span> <span className="text-white">{viewingTraining.status}</span></div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end pt-4"><button onClick={() => setViewingTraining(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
+                    </div>
+                </Modal>
+            )}
+            
+            {readingPolicy && (
+                <Modal title={`Consulta de Política: ${readingPolicy.title}`} onClose={() => setReadingPolicy(null)} maxWidth="max-w-4xl">
+                     <div className="space-y-4">
+                        <div className="bg-white text-black p-6 rounded shadow-inner min-h-[300px] overflow-y-auto whitespace-pre-wrap font-serif">
+                            {readingPolicy.content}
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-gray-500">
+                            <span>Versão: {readingPolicy.version}</span>
+                            <span>Atualizada em: {new Date(readingPolicy.updated_at).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-end pt-4"><button onClick={() => setReadingPolicy(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 };

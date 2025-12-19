@@ -174,6 +174,7 @@ export interface Collaborator {
     locality?: string;
     nif?: string;
     dateOfBirth?: string;
+    admissionDate?: string;
     photoUrl?: string;
     preferences?: {
         tooltipConfig?: TooltipConfig;

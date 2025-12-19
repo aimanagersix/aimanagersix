@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
     const [showAudit, setShowAudit] = useState(false);
     const [showDbSchema, setShowDbSchema] = useState(false);
 
-    const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
+    const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
 
     const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem = false, className = '', onClick }: { tab?: string, label: string, icon: React.ReactNode, activeTab?: string, setActiveTab?: (tab: string) => void, isDropdownItem?: boolean, className?: string, onClick?: () => void }) => {
         const handleClick = (e: React.MouseEvent) => {

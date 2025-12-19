@@ -37,29 +37,28 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const typeMap = useMemo(() => new Map(types.map(t => [t.id, t.name])), [types]);
 
-    // 1. Meus Equipamentos (Limitado a 5, mais recentes)
+    // 1. Meus Equipamentos (Ordenados, sem limite de 5)
     const myEquipment = useMemo(() => {
         const activeIds = assignments
             .filter(a => (a.collaboratorId === currentUser.id || (a as any).collaborator_id === currentUser.id) && !a.returnDate)
             .sort((a,b) => new Date(b.assignedDate).getTime() - new Date(a.assignedDate).getTime())
             .map(a => a.equipmentId || (a as any).equipment_id);
-        return equipment.filter(e => activeIds.includes(e.id)).slice(0, 5);
+        return equipment.filter(e => activeIds.includes(e.id));
     }, [assignments, equipment, currentUser.id]);
 
-    // 2. Minhas Licenças
+    // 2. Minhas Licenças (Reposta funcionalidade)
     const myLicenses = useMemo(() => {
         const myEqIds = new Set(myEquipment.map(e => e.id));
         const licenseIds = licenseAssignments
             .filter(la => myEqIds.has(la.equipmentId || (la as any).equipment_id) && !la.returnDate)
             .map(la => la.softwareLicenseId || (la as any).software_license_id);
-        return softwareLicenses.filter(l => licenseIds.includes(l.id)).slice(0, 5);
+        return softwareLicenses.filter(l => licenseIds.includes(l.id));
     }, [myEquipment, licenseAssignments, softwareLicenses]);
 
-    // 3. Minhas Formações
+    // 3. Minhas Formações (Reposta funcionalidade)
     const myTrainings = useMemo(() => {
         return trainings.filter(t => t.collaborator_id === currentUser.id)
-            .sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime())
-            .slice(0, 5);
+            .sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
     }, [trainings, currentUser.id]);
 
     // 4. Políticas Aplicáveis
@@ -77,15 +76,13 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
             if (targetType === 'Entidade' && currentUser.entidadeId) return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
             return false;
         }).map(p => ({ ...p, acceptance: myAcceptanceMap.get(p.id) }))
-          .sort((a, b) => (a.acceptance ? 0 : 1) - (b.acceptance ? 0 : 1))
-          .slice(0, 10);
+          .sort((a, b) => (a.acceptance ? 0 : 1) - (b.acceptance ? 0 : 1));
     }, [policies, acceptances, currentUser]);
 
     // 5. Meus Tickets Ativos
     const myActiveTickets = useMemo(() => {
         return tickets.filter(t => t.collaboratorId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado')
-            .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
-            .slice(0, 5);
+            .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     }, [tickets, currentUser.id]);
 
     return (
@@ -104,6 +101,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Cartão Equipamentos */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaLaptop className="text-blue-400"/> Equipamentos</h3>
@@ -121,6 +119,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                 </section>
 
+                {/* Cartão Tickets */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaTicketAlt className="text-purple-400"/> Pedidos de Suporte</h3>
@@ -141,6 +140,43 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                 </section>
 
+                {/* Cartão Licenças */}
+                <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
+                    <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                        <h3 className="font-bold text-white flex items-center gap-2"><FaKey className="text-yellow-400"/> Licenças de Software</h3>
+                    </div>
+                    <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-grow">
+                        {myLicenses.length > 0 ? myLicenses.map(lic => (
+                            <div key={lic.id} onClick={() => onViewLicense?.(lic)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-yellow-500/50 transition-colors cursor-pointer group">
+                                <div className="flex justify-between items-start">
+                                    <p className="font-bold text-white text-sm group-hover:text-yellow-300">{lic.productName}</p>
+                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-yellow-400" />
+                                </div>
+                                <p className="text-[10px] text-gray-500 font-mono mt-1 truncate uppercase">{lic.licenseKey}</p>
+                            </div>
+                        )) : <p className="text-gray-500 text-sm italic text-center py-4">Sem licenças associadas.</p>}
+                    </div>
+                </section>
+
+                {/* Cartão Formações */}
+                <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
+                    <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                        <h3 className="font-bold text-white flex items-center gap-2"><FaGraduationCap className="text-green-400"/> Formações de Segurança</h3>
+                    </div>
+                    <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-grow">
+                        {myTrainings.length > 0 ? myTrainings.map(train => (
+                            <div key={train.id} onClick={() => onViewTraining?.(train)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-green-500/50 transition-colors cursor-pointer group">
+                                <div className="flex justify-between items-start">
+                                    <p className="font-bold text-white text-sm group-hover:text-green-300">{train.training_type}</p>
+                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-green-400" />
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-1">Concluído em: {new Date(train.completion_date).toLocaleDateString()}</p>
+                            </div>
+                        )) : <p className="text-gray-500 text-sm italic text-center py-4">Sem registos de formação.</p>}
+                    </div>
+                </section>
+
+                {/* Cartão Políticas */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaFileSignature className="text-yellow-500"/> Governança & Políticas</h3>
