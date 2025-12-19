@@ -57,32 +57,67 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- REPARAÇÃO MASTER v5.1 (SOPHOS INTEGRATION & TICKETS)
--- Resolve: Falha na sincronização Sophos e estrutura de chaves
+-- REPARAÇÃO MASTER v6.0 (ISOLAMENTO DE DADOS & RLS)
+-- Resolve: Utilizadores vendo equipamentos alheios e campos vazios na Minha Área.
 -- ==================================================================================
 
--- 1. GARANTIR CHAVES DE CONFIGURAÇÃO PARA SOPHOS
+-- 1. LIMPEZA DE POLÍTICAS ANTIGAS (EQUIPAMENTOS E LICENÇAS)
+DROP POLICY IF EXISTS "equipment_isolation_policy" ON equipment;
+DROP POLICY IF EXISTS "licenses_isolation_policy" ON software_licenses;
+DROP POLICY IF EXISTS "instituicoes_read_policy" ON instituicoes;
+DROP POLICY IF EXISTS "entidades_read_policy" ON entidades;
+
+-- 2. POLÍTICA DE EQUIPAMENTOS (ISOLAMENTO REAL)
+-- Regra: Admin vê tudo. User só vê se estiver atribuído a ele na tabela assignments.
+CREATE POLICY "equipment_isolation_v6" ON public.equipment
+FOR SELECT TO authenticated
+USING (
+  (SELECT role FROM collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
+  OR 
+  id IN (
+    SELECT "equipmentId" FROM assignments 
+    WHERE ("collaboratorId" = (SELECT id FROM collaborators WHERE email = auth.jwt()->>'email'))
+    AND "returnDate" IS NULL
+  )
+);
+
+-- 3. POLÍTICA DE LICENÇAS (ISOLAMENTO REAL)
+-- Regra: User só vê licenças que estão instaladas nos SEUS equipamentos.
+CREATE POLICY "licenses_isolation_v6" ON public.software_licenses
+FOR SELECT TO authenticated
+USING (
+  (SELECT role FROM collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
+  OR 
+  id IN (
+    SELECT "softwareLicenseId" FROM license_assignments
+    WHERE "equipmentId" IN (
+       SELECT "equipmentId" FROM assignments 
+       WHERE ("collaboratorId" = (SELECT id FROM collaborators WHERE email = auth.jwt()->>'email'))
+       AND "returnDate" IS NULL
+    )
+    AND "returnDate" IS NULL
+  )
+);
+
+-- 4. PERMISSÃO DE LEITURA DE ORG (Para resolver nomes na Minha Área)
+-- Permite que qualquer utilizador autenticado leia os nomes das instituições e entidades 
+-- para que a UI consiga "traduzir" IDs em Nomes.
+CREATE POLICY "org_read_v6" ON public.instituicoes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "entidades_read_v6" ON public.entidades FOR SELECT TO authenticated USING (true);
+
+-- 5. GARANTIR CHAVES DE CONFIGURAÇÃO PARA SOPHOS
 INSERT INTO public.global_settings (setting_key, setting_value)
 VALUES 
   ('sophos_client_id', ''),
   ('sophos_client_secret', '')
 ON CONFLICT (setting_key) DO NOTHING;
 
--- 2. CORREÇÃO DA TABELA TICKETS (Garantir que ID é UUID gerado automaticamente)
-DO $$ 
-BEGIN
-  -- Verificar se o ID tem valor padrão gen_random_uuid()
-  ALTER TABLE public.tickets ALTER COLUMN id SET DEFAULT gen_random_uuid();
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'Coluna id já possui padrão ou não pode ser alterada.';
-END $$;
+-- 6. REFRESH SCHEMA
+ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.software_licenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.instituicoes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.entidades ENABLE ROW LEVEL SECURITY;
 
--- 3. PERMISSÕES PARA EDGE FUNCTIONS (Execução RPC se necessário)
-GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
-
--- 4. REFRESH SCHEMA
 NOTIFY pgrst, 'reload schema';
 `
     };
@@ -92,15 +127,15 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> Reparação v5.1 (Sophos & Config)
+                        <FaTerminal /> Reparação v6.0 (Isolamento RLS)
                     </button>
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
-                            <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Integração de Sistemas</div>
-                                <p>Este script prepara a base de dados para receber as credenciais da API Sophos e garante que a criação automática de tickets funcione sem erros de ID.</p>
+                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaShieldAlt /> Segurança de Dados Ativada</div>
+                                <p>Este script impõe o isolamento de dados no PostgreSQL. Após a execução, os utilizadores com permissões limitadas deixarão de ver equipamentos que não lhes pertencem, mesmo que tentem aceder via API.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">

@@ -40,10 +40,13 @@ export const App: React.FC = () => {
     const { t } = useLanguage();
 
     // 1. Session & Global Config State
+    // Melhora: Se as chaves existirem no process.env (injetadas), considera configurado imediatamente
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
         const storageUrl = localStorage.getItem('SUPABASE_URL');
         const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
-        return !!(storageUrl && storageKey);
+        const envUrl = process.env.SUPABASE_URL;
+        const envKey = process.env.SUPABASE_ANON_KEY;
+        return !!((storageUrl && storageKey) || (envUrl && envKey));
     });
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [session, setSession] = useState<any>(null);
@@ -86,7 +89,7 @@ export const App: React.FC = () => {
         return !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // 5. Data Isolation Filter (Garante que utilizador limitado não vê equipamentos alheios)
+    // 5. Data Isolation Filter
     const appData = useMemo(() => {
         const rawData = {
             ...org.data,
@@ -97,29 +100,22 @@ export const App: React.FC = () => {
         };
 
         if (currentUser && !checkPermission('equipment', 'view')) {
-            // 1. Filtrar Atribuições (Assignments) para as que pertencem ao user
             const myAssignments = rawData.assignments.filter((a: any) => 
                 (a.collaboratorId === currentUser.id || a.collaborator_id === currentUser.id) && !a.returnDate
             );
             rawData.assignments = myAssignments;
 
-            // 2. Extrair IDs de equipamentos próprios
             const myEquipmentIds = new Set(myAssignments.map((a: any) => a.equipmentId || a.equipment_id));
-            
-            // 3. Filtrar Equipamento
             rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
             
-            // 4. Filtrar Atribuições de Licenças (License Assignments)
             const myLicenseAssignments = rawData.licenseAssignments.filter((la: any) => 
                 myEquipmentIds.has(la.equipmentId || la.equipment_id) && !la.returnDate
             );
             rawData.licenseAssignments = myLicenseAssignments;
             
-            // 5. Filtrar Licenças
             const myLicenseIds = new Set(myLicenseAssignments.map((la: any) => la.softwareLicenseId || la.software_license_id));
             rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
 
-            // 6. Filtrar Políticas aplicáveis
             rawData.policies = rawData.policies.filter(p => {
                 if (!p.is_active) return false;
                 if (p.target_type === 'Global' || !p.target_type) return true;
@@ -170,6 +166,7 @@ export const App: React.FC = () => {
 
     // 7. Auth Logic
     useEffect(() => {
+        if (!isConfigured) return;
         const supabase = getSupabase();
         (supabase.auth as any).getSession().then(({ data: { session: currentSession } }: any) => {
             setSession(currentSession);
@@ -190,7 +187,7 @@ export const App: React.FC = () => {
             setSession(newSession);
         });
         return () => subscription.unsubscribe();
-    }, [org.data.collaborators]);
+    }, [org.data.collaborators, isConfigured]);
 
     const tabConfig = useMemo(() => {
         const canSeeMyArea = checkPermission('my_area', 'view');
