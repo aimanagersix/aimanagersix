@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { FaUserCircle as UserIcon, FaLock as LockClosedIcon, FaFingerprint, FaExclamationTriangle, FaEnvelope } from 'react-icons/fa';
+// FIX: Replaced non-existent icon imports with aliased exports from ./common/Icons
+import { FaUserCircle as UserIcon, FaLock as LockClosedIcon, FaFingerprint, FaExclamationTriangle } from './common/Icons';
 import { getSupabase } from '../services/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
-import ForgotPasswordModal from './ForgotPasswordModal';
 
 interface LoginPageProps {
     onLogin: (email: string, password: string) => Promise<{ success: boolean, error?: string }>;
@@ -18,7 +18,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
     const [step, setStep] = useState<'credentials' | 'mfa'>('credentials');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [showForgotModal, setShowForgotModal] = useState(false);
     const [validationErrors, setValidationErrors] = useState({ email: '', password: '' });
 
     const validateField = (name: string, value: string) => {
@@ -60,25 +59,34 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
             }
 
             if (data.user) {
+                // Check for MFA factors
                 const { data: factorsData, error: mfaError } = await (supabase.auth as any).mfa.listFactors();
-                if (mfaError) throw mfaError;
+                
+                if (mfaError) {
+                    throw mfaError;
+                }
+
                 const totpFactor = factorsData?.totp.find((f: any) => f.status === 'verified');
+                
                 if (totpFactor) {
                     setStep('mfa');
                     setIsLoading(false);
                 } else {
+                    // No MFA, proceed to app
                     window.location.reload();
                 }
             }
         } catch (err: any) {
             setIsLoading(false);
             console.error("Login error:", err);
+            
             let msg = err.message;
             if (err.message === "Failed to fetch" || err.message.includes("NetworkError")) {
-                msg = "Erro de Conexão: Verifique as suas configurações.";
+                msg = "Erro de Conexão: Não foi possível contactar o servidor. Verifique a sua internet ou as configurações da base de dados.";
             } else if (err.message.includes("Invalid login credentials")) {
                 msg = "Email ou password incorretos.";
             }
+            
             setError(msg);
         }
     };
@@ -92,69 +100,146 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onForgotPassword }) => {
             const supabase = getSupabase();
             const factors = await (supabase.auth as any).mfa.listFactors();
             const factorId = factors.data?.totp[0].id;
+
             const challenge = await (supabase.auth as any).mfa.challenge({ factorId: factorId! });
             if (challenge.error) throw challenge.error;
-            const verify = await (supabase.auth as any).mfa.verify({ factorId: factorId!, challengeId: challenge.data.id, code: mfaCode });
+
+            const verify = await (supabase.auth as any).mfa.verify({
+                factorId: factorId!,
+                challengeId: challenge.data.id,
+                code: mfaCode
+            });
+
             if (verify.error) throw verify.error;
+
             window.location.reload();
+
         } catch (err: any) {
             setError(err.message || "Código inválido.");
             setIsLoading(false);
         }
     };
     
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        validateField(name, value);
+    };
+
     return (
         <div className="min-h-screen bg-background-dark flex flex-col justify-center items-center p-4 relative">
-            {showForgotModal && <ForgotPasswordModal onClose={() => setShowForgotModal(false)} />}
             <div className="w-full max-w-md">
                 <div className="flex flex-col items-center mb-8">
-                    <h1 className="font-bold text-4xl text-white">AIManager</h1>
+                    <h1 className="font-bold text-4xl text-white">
+                        {t('login.title')}
+                    </h1>
+                    <p className="text-on-surface-dark-secondary mt-2">{t('login.subtitle')}</p>
                 </div>
-                <div className="bg-surface-dark shadow-2xl rounded-xl px-8 pt-6 pb-8 mb-4 border border-gray-800">
+                <div className="bg-surface-dark shadow-2xl rounded-xl px-8 pt-6 pb-8 mb-4 border border-gray-800 relative">
+                    
                     {step === 'credentials' ? (
                         <form onSubmit={handleLoginSubmit} noValidate>
-                            <h2 className="text-2xl font-bold text-center text-white mb-6">Aceder ao Painel</h2>
+                            <h2 className="text-2xl font-bold text-center text-white mb-6">{t('login.header')}</h2>
                             <div className="mb-4">
-                                <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2">Email Corporativo</label>
+                                <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2" htmlFor="login-email">{t('login.email_label')}</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><UserIcon className="h-5 w-5 text-gray-400" /></div>
-                                    <input className={`bg-gray-700 border ${validationErrors.email ? 'border-red-500' : 'border-gray-600'} rounded w-full py-3 pl-10 pr-3 text-on-surface-dark leading-tight focus:outline-none`} type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                                    <input 
+                                        className={`bg-gray-700 border ${validationErrors.email ? 'border-red-500' : 'border-gray-600'} focus:ring-brand-secondary focus:border-brand-secondary shadow appearance-none rounded w-full py-3 pl-10 pr-3 text-on-surface-dark leading-tight focus:outline-none focus:shadow-outline`} 
+                                        id="login-email" 
+                                        type="email" 
+                                        name="email"
+                                        placeholder={t('login.email_placeholder')} 
+                                        value={email} 
+                                        onChange={(e) => setEmail(e.target.value)} 
+                                        onBlur={handleBlur}
+                                        required 
+                                        autoComplete="email" 
+                                    />
                                 </div>
-                                {validationErrors.email && <p className="text-red-400 text-xs mt-2">{validationErrors.email}</p>}
+                                {validationErrors.email && <p className="text-red-400 text-xs italic mt-2">{validationErrors.email}</p>}
                             </div>
                             <div className="mb-4">
-                                <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2">Password</label>
+                                <label className="block text-on-surface-dark-secondary text-sm font-bold mb-2" htmlFor="login-password">{t('login.password_label')}</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><LockClosedIcon className="h-5 w-5 text-gray-400" /></div>
-                                    <input className={`bg-gray-700 border ${validationErrors.password ? 'border-red-500' : 'border-gray-600'} rounded w-full py-3 pl-10 pr-3 text-on-surface-dark leading-tight focus:outline-none`} type="password" placeholder="****************" value={password} onChange={(e) => setPassword(e.target.value)} />
+                                    <input 
+                                        className={`bg-gray-700 border ${validationErrors.password ? 'border-red-500' : 'border-gray-600'} focus:ring-brand-secondary focus:border-brand-secondary shadow appearance-none rounded w-full py-3 pl-10 pr-3 text-on-surface-dark leading-tight focus:outline-none focus:shadow-outline`} 
+                                        id="login-password" 
+                                        type="password" 
+                                        name="password"
+                                        placeholder="******************" 
+                                        value={password} 
+                                        onChange={(e) => setPassword(e.target.value)} 
+                                        onBlur={handleBlur}
+                                        required 
+                                        autoComplete="current-password" 
+                                    />
                                 </div>
-                                 {validationErrors.password && <p className="text-red-400 text-xs mt-2">{validationErrors.password}</p>}
+                                 {validationErrors.password && <p className="text-red-400 text-xs italic mt-2">{validationErrors.password}</p>}
                             </div>
                             <div className="flex items-center justify-between mb-6">
-                                <button type="button" onClick={() => setShowForgotModal(true)} className="text-xs text-brand-secondary hover:underline">Esqueceu a password?</button>
+                                <div className="flex items-center">
+                                    <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-brand-secondary focus:ring-brand-primary border-gray-600 rounded bg-gray-700"/>
+                                    <label htmlFor="remember-me" className="ml-2 block text-sm text-on-surface-dark-secondary">
+                                        {t('login.remember_me')}
+                                    </label>
+                                </div>
+                                <div className="text-sm">
+                                    <button 
+                                        type="button"
+                                        onClick={onForgotPassword}
+                                        className="font-medium text-brand-secondary hover:text-blue-400 focus:outline-none"
+                                    >
+                                        {t('login.forgot_password')}
+                                    </button>
+                                </div>
                             </div>
-                            {error && <div className="bg-red-500/20 text-red-400 text-xs p-3 rounded mb-4 text-center">{error}</div>}
-                            <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50" type="submit" disabled={isLoading}>
-                                {isLoading ? 'A entrar...' : 'Login'}
-                            </button>
+                            
+                            {error && (
+                                <div className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs p-3 rounded mb-4 text-center">
+                                    <p className="flex items-center justify-center gap-2 font-bold mb-1"><FaExclamationTriangle /> Erro</p>
+                                    <p>{error}</p>
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-between">
+                                <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 disabled:opacity-50" type="submit" disabled={isLoading}>
+                                    {isLoading ? t('login.verifying') : t('login.login_button')}
+                                </button>
+                            </div>
                         </form>
                     ) : (
                         <form onSubmit={handleMfaSubmit}>
                             <div className="text-center mb-6">
-                                <FaFingerprint className="h-12 w-12 text-brand-secondary mx-auto mb-4" />
-                                <h2 className="text-xl font-bold text-white">Autenticação 2FA</h2>
-                                <p className="text-on-surface-dark-secondary text-sm mt-2">Insira o código da sua aplicação.</p>
+                                <div className="inline-flex p-4 rounded-full bg-brand-primary/20 mb-4">
+                                    <FaFingerprint className="h-8 w-8 text-brand-secondary" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-white">Autenticação de 2 Fatores</h2>
+                                <p className="text-on-surface-dark-secondary text-sm mt-2">
+                                    Por favor, insira o código da sua aplicação de autenticação.
+                                </p>
                             </div>
                              <div className="mb-6">
-                                <input className="bg-gray-700 border border-gray-600 rounded w-full py-3 px-3 text-on-surface-dark text-center text-2xl tracking-widest leading-tight focus:outline-none" type="text" maxLength={6} placeholder="000000" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g,''))} autoFocus />
+                                <input 
+                                    className="bg-gray-700 border border-gray-600 focus:ring-brand-secondary focus:border-brand-secondary shadow appearance-none rounded w-full py-3 px-3 text-on-surface-dark text-center text-2xl tracking-widest leading-tight focus:outline-none" 
+                                    type="text" 
+                                    maxLength={6}
+                                    placeholder="000000" 
+                                    value={mfaCode} 
+                                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g,''))} 
+                                    autoFocus
+                                />
                             </div>
-                            {error && <p className="bg-red-500/20 text-red-400 text-xs p-3 rounded mb-4 text-center">{error}</p>}
-                             <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50" type="submit" disabled={isLoading || mfaCode.length !== 6}>
-                                {isLoading ? 'A verificar...' : 'Confirmar Código'}
+                            {error && <p className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs italic p-3 rounded mb-4 text-center">{error}</p>}
+                             <button className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg focus:outline-none transition-colors duration-300 disabled:opacity-50" type="submit" disabled={isLoading || mfaCode.length !== 6}>
+                                {isLoading ? t('login.verifying') : 'Confirmar Código'}
                             </button>
                         </form>
                     )}
                 </div>
+                <p className="text-center text-gray-500 text-xs">
+                    &copy;{new Date().getFullYear()} AIManager. {t('login.copyright')}
+                </p>
             </div>
         </div>
     );

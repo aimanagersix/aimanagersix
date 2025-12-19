@@ -24,15 +24,12 @@ interface SelfServiceDashboardProps {
     tickets: Ticket[];
     onViewTicket?: (ticket: Ticket) => void;
     onViewPolicy?: (policy: Policy) => void;
-    onViewEquipment?: (equipment: Equipment) => void;
-    onViewTraining?: (training: SecurityTrainingRecord) => void;
-    onViewLicense?: (license: SoftwareLicense) => void;
 }
 
 const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({ 
     currentUser, equipment, assignments, softwareLicenses, licenseAssignments, 
     trainings, brands, types, policies, acceptances, tickets,
-    onViewTicket, onViewPolicy, onViewEquipment, onViewTraining, onViewLicense
+    onViewTicket, onViewPolicy
 }) => {
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const typeMap = useMemo(() => new Map(types.map(t => [t.id, t.name])), [types]);
@@ -40,46 +37,59 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     // 1. Meus Equipamentos
     const myEquipment = useMemo(() => {
         const activeIds = assignments
-            .filter(a => (a.collaboratorId === currentUser.id || (a as any).collaborator_id === currentUser.id) && !a.returnDate)
-            .map(a => a.equipmentId || (a as any).equipment_id);
+            .filter(a => {
+                const collabId = (a as any).collaboratorId || (a as any).collaborator_id;
+                return collabId === currentUser.id && !a.returnDate;
+            })
+            .map(a => a.equipmentId);
         return equipment.filter(e => activeIds.includes(e.id));
     }, [assignments, equipment, currentUser.id]);
 
-    // 2. Minhas Licenças (Cruzamento rigoroso com equipamentos do utilizador)
+    // 2. Minhas Licenças
     const myLicenses = useMemo(() => {
         const myEqIds = new Set(myEquipment.map(e => e.id));
         const licenseIds = licenseAssignments
-            .filter(la => myEqIds.has(la.equipmentId || (la as any).equipment_id) && !la.returnDate)
-            .map(la => la.softwareLicenseId || (la as any).software_license_id);
+            .filter(la => {
+                const eqId = (la as any).equipmentId || (la as any).equipment_id;
+                return myEqIds.has(eqId) && !la.returnDate;
+            })
+            .map(la => (la as any).softwareLicenseId || (la as any).software_license_id);
         return softwareLicenses.filter(l => licenseIds.includes(l.id));
     }, [myEquipment, licenseAssignments, softwareLicenses]);
 
     // 3. Minhas Formações
     const myTrainings = useMemo(() => {
-        return trainings.filter(t => t.collaborator_id === currentUser.id)
-            .sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
+        return trainings.filter(t => {
+            const collabId = (t as any).collaborator_id || (t as any).collaboratorId;
+            return collabId === currentUser.id;
+        }).sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
     }, [trainings, currentUser.id]);
 
-    // 4. Políticas Aplicáveis e Estado de Aceitação
+    // 4. Políticas Aplicáveis (Alvo)
     const myApplicablePolicies = useMemo(() => {
         const myAcceptanceMap = new Map();
         acceptances.forEach(a => {
-            const cid = (a as any).collaboratorId || a.collaborator_id;
-            if (cid === currentUser.id) {
-                myAcceptanceMap.set(a.policy_id, a);
+            const cId = (a as any).collaborator_id || (a as any).collaboratorId;
+            const pId = (a as any).policy_id || (a as any).policyId;
+            if (cId === currentUser.id) {
+                myAcceptanceMap.set(pId, a);
             }
         });
         
         return policies.filter(p => {
             if (!p.is_active) return false;
-            const targetType = p.target_type || 'Global';
+            
+            const targetType = (p as any).target_type || 'Global';
             if (targetType === 'Global') return true;
+            
             if (targetType === 'Instituicao' && currentUser.instituicaoId) {
-                return (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
+                return ((p as any).target_instituicao_ids || []).includes(currentUser.instituicaoId);
             }
+            
             if (targetType === 'Entidade' && currentUser.entidadeId) {
-                return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
+                return ((p as any).target_entidade_ids || []).includes(currentUser.entidadeId);
             }
+            
             return false;
         }).map(p => ({
             ...p,
@@ -89,8 +99,10 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
 
     // 5. Meus Tickets Ativos
     const myActiveTickets = useMemo(() => {
-        return tickets.filter(t => t.collaboratorId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado')
-            .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+        return tickets.filter(t => {
+            const cId = (t as any).collaboratorId || (t as any).collaborator_id;
+            return cId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado';
+        }).sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     }, [tickets, currentUser.id]);
 
     return (
@@ -109,6 +121,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Meus Equipamentos (Card Moderno) */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaLaptop className="text-blue-400"/> Equipamentos</h3>
@@ -116,15 +129,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 space-y-3 flex-grow max-h-80 overflow-y-auto custom-scrollbar">
                         {myEquipment.length > 0 ? myEquipment.map(eq => (
-                            <div 
-                                key={eq.id} 
-                                onClick={() => onViewEquipment?.(eq)}
-                                className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-blue-500/50 transition-colors cursor-pointer group"
-                            >
-                                <div className="flex justify-between items-start">
-                                    <p className="font-bold text-white text-sm group-hover:text-blue-300">{eq.description}</p>
-                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-blue-400" />
-                                </div>
+                            <div key={eq.id} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-blue-500/50 transition-colors">
+                                <p className="font-bold text-white text-sm">{eq.description}</p>
                                 <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase">S/N: {eq.serialNumber} • {brandMap.get(eq.brandId)} {typeMap.get(eq.typeId)}</p>
                                 <div className="mt-2 flex justify-between items-center">
                                     <span className="text-[9px] px-2 py-0.5 rounded bg-green-900/30 text-green-400 border border-green-500/30">Operacional</span>
@@ -135,6 +141,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                 </section>
 
+                {/* Tickets Ativos */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaTicketAlt className="text-purple-400"/> Pedidos de Suporte</h3>
@@ -142,10 +149,10 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 space-y-3 flex-grow max-h-80 overflow-y-auto custom-scrollbar">
                         {myActiveTickets.length > 0 ? myActiveTickets.map(t => (
-                            <div 
+                            <button 
                                 key={t.id} 
                                 onClick={() => onViewTicket?.(t)}
-                                className="w-full text-left bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800 transition-all cursor-pointer group"
+                                className="w-full text-left bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800 transition-all group"
                             >
                                 <div className="flex justify-between items-start mb-1">
                                     <p className="font-bold text-white text-sm truncate pr-2 group-hover:text-purple-300">{t.title}</p>
@@ -155,11 +162,12 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-500/30 uppercase">{t.status}</span>
                                     <p className="text-[9px] text-gray-500 flex items-center gap-1"><FaClock/> {new Date(t.requestDate).toLocaleDateString()}</p>
                                 </div>
-                            </div>
+                            </button>
                         )) : <p className="text-gray-500 text-sm italic text-center py-4">Não tem tickets em aberto.</p>}
                     </div>
                 </section>
 
+                {/* Políticas Pendentes (Foco no que falta fazer) */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaFileSignature className="text-yellow-500"/> Governança & Políticas</h3>
@@ -190,6 +198,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Formação NIS2 */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaGraduationCap className="text-green-400"/> Formação de Segurança</h3>
@@ -197,18 +206,13 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
                         {myTrainings.length > 0 ? myTrainings.map(t => (
-                            <div 
-                                key={t.id} 
-                                onClick={() => onViewTraining?.(t)}
-                                className="bg-gray-900/50 p-3 rounded border border-gray-700 flex justify-between items-center hover:border-green-500/50 transition-colors cursor-pointer group"
-                            >
+                            <div key={t.id} className="bg-gray-900/50 p-3 rounded border border-gray-700 flex justify-between items-center">
                                 <div>
-                                    <p className="font-bold text-white text-sm group-hover:text-green-300">{t.training_type}</p>
+                                    <p className="font-bold text-white text-sm">{t.training_type}</p>
                                     <p className="text-[10px] text-gray-500 flex items-center gap-1 mt-1"><FaCalendarCheck/> Concluído em {new Date(t.completion_date).toLocaleDateString()}</p>
                                 </div>
-                                <div className={`text-right font-black text-sm flex items-center gap-3 ${t.score && t.score >= 70 ? 'text-green-400' : 'text-yellow-400'}`}>
-                                    <span>{t.score}%</span>
-                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-green-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className={`text-right font-black text-sm ${t.score && t.score >= 70 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                    {t.score}%
                                 </div>
                             </div>
                         )) : (
@@ -221,6 +225,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                 </section>
 
+                {/* Licenças Atribuídas */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaKey className="text-yellow-500"/> Licenças de Software</h3>
@@ -228,15 +233,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto custom-scrollbar">
                         {myLicenses.length > 0 ? myLicenses.map(lic => (
-                            <div 
-                                key={lic.id} 
-                                onClick={() => onViewLicense?.(lic)}
-                                className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-yellow-500/50 transition-colors cursor-pointer group"
-                            >
-                                <div className="flex justify-between items-start">
-                                    <p className="font-bold text-white text-sm truncate group-hover:text-yellow-300">{lic.productName}</p>
-                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-yellow-400" />
-                                </div>
+                            <div key={lic.id} className="bg-gray-900/50 p-3 rounded border border-gray-700">
+                                <p className="font-bold text-white text-sm truncate">{lic.productName}</p>
                                 <p className="text-[10px] text-gray-500 font-mono mt-1 truncate">{lic.licenseKey}</p>
                                 <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center gap-1 text-[9px] text-gray-400 uppercase font-bold">
                                     <FaShieldAlt className="text-green-600"/> Uso Autorizado

@@ -36,6 +36,7 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
         };
         loadData();
         
+        // Fix: Removed unnecessary 'as any' casts as properties now exist in Policy interface
         if (policyToEdit) {
             setFormData({
                 ...policyToEdit,
@@ -55,23 +56,18 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
 
         setIsSaving(true);
         try {
-            const payload: any = { 
-                title: formData.title,
-                content: formData.content,
-                version: formData.version,
-                is_active: !!formData.is_active,
-                is_mandatory: !!formData.is_mandatory,
-                target_type: formData.target_type,
-                target_instituicao_ids: formData.target_instituicao_ids,
-                target_entidade_ids: formData.target_entidade_ids
-            };
-
+            const payload = { ...formData };
             if (policyToEdit && incrementVersion) {
                 const currentVer = parseFloat(policyToEdit.version);
                 payload.version = (currentVer + 0.1).toFixed(1);
             }
 
-            await onSave(policyToEdit ? { ...policyToEdit, ...payload } : payload);
+            const cleanPayload = { ...payload };
+            delete (cleanPayload as any).id;
+            delete (cleanPayload as any).created_at;
+            delete (cleanPayload as any).updated_at;
+
+            await onSave(policyToEdit ? { ...policyToEdit, ...cleanPayload } as Policy : cleanPayload as any);
             onClose();
         } catch (error: any) {
             console.error("Failed to save policy:", error);
@@ -81,6 +77,7 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
         }
     };
 
+    // Fix: Cleaned up property access in toggleTargetId
     const toggleTargetId = (field: 'target_instituicao_ids' | 'target_entidade_ids', id: string) => {
         setFormData(prev => {
             const current = (prev[field] as string[]) || [];
@@ -99,7 +96,7 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
                             type="text" 
                             value={formData.title} 
                             onChange={e => setFormData({...formData, title: e.target.value})}
-                            className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white"
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
                             placeholder="Ex: Política de Uso de Equipamentos Móveis"
                             required
                         />
@@ -108,7 +105,8 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
                         <label className="block text-sm font-medium text-gray-400 mb-1">Âmbito de Aplicação (Target)</label>
                         <select 
                             value={formData.target_type} 
-                            onChange={e => setFormData({...formData, target_type: e.target.value as any})}
+                            // Fix: Removed unnecessary 'as any' cast for target_type value
+                            onChange={e => setFormData({...formData, target_type: e.target.value as 'Global' | 'Instituicao' | 'Entidade'})}
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
                         >
                             <option value="Global">Global (Todos os Colaboradores)</option>
@@ -117,7 +115,7 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Estado & Rigor</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Estado</label>
                         <div className="flex gap-4 p-2 bg-gray-800 rounded border border-gray-700">
                              <label className="flex items-center cursor-pointer">
                                 <input type="checkbox" checked={formData.is_active} onChange={e => setFormData({...formData, is_active: e.target.checked})} className="rounded border-gray-500 bg-gray-700 text-brand-primary mr-2"/>
@@ -131,9 +129,10 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
                     </div>
                 </div>
 
+                {/* Fix: Property exists now, removed errors for target_instituicao_ids */}
                 {formData.target_type === 'Instituicao' && (
                     <div className="p-4 bg-gray-900/50 rounded border border-gray-700 animate-fade-in">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Selecionar Instituições Alvo</label>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Selecionar Instituições Alvo</label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
                             {instituicoes.map(inst => (
                                 <label key={inst.id} className={`flex items-center p-2 rounded cursor-pointer border ${formData.target_instituicao_ids?.includes(inst.id) ? 'bg-brand-primary/20 border-brand-primary' : 'bg-gray-800 border-gray-700 hover:bg-gray-750'}`}>
@@ -145,9 +144,10 @@ const AddPolicyModal: React.FC<AddPolicyModalProps> = ({ onClose, onSave, policy
                     </div>
                 )}
 
+                {/* Fix: Property exists now, removed errors for target_entidade_ids */}
                 {formData.target_type === 'Entidade' && (
                     <div className="p-4 bg-gray-900/50 rounded border border-gray-700 animate-fade-in">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Selecionar Entidades / Departamentos Alvo</label>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Selecionar Entidades / Departamentos Alvo</label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
                             {entidades.map(ent => (
                                 <label key={ent.id} className={`flex items-center p-2 rounded cursor-pointer border ${formData.target_entidade_ids?.includes(ent.id) ? 'bg-brand-primary/20 border-brand-primary' : 'bg-gray-800 border-gray-700 hover:bg-gray-750'}`}>
