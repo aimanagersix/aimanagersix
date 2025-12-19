@@ -17,7 +17,7 @@ export interface ConfigItem {
 
 export type ModuleKey = 
     | 'widget_alerts' | 'widget_kpi_cards' | 'widget_inventory_charts' | 'widget_financial' | 'widget_operational_charts' | 'widget_activity'
-    | 'equipment' | 'equipment_view_full' | 'licensing' | 'tickets' | 'organization' | 'suppliers' | 'procurement' | 'reports' | 'settings' | 'dashboard_smart'
+    | 'equipment' | 'equipment_view_full' | 'licensing' | 'tickets' | 'tickets_security' | 'organization' | 'suppliers' | 'procurement' | 'reports' | 'settings' | 'dashboard_smart'
     | 'compliance_bia' | 'compliance_security' | 'compliance_backups' | 'compliance_resilience' | 'compliance_training' | 'compliance_policies' | 'compliance_continuity'
     | 'brands' | 'equipment_types' | 'config_equipment_statuses' | 'config_ticket_statuses' | 'config_license_statuses' | 'config_cpus' | 'config_ram_sizes' | 'config_storage_types' | 'config_software_categories' | 'config_software_products' | 'config_decommission_reasons'
     | 'ticket_categories' | 'security_incident_types' | 'contact_roles' | 'contact_titles' | 'config_custom_roles' | 'config_collaborator_deactivation_reasons' | 'config_accounting_categories' | 'config_conservation_states' | 'config_job_titles'

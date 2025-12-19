@@ -43,7 +43,8 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'equipment', label: 'Equipamentos (Inventário)', supportsOwn: true },
             { key: 'equipment_view_full', label: 'Ficha Técnica Completa (vs Resumida)', isSimpleAccess: true },
             { key: 'licensing', label: 'Licenciamento', supportsOwn: true },
-            { key: 'tickets', label: 'Suporte (Tickets)', supportsOwn: true },
+            { key: 'tickets', label: 'Suporte (Tickets Operacionais)', supportsOwn: true },
+            { key: 'tickets_security', label: 'Tickets de Segurança (NIS2)', supportsOwn: true },
             { key: 'procurement', label: 'Aquisições' },
         ]
     },

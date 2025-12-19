@@ -90,15 +90,33 @@ export const App: React.FC = () => {
 
     const appData = useMemo(() => {
         const rawData = { ...org.data, ...inv.data, ...support.data, ...compliance.data };
-        if (currentUser && !checkPermission('equipment', 'view')) {
-            const myAssignments = rawData.assignments.filter((a: any) => (a.collaboratorId === currentUser.id || a.collaborator_id === currentUser.id) && !a.returnDate);
-            rawData.assignments = myAssignments;
-            const myEquipmentIds = new Set(myAssignments.map((a: any) => a.equipmentId || a.equipment_id));
-            rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
-            const myLicenseAssignments = rawData.licenseAssignments.filter((la: any) => myEquipmentIds.has(la.equipmentId || la.equipment_id) && !la.returnDate);
-            rawData.licenseAssignments = myLicenseAssignments;
-            const myLicenseIds = new Set(myLicenseAssignments.map((la: any) => la.softwareLicenseId || la.software_license_id));
-            rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
+        
+        if (currentUser) {
+            // Filtragem granular de tickets baseada em RBAC (Operacional vs Segurança)
+            rawData.tickets = rawData.tickets.filter((t: Ticket) => {
+                const isSecurity = (t.category || '').toLowerCase().includes('segurança') || !!t.securityIncidentType;
+                const module: ModuleKey = isSecurity ? 'tickets_security' : 'tickets';
+
+                if (checkPermission(module, 'view')) return true;
+                if (checkPermission(module, 'view_own')) {
+                    return t.collaboratorId === currentUser.id || t.technicianId === currentUser.id;
+                }
+                return false;
+            });
+
+            // Filtragem de equipamentos se não tiver permissão de visão global
+            if (!checkPermission('equipment', 'view')) {
+                const myAssignments = rawData.assignments.filter((a: any) => (a.collaboratorId === currentUser.id || a.collaborator_id === currentUser.id) && !a.returnDate);
+                rawData.assignments = myAssignments;
+                const myEquipmentIds = new Set(myAssignments.map((a: any) => a.equipmentId || a.equipment_id));
+                rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
+                const myLicenseAssignments = rawData.licenseAssignments.filter((la: any) => myEquipmentIds.has(la.equipmentId || la.equipment_id) && !la.returnDate);
+                rawData.licenseAssignments = myLicenseAssignments;
+                const myLicenseIds = new Set(myLicenseAssignments.map((la: any) => la.softwareLicenseId || la.software_license_id));
+                rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
+            }
+
+            // Filtragem de políticas aplicáveis
             rawData.policies = rawData.policies.filter(p => {
                 if (!p.is_active) return false;
                 if (p.target_type === 'Global' || !p.target_type) return true;
@@ -178,7 +196,7 @@ export const App: React.FC = () => {
             'organizacao.entidades': checkPermission('org_entities', 'view'),
             'collaborators': checkPermission('org_collaborators', 'view'),
             'organizacao.suppliers': checkPermission('org_suppliers', 'view'),
-            'tickets': checkPermission('tickets', 'view') || checkPermission('tickets', 'view_own'),
+            'tickets': checkPermission('tickets', 'view') || checkPermission('tickets', 'view_own') || checkPermission('tickets_security', 'view') || checkPermission('tickets_security', 'view_own'),
             'reports': checkPermission('reports', 'view'),
             'settings': checkPermission('settings', 'view'),
             'nis2': {
@@ -209,8 +227,6 @@ export const App: React.FC = () => {
     const handleSendMessage = async (receiverId: string, content: string) => {
         if (!currentUser) return;
         await dataService.addMessage({ senderId: currentUser.id, receiverId, content, timestamp: new Date().toISOString(), read: false });
-        // suporte.refresh() foi removido daqui para evitar disparar o efeito de loop se estivermos no chat
-        // O refresh agora é feito apenas nos locais específicos se não estivermos no widget de chat aberto.
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
