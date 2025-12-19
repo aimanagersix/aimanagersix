@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { CustomRole, ModuleKey, PermissionAction } from '../types';
 import * as dataService from '../services/dataService';
-import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie } from 'react-icons/fa';
+import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn } from 'react-icons/fa';
 
 interface PermissionItem {
     key: ModuleKey;
@@ -28,6 +28,13 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'widget_operational_charts', label: 'Dashboard: Gráficos Operacionais', isSimpleAccess: true },
             { key: 'widget_activity', label: 'Dashboard: Atividade Recente', isSimpleAccess: true },
             { key: 'dashboard_smart', label: 'Dashboard: C-Level / Gestão', isSimpleAccess: true },
+        ]
+    },
+    {
+        label: 'Comunicação & Chat',
+        items: [
+            { key: 'chat_p2p' as any, label: 'Chat: Conversas Privadas', isSimpleAccess: true },
+            { key: 'chat_general' as any, label: 'Chat: Acesso ao Canal Geral', isSimpleAccess: true },
         ]
     },
     {
@@ -77,6 +84,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'brands', label: 'Marcas' },
             { key: 'equipment_types', label: 'Tipos de Ativo' },
             { key: 'config_equipment_statuses', label: 'Estados de Ativo' },
+            { key: 'config_ticket_statuses', label: 'Estados de Ticket' },
             { key: 'config_cpus', label: 'CPUs' },
             { key: 'config_ram_sizes', label: 'RAM' },
             { key: 'config_storage_types', label: 'Discos' },

@@ -142,7 +142,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                             {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
                         </select>
                     </div>
-                    {/* Alterado para ser visível a todos, mas apenas editável por quem tem permissão */}
+                    {/* Lista de Estados Dinâmica via Props */}
                     <div>
                         <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado {!canManage && '(Consulta)'}</label>
                         <select 
@@ -170,7 +170,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                         <input type="text" name="title" value={formData.title} onChange={handleChange} disabled={!canManage && !!ticketToEdit} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:text-gray-400`} />
                         {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
                     </div>
-                    {/* Equipa visível apenas para consulta para o utilizador comum */}
                     <div>
                         <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa de Suporte {!canManage && '(Consulta)'}</label>
                         <select name="team_id" value={formData.team_id || ''} onChange={handleChange} disabled={!canManage} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 disabled:bg-gray-800 disabled:text-gray-400">

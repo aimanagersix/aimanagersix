@@ -17,7 +17,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     };
 
     const repairScript = `-- ==================================================================================
--- SCRIPT DE REPARAÇÃO v10.0 (Automação de Tickets & Visibilidade de Atividades)
+-- SCRIPT DE REPARAÇÃO v11.0 (Estados Dinâmicos & Seeding)
 -- ==================================================================================
 
 -- 1. ASSEGURAR CAMPOS NECESSÁRIOS
@@ -36,14 +36,30 @@ BEGIN
     END IF;
 END $$;
 
--- 2. LIMPAR POLÍTICAS ANTIGAS (EVITAR CONFLITOS)
+-- 2. SEEDING DE ESTADOS PADRÃO (TICKETS)
+INSERT INTO "config_ticket_statuses" ("name", "color")
+VALUES 
+    ('Pedido', '#3B82F6'),
+    ('Em progresso', '#F59E0B'),
+    ('Finalizado', '#10B981'),
+    ('Cancelado', '#EF4444')
+ON CONFLICT ("name") DO NOTHING;
+
+-- 3. SEEDING DE ESTADOS PADRÃO (LICENÇAS)
+INSERT INTO "config_license_statuses" ("name", "color")
+VALUES 
+    ('Ativo', '#10B981'),
+    ('Inativo', '#9CA3AF')
+ON CONFLICT ("name") DO NOTHING;
+
+-- 4. LIMPAR POLÍTICAS ANTIGAS (EVITAR CONFLITOS)
 DROP POLICY IF EXISTS "Enable all for authenticated users" ON "equipment";
 DROP POLICY IF EXISTS "Enable all for authenticated users" ON "software_licenses";
 DROP POLICY IF EXISTS "RLS_Equipment_Isolation" ON "equipment";
 DROP POLICY IF EXISTS "RLS_License_Isolation" ON "software_licenses";
 DROP POLICY IF EXISTS "RLS_Ticket_Activities_Requester" ON "ticket_activities";
 
--- 3. ISOLAÇÃO DE DADOS RIGOROSA (RLS)
+-- 5. ISOLAÇÃO DE DADOS RIGOROSA (RLS)
 
 -- EQUIPAMENTOS
 ALTER TABLE "equipment" ENABLE ROW LEVEL SECURITY;
@@ -67,7 +83,7 @@ USING (
   ))
 );
 
--- ATIVIDADES DE TICKETS (Permite que o criador do ticket veja as respostas técnicas)
+-- ATIVIDADES DE TICKETS
 ALTER TABLE "ticket_activities" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "RLS_Ticket_Activities_Requester" ON "ticket_activities"
 FOR SELECT TO authenticated
@@ -77,7 +93,7 @@ USING (
   "ticketId" IN (SELECT id FROM tickets WHERE "collaboratorId" = (SELECT id FROM collaborators WHERE email = auth.jwt()->>'email'))
 );
 
--- 4. PERMISSÕES GERAIS
+-- 6. PERMISSÕES GERAIS
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 `;
@@ -86,14 +102,14 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
         <Modal title="Configuração Avançada de Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200">
-                    <h3 className="font-bold flex items-center gap-2 mb-2"><FaShieldAlt /> Automação de Tickets & Visibilidade (v10.0)</h3>
-                    <p>Este script atualiza as políticas de segurança (RLS) para garantir que utilizadores comuns possam visualizar as intervenções técnicas registadas nos seus próprios pedidos.</p>
+                    <h3 className="font-bold flex items-center gap-2 mb-2"><FaShieldAlt /> Sincronização & Seeding (v11.0)</h3>
+                    <p>Este script garante que as tabelas auxiliares de estados (Tickets e Licenças) estão preenchidas com os valores corretos e atualiza as políticas de segurança.</p>
                 </div>
 
                 <div className="relative bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col h-[50vh]">
                     <div className="absolute top-2 right-2 z-10">
                         <button onClick={() => handleCopy(repairScript, 'rep')} className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg hover:bg-brand-secondary transition-all">
-                            {copied === 'rep' ? <FaCheck /> : <FaCopy />} Copiar SQL v10.0
+                            {copied === 'rep' ? <FaCheck /> : <FaCopy />} Copiar SQL v11.0
                         </button>
                     </div>
                     <pre className="p-4 text-xs font-mono text-green-400 overflow-auto custom-scrollbar">{repairScript}</pre>

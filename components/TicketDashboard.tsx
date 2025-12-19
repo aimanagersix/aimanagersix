@@ -41,7 +41,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     onGenerateReport, onOpenActivities, onGenerateSecurityReport, categories, onCreate,
     totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onSortChange, sort,
     statusOptions = [],
-    // Fix: Added missing onFilterChange to destructuring
     onFilterChange
 }) => {
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -64,14 +63,12 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         const { name, value } = e.target;
         const newFilters = { ...localFilters, [name]: value };
         setLocalFilters(newFilters);
-        // Fix: onFilterChange is now accessible via destructured props
         if (onFilterChange) onFilterChange(newFilters);
     };
 
     const clearFilters = () => {
         const blank = { status: '', category: '', team_id: '', title: '' };
         setLocalFilters(blank);
-        // Fix: onFilterChange is now accessible via destructured props
         if (onFilterChange) onFilterChange(blank);
         if (onClearInitialFilter) onClearInitialFilter();
     };
@@ -165,7 +162,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                 </div>
             </div>
 
-            {/* BARRA DE FILTROS REINTRODUZIDA */}
+            {/* BARRA DE FILTROS */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-gray-900/40 p-4 rounded-lg border border-gray-700/50">
                 <div className="relative">
                     <FaSearch className="absolute left-3 top-3 text-gray-500 text-xs" />
