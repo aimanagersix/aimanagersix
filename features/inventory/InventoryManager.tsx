@@ -40,7 +40,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     onViewItem
 }) => {
     
-    // Server-Side Data State for Equipment
     const [equipmentData, setEquipmentData] = useState<Equipment[]>([]);
     const [totalEquipment, setTotalEquipment] = useState(0);
     const [equipmentLoading, setEquipmentLoading] = useState(false);
@@ -48,7 +47,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     const [equipmentPageSize, setEquipmentPageSize] = useState(20);
     const [equipmentSort, setEquipmentSort] = useState<{ key: string, direction: 'ascending' | 'descending' }>({ key: 'creationDate', direction: 'descending' });
     
-    // Local State for Inventory Modals
     const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
     const [equipmentInitialData, setEquipmentInitialData] = useState<Partial<Equipment> | null>(null); 
@@ -63,7 +61,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     const [showAddLicenseModal, setShowAddLicenseModal] = useState(false);
     const [licenseToEdit, setLicenseToEdit] = useState<SoftwareLicense | null>(null);
     
-    // Procurement Modals
     const [showAddProcurementModal, setShowAddProcurementModal] = useState(false);
     const [procurementToEdit, setProcurementToEdit] = useState<ProcurementRequest | null>(null);
     const [showReceiveAssetsModal, setShowReceiveAssetsModal] = useState(false);
@@ -71,39 +68,34 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     const userTooltipConfig = currentUser?.preferences?.tooltipConfig || defaultTooltipConfig;
 
-    // --- DATA FETCHING (SERVER SIDE) ---
     const fetchEquipment = useCallback(async () => {
+        if (!currentUser) return;
         setEquipmentLoading(true);
         try {
             const isAdmin = checkPermission('equipment', 'view');
             const { data, total } = await dataService.fetchEquipmentPaginated({
                 page: equipmentPage,
                 pageSize: equipmentPageSize,
-                filters: dashboardFilter,
+                filters: dashboardFilter || {},
                 sort: equipmentSort,
-                userId: currentUser?.id,
+                userId: currentUser.id,
                 isAdmin: isAdmin
             });
             setEquipmentData(data);
             setTotalEquipment(total);
         } catch (error) {
             console.error("Error fetching equipment:", error);
-            setEquipmentData([]);
-            setTotalEquipment(0);
         } finally {
             setEquipmentLoading(false);
         }
     }, [equipmentPage, equipmentPageSize, dashboardFilter, equipmentSort, currentUser, checkPermission]);
 
-    // Initial Load & Refresh
     useEffect(() => {
         if (activeTab === 'equipment.inventory') {
             fetchEquipment();
         }
-    }, [activeTab, fetchEquipment]);
+    }, [activeTab, equipmentPage, equipmentPageSize, equipmentSort, dashboardFilter, fetchEquipment]);
 
-
-    // Handlers
     const handleAssign = async (assignment: any) => {
         await dataService.addAssignment(assignment);
         fetchEquipment();
@@ -238,7 +230,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     return (
         <>
-            {/* --- DASHBOARDS --- */}
             {activeTab === 'equipment.inventory' && (
                 <EquipmentDashboard 
                     equipment={equipmentData} 
@@ -325,7 +316,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
             
             {activeTab === 'equipment.procurement' && (
                 <ProcurementDashboard 
-                    requests={filteredProcurementRequests}
+                    requests={appData.procurementRequests}
                     collaborators={appData.collaborators}
                     suppliers={appData.suppliers}
                     currentUser={currentUser}
@@ -337,7 +328,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                 />
             )}
 
-            {/* --- MODALS --- */}
             {showAddEquipmentModal && (
                 <AddEquipmentModal
                     onClose={() => setShowAddEquipmentModal(false)}
@@ -414,7 +404,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                     equipmentTypes={appData.equipmentTypes}
                     initialData={kitInitialData}
                     onSaveEquipmentType={dataService.addEquipmentType}
-                    equipment={equipmentData}
+                    equipment={appData.equipment}
                 />
             )}
 
@@ -482,7 +472,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
                          } else {
                              await dataService.addMultipleEquipment(assets);
                          }
-                        
                         await dataService.updateProcurement(procurementToReceive.id, { status: 'Concluído' });
                         fetchEquipment();
                         refreshGlobalData();

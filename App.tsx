@@ -32,7 +32,6 @@ import ResetPasswordModal from './components/ResetPasswordModal';
 import UserProfileModal from './components/UserProfileModal';
 import NotificationsModal from './components/NotificationsModal';
 
-// Atomics Hooks
 import { useOrganization } from './hooks/useOrganization';
 import { useInventory } from './hooks/useInventory';
 import { useSupport } from './hooks/useSupport';
@@ -42,7 +41,6 @@ export const App: React.FC = () => {
     const { layoutMode } = useLayout();
     const { t } = useLanguage();
 
-    // 1. Session & Global Config State
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
         const envUrl = process.env.SUPABASE_URL;
         const envKey = process.env.SUPABASE_ANON_KEY;
@@ -55,14 +53,13 @@ export const App: React.FC = () => {
     const [isAppLoading, setIsAppLoading] = useState(true);
     const [passwordExpired, setPasswordExpired] = useState(false);
     const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+    const [snoozedNotificationIds, setSnoozedNotificationIds] = useState<Set<string>>(new Set());
 
-    // 2. Feature Hooks
     const org = useOrganization(isConfigured);
     const inv = useInventory(isConfigured);
     const support = useSupport(isConfigured);
     const compliance = useCompliance(isConfigured);
 
-    // 3. UI State
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarExpanded, setSidebarExpanded] = useState(false);
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
@@ -74,14 +71,12 @@ export const App: React.FC = () => {
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
     
-    // Viewing States (Modais)
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
     const [viewingLicense, setViewingLicense] = useState<SoftwareLicense | null>(null);
     const [viewingTraining, setViewingTraining] = useState<SecurityTrainingRecord | null>(null);
 
-    // 4. Permission Checking Logic
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
         if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
@@ -92,7 +87,6 @@ export const App: React.FC = () => {
         return !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // 5. Data Isolation Filter
     const appData = useMemo(() => {
         const rawData = { ...org.data, ...inv.data, ...support.data, ...compliance.data };
         if (currentUser && !checkPermission('equipment', 'view')) {
@@ -115,37 +109,43 @@ export const App: React.FC = () => {
         return rawData;
     }, [org.data, inv.data, support.data, compliance.data, currentUser, checkPermission]);
 
-    // 6. Realtime Presence
     useEffect(() => {
-        if (!currentUser || !isConfigured) return;
-        const supabase = getSupabase();
-        const channel = supabase.channel('online-users', { config: { presence: { key: currentUser.id } } });
-        channel.on('presence', { event: 'sync' }, () => {
-            const state = channel.presenceState();
-            setOnlineUserIds(new Set(Object.keys(state)));
-        }).subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') await channel.track({ online_at: new Date().toISOString() });
-        });
-        return () => { channel.unsubscribe(); };
-    }, [currentUser, isConfigured]);
+        const syncSnoozed = () => {
+            const raw = localStorage.getItem('snoozed_notifications');
+            if (raw) {
+                try {
+                    const snoozed = JSON.parse(raw);
+                    const activeIds = new Set<string>(snoozed.filter((s:any) => s.until > new Date().toISOString()).map((s:any) => s.id));
+                    setSnoozedNotificationIds(activeIds);
+                } catch(e) {}
+            }
+        };
+        syncSnoozed();
+        window.addEventListener('storage', syncSnoozed);
+        return () => window.removeEventListener('storage', syncSnoozed);
+    }, [showNotifications]);
 
-    // 7. Notifications Logic
     const notificationItems = useMemo(() => {
         const now = new Date();
         const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
         const myWarranties = appData.equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) <= thirtyDays);
         const myLicenses = appData.softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) <= thirtyDays);
         const myTickets = appData.tickets.filter(t => t.status === 'Pedido' && (!t.technicianId || t.technicianId === currentUser?.id));
-        return { warranties: myWarranties, licenses: myLicenses, tickets: myTickets };
-    }, [appData, currentUser]);
+        
+        return { 
+            warranties: myWarranties, 
+            licenses: myLicenses, 
+            tickets: myTickets,
+            totalVisible: [...myWarranties, ...myLicenses, ...myTickets].filter(item => !snoozedNotificationIds.has(item.id)).length
+        };
+    }, [appData, currentUser, snoozedNotificationIds]);
 
-    const totalNotifications = notificationItems.warranties.length + notificationItems.licenses.length + notificationItems.tickets.length;
+    const totalNotifications = notificationItems.totalVisible;
 
     const refreshAll = useCallback(async () => {
         await Promise.all([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
     }, [org, inv, support, compliance]);
 
-    // 8. Auth Logic
     useEffect(() => {
         if (!isConfigured) return;
         const supabase = getSupabase();
@@ -287,8 +287,10 @@ export const App: React.FC = () => {
                                 softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
                                 trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes}
                                 policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets}
-                                onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy}
-                                onViewEquipment={setViewingEquipment} onViewTraining={setViewingTraining}
+                                onViewTicket={(t) => { setViewingTicket(t); }} 
+                                onViewPolicy={setReadingPolicy}
+                                onViewEquipment={setViewingEquipment} 
+                                onViewTraining={setViewingTraining}
                                 onViewLicense={setViewingLicense}
                             />
                         )

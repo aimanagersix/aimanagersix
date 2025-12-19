@@ -37,7 +37,6 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const typeMap = useMemo(() => new Map(types.map(t => [t.id, t.name])), [types]);
 
-    // 1. Meus Equipamentos (Ordenados, sem limite de 5)
     const myEquipment = useMemo(() => {
         const activeIds = assignments
             .filter(a => (a.collaboratorId === currentUser.id || (a as any).collaborator_id === currentUser.id) && !a.returnDate)
@@ -46,7 +45,6 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
         return equipment.filter(e => activeIds.includes(e.id));
     }, [assignments, equipment, currentUser.id]);
 
-    // 2. Minhas Licenças (Reposta funcionalidade)
     const myLicenses = useMemo(() => {
         const myEqIds = new Set(myEquipment.map(e => e.id));
         const licenseIds = licenseAssignments
@@ -55,13 +53,11 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
         return softwareLicenses.filter(l => licenseIds.includes(l.id));
     }, [myEquipment, licenseAssignments, softwareLicenses]);
 
-    // 3. Minhas Formações (Reposta funcionalidade)
     const myTrainings = useMemo(() => {
         return trainings.filter(t => t.collaborator_id === currentUser.id)
             .sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
     }, [trainings, currentUser.id]);
 
-    // 4. Políticas Aplicáveis
     const myApplicablePolicies = useMemo(() => {
         const myAcceptanceMap = new Map();
         acceptances.forEach(a => {
@@ -79,11 +75,22 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
           .sort((a, b) => (a.acceptance ? 0 : 1) - (b.acceptance ? 0 : 1));
     }, [policies, acceptances, currentUser]);
 
-    // 5. Meus Tickets Ativos
     const myActiveTickets = useMemo(() => {
         return tickets.filter(t => t.collaboratorId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado')
             .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     }, [tickets, currentUser.id]);
+
+    const CardContainer = ({ title, icon, children, count }: { title: string, icon: React.ReactNode, children: React.ReactNode, count?: number }) => (
+        <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col h-[400px]">
+            <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                <h3 className="font-bold text-white flex items-center gap-2">{icon} {title}</h3>
+                {count !== undefined && <span className="bg-gray-700 px-2 py-0.5 rounded text-xs text-gray-400 font-mono">{count}</span>}
+            </div>
+            <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-grow">
+                {children}
+            </div>
+        </section>
+    );
 
     return (
         <div className="space-y-6 animate-fade-in pb-10">
@@ -95,107 +102,74 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </h2>
                     <p className="text-gray-400 text-sm mt-1">Olá, {currentUser.fullName}. Central de ativos e conformidade pessoal.</p>
                 </div>
-                <div className="text-right text-[10px] text-gray-500 font-mono">
-                    ÚLTIMO SYNC: {new Date().toLocaleTimeString()}
-                </div>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Cartão Equipamentos */}
-                <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
-                    <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-                        <h3 className="font-bold text-white flex items-center gap-2"><FaLaptop className="text-blue-400"/> Equipamentos</h3>
-                    </div>
-                    <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-grow">
-                        {myEquipment.length > 0 ? myEquipment.map(eq => (
-                            <div key={eq.id} onClick={() => onViewEquipment?.(eq)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-blue-500/50 transition-colors cursor-pointer group">
-                                <div className="flex justify-between items-start">
-                                    <p className="font-bold text-white text-sm group-hover:text-blue-300">{eq.description}</p>
-                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-blue-400" />
-                                </div>
-                                <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase">S/N: {eq.serialNumber}</p>
+                <CardContainer title="Equipamentos" icon={<FaLaptop className="text-blue-400"/>} count={myEquipment.length}>
+                    {myEquipment.length > 0 ? myEquipment.map(eq => (
+                        <div key={eq.id} onClick={() => onViewEquipment?.(eq)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-blue-500/50 transition-colors cursor-pointer group">
+                            <div className="flex justify-between items-start">
+                                <p className="font-bold text-white text-sm group-hover:text-blue-300">{eq.description}</p>
+                                <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-blue-400" />
                             </div>
-                        )) : <p className="text-gray-500 text-sm italic text-center py-4">Nenhum equipamento atribuído.</p>}
-                    </div>
-                </section>
+                            <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase">S/N: {eq.serialNumber}</p>
+                        </div>
+                    )) : <p className="text-gray-500 text-sm italic text-center py-4">Nenhum equipamento atribuído.</p>}
+                </CardContainer>
 
-                {/* Cartão Tickets */}
-                <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
-                    <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-                        <h3 className="font-bold text-white flex items-center gap-2"><FaTicketAlt className="text-purple-400"/> Pedidos de Suporte</h3>
-                    </div>
-                    <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-grow">
-                        {myActiveTickets.length > 0 ? myActiveTickets.map(t => (
-                            <div key={t.id} onClick={() => onViewTicket?.(t)} className="w-full text-left bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800 transition-all cursor-pointer group">
-                                <div className="flex justify-between items-start mb-1">
-                                    <p className="font-bold text-white text-sm truncate pr-2 group-hover:text-purple-300">{t.title}</p>
-                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-purple-400" />
-                                </div>
-                                <div className="flex justify-between items-center mt-2">
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-500/30 uppercase">{t.status}</span>
-                                    <p className="text-[9px] text-gray-500 flex items-center gap-1"><FaClock/> {new Date(t.requestDate).toLocaleDateString()}</p>
-                                </div>
+                <CardContainer title="Pedidos de Suporte" icon={<FaTicketAlt className="text-purple-400"/>} count={myActiveTickets.length}>
+                    {myActiveTickets.length > 0 ? myActiveTickets.map(t => (
+                        <div key={t.id} onClick={() => onViewTicket?.(t)} className="w-full text-left bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800 transition-all cursor-pointer group">
+                            <div className="flex justify-between items-start mb-1">
+                                <p className="font-bold text-white text-sm truncate pr-2 group-hover:text-purple-300">{t.title}</p>
+                                <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-purple-400" />
                             </div>
-                        )) : <p className="text-gray-500 text-sm italic text-center py-4">Não tem tickets em aberto.</p>}
-                    </div>
-                </section>
-
-                {/* Cartão Licenças */}
-                <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
-                    <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-                        <h3 className="font-bold text-white flex items-center gap-2"><FaKey className="text-yellow-400"/> Licenças de Software</h3>
-                    </div>
-                    <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-grow">
-                        {myLicenses.length > 0 ? myLicenses.map(lic => (
-                            <div key={lic.id} onClick={() => onViewLicense?.(lic)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-yellow-500/50 transition-colors cursor-pointer group">
-                                <div className="flex justify-between items-start">
-                                    <p className="font-bold text-white text-sm group-hover:text-yellow-300">{lic.productName}</p>
-                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-yellow-400" />
-                                </div>
-                                <p className="text-[10px] text-gray-500 font-mono mt-1 truncate uppercase">{lic.licenseKey}</p>
+                            <div className="flex justify-between items-center mt-2">
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-500/30 uppercase">{t.status}</span>
+                                <p className="text-[9px] text-gray-500 flex items-center gap-1"><FaClock/> {new Date(t.requestDate).toLocaleDateString()}</p>
                             </div>
-                        )) : <p className="text-gray-500 text-sm italic text-center py-4">Sem licenças associadas.</p>}
-                    </div>
-                </section>
+                        </div>
+                    )) : <p className="text-gray-500 text-sm italic text-center py-4">Não tem tickets em aberto.</p>}
+                </CardContainer>
 
-                {/* Cartão Formações */}
-                <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
-                    <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-                        <h3 className="font-bold text-white flex items-center gap-2"><FaGraduationCap className="text-green-400"/> Formações de Segurança</h3>
-                    </div>
-                    <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-grow">
-                        {myTrainings.length > 0 ? myTrainings.map(train => (
-                            <div key={train.id} onClick={() => onViewTraining?.(train)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-green-500/50 transition-colors cursor-pointer group">
-                                <div className="flex justify-between items-start">
-                                    <p className="font-bold text-white text-sm group-hover:text-green-300">{train.training_type}</p>
-                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-green-400" />
-                                </div>
-                                <p className="text-[10px] text-gray-500 mt-1">Concluído em: {new Date(train.completion_date).toLocaleDateString()}</p>
+                <CardContainer title="Licenças de Software" icon={<FaKey className="text-yellow-400"/>} count={myLicenses.length}>
+                    {myLicenses.length > 0 ? myLicenses.map(lic => (
+                        <div key={lic.id} onClick={() => onViewLicense?.(lic)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-yellow-500/50 transition-colors cursor-pointer group">
+                            <div className="flex justify-between items-start">
+                                <p className="font-bold text-white text-sm group-hover:text-yellow-300">{lic.productName}</p>
+                                <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-yellow-400" />
                             </div>
-                        )) : <p className="text-gray-500 text-sm italic text-center py-4">Sem registos de formação.</p>}
-                    </div>
-                </section>
+                            <p className="text-[10px] text-gray-500 font-mono mt-1 truncate uppercase">{lic.licenseKey}</p>
+                        </div>
+                    )) : <p className="text-gray-500 text-sm italic text-center py-4">Sem licenças associadas.</p>}
+                </CardContainer>
 
-                {/* Cartão Políticas */}
-                <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col max-h-[400px]">
-                    <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-                        <h3 className="font-bold text-white flex items-center gap-2"><FaFileSignature className="text-yellow-500"/> Governança & Políticas</h3>
-                    </div>
-                    <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-grow">
-                        {myApplicablePolicies.map(p => (
-                            <button key={p.id} onClick={() => onViewPolicy?.(p)} className={`w-full text-left p-3 rounded border flex flex-col transition-all hover:scale-[1.02] ${p.acceptance ? 'bg-green-900/10 border-green-500/20' : 'bg-red-900/10 border-red-500/30 shadow-lg shadow-red-900/10'}`}>
-                                <div className="flex justify-between items-start w-full">
-                                    <p className="font-bold text-white text-sm line-clamp-1">{p.title}</p>
-                                    {!p.acceptance && <span className="flex h-2 w-2 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span>}
-                                </div>
-                                <div className="mt-2 flex justify-between items-center w-full">
-                                    <span className="text-[9px] text-gray-500 uppercase font-bold">V{p.version}</span>
-                                    {p.acceptance ? <span className="text-[10px] text-green-400 font-bold flex items-center gap-1"><FaCheckCircle/> Aceite</span> : <span className="text-[10px] text-red-400 font-black animate-pulse">Obrigatória</span>}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </section>
+                <CardContainer title="Formações" icon={<FaGraduationCap className="text-green-400"/>} count={myTrainings.length}>
+                    {myTrainings.length > 0 ? myTrainings.map(train => (
+                        <div key={train.id} onClick={() => onViewTraining?.(train)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-green-500/50 transition-colors cursor-pointer group">
+                            <div className="flex justify-between items-start">
+                                <p className="font-bold text-white text-sm group-hover:text-green-300">{train.training_type}</p>
+                                <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-green-400" />
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-1">Concluído em: {new Date(train.completion_date).toLocaleDateString()}</p>
+                        </div>
+                    )) : <p className="text-gray-500 text-sm italic text-center py-4">Sem registos de formação.</p>}
+                </CardContainer>
+
+                <CardContainer title="Governança & Políticas" icon={<FaFileSignature className="text-yellow-500"/>} count={myApplicablePolicies.length}>
+                    {myApplicablePolicies.map(p => (
+                        <button key={p.id} onClick={() => onViewPolicy?.(p)} className={`w-full text-left p-3 rounded border flex flex-col transition-all hover:scale-[1.02] ${p.acceptance ? 'bg-green-900/10 border-green-500/20' : 'bg-red-900/10 border-red-500/30 shadow-lg shadow-red-900/10'}`}>
+                            <div className="flex justify-between items-start w-full">
+                                <p className="font-bold text-white text-sm line-clamp-1">{p.title}</p>
+                                {!p.acceptance && <span className="flex h-2 w-2 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span>}
+                            </div>
+                            <div className="mt-2 flex justify-between items-center w-full">
+                                <span className="text-[9px] text-gray-500 uppercase font-bold">V{p.version}</span>
+                                {p.acceptance ? <span className="text-[10px] text-green-400 font-bold flex items-center gap-1"><FaCheckCircle/> Aceite</span> : <span className="text-[10px] text-red-400 font-black animate-pulse">Obrigatória</span>}
+                            </div>
+                        </button>
+                    ))}
+                </CardContainer>
             </div>
         </div>
     );
