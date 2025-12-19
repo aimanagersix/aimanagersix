@@ -1,7 +1,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import * as dataService from '../services/dataService';
-import { Ticket, TicketCategoryItem, SecurityIncidentTypeItem, Team, TeamMember, CalendarEvent, TicketActivity, Message } from '../types';
+import { Ticket, TicketCategoryItem, SecurityIncidentTypeItem, Team, TeamMember, CalendarEvent, TicketActivity, Message, ConfigItem } from '../types';
 
 export const useSupport = (isConfigured: boolean) => {
     const [data, setData] = useState({
@@ -11,9 +11,9 @@ export const useSupport = (isConfigured: boolean) => {
         teams: [] as Team[],
         teamMembers: [] as TeamMember[],
         calendarEvents: [] as CalendarEvent[],
-        // Fix: Added missing properties to hook state
         ticketActivities: [] as TicketActivity[],
-        messages: [] as Message[]
+        messages: [] as Message[],
+        configTicketStatuses: [] as ConfigItem[] // Adicionado
     });
     const [isLoading, setIsLoading] = useState(false);
 

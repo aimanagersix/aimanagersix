@@ -231,6 +231,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 { id: 'config_cpus', label: 'CPUs', icon: <FaMicrochip /> },
                 { id: 'config_ram_sizes', label: 'RAM', icon: <FaMemory /> },
                 { id: 'config_storage_types', label: 'Discos', icon: <FaHdd /> },
+                { id: 'contact_roles', label: 'Papéis de Contacto', icon: <FaUserTag /> }, // Adicionado
+                { id: 'contact_titles', label: 'Tratos / Títulos', icon: <FaUserTag /> }, // Adicionado
             ]
         }
     ];
@@ -246,6 +248,8 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: safeData(appData.configRamSizes) },
         'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: safeData(appData.configStorageTypes) },
         'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
+        'contact_roles': { label: 'Papéis de Contacto Externo', icon: <FaUserTag/>, data: safeData(appData.contactRoles) }, // Adicionado
+        'contact_titles': { label: 'Tratos Honoríficos', icon: <FaUserTag/>, data: safeData(appData.contactTitles) }, // Adicionado
     }), [appData]);
 
     const renderContent = () => {

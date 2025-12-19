@@ -40,6 +40,8 @@ export interface AppData {
     softwareCategories: ConfigItem[];
     softwareProducts: SoftwareProduct[];
     configEquipmentStatuses: ConfigItem[];
+    configTicketStatuses: ConfigItem[]; // Adicionado
+    configLicenseStatuses: ConfigItem[]; // Adicionado
     contactRoles: ContactRole[];
     contactTitles: ContactTitle[];
     configCriticalityLevels: ConfigItem[];
@@ -70,7 +72,11 @@ const initialData: AppData = {
     messages: [], collaboratorHistory: [], ticketCategories: [], securityIncidentTypes: [], 
     businessServices: [], serviceDependencies: [], vulnerabilities: [], suppliers: [], 
     backupExecutions: [], resilienceTests: [], securityTrainings: [], customRoles: [], 
-    softwareCategories: [], softwareProducts: [], configEquipmentStatuses: [], contactRoles: [], contactTitles: [], 
+    softwareCategories: [], softwareProducts: [], 
+    configEquipmentStatuses: [], 
+    configTicketStatuses: [], // Adicionado
+    configLicenseStatuses: [], // Adicionado
+    contactRoles: [], contactTitles: [], 
     configCriticalityLevels: [], configCiaRatings: [], configServiceStatuses: [], 
     configBackupTypes: [], configTrainingTypes: [], configResilienceTestTypes: [],
     configDecommissionReasons: [], configCollaboratorDeactivationReasons: [],
@@ -81,28 +87,19 @@ const initialData: AppData = {
 };
 
 export const useAppData = () => {
-    // --- Authentication & Setup State ---
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
-        // 1. Vite Direct
         // @ts-ignore
         const viteUrl = import.meta.env.VITE_SUPABASE_URL;
         // @ts-ignore
         const viteKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
         if (viteUrl && viteKey) return true;
-
-        // 2. Process Env (via define in vite.config.ts)
         // @ts-ignore
         const processUrl = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_URL : null;
         // @ts-ignore
         const processKey = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_ANON_KEY : null;
-
         if (processUrl && processKey) return true;
-
-        // 3. LocalStorage
         const storageUrl = localStorage.getItem('SUPABASE_URL');
         const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
-        
         return !!(storageUrl && storageKey);
     });
     
@@ -110,14 +107,12 @@ export const useAppData = () => {
     const [appData, setAppData] = useState<AppData>(initialData);
     const [isLoading, setIsLoading] = useState(true);
 
-    // --- Data Loading ---
     const loadData = useCallback(async () => {
         if (!isConfigured) return;
         try {
             const data = await dataService.fetchAllData();
             
             setAppData({
-                // Fix: Properly map all fields from the combined data fetch result
                 equipment: data.equipment, 
                 brands: data.brands,
                 equipmentTypes: data.equipmentTypes,
@@ -146,6 +141,8 @@ export const useAppData = () => {
                 softwareCategories: data.softwareCategories,
                 softwareProducts: data.softwareProducts,
                 configEquipmentStatuses: data.configEquipmentStatuses,
+                configTicketStatuses: data.configTicketStatuses || [], // Mapeado
+                configLicenseStatuses: data.configLicenseStatuses || [], // Mapeado
                 contactRoles: data.contactRoles,
                 contactTitles: data.contactTitles,
                 configCriticalityLevels: data.configCriticalityLevels,
@@ -173,7 +170,6 @@ export const useAppData = () => {
         }
     }, [isConfigured]);
 
-    // --- Initial Check & Polling ---
     useEffect(() => {
         const checkConfig = async () => {
              setIsLoading(true);
@@ -192,7 +188,6 @@ export const useAppData = () => {
                     }
                 }
             } catch (e) {
-                // If getSupabase fails, it throws error, so we catch it here and show setup screen
                 setIsConfigured(false);
                 console.error("Config check failed", e);
             } finally {

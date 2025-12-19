@@ -87,7 +87,7 @@ export const fetchInventoryData = async () => {
         {data: eq}, {data: brands}, {data: types}, {data: assignments}, 
         {data: licenses}, {data: licenseAssignments}, {data: procurement},
         {data: softwareCats}, {data: softwareProds}, {data: suppliers},
-        {data: eqStatuses}, {data: cpus}, {data: ram}, {data: storage},
+        {data: eqStatuses}, {data: licStatuses}, {data: cpus}, {data: ram}, {data: storage},
         {data: accounting}, {data: conservation}, {data: decomm},
         {data: jobTitles}, {data: deactivReasons}
     ] = await Promise.all([
@@ -102,6 +102,7 @@ export const fetchInventoryData = async () => {
         sb().from('config_software_products').select('*'),
         sb().from('suppliers').select('*'),
         sb().from('config_equipment_statuses').select('*'),
+        sb().from('config_license_statuses').select('*'),
         sb().from('config_cpus').select('*'),
         sb().from('config_ram_sizes').select('*'),
         sb().from('config_storage_types').select('*'),
@@ -116,7 +117,9 @@ export const fetchInventoryData = async () => {
         assignments: assignments || [], softwareLicenses: licenses || [], 
         licenseAssignments: licenseAssignments || [], procurementRequests: procurement || [],
         softwareCategories: softwareCats || [], softwareProducts: softwareProds || [],
-        suppliers: suppliers || [], configEquipmentStatuses: eqStatuses || [],
+        suppliers: suppliers || [], 
+        configEquipmentStatuses: eqStatuses || [],
+        configLicenseStatuses: licStatuses || [],
         configCpus: cpus || [], configRamSizes: ram || [], configStorageTypes: storage || [],
         configAccountingCategories: accounting || [], configConservationStates: conservation || [],
         configDecommissionReasons: decomm || [],
@@ -127,7 +130,7 @@ export const fetchInventoryData = async () => {
 
 export const fetchSupportData = async () => {
     const [
-        {data: tickets}, {data: cats}, {data: incidentTypes}, {data: teams}, {data: members}, {data: calendar}, {data: activities}, {data: msgs}
+        {data: tickets}, {data: cats}, {data: incidentTypes}, {data: teams}, {data: members}, {data: calendar}, {data: activities}, {data: msgs}, {data: tickStatuses}
     ] = await Promise.all([
         sb().from('tickets').select('*'),
         sb().from('ticket_categories').select('*'),
@@ -136,14 +139,19 @@ export const fetchSupportData = async () => {
         sb().from('team_members').select('*'),
         sb().from('calendar_events').select('*'),
         sb().from('ticket_activities').select('*'),
-        sb().from('messages').select('*')
+        sb().from('messages').select('*'),
+        sb().from('config_ticket_statuses').select('*')
     ]);
     return {
-        tickets: tickets || [], ticketCategories: cats || [], 
-        securityIncidentTypes: incidentTypes || [], teams: teams || [], 
-        teamMembers: members || [], calendarEvents: calendar || [],
+        tickets: tickets || [], 
+        ticketCategories: cats || [], 
+        securityIncidentTypes: incidentTypes || [], 
+        teams: teams || [], 
+        teamMembers: members || [], 
+        calendarEvents: calendar || [],
         ticketActivities: activities || [],
-        messages: msgs || []
+        messages: msgs || [],
+        configTicketStatuses: tickStatuses || []
     };
 };
 

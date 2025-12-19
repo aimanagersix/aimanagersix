@@ -16,13 +16,13 @@ export const useInventory = (isConfigured: boolean) => {
         softwareProducts: [] as SoftwareProduct[],
         suppliers: [] as any[],
         configEquipmentStatuses: [] as ConfigItem[],
+        configLicenseStatuses: [] as ConfigItem[], // Adicionado
         configCpus: [] as ConfigItem[],
         configRamSizes: [] as ConfigItem[],
         configStorageTypes: [] as ConfigItem[],
         configAccountingCategories: [] as ConfigItem[],
         configConservationStates: [] as ConfigItem[],
         configDecommissionReasons: [] as ConfigItem[],
-        // Fix: Added missing properties to hook state
         configJobTitles: [] as JobTitle[],
         configCollaboratorDeactivationReasons: [] as ConfigItem[]
     });
