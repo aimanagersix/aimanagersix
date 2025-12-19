@@ -22,7 +22,7 @@ import MapDashboard from './components/MapDashboard';
 import SettingsManager from './features/settings/SettingsManager';
 import { getSupabase } from './services/supabaseClient';
 import * as dataService from './services/dataService';
-import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy, Assignment } from './types';
+import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy } from './types';
 import AgendaDashboard from './components/AgendaDashboard';
 
 // Atomics Hooks
@@ -64,62 +64,36 @@ export const App: React.FC = () => {
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
 
-    // 4. Permission Checking Logic
-    const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
-        if (!currentUser) return false;
-        if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
-        
-        const role = org.data.customRoles.find(r => r.name === currentUser.role);
-        if (!role || !role.permissions) return false;
-        
-        const modulePerms = role.permissions[module] || {};
-        if (action === 'view' && modulePerms['view_own']) return true;
-        return !!modulePerms[action];
-    }, [currentUser, org.data.customRoles]);
+    // 4. Backward Compatibility Layer (Recombines atomic state into the monolithic appData object)
+    // This ensures NO component needs to be refactored (Freeze UI/Zero Refactoring constraint)
+    const appData = useMemo(() => ({
+        ...org.data,
+        ...inv.data,
+        ...support.data,
+        ...compliance.data,
+        // Fix: Use data from hooks to satisfy AppData interface fully
+    }), [org.data, inv.data, support.data, compliance.data]);
 
-    // 5. Data Compatibility & Protection Layer
-    const appData = useMemo(() => {
-        const rawData = {
-            ...org.data,
-            ...inv.data,
-            ...support.data,
-            ...compliance.data,
-            messages: []
-        };
-
-        // If not admin, restrict equipment data sent to managers
-        if (currentUser && !checkPermission('equipment', 'view')) {
-            const myEquipmentIds = new Set(
-                rawData.assignments
-                    .filter((a: Assignment) => a.collaboratorId === currentUser.id && !a.returnDate)
-                    .map((a: Assignment) => a.equipmentId)
-            );
-            rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
-        }
-
-        return rawData;
-    }, [org.data, inv.data, support.data, compliance.data, currentUser, checkPermission]);
-
-    const refreshAll = useCallback(async () => {
-        await Promise.all([
-            org.refresh(),
-            inv.refresh(),
-            support.refresh(),
-            compliance.refresh()
-        ]);
+    const refreshAll = useCallback(() => {
+        org.refresh();
+        inv.refresh();
+        support.refresh();
+        compliance.refresh();
     }, [org, inv, support, compliance]);
 
-    // 6. Auth Logic
+    // 5. Auth Logic
     useEffect(() => {
         const supabase = getSupabase();
         supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
             setSession(currentSession);
             if (currentSession?.user) {
+                // Find current collaborator
                 const user = org.data.collaborators.find(c => c.email === currentSession.user.email);
                 if (user) {
                     setCurrentUser(user);
                     setIsAppLoading(false);
                 } else if (org.data.collaborators.length > 0) {
+                    // Collaborators loaded but user not found? (Maybe RLS or new user)
                     setIsAppLoading(false);
                 }
             } else {
@@ -133,6 +107,18 @@ export const App: React.FC = () => {
         return () => subscription.unsubscribe();
     }, [org.data.collaborators]);
 
+    const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
+        if (!currentUser) return false;
+        if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
+        
+        const role = org.data.customRoles.find(r => r.name === currentUser.role);
+        if (!role || !role.permissions) return false;
+        
+        const modulePerms = role.permissions[module] || {};
+        if (action === 'view' && modulePerms['view_own']) return true;
+        return !!modulePerms[action];
+    }, [currentUser, org.data.customRoles]);
+
     const tabConfig = useMemo(() => {
         const canSeeMyArea = checkPermission('my_area', 'view');
         const canSeeKpis = checkPermission('widget_kpi_cards', 'view');
@@ -141,7 +127,7 @@ export const App: React.FC = () => {
             'overview': canSeeMyArea || canSeeKpis,
             'my_area': canSeeMyArea,
             'overview.smart': checkPermission('dashboard_smart', 'view'),
-            'equipment.inventory': checkPermission('equipment', 'view') || checkPermission('equipment', 'view_own'),
+            'equipment.inventory': checkPermission('equipment', 'view'),
             'equipment.procurement': checkPermission('procurement', 'view'),
             'licensing': checkPermission('licensing', 'view'),
             'organizacao.instituicoes': checkPermission('organization', 'view'),
@@ -149,7 +135,7 @@ export const App: React.FC = () => {
             'collaborators': checkPermission('organization', 'view'),
             'organizacao.teams': checkPermission('organization', 'view'),
             'organizacao.suppliers': checkPermission('suppliers', 'view'),
-            'tickets': checkPermission('tickets', 'view') || checkPermission('tickets', 'view_own'),
+            'tickets': checkPermission('tickets', 'view'),
             'reports': checkPermission('reports', 'view'),
             'settings': checkPermission('settings', 'view'),
             'nis2': {
@@ -177,7 +163,7 @@ export const App: React.FC = () => {
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A carregar ambiente seguro...</div>;
+    if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">Carregando Contexto Atómico...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
