@@ -40,7 +40,7 @@ export const App: React.FC = () => {
     const { t } = useLanguage();
 
     // 1. Session & Global Config State
-    // Melhora: Bypass agressivo se as chaves estiverem no ambiente (process.env)
+    // Melhora: Se houver qualquer indício de chaves no ambiente ou storage, pula o setup.
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
         const envUrl = process.env.SUPABASE_URL;
         const envKey = process.env.SUPABASE_ANON_KEY;
