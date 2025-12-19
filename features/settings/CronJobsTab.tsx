@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaShieldAlt, FaSync, FaTerminal, FaBullhorn } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaShieldAlt, FaSync, FaTerminal, FaBullhorn, FaInfoCircle, FaExternalLinkAlt, FaCode } from 'react-icons/fa';
 import { getSupabase } from '../../services/supabaseClient';
 
 interface CronJobsTabProps {
@@ -25,19 +25,14 @@ AS $$
 DECLARE
     v_client_id text;
     v_client_secret text;
-    v_token_resp record;
-    v_alerts_resp record;
 BEGIN
     SELECT setting_value INTO v_client_id FROM global_settings WHERE setting_key = 'sophos_client_id';
     SELECT setting_value INTO v_client_secret FROM global_settings WHERE setting_key = 'sophos_client_secret';
 
-    IF v_client_id IS NULL OR v_client_secret IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'message', 'Credenciais Sophos não encontradas em Conexões.');
+    IF v_client_id IS NULL OR v_client_secret IS NULL OR v_client_id = '' THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Credenciais Sophos não configuradas.');
     END IF;
 
-    -- Lógica de chamada HTTP à API Sophos (Requer extensão http instalada)
-    -- ... (Lógica simplificada para exemplo, a App trata o bypass via Edge Functions)
-    
     RETURN jsonb_build_object('success', true, 'message', 'Sincronização agendada via Edge Function.');
 END;
 $$;
@@ -85,7 +80,7 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                 <div>
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">Sincronização Sophos Central</h3>
                                     <p className="text-sm text-gray-300 mt-1">
-                                        Busca automática de alertas críticos e criação de tickets NIS2.
+                                        Esta funcionalidade requer que a **Edge Function** esteja publicada no seu Supabase.
                                     </p>
                                 </div>
                                 <button 
@@ -93,13 +88,34 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                     disabled={isSyncingSophos}
                                     className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded flex items-center gap-2 transition-all shadow-lg disabled:opacity-50"
                                 >
-                                    {isSyncingSophos ? <FaSpinner className="animate-spin"/> : <FaSync />} Sincronizar Agora
+                                    {isSyncingSophos ? <FaSpinner className="animate-spin"/> : <FaSync />} Executar Sincronização
                                 </button>
                             </div>
                         </div>
 
+                        {/* Painel de Ajuda CLI */}
+                        <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg">
+                            <h4 className="text-blue-300 font-bold text-sm mb-3 flex items-center gap-2">
+                                <FaTerminal /> Como publicar a função (CLI)
+                            </h4>
+                            <div className="space-y-3 text-xs text-gray-400">
+                                <p>Execute estes comandos no terminal do seu computador para ativar a sincronização:</p>
+                                <div className="space-y-2">
+                                    <div className="bg-black/40 p-2 rounded flex justify-between items-center group">
+                                        <code className="text-blue-200">supabase functions deploy sync-sophos</code>
+                                        <button onClick={() => handleCopy('supabase functions deploy sync-sophos', 'cmd_deploy')} className="opacity-0 group-hover:opacity-100 text-blue-400"><FaCopy/></button>
+                                    </div>
+                                    <div className="bg-black/40 p-2 rounded flex justify-between items-center group">
+                                        <code className="text-blue-200">supabase secrets set GEMINI_API_KEY=sua_chave</code>
+                                        <button onClick={() => handleCopy('supabase secrets set GEMINI_API_KEY=', 'cmd_sec')} className="opacity-0 group-hover:opacity-100 text-blue-400"><FaCopy/></button>
+                                    </div>
+                                </div>
+                                <p className="flex items-center gap-2 mt-2"><FaInfoCircle/> Após o deploy, o botão "Executar" acima deixará de dar erro.</p>
+                            </div>
+                        </div>
+
                         <div className="bg-black/30 p-4 rounded-lg border border-gray-700">
-                            <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FaTerminal className="text-yellow-500"/> Script de Agendamento (SQL)</h4>
+                            <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FaCode className="text-yellow-500"/> Estrutura SQL Auxiliar</h4>
                             <div className="relative">
                                 <pre className="text-[10px] font-mono text-gray-400 bg-gray-900 p-3 rounded border border-gray-700 overflow-x-auto max-h-48 custom-scrollbar">
                                     {sophosSyncSql}

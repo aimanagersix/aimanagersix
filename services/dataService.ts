@@ -198,10 +198,7 @@ export const addAssignment = async (assignment: any) => {
 };
 
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
-    // CORREÇÃO: Usar nomes de colunas camelCase entre aspas para garantir persistência no Postgres
     const nowStr = new Date().toISOString().split('T')[0];
-    
-    // Terminar as atuais
     const { error: updateError } = await sb()
         .from('license_assignments')
         .update({ returnDate: nowStr })
@@ -210,7 +207,6 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
     
     if (updateError) throw updateError;
 
-    // Inserir as novas
     if (licenseIds.length > 0) {
         const items = licenseIds.map(id => ({ 
             equipmentId, 
@@ -220,7 +216,6 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
         const { error: insertError } = await sb()
             .from('license_assignments')
             .insert(items);
-            
         if (insertError) throw insertError;
     }
 };
@@ -298,7 +293,16 @@ export const fetchTicketsPaginated = async (params: {
     return { data: data || [], total: count || 0 };
 };
 
-// ... Rest of service functions kept to satisfy Zero Refactoring
+export const triggerSophosSync = async () => {
+    // CORREÇÃO: Passar headers vazios se necessário para contornar problemas de invocação
+    const { error } = await sb().functions.invoke('sync-sophos', { 
+        body: {},
+        headers: { "Content-Type": "application/json" }
+    }); 
+    if (error) throw error; 
+};
+
+// ... Rest of service functions
 export const addMultipleEquipment = async (items: any[]) => { const { error } = await sb().from('equipment').insert(items); if (error) throw error; };
 export const deleteEquipment = async (id: string) => { const { error } = await sb().from('equipment').delete().eq('id', id); if (error) throw error; };
 export const addBrand = async (brand: any) => { const { data, error } = await sb().from('brands').insert(brand).select().single(); if (error) throw error; return data; };
@@ -389,5 +393,4 @@ export const deleteSoftwareProduct = async (id: string) => { await sb().from('co
 export const addJobTitle = async (j: any) => { const { data, error } = await sb().from('config_job_titles').insert(j).select().single(); if (error) throw error; return data; };
 export const runSystemDiagnostics = async (): Promise<DiagnosticResult[]> => { const results: DiagnosticResult[] = []; try { await sb().from('equipment').select('id').limit(1); results.push({ module: 'Database Connectivity', status: 'Success', message: 'Successfully reached Supabase.' }); } catch (e: any) { results.push({ module: 'Database Connectivity', status: 'Failure', message: e.message }); } return results; };
 export const triggerBirthdayCron = async () => { const { error } = await sb().rpc('send_daily_birthday_emails'); if (error) throw error; };
-export const triggerSophosSync = async () => { const { error } = await sb().functions.invoke('sync-sophos', { body: {} }); if (error) throw error; };
 export const snoozeNotification = (id: string) => { const existing = localStorage.getItem('snoozed_notifications'); let snoozed = existing ? JSON.parse(existing) : []; const until = new Date(); until.setDate(until.getDate() + 7); snoozed.push({ id, until: until.toISOString() }); localStorage.setItem('snoozed_notifications', JSON.stringify(snoozed)); };
