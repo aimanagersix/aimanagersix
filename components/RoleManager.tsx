@@ -21,9 +21,13 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
         label: 'Área Pessoal & Dashboard',
         items: [
             { key: 'my_area', label: 'Minha Área', isSimpleAccess: true },
-            { key: 'widget_alerts', label: 'Alertas Segurança', isSimpleAccess: true },
-            { key: 'widget_kpi_cards', label: 'KPIs Globais', isSimpleAccess: true },
-            { key: 'dashboard_smart', label: 'C-Level / Gestão', isSimpleAccess: true },
+            { key: 'widget_alerts', label: 'Dashboard: Alertas Segurança', isSimpleAccess: true },
+            { key: 'widget_kpi_cards', label: 'Dashboard: Cartões KPI Principais', isSimpleAccess: true },
+            { key: 'widget_inventory_charts', label: 'Dashboard: Gráficos Inventário', isSimpleAccess: true },
+            { key: 'widget_financial', label: 'Dashboard: Visão Financeira', isSimpleAccess: true },
+            { key: 'widget_operational_charts', label: 'Dashboard: Gráficos Operacionais', isSimpleAccess: true },
+            { key: 'widget_activity', label: 'Dashboard: Atividade Recente', isSimpleAccess: true },
+            { key: 'dashboard_smart', label: 'Dashboard: C-Level / Gestão', isSimpleAccess: true },
         ]
     },
     {
@@ -43,6 +47,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'compliance_bia', label: 'Impacto (BIA)' },
             { key: 'compliance_security', label: 'Vulnerabilidades' },
             { key: 'compliance_backups', label: 'Backups', supportsOwn: true },
+            { key: 'compliance_resilience', label: 'Resiliência', supportsOwn: true },
             { key: 'compliance_training', label: 'Formações', supportsOwn: true },
             { key: 'compliance_policies', label: 'Políticas', supportsOwn: true },
         ]

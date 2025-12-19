@@ -147,6 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab} />}
                 {tabConfig['reports'] && <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab} />}
 
+                {/* Tools Menu - Fixed visibility for Admin/SuperAdmin */}
                 <div className="space-y-1">
                     <button onClick={() => setIsToolsOpen(!isToolsOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
                         <div className="flex items-center gap-3 overflow-hidden">
