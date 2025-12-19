@@ -57,29 +57,32 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- REPARAÇÃO MASTER v6.2 (CORREÇÃO DE COLUNAS CAMELCASE)
--- Resolve: ERROR 42703 (equipmentId does not exist) e Isolamento Real.
+-- REPARAÇÃO MASTER v6.3 (RESILIÊNCIA DE SCHEMAS MISTOS)
+-- Resolve: ERROR 42703 (returnDate does not exist) mantendo camelCase em IDs.
 -- ==================================================================================
 
 -- 1. LIMPEZA TOTAL DE POLÍTICAS ANTERIORES
 DROP POLICY IF EXISTS "equipment_isolation_policy" ON public.equipment;
 DROP POLICY IF EXISTS "equipment_isolation_v6" ON public.equipment;
 DROP POLICY IF EXISTS "equipment_isolation_v6_1" ON public.equipment;
+DROP POLICY IF EXISTS "equipment_isolation_v6_2" ON public.equipment;
 DROP POLICY IF EXISTS "licenses_isolation_policy" ON public.software_licenses;
 DROP POLICY IF EXISTS "licenses_isolation_v6" ON public.software_licenses;
 DROP POLICY IF EXISTS "licenses_isolation_v6_1" ON public.software_licenses;
-DROP POLICY IF EXISTS "instituicoes_read_policy" ON public.instituicoes;
-DROP POLICY IF EXISTS "entidades_read_policy" ON public.entidades;
+DROP POLICY IF EXISTS "licenses_isolation_v6_2" ON public.software_licenses;
 DROP POLICY IF EXISTS "org_read_v6" ON public.instituicoes;
 DROP POLICY IF EXISTS "org_read_v6_1" ON public.instituicoes;
+DROP POLICY IF EXISTS "org_read_v6_2" ON public.instituicoes;
 DROP POLICY IF EXISTS "entidades_read_v6" ON public.entidades;
 DROP POLICY IF EXISTS "entidades_read_v6_1" ON public.entidades;
+DROP POLICY IF EXISTS "entidades_read_v6_2" ON public.entidades;
 DROP POLICY IF EXISTS "collab_read_v6" ON public.collaborators;
 DROP POLICY IF EXISTS "collab_read_v6_1" ON public.collaborators;
+DROP POLICY IF EXISTS "collab_read_v6_2" ON public.collaborators;
 
--- 2. POLÍTICA DE EQUIPAMENTOS (CORREÇÃO DE NOMES DE COLUNA)
--- Nota: Usamos "equipmentId", "collaboratorId" e "returnDate" com aspas.
-CREATE POLICY "equipment_isolation_v6_2" ON public.equipment
+-- 2. POLÍTICA DE EQUIPAMENTOS (HÍBRIDA)
+-- Nota: Usamos "equipmentId" e "collaboratorId" (camelCase) mas return_date (snake_case)
+CREATE POLICY "equipment_isolation_v6_3" ON public.equipment
 FOR SELECT TO authenticated
 USING (
   (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
@@ -87,12 +90,12 @@ USING (
   id IN (
     SELECT "equipmentId" FROM public.assignments 
     WHERE ("collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'))
-    AND "returnDate" IS NULL
+    AND return_date IS NULL
   )
 );
 
--- 3. POLÍTICA DE LICENÇAS (CORREÇÃO DE NOMES DE COLUNA)
-CREATE POLICY "licenses_isolation_v6_2" ON public.software_licenses
+-- 3. POLÍTICA DE LICENÇAS (HÍBRIDA)
+CREATE POLICY "licenses_isolation_v6_3" ON public.software_licenses
 FOR SELECT TO authenticated
 USING (
   (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
@@ -102,16 +105,16 @@ USING (
     WHERE "equipmentId" IN (
        SELECT "equipmentId" FROM public.assignments 
        WHERE ("collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'))
-       AND "returnDate" IS NULL
+       AND return_date IS NULL
     )
-    AND "returnDate" IS NULL
+    AND return_date IS NULL
   )
 );
 
 -- 4. PERMISSÃO DE LEITURA PARA TRADUÇÃO DE NOMES (Minha Área)
-CREATE POLICY "org_read_v6_2" ON public.instituicoes FOR SELECT TO authenticated USING (true);
-CREATE POLICY "entidades_read_v6_2" ON public.entidades FOR SELECT TO authenticated USING (true);
-CREATE POLICY "collab_read_v6_2" ON public.collaborators FOR SELECT TO authenticated USING (true);
+CREATE POLICY "org_read_v6_3" ON public.instituicoes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "entidades_read_v6_3" ON public.entidades FOR SELECT TO authenticated USING (true);
+CREATE POLICY "collab_read_v6_3" ON public.collaborators FOR SELECT TO authenticated USING (true);
 
 -- 5. ATIVAÇÃO DO RLS
 ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
@@ -129,15 +132,15 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> Reparação v6.2 (Correct CamelCase)
+                        <FaTerminal /> Reparação v6.3 (Mixed Schema)
                     </button>
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaShieldAlt /> Correção CamelCase Ativada</div>
-                                <p>Este script utiliza as aspas duplas <code>"columnName"</code> para garantir que o PostgreSQL reconheça as colunas camelCase da sua base de dados, evitando o erro 42703.</p>
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaShieldAlt /> Correção de Schema Detectada</div>
+                                <p>Este script ajusta o campo de data para <code>return_date</code> (padrão) enquanto preserva os IDs em camelCase que o seu banco utiliza. Copie e execute no editor SQL do Supabase.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">
