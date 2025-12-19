@@ -40,8 +40,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     // 1. Meus Equipamentos
     const myEquipment = useMemo(() => {
         const activeIds = assignments
-            .filter(a => a.collaboratorId === currentUser.id && !a.returnDate)
-            .map(a => a.equipmentId);
+            .filter(a => (a.collaboratorId === currentUser.id || (a as any).collaborator_id === currentUser.id) && !a.returnDate)
+            .map(a => a.equipmentId || (a as any).equipment_id);
         return equipment.filter(e => activeIds.includes(e.id));
     }, [assignments, equipment, currentUser.id]);
 
@@ -49,8 +49,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     const myLicenses = useMemo(() => {
         const myEqIds = new Set(myEquipment.map(e => e.id));
         const licenseIds = licenseAssignments
-            .filter(la => myEqIds.has(la.equipmentId) && !la.returnDate)
-            .map(la => la.softwareLicenseId);
+            .filter(la => myEqIds.has(la.equipmentId || (la as any).equipment_id) && !la.returnDate)
+            .map(la => la.softwareLicenseId || (la as any).software_license_id);
         return softwareLicenses.filter(l => licenseIds.includes(l.id));
     }, [myEquipment, licenseAssignments, softwareLicenses]);
 
@@ -142,10 +142,10 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 space-y-3 flex-grow max-h-80 overflow-y-auto custom-scrollbar">
                         {myActiveTickets.length > 0 ? myActiveTickets.map(t => (
-                            <button 
+                            <div 
                                 key={t.id} 
                                 onClick={() => onViewTicket?.(t)}
-                                className="w-full text-left bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800 transition-all group"
+                                className="w-full text-left bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800 transition-all cursor-pointer group"
                             >
                                 <div className="flex justify-between items-start mb-1">
                                     <p className="font-bold text-white text-sm truncate pr-2 group-hover:text-purple-300">{t.title}</p>
@@ -155,7 +155,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-500/30 uppercase">{t.status}</span>
                                     <p className="text-[9px] text-gray-500 flex items-center gap-1"><FaClock/> {new Date(t.requestDate).toLocaleDateString()}</p>
                                 </div>
-                            </button>
+                            </div>
                         )) : <p className="text-gray-500 text-sm italic text-center py-4">Não tem tickets em aberto.</p>}
                     </div>
                 </section>

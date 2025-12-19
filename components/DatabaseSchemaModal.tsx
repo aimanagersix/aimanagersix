@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaTerminal, FaShieldAlt, FaTable, FaCode, FaRobot, FaMagic, FaPlay, FaBolt, FaCogs, FaSpinner, FaSeedling, FaEye, FaExclamationTriangle } from 'react-icons/fa';
+/* Added FaCheckCircle to imports */
+import { FaDatabase, FaCheck, FaCopy, FaTerminal, FaShieldAlt, FaTable, FaCode, FaRobot, FaMagic, FaPlay, FaBolt, FaCogs, FaSpinner, FaSeedling, FaEye, FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa';
 import { generateSqlHelper, generatePlaywrightTest } from '../services/geminiService';
 import * as dataService from '../services/dataService';
 import { DbPolicy, DbTrigger, DbFunction } from '../types';
@@ -58,59 +59,44 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- REPARAÇÃO MASTER v4.9 (PERSISTÊNCIA DE LICENÇAS E ACESSO SELF-SERVICE)
--- Resolve: Erro ao gravar licenças e bloqueio de cliques na Minha Área
+-- REPARAÇÃO MASTER v5.0 (FINAL FIX: DATA ISOLATION & LICENSES)
+-- Resolve: Utilizador a ver equipamentos de outros e licenças invisíveis
 -- ==================================================================================
 
--- 1. NORMALIZAÇÃO RIGOROSA DA TABELA 'license_assignments'
+-- 1. NORMALIZAÇÃO FINAL DE COLUNAS (Garante compatibilidade total com JS camelCase)
 DO $$ 
 BEGIN
-  -- Normalizar equipmentId (Garante que o Postgres reconhece camelCase via aspas)
+  -- Tabela assignments
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='assignments' AND column_name='equipment_id') THEN
+    ALTER TABLE public.assignments RENAME COLUMN equipment_id TO "equipmentId";
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='assignments' AND column_name='collaborator_id') THEN
+    ALTER TABLE public.assignments RENAME COLUMN collaborator_id TO "collaboratorId";
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='assignments' AND column_name='entidade_id') THEN
+    ALTER TABLE public.assignments RENAME COLUMN entidade_id TO "entidadeId";
+  END IF;
+
+  -- Tabela license_assignments
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='equipment_id') THEN
     ALTER TABLE public.license_assignments RENAME COLUMN equipment_id TO "equipmentId";
   END IF;
-
-  -- Normalizar softwareLicenseId
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='software_license_id') THEN
     ALTER TABLE public.license_assignments RENAME COLUMN software_license_id TO "softwareLicenseId";
   END IF;
-
-  -- Normalizar datas
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='assigned_date') THEN
-    ALTER TABLE public.license_assignments RENAME COLUMN assigned_date TO "assignedDate";
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='return_date') THEN
-    ALTER TABLE public.license_assignments RENAME COLUMN return_date TO "returnDate";
-  END IF;
 END $$;
 
--- 2. REVISÃO DE POLÍTICAS RLS PARA GRAVAÇÃO
+-- 2. REFORÇO DE RLS PARA LICENÇAS (Permite ver se o equipamento for dele)
 ALTER TABLE public.license_assignments ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow management of license assignments" ON public.license_assignments;
-DROP POLICY IF EXISTS "Users can view assigned licenses" ON public.license_assignments;
+DROP POLICY IF EXISTS "Enable license assignment management" ON public.license_assignments;
+DROP POLICY IF EXISTS "Users view own equipment licenses" ON public.license_assignments;
 
--- Permitir INSERT/UPDATE/DELETE para Admins e Técnicos (ou quem tem permissão explícita)
-CREATE POLICY "Enable license assignment management" 
-ON public.license_assignments
-FOR ALL 
-TO authenticated 
-USING (
-    public.has_permission('licensing', 'edit') 
-    OR public.has_permission('equipment', 'edit')
-    OR (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('Admin', 'SuperAdmin', 'Técnico')
-)
-WITH CHECK (
-    public.has_permission('licensing', 'edit') 
-    OR public.has_permission('equipment', 'edit')
-    OR (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('Admin', 'SuperAdmin', 'Técnico')
-);
+CREATE POLICY "Admin/Tech manage all licenses" 
+ON public.license_assignments FOR ALL TO authenticated 
+USING ( public.has_permission('licensing', 'edit') OR (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('Admin', 'SuperAdmin', 'Técnico') );
 
--- Permitir SELECT para o utilizador ver o que lhe está atribuído
-CREATE POLICY "Users view own equipment licenses"
-ON public.license_assignments
-FOR SELECT
-TO authenticated
+CREATE POLICY "Users view licenses of their assets"
+ON public.license_assignments FOR SELECT TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.assignments a 
@@ -118,10 +104,24 @@ USING (
         AND a."collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
         AND a."returnDate" IS NULL
     )
-    OR public.has_permission('licensing', 'view')
 );
 
--- 3. REFRESH CACHE
+-- 3. REFORÇO DE RLS PARA EQUIPAMENTOS (Garante que view_own funciona na base)
+ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users view assigned equipment" ON public.equipment;
+
+CREATE POLICY "Users view assigned equipment"
+ON public.equipment FOR SELECT TO authenticated
+USING (
+    public.has_permission('equipment', 'view') 
+    OR EXISTS (
+        SELECT 1 FROM public.assignments a 
+        WHERE a."equipmentId" = public.equipment.id 
+        AND a."collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
+        AND a."returnDate" IS NULL
+    )
+);
+
 NOTIFY pgrst, 'reload schema';
 `
     };
@@ -131,15 +131,15 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> Reparação v4.9 (Licenças & RLS)
+                        <FaTerminal /> Reparação v5.0 (Isolamento & Licenças)
                     </button>
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
-                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Correção de Persistência</div>
-                                <p>Este script resolve a falha na gravação de licenças e garante que o utilizador consiga ver os seus ativos na "Minha Área".</p>
+                            <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200 mb-4">
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaCheckCircle /> Correção de Visibilidade</div>
+                                <p>Este script garante que os utilizadores limitados apenas vejam os seus próprios ativos e consigam visualizar as respetivas licenças de software.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">

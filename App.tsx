@@ -26,7 +26,8 @@ import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy, As
 import AgendaDashboard from './components/AgendaDashboard';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
-import Modal from './components/common/Modal'; // Para consulta simples de licença/formação
+import TicketActivitiesModal from './components/TicketActivitiesModal';
+import Modal from './components/common/Modal';
 
 // Atomics Hooks
 import { useOrganization } from './hooks/useOrganization';
@@ -85,7 +86,7 @@ export const App: React.FC = () => {
         return !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // 5. Data Isolation Filter
+    // 5. Data Isolation Filter (Garante que utilizador limitado não vê equipamentos alheios)
     const appData = useMemo(() => {
         const rawData = {
             ...org.data,
@@ -96,23 +97,29 @@ export const App: React.FC = () => {
         };
 
         if (currentUser && !checkPermission('equipment', 'view')) {
-            // Identificar equipamentos próprios
-            const myEquipmentIds = new Set(
-                rawData.assignments
-                    .filter((a: Assignment) => a.collaboratorId === currentUser.id && !a.returnDate)
-                    .map((a: Assignment) => a.equipmentId)
+            // 1. Filtrar Atribuições (Assignments) para as que pertencem ao user
+            const myAssignments = rawData.assignments.filter((a: any) => 
+                (a.collaboratorId === currentUser.id || a.collaborator_id === currentUser.id) && !a.returnDate
             );
+            rawData.assignments = myAssignments;
+
+            // 2. Extrair IDs de equipamentos próprios
+            const myEquipmentIds = new Set(myAssignments.map((a: any) => a.equipmentId || a.equipment_id));
+            
+            // 3. Filtrar Equipamento
             rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
             
-            // Garantir que licenças associadas aos equipamentos próprios fiquem visíveis
-            rawData.licenseAssignments = rawData.licenseAssignments.filter(la => 
-                myEquipmentIds.has(la.equipmentId) && !la.returnDate
+            // 4. Filtrar Atribuições de Licenças (License Assignments)
+            const myLicenseAssignments = rawData.licenseAssignments.filter((la: any) => 
+                myEquipmentIds.has(la.equipmentId || la.equipment_id) && !la.returnDate
             );
+            rawData.licenseAssignments = myLicenseAssignments;
             
-            const myLicenseIds = new Set(rawData.licenseAssignments.map(la => la.softwareLicenseId));
+            // 5. Filtrar Licenças
+            const myLicenseIds = new Set(myLicenseAssignments.map((la: any) => la.softwareLicenseId || la.software_license_id));
             rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
 
-            // Filtrar Políticas aplicáveis
+            // 6. Filtrar Políticas aplicáveis
             rawData.policies = rawData.policies.filter(p => {
                 if (!p.is_active) return false;
                 if (p.target_type === 'Global' || !p.target_type) return true;
@@ -360,6 +367,24 @@ export const App: React.FC = () => {
                     softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
                     vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers}
                     accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates}
+                />
+            )}
+
+            {viewingTicket && (
+                <TicketActivitiesModal
+                    ticket={viewingTicket}
+                    activities={appData.ticketActivities}
+                    collaborators={appData.collaborators}
+                    currentUser={currentUser}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    entidades={appData.entidades}
+                    onClose={() => setViewingTicket(null)}
+                    onAddActivity={async (act) => {
+                        await dataService.addTicketActivity({ ...act, ticketId: viewingTicket.id, technicianId: currentUser.id, date: new Date().toISOString() });
+                        support.refresh();
+                    }}
+                    assignments={appData.assignments}
                 />
             )}
 
