@@ -59,10 +59,13 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
         }
     };
 
-    // Lógica de resolução de nomes para a estrutura organizacional
-    const displayInstituicao = instituicao?.name || (user.role === 'SuperAdmin' ? 'Acesso Global' : 'Não definida');
+    // Lógica de resolução de nomes para a estrutura organizacional - Reforçada para o Pedido 1
+    const displayInstituicao = useMemo(() => {
+        if (instituicao?.name) return instituicao.name;
+        if (user.role === 'SuperAdmin') return 'Acesso Global';
+        return 'Não definida';
+    }, [instituicao, user.role]);
     
-    // Fix: Included useMemo in the React import and used it to derive displayEntidade safely
     const displayEntidade = useMemo(() => {
         if (entidade?.name) return entidade.name;
         if (user.instituicaoId) return 'Diretamente à Instituição';

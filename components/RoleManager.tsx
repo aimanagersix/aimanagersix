@@ -33,7 +33,8 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     {
         label: 'Módulos Operacionais',
         items: [
-            { key: 'equipment', label: 'Equipamentos', supportsOwn: true },
+            { key: 'equipment', label: 'Equipamentos (Inventário)', supportsOwn: true },
+            { key: 'equipment_view_full', label: 'Ficha Técnica Completa (vs Resumida)', isSimpleAccess: true },
             { key: 'licensing', label: 'Licenciamento', supportsOwn: true },
             { key: 'tickets', label: 'Suporte (Tickets)', supportsOwn: true },
             { key: 'procurement', label: 'Aquisições' },

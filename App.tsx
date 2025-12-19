@@ -26,6 +26,7 @@ import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy, As
 import AgendaDashboard from './components/AgendaDashboard';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
+import EquipmentSimpleModal from './components/EquipmentSimpleModal';
 import TicketActivitiesModal from './components/TicketActivitiesModal';
 import Modal from './components/common/Modal';
 import ResetPasswordModal from './components/ResetPasswordModal';
@@ -351,15 +352,26 @@ export const App: React.FC = () => {
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
             
             {viewingEquipment && (
-                <EquipmentHistoryModal 
-                    equipment={viewingEquipment} assignments={appData.assignments} collaborators={appData.collaborators}
-                    escolasDepartamentos={appData.entidades} tickets={appData.tickets} ticketActivities={appData.ticketActivities}
-                    onClose={() => setViewingEquipment(null)} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }}
-                    businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies}
-                    softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
-                    vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers}
-                    accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates}
-                />
+                checkPermission('equipment_view_full', 'view') ? (
+                    <EquipmentHistoryModal 
+                        equipment={viewingEquipment} assignments={appData.assignments} collaborators={appData.collaborators}
+                        escolasDepartamentos={appData.entidades} tickets={appData.tickets} ticketActivities={appData.ticketActivities}
+                        onClose={() => setViewingEquipment(null)} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }}
+                        businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies}
+                        softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
+                        vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers}
+                        accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates}
+                        onEdit={checkPermission('equipment', 'edit') ? (eq) => { setViewingEquipment(null); /* Aqui seria para abrir o modal de edição real se necessário */ } : undefined}
+                    />
+                ) : (
+                    <EquipmentSimpleModal
+                        equipment={viewingEquipment}
+                        assignment={appData.assignments.find(a => a.equipmentId === viewingEquipment.id && !a.returnDate)}
+                        brand={appData.brands.find(b => b.id === viewingEquipment.brandId)}
+                        type={appData.equipmentTypes.find(t => t.id === viewingEquipment.typeId)}
+                        onClose={() => setViewingEquipment(null)}
+                    />
+                )
             )}
 
             {viewingTicket && (

@@ -25,7 +25,7 @@ interface CollaboratorDetailModalProps {
     deactivationReasons?: ConfigItem[];
     // Drill-down handlers
     onViewTicket?: (ticket: Ticket) => void;
-    onViewEquipment?: (equipment: Equipment) => void;
+    onViewEquipment?: (equipment: Equipment, allowEdit?: boolean) => void;
 }
 
 export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = ({ 
@@ -130,7 +130,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                     .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
                     .value { font-size: 16px; margin-bottom: 5px; }
                     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-                    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
                     th { background-color: #f2f2f2; font-weight: bold; }
                     h3 { margin-top: 0; color: #444; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
                     .footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 9pt; color: #666; }
@@ -231,7 +231,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                                 <div 
                                                     key={eq.id} 
                                                     className={`bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center transition-colors ${onViewEquipment ? 'hover:bg-gray-700 cursor-pointer group' : ''}`}
-                                                    onClick={() => onViewEquipment && onViewEquipment(eq)}
+                                                    onClick={() => onViewEquipment && onViewEquipment(eq, true)} // Permitir edição ao Admin aqui
                                                     title={onViewEquipment ? "Clique para ver detalhes do equipamento" : ""}
                                                 >
                                                     <div>
