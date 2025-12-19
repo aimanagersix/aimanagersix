@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Declare Deno to avoid TypeScript errors in environments where Deno types aren't loaded
+// Declare Deno to avoid TypeScript errors
 declare const Deno: any;
 
 const corsHeaders = {
@@ -11,97 +11,88 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // 1. Lidar com pre-flight do CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  try {
-    const supabase = createClient(
-      // Fix: Deno is now declared globally
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+  console.log("Iniciando execução da função sync-sophos...")
 
-    // 2. Obter credenciais das global_settings
-    const { data: settings } = await supabase
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("ERRO: Variáveis de ambiente SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configuradas no Edge Functions.")
+      return new Response(
+        JSON.stringify({ error: "Ambiente não configurado. Verifique os Secrets do Supabase (URL/ServiceRole)." }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // 1. Obter credenciais das global_settings
+    const { data: settings, error: settingsError } = await supabase
       .from('global_settings')
       .select('setting_key, setting_value')
       .in('setting_key', ['sophos_client_id', 'sophos_client_secret'])
 
+    if (settingsError) {
+      console.error("Erro ao ler tabela global_settings:", settingsError.message)
+      throw new Error(`Erro na base de dados: ${settingsError.message}`)
+    }
+
     const clientId = settings?.find(s => s.setting_key === 'sophos_client_id')?.setting_value
     const clientSecret = settings?.find(s => s.setting_key === 'sophos_client_secret')?.setting_value
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Credenciais Sophos (ID/Secret) não encontradas nas definições.")
+    if (!clientId || !clientSecret || clientId.trim() === '' || clientSecret.trim() === '') {
+      console.warn("Sincronização abortada: Credenciais Sophos vazias nas Definições.")
+      return new Response(
+        JSON.stringify({ error: "Credenciais Sophos não configuradas. Vá a 'Conexões & APIs' e insira o Client ID e Secret." }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
     }
 
-    console.log("Iniciando Auth Sophos OAuth2...")
-
-    // 3. Autenticação na API da Sophos
-    // Nota: Em ambiente real, o endpoint seria: https://id.sophos.com/api/v2/oauth2/token
-    // Aqui implementamos a estrutura para o cliente completar com o seu tenant.
+    // 2. Simulação de chamada à API (Placeholder para o cliente expandir com o seu Tenant ID)
+    // Em produção, aqui seria feito o fetch para https://id.sophos.com/api/v2/oauth2/token
     
-    /* 
-    const authRes = await fetch("https://id.sophos.com/api/v2/oauth2/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}&scope=token`
-    });
-    const { access_token } = await authRes.json();
-    */
-
-    // SIMULAÇÃO DE LOGICA PARA DEMONSTRAÇÃO (Pois não temos acesso ao endpoint externo aqui)
-    // No código final do cliente, este bloco busca os alertas reais.
+    console.log("Credenciais encontradas. A simular busca de alertas...")
     
+    // Mock de alerta para garantir que a função completa o ciclo
     const mockAlert = {
-      id: `sophos-${Date.now()}`,
-      title: "Ameaça de Malware Detetada",
-      description: "O Sophos Endpoint bloqueou um ficheiro suspeito em PC-TECNICO-01",
-      severity: "high",
-      hostname: "PC-TECNICO-01"
-    };
+      id: `sophos-alert-${Date.now()}`,
+      title: "Alerta de Segurança Detetado",
+      hostname: "DESKTOP-TESTE-01"
+    }
 
-    // 4. Verificar se o alerta já foi processado (evitar duplicados)
-    const { data: existingTicket } = await supabase
+    // Verificar duplicado
+    const { data: existing } = await supabase
       .from('tickets')
       .select('id')
       .ilike('description', `%${mockAlert.id}%`)
       .maybeSingle()
 
-    if (!existingTicket) {
-      // 5. Tentar encontrar o equipamento no inventário para vincular
-      const { data: equipment } = await supabase
-        .from('equipment')
-        .select('id')
-        .ilike('nomeNaRede', mockAlert.hostname)
-        .maybeSingle()
-
-      // 6. Criar Ticket de Segurança
-      const { error: ticketError } = await supabase
+    if (!existing) {
+      const { error: insError } = await supabase
         .from('tickets')
         .insert({
           title: `[SOPHOS] ${mockAlert.title}`,
-          description: `${mockAlert.description}\n\nID Alerta: ${mockAlert.id}\nOrigem: Sophos Central API`,
+          description: `Alerta automático Sophos Central.\nID: ${mockAlert.id}\nOrigem: API Sync`,
           status: 'Pedido',
           category: 'Incidente de Segurança',
-          securityIncidentType: 'Malware',
-          impactCriticality: 'Crítica',
-          requestDate: new Date().toISOString(),
-          equipmentId: equipment?.id || null,
-          collaboratorId: null // Atribuído pelo técnico na triagem
+          requestDate: new Date().toISOString()
         })
-
-      if (ticketError) throw ticketError
+      if (insError) throw insError
+      console.log("Novo ticket de segurança criado com sucesso.")
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: "Sincronização concluída. Novos alertas transformados em tickets." }),
+      JSON.stringify({ success: true, message: "Sincronização processada com sucesso." }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
   } catch (error: any) {
-    console.error("Erro na Edge Function:", error.message)
+    console.error("Erro fatal na função:", error.message)
     return new Response(
       JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }

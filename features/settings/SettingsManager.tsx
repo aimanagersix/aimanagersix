@@ -181,18 +181,26 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         setIsSyncing(true);
         try {
             const supabase = getSupabase();
-            // Adição de headers e tratamento de corpo para evitar bloqueio CORS/Network do browser
             const { data, error } = await supabase.functions.invoke('sync-sophos', { 
                 body: {},
                 headers: { "Content-Type": "application/json" }
             });
-            if (error) throw error;
-            alert("Sincronização concluída com sucesso.");
+            
+            // Se o invoke retornar erro, o objeto error do Supabase contém os detalhes
+            if (error) {
+                // Tentar ler o body se o erro for uma falha HTTP
+                let serverMessage = error.message;
+                try {
+                    const errorDetails = await error.context?.json();
+                    if (errorDetails?.error) serverMessage = errorDetails.error;
+                } catch(e) {}
+                throw new Error(serverMessage);
+            }
+
+            alert("Sincronização concluída com sucesso: " + (data?.message || "Concluída."));
         } catch (e: any) {
             console.error("Sophos Sync Error:", e);
-            // Mensagem mais informativa sobre a causa técnica
-            const detail = e.message || "Erro na comunicação com o servidor.";
-            alert(`Falha na Sincronização: ${detail}\n\nNota: Verifique se o Edge Function 'sync-sophos' está publicado no seu projeto Supabase.`);
+            alert(`Falha na Sincronização: ${e.message}\n\nNota: Verifique se as credenciais estão preenchidas em 'Conexões & APIs' e se a função foi publicada corretamente.`);
         } finally {
             setIsSyncing(false);
         }
