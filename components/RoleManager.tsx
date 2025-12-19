@@ -57,10 +57,19 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
         items: [
             { key: 'brands', label: 'Marcas' },
             { key: 'equipment_types', label: 'Tipos de Ativo' },
-            { key: 'ticket_categories', label: 'Categorias Ticket' },
+            { key: 'config_equipment_statuses', label: 'Estados de Ativo' },
+            { key: 'config_cpus', label: 'CPUs (Processadores)' },
+            { key: 'config_ram_sizes', label: 'RAM (Tamanhos)' },
+            { key: 'config_storage_types', label: 'Discos (Tipos)' },
+            { key: 'config_software_categories', label: 'Categorias Software' },
+            { key: 'config_software_products', label: 'Produtos Software' },
             { key: 'config_job_titles', label: 'Cargos Profissionais' },
             { key: 'config_accounting_categories', label: 'Classificador CIBE' },
-            { key: 'config_equipment_statuses', label: 'Estados de Ativo' },
+            { key: 'config_conservation_states', label: 'Estados Conservação' },
+            { key: 'config_decommission_reasons', label: 'Motivos de Saída' },
+            { key: 'config_training_types', label: 'Tipos de Formação' },
+            { key: 'ticket_categories', label: 'Categorias Ticket' },
+            { key: 'security_incident_types', label: 'Tipos Incid. Segurança' },
         ]
     },
     {
