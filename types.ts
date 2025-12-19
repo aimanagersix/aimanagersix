@@ -22,7 +22,8 @@ export type ModuleKey =
     | 'brands' | 'equipment_types' | 'config_equipment_statuses' | 'config_cpus' | 'config_ram_sizes' | 'config_storage_types' | 'config_software_categories' | 'config_software_products' | 'config_decommission_reasons'
     | 'ticket_categories' | 'security_incident_types' | 'contact_roles' | 'contact_titles' | 'config_custom_roles' | 'config_collaborator_deactivation_reasons' | 'config_accounting_categories' | 'config_conservation_states' | 'config_job_titles'
     | 'config_automation' | 'config_criticality_levels' | 'config_cia_ratings' | 'config_service_statuses' | 'config_backup_types' | 'config_training_types' | 'config_resilience_test_types' | 'document_templates'
-    | 'my_area';
+    | 'my_area' | 'tools_agenda' | 'tools_map' | 'tools_calendar' | 'tools_manual'
+    | 'org_institutions' | 'org_entities' | 'org_collaborators' | 'org_suppliers';
 
 export type PermissionAction = 'view' | 'view_own' | 'create' | 'edit' | 'delete' | 'manage';
 

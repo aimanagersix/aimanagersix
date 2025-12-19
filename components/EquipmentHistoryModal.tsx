@@ -75,13 +75,13 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
 
     // Current Assignment
     const currentAssignment = useMemo(() => {
-        return assignments.find(a => a.equipmentId === equipment.id && !a.returnDate);
+        return assignments.find(a => (a.equipmentId === equipment.id || (a as any).equipment_id === equipment.id) && !a.returnDate);
     }, [assignments, equipment.id]);
 
     // History
     const equipmentAssignments = useMemo(() => {
         return assignments
-            .filter(a => a.equipmentId === equipment.id)
+            .filter(a => (a.equipmentId === equipment.id || (a as any).equipment_id === equipment.id))
             .sort((a, b) => new Date(b.assignedDate).getTime() - new Date(a.assignedDate).getTime());
     }, [assignments, equipment.id]);
 
@@ -93,12 +93,13 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     
     // Split licenses into Active and History
     const { activeLicenses, historyLicenses } = useMemo(() => {
-        const allAssignments = licenseAssignments.filter(la => la.equipmentId === equipment.id);
+        const allAssignments = licenseAssignments.filter(la => (la.equipmentId === equipment.id || (la as any).equipment_id === equipment.id));
         const activeMap = new Map<string, { license: SoftwareLicense, assignedDate: string }>();
         const history: { license: SoftwareLicense, assignedDate: string, returnDate: string }[] = [];
 
         allAssignments.forEach(la => {
-            const lic = softwareLicenses.find(l => l.id === la.softwareLicenseId);
+            const licId = la.softwareLicenseId || (la as any).software_license_id;
+            const lic = softwareLicenses.find(l => l.id === licId);
             if (lic) {
                 if (!la.returnDate) {
                     if (!activeMap.has(lic.id)) activeMap.set(lic.id, { license: lic, assignedDate: la.assignedDate });
@@ -163,15 +164,15 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                         <p className="text-xs text-gray-400 uppercase mb-1">Atribuído Atualmente a:</p>
                         {currentAssignment ? (
                             <div>
-                                {currentAssignment.collaboratorId ? (
+                                {currentAssignment.collaboratorId || (currentAssignment as any).collaborator_id ? (
                                     <p className="text-white font-bold flex items-center gap-2">
                                         <FaLaptop className="text-brand-secondary"/> 
-                                        {collaboratorMap.get(currentAssignment.collaboratorId)}
+                                        {collaboratorMap.get(currentAssignment.collaboratorId || (currentAssignment as any).collaborator_id)}
                                     </p>
                                 ) : (
                                     <p className="text-white font-bold flex items-center gap-2">
                                         <FaMapMarkerAlt className="text-brand-secondary"/> 
-                                        {entidadeMap.get(currentAssignment.entidadeId || '') || 'Entidade Desconhecida'}
+                                        {entidadeMap.get(currentAssignment.entidadeId || (currentAssignment as any).entidade_id || '') || 'Entidade Desconhecida'}
                                     </p>
                                 )}
                                 <p className="text-xs text-gray-500 mt-1">Desde: {currentAssignment.assignedDate}</p>
