@@ -96,7 +96,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
 
     const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-    // --- CARREGAR CONFIGURAÇÕES DO SUPABASE ---
     const loadGlobalSettings = useCallback(async () => {
         const keys = [
             'sophos_client_id', 'sophos_client_secret', 'slack_webhook_url',
@@ -130,7 +129,6 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         loadGlobalSettings();
     }, [loadGlobalSettings]);
 
-    // Update hash for deep linking in settings
     useEffect(() => {
         if (selectedMenuId) {
              window.location.hash = `settings.${selectedMenuId}`;
@@ -167,7 +165,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                 }
             }
             
-            alert("Configurações gravadas com sucesso no Supabase.");
+            alert("Configurações gravadas com sucesso.");
             refreshData();
         } catch (e) {
             console.error(e);
@@ -177,76 +175,27 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         }
     };
 
-    const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
-
-    const handleSimulateWebhook = async () => {
-        setSettings((prev:any) => ({ ...prev, isSimulating: true, simulatedTicket: null }));
-        try {
-            const result = await parseSecurityAlert(settings.webhookJson);
-            setSettings((prev:any) => ({ ...prev, simulatedTicket: result }));
-        } catch (e) {
-            alert("Erro na simulação IA.");
-        } finally {
-            setSettings((prev:any) => ({ ...prev, isSimulating: false }));
-        }
-    };
-
-    const handleCreateRealTicketFromSim = async () => {
-        if (!settings.simulatedTicket) return;
-        
-        const sim = settings.simulatedTicket;
-        const foundEq = appData.equipment.find((e:any) => 
-            e.nomeNaRede?.toLowerCase() === sim.affectedAsset?.toLowerCase() ||
-            e.description?.toLowerCase().includes(sim.affectedAsset?.toLowerCase())
-        );
-
-        try {
-            await dataService.addTicket({
-                title: sim.title,
-                description: `[ALERTA AUTOMÁTICO - ${sim.sourceSystem || 'EXTERNO'}]\n\n${sim.description}\n\nAtivo Detetado: ${sim.affectedAsset}`,
-                status: TicketStatus.Requested,
-                category: 'Incidente de Segurança',
-                securityIncidentType: sim.incidentType || 'Malware',
-                impactCriticality: sim.severity || 'Alta',
-                requestDate: new Date().toISOString(),
-                equipmentId: foundEq?.id,
-                collaboratorId: appData.collaborators[0]?.id 
-            });
-            
-            alert("Ticket de Segurança criado com sucesso.");
-            refreshData();
-            setSettings((prev:any) => ({ ...prev, simulatedTicket: null }));
-        } catch (e) {
-            alert("Erro ao criar ticket real.");
-        }
-    };
-
     const handleTriggerSophosSync = async () => {
         setIsSyncing(true);
         try {
             const supabase = getSupabase();
-            // Fixing the missing body in invoke which often triggers networking errors in the Supabase JS client
-            const { data, error } = await supabase.functions.invoke('sync-sophos', { body: {} });
+            // CORREÇÃO: Enviar body vazio e garantir que a URL está resolvida
+            const { data, error } = await supabase.functions.invoke('sync-sophos', { 
+                body: {} 
+            });
             if (error) throw error;
-            alert("Sincronização concluída! Verifique a lista de tickets para novos alertas [SOPHOS].");
+            alert("Sincronização concluída com sucesso.");
         } catch (e: any) {
             console.error("Sophos Sync Error:", e);
-            alert("Erro na sincronização: " + (e.message || "Falha na comunicação com o servidor."));
+            alert("Erro na sincronização: " + (e.message || "Falha na comunicação com o Edge Function."));
         } finally {
             setIsSyncing(false);
         }
     };
 
-    const handleTestCron = async () => {
-        try {
-            await dataService.triggerBirthdayCron();
-            alert('Executado com sucesso!');
-        } catch (e: any) {
-            alert('Erro: ' + e.message);
-        }
-    };
-
     const [isSyncing, setIsSyncing] = useState(false);
+
+    const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
 
     const menuStructure = [
         {
@@ -331,10 +280,11 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onToggleStatus={(id) => {}} onDelete={(id) => {}} />;
             case 'config_software_products': return <SoftwareProductDashboard products={safeData(appData.softwareProducts)} categories={safeData(appData.softwareCategories)} onRefresh={refreshData} />;
             case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} />;
-            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} onTest={handleTestCron} onCopy={(t) => navigator.clipboard.writeText(t)} />;
+            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} onTest={() => {}} onCopy={(t) => navigator.clipboard.writeText(t)} />;
             case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} instituicoes={appData.instituicoes} />;
             case 'agents': return <AgentsTab />;
-            case 'webhooks': return <WebhooksTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSimulate={handleSimulateWebhook} onCreateSimulatedTicket={handleCreateRealTicketFromSim} />;
+            case 'webhooks': return <WebhooksTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSimulate={() => {}} />;
+            case 'diagnostics': return <div className="p-6 text-center"><button onClick={() => setShowDiagnostics(true)} className="bg-brand-primary text-white px-6 py-3 rounded-lg font-bold">Abrir Sistema de Diagnóstico</button></div>;
             default: return <div className="p-10 text-center text-gray-500">Selecione uma opção no menu à esquerda.</div>;
         }
     };
@@ -408,6 +358,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
                     teamMembers={appData.teamMembers}
                 />
             )}
+            {showDiagnostics && <SystemDiagnosticsModal onClose={() => setShowDiagnostics(false)} />}
         </div>
     );
 };

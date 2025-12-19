@@ -45,7 +45,7 @@ export const App: React.FC = () => {
     const [session, setSession] = useState<any>(null);
     const [isAppLoading, setIsAppLoading] = useState(true);
 
-    // 2. Feature Hooks (The new Atomic Separation)
+    // 2. Feature Hooks (Atomic Separation)
     const org = useOrganization(isConfigured);
     const inv = useInventory(isConfigured);
     const support = useSupport(isConfigured);
@@ -77,7 +77,7 @@ export const App: React.FC = () => {
         return !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // 5. Data Compatibility & Protection Layer
+    // 5. Data Compatibility & Security Filter Layer
     const appData = useMemo(() => {
         const rawData = {
             ...org.data,
@@ -87,7 +87,7 @@ export const App: React.FC = () => {
             messages: []
         };
 
-        // If not admin, restrict equipment data sent to managers
+        // FILTRAGEM PROFUNDA: Se o utilizador não tem visão global, limpamos o estado de dados sensíveis
         if (currentUser && !checkPermission('equipment', 'view')) {
             const myEquipmentIds = new Set(
                 rawData.assignments
@@ -95,6 +95,11 @@ export const App: React.FC = () => {
                     .map((a: Assignment) => a.equipmentId)
             );
             rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
+        }
+
+        // Filtragem para Formações (Ver apenas as próprias se não for admin)
+        if (currentUser && !checkPermission('compliance_training', 'view')) {
+            rawData.securityTrainings = rawData.securityTrainings.filter(t => t.collaborator_id === currentUser.id);
         }
 
         return rawData;
@@ -112,7 +117,8 @@ export const App: React.FC = () => {
     // 6. Auth Logic
     useEffect(() => {
         const supabase = getSupabase();
-        supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+        // Fix: Cast auth to any to resolve property 'getSession' does not exist error on SupabaseAuthClient
+        (supabase.auth as any).getSession().then(({ data: { session: currentSession } }: any) => {
             setSession(currentSession);
             if (currentSession?.user) {
                 const user = org.data.collaborators.find(c => c.email === currentSession.user.email);
@@ -127,7 +133,8 @@ export const App: React.FC = () => {
             }
         });
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+        // Fix: Cast auth to any to resolve property 'onAuthStateChange' does not exist error on SupabaseAuthClient
+        const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, newSession: any) => {
             setSession(newSession);
         });
         return () => subscription.unsubscribe();
@@ -143,7 +150,7 @@ export const App: React.FC = () => {
             'overview.smart': checkPermission('dashboard_smart', 'view'),
             'equipment.inventory': checkPermission('equipment', 'view') || checkPermission('equipment', 'view_own'),
             'equipment.procurement': checkPermission('procurement', 'view'),
-            'licensing': checkPermission('licensing', 'view'),
+            'licensing': checkPermission('licensing', 'view') || checkPermission('licensing', 'view_own'),
             'organizacao.instituicoes': checkPermission('organization', 'view'),
             'organizacao.entidades': checkPermission('organization', 'view'),
             'collaborators': checkPermission('organization', 'view'),
@@ -155,10 +162,10 @@ export const App: React.FC = () => {
             'nis2': {
                 bia: checkPermission('compliance_bia', 'view'),
                 security: checkPermission('compliance_security', 'view'),
-                backups: checkPermission('compliance_backups', 'view'),
-                resilience: checkPermission('compliance_resilience', 'view'),
-                training: checkPermission('compliance_training', 'view'),
-                policies: checkPermission('compliance_policies', 'view'),
+                backups: checkPermission('compliance_backups', 'view') || checkPermission('compliance_backups', 'view_own'),
+                resilience: checkPermission('compliance_resilience', 'view') || checkPermission('compliance_resilience', 'view_own'),
+                training: checkPermission('compliance_training', 'view') || checkPermission('compliance_training', 'view_own'),
+                policies: checkPermission('compliance_policies', 'view') || checkPermission('compliance_policies', 'view_own'),
             },
             'tools': { agenda: true, map: true }
         };
@@ -166,7 +173,9 @@ export const App: React.FC = () => {
 
     const handleLogout = async () => {
         const supabase = getSupabase();
-        await supabase.auth.signOut();
+        // Fix: Cast auth to any to resolve property 'signOut' does not exist error on SupabaseAuthClient
+        await (supabase.auth as any).signOut();
+        localStorage.removeItem('supabase.auth.token');
         setCurrentUser(null);
         window.location.reload();
     };
@@ -177,7 +186,7 @@ export const App: React.FC = () => {
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A carregar ambiente seguro...</div>;
+    if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A preparar ambiente seguro...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';

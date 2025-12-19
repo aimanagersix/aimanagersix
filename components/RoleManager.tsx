@@ -91,8 +91,6 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
     const [editingPermissions, setEditingPermissions] = useState<Record<string, any>>({});
     const [isSaving, setIsSaving] = useState(false);
-    const [newRoleName, setNewRoleName] = useState('');
-    const [showNewRoleInput, setShowNewRoleInput] = useState(false);
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
     const isSuperAdminRole = selectedRole?.name === 'SuperAdmin';
@@ -116,9 +114,9 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         try {
             await dataService.updateCustomRole(selectedRoleId, { permissions: editingPermissions });
             onRefresh();
-            alert("Permissões atualizadas.");
+            alert("Permissões atualizadas com sucesso.");
         } catch (e) {
-            alert("Erro ao gravar.");
+            alert("Erro ao gravar permissões.");
         } finally {
             setIsSaving(false);
         }
@@ -128,8 +126,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         <div className="flex flex-col md:flex-row h-full gap-6 p-6">
             <div className="w-full md:w-64 bg-gray-800 rounded-lg border border-gray-700 flex flex-col">
                 <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-                    <h3 className="font-bold text-white text-xs uppercase">Perfis</h3>
-                    <button onClick={() => setShowNewRoleInput(true)} className="p-1.5 bg-brand-primary text-white rounded"><FaPlus size={10} /></button>
+                    <h3 className="font-bold text-white text-xs uppercase">Perfis de Acesso</h3>
                 </div>
                 <div className="flex-grow overflow-y-auto p-2 space-y-1">
                     {roles.map(role => (
@@ -142,14 +139,16 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
 
             <div className="flex-1 bg-gray-800 rounded-lg border border-gray-700 flex flex-col overflow-hidden">
                 {!selectedRoleId ? (
-                    <div className="flex-grow flex items-center justify-center text-gray-500">Selecione um perfil.</div>
+                    <div className="flex-grow flex items-center justify-center text-gray-500">Selecione um perfil para gerir permissões.</div>
                 ) : (
                     <>
                         <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/50">
-                            <h3 className="font-bold text-white">{selectedRole?.name}</h3>
+                            <h3 className="font-bold text-white flex items-center gap-2">
+                                <FaUserShield className="text-brand-secondary" /> {selectedRole?.name}
+                            </h3>
                             {!isSuperAdminRole && (
-                                <button onClick={handleSavePermissions} disabled={isSaving} className="bg-brand-primary text-white px-4 py-1.5 rounded text-xs flex items-center gap-2">
-                                    {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Guardar
+                                <button onClick={handleSavePermissions} disabled={isSaving} className="bg-brand-primary text-white px-4 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-brand-secondary transition-colors">
+                                    {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Guardar Permissões
                                 </button>
                             )}
                         </div>
@@ -157,26 +156,26 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                             <div className={isSuperAdminRole ? 'opacity-50 pointer-events-none' : ''}>
                                 {PERMISSION_GROUPS.map(group => (
                                     <div key={group.label} className="mb-6">
-                                        <h4 className="text-[10px] font-bold text-brand-secondary uppercase border-b border-gray-700 mb-3">{group.label}</h4>
+                                        <h4 className="text-[10px] font-bold text-brand-secondary uppercase border-b border-gray-700 mb-3 tracking-widest">{group.label}</h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {group.items.map(item => {
                                                 const perms = editingPermissions[item.key] || {};
                                                 return (
-                                                    <div key={item.key} className="bg-gray-900/50 p-2 rounded border border-gray-700">
+                                                    <div key={item.key} className="bg-gray-900/50 p-3 rounded border border-gray-700">
                                                         <p className="text-xs font-bold text-white mb-2">{item.label}</p>
                                                         <div className="flex flex-col gap-1.5">
                                                             <label className="flex items-center gap-2 cursor-pointer">
                                                                 <input type="checkbox" checked={!!perms.view} onChange={() => handleTogglePermission(item.key, 'view')} className="rounded border-gray-600 bg-gray-800 text-brand-primary" />
-                                                                <span className="text-[10px] text-gray-300">Acesso/Ver Tudo</span>
+                                                                <span className="text-[10px] text-gray-300">Acesso Total</span>
                                                             </label>
                                                             {item.supportsOwn && (
                                                                 <label className="flex items-center gap-2 cursor-pointer">
                                                                     <input type="checkbox" checked={!!perms.view_own} onChange={() => handleTogglePermission(item.key, 'view_own')} className="rounded border-gray-600 bg-gray-800 text-blue-500" />
-                                                                    <span className="text-[10px] text-blue-400">Ver Próprios</span>
+                                                                    <span className="text-[10px] text-blue-400 font-bold">Ver Próprios (Minha Área)</span>
                                                                 </label>
                                                             )}
                                                             {!item.isSimpleAccess && (
-                                                                <div className="flex gap-2 border-t border-gray-700 pt-1 mt-1">
+                                                                <div className="flex gap-2 border-t border-gray-700 pt-1.5 mt-1">
                                                                     {['create', 'edit', 'delete'].map(act => (
                                                                         <label key={act} className="flex items-center gap-1">
                                                                             <input type="checkbox" checked={!!perms[act]} onChange={() => handleTogglePermission(item.key, act as any)} className="w-3 h-3 rounded" />
