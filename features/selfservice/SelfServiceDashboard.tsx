@@ -45,7 +45,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
         return equipment.filter(e => activeIds.includes(e.id));
     }, [assignments, equipment, currentUser.id]);
 
-    // 2. Minhas Licenças (Filtro rigoroso pelo ID do equipamento atribuído ao utilizador)
+    // 2. Minhas Licenças (Cruzamento rigoroso com equipamentos do utilizador)
     const myLicenses = useMemo(() => {
         const myEqIds = new Set(myEquipment.map(e => e.id));
         const licenseIds = licenseAssignments
@@ -60,7 +60,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
             .sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
     }, [trainings, currentUser.id]);
 
-    // 4. Políticas Aplicáveis
+    // 4. Políticas Aplicáveis e Estado de Aceitação
     const myApplicablePolicies = useMemo(() => {
         const myAcceptanceMap = new Map();
         acceptances.forEach(a => {
@@ -206,8 +206,9 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                                     <p className="font-bold text-white text-sm group-hover:text-green-300">{t.training_type}</p>
                                     <p className="text-[10px] text-gray-500 flex items-center gap-1 mt-1"><FaCalendarCheck/> Concluído em {new Date(t.completion_date).toLocaleDateString()}</p>
                                 </div>
-                                <div className={`text-right font-black text-sm ${t.score && t.score >= 70 ? 'text-green-400' : 'text-yellow-400'}`}>
-                                    {t.score}%
+                                <div className={`text-right font-black text-sm flex items-center gap-3 ${t.score && t.score >= 70 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                    <span>{t.score}%</span>
+                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-green-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
                             </div>
                         )) : (

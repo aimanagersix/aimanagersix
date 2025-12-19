@@ -96,16 +96,23 @@ export const App: React.FC = () => {
         };
 
         if (currentUser && !checkPermission('equipment', 'view')) {
+            // Identificar equipamentos próprios
             const myEquipmentIds = new Set(
                 rawData.assignments
                     .filter((a: Assignment) => a.collaboratorId === currentUser.id && !a.returnDate)
                     .map((a: Assignment) => a.equipmentId)
             );
             rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
-            rawData.licenseAssignments = rawData.licenseAssignments.filter(la => myEquipmentIds.has(la.equipmentId) && !la.returnDate);
+            
+            // Garantir que licenças associadas aos equipamentos próprios fiquem visíveis
+            rawData.licenseAssignments = rawData.licenseAssignments.filter(la => 
+                myEquipmentIds.has(la.equipmentId) && !la.returnDate
+            );
+            
             const myLicenseIds = new Set(rawData.licenseAssignments.map(la => la.softwareLicenseId));
             rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
 
+            // Filtrar Políticas aplicáveis
             rawData.policies = rawData.policies.filter(p => {
                 if (!p.is_active) return false;
                 if (p.target_type === 'Global' || !p.target_type) return true;
@@ -387,6 +394,21 @@ export const App: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex justify-end pt-4"><button onClick={() => setViewingTraining(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
+                    </div>
+                </Modal>
+            )}
+            
+            {readingPolicy && (
+                <Modal title={`Consulta de Política: ${readingPolicy.title}`} onClose={() => setReadingPolicy(null)} maxWidth="max-w-4xl">
+                     <div className="space-y-4">
+                        <div className="bg-white text-black p-6 rounded shadow-inner min-h-[300px] overflow-y-auto whitespace-pre-wrap font-serif">
+                            {readingPolicy.content}
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-gray-500">
+                            <span>Versão: {readingPolicy.version}</span>
+                            <span>Atualizada em: {new Date(readingPolicy.updated_at).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-end pt-4"><button onClick={() => setReadingPolicy(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
                     </div>
                 </Modal>
             )}

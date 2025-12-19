@@ -58,14 +58,14 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- REPARAÇÃO MASTER v4.8 (LICENÇAS & ATRIBUIÇÕES)
--- Resolve: Erro ao gravar licenças no equipamento e interatividade Self-Service
+-- REPARAÇÃO MASTER v4.9 (PERSISTÊNCIA DE LICENÇAS E ACESSO SELF-SERVICE)
+-- Resolve: Erro ao gravar licenças e bloqueio de cliques na Minha Área
 -- ==================================================================================
 
--- 1. NORMALIZAÇÃO DA TABELA 'license_assignments'
+-- 1. NORMALIZAÇÃO RIGOROSA DA TABELA 'license_assignments'
 DO $$ 
 BEGIN
-  -- Normalizar equipmentId
+  -- Normalizar equipmentId (Garante que o Postgres reconhece camelCase via aspas)
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='equipment_id') THEN
     ALTER TABLE public.license_assignments RENAME COLUMN equipment_id TO "equipmentId";
   END IF;
@@ -75,36 +75,39 @@ BEGIN
     ALTER TABLE public.license_assignments RENAME COLUMN software_license_id TO "softwareLicenseId";
   END IF;
 
-  -- Garantir coluna assignedDate
+  -- Normalizar datas
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='assigned_date') THEN
     ALTER TABLE public.license_assignments RENAME COLUMN assigned_date TO "assignedDate";
   END IF;
 
-  -- Garantir coluna returnDate
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='return_date') THEN
     ALTER TABLE public.license_assignments RENAME COLUMN return_date TO "returnDate";
   END IF;
 END $$;
 
--- 2. RESET DE POLÍTICAS RLS PARA LICENÇAS
+-- 2. REVISÃO DE POLÍTICAS RLS PARA GRAVAÇÃO
 ALTER TABLE public.license_assignments ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Enable full access for authenticated users" ON public.license_assignments;
-DROP POLICY IF EXISTS "Users can view their own equipment licenses" ON public.license_assignments;
+DROP POLICY IF EXISTS "Allow management of license assignments" ON public.license_assignments;
+DROP POLICY IF EXISTS "Users can view assigned licenses" ON public.license_assignments;
 
--- Política Global para permitir sincronização (Baseada na função RBAC has_permission)
-CREATE POLICY "Allow management of license assignments" 
+-- Permitir INSERT/UPDATE/DELETE para Admins e Técnicos (ou quem tem permissão explícita)
+CREATE POLICY "Enable license assignment management" 
 ON public.license_assignments
 FOR ALL 
 TO authenticated 
 USING (
-    public.has_permission('licensing', 'edit') OR public.has_permission('equipment', 'edit')
+    public.has_permission('licensing', 'edit') 
+    OR public.has_permission('equipment', 'edit')
+    OR (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('Admin', 'SuperAdmin', 'Técnico')
 )
 WITH CHECK (
-    public.has_permission('licensing', 'edit') OR public.has_permission('equipment', 'edit')
+    public.has_permission('licensing', 'edit') 
+    OR public.has_permission('equipment', 'edit')
+    OR (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('Admin', 'SuperAdmin', 'Técnico')
 );
 
--- Política de Leitura para Utilizadores (Ver licenças do seu equipamento)
-CREATE POLICY "Users can view assigned licenses"
+-- Permitir SELECT para o utilizador ver o que lhe está atribuído
+CREATE POLICY "Users view own equipment licenses"
 ON public.license_assignments
 FOR SELECT
 TO authenticated
@@ -118,7 +121,7 @@ USING (
     OR public.has_permission('licensing', 'view')
 );
 
--- 3. REFRESH SCHEMA
+-- 3. REFRESH CACHE
 NOTIFY pgrst, 'reload schema';
 `
     };
@@ -128,17 +131,17 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> Reparação v4.8 (Licenças & RLS)
+                        <FaTerminal /> Reparação v4.9 (Licenças & RLS)
                     </button>
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
-                            <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
+                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
                                 <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Correção de Persistência</div>
-                                <p>Este script resolve a falha na associação de licenças a equipamentos, garantindo que as colunas e as permissões RLS estão sincronizadas com o código.</p>
+                                <p>Este script resolve a falha na gravação de licenças e garante que o utilizador consiga ver os seus ativos na "Minha Área".</p>
                             </div>
-                            <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col">
+                            <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">
                                     <button onClick={() => handleCopy(scripts.setup, 'setup')} className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">
                                         {copied === 'setup' ? <FaCheck /> : <FaCopy />} Copiar SQL
