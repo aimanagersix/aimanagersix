@@ -81,8 +81,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         </button>
                         {isOverviewOpen && isExpanded && (
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
-                                {checkPermission('widget_kpi_cards', 'view') && <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
-                                {checkPermission('my_area', 'view') && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie className="text-brand-secondary" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                                {tabConfig['overview'] && <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                                {tabConfig['my_area'] && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie className="text-brand-secondary" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
                                 {tabConfig['overview.smart'] && <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
                             </div>
                         )}
@@ -147,7 +147,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                 {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab} />}
                 {tabConfig['reports'] && <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab} />}
 
-                {/* Tools Menu - Fixed visibility for Admin/SuperAdmin */}
                 <div className="space-y-1">
                     <button onClick={() => setIsToolsOpen(!isToolsOpen)} className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${isToolsOpen ? 'bg-gray-800 text-white' : 'text-on-surface-dark-secondary hover:bg-gray-800'}`}>
                         <div className="flex items-center gap-3 overflow-hidden">
@@ -158,10 +157,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                     </button>
                     {isToolsOpen && isExpanded && (
                         <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1">
-                            <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />
-                            <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />
-                            <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => onOpenCalendar?.()} />
-                            <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => onOpenManual?.()} />
+                            {tabConfig.tools?.agenda && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig.tools?.map && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                            {tabConfig.tools?.calendar && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => onOpenCalendar?.()} />}
+                            {tabConfig.tools?.manual && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => onOpenManual?.()} />}
                         </div>
                     )}
                 </div>

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { FaRobot, FaKeyboard, FaSave, FaCog } from 'react-icons/fa';
+import { FaRobot, FaKeyboard, FaSave, FaLock } from 'react-icons/fa';
 
 interface GeneralScansTabProps {
     settings: any;
@@ -12,7 +12,7 @@ interface GeneralScansTabProps {
 const GeneralScansTab: React.FC<GeneralScansTabProps> = ({ settings, onSettingsChange, onSave }) => {
     
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in p-6">
             {/* Auto Scan Section */}
             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
                 <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaRobot className="text-purple-400"/> Auto Scan de Vulnerabilidades (IA)</h3>
@@ -33,6 +33,26 @@ const GeneralScansTab: React.FC<GeneralScansTabProps> = ({ settings, onSettingsC
                     <div>
                         <label className="block text-xs text-gray-500 uppercase mb-1">Hora de Execução</label>
                         <input type="time" value={settings.scan_start_time} onChange={e => onSettingsChange('scan_start_time', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
+                    </div>
+                </div>
+            </div>
+
+            {/* Security Policy Section */}
+            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
+                <h3 className="font-bold text-white mb-2 flex items-center gap-2"><FaLock className="text-red-400"/> Políticas de Segurança de Acesso</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                    Controle de validade e expiração de acessos.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs text-gray-500 uppercase mb-1">Validade da Password (Dias)</label>
+                        <select value={settings.password_expiry_days || '0'} onChange={e => onSettingsChange('password_expiry_days', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                            <option value="0">Nunca Expira (Não Recomendado)</option>
+                            <option value="30">30 Dias</option>
+                            <option value="60">60 Dias</option>
+                            <option value="90">90 Dias (Standard)</option>
+                            <option value="180">180 Dias</option>
+                        </select>
                     </div>
                 </div>
             </div>
