@@ -1,53 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaTerminal, FaShieldAlt, FaTable, FaCode, FaRobot, FaMagic, FaPlay, FaBolt, FaCogs, FaSpinner, FaSeedling, FaEye, FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa';
-import * as dataService from '../services/dataService';
-import { DbPolicy, DbTrigger, DbFunction } from '../types';
+import { FaDatabase, FaCheck, FaCopy, FaSearch, FaExclamationTriangle, FaBolt, FaShieldAlt } from 'react-icons/fa';
 
 interface DatabaseSchemaModalProps {
     onClose: () => void;
 }
 
-type TabType = 'setup' | 'triggers' | 'functions' | 'policies' | 'seed' | 'ai';
+type TabType = 'diagnostic' | 'repair';
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
-    const [activeTab, setActiveTab] = useState<TabType>('setup');
+    const [activeTab, setActiveTab] = useState<TabType>('repair');
     const [copied, setCopied] = useState<string | null>(null);
     
-    const [policies, setPolicies] = useState<DbPolicy[]>([]);
-    const [triggers, setTriggers] = useState<DbTrigger[]>([]);
-    const [functions, setFunctions] = useState<DbFunction[]>([]);
-    const [isLoadingData, setIsLoadingData] = useState(false);
-    const [dataError, setDataError] = useState('');
-
-    useEffect(() => {
-        const loadMetadata = async () => {
-            setIsLoadingData(true);
-            setDataError('');
-            try {
-                if (activeTab === 'policies') {
-                    const data = await dataService.fetchDbPolicies();
-                    setPolicies(data);
-                } else if (activeTab === 'triggers') {
-                    const data = await dataService.fetchDbTriggers();
-                    setTriggers(data);
-                } else if (activeTab === 'functions') {
-                    const data = await dataService.fetchDbFunctions();
-                    setFunctions(data);
-                }
-            } catch (e: any) {
-                setDataError("Erro ao carregar metadados.");
-            } finally {
-                setIsLoadingData(false);
-            }
-        };
-
-        if (['policies', 'triggers', 'functions'].includes(activeTab)) {
-            loadMetadata();
-        }
-    }, [activeTab]);
-
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
         setCopied(id);
@@ -55,108 +20,118 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     };
 
     const scripts = {
-        setup: `
+        diagnostic: `
+-- 1. LISTAR COLUNAS REAIS (PARA VERIFICAÇÃO)
+SELECT table_name, column_name, data_type 
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+AND table_name IN ('assignments', 'license_assignments', 'tickets', 'messages', 'collaborators')
+ORDER BY table_name, column_name;`,
+
+        repair: `-- ==================================================================================
+-- SCRIPT DE REPARAÇÃO DEFINITIVA v8.0 (Baseado em Diagnóstico Real)
+-- Objetivo: Corrigir RLS e Colunas usando nomes exatos com Case-Sensitivity
 -- ==================================================================================
--- REPARAÇÃO MASTER v6.4 (FULL QUOTED CAMELCASE)
--- Resolve: ERROR 42703 (returnDate / return_date) em schemas sensíveis.
--- ==================================================================================
 
--- 1. LIMPEZA TOTAL DE POLÍTICAS ANTERIORES
-DROP POLICY IF EXISTS "equipment_isolation_policy" ON public.equipment;
-DROP POLICY IF EXISTS "equipment_isolation_v6" ON public.equipment;
-DROP POLICY IF EXISTS "equipment_isolation_v6_1" ON public.equipment;
-DROP POLICY IF EXISTS "equipment_isolation_v6_2" ON public.equipment;
-DROP POLICY IF EXISTS "equipment_isolation_v6_3" ON public.equipment;
-DROP POLICY IF EXISTS "licenses_isolation_policy" ON public.software_licenses;
-DROP POLICY IF EXISTS "licenses_isolation_v6" ON public.software_licenses;
-DROP POLICY IF EXISTS "licenses_isolation_v6_1" ON public.software_licenses;
-DROP POLICY IF EXISTS "licenses_isolation_v6_2" ON public.software_licenses;
-DROP POLICY IF EXISTS "licenses_isolation_v6_3" ON public.software_licenses;
-DROP POLICY IF EXISTS "org_read_v6" ON public.instituicoes;
-DROP POLICY IF EXISTS "org_read_v6_1" ON public.instituicoes;
-DROP POLICY IF EXISTS "org_read_v6_2" ON public.instituicoes;
-DROP POLICY IF EXISTS "org_read_v6_3" ON public.instituicoes;
-DROP POLICY IF EXISTS "entidades_read_v6" ON public.entidades;
-DROP POLICY IF EXISTS "entidades_read_v6_1" ON public.entidades;
-DROP POLICY IF EXISTS "entidades_read_v6_2" ON public.entidades;
-DROP POLICY IF EXISTS "entidades_read_v6_3" ON public.entidades;
-DROP POLICY IF EXISTS "collab_read_v6" ON public.collaborators;
-DROP POLICY IF EXISTS "collab_read_v6_1" ON public.collaborators;
-DROP POLICY IF EXISTS "collab_read_v6_2" ON public.collaborators;
-DROP POLICY IF EXISTS "collab_read_v6_3" ON public.collaborators;
+-- 1. GARANTIR QUE AS COLUNAS EXISTEM (COM OS NOMES DETETADOS NO CSV)
+-- Usamos aspas duplas para respeitar o CamelCase no PostgreSQL
 
--- 2. POLÍTICA DE EQUIPAMENTOS (NOMES DE COLUNA CITADOS)
-CREATE POLICY "equipment_isolation_v6_4" ON public.equipment
-FOR SELECT TO authenticated
-USING (
-  (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
-  OR 
-  id IN (
-    SELECT "equipmentId" FROM public.assignments 
-    WHERE ("collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'))
-    AND "returnDate" IS NULL
-  )
-);
+DO $$ 
+BEGIN
+    -- Tabela Assignments
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='assignments' AND column_name='returnDate') THEN
+        ALTER TABLE "assignments" ADD COLUMN "returnDate" DATE;
+    END IF;
 
--- 3. POLÍTICA DE LICENÇAS (NOMES DE COLUNA CITADOS)
-CREATE POLICY "licenses_isolation_v6_4" ON public.software_licenses
-FOR SELECT TO authenticated
-USING (
-  (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
-  OR 
-  id IN (
-    SELECT "softwareLicenseId" FROM public.license_assignments
-    WHERE "equipmentId" IN (
-       SELECT "equipmentId" FROM public.assignments 
-       WHERE ("collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'))
-       AND "returnDate" IS NULL
-    )
-    AND "returnDate" IS NULL
-  )
-);
+    -- Tabela License Assignments
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='returnDate') THEN
+        ALTER TABLE "license_assignments" ADD COLUMN "returnDate" DATE;
+    END IF;
+END $$;
 
--- 4. PERMISSÃO DE LEITURA PARA TRADUÇÃO DE NOMES
-CREATE POLICY "org_read_v6_4" ON public.instituicoes FOR SELECT TO authenticated USING (true);
-CREATE POLICY "entidades_read_v6_4" ON public.entidades FOR SELECT TO authenticated USING (true);
-CREATE POLICY "collab_read_v6_4" ON public.collaborators FOR SELECT TO authenticated USING (true);
+-- 2. LIMPEZA DE POLÍTICAS ANTIGAS (PARA EVITAR CONFLITOS)
+DROP POLICY IF EXISTS "Enable all for authenticated users" ON "assignments";
+DROP POLICY IF EXISTS "Enable all for authenticated users" ON "license_assignments";
+DROP POLICY IF EXISTS "Enable all for authenticated users" ON "messages";
+DROP POLICY IF EXISTS "Enable all for authenticated users" ON "tickets";
 
--- 5. ASSEGURAR RLS ATIVO
-ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.software_licenses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.instituicoes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.entidades ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
+-- 3. RECRIAR POLÍTICAS RLS COM NOMES DE COLUNAS CORRETOS (Aspas Duplas)
 
-NOTIFY pgrst, 'reload schema';
+-- ASSIGNMENTS
+ALTER TABLE "assignments" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all for authenticated users" ON "assignments" 
+FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- LICENSE ASSIGNMENTS
+ALTER TABLE "license_assignments" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all for authenticated users" ON "license_assignments" 
+FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- TICKETS
+ALTER TABLE "tickets" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all for authenticated users" ON "tickets" 
+FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- MESSAGES (Crucial para o Chat)
+ALTER TABLE "messages" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all for authenticated users" ON "messages" 
+FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- COLLABORATORS
+ALTER TABLE "collaborators" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all for authenticated users" ON "collaborators" 
+FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 4. GRANT DE PERMISSÕES PARA O ROLE ANON/AUTHENTICATED
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 `
     };
 
     return (
-        <Modal title="Manutenção da Base de Dados" onClose={onClose} maxWidth="max-w-7xl">
+        <Modal title="Gestão de Estrutura de Dados" onClose={onClose} maxWidth="max-w-7xl">
             <div className="flex flex-col h-[85vh]">
                 <div className="flex gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
-                    <button onClick={() => setActiveTab('setup')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> Reparação v6.4 (Full Quoted)
+                    <button onClick={() => setActiveTab('repair')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'repair' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                        <FaBolt /> Script de Reparação v8.0
+                    </button>
+                    <button onClick={() => setActiveTab('diagnostic')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'diagnostic' ? 'bg-gray-800 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                        <FaSearch /> Verificador de Colunas
                     </button>
                 </div>
+
                 <div className="flex-grow overflow-hidden flex flex-col">
-                    {activeTab === 'setup' && (
+                    {activeTab === 'repair' ? (
                         <div className="flex flex-col h-full">
-                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaShieldAlt /> Reparação de Schema Concluída</div>
-                                <p>Este script utiliza <code>"returnDate"</code> (com aspas) para resolver o erro 42703. Copie e execute no editor SQL do Supabase para restaurar o acesso aos dados.</p>
+                            <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg text-sm text-yellow-200 mb-4">
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Reparação Final (Respeita CamelCase)</div>
+                                <p>Este script utiliza <code>"aspas duplas"</code> para as colunas detetadas no seu diagnóstico. Isso impede o erro 42703 (coluna não existe) no PostgreSQL.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">
-                                    <button onClick={() => handleCopy(scripts.setup, 'setup')} className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">
-                                        {copied === 'setup' ? <FaCheck /> : <FaCopy />} Copiar SQL
+                                    <button onClick={() => handleCopy(scripts.repair, 'rep')} className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg hover:bg-brand-secondary">
+                                        {copied === 'rep' ? <FaCheck /> : <FaCopy />} Copiar SQL de Reparação
                                     </button>
                                 </div>
-                                <pre className="p-4 text-xs font-mono text-green-400 overflow-auto flex-grow custom-scrollbar whitespace-pre-wrap">{scripts.setup}</pre>
+                                <pre className="p-4 text-xs font-mono text-green-400 overflow-auto flex-grow custom-scrollbar whitespace-pre-wrap">{scripts.repair}</pre>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col h-full">
+                                <div className="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
+                                    <span className="text-xs font-bold text-gray-400 uppercase">Script de Consulta de Schema</span>
+                                    <button onClick={() => handleCopy(scripts.diagnostic, 'diag')} className="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600">
+                                        {copied === 'diag' ? <FaCheck /> : <FaCopy />}
+                                    </button>
+                                </div>
+                                <pre className="p-4 text-xs font-mono text-blue-400 overflow-auto flex-grow">{scripts.diagnostic}</pre>
                             </div>
                         </div>
                     )}
                 </div>
+
                 <div className="flex justify-end pt-4 border-t border-gray-700 mt-4">
                     <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar</button>
                 </div>
