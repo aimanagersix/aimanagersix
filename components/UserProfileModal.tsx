@@ -59,24 +59,24 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
         }
     };
 
-    // Lógica de resolução de nomes para a estrutura organizacional - Reforçada para o Pedido 1
+    // Lógica de resolução de nomes corrigida para o Pedido 1
     const displayInstituicao = useMemo(() => {
         if (instituicao?.name) return instituicao.name;
+        if (user.instituicaoId) return 'Instituição Associada'; // Fallback se a prop falhar mas o ID existir
         if (user.role === 'SuperAdmin') return 'Acesso Global';
         return 'Não definida';
-    }, [instituicao, user.role]);
+    }, [instituicao, user.instituicaoId, user.role]);
     
     const displayEntidade = useMemo(() => {
         if (entidade?.name) return entidade.name;
-        if (user.instituicaoId) return 'Diretamente à Instituição';
+        if (user.instituicaoId && !user.entidadeId) return 'Diretamente à Instituição';
         if (user.role === 'SuperAdmin') return 'Acesso Global';
         return 'Sem departamento fixo';
-    }, [entidade, user.instituicaoId, user.role]);
+    }, [entidade, user.instituicaoId, user.entidadeId, user.role]);
 
     return (
         <Modal title="O Meu Perfil" onClose={onClose} maxWidth="max-w-2xl">
             <div className="flex flex-col md:flex-row gap-8">
-                {/* Lado Esquerdo: Foto e Status RH */}
                 <div className="flex flex-col items-center space-y-6 w-full md:w-1/3 border-r border-gray-700/50 pr-8">
                     <div className="relative group">
                         <div className="w-40 h-40 rounded-full border-4 border-brand-primary overflow-hidden bg-gray-800 flex items-center justify-center shadow-2xl">
@@ -112,7 +112,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                     </div>
                 </div>
 
-                {/* Lado Direito: Formulário Editável */}
                 <div className="flex-1 space-y-4 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
                     <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-4"><FaUserTie/> Dados Pessoais</h3>
                     
