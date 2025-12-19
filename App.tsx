@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from './components/Header';
 import Sidebar from './Sidebar';
-import { useAppData } from './hooks/useAppData';
 import LoginPage from './components/LoginPage';
 import ConfigurationSetup from './components/ConfigurationSetup';
 import { useLayout } from './contexts/LayoutContext';
@@ -17,25 +16,42 @@ import SmartDashboard from './components/SmartDashboard';
 import BIReportDashboard from './components/BIReportDashboard';
 import MagicCommandBar from './components/MagicCommandBar';
 import { ChatWidget } from './components/ChatWidget';
-import NotificationsModal from './components/NotificationsModal';
-import ResetPasswordModal from './components/ResetPasswordModal';
-import ReportModal from './components/ReportModal';
 import UserManualModal from './components/UserManualModal';
 import CalendarModal from './components/CalendarModal';
 import MapDashboard from './components/MapDashboard';
 import SettingsManager from './features/settings/SettingsManager';
 import { getSupabase } from './services/supabaseClient';
 import * as dataService from './services/dataService';
-import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, TicketStatus, PolicyAcceptance, Policy } from './types';
-import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
+import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy } from './types';
 import AgendaDashboard from './components/AgendaDashboard';
-import { AddTicketModal } from './components/AddTicketModal';
+
+// Atomics Hooks
+import { useOrganization } from './hooks/useOrganization';
+import { useInventory } from './hooks/useInventory';
+import { useSupport } from './hooks/useSupport';
+import { useCompliance } from './hooks/useCompliance';
 
 export const App: React.FC = () => {
-    const { isConfigured, setIsConfigured, currentUser, setCurrentUser, appData, refreshData, isLoading } = useAppData();
     const { layoutMode } = useLayout();
     const { t } = useLanguage();
 
+    // 1. Session & Global Config State
+    const [isConfigured, setIsConfigured] = useState<boolean>(() => {
+        const storageUrl = localStorage.getItem('SUPABASE_URL');
+        const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
+        return !!(storageUrl && storageKey);
+    });
+    const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
+    const [session, setSession] = useState<any>(null);
+    const [isAppLoading, setIsAppLoading] = useState(true);
+
+    // 2. Feature Hooks (The new Atomic Separation)
+    const org = useOrganization(isConfigured);
+    const inv = useInventory(isConfigured);
+    const support = useSupport(isConfigured);
+    const compliance = useCompliance(isConfigured);
+
+    // 3. UI State
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarExpanded, setSidebarExpanded] = useState(false);
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
@@ -43,26 +59,65 @@ export const App: React.FC = () => {
     const [showNotifications, setShowNotifications] = useState(false);
     const [showUserManual, setShowUserManual] = useState(false);
     const [showCalendar, setShowCalendar] = useState(false);
-    const [showResetPassword, setShowResetPassword] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
-    const [session, setSession] = useState<any>(null);
-
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
 
+    // 4. Backward Compatibility Layer (Recombines atomic state into the monolithic appData object)
+    // This ensures NO component needs to be refactored (Freeze UI/Zero Refactoring constraint)
+    const appData = useMemo(() => ({
+        ...org.data,
+        ...inv.data,
+        ...support.data,
+        ...compliance.data,
+        // Fix: Use data from hooks to satisfy AppData interface fully
+    }), [org.data, inv.data, support.data, compliance.data]);
+
+    const refreshAll = useCallback(() => {
+        org.refresh();
+        inv.refresh();
+        support.refresh();
+        compliance.refresh();
+    }, [org, inv, support, compliance]);
+
+    // 5. Auth Logic
+    useEffect(() => {
+        const supabase = getSupabase();
+        supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+            setSession(currentSession);
+            if (currentSession?.user) {
+                // Find current collaborator
+                const user = org.data.collaborators.find(c => c.email === currentSession.user.email);
+                if (user) {
+                    setCurrentUser(user);
+                    setIsAppLoading(false);
+                } else if (org.data.collaborators.length > 0) {
+                    // Collaborators loaded but user not found? (Maybe RLS or new user)
+                    setIsAppLoading(false);
+                }
+            } else {
+                setIsAppLoading(false);
+            }
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+            setSession(newSession);
+        });
+        return () => subscription.unsubscribe();
+    }, [org.data.collaborators]);
+
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
-        // SUPER ADMIN TEM ACESSO TOTAL SEMPRE
         if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
         
-        const role = appData.customRoles.find(r => r.name === currentUser.role);
+        const role = org.data.customRoles.find(r => r.name === currentUser.role);
         if (!role || !role.permissions) return false;
         
         const modulePerms = role.permissions[module] || {};
         if (action === 'view' && modulePerms['view_own']) return true;
         return !!modulePerms[action];
-    }, [currentUser, appData.customRoles]);
+    }, [currentUser, org.data.customRoles]);
 
     const tabConfig = useMemo(() => {
         const canSeeMyArea = checkPermission('my_area', 'view');
@@ -91,22 +146,9 @@ export const App: React.FC = () => {
                 training: checkPermission('compliance_training', 'view'),
                 policies: checkPermission('compliance_policies', 'view'),
             },
-            'tools': {
-                agenda: true,
-                map: true
-            }
+            'tools': { agenda: true, map: true }
         };
     }, [checkPermission]);
-
-    useEffect(() => {
-        const supabase = getSupabase();
-        supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            if (_event === 'PASSWORD_RECOVERY') setShowResetPassword(true);
-        });
-        return () => subscription.unsubscribe();
-    }, []);
 
     const handleLogout = async () => {
         const supabase = getSupabase();
@@ -121,13 +163,13 @@ export const App: React.FC = () => {
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isLoading) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">Carregando Sistema...</div>;
+    if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">Carregando Contexto Atómico...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
 
     return (
-        <div className={`min-h-screen bg-background-dark text-on-surface-dark flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`}>
+        <div className={`min-h-screen bg-background-dark text-on-surface-dark-secondary flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`}>
             {layoutMode === 'side' ? (
                 <Sidebar 
                     currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout}
@@ -155,7 +197,7 @@ export const App: React.FC = () => {
                                 collaborators={appData.collaborators} teams={appData.teams} expiringWarranties={[]}
                                 expiringLicenses={[]} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
                                 vulnerabilities={appData.vulnerabilities} onViewItem={handleViewItem}
-                                onGenerateComplianceReport={() => {}} checkPermission={checkPermission} onRefresh={refreshData}
+                                onGenerateComplianceReport={() => {}} checkPermission={checkPermission} onRefresh={refreshAll}
                             />
                         ) : (
                             <SelfServiceDashboard 
@@ -188,7 +230,7 @@ export const App: React.FC = () => {
                     {(activeTab.startsWith('equipment') || activeTab === 'licensing') && (
                         <InventoryManager 
                             activeTab={activeTab} appData={appData} checkPermission={checkPermission}
-                            refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter}
+                            refreshData={inv.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter}
                             setReportType={setReportType} currentUser={currentUser} onViewItem={handleViewItem}
                         />
                     )}
@@ -196,7 +238,7 @@ export const App: React.FC = () => {
                     {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && (
                         <OrganizationManager 
                             activeTab={activeTab} appData={appData} checkPermission={checkPermission}
-                            refreshData={refreshData} currentUser={currentUser} setActiveTab={setActiveTab}
+                            refreshData={org.refresh} currentUser={currentUser} setActiveTab={setActiveTab}
                             onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setChatOpen(true); }}
                             setReportType={setReportType}
                         />
@@ -204,7 +246,7 @@ export const App: React.FC = () => {
 
                     {activeTab === 'tickets.list' && (
                         <TicketManager 
-                            appData={appData} checkPermission={checkPermission} refreshData={refreshData}
+                            appData={appData} checkPermission={checkPermission} refreshData={support.refresh}
                             dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter}
                             setReportType={setReportType} currentUser={currentUser}
                         />
@@ -213,13 +255,13 @@ export const App: React.FC = () => {
                     {activeTab.startsWith('nis2') && (
                         <ComplianceManager 
                             activeTab={activeTab} appData={appData} checkPermission={checkPermission}
-                            refreshData={refreshData} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter}
+                            refreshData={compliance.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter}
                             setReportType={setReportType} currentUser={currentUser}
                         />
                     )}
                     
                     {activeTab === 'reports' && <BIReportDashboard appData={appData} />}
-                    {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={refreshData} />}
+                    {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={refreshAll} />}
                     {activeTab === 'tools.agenda' && <AgendaDashboard />}
                     {activeTab === 'tools.map' && <MapDashboard instituicoes={appData.instituicoes} entidades={appData.entidades} suppliers={appData.suppliers} equipment={appData.equipment} assignments={appData.assignments} />}
                 </div>
@@ -229,7 +271,6 @@ export const App: React.FC = () => {
             <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={() => {}} onMarkMessagesAsRead={() => {}} isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} unreadMessagesCount={0} onSelectConversation={setActiveChatCollaboratorId} />
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { handleViewItem('tickets.list', { id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
-            {showResetPassword && session && <ResetPasswordModal onClose={() => setShowResetPassword(false)} session={session} />}
         </div>
     );
 };

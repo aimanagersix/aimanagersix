@@ -50,125 +50,154 @@ export const updateGlobalSetting = async (key: string, value: string) => {
     if (error) throw error;
 };
 
-// --- BATCH DATA FETCH ---
-export const fetchAllData = async () => {
+// --- ATOMIC FETCHING FUNCTIONS (FOR FEATURE HOOKS) ---
+
+export const fetchOrganizationData = async () => {
     const [
-        {data: equipment}, {data: brands}, {data: equipmentTypes}, 
-        {data: instituicoes}, {data: entidades}, {data: collaborators}, 
-        {data: assignments}, {data: tickets}, {data: softwareLicenses}, 
-        {data: licenseAssignments}, {data: teams}, {data: teamMembers}, 
-        {data: messages}, {data: ticketCategories}, {data: securityIncidentTypes},
-        {data: businessServices}, {data: serviceDependencies}, {data: vulnerabilities},
-        {data: suppliers}, {data: backupExecutions}, {data: resilienceTests},
-        {data: securityTrainings}, {data: configCustomRoles}, {data: softwareCategories},
-        {data: softwareProducts}, {data: configEquipmentStatuses}, {data: contactRoles},
-        {data: contactTitles}, {data: configCriticalityLevels}, {data: configCiaRatings},
-        {data: configServiceStatuses}, {data: configBackupTypes}, {data: configTrainingTypes},
-        {data: configResilienceTestTypes}, {data: configDecommissionReasons},
-        {data: configCollaboratorDeactivationReasons}, {data: configAccountingCategories},
-        {data: configConservationStates}, {data: configCpus}, {data: configRamSizes},
-        {data: configStorageTypes}, {data: configJobTitles}, {data: policies},
-        {data: policyAcceptances}, {data: procurementRequests}, {data: calendarEvents},
-        {data: continuityPlans}
+        {data: inst}, {data: ent}, {data: collabs}, {data: roles}, {data: titles}, {data: contactRoles}, {data: history}
+    ] = await Promise.all([
+        sb().from('instituicoes').select('*'),
+        sb().from('entidades').select('*'),
+        sb().from('collaborators').select('*'),
+        sb().from('config_custom_roles').select('*'),
+        sb().from('contact_titles').select('*'),
+        // Fix: Added missing fetch for contact_roles
+        sb().from('contact_roles').select('*'),
+        // Fix: Added missing fetch for collaborator_history
+        sb().from('collaborator_history').select('*')
+    ]);
+    return { 
+        instituicoes: inst || [], 
+        entidades: ent || [], 
+        collaborators: collabs || [], 
+        customRoles: roles || [], 
+        contactTitles: titles || [],
+        // Fix: Include contactRoles and collaboratorHistory in return object
+        contactRoles: contactRoles || [],
+        collaboratorHistory: history || []
+    };
+};
+
+export const fetchInventoryData = async () => {
+    const [
+        {data: eq}, {data: brands}, {data: types}, {data: assignments}, 
+        {data: licenses}, {data: licenseAssignments}, {data: procurement},
+        {data: softwareCats}, {data: softwareProds}, {data: suppliers},
+        {data: eqStatuses}, {data: cpus}, {data: ram}, {data: storage},
+        {data: accounting}, {data: conservation}, {data: decomm},
+        {data: jobTitles}, {data: deactivReasons}
     ] = await Promise.all([
         sb().from('equipment').select('*'),
         sb().from('brands').select('*'),
         sb().from('equipment_types').select('*'),
-        sb().from('instituicoes').select('*'),
-        sb().from('entidades').select('*'),
-        sb().from('collaborators').select('*'),
         sb().from('assignments').select('*'),
-        sb().from('tickets').select('*'),
         sb().from('software_licenses').select('*'),
         sb().from('license_assignments').select('*'),
-        sb().from('teams').select('*'),
-        sb().from('team_members').select('*'),
-        sb().from('messages').select('*'),
+        sb().from('procurement_requests').select('*'),
+        sb().from('config_software_categories').select('*'),
+        sb().from('config_software_products').select('*'),
+        sb().from('suppliers').select('*'),
+        sb().from('config_equipment_statuses').select('*'),
+        sb().from('config_cpus').select('*'),
+        sb().from('config_ram_sizes').select('*'),
+        sb().from('config_storage_types').select('*'),
+        sb().from('config_accounting_categories').select('*'),
+        sb().from('config_conservation_states').select('*'),
+        sb().from('config_decommission_reasons').select('*'),
+        // Fix: Added missing fetch for config_job_titles
+        sb().from('config_job_titles').select('*'),
+        // Fix: Added missing fetch for config_collaborator_deactivation_reasons
+        sb().from('config_collaborator_deactivation_reasons').select('*')
+    ]);
+    return {
+        equipment: eq || [], brands: brands || [], equipmentTypes: types || [], 
+        assignments: assignments || [], softwareLicenses: licenses || [], 
+        licenseAssignments: licenseAssignments || [], procurementRequests: procurement || [],
+        softwareCategories: softwareCats || [], softwareProducts: softwareProds || [],
+        suppliers: suppliers || [], configEquipmentStatuses: eqStatuses || [],
+        configCpus: cpus || [], configRamSizes: ram || [], configStorageTypes: storage || [],
+        configAccountingCategories: accounting || [], configConservationStates: conservation || [],
+        configDecommissionReasons: decomm || [],
+        // Fix: Include configJobTitles and configCollaboratorDeactivationReasons in return object
+        configJobTitles: jobTitles || [],
+        configCollaboratorDeactivationReasons: deactivReasons || []
+    };
+};
+
+export const fetchSupportData = async () => {
+    const [
+        {data: tickets}, {data: cats}, {data: incidentTypes}, {data: teams}, {data: members}, {data: calendar}, {data: activities}, {data: msgs}
+    ] = await Promise.all([
+        sb().from('tickets').select('*'),
         sb().from('ticket_categories').select('*'),
         sb().from('security_incident_types').select('*'),
+        sb().from('teams').select('*'),
+        sb().from('team_members').select('*'),
+        sb().from('calendar_events').select('*'),
+        // Fix: Added missing fetch for ticket_activities
+        sb().from('ticket_activities').select('*'),
+        // Fix: Added missing fetch for messages
+        sb().from('messages').select('*')
+    ]);
+    return {
+        tickets: tickets || [], ticketCategories: cats || [], 
+        securityIncidentTypes: incidentTypes || [], teams: teams || [], 
+        teamMembers: members || [], calendarEvents: calendar || [],
+        // Fix: Include ticketActivities and messages in return object
+        ticketActivities: activities || [],
+        messages: msgs || []
+    };
+};
+
+export const fetchComplianceData = async () => {
+    const [
+        {data: svcs}, {data: deps}, {data: vulns}, {data: backups}, 
+        {data: tests}, {data: trainings}, {data: policies}, {data: acceptances}, {data: plans},
+        {data: trainingTypes},
+        {data: critLevels}, {data: ciaRatings}, {data: svcStatus}, {data: backTypes}, {data: resTypes}
+    ] = await Promise.all([
         sb().from('business_services').select('*'),
         sb().from('service_dependencies').select('*'),
         sb().from('vulnerabilities').select('*'),
-        sb().from('suppliers').select('*'),
         sb().from('backup_executions').select('*'),
         sb().from('resilience_tests').select('*'),
         sb().from('security_trainings').select('*'),
-        sb().from('config_custom_roles').select('*'),
-        sb().from('config_software_categories').select('*'),
-        sb().from('config_software_products').select('*'),
-        sb().from('config_equipment_statuses').select('*'),
-        sb().from('contact_roles').select('*'),
-        sb().from('contact_titles').select('*'),
+        sb().from('policies').select('*'),
+        sb().from('policy_acceptances').select('*'),
+        sb().from('continuity_plans').select('*'),
+        sb().from('config_training_types').select('*'),
+        // Fix: Added missing fetch for compliance config tables
         sb().from('config_criticality_levels').select('*'),
         sb().from('config_cia_ratings').select('*'),
         sb().from('config_service_statuses').select('*'),
         sb().from('config_backup_types').select('*'),
-        sb().from('config_training_types').select('*'),
-        sb().from('config_resilience_test_types').select('*'),
-        sb().from('config_decommission_reasons').select('*'),
-        sb().from('config_collaborator_deactivation_reasons').select('*'),
-        sb().from('config_accounting_categories').select('*'),
-        sb().from('config_conservation_states').select('*'),
-        sb().from('config_cpus').select('*'),
-        sb().from('config_ram_sizes').select('*'),
-        sb().from('config_storage_types').select('*'),
-        sb().from('config_job_titles').select('*'),
-        sb().from('policies').select('*'),
-        sb().from('policy_acceptances').select('*'),
-        sb().from('procurement_requests').select('*'),
-        sb().from('calendar_events').select('*'),
-        sb().from('continuity_plans').select('*')
+        sb().from('config_resilience_test_types').select('*')
+    ]);
+    return {
+        businessServices: svcs || [], serviceDependencies: deps || [], 
+        vulnerabilities: vulns || [], backupExecutions: backups || [], 
+        resilienceTests: tests || [], securityTrainings: trainings || [], 
+        policies: policies || [], policyAcceptances: acceptances || [], 
+        continuityPlans: plans || [], configTrainingTypes: trainingTypes || [],
+        // Fix: Include missing compliance config tables in return object
+        configCriticalityLevels: critLevels || [],
+        configCiaRatings: ciaRatings || [],
+        configServiceStatuses: svcStatus || [],
+        configBackupTypes: backTypes || [],
+        configResilienceTestTypes: resTypes || []
+    };
+};
+
+// --- BATCH DATA FETCH (LEGACY/DASHBOARD) ---
+export const fetchAllData = async () => {
+    const [org, inv, support, compliance] = await Promise.all([
+        fetchOrganizationData(),
+        fetchInventoryData(),
+        fetchSupportData(),
+        fetchComplianceData()
     ]);
 
-    return {
-        equipment: equipment || [],
-        brands: brands || [],
-        equipmentTypes: equipmentTypes || [],
-        instituicoes: instituicoes || [],
-        entidades: entidades || [],
-        collaborators: collaborators || [],
-        assignments: assignments || [],
-        tickets: tickets || [],
-        softwareLicenses: softwareLicenses || [],
-        licenseAssignments: licenseAssignments || [],
-        teams: teams || [],
-        teamMembers: teamMembers || [],
-        messages: messages || [],
-        ticketCategories: ticketCategories || [],
-        securityIncidentTypes: securityIncidentTypes || [],
-        businessServices: businessServices || [],
-        serviceDependencies: serviceDependencies || [],
-        vulnerabilities: vulnerabilities || [],
-        suppliers: suppliers || [],
-        backupExecutions: backupExecutions || [],
-        resilienceTests: resilienceTests || [],
-        securityTrainings: securityTrainings || [],
-        configCustomRoles: configCustomRoles || [],
-        softwareCategories: softwareCategories || [],
-        softwareProducts: softwareProducts || [],
-        configEquipmentStatuses: configEquipmentStatuses || [],
-        contactRoles: contactRoles || [],
-        contactTitles: contactTitles || [],
-        configCriticalityLevels: configCriticalityLevels || [],
-        configCiaRatings: configCiaRatings || [],
-        configServiceStatuses: configServiceStatuses || [],
-        configBackupTypes: configBackupTypes || [],
-        configTrainingTypes: configTrainingTypes || [],
-        configResilienceTestTypes: configResilienceTestTypes || [],
-        configDecommissionReasons: configDecommissionReasons || [],
-        configCollaboratorDeactivationReasons: configCollaboratorDeactivationReasons || [],
-        configAccountingCategories: configAccountingCategories || [],
-        configConservationStates: configConservationStates || [],
-        configCpus: configCpus || [],
-        configRamSizes: configRamSizes || [],
-        configStorageTypes: configStorageTypes || [],
-        configJobTitles: configJobTitles || [],
-        policies: policies || [],
-        policyAcceptances: policyAcceptances || [],
-        procurementRequests: procurementRequests || [],
-        calendarEvents: calendarEvents || [],
-        continuityPlans: continuityPlans || []
-    };
+    return { ...org, ...inv, ...support, ...compliance };
 };
 
 // --- PAGINATED FETCHING ---
