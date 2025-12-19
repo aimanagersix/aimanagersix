@@ -105,12 +105,16 @@ export const App: React.FC = () => {
             );
             rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
 
-            // Filtrar Políticas aplicáveis a mim (entidade/instituição ou globais)
+            // Filtrar Políticas aplicáveis ao utilizador
             rawData.policies = rawData.policies.filter(p => {
                 if (!p.is_active) return false;
-                if (p.target_type === 'Global') return true;
-                if (p.target_type === 'Instituicao' && currentUser.instituicaoId) return (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
-                if (p.target_type === 'Entidade' && currentUser.entidadeId) return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
+                if (p.target_type === 'Global' || !p.target_type) return true;
+                if (p.target_type === 'Instituicao' && currentUser.instituicaoId) {
+                    return (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
+                }
+                if (p.target_type === 'Entidade' && currentUser.entidadeId) {
+                    return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
+                }
                 return false;
             });
         }
@@ -118,12 +122,29 @@ export const App: React.FC = () => {
         return rawData;
     }, [org.data, inv.data, support.data, compliance.data, currentUser, checkPermission]);
 
-    // 6. Detect Pending Policies for the user
+    // 6. Detect Pending Policies for the user (Usamos os dados brutos para garantir deteção no login)
     const pendingPolicies = useMemo(() => {
-        if (!currentUser || !appData.policies) return [];
-        const myAcceptanceIds = new Set(appData.policyAcceptances.filter(a => a.collaborator_id === currentUser.id).map(a => a.policy_id + '-' + a.version));
-        return appData.policies.filter(p => p.is_mandatory && p.is_active && !myAcceptanceIds.has(p.id + '-' + p.version));
-    }, [currentUser, appData.policies, appData.policyAcceptances]);
+        if (!currentUser || !compliance.data.policies) return [];
+        
+        // Identificar aceitações (compatibilidade com nomes de colunas na BD)
+        const myAcceptanceIds = new Set(
+            compliance.data.policyAcceptances
+                .filter(a => (a as any).collaboratorId === currentUser.id || (a as any).collaborator_id === currentUser.id)
+                .map(a => a.policy_id + '-' + a.version)
+        );
+
+        return compliance.data.policies.filter(p => {
+            if (!p.is_mandatory || !p.is_active) return false;
+            
+            // Verificar se aplica ao utilizador atual
+            let applies = false;
+            if (p.target_type === 'Global' || !p.target_type) applies = true;
+            else if (p.target_type === 'Instituicao' && currentUser.instituicaoId) applies = (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
+            else if (p.target_type === 'Entidade' && currentUser.entidadeId) applies = (p.target_entidade_ids || []).includes(currentUser.entidadeId);
+
+            return applies && !myAcceptanceIds.has(p.id + '-' + p.version);
+        });
+    }, [currentUser, compliance.data.policies, compliance.data.policyAcceptances]);
 
     const refreshAll = useCallback(async () => {
         await Promise.all([
@@ -204,13 +225,14 @@ export const App: React.FC = () => {
 
     const handleAcceptPolicy = async (id: string, version: string) => {
         if (!currentUser) return;
+        // CORREÇÃO: Usar 'collaboratorId' (camelCase) para consistência com o resto da BD e triggers
         await dataService.addConfigItem('policy_acceptances', {
             policy_id: id,
-            collaborator_id: currentUser.id,
+            collaboratorId: currentUser.id,
             version: version,
             accepted_at: new Date().toISOString()
         });
-        refreshAll();
+        await refreshAll();
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;

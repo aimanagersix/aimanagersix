@@ -177,16 +177,22 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
     };
 
     const handleTriggerSophosSync = async () => {
+        if (isSyncing) return;
         setIsSyncing(true);
         try {
             const supabase = getSupabase();
-            // CORREÇÃO TÉCNICA: Adicionado corpo vazio e tratamento de erro explícito
-            const { data, error } = await supabase.functions.invoke('sync-sophos', { body: {} });
+            // Adição de headers e tratamento de corpo para evitar bloqueio CORS/Network do browser
+            const { data, error } = await supabase.functions.invoke('sync-sophos', { 
+                body: {},
+                headers: { "Content-Type": "application/json" }
+            });
             if (error) throw error;
             alert("Sincronização concluída com sucesso.");
         } catch (e: any) {
             console.error("Sophos Sync Error:", e);
-            alert("Erro na sincronização: Falha na comunicação com a Edge Function. Verifique se a função está publicada no Supabase.");
+            // Mensagem mais informativa sobre a causa técnica
+            const detail = e.message || "Erro na comunicação com o servidor.";
+            alert(`Falha na Sincronização: ${detail}\n\nNota: Verifique se o Edge Function 'sync-sophos' está publicado no seu projeto Supabase.`);
         } finally {
             setIsSyncing(false);
         }

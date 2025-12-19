@@ -22,12 +22,9 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [dataError, setDataError] = useState('');
 
-    const [previewCode, setPreviewCode] = useState<{title: string, code: string} | null>(null);
-
     const [aiInput, setAiInput] = useState('');
     const [aiOutput, setAiOutput] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [aiMode, setAiMode] = useState<'sql' | 'e2e'>('sql');
 
     useEffect(() => {
         const loadMetadata = async () => {
@@ -62,98 +59,66 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const handleGenerate = async () => {
-        if (!aiInput.trim()) return;
-        setIsGenerating(true);
-        setAiOutput('');
-        try {
-            let result = await generateSqlHelper(aiInput);
-            result = result.replace(/```sql/g, '').replace(/```/g, '');
-            setAiOutput(result);
-        } catch (error: any) {
-            setAiOutput(`-- Erro ao gerar SQL.`);
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
     const scripts = {
         setup: `
 -- ==================================================================================
--- REPARAÇÃO TOTAL DE SEGURANÇA (v4.5 - THE MASTER FIX)
--- 1. Resolve erro "cannot drop function because other objects depend on it"
--- 2. Garante que Utilizadores vêem os seus equipamentos na "Minha Área"
+-- REPARAÇÃO TOTAL DE SEGURANÇA E POLÍTICAS (v4.6 - UNIFIED COLUMNS)
+-- Resolve erro de "collaborator_id" e garante visibilidade das Políticas no Login
 -- ==================================================================================
 
--- A. LIMPEZA RADICAL DE DEPENDÊNCIAS
--- O CASCADE remove todas as políticas que usam a função automaticamente.
+-- 1. LIMPEZA DE FUNÇÃO RBAC
 DROP FUNCTION IF EXISTS public.has_permission(text, text) CASCADE;
 
--- B. RE-CRIAÇÃO DA FUNÇÃO DE PERMISSÃO (RBAC)
+-- 2. RE-CRIAÇÃO DA FUNÇÃO RBAC (Suporta Admin Bypass)
 CREATE OR REPLACE FUNCTION public.has_permission(p_module text, p_action text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     v_role_name text;
     v_perms jsonb;
 BEGIN
-    -- 1. Obter o papel do utilizador pelo email do JWT
     SELECT role INTO v_role_name FROM public.collaborators WHERE email = auth.jwt()->>'email';
-    
-    -- 2. SuperAdmin tem sempre acesso total (bypass)
     IF v_role_name = 'SuperAdmin' THEN RETURN true; END IF;
-
-    -- 3. Obter o JSON de permissões
     SELECT permissions INTO v_perms FROM public.config_custom_roles WHERE name = v_role_name;
-
-    -- 4. Retornar permissão (Default FALSE se nulo)
     RETURN COALESCE((v_perms->p_module->>p_action)::boolean, false);
 END; $$;
 
--- C. REAPLICAÇÃO DE POLÍTICAS RLS (Após o CASCADE)
+-- 3. GARANTIR COLUNA 'collaboratorId' NA TABELA DE ACEITAÇÕES
+-- Se a sua tabela tem 'collaborator_id', este script renomeia-a para manter consistência
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='policy_acceptances' AND column_name='collaborator_id') THEN
+    ALTER TABLE public.policy_acceptances RENAME COLUMN collaborator_id TO "collaboratorId";
+  END IF;
+END $$;
 
--- 1. EQUIPAMENTOS (Crucial para a Minha Área)
--- Vejo se tenho 'view' global OU se o item está atribuído a mim.
-CREATE POLICY "Unified equipment select" ON public.equipment
-FOR SELECT TO authenticated 
-USING (
-    public.has_permission('equipment', 'view') 
-    OR EXISTS (
-        SELECT 1 FROM public.assignments 
-        WHERE "equipmentId" = public.equipment.id 
-        AND "returnDate" IS NULL 
-        AND "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
-    )
+-- 4. POLÍTICA DE LEITURA PARA 'policies'
+-- Obrigatório: Todos os autenticados devem conseguir LER as políticas para as aceitar
+ALTER TABLE public.policies ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can read active policies" ON public.policies;
+CREATE POLICY "Anyone can read active policies" ON public.policies
+FOR SELECT TO authenticated USING (is_active = true);
+
+-- 5. POLÍTICA DE INSERÇÃO PARA 'policy_acceptances'
+ALTER TABLE public.policy_acceptances ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can insert their own acceptance" ON public.policy_acceptances;
+CREATE POLICY "Users can insert their own acceptance" ON public.policy_acceptances
+FOR INSERT TO authenticated 
+WITH CHECK (
+    "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
 );
 
--- 2. TICKETS
-CREATE POLICY "Unified tickets select" ON public.tickets
+-- 6. POLÍTICA DE LEITURA PARA 'policy_acceptances'
+DROP POLICY IF EXISTS "Users can view their own acceptance" ON public.policy_acceptances;
+CREATE POLICY "Users can view their own acceptance" ON public.policy_acceptances
 FOR SELECT TO authenticated 
 USING (
-    public.has_permission('tickets', 'view')
+    public.has_permission('compliance_policies', 'view')
     OR "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
 );
 
--- 3. FORMAÇÕES
-CREATE POLICY "Unified trainings select" ON public.security_trainings
-FOR SELECT TO authenticated 
-USING (
-    public.has_permission('compliance_training', 'view')
-    OR collaborator_id = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
-);
-
--- 4. ATRIBUIÇÕES (Necessário para a lógica de ver o meu equipamento)
-CREATE POLICY "Unified assignments select" ON public.assignments
-FOR SELECT TO authenticated USING (true); -- Leitura aberta, o filtro final é feito no Equipamento
-
--- 5. TABELAS DE CONFIGURAÇÃO (Sempre legíveis para autenticados)
-ALTER TABLE public.config_custom_roles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Read config" ON public.config_custom_roles;
-CREATE POLICY "Read config" ON public.config_custom_roles FOR SELECT TO authenticated USING (true);
-
--- D. RECARREGAR
+-- 7. REFRESH SCHEMA
 NOTIFY pgrst, 'reload schema';
-`,
-        seed: `-- SEED DATA...`
+`
     };
 
     return (
@@ -161,16 +126,15 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex flex-wrap gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-3 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> 1. Reparação Master v4.5 (CASCADE)
+                        <FaTerminal /> 1. Reparação Master v4.6 (Colunas & RLS)
                     </button>
-                    {/* ... outros botões se necessário ... */}
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4 flex-shrink-0">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Reparação Crítica</div>
-                                <p>Este script utiliza <strong>CASCADE</strong> para forçar a atualização da segurança, resolvendo o erro de dependências. Execute e recarregue a página.</p>
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Correção de Acesso</div>
+                                <p>Este script resolve o erro de gravação de políticas e garante que utilizadores limitados as conseguem ler no ecrã de entrada.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">
