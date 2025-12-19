@@ -11,12 +11,21 @@ import {
     DbPolicy, DbTrigger, DbFunction
 } from '../types';
 
-// Helper to get supabase instance
 const sb = () => getSupabase();
 
 // --- AUTH & USER ---
 export const adminResetPassword = async (userId: string, newPassword: string) => {
-    console.debug(`Resetting password for user ${userId}`);
+    // Para um admin mudar a pass de outro utilizador no Supabase, é necessária uma Edge Function
+    // que utilize a Service Role Key, pois o cliente browser não tem essa permissão por segurança.
+    const { data, error } = await sb().functions.invoke('admin-auth-helper', {
+        body: { action: 'update_password', targetUserId: userId, newPassword: newPassword }
+    });
+    
+    if (error) throw error;
+
+    // Atualizar o timestamp na nossa tabela de colaboradores para a política de expiração
+    await sb().from('collaborators').update({ password_updated_at: new Date().toISOString() }).eq('id', userId);
+    
     return { success: true };
 };
 
@@ -50,7 +59,7 @@ export const updateGlobalSetting = async (key: string, value: string) => {
     if (error) throw error;
 };
 
-// --- ATOMIC FETCHING FUNCTIONS (FOR FEATURE HOOKS) ---
+// --- ATOMIC FETCHING FUNCTIONS ---
 
 export const fetchOrganizationData = async () => {
     const [
@@ -230,8 +239,22 @@ export const fetchAllData = async () => {
     return { ...org, ...inv, ...support, ...compliance };
 };
 
-export const fetchEquipmentPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
+export const fetchEquipmentPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' }, userId?: string, isAdmin?: boolean }) => {
     let query = sb().from('equipment').select('*', { count: 'exact' });
+    
+    // FILTRO DE ISOLAÇÃO DE DADOS (SERVIDOR)
+    if (!params.isAdmin && params.userId) {
+        // Obter IDs dos equipamentos atribuídos ao utilizador
+        const { data: userEq } = await sb().from('assignments').select('equipmentId').eq('collaboratorId', params.userId).is('returnDate', null);
+        const eqIds = userEq?.map(a => a.equipmentId) || [];
+        if (eqIds.length > 0) {
+            query = query.in('id', eqIds);
+        } else {
+            // Se não tem nada atribuído, não vê nada no inventário limitado
+            return { data: [], total: 0 };
+        }
+    }
+
     if (params.filters) {
         if (params.filters.serialNumber) query = query.ilike('serialNumber', `%${params.filters.serialNumber}%`);
         if (params.filters.description) query = query.ilike('description', `%${params.filters.description}%`);
@@ -239,7 +262,9 @@ export const fetchEquipmentPaginated = async (params: { page: number, pageSize: 
         if (params.filters.typeId) query = query.eq('typeId', params.filters.typeId);
         if (params.filters.status) query = query.eq('status', params.filters.status);
     }
+    
     if (params.sort) query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    
     const from = (params.page - 1) * params.pageSize;
     const to = from + params.pageSize - 1;
     const { data, count, error } = await query.range(from, to);
@@ -294,7 +319,6 @@ export const fetchTicketsPaginated = async (params: {
 };
 
 export const triggerSophosSync = async () => {
-    // CORREÇÃO: Passar headers vazios se necessário para contornar problemas de invocação
     const { error } = await sb().functions.invoke('sync-sophos', { 
         body: {},
         headers: { "Content-Type": "application/json" }
@@ -302,7 +326,6 @@ export const triggerSophosSync = async () => {
     if (error) throw error; 
 };
 
-// ... Rest of service functions
 export const addMultipleEquipment = async (items: any[]) => { const { error } = await sb().from('equipment').insert(items); if (error) throw error; };
 export const deleteEquipment = async (id: string) => { const { error } = await sb().from('equipment').delete().eq('id', id); if (error) throw error; };
 export const addBrand = async (brand: any) => { const { data, error } = await sb().from('brands').insert(brand).select().single(); if (error) throw error; return data; };

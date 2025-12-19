@@ -28,6 +28,7 @@ import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 import TicketActivitiesModal from './components/TicketActivitiesModal';
 import Modal from './components/common/Modal';
+import ResetPasswordModal from './components/ResetPasswordModal';
 
 // Atomics Hooks
 import { useOrganization } from './hooks/useOrganization';
@@ -50,6 +51,7 @@ export const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [session, setSession] = useState<any>(null);
     const [isAppLoading, setIsAppLoading] = useState(true);
+    const [passwordExpired, setPasswordExpired] = useState(false);
 
     // 2. Feature Hooks
     const org = useOrganization(isConfigured);
@@ -88,7 +90,7 @@ export const App: React.FC = () => {
         return !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // 5. Data Isolation Filter
+    // 5. Data Isolation Filter (Frontend - for widgets and local lists)
     const appData = useMemo(() => {
         const rawData = {
             ...org.data,
@@ -153,6 +155,23 @@ export const App: React.FC = () => {
         });
     }, [currentUser, compliance.data.policies, compliance.data.policyAcceptances]);
 
+    // 7. Password Expiry Check
+    useEffect(() => {
+        const checkPasswordExpiry = async () => {
+            if (!currentUser) return;
+            const expiryDaysStr = await dataService.getGlobalSetting('password_expiry_days');
+            if (expiryDaysStr && expiryDaysStr !== '0') {
+                const lastUpdated = new Date((currentUser as any).password_updated_at || new Date());
+                const now = new Date();
+                const diffDays = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 3600 * 24));
+                if (diffDays >= parseInt(expiryDaysStr)) {
+                    setPasswordExpired(true);
+                }
+            }
+        };
+        checkPasswordExpiry();
+    }, [currentUser]);
+
     const refreshAll = useCallback(async () => {
         await Promise.all([
             org.refresh(),
@@ -162,7 +181,7 @@ export const App: React.FC = () => {
         ]);
     }, [org, inv, support, compliance]);
 
-    // 7. Auth Logic
+    // 8. Auth Logic
     useEffect(() => {
         if (!isConfigured) return;
         const supabase = getSupabase();
@@ -273,7 +292,11 @@ export const App: React.FC = () => {
 
     return (
         <div className={`min-h-screen bg-background-dark text-on-surface-dark-secondary flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`}>
-            {pendingPolicies.length > 0 && (
+            {passwordExpired && (
+                <ResetPasswordModal session={session} onClose={() => setPasswordExpired(false)} />
+            )}
+            
+            {pendingPolicies.length > 0 && !passwordExpired && (
                 <PolicyAcceptanceModal policies={pendingPolicies} onAccept={handleAcceptPolicy} />
             )}
             

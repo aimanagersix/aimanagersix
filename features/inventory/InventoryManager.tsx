@@ -75,11 +75,14 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     const fetchEquipment = useCallback(async () => {
         setEquipmentLoading(true);
         try {
+            const isAdmin = checkPermission('equipment', 'view');
             const { data, total } = await dataService.fetchEquipmentPaginated({
                 page: equipmentPage,
                 pageSize: equipmentPageSize,
                 filters: dashboardFilter,
-                sort: equipmentSort
+                sort: equipmentSort,
+                userId: currentUser?.id,
+                isAdmin: isAdmin
             });
             setEquipmentData(data);
             setTotalEquipment(total);
@@ -90,7 +93,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
         } finally {
             setEquipmentLoading(false);
         }
-    }, [equipmentPage, equipmentPageSize, dashboardFilter, equipmentSort]);
+    }, [equipmentPage, equipmentPageSize, dashboardFilter, equipmentSort, currentUser, checkPermission]);
 
     // Initial Load & Refresh
     useEffect(() => {
@@ -222,8 +225,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({
     
     const canApproveProcurement = checkPermission('procurement', 'delete');
 
-    // Fix: Refined procurement filtering logic to avoid hiding all items when no filter title is present
-    // Fix: Added useMemo to React imports to solve 'Cannot find name useMemo' error
     const filteredProcurementRequests = useMemo(() => {
         if (!appData.procurementRequests) return [];
         if (!dashboardFilter || Object.keys(dashboardFilter).length === 0) return appData.procurementRequests;
