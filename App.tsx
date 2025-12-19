@@ -361,7 +361,7 @@ export const App: React.FC = () => {
                         softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
                         vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers}
                         accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates}
-                        onEdit={checkPermission('equipment', 'edit') ? (eq) => { setViewingEquipment(null); /* Aqui seria para abrir o modal de edição real se necessário */ } : undefined}
+                        onEdit={checkPermission('equipment', 'edit') ? (eq) => { setViewingEquipment(null); setActiveTab('equipment.inventory'); setDashboardFilter({serialNumber: eq.serialNumber}); } : undefined}
                     />
                 ) : (
                     <EquipmentSimpleModal

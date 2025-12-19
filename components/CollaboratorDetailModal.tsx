@@ -231,7 +231,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                                 <div 
                                                     key={eq.id} 
                                                     className={`bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center transition-colors ${onViewEquipment ? 'hover:bg-gray-700 cursor-pointer group' : ''}`}
-                                                    onClick={() => onViewEquipment && onViewEquipment(eq, true)} // Permitir edição ao Admin aqui
+                                                    onClick={() => onViewEquipment && onViewEquipment(eq, true)} 
                                                     title={onViewEquipment ? "Clique para ver detalhes do equipamento" : ""}
                                                 >
                                                     <div>
