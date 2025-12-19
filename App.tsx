@@ -162,20 +162,35 @@ export const App: React.FC = () => {
     const totalNotifications = notificationItems.totalVisible;
 
     const refreshAll = useCallback(async () => {
-        await Promise.all([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
+        setIsAppLoading(true);
+        await Promise.allSettled([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
+        setIsAppLoading(false);
     }, [org, inv, support, compliance]);
 
     useEffect(() => {
         if (!isConfigured) return;
         const supabase = getSupabase();
-        supabase.auth.getSession().then(({ data: { session: currentSession } }: any) => {
+        
+        const initSession = async () => {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
             setSession(currentSession);
             if (currentSession?.user) {
+                // Tenta localizar o utilizador local
                 const user = org.data.collaborators.find(c => c.email === currentSession.user.email);
-                if (user) { setCurrentUser(user); setIsAppLoading(false); }
-                else if (org.data.collaborators.length > 0) { setIsAppLoading(false); }
-            } else { setIsAppLoading(false); }
-        });
+                if (user) { 
+                    setCurrentUser(user);
+                    setIsAppLoading(false); 
+                } else if (org.data.collaborators.length > 0) {
+                    // Colaboradores carregados mas email não encontrado? Forçar logout
+                    setIsAppLoading(false);
+                }
+            } else {
+                setIsAppLoading(false);
+            }
+        };
+
+        initSession();
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, newSession: any) => {
             setSession(newSession);
         });
@@ -230,7 +245,15 @@ export const App: React.FC = () => {
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A preparar ambiente seguro...</div>;
+    
+    // Ecrã de Splash Clean
+    if (isAppLoading) return (
+        <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white font-bold">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div>
+            <p className="animate-pulse">A preparar ambiente seguro...</p>
+        </div>
+    );
+
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';

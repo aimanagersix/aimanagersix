@@ -4,7 +4,6 @@ import { getSupabase } from "./supabaseClient";
 import { VulnerabilityScanConfig } from "../types";
 
 // Model Definitions
-// Use recommended model names as per @google/genai coding guidelines.
 const flashModel = "gemini-3-flash-preview";
 const proModel = "gemini-3-pro-preview";
 
@@ -16,9 +15,7 @@ export const isAiConfigured = (): boolean => {
 };
 
 /**
- * Executes a request to Gemini models.
- * Fix: Removed singleton caching of aiInstance to ensure most up-to-date key usage.
- * Fix: Strictly follow initialization guidelines using process.env.API_KEY.
+ * Executes a request to Gemini models following strict SDK guidelines.
  */
 const runGeminiRequest = async (
     modelName: string, 
@@ -43,13 +40,12 @@ const runGeminiRequest = async (
 
         if (error) {
             console.error("Edge Function Error:", error);
-            throw new Error(`Erro no servidor de IA: ${error.message}`);
+            throw new Error(`IA Offline: ${error.message}`);
         }
         return data?.text || "";
     }
 
-    // Fix: Create a new GoogleGenAI instance right before making an API call.
-    // Fix: Use process.env.API_KEY directly in the named parameter.
+    // New instance per request to ensure fresh API Key state
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     
     const parts: any[] = [];
@@ -73,7 +69,7 @@ const runGeminiRequest = async (
         config: config
     });
 
-    // Fix: access .text property directly instead of calling it as a method.
+    // CORRETO: Acesso à propriedade .text, sem parênteses de método.
     return response.text ? response.text.trim() : "";
 };
 
@@ -82,14 +78,14 @@ export const extractTextFromImage = async (base64Image: string, mimeType: string
     const prompt = "Extract the most prominent serial number or alphanumeric code from this image. Return only the code itself, with no additional text or labels.";
     return await runGeminiRequest(flashModel, prompt, [{ data: base64Image, mimeType }]);
   } catch (error) {
-    console.error("Error extracting text:", error);
-    throw new Error("Failed to analyze image.");
+    console.error("Vision Analysis Error:", error);
+    throw new Error("Falha ao analisar imagem. Verifique a qualidade da foto.");
   }
 };
 
 export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ brand: string; type: string }> => {
     try {
-        const prompt = `Based on the serial number or model code "${serialNumber}", identify the brand and type of the electronic device. For example, for "SN-DELL-001", you might respond with Dell and Laptop.`;
+        const prompt = `Based on the serial number or model code "${serialNumber}", identify the brand and type of the electronic device. JSON output.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -102,14 +98,14 @@ export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ bra
         const jsonStr = await runGeminiRequest(flashModel, prompt, [], schema, "application/json");
         return JSON.parse(jsonStr || "{}");
     } catch (error) {
-        console.error("Error getting device info:", error);
+        console.error("Device ID Error:", error);
         return { brand: "Desconhecida", type: "Desconhecido" };
     }
 };
 
 export const suggestPeripheralsForKit = async (primaryDevice: { brand: string; type: string; description: string }): Promise<Array<{ brandName: string; typeName: string; description: string }>> => {
     try {
-        const prompt = `For a primary device that is a ${primaryDevice.brand} ${primaryDevice.type} described as "${primaryDevice.description}", suggest a standard set of peripherals.`;
+        const prompt = `For a primary device that is a ${primaryDevice.brand} ${primaryDevice.type} described as "${primaryDevice.description}", suggest standard peripherals.`;
         const schema = {
             type: Type.ARRAY,
             items: {
@@ -126,7 +122,6 @@ export const suggestPeripheralsForKit = async (primaryDevice: { brand: string; t
         const jsonStr = await runGeminiRequest(flashModel, prompt, [], schema, "application/json");
         return JSON.parse(jsonStr || "[]");
     } catch (error) {
-        console.error("Error suggesting peripherals:", error);
         return [];
     }
 };
@@ -142,11 +137,7 @@ export const parseNaturalLanguageAction = async (
     context: { brands: string[], types: string[], users: {name: string, id: string}[], currentUser: string }
 ): Promise<MagicActionResponse> => {
     try {
-        const prompt = `
-        You are an IT Asset Manager Assistant. Analyze the user request: "${text}".
-        Context: Brands: ${JSON.stringify(context.brands)}, Types: ${JSON.stringify(context.types)}, Users: ${JSON.stringify(context.users.map(u=>u.name))}.
-        Determine intent ('create_equipment', 'create_ticket', 'search').
-        `;
+        const prompt = `Assistant IT Manager. User request: "${text}". Confidence and intent identification. Context provided: ${JSON.stringify(context)}.`;
         
         const schema = {
             type: Type.OBJECT,
@@ -181,11 +172,10 @@ export const parseNaturalLanguageAction = async (
 export const generateExecutiveReport = async (reportType: string, dataContext: any): Promise<string> => {
     try {
         const contextString = JSON.stringify(dataContext).substring(0, 30000);
-        const prompt = `Act as an Expert IT Manager. Analyze this JSON data for a "${reportType}" report: ${contextString}. Generate an HTML Executive Summary (in Portuguese) with sections: Summary, Risk Analysis, Insights, Recommendations. Use <h3>, <ul>, <strong>. No markdown.`;
-        
+        const prompt = `Expert IT Manager. HTML Executive Summary (PT-PT) for "${reportType}": ${contextString}. Sections: Summary, Risk, Insights, Recommendations.`;
         return await runGeminiRequest(proModel, prompt);
     } catch (error) {
-        return "<p>Erro ao gerar relatório.</p>";
+        return "<p>Erro ao gerar relatório com IA.</p>";
     }
 };
 
@@ -198,7 +188,7 @@ export interface TicketTriageResult {
 
 export const analyzeTicketRequest = async (description: string): Promise<TicketTriageResult> => {
     try {
-        const prompt = `Analyze IT ticket: "${description}". Categorize, prioritize (Low/Medium/High/Critical), suggest fix, check if security incident.`;
+        const prompt = `Analyze IT ticket: "${description}". Categorize, prioritize, solution suggested.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -213,21 +203,13 @@ export const analyzeTicketRequest = async (description: string): Promise<TicketT
         const jsonStr = await runGeminiRequest(proModel, prompt, [], schema, "application/json");
         return JSON.parse(jsonStr || "{}");
     } catch (error) {
-        throw new Error("Failed to analyze ticket.");
+        throw new Error("Falha na análise IA do ticket.");
     }
 };
 
 export const parseSecurityAlert = async (rawJson: string): Promise<any> => {
     try {
-        const prompt = `Act as SOC Analyst. Parse security alert JSON (often from Sophos Central): ${rawJson.substring(0,10000)}. 
-        Extract:
-        - title: Short summary
-        - description: Details of the threat
-        - severity: map to (Baixa/Média/Alta/Crítica). High/Critical in source = Crítica.
-        - affectedAsset: This is the HOSTNAME or COMPUTER NAME found in fields like 'full_name', 'hostname', or 'endpoint_id'.
-        - incidentType: Type of threat (Malware, Ransomware, etc.)
-        - sourceSystem: The system that sent it (Sophos, etc.)`;
-        
+        const prompt = `SOC Analyst. Parse security alert JSON: ${rawJson.substring(0,10000)}.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -248,14 +230,16 @@ export const parseSecurityAlert = async (rawJson: string): Promise<any> => {
 };
 
 export const generateTicketResolutionSummary = async (ticketDescription: string, activities: string[]): Promise<string> => {
-    const prompt = `Summarize ticket resolution for KB. Problem: "${ticketDescription}". Notes: ${JSON.stringify(activities)}. Format: **Problem**, **Cause**, **Resolution**. Portuguese.`;
-    return await runGeminiRequest(proModel, prompt);
+    try {
+        const prompt = `Summarize ticket resolution for KB. Problem: "${ticketDescription}". Notes: ${JSON.stringify(activities)}.`;
+        return await runGeminiRequest(proModel, prompt);
+    } catch (e) { return "Resumo indisponível."; }
 };
 
 export const findSimilarPastTickets = async (currentDescription: string, pastResolvedTickets: any[]): Promise<any> => {
     try {
         const context = pastResolvedTickets.slice(0, 50).map(t => ({ id: t.id, desc: t.description.substring(0, 100), res: t.resolution }));
-        const prompt = `New Ticket: "${currentDescription}". Past Tickets: ${JSON.stringify(context)}. Find EXACT similar problem? Return found boolean, ticketId, resolution.`;
+        const prompt = `New Ticket: "${currentDescription}". Past Tickets: ${JSON.stringify(context)}. Exact match search.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -274,7 +258,7 @@ export const findSimilarPastTickets = async (currentDescription: string, pastRes
 };
 
 export const analyzeBackupScreenshot = async (base64Image: string, mimeType: string = 'image/jpeg'): Promise<any> => {
-    const prompt = "Analyze backup screenshot. Extract status (Sucesso/Falha/Parcial), date (YYYY-MM-DD), systemName.";
+    const prompt = "Analyze backup screenshot status, date, system.";
     const schema = {
         type: Type.OBJECT,
         properties: {
@@ -290,7 +274,7 @@ export const analyzeBackupScreenshot = async (base64Image: string, mimeType: str
 
 export const scanForVulnerabilities = async (inventory: string[], config?: VulnerabilityScanConfig): Promise<any[]> => {
     try {
-        const prompt = `Act as Vulnerability Scanner. Inventory: ${JSON.stringify(inventory)}. Config: ${JSON.stringify(config)}. Identify up to 5 critical/high CVEs commonly associated with this software. Return JSON array.`;
+        const prompt = `Vulnerability Scanner. Inventory: ${JSON.stringify(inventory)}. High/Critical CVEs search.`;
         const schema = {
             type: Type.ARRAY,
             items: {
@@ -313,7 +297,7 @@ export const scanForVulnerabilities = async (inventory: string[], config?: Vulne
 };
 
 export const generateNis2Notification = async (ticket: any, activities: any[]): Promise<any> => {
-    const prompt = `Generate NIS2 incident notification JSON and HTML summary for: ${JSON.stringify(ticket)}. Activities: ${JSON.stringify(activities)}. Anonymize PII.`;
+    const prompt = `NIS2 incident notification. ${JSON.stringify(ticket)}. JSON and HTML format.`;
     const schema = {
         type: Type.OBJECT,
         properties: {
@@ -327,7 +311,7 @@ export const generateNis2Notification = async (ticket: any, activities: any[]): 
 };
 
 export const analyzeCollaboratorRisk = async (ticketHistory: any[]): Promise<any> => {
-    const prompt = `Analyze user risk based on ticket history: ${JSON.stringify(ticketHistory)}. Recommend training?`;
+    const prompt = `User risk analysis: ${JSON.stringify(ticketHistory)}. Training module recommendation.`;
     const schema = {
         type: Type.OBJECT,
         properties: {
@@ -342,7 +326,7 @@ export const analyzeCollaboratorRisk = async (ticketHistory: any[]): Promise<any
 };
 
 export const extractFindingsFromReport = async (base64File: string, mimeType: string): Promise<any[]> => {
-    const prompt = "Analyze cybersecurity report (pentest). Extract critical findings: Title, Description, Severity (Baixa/Média/Alta/Crítica), Remediation.";
+    const prompt = "Pentest report analysis. Extract critical findings.";
     const schema = {
         type: Type.ARRAY,
         items: {
@@ -361,11 +345,11 @@ export const extractFindingsFromReport = async (base64File: string, mimeType: st
 };
 
 export const generateSqlHelper = async (userRequest: string): Promise<string> => {
-    const prompt = `Generate PostgreSQL query for: "${userRequest}". Return ONLY SQL code.`;
+    const prompt = `PostgreSQL query generator: "${userRequest}". SQL Code only.`;
     return await runGeminiRequest(proModel, prompt);
 };
 
 export const generatePlaywrightTest = async (userPrompt: string, credentials: {email: string, pass: string}): Promise<string> => {
-    const prompt = `Generate Playwright TypeScript test for: "${userPrompt}". Use creds: ${credentials.email}. Return ONLY code.`;
+    const prompt = `Playwright TS test generator: "${userPrompt}".`;
     return await runGeminiRequest(proModel, prompt);
 };
