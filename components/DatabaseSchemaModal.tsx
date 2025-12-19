@@ -17,10 +17,27 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     };
 
     const repairScript = `-- ==================================================================================
--- SCRIPT DE REPARAÇÃO v11.0 (Estados Dinâmicos & Seeding)
+-- SCRIPT DE REPARAÇÃO v12.0 (Criação de Tabelas & Seeding)
 -- ==================================================================================
 
--- 1. ASSEGURAR CAMPOS NECESSÁRIOS
+-- 1. CRIAR TABELAS AUXILIARES SE NÃO EXISTIREM
+CREATE TABLE IF NOT EXISTS "config_ticket_statuses" (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "name" TEXT UNIQUE NOT NULL,
+    "color" TEXT,
+    "is_active" BOOLEAN DEFAULT true,
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS "config_license_statuses" (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "name" TEXT UNIQUE NOT NULL,
+    "color" TEXT,
+    "is_active" BOOLEAN DEFAULT true,
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. ASSEGURAR CAMPOS NECESSÁRIOS EM TABELAS EXISTENTES
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='collaborators' AND column_name='password_updated_at') THEN
@@ -36,7 +53,7 @@ BEGIN
     END IF;
 END $$;
 
--- 2. SEEDING DE ESTADOS PADRÃO (TICKETS)
+-- 3. SEEDING DE ESTADOS PADRÃO (TICKETS)
 INSERT INTO "config_ticket_statuses" ("name", "color")
 VALUES 
     ('Pedido', '#3B82F6'),
@@ -45,21 +62,21 @@ VALUES
     ('Cancelado', '#EF4444')
 ON CONFLICT ("name") DO NOTHING;
 
--- 3. SEEDING DE ESTADOS PADRÃO (LICENÇAS)
+-- 4. SEEDING DE ESTADOS PADRÃO (LICENÇAS)
 INSERT INTO "config_license_statuses" ("name", "color")
 VALUES 
     ('Ativo', '#10B981'),
     ('Inativo', '#9CA3AF')
 ON CONFLICT ("name") DO NOTHING;
 
--- 4. LIMPAR POLÍTICAS ANTIGAS (EVITAR CONFLITOS)
+-- 5. LIMPAR POLÍTICAS ANTIGAS (EVITAR CONFLITOS)
 DROP POLICY IF EXISTS "Enable all for authenticated users" ON "equipment";
 DROP POLICY IF EXISTS "Enable all for authenticated users" ON "software_licenses";
 DROP POLICY IF EXISTS "RLS_Equipment_Isolation" ON "equipment";
 DROP POLICY IF EXISTS "RLS_License_Isolation" ON "software_licenses";
 DROP POLICY IF EXISTS "RLS_Ticket_Activities_Requester" ON "ticket_activities";
 
--- 5. ISOLAÇÃO DE DADOS RIGOROSA (RLS)
+-- 6. ISOLAÇÃO DE DADOS RIGOROSA (RLS)
 
 -- EQUIPAMENTOS
 ALTER TABLE "equipment" ENABLE ROW LEVEL SECURITY;
@@ -93,7 +110,7 @@ USING (
   "ticketId" IN (SELECT id FROM tickets WHERE "collaboratorId" = (SELECT id FROM collaborators WHERE email = auth.jwt()->>'email'))
 );
 
--- 6. PERMISSÕES GERAIS
+-- 7. PERMISSÕES GERAIS
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 `;
@@ -102,14 +119,14 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
         <Modal title="Configuração Avançada de Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200">
-                    <h3 className="font-bold flex items-center gap-2 mb-2"><FaShieldAlt /> Sincronização & Seeding (v11.0)</h3>
-                    <p>Este script garante que as tabelas auxiliares de estados (Tickets e Licenças) estão preenchidas com os valores corretos e atualiza as políticas de segurança.</p>
+                    <h3 className="font-bold flex items-center gap-2 mb-2"><FaShieldAlt /> Definição & Seeding (v12.0)</h3>
+                    <p>Este script cria as tabelas auxiliares necessárias e garante que os estados padrão (Tickets e Licenças) estão presentes. Utilize este script se receber erros de "relação não existe".</p>
                 </div>
 
                 <div className="relative bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col h-[50vh]">
                     <div className="absolute top-2 right-2 z-10">
                         <button onClick={() => handleCopy(repairScript, 'rep')} className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg hover:bg-brand-secondary transition-all">
-                            {copied === 'rep' ? <FaCheck /> : <FaCopy />} Copiar SQL v11.0
+                            {copied === 'rep' ? <FaCheck /> : <FaCopy />} Copiar SQL v12.0
                         </button>
                     </div>
                     <pre className="p-4 text-xs font-mono text-green-400 overflow-auto custom-scrollbar">{repairScript}</pre>
