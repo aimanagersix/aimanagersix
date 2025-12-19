@@ -24,6 +24,7 @@ import { getSupabase } from './services/supabaseClient';
 import * as dataService from './services/dataService';
 import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy, Assignment } from './types';
 import AgendaDashboard from './components/AgendaDashboard';
+import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 
 // Atomics Hooks
 import { useOrganization } from './hooks/useOrganization';
@@ -77,7 +78,7 @@ export const App: React.FC = () => {
         return !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // 5. Data Compatibility & Security Filter Layer
+    // 5. Data Isolation Filter (Source of Truth for limited users)
     const appData = useMemo(() => {
         const rawData = {
             ...org.data,
@@ -87,23 +88,42 @@ export const App: React.FC = () => {
             messages: []
         };
 
-        // FILTRAGEM PROFUNDA: Se o utilizador não tem visão global, limpamos o estado de dados sensíveis
         if (currentUser && !checkPermission('equipment', 'view')) {
+            // Filtrar Equipamentos Próprios
             const myEquipmentIds = new Set(
                 rawData.assignments
                     .filter((a: Assignment) => a.collaboratorId === currentUser.id && !a.returnDate)
                     .map((a: Assignment) => a.equipmentId)
             );
             rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
-        }
+            
+            // Filtrar Licenças atribuídas aos equipamentos que eu tenho
+            const myLicenseIds = new Set(
+                rawData.licenseAssignments
+                    .filter(la => myEquipmentIds.has(la.equipmentId) && !la.returnDate)
+                    .map(la => la.softwareLicenseId)
+            );
+            rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
 
-        // Filtragem para Formações (Ver apenas as próprias se não for admin)
-        if (currentUser && !checkPermission('compliance_training', 'view')) {
-            rawData.securityTrainings = rawData.securityTrainings.filter(t => t.collaborator_id === currentUser.id);
+            // Filtrar Políticas aplicáveis a mim (entidade/instituição ou globais)
+            rawData.policies = rawData.policies.filter(p => {
+                if (!p.is_active) return false;
+                if (p.target_type === 'Global') return true;
+                if (p.target_type === 'Instituicao' && currentUser.instituicaoId) return (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
+                if (p.target_type === 'Entidade' && currentUser.entidadeId) return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
+                return false;
+            });
         }
 
         return rawData;
     }, [org.data, inv.data, support.data, compliance.data, currentUser, checkPermission]);
+
+    // 6. Detect Pending Policies for the user
+    const pendingPolicies = useMemo(() => {
+        if (!currentUser || !appData.policies) return [];
+        const myAcceptanceIds = new Set(appData.policyAcceptances.filter(a => a.collaborator_id === currentUser.id).map(a => a.policy_id + '-' + a.version));
+        return appData.policies.filter(p => p.is_mandatory && p.is_active && !myAcceptanceIds.has(p.id + '-' + p.version));
+    }, [currentUser, appData.policies, appData.policyAcceptances]);
 
     const refreshAll = useCallback(async () => {
         await Promise.all([
@@ -114,10 +134,9 @@ export const App: React.FC = () => {
         ]);
     }, [org, inv, support, compliance]);
 
-    // 6. Auth Logic
+    // 7. Auth Logic
     useEffect(() => {
         const supabase = getSupabase();
-        // Fix: Cast auth to any to resolve property 'getSession' does not exist error on SupabaseAuthClient
         (supabase.auth as any).getSession().then(({ data: { session: currentSession } }: any) => {
             setSession(currentSession);
             if (currentSession?.user) {
@@ -133,7 +152,6 @@ export const App: React.FC = () => {
             }
         });
 
-        // Fix: Cast auth to any to resolve property 'onAuthStateChange' does not exist error on SupabaseAuthClient
         const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, newSession: any) => {
             setSession(newSession);
         });
@@ -173,7 +191,6 @@ export const App: React.FC = () => {
 
     const handleLogout = async () => {
         const supabase = getSupabase();
-        // Fix: Cast auth to any to resolve property 'signOut' does not exist error on SupabaseAuthClient
         await (supabase.auth as any).signOut();
         localStorage.removeItem('supabase.auth.token');
         setCurrentUser(null);
@@ -185,6 +202,17 @@ export const App: React.FC = () => {
         setDashboardFilter(filter);
     };
 
+    const handleAcceptPolicy = async (id: string, version: string) => {
+        if (!currentUser) return;
+        await dataService.addConfigItem('policy_acceptances', {
+            policy_id: id,
+            collaborator_id: currentUser.id,
+            version: version,
+            accepted_at: new Date().toISOString()
+        });
+        refreshAll();
+    };
+
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A preparar ambiente seguro...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
@@ -193,6 +221,10 @@ export const App: React.FC = () => {
 
     return (
         <div className={`min-h-screen bg-background-dark text-on-surface-dark-secondary flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`}>
+            {pendingPolicies.length > 0 && (
+                <PolicyAcceptanceModal policies={pendingPolicies} onAccept={handleAcceptPolicy} />
+            )}
+            
             {layoutMode === 'side' ? (
                 <Sidebar 
                     currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout}

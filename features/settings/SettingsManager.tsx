@@ -50,6 +50,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         return 'general';
     });
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
+    const [isSyncing, setIsSyncing] = useState(false);
 
     // Modals State
     const [showAddBrandModal, setShowAddBrandModal] = useState(false);
@@ -179,21 +180,17 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
         setIsSyncing(true);
         try {
             const supabase = getSupabase();
-            // CORREÇÃO: Enviar body vazio e garantir que a URL está resolvida
-            const { data, error } = await supabase.functions.invoke('sync-sophos', { 
-                body: {} 
-            });
+            // CORREÇÃO TÉCNICA: Adicionado corpo vazio e tratamento de erro explícito
+            const { data, error } = await supabase.functions.invoke('sync-sophos', { body: {} });
             if (error) throw error;
             alert("Sincronização concluída com sucesso.");
         } catch (e: any) {
             console.error("Sophos Sync Error:", e);
-            alert("Erro na sincronização: " + (e.message || "Falha na comunicação com o Edge Function."));
+            alert("Erro na sincronização: Falha na comunicação com a Edge Function. Verifique se a função está publicada no Supabase.");
         } finally {
             setIsSyncing(false);
         }
     };
-
-    const [isSyncing, setIsSyncing] = useState(false);
 
     const safeData = (arr: any) => Array.isArray(arr) ? arr : [];
 
@@ -280,7 +277,7 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ appData, refreshData 
             case 'security_incident_types': return <SecurityIncidentTypeDashboard incidentTypes={safeData(appData.securityIncidentTypes)} tickets={safeData(appData.tickets)} onCreate={() => { setIncidentTypeToEdit(null); setShowAddIncidentTypeModal(true); }} onEdit={(i) => { setIncidentTypeToEdit(i); setShowAddIncidentTypeModal(true); }} onToggleStatus={(id) => {}} onDelete={(id) => {}} />;
             case 'config_software_products': return <SoftwareProductDashboard products={safeData(appData.softwareProducts)} categories={safeData(appData.softwareCategories)} onRefresh={refreshData} />;
             case 'connections': return <ConnectionsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} />;
-            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} onTest={() => {}} onCopy={(t) => navigator.clipboard.writeText(t)} />;
+            case 'cronjobs': return <CronJobsTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} onTest={() => {}} onCopy={(t) => navigator.clipboard.writeText(t)} onSyncSophos={handleTriggerSophosSync} isSyncingSophos={isSyncing} />;
             case 'branding': return <BrandingTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSave={handleSaveSettings} instituicoes={appData.instituicoes} />;
             case 'agents': return <AgentsTab />;
             case 'webhooks': return <WebhooksTab settings={settings} onSettingsChange={(k,v) => setSettings({...settings, [k]:v})} onSimulate={() => {}} />;

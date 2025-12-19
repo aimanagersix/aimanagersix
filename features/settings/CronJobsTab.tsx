@@ -9,6 +9,8 @@ interface CronJobsTabProps {
     onSave: () => void;
     onTest: () => void;
     onCopy: (text: string) => void;
+    onSyncSophos: () => Promise<void>;
+    isSyncingSophos: boolean;
 }
 
 const sophosSyncSql = `-- SCRIPT DE SINCRONIZAÇÃO SOPHOS CENTRAL (API PULL v1.0)
@@ -41,29 +43,14 @@ END;
 $$;
 `;
 
-const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy }) => {
+const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy, onSyncSophos, isSyncingSophos }) => {
     const [activeSubTab, setActiveSubTab] = useState<'birthdays' | 'security' | 'reports'>('birthdays');
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
-    const [isSyncing, setIsSyncing] = useState(false);
 
     const handleCopy = (text: string, id: string) => {
         onCopy(text);
         setCopiedCode(id);
         setTimeout(() => setCopiedCode(null), 2000);
-    };
-
-    const handleTriggerSophosSync = async () => {
-        setIsSyncing(true);
-        try {
-            const supabase = getSupabase();
-            const { data, error } = await supabase.functions.invoke('sync-sophos');
-            if (error) throw error;
-            alert("Sincronização concluída! Verifique a lista de tickets para novos alertas [SOPHOS].");
-        } catch (e: any) {
-            alert("Erro na sincronização: " + e.message);
-        } finally {
-            setIsSyncing(false);
-        }
     };
 
     return (
@@ -82,7 +69,6 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                     <FaShieldAlt /> Segurança (Sophos)
                 </button>
                 <button 
-                    // Fix: Changed setActiveTab to setActiveSubTab to match component state setter definition.
                     onClick={() => setActiveSubTab('reports')} 
                     className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeSubTab === 'reports' ? 'border-yellow-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                 >
@@ -103,11 +89,11 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                     </p>
                                 </div>
                                 <button 
-                                    onClick={handleTriggerSophosSync}
-                                    disabled={isSyncing}
+                                    onClick={onSyncSophos}
+                                    disabled={isSyncingSophos}
                                     className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded flex items-center gap-2 transition-all shadow-lg disabled:opacity-50"
                                 >
-                                    {isSyncing ? <FaSpinner className="animate-spin"/> : <FaSync />} Sincronizar Agora
+                                    {isSyncingSophos ? <FaSpinner className="animate-spin"/> : <FaSync />} Sincronizar Agora
                                 </button>
                             </div>
                         </div>
