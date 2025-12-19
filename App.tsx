@@ -29,6 +29,8 @@ import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 import TicketActivitiesModal from './components/TicketActivitiesModal';
 import Modal from './components/common/Modal';
 import ResetPasswordModal from './components/ResetPasswordModal';
+import UserProfileModal from './components/UserProfileModal';
+import NotificationsModal from './components/NotificationsModal';
 
 // Atomics Hooks
 import { useOrganization } from './hooks/useOrganization';
@@ -52,6 +54,7 @@ export const App: React.FC = () => {
     const [session, setSession] = useState<any>(null);
     const [isAppLoading, setIsAppLoading] = useState(true);
     const [passwordExpired, setPasswordExpired] = useState(false);
+    const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
     // 2. Feature Hooks
     const org = useOrganization(isConfigured);
@@ -67,12 +70,14 @@ export const App: React.FC = () => {
     const [showNotifications, setShowNotifications] = useState(false);
     const [showUserManual, setShowUserManual] = useState(false);
     const [showCalendar, setShowCalendar] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
     
     // Viewing States (Modais)
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
+    // Fix: Corrected useState initializers to null instead of referencing themselves before declaration
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
     const [viewingLicense, setViewingLicense] = useState<SoftwareLicense | null>(null);
     const [viewingTraining, setViewingTraining] = useState<SecurityTrainingRecord | null>(null);
@@ -81,126 +86,79 @@ export const App: React.FC = () => {
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
         if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
-        
         const role = org.data.customRoles.find(r => r.name === currentUser.role);
         if (!role || !role.permissions) return false;
-        
         const modulePerms = role.permissions[module] || {};
         if (action === 'view' && modulePerms['view_own']) return true;
         return !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // 5. Data Isolation Filter (Frontend - for widgets and local lists)
+    // 5. Data Isolation Filter
     const appData = useMemo(() => {
-        const rawData = {
-            ...org.data,
-            ...inv.data,
-            ...support.data,
-            ...compliance.data
-        };
-
+        const rawData = { ...org.data, ...inv.data, ...support.data, ...compliance.data };
         if (currentUser && !checkPermission('equipment', 'view')) {
-            const myAssignments = rawData.assignments.filter((a: any) => 
-                (a.collaboratorId === currentUser.id || a.collaborator_id === currentUser.id) && !a.returnDate
-            );
+            const myAssignments = rawData.assignments.filter((a: any) => (a.collaboratorId === currentUser.id || a.collaborator_id === currentUser.id) && !a.returnDate);
             rawData.assignments = myAssignments;
-
             const myEquipmentIds = new Set(myAssignments.map((a: any) => a.equipmentId || a.equipment_id));
             rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
-            
-            const myLicenseAssignments = rawData.licenseAssignments.filter((la: any) => 
-                myEquipmentIds.has(la.equipmentId || la.equipment_id) && !la.returnDate
-            );
+            const myLicenseAssignments = rawData.licenseAssignments.filter((la: any) => myEquipmentIds.has(la.equipmentId || la.equipment_id) && !la.returnDate);
             rawData.licenseAssignments = myLicenseAssignments;
-            
             const myLicenseIds = new Set(myLicenseAssignments.map((la: any) => la.softwareLicenseId || la.software_license_id));
             rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
-
             rawData.policies = rawData.policies.filter(p => {
                 if (!p.is_active) return false;
                 if (p.target_type === 'Global' || !p.target_type) return true;
-                if (p.target_type === 'Instituicao' && currentUser.instituicaoId) {
-                    return (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
-                }
-                if (p.target_type === 'Entidade' && currentUser.entidadeId) {
-                    return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
-                }
+                if (p.target_type === 'Instituicao' && currentUser.instituicaoId) return (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
+                if (p.target_type === 'Entidade' && currentUser.entidadeId) return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
                 return false;
             });
         }
-
         return rawData;
     }, [org.data, inv.data, support.data, compliance.data, currentUser, checkPermission]);
 
-    // 6. Detect Pending Policies
-    const pendingPolicies = useMemo(() => {
-        if (!currentUser || !compliance.data.policies) return [];
-        const myAcceptanceIds = new Set(
-            compliance.data.policyAcceptances
-                .filter(a => {
-                    const cid = (a as any).collaboratorId || a.collaborator_id;
-                    return cid === currentUser.id;
-                })
-                .map(a => a.policy_id + '-' + a.version)
-        );
-
-        return compliance.data.policies.filter(p => {
-            if (!p.is_mandatory || !p.is_active) return false;
-            let applies = false;
-            if (p.target_type === 'Global' || !p.target_type) applies = true;
-            else if (p.target_type === 'Instituicao' && currentUser.instituicaoId) applies = (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
-            else if (p.target_type === 'Entidade' && currentUser.entidadeId) applies = (p.target_entidade_ids || []).includes(currentUser.entidadeId);
-
-            return applies && !myAcceptanceIds.has(p.id + '-' + p.version);
-        });
-    }, [currentUser, compliance.data.policies, compliance.data.policyAcceptances]);
-
-    // 7. Password Expiry Check
+    // 6. Realtime Presence
     useEffect(() => {
-        const checkPasswordExpiry = async () => {
-            if (!currentUser) return;
-            const expiryDaysStr = await dataService.getGlobalSetting('password_expiry_days');
-            if (expiryDaysStr && expiryDaysStr !== '0') {
-                const lastUpdated = new Date((currentUser as any).password_updated_at || new Date());
-                const now = new Date();
-                const diffDays = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 3600 * 24));
-                if (diffDays >= parseInt(expiryDaysStr)) {
-                    setPasswordExpired(true);
-                }
-            }
-        };
-        checkPasswordExpiry();
-    }, [currentUser]);
+        if (!currentUser || !isConfigured) return;
+        const supabase = getSupabase();
+        const channel = supabase.channel('online-users', { config: { presence: { key: currentUser.id } } });
+        channel.on('presence', { event: 'sync' }, () => {
+            const state = channel.presenceState();
+            setOnlineUserIds(new Set(Object.keys(state)));
+        }).subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') await channel.track({ online_at: new Date().toISOString() });
+        });
+        return () => { channel.unsubscribe(); };
+    }, [currentUser, isConfigured]);
+
+    // 7. Notifications Logic
+    const notificationItems = useMemo(() => {
+        const now = new Date();
+        const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const myWarranties = appData.equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) <= thirtyDays);
+        const myLicenses = appData.softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) <= thirtyDays);
+        const myTickets = appData.tickets.filter(t => t.status === 'Pedido' && (!t.technicianId || t.technicianId === currentUser?.id));
+        return { warranties: myWarranties, licenses: myLicenses, tickets: myTickets };
+    }, [appData, currentUser]);
+
+    const totalNotifications = notificationItems.warranties.length + notificationItems.licenses.length + notificationItems.tickets.length;
 
     const refreshAll = useCallback(async () => {
-        await Promise.all([
-            org.refresh(),
-            inv.refresh(),
-            support.refresh(),
-            compliance.refresh()
-        ]);
+        await Promise.all([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
     }, [org, inv, support, compliance]);
 
     // 8. Auth Logic
     useEffect(() => {
         if (!isConfigured) return;
         const supabase = getSupabase();
-        (supabase.auth as any).getSession().then(({ data: { session: currentSession } }: any) => {
+        supabase.auth.getSession().then(({ data: { session: currentSession } }: any) => {
             setSession(currentSession);
             if (currentSession?.user) {
                 const user = org.data.collaborators.find(c => c.email === currentSession.user.email);
-                if (user) {
-                    setCurrentUser(user);
-                    setIsAppLoading(false);
-                } else if (org.data.collaborators.length > 0) {
-                    setIsAppLoading(false);
-                }
-            } else {
-                setIsAppLoading(false);
-            }
+                if (user) { setCurrentUser(user); setIsAppLoading(false); }
+                else if (org.data.collaborators.length > 0) { setIsAppLoading(false); }
+            } else { setIsAppLoading(false); }
         });
-
-        const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, newSession: any) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, newSession: any) => {
             setSession(newSession);
         });
         return () => subscription.unsubscribe();
@@ -209,7 +167,6 @@ export const App: React.FC = () => {
     const tabConfig = useMemo(() => {
         const canSeeMyArea = checkPermission('my_area', 'view');
         const canSeeKpis = checkPermission('widget_kpi_cards', 'view');
-        
         return {
             'overview': canSeeMyArea || canSeeKpis,
             'my_area': canSeeMyArea,
@@ -244,43 +201,15 @@ export const App: React.FC = () => {
 
     const handleLogout = async () => {
         const supabase = getSupabase();
-        await (supabase.auth as any).signOut();
+        await supabase.auth.signOut();
         localStorage.removeItem('supabase.auth.token');
         setCurrentUser(null);
         window.location.reload();
     };
 
-    const handleViewItem = (tab: string, filter: any) => {
-        setActiveTab(tab);
-        setDashboardFilter(filter);
-    };
-
-    const handleAcceptPolicy = async (id: string, version: string) => {
-        if (!currentUser) return;
-        await dataService.addConfigItem('policy_acceptances', {
-            policy_id: id,
-            collaboratorId: currentUser.id,
-            version: version,
-            accepted_at: new Date().toISOString()
-        });
-        await refreshAll();
-    };
-
     const handleSendMessage = async (receiverId: string, content: string) => {
         if (!currentUser) return;
-        await dataService.addMessage({
-            senderId: currentUser.id,
-            receiverId,
-            content,
-            timestamp: new Date().toISOString(),
-            read: false
-        });
-        support.refresh();
-    };
-
-    const handleMarkMessagesAsRead = async (senderId: string) => {
-        if (!currentUser) return;
-        await dataService.markMessagesAsRead(senderId);
+        await dataService.addMessage({ senderId: currentUser.id, receiverId, content, timestamp: new Date().toISOString(), read: false });
         support.refresh();
     };
 
@@ -296,23 +225,43 @@ export const App: React.FC = () => {
                 <ResetPasswordModal session={session} onClose={() => setPasswordExpired(false)} />
             )}
             
-            {pendingPolicies.length > 0 && !passwordExpired && (
-                <PolicyAcceptanceModal policies={pendingPolicies} onAccept={handleAcceptPolicy} />
+            {showProfile && (
+                <UserProfileModal 
+                    user={currentUser} 
+                    entidade={org.data.entidades.find(e => e.id === currentUser.entidadeId)}
+                    instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicaoId)}
+                    onClose={() => setShowProfile(false)} 
+                    onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(); }}
+                />
+            )}
+
+            {showNotifications && (
+                <NotificationsModal 
+                    onClose={() => setShowNotifications(false)}
+                    expiringWarranties={notificationItems.warranties}
+                    expiringLicenses={notificationItems.licenses}
+                    teamTickets={notificationItems.tickets}
+                    collaborators={appData.collaborators}
+                    teams={appData.teams}
+                    onViewItem={(tab, filter) => { setActiveTab(tab); setDashboardFilter(filter); setShowNotifications(false); }}
+                    currentUser={currentUser}
+                    licenseAssignments={appData.licenseAssignments}
+                />
             )}
             
             {layoutMode === 'side' ? (
                 <Sidebar 
                     currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout}
-                    tabConfig={tabConfig} notificationCount={0} onNotificationClick={() => setShowNotifications(true)}
-                    isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setActiveTab('my_area')}
+                    tabConfig={tabConfig} notificationCount={totalNotifications} onNotificationClick={() => setShowNotifications(true)}
+                    isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setShowProfile(true)}
                     onOpenManual={() => setShowUserManual(true)} onOpenCalendar={() => setShowCalendar(true)}
                     checkPermission={checkPermission}
                 />
             ) : (
                 <Header 
                     currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout}
-                    tabConfig={tabConfig} notificationCount={0} onNotificationClick={() => setShowNotifications(true)}
-                    onOpenProfile={() => setActiveTab('my_area')} onOpenManual={() => setShowUserManual(true)}
+                    tabConfig={tabConfig} notificationCount={totalNotifications} onNotificationClick={() => setShowNotifications(true)}
+                    onOpenProfile={() => setShowProfile(true)} onOpenManual={() => setShowUserManual(true)}
                     onOpenCalendar={() => setShowCalendar(true)} checkPermission={checkPermission}
                 />
             )}
@@ -326,7 +275,7 @@ export const App: React.FC = () => {
                                 assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={appData.tickets}
                                 collaborators={appData.collaborators} teams={appData.teams} expiringWarranties={[]}
                                 expiringLicenses={[]} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
-                                vulnerabilities={appData.vulnerabilities} onViewItem={handleViewItem}
+                                vulnerabilities={appData.vulnerabilities} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }}
                                 onGenerateComplianceReport={() => {}} checkPermission={checkPermission} onRefresh={refreshAll}
                             />
                         ) : (
@@ -342,18 +291,11 @@ export const App: React.FC = () => {
                         )
                     )}
 
-                    {activeTab === 'overview.smart' && (
-                        <SmartDashboard 
-                            tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions}
-                            trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser}
-                        />
-                    )}
-
                     {(activeTab.startsWith('equipment') || activeTab === 'licensing') && (
                         <InventoryManager 
                             activeTab={activeTab} appData={appData} checkPermission={checkPermission}
                             refreshData={inv.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter}
-                            setReportType={setReportType} currentUser={currentUser} onViewItem={handleViewItem}
+                            setReportType={setReportType} currentUser={currentUser} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }}
                         />
                     )}
 
@@ -392,94 +334,16 @@ export const App: React.FC = () => {
             <MagicCommandBar brands={appData.brands} types={appData.equipmentTypes} collaborators={appData.collaborators} currentUser={currentUser} onAction={() => {}} />
             <ChatWidget 
                 currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} 
-                onSendMessage={handleSendMessage} onMarkMessagesAsRead={handleMarkMessagesAsRead} 
+                onSendMessage={handleSendMessage} onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); support.refresh(); }} 
                 isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} 
                 activeChatCollaboratorId={activeChatCollaboratorId} 
                 unreadMessagesCount={appData.messages.filter((m: any) => m.receiverId === currentUser.id && !m.read).length} 
                 onSelectConversation={setActiveChatCollaboratorId} 
+                onlineUserIds={onlineUserIds}
+                checkPermission={checkPermission}
             />
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
-            {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { handleViewItem('tickets.list', { id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
-            
-            {viewingEquipment && (
-                <EquipmentHistoryModal 
-                    equipment={viewingEquipment} assignments={appData.assignments} collaborators={appData.collaborators}
-                    escolasDepartamentos={appData.entidades} tickets={appData.tickets} ticketActivities={appData.ticketActivities}
-                    onClose={() => setViewingEquipment(null)} onViewItem={handleViewItem}
-                    businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies}
-                    softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
-                    vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers}
-                    accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates}
-                />
-            )}
-
-            {viewingTicket && (
-                <TicketActivitiesModal
-                    ticket={viewingTicket}
-                    activities={appData.ticketActivities}
-                    collaborators={appData.collaborators}
-                    currentUser={currentUser}
-                    equipment={appData.equipment}
-                    equipmentTypes={appData.equipmentTypes}
-                    entidades={appData.entidades}
-                    onClose={() => setViewingTicket(null)}
-                    onAddActivity={async (act) => {
-                        await dataService.addTicketActivity({ ...act, ticketId: viewingTicket.id, technicianId: currentUser.id, date: new Date().toISOString() });
-                        support.refresh();
-                    }}
-                    assignments={appData.assignments}
-                />
-            )}
-
-            {viewingLicense && (
-                <Modal title="Consulta de Licença" onClose={() => setViewingLicense(null)}>
-                    <div className="space-y-4">
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <h3 className="text-xl font-bold text-white mb-2">{viewingLicense.productName}</h3>
-                            <p className="text-sm text-gray-400 font-mono tracking-wider bg-black/30 p-2 rounded">{viewingLicense.licenseKey}</p>
-                            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-                                <div><span className="text-gray-500">Estado:</span> <span className="text-green-400 font-bold">{viewingLicense.status}</span></div>
-                                <div><span className="text-gray-500">Expira em:</span> <span className="text-white">{viewingLicense.expiryDate || 'Vitalícia'}</span></div>
-                                <div><span className="text-gray-500">Tipo:</span> <span className="text-white">{viewingLicense.is_oem ? 'OEM / Volume' : 'Retail'}</span></div>
-                            </div>
-                        </div>
-                        <div className="flex justify-end pt-4"><button onClick={() => setViewingLicense(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
-                    </div>
-                </Modal>
-            )}
-
-            {viewingTraining && (
-                <Modal title="Consulta de Formação" onClose={() => setViewingTraining(null)}>
-                    <div className="space-y-4">
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <h3 className="text-xl font-bold text-white mb-2">{viewingTraining.training_type}</h3>
-                            <p className="text-sm text-gray-300">{viewingTraining.notes || 'Sem observações registadas.'}</p>
-                            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-                                <div><span className="text-gray-500">Concluído em:</span> <span className="text-white">{new Date(viewingTraining.completion_date).toLocaleDateString()}</span></div>
-                                <div><span className="text-gray-500">Pontuação:</span> <span className="text-green-400 font-bold">{viewingTraining.score}%</span></div>
-                                <div><span className="text-gray-500">Duração:</span> <span className="text-white">{viewingTraining.duration_hours} Hora(s)</span></div>
-                                <div><span className="text-gray-500">Status:</span> <span className="text-white">{viewingTraining.status}</span></div>
-                            </div>
-                        </div>
-                        <div className="flex justify-end pt-4"><button onClick={() => setViewingTraining(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
-                    </div>
-                </Modal>
-            )}
-            
-            {readingPolicy && (
-                <Modal title={`Consulta de Política: ${readingPolicy.title}`} onClose={() => setReadingPolicy(null)} maxWidth="max-w-4xl">
-                     <div className="space-y-4">
-                        <div className="bg-white text-black p-6 rounded shadow-inner min-h-[300px] overflow-y-auto whitespace-pre-wrap font-serif">
-                            {readingPolicy.content}
-                        </div>
-                        <div className="flex justify-between items-center text-xs text-gray-500">
-                            <span>Versão: {readingPolicy.version}</span>
-                            <span>Atualizada em: {new Date(readingPolicy.updated_at).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex justify-end pt-4"><button onClick={() => setReadingPolicy(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
-                    </div>
-                </Modal>
-            )}
+            {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
         </div>
     );
 };

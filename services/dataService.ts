@@ -15,18 +15,17 @@ const sb = () => getSupabase();
 
 // --- AUTH & USER ---
 export const adminResetPassword = async (userId: string, newPassword: string) => {
-    // Para um admin mudar a pass de outro utilizador no Supabase, é necessária uma Edge Function
-    // que utilize a Service Role Key, pois o cliente browser não tem essa permissão por segurança.
     const { data, error } = await sb().functions.invoke('admin-auth-helper', {
         body: { action: 'update_password', targetUserId: userId, newPassword: newPassword }
     });
-    
     if (error) throw error;
-
-    // Atualizar o timestamp na nossa tabela de colaboradores para a política de expiração
     await sb().from('collaborators').update({ password_updated_at: new Date().toISOString() }).eq('id', userId);
-    
     return { success: true };
+};
+
+export const updateMyPhoto = async (userId: string, photoUrl: string) => {
+    const { error } = await sb().from('collaborators').update({ photoUrl }).eq('id', userId);
+    if (error) throw error;
 };
 
 // --- GENERIC CONFIG TABLES ---
@@ -60,7 +59,6 @@ export const updateGlobalSetting = async (key: string, value: string) => {
 };
 
 // --- ATOMIC FETCHING FUNCTIONS ---
-
 export const fetchOrganizationData = async () => {
     const [
         {data: inst}, {data: ent}, {data: collabs}, {data: roles}, {data: titles}, {data: contactRoles}, {data: history}
@@ -186,75 +184,14 @@ export const fetchComplianceData = async () => {
     };
 };
 
-// --- ASSET MANAGEMENT ---
-export const addEquipment = async (eq: any) => {
-    const { data, error } = await sb().from('equipment').insert(eq).select().single();
-    if (error) throw error;
-    return data;
-};
-
-export const updateEquipment = async (id: string, updates: any) => {
-    const { data, error } = await sb().from('equipment').update(updates).eq('id', id).select().single();
-    if (error) throw error;
-    return data;
-};
-
-// --- ASSIGNMENTS & LICENSING ---
-export const addAssignment = async (assignment: any) => {
-    const { data, error } = await sb().from('assignments').insert(assignment).select().single();
-    if (error) throw error;
-    return data;
-};
-
-export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
-    const nowStr = new Date().toISOString().split('T')[0];
-    const { error: updateError } = await sb()
-        .from('license_assignments')
-        .update({ returnDate: nowStr })
-        .eq('equipmentId', equipmentId)
-        .is('returnDate', null);
-    
-    if (updateError) throw updateError;
-
-    if (licenseIds.length > 0) {
-        const items = licenseIds.map(id => ({ 
-            equipmentId, 
-            softwareLicenseId: id, 
-            assignedDate: nowStr 
-        }));
-        const { error: insertError } = await sb()
-            .from('license_assignments')
-            .insert(items);
-        if (insertError) throw insertError;
-    }
-};
-
-export const fetchAllData = async () => {
-    const [org, inv, support, compliance] = await Promise.all([
-        fetchOrganizationData(),
-        fetchInventoryData(),
-        fetchSupportData(),
-        fetchComplianceData()
-    ]);
-    return { ...org, ...inv, ...support, ...compliance };
-};
-
 export const fetchEquipmentPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' }, userId?: string, isAdmin?: boolean }) => {
     let query = sb().from('equipment').select('*', { count: 'exact' });
-    
-    // FILTRO DE ISOLAÇÃO DE DADOS (SERVIDOR)
     if (!params.isAdmin && params.userId) {
-        // Obter IDs dos equipamentos atribuídos ao utilizador
         const { data: userEq } = await sb().from('assignments').select('equipmentId').eq('collaboratorId', params.userId).is('returnDate', null);
         const eqIds = userEq?.map(a => a.equipmentId) || [];
-        if (eqIds.length > 0) {
-            query = query.in('id', eqIds);
-        } else {
-            // Se não tem nada atribuído, não vê nada no inventário limitado
-            return { data: [], total: 0 };
-        }
+        if (eqIds.length > 0) query = query.in('id', eqIds);
+        else return { data: [], total: 0 };
     }
-
     if (params.filters) {
         if (params.filters.serialNumber) query = query.ilike('serialNumber', `%${params.filters.serialNumber}%`);
         if (params.filters.description) query = query.ilike('description', `%${params.filters.description}%`);
@@ -262,25 +199,8 @@ export const fetchEquipmentPaginated = async (params: { page: number, pageSize: 
         if (params.filters.typeId) query = query.eq('typeId', params.filters.typeId);
         if (params.filters.status) query = query.eq('status', params.filters.status);
     }
-    
-    if (params.sort) query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
-    
-    const from = (params.page - 1) * params.pageSize;
-    const to = from + params.pageSize - 1;
-    const { data, count, error } = await query.range(from, to);
-    if (error) throw error;
-    return { data: data || [], total: count || 0 };
-};
-
-export const fetchCollaboratorsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
-    let query = sb().from('collaborators').select('*', { count: 'exact' });
-    if (params.filters) {
-        if (params.filters.query) query = query.or(`fullName.ilike.%${params.filters.query}%,email.ilike.%${params.filters.query}%,numeroMecanografico.ilike.%${params.filters.query}%`);
-        if (params.filters.entidadeId) query = query.eq('entidadeId', params.filters.entidadeId);
-        if (params.filters.status) query = query.eq('status', params.filters.status);
-        if (params.filters.role) query = query.eq('role', params.filters.role);
-    }
-    if (params.sort) query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    const sortObj = params.sort || { key: 'creationDate', direction: 'descending' };
+    query = query.order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
     const from = (params.page - 1) * params.pageSize;
     const to = from + params.pageSize - 1;
     const { data, count, error } = await query.range(from, to);
@@ -310,7 +230,8 @@ export const fetchTicketsPaginated = async (params: {
         if (params.filters.team_id) query = query.eq('team_id', params.filters.team_id);
         if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
     }
-    if (params.sort) query = query.order(params.sort.key, { ascending: params.sort.direction === 'ascending' });
+    const sortObj = params.sort || { key: 'requestDate', direction: 'descending' };
+    query = query.order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
     const from = (params.page - 1) * params.pageSize;
     const to = from + params.pageSize - 1;
     const { data, count, error } = await query.range(from, to);
@@ -318,12 +239,55 @@ export const fetchTicketsPaginated = async (params: {
     return { data: data || [], total: count || 0 };
 };
 
-export const triggerSophosSync = async () => {
-    const { error } = await sb().functions.invoke('sync-sophos', { 
-        body: {},
-        headers: { "Content-Type": "application/json" }
-    }); 
-    if (error) throw error; 
+export const addEquipment = async (eq: any) => {
+    const { data, error } = await sb().from('equipment').insert(eq).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateEquipment = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('equipment').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const addAssignment = async (assignment: any) => {
+    const { data, error } = await sb().from('assignments').insert(assignment).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
+    const nowStr = new Date().toISOString().split('T')[0];
+    const { error: updateError } = await sb().from('license_assignments').update({ returnDate: nowStr }).eq('equipmentId', equipmentId).is('returnDate', null);
+    if (updateError) throw updateError;
+    if (licenseIds.length > 0) {
+        const items = licenseIds.map(id => ({ equipmentId, softwareLicenseId: id, assignedDate: nowStr }));
+        const { error: insertError } = await sb().from('license_assignments').insert(items);
+        if (insertError) throw insertError;
+    }
+};
+
+export const fetchAllData = async () => {
+    const [org, inv, support, compliance] = await Promise.all([fetchOrganizationData(), fetchInventoryData(), fetchSupportData(), fetchComplianceData()]);
+    return { ...org, ...inv, ...support, ...compliance };
+};
+
+export const fetchCollaboratorsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
+    let query = sb().from('collaborators').select('*', { count: 'exact' });
+    if (params.filters) {
+        if (params.filters.query) query = query.or(`fullName.ilike.%${params.filters.query}%,email.ilike.%${params.filters.query}%,numeroMecanografico.ilike.%${params.filters.query}%`);
+        if (params.filters.entidadeId) query = query.eq('entidadeId', params.filters.entidadeId);
+        if (params.filters.status) query = query.eq('status', params.filters.status);
+        if (params.filters.role) query = query.eq('role', params.filters.role);
+    }
+    const sortObj = params.sort || { key: 'fullName', direction: 'ascending' };
+    query = query.order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
+    const from = (params.page - 1) * params.pageSize;
+    const to = from + params.pageSize - 1;
+    const { data, count, error } = await query.range(from, to);
+    if (error) throw error;
+    return { data: data || [], total: count || 0 };
 };
 
 export const addMultipleEquipment = async (items: any[]) => { const { error } = await sb().from('equipment').insert(items); if (error) throw error; };

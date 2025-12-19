@@ -1,7 +1,7 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Declare Deno environment
 declare const Deno: any;
 
 const corsHeaders = {
@@ -18,29 +18,43 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Receber o Alerta do Sophos
     const payload = await req.json()
-    console.log("Sophos Alert Received:", payload)
+    console.log("Sophos Advanced Alert Received:", payload)
 
-    // 2. Extrair dados básicos
-    const hostname = payload.full_name || payload.hostname || payload.endpoint_id || "Desconhecido";
-    const alertType = payload.alert_type || "Ameaça Detetada";
-    const description = payload.description || "Sem detalhes adicionais fornecidos pelo Sophos.";
-    const severity = payload.severity === 'high' || payload.severity === 'critical' ? 'Crítica' : 'Alta';
+    // Parser Avançado de Texto do Sophos
+    const raw = payload.description || payload.text || "";
+    const extract = (regex: RegExp) => {
+        const match = raw.match(regex);
+        return match ? match[1].trim() : null;
+    };
 
-    // 3. Tentar encontrar o ID do equipamento no inventário
+    const hostname = extract(/Where it happened:\s*([^\n\r]+)/i) || payload.full_name || payload.hostname || "Desconhecido";
+    const path = extract(/Path:\s*([^\n\r]+)/i) || "N/A";
+    const detection = extract(/What was detected:\s*([^\n\r]+)/i) || payload.alert_type || "Ameaça Detetada";
+    const user = extract(/User associated with device:\s*([^\n\r]+)/i) || "N/A";
+    const severityRaw = extract(/How severe it is:\s*([^\n\r]+)/i) || payload.severity || "Medium";
+    
+    const severity = (severityRaw.toLowerCase().includes('high') || severityRaw.toLowerCase().includes('critical')) ? 'Crítica' : 'Alta';
+
     const { data: equip } = await supabase
       .from('equipment')
       .select('id, description')
-      .or(`nomeNaRede.ilike.${hostname},serialNumber.ilike.${hostname},description.ilike.${hostname}`)
-      .single()
+      .or(`nomeNaRede.ilike.${hostname},serialNumber.ilike.${hostname}`)
+      .maybeSingle()
 
-    // 4. Criar o Ticket de Segurança
     const { data: ticket, error: ticketError } = await supabase
       .from('tickets')
       .insert({
-        title: `[SOPHOS] ${alertType} em ${hostname}`,
-        description: `INCIDENTE AUTOMÁTICO\n\nDetalhes do Sophos: ${description}\n\nAtivo Detetado: ${hostname}`,
+        title: `[SOPHOS] ${detection} em ${hostname}`,
+        description: `--- INCIDENTE DETETADO PELO SOPHOS ---
+MÁQUINA: ${hostname}
+UTILIZADOR: ${user}
+DETEÇÃO: ${detection}
+CAMINHO: ${path}
+SEVERIDADE ORIGINAL: ${severityRaw}
+
+AÇÃO SOPHOS: ${extract(/What Sophos has done so far:\s*([^\n\r]+)/i) || 'Tentativa de limpeza.'}
+RECOMENDAÇÃO: ${extract(/What you need to do:\s*([^\n\r]+)/i) || 'Verificar manualmente.'}`,
         status: 'Pedido',
         category: 'Incidente de Segurança',
         securityIncidentType: 'Malware',
@@ -52,9 +66,6 @@ serve(async (req) => {
       .single()
 
     if (ticketError) throw ticketError
-
-    // 5. Opcional: Notificar Slack (se configurado na BD)
-    // Pode adicionar aqui um fetch para o Slack Webhook
 
     return new Response(
       JSON.stringify({ success: true, ticketId: ticket.id }),
