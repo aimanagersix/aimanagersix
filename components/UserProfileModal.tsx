@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, Instituicao } from '../types';
 import { FaCamera, FaTrash, FaBuilding, FaUserTie, FaEnvelope, FaIdCard, FaSpinner, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaSave } from 'react-icons/fa';
@@ -51,13 +51,24 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
         try {
             await dataService.updateCollaborator(user.id, editData);
             alert("Perfil atualizado com sucesso!");
-            window.location.reload(); // Refresh para carregar novos dados no currentUser global
+            window.location.reload(); 
         } catch (e: any) {
             alert("Erro ao gravar perfil: " + e.message);
         } finally {
             setIsSaving(false);
         }
     };
+
+    // Lógica de resolução de nomes para a estrutura organizacional
+    const displayInstituicao = instituicao?.name || (user.role === 'SuperAdmin' ? 'Acesso Global' : 'Não definida');
+    
+    // Fix: Included useMemo in the React import and used it to derive displayEntidade safely
+    const displayEntidade = useMemo(() => {
+        if (entidade?.name) return entidade.name;
+        if (user.instituicaoId) return 'Diretamente à Instituição';
+        if (user.role === 'SuperAdmin') return 'Acesso Global';
+        return 'Sem departamento fixo';
+    }, [entidade, user.instituicaoId, user.role]);
 
     return (
         <Modal title="O Meu Perfil" onClose={onClose} maxWidth="max-w-2xl">
@@ -170,12 +181,12 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                         <div className="flex items-center gap-3 text-sm">
                             <FaUserTie className="text-blue-400 w-4" />
                             <span className="text-gray-400">Instituição:</span>
-                            <span className="text-white font-bold">{instituicao?.name || 'Acesso Global'}</span>
+                            <span className="text-white font-bold">{displayInstituicao}</span>
                         </div>
                         <div className="flex items-center gap-3 text-sm">
                             <FaBuilding className="text-blue-400 w-4" />
                             <span className="text-gray-400">Entidade:</span>
-                            <span className="text-white font-bold">{entidade?.name || 'Sem departamento fixo'}</span>
+                            <span className="text-white font-bold">{displayEntidade}</span>
                         </div>
                     </div>
 
