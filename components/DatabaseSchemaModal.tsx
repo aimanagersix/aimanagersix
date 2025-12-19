@@ -57,13 +57,8 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
-<<<<<<< HEAD
 -- REPARAÇÃO MASTER v6.4 (FULL QUOTED CAMELCASE)
 -- Resolve: ERROR 42703 (returnDate / return_date) em schemas sensíveis.
-=======
--- REPARAÇÃO MASTER v6.3 (RESILIÊNCIA DE SCHEMAS MISTOS)
--- Resolve: ERROR 42703 (returnDate does not exist) mantendo camelCase em IDs.
->>>>>>> fa8462dbe2c7d00a8dd2477a5fefe476e6b62fb8
 -- ==================================================================================
 
 -- 1. LIMPEZA TOTAL DE POLÍTICAS ANTERIORES
@@ -71,15 +66,11 @@ DROP POLICY IF EXISTS "equipment_isolation_policy" ON public.equipment;
 DROP POLICY IF EXISTS "equipment_isolation_v6" ON public.equipment;
 DROP POLICY IF EXISTS "equipment_isolation_v6_1" ON public.equipment;
 DROP POLICY IF EXISTS "equipment_isolation_v6_2" ON public.equipment;
-<<<<<<< HEAD
 DROP POLICY IF EXISTS "equipment_isolation_v6_3" ON public.equipment;
-=======
->>>>>>> fa8462dbe2c7d00a8dd2477a5fefe476e6b62fb8
 DROP POLICY IF EXISTS "licenses_isolation_policy" ON public.software_licenses;
 DROP POLICY IF EXISTS "licenses_isolation_v6" ON public.software_licenses;
 DROP POLICY IF EXISTS "licenses_isolation_v6_1" ON public.software_licenses;
 DROP POLICY IF EXISTS "licenses_isolation_v6_2" ON public.software_licenses;
-<<<<<<< HEAD
 DROP POLICY IF EXISTS "licenses_isolation_v6_3" ON public.software_licenses;
 DROP POLICY IF EXISTS "org_read_v6" ON public.instituicoes;
 DROP POLICY IF EXISTS "org_read_v6_1" ON public.instituicoes;
@@ -96,21 +87,6 @@ DROP POLICY IF EXISTS "collab_read_v6_3" ON public.collaborators;
 
 -- 2. POLÍTICA DE EQUIPAMENTOS (NOMES DE COLUNA CITADOS)
 CREATE POLICY "equipment_isolation_v6_4" ON public.equipment
-=======
-DROP POLICY IF EXISTS "org_read_v6" ON public.instituicoes;
-DROP POLICY IF EXISTS "org_read_v6_1" ON public.instituicoes;
-DROP POLICY IF EXISTS "org_read_v6_2" ON public.instituicoes;
-DROP POLICY IF EXISTS "entidades_read_v6" ON public.entidades;
-DROP POLICY IF EXISTS "entidades_read_v6_1" ON public.entidades;
-DROP POLICY IF EXISTS "entidades_read_v6_2" ON public.entidades;
-DROP POLICY IF EXISTS "collab_read_v6" ON public.collaborators;
-DROP POLICY IF EXISTS "collab_read_v6_1" ON public.collaborators;
-DROP POLICY IF EXISTS "collab_read_v6_2" ON public.collaborators;
-
--- 2. POLÍTICA DE EQUIPAMENTOS (HÍBRIDA)
--- Nota: Usamos "equipmentId" e "collaboratorId" (camelCase) mas return_date (snake_case)
-CREATE POLICY "equipment_isolation_v6_3" ON public.equipment
->>>>>>> fa8462dbe2c7d00a8dd2477a5fefe476e6b62fb8
 FOR SELECT TO authenticated
 USING (
   (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
@@ -118,17 +94,12 @@ USING (
   id IN (
     SELECT "equipmentId" FROM public.assignments 
     WHERE ("collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'))
-    AND return_date IS NULL
+    AND "returnDate" IS NULL
   )
 );
 
-<<<<<<< HEAD
 -- 3. POLÍTICA DE LICENÇAS (NOMES DE COLUNA CITADOS)
 CREATE POLICY "licenses_isolation_v6_4" ON public.software_licenses
-=======
--- 3. POLÍTICA DE LICENÇAS (HÍBRIDA)
-CREATE POLICY "licenses_isolation_v6_3" ON public.software_licenses
->>>>>>> fa8462dbe2c7d00a8dd2477a5fefe476e6b62fb8
 FOR SELECT TO authenticated
 USING (
   (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
@@ -138,23 +109,16 @@ USING (
     WHERE "equipmentId" IN (
        SELECT "equipmentId" FROM public.assignments 
        WHERE ("collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'))
-       AND return_date IS NULL
+       AND "returnDate" IS NULL
     )
-    AND return_date IS NULL
+    AND "returnDate" IS NULL
   )
 );
 
-<<<<<<< HEAD
 -- 4. PERMISSÃO DE LEITURA PARA TRADUÇÃO DE NOMES
 CREATE POLICY "org_read_v6_4" ON public.instituicoes FOR SELECT TO authenticated USING (true);
 CREATE POLICY "entidades_read_v6_4" ON public.entidades FOR SELECT TO authenticated USING (true);
 CREATE POLICY "collab_read_v6_4" ON public.collaborators FOR SELECT TO authenticated USING (true);
-=======
--- 4. PERMISSÃO DE LEITURA PARA TRADUÇÃO DE NOMES (Minha Área)
-CREATE POLICY "org_read_v6_3" ON public.instituicoes FOR SELECT TO authenticated USING (true);
-CREATE POLICY "entidades_read_v6_3" ON public.entidades FOR SELECT TO authenticated USING (true);
-CREATE POLICY "collab_read_v6_3" ON public.collaborators FOR SELECT TO authenticated USING (true);
->>>>>>> fa8462dbe2c7d00a8dd2477a5fefe476e6b62fb8
 
 -- 5. ASSEGURAR RLS ATIVO
 ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
@@ -172,24 +136,15 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-<<<<<<< HEAD
                         <FaTerminal /> Reparação v6.4 (Full Quoted)
-=======
-                        <FaTerminal /> Reparação v6.3 (Mixed Schema)
->>>>>>> fa8462dbe2c7d00a8dd2477a5fefe476e6b62fb8
                     </button>
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
-<<<<<<< HEAD
                                 <div className="flex items-center gap-2 font-bold mb-2"><FaShieldAlt /> Reparação de Schema Concluída</div>
                                 <p>Este script utiliza <code>"returnDate"</code> (com aspas) para resolver o erro 42703. Copie e execute no editor SQL do Supabase para restaurar o acesso aos dados.</p>
-=======
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaShieldAlt /> Correção de Schema Detectada</div>
-                                <p>Este script ajusta o campo de data para <code>return_date</code> (padrão) enquanto preserva os IDs em camelCase que o seu banco utiliza. Copie e execute no editor SQL do Supabase.</p>
->>>>>>> fa8462dbe2c7d00a8dd2477a5fefe476e6b62fb8
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">

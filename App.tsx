@@ -40,7 +40,6 @@ export const App: React.FC = () => {
     const { t } = useLanguage();
 
     // 1. Session & Global Config State
-    // Melhora: Se houver qualquer indício de chaves no ambiente ou storage, pula o setup.
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
         const envUrl = process.env.SUPABASE_URL;
         const envKey = process.env.SUPABASE_ANON_KEY;
@@ -95,8 +94,7 @@ export const App: React.FC = () => {
             ...org.data,
             ...inv.data,
             ...support.data,
-            ...compliance.data,
-            messages: []
+            ...compliance.data
         };
 
         if (currentUser && !checkPermission('equipment', 'view')) {
@@ -249,6 +247,24 @@ export const App: React.FC = () => {
         await refreshAll();
     };
 
+    const handleSendMessage = async (receiverId: string, content: string) => {
+        if (!currentUser) return;
+        await dataService.addMessage({
+            senderId: currentUser.id,
+            receiverId,
+            content,
+            timestamp: new Date().toISOString(),
+            read: false
+        });
+        support.refresh();
+    };
+
+    const handleMarkMessagesAsRead = async (senderId: string) => {
+        if (!currentUser) return;
+        await dataService.markMessagesAsRead(senderId);
+        support.refresh();
+    };
+
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) return <div className="min-h-screen bg-background-dark flex items-center justify-center text-white font-bold">A preparar ambiente seguro...</div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
@@ -351,7 +367,14 @@ export const App: React.FC = () => {
             </main>
 
             <MagicCommandBar brands={appData.brands} types={appData.equipmentTypes} collaborators={appData.collaborators} currentUser={currentUser} onAction={() => {}} />
-            <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={() => {}} onMarkMessagesAsRead={() => {}} isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} unreadMessagesCount={0} onSelectConversation={setActiveChatCollaboratorId} />
+            <ChatWidget 
+                currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} 
+                onSendMessage={handleSendMessage} onMarkMessagesAsRead={handleMarkMessagesAsRead} 
+                isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} 
+                activeChatCollaboratorId={activeChatCollaboratorId} 
+                unreadMessagesCount={appData.messages.filter((m: any) => m.receiverId === currentUser.id && !m.read).length} 
+                onSelectConversation={setActiveChatCollaboratorId} 
+            />
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { handleViewItem('tickets.list', { id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
             
