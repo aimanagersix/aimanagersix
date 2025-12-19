@@ -17,23 +17,20 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     };
 
     const repairScript = `-- ==================================================================================
--- SCRIPT DE REPARAÇÃO v9.1 (Passwords, Isolação NIS2 & Novos Campos RH)
+-- SCRIPT DE REPARAÇÃO v10.0 (Automação de Tickets & Visibilidade de Atividades)
 -- ==================================================================================
 
--- 1. ADICIONAR CAMPOS DE SEGURANÇA E RH SE NÃO EXISTIREM
+-- 1. ASSEGURAR CAMPOS NECESSÁRIOS
 DO $$ 
 BEGIN
-    -- Campo para controlo de expiração de password
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='collaborators' AND column_name='password_updated_at') THEN
         ALTER TABLE "collaborators" ADD COLUMN "password_updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW();
     END IF;
 
-    -- Campo para data de admissão (RH)
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='collaborators' AND column_name='admissionDate') THEN
         ALTER TABLE "collaborators" ADD COLUMN "admissionDate" DATE;
     END IF;
 
-    -- Campo para data de devolução em atribuições
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='assignments' AND column_name='returnDate') THEN
         ALTER TABLE "assignments" ADD COLUMN "returnDate" DATE;
     END IF;
@@ -44,9 +41,9 @@ DROP POLICY IF EXISTS "Enable all for authenticated users" ON "equipment";
 DROP POLICY IF EXISTS "Enable all for authenticated users" ON "software_licenses";
 DROP POLICY IF EXISTS "RLS_Equipment_Isolation" ON "equipment";
 DROP POLICY IF EXISTS "RLS_License_Isolation" ON "software_licenses";
+DROP POLICY IF EXISTS "RLS_Ticket_Activities_Requester" ON "ticket_activities";
 
 -- 3. ISOLAÇÃO DE DADOS RIGOROSA (RLS)
--- Admin/Técnico vê tudo, Utilizador vê apenas o que lhe está atribuído no momento
 
 -- EQUIPAMENTOS
 ALTER TABLE "equipment" ENABLE ROW LEVEL SECURITY;
@@ -70,6 +67,16 @@ USING (
   ))
 );
 
+-- ATIVIDADES DE TICKETS (Permite que o criador do ticket veja as respostas técnicas)
+ALTER TABLE "ticket_activities" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "RLS_Ticket_Activities_Requester" ON "ticket_activities"
+FOR SELECT TO authenticated
+USING (
+  (SELECT role FROM collaborators WHERE email = auth.jwt()->>'email') IN ('Admin', 'SuperAdmin', 'Técnico')
+  OR
+  "ticketId" IN (SELECT id FROM tickets WHERE "collaboratorId" = (SELECT id FROM collaborators WHERE email = auth.jwt()->>'email'))
+);
+
 -- 4. PERMISSÕES GERAIS
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
@@ -79,20 +86,20 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
         <Modal title="Configuração Avançada de Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200">
-                    <h3 className="font-bold flex items-center gap-2 mb-2"><FaShieldAlt /> Isolação de Dados & Campos RH (v9.1)</h3>
-                    <p>Este script atualiza a estrutura para suportar a <strong>Data de Admissão</strong> e garante que os utilizadores comuns apenas vejam os ativos que têm em posse.</p>
+                    <h3 className="font-bold flex items-center gap-2 mb-2"><FaShieldAlt /> Automação de Tickets & Visibilidade (v10.0)</h3>
+                    <p>Este script atualiza as políticas de segurança (RLS) para garantir que utilizadores comuns possam visualizar as intervenções técnicas registadas nos seus próprios pedidos.</p>
                 </div>
 
                 <div className="relative bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col h-[50vh]">
                     <div className="absolute top-2 right-2 z-10">
                         <button onClick={() => handleCopy(repairScript, 'rep')} className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg hover:bg-brand-secondary transition-all">
-                            {copied === 'rep' ? <FaCheck /> : <FaCopy />} Copiar SQL v9.1
+                            {copied === 'rep' ? <FaCheck /> : <FaCopy />} Copiar SQL v10.0
                         </button>
                     </div>
                     <pre className="p-4 text-xs font-mono text-green-400 overflow-auto custom-scrollbar">{repairScript}</pre>
                 </div>
                 <div className="flex justify-end">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors">Fechar</button>
+                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-600 transition-colors">Fechar</button>
                 </div>
             </div>
         </Modal>

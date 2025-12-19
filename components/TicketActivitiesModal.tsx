@@ -75,6 +75,21 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                 description: newActivityDescription,
                 equipmentId: selectedEquipmentId || undefined,
             });
+
+            // Pedido 1: Lógica de automação de estado no primeiro registo
+            if (localActivities.length === 0 && ticket.status === 'Pedido') {
+                await dataService.updateTicket(ticket.id, { status: 'Em progresso' });
+                
+                // Pedido 1: Enviar notificação automática por mensagem
+                await dataService.addMessage({
+                    senderId: currentUser?.id || '00000000-0000-0000-0000-000000000000',
+                    receiverId: ticket.collaboratorId,
+                    content: `Nova resposta ao seu pedido #${ticket.id.substring(0,8)}: O estado foi alterado para "Em progresso".`,
+                    timestamp: new Date().toISOString(),
+                    read: false
+                });
+            }
+
             setNewActivityDescription('');
             // Immediately reload activities to show the new one
             await fetchActivities();
@@ -282,6 +297,7 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                     </div>
                 )}
                 
+                {/* Registar nova intervenção: Visível apenas para quem tem permissão de edição (técnicos/admins) */}
                 {ticket.status !== TicketStatus.Finished && (
                     <div className="border-t border-gray-700 pt-4">
                         <h3 className="font-semibold text-on-surface-dark mb-2">Registar Nova Intervenção</h3>

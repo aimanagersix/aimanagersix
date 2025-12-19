@@ -142,57 +142,58 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                             {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
                         </select>
                     </div>
-                    {ticketToEdit && canManage ? (
-                        <div>
-                            <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado</label>
-                            <select 
-                                name="status" 
-                                value={formData.status} 
-                                onChange={handleChange} 
-                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                            >
-                                {statusOptions.length > 0 ? statusOptions.map(opt => <option key={opt.id} value={opt.name}>{opt.name}</option>) : (
-                                    <>
-                                        <option value="Pedido">Pedido</option>
-                                        <option value="Em progresso">Em progresso</option>
-                                        <option value="Finalizado">Finalizado</option>
-                                        <option value="Cancelado">Cancelado</option>
-                                    </>
-                                )}
-                            </select>
-                        </div>
-                    ) : canManage ? (
-                        <div>
-                            <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa de Suporte</label>
-                            <select name="team_id" value={formData.team_id || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                <option value="">-- Sem Equipa (Geral) --</option>
-                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                        </div>
-                    ) : (
-                        <div className="flex items-center text-xs text-gray-500 italic pt-6 bg-gray-800/30 px-3 rounded border border-gray-700">
-                           A equipa será atribuída automaticamente pela triagem técnica.
-                        </div>
-                    )}
+                    {/* Alterado para ser visível a todos, mas apenas editável por quem tem permissão */}
+                    <div>
+                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado {!canManage && '(Consulta)'}</label>
+                        <select 
+                            name="status" 
+                            value={formData.status} 
+                            onChange={handleChange} 
+                            disabled={!canManage}
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 disabled:bg-gray-800 disabled:text-gray-400"
+                        >
+                            {statusOptions.length > 0 ? statusOptions.map(opt => <option key={opt.id} value={opt.name}>{opt.name}</option>) : (
+                                <>
+                                    <option value="Pedido">Pedido</option>
+                                    <option value="Em progresso">Em progresso</option>
+                                    <option value="Finalizado">Finalizado</option>
+                                    <option value="Cancelado">Cancelado</option>
+                                </>
+                            )}
+                        </select>
+                    </div>
                 </div>
                 
-                <div>
-                    <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Assunto</label>
-                    <input type="text" name="title" value={formData.title} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'}`} />
-                    {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Assunto</label>
+                        <input type="text" name="title" value={formData.title} onChange={handleChange} disabled={!canManage && !!ticketToEdit} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:text-gray-400`} />
+                        {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
+                    </div>
+                    {/* Equipa visível apenas para consulta para o utilizador comum */}
+                    <div>
+                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa de Suporte {!canManage && '(Consulta)'}</label>
+                        <select name="team_id" value={formData.team_id || ''} onChange={handleChange} disabled={!canManage} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 disabled:bg-gray-800 disabled:text-gray-400">
+                            <option value="">-- Sem Equipa (Geral) --</option>
+                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
                 </div>
+
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição do Problema</label>
-                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} placeholder="Descreva o problema..."></textarea>
+                    <textarea name="description" value={formData.description} onChange={handleChange} disabled={!canManage && !!ticketToEdit} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:text-gray-400`} placeholder="Descreva o problema..."></textarea>
                     {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
                 </div>
                 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
-                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
-                        {isSaving ? <FaSpinner className="animate-spin" /> : null}
-                        {isSaving ? 'A Gravar...' : 'Salvar'}
-                    </button>
+                    {(canManage || !ticketToEdit) && (
+                        <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
+                            {isSaving ? <FaSpinner className="animate-spin" /> : null}
+                            {isSaving ? 'A Gravar...' : 'Salvar'}
+                        </button>
+                    )}
                 </div>
             </form>
         </Modal>
