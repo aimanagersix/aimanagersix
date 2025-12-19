@@ -36,7 +36,7 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, instituicoes, collaborators, suppliers = [], teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [], initialData, statusOptions = [] }) => {
     
     const activeCategories = useMemo(() => categories.filter(c => c.is_active).map(c => c.name), [categories]);
-    const canManage = userPermissions.canManage || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === 'Técnico';
+    const canManage = userPermissions.canManage || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.SuperAdmin || currentUser?.role === 'Técnico';
     const modalTitle = ticketToEdit ? "Editar Ticket de Suporte" : "Abrir Novo Ticket de Suporte";
 
     const [formData, setFormData] = useState<Partial<Ticket>>(() => {
@@ -136,15 +136,13 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                             name="category" 
                             value={formData.category} 
                             onChange={handleChange} 
-                            disabled={!canManage}
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
                         >
                             {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
                         </select>
                     </div>
-                    {/* Lista de Estados Dinâmica via Props */}
                     <div>
-                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado {!canManage && '(Consulta)'}</label>
+                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado {!canManage && '(Apenas Leitura)'}</label>
                         <select 
                             name="status" 
                             value={formData.status} 
@@ -164,10 +162,52 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
                     </div>
                 </div>
                 
+                {/* Campos Específicos de Segurança NIS2 */}
+                {isSecurityIncident && (
+                    <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg animate-fade-in space-y-4">
+                        <div className="flex items-center gap-2 text-red-400 font-bold text-sm mb-2">
+                            <FaShieldAlt /> Detalhes do Incidente (Requisito NIS2)
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Tipo de Incidente</label>
+                                <select 
+                                    name="securityIncidentType" 
+                                    value={formData.securityIncidentType || ''} 
+                                    onChange={handleChange}
+                                    className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2 text-sm"
+                                >
+                                    <option value="">-- Selecione o Tipo --</option>
+                                    {securityIncidentTypes.filter(t => t.is_active).map(type => (
+                                        <option key={type.id} value={type.name}>{type.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Impacto / Severidade</label>
+                                <select 
+                                    name="impactCriticality" 
+                                    value={formData.impactCriticality || ''} 
+                                    onChange={handleChange}
+                                    className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2 text-sm"
+                                >
+                                    {Object.values(CriticalityLevel).map(lvl => (
+                                        <option key={lvl} value={lvl}>{lvl}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-red-300/70 italic">
+                            <FaExclamationTriangle className="inline mr-1" /> 
+                            Prazos de Notificação: Alerta Precoce (24h) e Notificação de Incidente (72h) serão monitorizados.
+                        </p>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Assunto</label>
-                        <input type="text" name="title" value={formData.title} onChange={handleChange} disabled={!canManage && !!ticketToEdit} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:text-gray-400`} />
+                        <input type="text" name="title" value={formData.title} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'}`} />
                         {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
                     </div>
                     <div>
@@ -181,7 +221,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave,
 
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição do Problema</label>
-                    <textarea name="description" value={formData.description} onChange={handleChange} disabled={!canManage && !!ticketToEdit} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'} disabled:bg-gray-800 disabled:text-gray-400`} placeholder="Descreva o problema..."></textarea>
+                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} placeholder="Descreva o problema..."></textarea>
                     {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
                 </div>
                 

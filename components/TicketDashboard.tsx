@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ConfigItem } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaList, FaThLarge, FaCalendarAlt, PlusIcon, FaFileContract, FaSearch, FaSync } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaList, FaThLarge, FaCalendarAlt, PlusIcon, FaFileContract, FaSearch, FaSync, FaLandmark } from './common/Icons';
 import Pagination from './common/Pagination';
 import SortableHeader from './common/SortableHeader';
 
@@ -73,6 +73,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         if (onClearInitialFilter) onClearInitialFilter();
     };
 
+    const isSecurityIncident = (ticket: Ticket) => {
+        const catObj = categoryMap.get(ticket.category);
+        return catObj?.is_security || (ticket.category || '').toLowerCase().includes('segurança');
+    };
+
     const getSLAStatus = (ticket: Ticket) => {
         if (ticket.status === 'Finalizado' || ticket.status === 'Cancelado') return { label: ticket.status, color: 'text-gray-500 bg-gray-500/10 border-gray-700' };
         
@@ -102,11 +107,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     const TicketCard = ({ ticket }: { ticket: Ticket }) => {
         const sla = getSLAStatus(ticket);
         const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : (collaboratorMap.get(ticket.collaboratorId) || 'N/A');
-        const isSecurity = (ticket.category || '').toLowerCase().includes('segurança');
+        const isSecurity = isSecurityIncident(ticket);
 
         return (
             <div 
-                className={`p-4 rounded-xl border transition-all cursor-pointer hover:shadow-2xl ${isSecurity ? 'bg-red-900/10 border-red-500/30' : 'bg-gray-800 border-gray-700 hover:border-gray-500'}`}
+                className={`p-4 rounded-xl border transition-all cursor-pointer hover:shadow-2xl flex flex-col h-full ${isSecurity ? 'bg-red-900/10 border-red-500/40' : 'bg-gray-800 border-gray-700 hover:border-gray-500'}`}
                 onClick={() => onOpenActivities?.(ticket)}
             >
                 <div className="flex justify-between items-start mb-3">
@@ -114,18 +119,28 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                         {sla.label}
                     </span>
                     <div className="flex gap-2">
-                        {isSecurity && <FaShieldAlt className="text-red-500" />}
+                        {isSecurity && <FaShieldAlt className="text-red-500 animate-pulse" title="Incidente de Segurança" />}
                         <span className="text-[10px] text-gray-500">#{ticket.id.substring(0,4)}</span>
                     </div>
                 </div>
                 <h3 className="font-bold text-white text-sm line-clamp-2 mb-2">{ticket.title}</h3>
                 <p className="text-xs text-gray-400 line-clamp-3 mb-4 h-12 italic">{ticket.description}</p>
+                
                 <div className="mt-auto pt-3 border-t border-gray-700 flex justify-between items-center">
                     <div className="min-w-0">
                         <p className="text-[10px] text-gray-500 uppercase truncate">{requesterName}</p>
                         <p className="text-[9px] text-brand-secondary font-bold">{ticket.team_id ? teamMap.get(ticket.team_id) : 'Pendente'}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
+                        {isSecurity && onGenerateSecurityReport && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onGenerateSecurityReport(ticket); }} 
+                                className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-md"
+                                title="Notificação Regulatória NIS2"
+                            >
+                                <FaLandmark size={14} />
+                            </button>
+                        )}
                         <button onClick={(e) => { e.stopPropagation(); onEdit?.(ticket); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-md"><EditIcon /></button>
                     </div>
                 </div>
@@ -234,8 +249,10 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 {tickets.length > 0 ? tickets.map((ticket) => {
                                     const sla = getSLAStatus(ticket);
                                     const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : (collaboratorMap.get(ticket.collaboratorId) || 'N/A');
+                                    const isSecurity = isSecurityIncident(ticket);
+                                    
                                     return (
-                                        <tr key={ticket.id} className="hover:bg-gray-800/50 cursor-pointer" onClick={() => onOpenActivities?.(ticket)}>
+                                        <tr key={ticket.id} className={`hover:bg-gray-800/50 cursor-pointer ${isSecurity ? 'bg-red-900/5 border-l-4 border-l-red-600' : ''}`} onClick={() => onOpenActivities?.(ticket)}>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-2 text-white font-bold text-xs"><FaCalendarAlt className="text-gray-500"/> {new Date(ticket.requestDate).toLocaleDateString()}</div>
                                                 <div className="text-[9px] text-gray-500 mt-0.5">#{ticket.id.substring(0,8)}</div>
@@ -249,12 +266,24 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 max-w-xs">
-                                                <div className="font-bold text-white truncate">{ticket.title}</div>
+                                                <div className="font-bold text-white truncate flex items-center gap-2">
+                                                    {ticket.title}
+                                                    {isSecurity && <FaShieldAlt className="text-red-500 text-xs shrink-0" />}
+                                                </div>
                                                 <div className="text-[10px] text-gray-500 uppercase">{requesterName}</div>
                                             </td>
                                             <td className="px-6 py-4 text-xs">{ticket.technicianId ? collaboratorMap.get(ticket.technicianId) : <span className="text-gray-600 italic">Por atribuir</span>}</td>
                                             <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex justify-center items-center gap-3">
+                                                    {isSecurity && onGenerateSecurityReport && (
+                                                        <button 
+                                                            onClick={() => onGenerateSecurityReport(ticket)} 
+                                                            className="text-red-400 hover:text-red-300" 
+                                                            title="Notificação Regulatória NIS2"
+                                                        >
+                                                            <FaLandmark />
+                                                        </button>
+                                                    )}
                                                     <button onClick={() => onOpenActivities?.(ticket)} className="text-teal-400 hover:text-teal-300" title="Atividades"><FaTasks/></button>
                                                     <button onClick={() => onEdit?.(ticket)} className="text-blue-400 hover:text-blue-300" title="Editar"><EditIcon /></button>
                                                 </div>
