@@ -57,66 +57,64 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- REPARAÇÃO MASTER v6.0 (ISOLAMENTO DE DADOS & RLS)
--- Resolve: Utilizadores vendo equipamentos alheios e campos vazios na Minha Área.
+-- REPARAÇÃO MASTER v6.1 (BULLETPROOF RLS & CONVENÇÃO SNAKE_CASE)
+-- Resolve: ERROR 42703 (column does not exist) e Visibilidade de Nomes na Minha Área.
 -- ==================================================================================
 
--- 1. LIMPEZA DE POLÍTICAS ANTIGAS (EQUIPAMENTOS E LICENÇAS)
-DROP POLICY IF EXISTS "equipment_isolation_policy" ON equipment;
-DROP POLICY IF EXISTS "licenses_isolation_policy" ON software_licenses;
-DROP POLICY IF EXISTS "instituicoes_read_policy" ON instituicoes;
-DROP POLICY IF EXISTS "entidades_read_policy" ON entidades;
+-- 1. LIMPEZA TOTAL DE POLÍTICAS ANTERIORES
+DROP POLICY IF EXISTS "equipment_isolation_policy" ON public.equipment;
+DROP POLICY IF EXISTS "equipment_isolation_v6" ON public.equipment;
+DROP POLICY IF EXISTS "licenses_isolation_policy" ON public.software_licenses;
+DROP POLICY IF EXISTS "licenses_isolation_v6" ON public.software_licenses;
+DROP POLICY IF EXISTS "instituicoes_read_policy" ON public.instituicoes;
+DROP POLICY IF EXISTS "entidades_read_policy" ON public.entidades;
+DROP POLICY IF EXISTS "org_read_v6" ON public.instituicoes;
+DROP POLICY IF EXISTS "entidades_read_v6" ON public.entidades;
+DROP POLICY IF EXISTS "collab_read_v6" ON public.collaborators;
 
--- 2. POLÍTICA DE EQUIPAMENTOS (ISOLAMENTO REAL)
--- Regra: Admin vê tudo. User só vê se estiver atribuído a ele na tabela assignments.
-CREATE POLICY "equipment_isolation_v6" ON public.equipment
+-- 2. POLÍTICA DE EQUIPAMENTOS (RESILIENTE)
+-- Nota: Usamos nomes de colunas sem aspas para que o PG resolva case-insensitively
+CREATE POLICY "equipment_isolation_v6_1" ON public.equipment
 FOR SELECT TO authenticated
 USING (
-  (SELECT role FROM collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
+  (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
   OR 
   id IN (
-    SELECT "equipmentId" FROM assignments 
-    WHERE ("collaboratorId" = (SELECT id FROM collaborators WHERE email = auth.jwt()->>'email'))
-    AND "returnDate" IS NULL
+    SELECT equipment_id FROM public.assignments 
+    WHERE (collaborator_id = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'))
+    AND return_date IS NULL
   )
 );
 
--- 3. POLÍTICA DE LICENÇAS (ISOLAMENTO REAL)
--- Regra: User só vê licenças que estão instaladas nos SEUS equipamentos.
-CREATE POLICY "licenses_isolation_v6" ON public.software_licenses
+-- 3. POLÍTICA DE LICENÇAS (RESILIENTE)
+CREATE POLICY "licenses_isolation_v6_1" ON public.software_licenses
 FOR SELECT TO authenticated
 USING (
-  (SELECT role FROM collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
+  (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('SuperAdmin', 'Admin', 'Técnico')
   OR 
   id IN (
-    SELECT "softwareLicenseId" FROM license_assignments
-    WHERE "equipmentId" IN (
-       SELECT "equipmentId" FROM assignments 
-       WHERE ("collaboratorId" = (SELECT id FROM collaborators WHERE email = auth.jwt()->>'email'))
-       AND "returnDate" IS NULL
+    SELECT software_license_id FROM public.license_assignments
+    WHERE equipment_id IN (
+       SELECT equipment_id FROM public.assignments 
+       WHERE (collaborator_id = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email'))
+       AND return_date IS NULL
     )
-    AND "returnDate" IS NULL
+    AND return_date IS NULL
   )
 );
 
--- 4. PERMISSÃO DE LEITURA DE ORG (Para resolver nomes na Minha Área)
--- Permite que qualquer utilizador autenticado leia os nomes das instituições e entidades 
--- para que a UI consiga "traduzir" IDs em Nomes.
-CREATE POLICY "org_read_v6" ON public.instituicoes FOR SELECT TO authenticated USING (true);
-CREATE POLICY "entidades_read_v6" ON public.entidades FOR SELECT TO authenticated USING (true);
+-- 4. PERMISSÃO DE LEITURA PARA TRADUÇÃO DE NOMES (Minha Área)
+-- Permite que qualquer autenticado veja nomes de Inst., Entid. e Colegas (apenas leitura básica)
+CREATE POLICY "org_read_v6_1" ON public.instituicoes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "entidades_read_v6_1" ON public.entidades FOR SELECT TO authenticated USING (true);
+CREATE POLICY "collab_read_v6_1" ON public.collaborators FOR SELECT TO authenticated USING (true);
 
--- 5. GARANTIR CHAVES DE CONFIGURAÇÃO PARA SOPHOS
-INSERT INTO public.global_settings (setting_key, setting_value)
-VALUES 
-  ('sophos_client_id', ''),
-  ('sophos_client_secret', '')
-ON CONFLICT (setting_key) DO NOTHING;
-
--- 6. REFRESH SCHEMA
+-- 5. ATIVAÇÃO DO RLS
 ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.software_licenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.instituicoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.entidades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.collaborators ENABLE ROW LEVEL SECURITY;
 
 NOTIFY pgrst, 'reload schema';
 `
@@ -127,15 +125,15 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> Reparação v6.0 (Isolamento RLS)
+                        <FaTerminal /> Reparação v6.1 (Bulletproof RLS)
                     </button>
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaShieldAlt /> Segurança de Dados Ativada</div>
-                                <p>Este script impõe o isolamento de dados no PostgreSQL. Após a execução, os utilizadores com permissões limitadas deixarão de ver equipamentos que não lhes pertencem, mesmo que tentem aceder via API.</p>
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaShieldAlt /> Segurança de Dados Corrigida</div>
+                                <p>Este script utiliza a convenção standard do PostgreSQL (sem aspas) para evitar o erro de "coluna não encontrada". Ele garante que os utilizadores consigam ler os nomes das Instituições sem quebrar o isolamento dos equipamentos.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">

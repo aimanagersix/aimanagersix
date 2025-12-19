@@ -40,13 +40,13 @@ export const App: React.FC = () => {
     const { t } = useLanguage();
 
     // 1. Session & Global Config State
-    // Melhora: Se as chaves existirem no process.env (injetadas), considera configurado imediatamente
+    // Melhora: Bypass agressivo se as chaves estiverem no ambiente (process.env)
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
-        const storageUrl = localStorage.getItem('SUPABASE_URL');
-        const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
         const envUrl = process.env.SUPABASE_URL;
         const envKey = process.env.SUPABASE_ANON_KEY;
-        return !!((storageUrl && storageKey) || (envUrl && envKey));
+        const storageUrl = localStorage.getItem('SUPABASE_URL');
+        const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
+        return !!(envUrl || envKey || (storageUrl && storageKey));
     });
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [session, setSession] = useState<any>(null);
