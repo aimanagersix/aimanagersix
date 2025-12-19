@@ -22,9 +22,10 @@ import MapDashboard from './components/MapDashboard';
 import SettingsManager from './features/settings/SettingsManager';
 import { getSupabase } from './services/supabaseClient';
 import * as dataService from './services/dataService';
-import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy, Assignment } from './types';
+import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy, Assignment, Equipment } from './types';
 import AgendaDashboard from './components/AgendaDashboard';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
+import EquipmentHistoryModal from './components/EquipmentHistoryModal';
 
 // Atomics Hooks
 import { useOrganization } from './hooks/useOrganization';
@@ -63,6 +64,7 @@ export const App: React.FC = () => {
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
+    const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
 
     // 4. Permission Checking Logic
@@ -97,12 +99,11 @@ export const App: React.FC = () => {
             );
             rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
             
-            // Filtrar Licenças atribuídas aos equipamentos que eu tenho
-            const myLicenseIds = new Set(
-                rawData.licenseAssignments
-                    .filter(la => myEquipmentIds.has(la.equipmentId) && !la.returnDate)
-                    .map(la => la.softwareLicenseId)
-            );
+            // Fix: Filtrar atribuições de licenças para que o dashboard self-service as encontre
+            rawData.licenseAssignments = rawData.licenseAssignments.filter(la => myEquipmentIds.has(la.equipmentId) && !la.returnDate);
+            
+            // Filtrar Licenças baseadas nas atribuições filtradas
+            const myLicenseIds = new Set(rawData.licenseAssignments.map(la => la.softwareLicenseId));
             rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
 
             // Filtrar Políticas aplicáveis ao utilizador
@@ -129,7 +130,10 @@ export const App: React.FC = () => {
         // Identificar aceitações (compatibilidade com nomes de colunas na BD)
         const myAcceptanceIds = new Set(
             compliance.data.policyAcceptances
-                .filter(a => (a as any).collaboratorId === currentUser.id || (a as any).collaborator_id === currentUser.id)
+                .filter(a => {
+                    const cid = (a as any).collaboratorId || (a as any).collaborator_id;
+                    return cid === currentUser.id;
+                })
                 .map(a => a.policy_id + '-' + a.version)
         );
 
@@ -190,11 +194,11 @@ export const App: React.FC = () => {
             'equipment.inventory': checkPermission('equipment', 'view') || checkPermission('equipment', 'view_own'),
             'equipment.procurement': checkPermission('procurement', 'view'),
             'licensing': checkPermission('licensing', 'view') || checkPermission('licensing', 'view_own'),
-            'organizacao.instituicoes': checkPermission('organization', 'view'),
-            'organizacao.entidades': checkPermission('organization', 'view'),
-            'collaborators': checkPermission('organization', 'view'),
+            'organizacao.instituicoes': checkPermission('org_institutions', 'view'),
+            'organizacao.entidades': checkPermission('org_entities', 'view'),
+            'collaborators': checkPermission('org_collaborators', 'view'),
+            'organizacao.suppliers': checkPermission('org_suppliers', 'view'),
             'organizacao.teams': checkPermission('organization', 'view'),
-            'organizacao.suppliers': checkPermission('suppliers', 'view'),
             'tickets': checkPermission('tickets', 'view') || checkPermission('tickets', 'view_own'),
             'reports': checkPermission('reports', 'view'),
             'settings': checkPermission('settings', 'view'),
@@ -206,7 +210,12 @@ export const App: React.FC = () => {
                 training: checkPermission('compliance_training', 'view') || checkPermission('compliance_training', 'view_own'),
                 policies: checkPermission('compliance_policies', 'view') || checkPermission('compliance_policies', 'view_own'),
             },
-            'tools': { agenda: true, map: true }
+            'tools': { 
+                agenda: checkPermission('tools_agenda', 'view'), 
+                map: checkPermission('tools_map', 'view'),
+                calendar: checkPermission('tools_calendar', 'view'),
+                manual: checkPermission('tools_manual', 'view')
+            }
         };
     }, [checkPermission]);
 
@@ -225,7 +234,6 @@ export const App: React.FC = () => {
 
     const handleAcceptPolicy = async (id: string, version: string) => {
         if (!currentUser) return;
-        // CORREÇÃO: Usar 'collaboratorId' (camelCase) para consistência com o resto da BD e triggers
         await dataService.addConfigItem('policy_acceptances', {
             policy_id: id,
             collaboratorId: currentUser.id,
@@ -283,6 +291,7 @@ export const App: React.FC = () => {
                                 trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes}
                                 policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets}
                                 onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy}
+                                onViewEquipment={setViewingEquipment}
                             />
                         )
                     )}
@@ -294,6 +303,7 @@ export const App: React.FC = () => {
                             trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes}
                             policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets}
                             onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy}
+                            onViewEquipment={setViewingEquipment}
                         />
                     )}
 
@@ -348,6 +358,28 @@ export const App: React.FC = () => {
             <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={() => {}} onMarkMessagesAsRead={() => {}} isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} unreadMessagesCount={0} onSelectConversation={setActiveChatCollaboratorId} />
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { handleViewItem('tickets.list', { id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
+            
+            {viewingEquipment && (
+                <EquipmentHistoryModal 
+                    equipment={viewingEquipment}
+                    assignments={appData.assignments}
+                    collaborators={appData.collaborators}
+                    escolasDepartamentos={appData.entidades}
+                    tickets={appData.tickets}
+                    ticketActivities={appData.ticketActivities}
+                    onClose={() => setViewingEquipment(null)}
+                    onViewItem={handleViewItem}
+                    businessServices={appData.businessServices}
+                    serviceDependencies={appData.serviceDependencies}
+                    softwareLicenses={appData.softwareLicenses}
+                    licenseAssignments={appData.licenseAssignments}
+                    vulnerabilities={appData.vulnerabilities}
+                    suppliers={appData.suppliers}
+                    procurementRequests={appData.procurementRequests}
+                    accountingCategories={appData.configAccountingCategories}
+                    conservationStates={appData.configConservationStates}
+                />
+            )}
         </div>
     );
 };

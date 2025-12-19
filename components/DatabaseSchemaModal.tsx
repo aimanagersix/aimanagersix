@@ -22,10 +22,6 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [dataError, setDataError] = useState('');
 
-    const [aiInput, setAiInput] = useState('');
-    const [aiOutput, setAiOutput] = useState('');
-    const [isGenerating, setIsGenerating] = useState(false);
-
     useEffect(() => {
         const loadMetadata = async () => {
             setIsLoadingData(true);
@@ -62,61 +58,54 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- REPARAÇÃO TOTAL DE SEGURANÇA E POLÍTICAS (v4.6 - UNIFIED COLUMNS)
--- Resolve erro de "collaborator_id" e garante visibilidade das Políticas no Login
+-- REPARAÇÃO MASTER DE POLÍTICAS E COLUNAS (v4.7 - FAIL-SAFE)
+-- Resolve: ERROR 42703 (column does not exist) e bloqueio de SuperAdmin
 -- ==================================================================================
 
--- 1. LIMPEZA DE FUNÇÃO RBAC
-DROP FUNCTION IF EXISTS public.has_permission(text, text) CASCADE;
+-- 1. DESATIVAR RLS TEMPORARIAMENTE PARA MANUTENÇÃO DE ESTRUTURA
+ALTER TABLE IF EXISTS public.policy_acceptances DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can read active policies" ON public.policies;
+DROP POLICY IF EXISTS "Users can insert their own acceptance" ON public.policy_acceptances;
+DROP POLICY IF EXISTS "Users can view their own acceptance" ON public.policy_acceptances;
 
--- 2. RE-CRIAÇÃO DA FUNÇÃO RBAC (Suporta Admin Bypass)
-CREATE OR REPLACE FUNCTION public.has_permission(p_module text, p_action text)
-RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE
-    v_role_name text;
-    v_perms jsonb;
-BEGIN
-    SELECT role INTO v_role_name FROM public.collaborators WHERE email = auth.jwt()->>'email';
-    IF v_role_name = 'SuperAdmin' THEN RETURN true; END IF;
-    SELECT permissions INTO v_perms FROM public.config_custom_roles WHERE name = v_role_name;
-    RETURN COALESCE((v_perms->p_module->>p_action)::boolean, false);
-END; $$;
-
--- 3. GARANTIR COLUNA 'collaboratorId' NA TABELA DE ACEITAÇÕES
--- Se a sua tabela tem 'collaborator_id', este script renomeia-a para manter consistência
+-- 2. NORMALIZAÇÃO DA COLUNA 'collaboratorId' (Case Sensitive)
+-- Este bloco verifica se a coluna existe com outros nomes e renomeia, ou cria se não existir.
 DO $$ 
 BEGIN
+  -- Se existe 'collaborator_id', renomeia para 'collaboratorId'
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='policy_acceptances' AND column_name='collaborator_id') THEN
     ALTER TABLE public.policy_acceptances RENAME COLUMN collaborator_id TO "collaboratorId";
+  
+  -- Se não existe nem 'collaborator_id' nem 'collaboratorId', cria a coluna
+  ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='policy_acceptances' AND column_name='collaboratorId') THEN
+    ALTER TABLE public.policy_acceptances ADD COLUMN "collaboratorId" UUID REFERENCES public.collaborators(id);
   END IF;
 END $$;
 
--- 4. POLÍTICA DE LEITURA PARA 'policies'
--- Obrigatório: Todos os autenticados devem conseguir LER as políticas para as aceitar
+-- 3. GARANTIR QUE A TABELA 'policies' É ACESSÍVEL PARA LEITURA NO LOGIN
 ALTER TABLE public.policies ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Anyone can read active policies" ON public.policies;
 CREATE POLICY "Anyone can read active policies" ON public.policies
 FOR SELECT TO authenticated USING (is_active = true);
 
--- 5. POLÍTICA DE INSERÇÃO PARA 'policy_acceptances'
+-- 4. RE-ATIVAR E CONFIGURAR RLS PARA ACEITAÇÕES
 ALTER TABLE public.policy_acceptances ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can insert their own acceptance" ON public.policy_acceptances;
+
+-- Política de Inserção: O utilizador só pode inserir a sua própria aceitação
 CREATE POLICY "Users can insert their own acceptance" ON public.policy_acceptances
 FOR INSERT TO authenticated 
 WITH CHECK (
     "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
 );
 
--- 6. POLÍTICA DE LEITURA PARA 'policy_acceptances'
-DROP POLICY IF EXISTS "Users can view their own acceptance" ON public.policy_acceptances;
+-- Política de Leitura: Ver as próprias aceitações ou todas se for Admin
 CREATE POLICY "Users can view their own acceptance" ON public.policy_acceptances
 FOR SELECT TO authenticated 
 USING (
-    public.has_permission('compliance_policies', 'view')
-    OR "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
+    "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
+    OR (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('Admin', 'SuperAdmin')
 );
 
--- 7. REFRESH SCHEMA
+-- 5. REFRESH SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
 `
     };
@@ -126,15 +115,15 @@ NOTIFY pgrst, 'reload schema';
             <div className="flex flex-col h-[85vh]">
                 <div className="flex flex-wrap gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
                     <button onClick={() => setActiveTab('setup')} className={`px-3 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> 1. Reparação Master v4.6 (Colunas & RLS)
+                        <FaTerminal /> 1. Reparação Master v4.7 (Fail-Safe)
                     </button>
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
                             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4 flex-shrink-0">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Correção de Acesso</div>
-                                <p>Este script resolve o erro de gravação de políticas e garante que utilizadores limitados as conseguem ler no ecrã de entrada.</p>
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Correção de Acesso Crítico</div>
+                                <p>Execute este script no SQL Editor do Supabase para corrigir o erro de coluna e permitir a aceitação de políticas por todos os utilizadores.</p>
                             </div>
                             <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
                                 <div className="absolute top-2 right-2 z-10">

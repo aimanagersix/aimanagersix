@@ -24,12 +24,14 @@ interface SelfServiceDashboardProps {
     tickets: Ticket[];
     onViewTicket?: (ticket: Ticket) => void;
     onViewPolicy?: (policy: Policy) => void;
+    onViewEquipment?: (equipment: Equipment) => void;
+    onViewTraining?: (training: SecurityTrainingRecord) => void;
 }
 
 const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({ 
     currentUser, equipment, assignments, softwareLicenses, licenseAssignments, 
     trainings, brands, types, policies, acceptances, tickets,
-    onViewTicket, onViewPolicy
+    onViewTicket, onViewPolicy, onViewEquipment, onViewTraining
 }) => {
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const typeMap = useMemo(() => new Map(types.map(t => [t.id, t.name])), [types]);
@@ -112,8 +114,15 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 space-y-3 flex-grow max-h-80 overflow-y-auto custom-scrollbar">
                         {myEquipment.length > 0 ? myEquipment.map(eq => (
-                            <div key={eq.id} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-blue-500/50 transition-colors">
-                                <p className="font-bold text-white text-sm">{eq.description}</p>
+                            <div 
+                                key={eq.id} 
+                                onClick={() => onViewEquipment?.(eq)}
+                                className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-blue-500/50 transition-colors cursor-pointer group"
+                            >
+                                <div className="flex justify-between items-start">
+                                    <p className="font-bold text-white text-sm group-hover:text-blue-300">{eq.description}</p>
+                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-blue-400" />
+                                </div>
                                 <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase">S/N: {eq.serialNumber} • {brandMap.get(eq.brandId)} {typeMap.get(eq.typeId)}</p>
                                 <div className="mt-2 flex justify-between items-center">
                                     <span className="text-[9px] px-2 py-0.5 rounded bg-green-900/30 text-green-400 border border-green-500/30">Operacional</span>
@@ -186,9 +195,13 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
                         {myTrainings.length > 0 ? myTrainings.map(t => (
-                            <div key={t.id} className="bg-gray-900/50 p-3 rounded border border-gray-700 flex justify-between items-center">
+                            <div 
+                                key={t.id} 
+                                onClick={() => onViewTraining?.(t)}
+                                className="bg-gray-900/50 p-3 rounded border border-gray-700 flex justify-between items-center hover:border-green-500/50 transition-colors cursor-pointer group"
+                            >
                                 <div>
-                                    <p className="font-bold text-white text-sm">{t.training_type}</p>
+                                    <p className="font-bold text-white text-sm group-hover:text-green-300">{t.training_type}</p>
                                     <p className="text-[10px] text-gray-500 flex items-center gap-1 mt-1"><FaCalendarCheck/> Concluído em {new Date(t.completion_date).toLocaleDateString()}</p>
                                 </div>
                                 <div className={`text-right font-black text-sm ${t.score && t.score >= 70 ? 'text-green-400' : 'text-yellow-400'}`}>
@@ -212,7 +225,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto custom-scrollbar">
                         {myLicenses.length > 0 ? myLicenses.map(lic => (
-                            <div key={lic.id} className="bg-gray-900/50 p-3 rounded border border-gray-700">
+                            <div key={lic.id} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-yellow-500/50 transition-colors">
                                 <p className="font-bold text-white text-sm truncate">{lic.productName}</p>
                                 <p className="text-[10px] text-gray-500 font-mono mt-1 truncate">{lic.licenseKey}</p>
                                 <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center gap-1 text-[9px] text-gray-400 uppercase font-bold">

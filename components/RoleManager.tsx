@@ -36,9 +36,27 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'equipment', label: 'Equipamentos', supportsOwn: true },
             { key: 'licensing', label: 'Licenciamento', supportsOwn: true },
             { key: 'tickets', label: 'Suporte (Tickets)', supportsOwn: true },
-            { key: 'organization', label: 'Estrutura e RH' },
-            { key: 'suppliers', label: 'Fornecedores' },
             { key: 'procurement', label: 'Aquisições' },
+        ]
+    },
+    {
+        label: 'Gestão de Contatos & RH',
+        items: [
+            { key: 'org_institutions', label: 'Instituições' },
+            { key: 'org_entities', label: 'Entidades' },
+            { key: 'org_collaborators', label: 'Colaboradores' },
+            { key: 'org_suppliers', label: 'Fornecedores' },
+            { key: 'organization', label: 'Equipas e Estrutura Geral' },
+        ]
+    },
+    {
+        label: 'Relatórios & Ferramentas',
+        items: [
+            { key: 'reports', label: 'Menu Relatórios', isSimpleAccess: true },
+            { key: 'tools_agenda', label: 'Ferramenta: Agenda', isSimpleAccess: true },
+            { key: 'tools_map', label: 'Ferramenta: Mapa Ativos', isSimpleAccess: true },
+            { key: 'tools_calendar', label: 'Ferramenta: Calendário', isSimpleAccess: true },
+            { key: 'tools_manual', label: 'Ferramenta: Manual', isSimpleAccess: true },
         ]
     },
     {
