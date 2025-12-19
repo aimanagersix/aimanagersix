@@ -22,10 +22,11 @@ import MapDashboard from './components/MapDashboard';
 import SettingsManager from './features/settings/SettingsManager';
 import { getSupabase } from './services/supabaseClient';
 import * as dataService from './services/dataService';
-import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy, Assignment, Equipment } from './types';
+import { ModuleKey, PermissionAction, Collaborator, UserRole, Ticket, Policy, Assignment, Equipment, SoftwareLicense, SecurityTrainingRecord } from './types';
 import AgendaDashboard from './components/AgendaDashboard';
 import PolicyAcceptanceModal from './components/PolicyAcceptanceModal';
 import EquipmentHistoryModal from './components/EquipmentHistoryModal';
+import Modal from './components/common/Modal'; // Para consulta simples de licença/formação
 
 // Atomics Hooks
 import { useOrganization } from './hooks/useOrganization';
@@ -47,7 +48,7 @@ export const App: React.FC = () => {
     const [session, setSession] = useState<any>(null);
     const [isAppLoading, setIsAppLoading] = useState(true);
 
-    // 2. Feature Hooks (Atomic Separation)
+    // 2. Feature Hooks
     const org = useOrganization(isConfigured);
     const inv = useInventory(isConfigured);
     const support = useSupport(isConfigured);
@@ -63,9 +64,13 @@ export const App: React.FC = () => {
     const [showCalendar, setShowCalendar] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
+    
+    // Viewing States (Modais)
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
+    const [viewingLicense, setViewingLicense] = useState<SoftwareLicense | null>(null);
+    const [viewingTraining, setViewingTraining] = useState<SecurityTrainingRecord | null>(null);
 
     // 4. Permission Checking Logic
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
@@ -80,7 +85,7 @@ export const App: React.FC = () => {
         return !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // 5. Data Isolation Filter (Source of Truth for limited users)
+    // 5. Data Isolation Filter
     const appData = useMemo(() => {
         const rawData = {
             ...org.data,
@@ -91,22 +96,16 @@ export const App: React.FC = () => {
         };
 
         if (currentUser && !checkPermission('equipment', 'view')) {
-            // Filtrar Equipamentos Próprios
             const myEquipmentIds = new Set(
                 rawData.assignments
                     .filter((a: Assignment) => a.collaboratorId === currentUser.id && !a.returnDate)
                     .map((a: Assignment) => a.equipmentId)
             );
             rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
-            
-            // Fix: Filtrar atribuições de licenças para que o dashboard self-service as encontre
             rawData.licenseAssignments = rawData.licenseAssignments.filter(la => myEquipmentIds.has(la.equipmentId) && !la.returnDate);
-            
-            // Filtrar Licenças baseadas nas atribuições filtradas
             const myLicenseIds = new Set(rawData.licenseAssignments.map(la => la.softwareLicenseId));
             rawData.softwareLicenses = rawData.softwareLicenses.filter(l => myLicenseIds.has(l.id));
 
-            // Filtrar Políticas aplicáveis ao utilizador
             rawData.policies = rawData.policies.filter(p => {
                 if (!p.is_active) return false;
                 if (p.target_type === 'Global' || !p.target_type) return true;
@@ -123,15 +122,13 @@ export const App: React.FC = () => {
         return rawData;
     }, [org.data, inv.data, support.data, compliance.data, currentUser, checkPermission]);
 
-    // 6. Detect Pending Policies for the user (Usamos os dados brutos para garantir deteção no login)
+    // 6. Detect Pending Policies
     const pendingPolicies = useMemo(() => {
         if (!currentUser || !compliance.data.policies) return [];
-        
-        // Identificar aceitações (compatibilidade com nomes de colunas na BD)
         const myAcceptanceIds = new Set(
             compliance.data.policyAcceptances
                 .filter(a => {
-                    const cid = (a as any).collaboratorId || (a as any).collaborator_id;
+                    const cid = (a as any).collaboratorId || a.collaborator_id;
                     return cid === currentUser.id;
                 })
                 .map(a => a.policy_id + '-' + a.version)
@@ -139,8 +136,6 @@ export const App: React.FC = () => {
 
         return compliance.data.policies.filter(p => {
             if (!p.is_mandatory || !p.is_active) return false;
-            
-            // Verificar se aplica ao utilizador atual
             let applies = false;
             if (p.target_type === 'Global' || !p.target_type) applies = true;
             else if (p.target_type === 'Instituicao' && currentUser.instituicaoId) applies = (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
@@ -274,8 +269,8 @@ export const App: React.FC = () => {
 
             <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
                 <div className="max-w-7xl mx-auto">
-                    {activeTab === 'overview' && (
-                        checkPermission('widget_kpi_cards', 'view') ? (
+                    {(activeTab === 'overview' || activeTab === 'my_area') && (
+                        checkPermission('widget_kpi_cards', 'view') && activeTab === 'overview' ? (
                             <OverviewDashboard 
                                 equipment={appData.equipment} instituicoes={appData.instituicoes} entidades={appData.entidades}
                                 assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={appData.tickets}
@@ -291,20 +286,10 @@ export const App: React.FC = () => {
                                 trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes}
                                 policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets}
                                 onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy}
-                                onViewEquipment={setViewingEquipment}
+                                onViewEquipment={setViewingEquipment} onViewTraining={setViewingTraining}
+                                onViewLicense={setViewingLicense}
                             />
                         )
-                    )}
-
-                    {activeTab === 'my_area' && (
-                        <SelfServiceDashboard 
-                            currentUser={currentUser} equipment={appData.equipment} assignments={appData.assignments}
-                            softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
-                            trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes}
-                            policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets}
-                            onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy}
-                            onViewEquipment={setViewingEquipment}
-                        />
                     )}
 
                     {activeTab === 'overview.smart' && (
@@ -361,24 +346,49 @@ export const App: React.FC = () => {
             
             {viewingEquipment && (
                 <EquipmentHistoryModal 
-                    equipment={viewingEquipment}
-                    assignments={appData.assignments}
-                    collaborators={appData.collaborators}
-                    escolasDepartamentos={appData.entidades}
-                    tickets={appData.tickets}
-                    ticketActivities={appData.ticketActivities}
-                    onClose={() => setViewingEquipment(null)}
-                    onViewItem={handleViewItem}
-                    businessServices={appData.businessServices}
-                    serviceDependencies={appData.serviceDependencies}
-                    softwareLicenses={appData.softwareLicenses}
-                    licenseAssignments={appData.licenseAssignments}
-                    vulnerabilities={appData.vulnerabilities}
-                    suppliers={appData.suppliers}
-                    procurementRequests={appData.procurementRequests}
-                    accountingCategories={appData.configAccountingCategories}
-                    conservationStates={appData.configConservationStates}
+                    equipment={viewingEquipment} assignments={appData.assignments} collaborators={appData.collaborators}
+                    escolasDepartamentos={appData.entidades} tickets={appData.tickets} ticketActivities={appData.ticketActivities}
+                    onClose={() => setViewingEquipment(null)} onViewItem={handleViewItem}
+                    businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies}
+                    softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
+                    vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers}
+                    accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates}
                 />
+            )}
+
+            {viewingLicense && (
+                <Modal title="Consulta de Licença" onClose={() => setViewingLicense(null)}>
+                    <div className="space-y-4">
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                            <h3 className="text-xl font-bold text-white mb-2">{viewingLicense.productName}</h3>
+                            <p className="text-sm text-gray-400 font-mono tracking-wider bg-black/30 p-2 rounded">{viewingLicense.licenseKey}</p>
+                            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                                <div><span className="text-gray-500">Estado:</span> <span className="text-green-400 font-bold">{viewingLicense.status}</span></div>
+                                <div><span className="text-gray-500">Expira em:</span> <span className="text-white">{viewingLicense.expiryDate || 'Vitalícia'}</span></div>
+                                <div><span className="text-gray-500">Tipo:</span> <span className="text-white">{viewingLicense.is_oem ? 'OEM / Volume' : 'Retail'}</span></div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end pt-4"><button onClick={() => setViewingLicense(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
+                    </div>
+                </Modal>
+            )}
+
+            {viewingTraining && (
+                <Modal title="Consulta de Formação" onClose={() => setViewingTraining(null)}>
+                    <div className="space-y-4">
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                            <h3 className="text-xl font-bold text-white mb-2">{viewingTraining.training_type}</h3>
+                            <p className="text-sm text-gray-300">{viewingTraining.notes || 'Sem observações registadas.'}</p>
+                            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                                <div><span className="text-gray-500">Concluído em:</span> <span className="text-white">{new Date(viewingTraining.completion_date).toLocaleDateString()}</span></div>
+                                <div><span className="text-gray-500">Pontuação:</span> <span className="text-green-400 font-bold">{viewingTraining.score}%</span></div>
+                                <div><span className="text-gray-500">Duração:</span> <span className="text-white">{viewingTraining.duration_hours} Hora(s)</span></div>
+                                <div><span className="text-gray-500">Status:</span> <span className="text-white">{viewingTraining.status}</span></div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end pt-4"><button onClick={() => setViewingTraining(null)} className="bg-gray-600 text-white px-6 py-2 rounded">Fechar</button></div>
+                    </div>
+                </Modal>
             )}
         </div>
     );

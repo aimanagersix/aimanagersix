@@ -58,54 +58,67 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const scripts = {
         setup: `
 -- ==================================================================================
--- REPARAÇÃO MASTER DE POLÍTICAS E COLUNAS (v4.7 - FAIL-SAFE)
--- Resolve: ERROR 42703 (column does not exist) e bloqueio de SuperAdmin
+-- REPARAÇÃO MASTER v4.8 (LICENÇAS & ATRIBUIÇÕES)
+-- Resolve: Erro ao gravar licenças no equipamento e interatividade Self-Service
 -- ==================================================================================
 
--- 1. DESATIVAR RLS TEMPORARIAMENTE PARA MANUTENÇÃO DE ESTRUTURA
-ALTER TABLE IF EXISTS public.policy_acceptances DISABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Anyone can read active policies" ON public.policies;
-DROP POLICY IF EXISTS "Users can insert their own acceptance" ON public.policy_acceptances;
-DROP POLICY IF EXISTS "Users can view their own acceptance" ON public.policy_acceptances;
-
--- 2. NORMALIZAÇÃO DA COLUNA 'collaboratorId' (Case Sensitive)
--- Este bloco verifica se a coluna existe com outros nomes e renomeia, ou cria se não existir.
+-- 1. NORMALIZAÇÃO DA TABELA 'license_assignments'
 DO $$ 
 BEGIN
-  -- Se existe 'collaborator_id', renomeia para 'collaboratorId'
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='policy_acceptances' AND column_name='collaborator_id') THEN
-    ALTER TABLE public.policy_acceptances RENAME COLUMN collaborator_id TO "collaboratorId";
-  
-  -- Se não existe nem 'collaborator_id' nem 'collaboratorId', cria a coluna
-  ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='policy_acceptances' AND column_name='collaboratorId') THEN
-    ALTER TABLE public.policy_acceptances ADD COLUMN "collaboratorId" UUID REFERENCES public.collaborators(id);
+  -- Normalizar equipmentId
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='equipment_id') THEN
+    ALTER TABLE public.license_assignments RENAME COLUMN equipment_id TO "equipmentId";
+  END IF;
+
+  -- Normalizar softwareLicenseId
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='software_license_id') THEN
+    ALTER TABLE public.license_assignments RENAME COLUMN software_license_id TO "softwareLicenseId";
+  END IF;
+
+  -- Garantir coluna assignedDate
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='assigned_date') THEN
+    ALTER TABLE public.license_assignments RENAME COLUMN assigned_date TO "assignedDate";
+  END IF;
+
+  -- Garantir coluna returnDate
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='return_date') THEN
+    ALTER TABLE public.license_assignments RENAME COLUMN return_date TO "returnDate";
   END IF;
 END $$;
 
--- 3. GARANTIR QUE A TABELA 'policies' É ACESSÍVEL PARA LEITURA NO LOGIN
-ALTER TABLE public.policies ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can read active policies" ON public.policies
-FOR SELECT TO authenticated USING (is_active = true);
+-- 2. RESET DE POLÍTICAS RLS PARA LICENÇAS
+ALTER TABLE public.license_assignments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable full access for authenticated users" ON public.license_assignments;
+DROP POLICY IF EXISTS "Users can view their own equipment licenses" ON public.license_assignments;
 
--- 4. RE-ATIVAR E CONFIGURAR RLS PARA ACEITAÇÕES
-ALTER TABLE public.policy_acceptances ENABLE ROW LEVEL SECURITY;
-
--- Política de Inserção: O utilizador só pode inserir a sua própria aceitação
-CREATE POLICY "Users can insert their own acceptance" ON public.policy_acceptances
-FOR INSERT TO authenticated 
-WITH CHECK (
-    "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
-);
-
--- Política de Leitura: Ver as próprias aceitações ou todas se for Admin
-CREATE POLICY "Users can view their own acceptance" ON public.policy_acceptances
-FOR SELECT TO authenticated 
+-- Política Global para permitir sincronização (Baseada na função RBAC has_permission)
+CREATE POLICY "Allow management of license assignments" 
+ON public.license_assignments
+FOR ALL 
+TO authenticated 
 USING (
-    "collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
-    OR (SELECT role FROM public.collaborators WHERE email = auth.jwt()->>'email') IN ('Admin', 'SuperAdmin')
+    public.has_permission('licensing', 'edit') OR public.has_permission('equipment', 'edit')
+)
+WITH CHECK (
+    public.has_permission('licensing', 'edit') OR public.has_permission('equipment', 'edit')
 );
 
--- 5. REFRESH SCHEMA CACHE
+-- Política de Leitura para Utilizadores (Ver licenças do seu equipamento)
+CREATE POLICY "Users can view assigned licenses"
+ON public.license_assignments
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.assignments a 
+        WHERE a."equipmentId" = public.license_assignments."equipmentId" 
+        AND a."collaboratorId" = (SELECT id FROM public.collaborators WHERE email = auth.jwt()->>'email')
+        AND a."returnDate" IS NULL
+    )
+    OR public.has_permission('licensing', 'view')
+);
+
+-- 3. REFRESH SCHEMA
 NOTIFY pgrst, 'reload schema';
 `
     };
@@ -113,22 +126,22 @@ NOTIFY pgrst, 'reload schema';
     return (
         <Modal title="Manutenção da Base de Dados" onClose={onClose} maxWidth="max-w-7xl">
             <div className="flex flex-col h-[85vh]">
-                <div className="flex flex-wrap gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
-                    <button onClick={() => setActiveTab('setup')} className={`px-3 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                        <FaTerminal /> 1. Reparação Master v4.7 (Fail-Safe)
+                <div className="flex gap-2 border-b border-gray-700 pb-2 mb-4 overflow-x-auto">
+                    <button onClick={() => setActiveTab('setup')} className={`px-4 py-2 text-xs font-medium rounded flex items-center gap-2 transition-colors ${activeTab === 'setup' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                        <FaTerminal /> Reparação v4.8 (Licenças & RLS)
                     </button>
                 </div>
                 <div className="flex-grow overflow-hidden flex flex-col">
                     {activeTab === 'setup' && (
                         <div className="flex flex-col h-full">
-                            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200 mb-4 flex-shrink-0">
-                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Correção de Acesso Crítico</div>
-                                <p>Execute este script no SQL Editor do Supabase para corrigir o erro de coluna e permitir a aceitação de políticas por todos os utilizadores.</p>
+                            <div className="bg-blue-900/20 border border-blue-500/50 p-4 rounded-lg text-sm text-blue-200 mb-4">
+                                <div className="flex items-center gap-2 font-bold mb-2"><FaExclamationTriangle /> Correção de Persistência</div>
+                                <p>Este script resolve a falha na associação de licenças a equipamentos, garantindo que as colunas e as permissões RLS estão sincronizadas com o código.</p>
                             </div>
-                            <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col shadow-inner">
+                            <div className="relative flex-grow bg-gray-900 border border-gray-700 rounded-lg overflow-hidden flex flex-col">
                                 <div className="absolute top-2 right-2 z-10">
-                                    <button onClick={() => handleCopy(scripts.setup, 'setup')} className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg transition-transform active:scale-95">
-                                        {copied === 'setup' ? <FaCheck /> : <FaCopy />} Copiar Script
+                                    <button onClick={() => handleCopy(scripts.setup, 'setup')} className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">
+                                        {copied === 'setup' ? <FaCheck /> : <FaCopy />} Copiar SQL
                                     </button>
                                 </div>
                                 <pre className="p-4 text-xs font-mono text-green-400 overflow-auto flex-grow custom-scrollbar whitespace-pre-wrap">{scripts.setup}</pre>
@@ -136,7 +149,7 @@ NOTIFY pgrst, 'reload schema';
                         </div>
                     )}
                 </div>
-                <div className="flex justify-end pt-4 border-t border-gray-700 mt-4 flex-shrink-0">
+                <div className="flex justify-end pt-4 border-t border-gray-700 mt-4">
                     <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar</button>
                 </div>
             </div>

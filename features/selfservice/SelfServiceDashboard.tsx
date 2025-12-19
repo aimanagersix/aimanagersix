@@ -26,12 +26,13 @@ interface SelfServiceDashboardProps {
     onViewPolicy?: (policy: Policy) => void;
     onViewEquipment?: (equipment: Equipment) => void;
     onViewTraining?: (training: SecurityTrainingRecord) => void;
+    onViewLicense?: (license: SoftwareLicense) => void;
 }
 
 const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({ 
     currentUser, equipment, assignments, softwareLicenses, licenseAssignments, 
     trainings, brands, types, policies, acceptances, tickets,
-    onViewTicket, onViewPolicy, onViewEquipment, onViewTraining
+    onViewTicket, onViewPolicy, onViewEquipment, onViewTraining, onViewLicense
 }) => {
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const typeMap = useMemo(() => new Map(types.map(t => [t.id, t.name])), [types]);
@@ -53,7 +54,7 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
         return softwareLicenses.filter(l => licenseIds.includes(l.id));
     }, [myEquipment, licenseAssignments, softwareLicenses]);
 
-    // 3. Minhas Formações (Filtro rigoroso pelo ID do colaborador)
+    // 3. Minhas Formações
     const myTrainings = useMemo(() => {
         return trainings.filter(t => t.collaborator_id === currentUser.id)
             .sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
@@ -63,7 +64,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     const myApplicablePolicies = useMemo(() => {
         const myAcceptanceMap = new Map();
         acceptances.forEach(a => {
-            if (a.collaborator_id === currentUser.id) {
+            const cid = (a as any).collaboratorId || a.collaborator_id;
+            if (cid === currentUser.id) {
                 myAcceptanceMap.set(a.policy_id, a);
             }
         });
@@ -225,8 +227,15 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto custom-scrollbar">
                         {myLicenses.length > 0 ? myLicenses.map(lic => (
-                            <div key={lic.id} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-yellow-500/50 transition-colors">
-                                <p className="font-bold text-white text-sm truncate">{lic.productName}</p>
+                            <div 
+                                key={lic.id} 
+                                onClick={() => onViewLicense?.(lic)}
+                                className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-yellow-500/50 transition-colors cursor-pointer group"
+                            >
+                                <div className="flex justify-between items-start">
+                                    <p className="font-bold text-white text-sm truncate group-hover:text-yellow-300">{lic.productName}</p>
+                                    <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-yellow-400" />
+                                </div>
                                 <p className="text-[10px] text-gray-500 font-mono mt-1 truncate">{lic.licenseKey}</p>
                                 <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center gap-1 text-[9px] text-gray-400 uppercase font-bold">
                                     <FaShieldAlt className="text-green-600"/> Uso Autorizado
