@@ -15,7 +15,6 @@ export const useCompliance = (isConfigured: boolean) => {
         policyAcceptances: [] as PolicyAcceptance[],
         continuityPlans: [] as ContinuityPlan[],
         configTrainingTypes: [] as ConfigItem[],
-        // Fix: Added missing properties to hook state
         configCriticalityLevels: [] as ConfigItem[],
         configCiaRatings: [] as ConfigItem[],
         configServiceStatuses: [] as ConfigItem[],
@@ -38,8 +37,8 @@ export const useCompliance = (isConfigured: boolean) => {
     }, [isConfigured]);
 
     useEffect(() => {
-        refresh();
-    }, [refresh]);
+        if (isConfigured) refresh();
+    }, [isConfigured, refresh]);
 
     return { data, isLoading, refresh };
 };

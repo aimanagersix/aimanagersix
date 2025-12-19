@@ -13,7 +13,7 @@ export const useSupport = (isConfigured: boolean) => {
         calendarEvents: [] as CalendarEvent[],
         ticketActivities: [] as TicketActivity[],
         messages: [] as Message[],
-        configTicketStatuses: [] as ConfigItem[] // Adicionado
+        configTicketStatuses: [] as ConfigItem[]
     });
     const [isLoading, setIsLoading] = useState(false);
 
@@ -31,8 +31,8 @@ export const useSupport = (isConfigured: boolean) => {
     }, [isConfigured]);
 
     useEffect(() => {
-        refresh();
-    }, [refresh]);
+        if (isConfigured) refresh();
+    }, [isConfigured, refresh]);
 
     return { data, isLoading, refresh };
 };

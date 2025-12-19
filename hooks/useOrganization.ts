@@ -10,7 +10,6 @@ export const useOrganization = (isConfigured: boolean) => {
         collaborators: [] as Collaborator[],
         customRoles: [] as CustomRole[],
         contactTitles: [] as ContactTitle[],
-        // Fix: Added missing properties to hook state
         contactRoles: [] as ContactRole[],
         collaboratorHistory: [] as CollaboratorHistory[]
     });
@@ -30,8 +29,8 @@ export const useOrganization = (isConfigured: boolean) => {
     }, [isConfigured]);
 
     useEffect(() => {
-        refresh();
-    }, [refresh]);
+        if (isConfigured) refresh();
+    }, [isConfigured, refresh]);
 
     return { data, isLoading, refresh };
 };

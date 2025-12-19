@@ -16,7 +16,7 @@ export const useInventory = (isConfigured: boolean) => {
         softwareProducts: [] as SoftwareProduct[],
         suppliers: [] as any[],
         configEquipmentStatuses: [] as ConfigItem[],
-        configLicenseStatuses: [] as ConfigItem[], // Adicionado
+        configLicenseStatuses: [] as ConfigItem[],
         configCpus: [] as ConfigItem[],
         configRamSizes: [] as ConfigItem[],
         configStorageTypes: [] as ConfigItem[],
@@ -42,8 +42,8 @@ export const useInventory = (isConfigured: boolean) => {
     }, [isConfigured]);
 
     useEffect(() => {
-        refresh();
-    }, [refresh]);
+        if (isConfigured) refresh();
+    }, [isConfigured, refresh]);
 
     return { data, isLoading, refresh };
 };
