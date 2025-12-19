@@ -10,33 +10,24 @@ export const getSupabase = (): SupabaseClient => {
 
     // --- LÓGICA DE DETEÇÃO DE CHAVES (DIAGNÓSTICO) ---
     
-    // 1. Vite Import (Substituído no Build)
+    // 1. LocalStorage (Manual - Prioridade para persistência do utilizador)
+    const storageUrl = localStorage.getItem('SUPABASE_URL');
+    const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
+
+    // 2. Vite Import (Substituído no Build)
     // @ts-ignore
     const viteUrl = import.meta.env.VITE_SUPABASE_URL;
     // @ts-ignore
     const viteKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    // 2. Process Env (Injetado pelo vite.config.ts corrigido)
+    // 3. Process Env
     // @ts-ignore
     const processUrl = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_URL : null;
     // @ts-ignore
     const processKey = typeof process !== 'undefined' && process.env ? process.env.SUPABASE_ANON_KEY : null;
 
-    // 3. LocalStorage (Manual)
-    const storageUrl = localStorage.getItem('SUPABASE_URL');
-    const storageKey = localStorage.getItem('SUPABASE_ANON_KEY');
-
-    const supabaseUrl = viteUrl || processUrl || storageUrl;
-    const supabaseAnonKey = viteKey || processKey || storageKey;
-
-    // Log para depuração no browser (F12)
-    if (!supabaseUrl || !supabaseAnonKey) {
-        console.group("AIManager: Falha na Configuração do Supabase");
-        console.log("Tentativa Vite (import.meta.env.VITE_...):", viteUrl ? "OK" : "Missing");
-        console.log("Tentativa Process (process.env.SUPABASE_...):", processUrl ? "OK" : "Missing");
-        console.log("Tentativa Storage (localStorage):", storageUrl ? "OK" : "Missing");
-        console.groupEnd();
-    }
+    const supabaseUrl = storageUrl || viteUrl || processUrl;
+    const supabaseAnonKey = storageKey || viteKey || processKey;
 
     if (supabaseUrl && supabaseAnonKey) {
         try {
@@ -47,6 +38,5 @@ export const getSupabase = (): SupabaseClient => {
         }
     }
 
-    // Se falhar, lançar erro para a UI capturar e mostrar o ecrã de setup
-    throw new Error("Credenciais do Supabase em falta. Verifique a consola (F12) para detalhes.");
+    throw new Error("Credenciais do Supabase em falta.");
 };

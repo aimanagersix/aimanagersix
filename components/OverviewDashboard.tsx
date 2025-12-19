@@ -50,7 +50,6 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick,
             <p className="text-2xl font-bold text-white">{value}</p>
             {subtext && <p className="text-[10px] text-gray-500 mt-0.5">{subtext}</p>}
         </div>
-        {/* Decorative background circle */}
         <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-10 ${color}`}></div>
     </div>
 );
@@ -118,7 +117,8 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     equipment, instituicoes, entidades, assignments, equipmentTypes, tickets, collaborators, teams,
     expiringWarranties, expiringLicenses, softwareLicenses, licenseAssignments, businessServices = [], vulnerabilities = [], procurementRequests = [], onViewItem, onGenerateComplianceReport, onRefresh, checkPermission
 }) => {
-    const { t } = useLanguage();
+    // Fix: extract language from useLanguage hook
+    const { t, language } = useLanguage();
     const [needsAccessReview, setNeedsAccessReview] = useState(false);
     const [lastReviewDate, setLastReviewDate] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -155,7 +155,6 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         onViewItem('collaborators', { role: 'Admin' });
     };
 
-    // --- Dynamic Status Calculation ---
     const equipmentStatusData = useMemo(() => {
         const counts: Record<string, number> = {};
         let totalValue = 0;
@@ -164,7 +163,6 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             const status = item.status || 'Desconhecido';
             counts[status] = (counts[status] || 0) + 1;
             
-            // Fix: Replaced incorrect "Decommissioned" status comparison with Enum values.
             if (item.status !== EquipmentStatus.Abate && item.status !== EquipmentStatus.Retirado) {
                 totalValue += (item.acquisitionCost || 0);
             }
@@ -177,7 +175,6 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         return { chartData, totalValue };
     }, [equipment]);
 
-    // --- Enhanced Ticket Stats ---
     const ticketStats = useMemo(() => {
         const open = tickets.filter(t => t.status !== TicketStatus.Finished && t.status !== TicketStatus.Cancelled).length;
         
@@ -203,7 +200,6 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         return { open, securityIncidents, avgResolutionHours };
     }, [tickets]);
     
-    // --- Other Metrics ---
     const healthStats = useMemo(() => {
         const now = new Date();
         const nextMonth = new Date();
@@ -297,9 +293,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     return (
         <div className="space-y-8 pb-10">
             <div className="flex justify-between items-center">
-                <h1 className="text-xl font-bold text-white hidden md:block">Dashboard Operacional</h1>
+                <h1 className="text-xl font-bold text-white hidden md:block">{t('overview.operational_dashboard')}</h1>
                 <div className="flex items-center gap-3 ml-auto">
-                    <span className="text-[10px] text-gray-500">Última atualização: {lastUpdated.toLocaleTimeString()}</span>
+                    <span className="text-[10px] text-gray-500">Last sync: {lastUpdated.toLocaleTimeString()}</span>
                     {onRefresh && (
                         <button 
                             onClick={handleRefreshClick}
@@ -307,7 +303,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
                         >
                             <FaSync className={isRefreshing ? 'animate-spin' : ''} /> 
-                            {isRefreshing ? 'A atualizar...' : 'Atualizar Dados'}
+                            {isRefreshing ? t('login.verifying') : t('nav.dashboard') + ' Sync'}
                         </button>
                     )}
                 </div>
@@ -323,9 +319,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                                 <FaExclamationTriangle className="h-6 w-6" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-white">Alerta de Segurança Crítico</h3>
+                                <h3 className="text-lg font-bold text-white">{t('overview.security_risk')}</h3>
                                 <p className="text-red-300 text-sm">
-                                    Foram detetadas <strong>{securityStats.openCritical} vulnerabilidades críticas</strong> ou de alta severidade em aberto.
+                                    {t('overview.vulnerabilities')}: <strong>{securityStats.openCritical}</strong>
                                 </p>
                             </div>
                         </div>
@@ -333,29 +329,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                             onClick={() => onViewItem('nis2.security', { severity: 'Crítica', status: 'Open' })}
                             className="w-full sm:w-auto whitespace-nowrap px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md shadow-lg transition-all hover:scale-105"
                         >
-                            Resolver Agora
-                        </button>
-                    </div>
-                )}
-
-                {needsAccessReview && (
-                    <div className="bg-orange-500/10 border border-orange-500/40 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in shadow-lg shadow-orange-900/10">
-                        <div className="flex items-center gap-4">
-                            <div className="bg-orange-600 p-3 rounded-full text-white shadow-lg shadow-orange-900/20">
-                                <FaUserShield className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-white">Revisão de Acessos Necessária (Compliance)</h3>
-                                <p className="text-orange-300 text-sm">
-                                    É obrigatório rever quem tem acesso privilegiado a cada 6 meses (NIS2).
-                                </p>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={handleMarkReviewed}
-                            className="w-full sm:w-auto whitespace-nowrap px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-md shadow-lg transition-all hover:scale-105"
-                        >
-                            Confirmar Acessos
+                            {t('login.login_button')}
                         </button>
                     </div>
                 )}
@@ -364,40 +338,40 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
             {/* --- MODULE 1: SECURITY & RISK (KPI CARDS) --- */}
             {checkPermission('widget_kpi_cards', 'view') && (
-            <DashboardSection title="Segurança & Risco (NIS2)" icon={<FaShieldAlt />}>
+            <DashboardSection title={t('overview.security_risk')} icon={<FaShieldAlt />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                      <StatCard 
-                        title="Incidentes de Segurança" 
+                        title={t('overview.sec_incidents')} 
                         value={ticketStats.securityIncidents} 
                         icon={ticketStats.securityIncidents > 0 ? <FaExclamationTriangle className="h-6 w-6 animate-bounce" /> : <FaShieldAlt className="h-6 w-6" />} 
                         color={ticketStats.securityIncidents > 0 ? "bg-red-600 animate-pulse shadow-red-500/50" : "bg-green-600"} 
                         onClick={() => onViewItem('tickets', { category: 'Incidente de Segurança' })} 
-                        subtext={ticketStats.securityIncidents > 0 ? "Atenção: Incidentes Ativos!" : "Sistema Protegido"}
+                        subtext={ticketStats.securityIncidents > 0 ? "Alert!" : "Secure"}
                         className={ticketStats.securityIncidents > 0 ? "border-red-500 border-2" : ""}
                     />
                     <StatCard 
-                        title="Serviços Críticos (BIA)" 
+                        title={t('overview.critical_services')} 
                         value={businessServices?.length || 0} 
                         icon={<FaNetworkWired className="h-6 w-6" />} 
                         color="bg-purple-600" 
                         onClick={() => onViewItem('nis2.bia', {})} 
-                        subtext="Serviços mapeados"
+                        subtext="BIA"
                     />
                     <StatCard 
-                        title="Vulnerabilidades (CVEs)" 
+                        title={t('overview.vulnerabilities')} 
                         value={securityStats.total} 
                         icon={<FaSkull className="h-6 w-6" />} 
                         color={securityStats.openCritical > 0 ? "bg-red-600" : "bg-green-600"} 
                         onClick={() => onViewItem('nis2.security', {})} 
-                        subtext={securityStats.openCritical > 0 ? `${securityStats.openCritical} Críticas em aberto` : "Nenhuma vulnerabilidade crítica"}
+                        subtext={securityStats.openCritical > 0 ? `Critical: ${securityStats.openCritical}` : "Zero Critical"}
                     />
                      <StatCard 
-                        title="Tickets Pendentes (Total)" 
+                        title={t('overview.pending_tickets')} 
                         value={ticketStats.open} 
                         icon={<FaTicketAlt className="h-6 w-6" />} 
                         color={ticketStats.open > 5 ? "bg-yellow-600" : "bg-blue-600"} 
                         onClick={() => onViewItem('tickets', { status: ['Pedido', 'Em progresso'] })} 
-                        subtext="A aguardar resolução"
+                        subtext="Waitlist"
                     />
                 </div>
             </DashboardSection>
@@ -405,9 +379,8 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
             {/* --- MODULE 2: INVENTORY STATUS (Dynamic) --- */}
             {(checkPermission('widget_inventory_charts', 'view') || checkPermission('widget_financial', 'view')) && (
-            <DashboardSection title="Estado do Inventário" icon={<FaWarehouse />}>
+            <DashboardSection title={t('overview.inventory_status')} icon={<FaWarehouse />}>
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* Dynamic Status Chart */}
                     <div className="lg:col-span-8">
                     {checkPermission('widget_inventory_charts', 'view') && (
                         <BarChart 
@@ -418,38 +391,37 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                         />
                     )}
                     </div>
-                    {/* Financial & Alerts */}
                     <div className="lg:col-span-4 flex flex-col gap-4">
                         {checkPermission('widget_financial', 'view') && (
                          <div className="bg-surface-dark p-5 rounded-lg shadow-lg border border-gray-800 flex flex-col justify-center items-center text-center h-full">
                             <div className="p-3 bg-green-900/30 text-green-400 rounded-full mb-2">
                                 <FaEuroSign className="h-6 w-6" />
                             </div>
-                            <p className="text-sm text-gray-400 uppercase font-bold">Valor Total do Parque</p>
+                            <p className="text-sm text-gray-400 uppercase font-bold">{t('overview.asset_value')}</p>
                             <p className="text-2xl font-mono text-white mt-1">
-                                {equipmentStatusData.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                                {equipmentStatusData.totalValue.toLocaleString(language === 'pt' ? 'pt-PT' : 'en-US', { style: 'currency', currency: 'EUR' })}
                             </p>
-                            <p className="text-[10px] text-gray-500">Baseado no Custo de Aquisição (CAPEX)</p>
+                            <p className="text-[10px] text-gray-500">CAPEX</p>
                         </div>
                         )}
                         
                         {checkPermission('widget_inventory_charts', 'view') && (
                         <>
                         <StatCard 
-                            title="Garantias a Expirar" 
+                            title={t('overview.expiring_warranties')} 
                             value={healthStats.expiringWarranties} 
                             icon={<FaShieldAlt className="h-5 w-5" />} 
                             color={healthStats.expiringWarranties > 0 ? "bg-yellow-600" : "bg-gray-600"} 
                             onClick={() => onViewItem('equipment.inventory', { serialNumber: '' })} 
-                            subtext="Nos próximos 30 dias"
+                            subtext="30 days"
                         />
                         <StatCard 
-                            title="Licenças a Expirar" 
+                            title={t('overview.expiring_licenses')} 
                             value={healthStats.expiringLicenses} 
                             icon={<FaKey className="h-5 w-5" />} 
                             color={healthStats.expiringLicenses > 0 ? "bg-orange-600" : "bg-gray-600"} 
                             onClick={() => onViewItem('licensing', {})} 
-                            subtext="Nos próximos 30 dias"
+                            subtext="30 days"
                         />
                         </>
                         )}
@@ -460,21 +432,20 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
             {/* --- MODULE 3: OPERATIONAL INSIGHTS --- */}
             {checkPermission('widget_operational_charts', 'view') && (
-            <DashboardSection title="Insights Operacionais" icon={<FaChartLine />}>
+            <DashboardSection title={t('overview.operational_insights')} icon={<FaChartLine />}>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      <div className="h-64">
-                        <BarChart title="Equipamentos por Idade" data={equipmentByAge} icon={<FaCalendarAlt />} colorBar="bg-indigo-500"/>
+                        <BarChart title="Equipments by Age" data={equipmentByAge} icon={<FaCalendarAlt />} colorBar="bg-indigo-500"/>
                     </div>
                     <div className="h-64">
-                         <BarChart title="Tickets por Equipa (Abertos)" data={ticketsByTeam} icon={<FaUsers />} colorBar="bg-purple-500" />
+                         <BarChart title="Tickets by Team" data={ticketsByTeam} icon={<FaUsers />} colorBar="bg-purple-500" />
                     </div>
                     <div className="h-64 bg-surface-dark p-4 rounded-lg shadow-lg border border-gray-800 flex flex-col justify-center items-center text-center">
                          <div className="p-4 bg-teal-900/20 rounded-full mb-3">
                             <FaStopwatch className="h-8 w-8 text-teal-400" />
                          </div>
-                         <h3 className="text-white font-bold text-lg">Tempo Médio de Resolução</h3>
-                         <p className="text-4xl font-black text-teal-400 my-2">{ticketStats.avgResolutionHours}<span className="text-sm font-normal text-gray-400 ml-1">horas</span></p>
-                         <p className="text-xs text-gray-500">Média calculada com base nos tickets fechados.</p>
+                         <h3 className="text-white font-bold text-lg">{t('overview.avg_resolution')}</h3>
+                         <p className="text-4xl font-black text-teal-400 my-2">{ticketStats.avgResolutionHours}<span className="text-sm font-normal text-gray-400 ml-1">{t('overview.hours')}</span></p>
                     </div>
                 </div>
             </DashboardSection>

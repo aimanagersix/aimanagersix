@@ -105,6 +105,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
     const isSuperAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.SuperAdmin;
 
+    const navigateMobile = (tab: string) => {
+        setActiveTab(tab);
+        setIsMobileMenuOpen(false);
+    };
+
   return (
     <>
     <header className="bg-gray-800 shadow-lg relative z-30 flex-shrink-0">
@@ -184,6 +189,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
 
               {hasNis2Tabs && (
                   <div className="relative" ref={nis2MenuRef}>
+                      {/* Fix: use setIsNis2MenuOpen instead of undefined setIsNis2Open */}
                       <button onClick={() => setIsNis2MenuOpen(prev => !prev)} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isNis2Active ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
                           <FaShieldAlt /> {t('nav.compliance')}
                           <FaChevronDown className={`w-3 h-3 ml-1 transition-transform ${isNis2MenuOpen ? 'rotate-180' : ''}`} />
@@ -205,6 +211,24 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
 
               {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>}
               {tabConfig['reports'] && <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={setActiveTab}/>}
+
+              {/* Tools Menu for Desktop */}
+              <div className="relative" ref={toolsMenuRef}>
+                  <button onClick={() => setIsToolsOpen(prev => !prev)} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab.startsWith('tools') ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
+                      <FaToolbox /> {t('nav.tools')}
+                      <FaChevronDown className={`w-3 h-3 ml-1 transition-transform ${isToolsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isToolsOpen && (
+                      <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5">
+                          <div className="py-1">
+                              <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />
+                              <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />
+                              <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => { onOpenCalendar?.(); setIsToolsOpen(false); }} />
+                              <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => { onOpenManual?.(); setIsToolsOpen(false); }} />
+                          </div>
+                      </div>
+                  )}
+              </div>
           </nav>
 
           <div className="flex items-center space-x-4">
@@ -235,10 +259,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                             <button onClick={() => { onOpenProfile?.(); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
                                 <FaUserCircle className="mr-3 text-brand-secondary" /> {t('common.profile')}
                             </button>
-                            <button onClick={() => setLayoutMode('side')} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                            <button onClick={() => { setLayoutMode('side'); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
                                 <FaColumns className="mr-3 text-gray-400" /> {t('common.side_menu')}
                             </button>
-                            <button onClick={() => setShowMFA(true)} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                            <button onClick={() => { setShowMFA(true); setIsUserMenuOpen(false); }} className="flex w-full items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
                                 <FaFingerprint className="mr-3 text-brand-secondary" /> {t('common.setup_2fa')}
                             </button>
                             
@@ -281,11 +305,44 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
       {isMobileMenuOpen && (
         <div className="md:hidden bg-gray-900 border-t border-gray-700 absolute w-full left-0 top-20 shadow-2xl z-40 max-h-[80vh] overflow-y-auto" ref={mobileMenuRef}>
             <div className="px-2 pt-2 pb-3 space-y-1">
-                {checkPermission('my_area', 'view') && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
-                <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>
-                {hasInventarioTabs && <TabButton tab="equipment.inventory" label={t('nav.inventory')} icon={<FaBoxOpen />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
-                {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsMobileMenuOpen(false); }} isDropdownItem/>}
-                <button onClick={onLogout} className="flex w-full items-center gap-2 px-4 py-3 text-red-400 hover:bg-gray-800"><LogoutIcon className="w-5 h-5" /> {t('common.logout')}</button>
+                {checkPermission('my_area', 'view') && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>
+                
+                {hasOrganizacaoTabs && (
+                    <div className="border-t border-gray-800 pt-2 mt-2">
+                        <div className="px-4 py-1 text-[10px] font-bold text-gray-500 uppercase">{t('nav.organization')}</div>
+                        {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />}
+                        {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />}
+                        {tabConfig['collaborators'] && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />}
+                    </div>
+                )}
+
+                {hasInventarioTabs && (
+                    <div className="border-t border-gray-800 pt-2 mt-2">
+                        <div className="px-4 py-1 text-[10px] font-bold text-gray-500 uppercase">{t('nav.inventory')}</div>
+                        {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />}
+                        {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />}
+                    </div>
+                )}
+
+                {hasNis2Tabs && (
+                    <div className="border-t border-gray-800 pt-2 mt-2">
+                        <div className="px-4 py-1 text-[10px] font-bold text-gray-500 uppercase">{t('nav.compliance')}</div>
+                        {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />}
+                        {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />}
+                    </div>
+                )}
+
+                <div className="border-t border-gray-800 pt-2 mt-2">
+                    {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                    {tabConfig['reports'] && <TabButton tab="reports" label={t('nav.reports')} icon={<FaFileSignature />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                    
+                    {/* Tools for Mobile */}
+                    <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />
+                    <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt />} isDropdownItem activeTab={activeTab} setActiveTab={navigateMobile} />
+                </div>
+
+                <button onClick={onLogout} className="flex w-full items-center gap-2 px-4 py-3 text-red-400 hover:bg-gray-800 border-t border-gray-800 mt-2"><LogoutIcon className="w-5 h-5" /> {t('common.logout')}</button>
             </div>
         </div>
       )}

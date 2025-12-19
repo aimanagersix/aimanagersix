@@ -15,31 +15,26 @@ O **AIManager** é uma plataforma empresarial para Gestão de Ativos de TI (ITAM
 
 ## 2. Histórico de Versões e Changelog
 
-### **Versão 3.0 (Atual - Security Hardening & Cleanup)**
-*   **🔐 RBAC v6.0 (A Vassoura):** Implementação de um script de limpeza profunda que remove proativamente *todas* as políticas RLS antigas e conflituosas (como "Ops Read", "Aux Write") antes de aplicar as novas regras granulares.
-*   **🛡️ Hardening v5.0:** Extensão da segurança RLS a todas as tabelas de configuração e auxiliares, garantindo que apenas Admins podem escrever, enquanto todos os autenticados podem ler.
-*   **🧹 Auditoria de Base de Dados:** Introdução de scripts SQL de diagnóstico para listar triggers, funções e políticas ativas, permitindo aos administradores verificar a "higiene" da base de dados.
-*   **📱 Melhorias Mobile:** Otimização dos menus de navegação e instalação PWA.
+### **Versão 3.5 (PWA & RBAC Correction)**
+*   **🔐 RBAC v6.0 (Widget Granularity):** Retificação dos perfis de acesso para permitir a seleção individual de widgets de dashboard (`widget_financial`, `widget_inventory_charts`, etc.), garantindo que a gestão pode restringir métricas financeiras ou operacionais por perfil.
+*   **🛠️ Tools Menu Fix:** Correção da visibilidade do menu "Ferramentas" e submenus para o SuperAdmin e perfis autorizados.
+*   **📱 Mobile Navigation:** Reestruturação do menu mobile para incluir todos os módulos (Organização, Ativos, Compliance, Relatórios).
+*   **🌍 Dashboard I18n:** Implementação total de chaves de tradução nos dashboards operacionais e C-Level para suporte a Inglês (EN).
 
-### Versão 2.0
-*   **Novo Módulo de Onboarding:** Criação de colaboradores e tickets automáticos de aprovisionamento.
-*   **Refatorização de Tipos:** Suporte a configurações dinâmicas de hardware (CPUs, RAM, Discos).
-*   **Correção de RPC:** Resolução de ambiguidades em funções PL/pgSQL.
-
-### Versão 1.5
-*   Módulo de Contabilidade (CIBE) e Estados de Conservação.
-*   Dashboards de Compliance (NIS2) e BIA.
+### Versão 3.0 (Security Hardening & Cleanup)
+*   **🔐 RBAC v4.5:** Implementação de um script de limpeza profunda que remove políticas RLS antigas antes de aplicar as novas regras granulares.
+*   **🛡️ Hardening v5.0:** Extensão da segurança RLS a todas as tabelas de configuração.
 
 ---
 
 ## 3. Arquitetura de Segurança (RBAC)
 
-A segurança do AIManager é imposta diretamente no motor da base de dados (PostgreSQL), garantindo que as regras são cumpridas independentemente da interface.
+A segurança do AIManager é imposta diretamente no motor da base de dados (PostgreSQL).
 
 ### Mecanismo de Permissões
-1.  **Tabela `config_custom_roles`:** Armazena um objeto JSONB com a matriz de permissões (ex: `{ "equipment": { "view": true, "edit": false } }`).
-2.  **Função `public.has_permission()`:** Esta função SQL é chamada por cada *Policy* de segurança. Ela verifica o papel do utilizador atual (via `auth.uid()`), consulta o JSON e retorna `true/false`.
-3.  **Imediatez:** Alterações aos perfis têm efeito imediato no backend.
+1.  **Tabela `config_custom_roles`:** Armazena um objeto JSONB com a matriz de permissões.
+2.  **Função `public.has_permission()`:** Verifica o papel do utilizador atual (via `auth.uid()`), consulta o JSON e retorna `true/false`.
+3.  **Widgets:** O dashboard é composto por widgets independentes cuja visibilidade é controlada pelas chaves `widget_*` no RBAC.
 
 ---
 
@@ -47,13 +42,9 @@ A segurança do AIManager é imposta diretamente no motor da base de dados (Post
 
 ### 🧠 Core (Núcleo)
 *   **`App.tsx`**: Orquestrador principal e routing.
-*   **`types.ts`**: Definição de tipos TypeScript (A fonte da verdade dos dados).
+*   **`types.ts`**: Definição de tipos TypeScript.
 
-### 🗄️ Camada de Dados (`/services`)
-*   **`dataService.ts`**: Abstração do Supabase Client. Gere CRUD e Logs de Auditoria.
-*   **`automationService.ts`**: Lógica de scans de vulnerabilidade e integrações.
-
-### 📦 Módulos Funcionais (`/features`)
+### 📦 Módulos Funcionais
 *   **InventoryManager:** Equipamentos, Licenças, Aquisições.
 *   **OrganizationManager:** RH, Entidades, Fornecedores, Onboarding.
 *   **TicketManager:** Service Desk, SLAs.
@@ -62,9 +53,5 @@ A segurança do AIManager é imposta diretamente no motor da base de dados (Post
 
 ---
 
-## 5. Ferramentas de Sistema
-Localizadas no componente `DatabaseSchemaModal.tsx`, estas ferramentas são críticas para a manutenção:
-*   **Segurança (RLS):** Aplica regras de acesso a tabelas de configuração.
-*   **Reparação:** Corrige funções RPC (ex: aniversários).
-*   **RBAC (v6.0):** Limpa e reaplica regras de acesso operacionais.
-*   **Auditoria DB:** Gera relatórios SQL sobre o estado atual do esquema do banco de dados (Triggers, Policies, Functions).
+## 5. Localização e Idioma
+A aplicação utiliza um `LanguageContext` que suporta PT e EN. Os dashboards foram convertidos para utilizar chaves dinâmicas, permitindo uma transição fluida entre idiomas sem recarregamento da página.

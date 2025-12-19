@@ -8,7 +8,7 @@ import {
     Team, TeamMember, Message, CollaboratorHistory, TicketCategoryItem, 
     SecurityIncidentTypeItem, BusinessService, ServiceDependency, 
     Vulnerability, BackupExecution, ResilienceTest, SecurityTrainingRecord,
-    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest, CalendarEvent, ContinuityPlan, SoftwareProduct
+    Supplier, ConfigItem, CustomRole, Policy, PolicyAcceptance, ProcurementRequest, CalendarEvent, ContinuityPlan, SoftwareProduct, ContactRole, ContactTitle, JobTitle
 } from '../types';
 
 export interface AppData {
@@ -40,8 +40,8 @@ export interface AppData {
     softwareCategories: ConfigItem[];
     softwareProducts: SoftwareProduct[];
     configEquipmentStatuses: ConfigItem[];
-    contactRoles: ConfigItem[];
-    contactTitles: ConfigItem[];
+    contactRoles: ContactRole[];
+    contactTitles: ContactTitle[];
     configCriticalityLevels: ConfigItem[];
     configCiaRatings: ConfigItem[];
     configServiceStatuses: ConfigItem[];
@@ -55,7 +55,7 @@ export interface AppData {
     configCpus: ConfigItem[];
     configRamSizes: ConfigItem[];
     configStorageTypes: ConfigItem[];
-    configJobTitles: ConfigItem[]; 
+    configJobTitles: JobTitle[]; 
     policies: Policy[];
     policyAcceptances: PolicyAcceptance[];
     procurementRequests: ProcurementRequest[];
@@ -117,8 +117,7 @@ export const useAppData = () => {
             const data = await dataService.fetchAllData();
             
             setAppData({
-                // Re-enabled full load for Dashboard stats. 
-                // Optimization: In a real large-scale app, we would fetch count(*) via RPC for dashboards instead of loading all rows.
+                // Fix: Properly map all fields from the combined data fetch result
                 equipment: data.equipment, 
                 brands: data.brands,
                 equipmentTypes: data.equipmentTypes,
@@ -127,13 +126,13 @@ export const useAppData = () => {
                 collaborators: data.collaborators,
                 assignments: data.assignments, 
                 tickets: data.tickets, 
-                ticketActivities: [], // Activities still loaded on demand per ticket
+                ticketActivities: data.ticketActivities || [], 
                 softwareLicenses: data.softwareLicenses,
                 licenseAssignments: data.licenseAssignments,
                 teams: data.teams,
                 teamMembers: data.teamMembers,
-                messages: data.messages,
-                collaboratorHistory: [], 
+                messages: data.messages || [],
+                collaboratorHistory: data.collaboratorHistory || [], 
                 ticketCategories: data.ticketCategories,
                 securityIncidentTypes: data.securityIncidentTypes,
                 businessServices: data.businessServices,
@@ -143,7 +142,7 @@ export const useAppData = () => {
                 backupExecutions: data.backupExecutions,
                 resilienceTests: data.resilienceTests,
                 securityTrainings: data.securityTrainings,
-                customRoles: data.configCustomRoles,
+                customRoles: data.customRoles,
                 softwareCategories: data.softwareCategories,
                 softwareProducts: data.softwareProducts,
                 configEquipmentStatuses: data.configEquipmentStatuses,

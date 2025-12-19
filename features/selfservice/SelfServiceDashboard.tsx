@@ -37,59 +37,45 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     // 1. Meus Equipamentos
     const myEquipment = useMemo(() => {
         const activeIds = assignments
-            .filter(a => {
-                const collabId = (a as any).collaboratorId || (a as any).collaborator_id;
-                return collabId === currentUser.id && !a.returnDate;
-            })
+            .filter(a => a.collaboratorId === currentUser.id && !a.returnDate)
             .map(a => a.equipmentId);
         return equipment.filter(e => activeIds.includes(e.id));
     }, [assignments, equipment, currentUser.id]);
 
-    // 2. Minhas Licenças
+    // 2. Minhas Licenças (Filtro rigoroso pelo ID do equipamento atribuído ao utilizador)
     const myLicenses = useMemo(() => {
         const myEqIds = new Set(myEquipment.map(e => e.id));
         const licenseIds = licenseAssignments
-            .filter(la => {
-                const eqId = (la as any).equipmentId || (la as any).equipment_id;
-                return myEqIds.has(eqId) && !la.returnDate;
-            })
-            .map(la => (la as any).softwareLicenseId || (la as any).software_license_id);
+            .filter(la => myEqIds.has(la.equipmentId) && !la.returnDate)
+            .map(la => la.softwareLicenseId);
         return softwareLicenses.filter(l => licenseIds.includes(l.id));
     }, [myEquipment, licenseAssignments, softwareLicenses]);
 
-    // 3. Minhas Formações
+    // 3. Minhas Formações (Filtro rigoroso pelo ID do colaborador)
     const myTrainings = useMemo(() => {
-        return trainings.filter(t => {
-            const collabId = (t as any).collaborator_id || (t as any).collaboratorId;
-            return collabId === currentUser.id;
-        }).sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
+        return trainings.filter(t => t.collaborator_id === currentUser.id)
+            .sort((a, b) => new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime());
     }, [trainings, currentUser.id]);
 
-    // 4. Políticas Aplicáveis (Alvo)
+    // 4. Políticas Aplicáveis
     const myApplicablePolicies = useMemo(() => {
         const myAcceptanceMap = new Map();
         acceptances.forEach(a => {
-            const cId = (a as any).collaborator_id || (a as any).collaboratorId;
-            const pId = (a as any).policy_id || (a as any).policyId;
-            if (cId === currentUser.id) {
-                myAcceptanceMap.set(pId, a);
+            if (a.collaborator_id === currentUser.id) {
+                myAcceptanceMap.set(a.policy_id, a);
             }
         });
         
         return policies.filter(p => {
             if (!p.is_active) return false;
-            
-            const targetType = (p as any).target_type || 'Global';
+            const targetType = p.target_type || 'Global';
             if (targetType === 'Global') return true;
-            
             if (targetType === 'Instituicao' && currentUser.instituicaoId) {
-                return ((p as any).target_instituicao_ids || []).includes(currentUser.instituicaoId);
+                return (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
             }
-            
             if (targetType === 'Entidade' && currentUser.entidadeId) {
-                return ((p as any).target_entidade_ids || []).includes(currentUser.entidadeId);
+                return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
             }
-            
             return false;
         }).map(p => ({
             ...p,
@@ -99,10 +85,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
 
     // 5. Meus Tickets Ativos
     const myActiveTickets = useMemo(() => {
-        return tickets.filter(t => {
-            const cId = (t as any).collaboratorId || (t as any).collaborator_id;
-            return cId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado';
-        }).sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+        return tickets.filter(t => t.collaboratorId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado')
+            .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     }, [tickets, currentUser.id]);
 
     return (
@@ -121,7 +105,6 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Meus Equipamentos (Card Moderno) */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaLaptop className="text-blue-400"/> Equipamentos</h3>
@@ -141,7 +124,6 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                 </section>
 
-                {/* Tickets Ativos */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaTicketAlt className="text-purple-400"/> Pedidos de Suporte</h3>
@@ -167,7 +149,6 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                 </section>
 
-                {/* Políticas Pendentes (Foco no que falta fazer) */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaFileSignature className="text-yellow-500"/> Governança & Políticas</h3>
@@ -198,7 +179,6 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Formação NIS2 */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaGraduationCap className="text-green-400"/> Formação de Segurança</h3>
@@ -225,7 +205,6 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     </div>
                 </section>
 
-                {/* Licenças Atribuídas */}
                 <section className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg">
                     <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2"><FaKey className="text-yellow-500"/> Licenças de Software</h3>
