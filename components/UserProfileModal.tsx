@@ -99,15 +99,16 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
 
     const displayInstituicao = useMemo(() => {
         if (instituicao?.name) return instituicao.name;
-        if (user.instituicao_id) return 'Instituição Associada'; 
-        if (user.role === 'SuperAdmin') return 'Acesso Global';
-        return 'Não definida';
+        if (user.role === 'SuperAdmin') return 'Acesso Global (Sem Filtro)';
+        if (user.instituicao_id) return 'Instituição Identificada (A carregar nome...)'; 
+        return 'Não definida no Perfil';
     }, [instituicao, user.instituicao_id, user.role]);
     
     const displayEntidade = useMemo(() => {
         if (entidade?.name) return entidade.name;
+        if (user.role === 'SuperAdmin') return 'Global';
         if (user.instituicao_id && !user.entidade_id) return 'Diretamente à Instituição';
-        if (user.role === 'SuperAdmin') return 'Acesso Global';
+        if (user.entidade_id) return 'Departamento Identificado (A carregar nome...)';
         return 'Sem departamento fixo';
     }, [entidade, user.instituicao_id, user.entidade_id, user.role]);
 
@@ -120,7 +121,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                             {isUploading ? (
                                 <FaSpinner className="animate-spin text-white text-2xl" />
                             ) : user.photo_url ? (
-                                <img src={user.photo_url} alt={user.full_name} className="w-full h-full object-cover" />
+                                <img src={user.photo_url} alt={user.full_name || 'Utilizador'} className="w-full h-full object-cover" />
                             ) : (
                                 <span className="text-6xl font-bold text-gray-500">
                                     {(user?.full_name || '?').charAt(0)}
@@ -138,13 +139,13 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                     </div>
 
                     <div className="text-center w-full">
-                        <h2 className="text-xl font-bold text-white">{user.full_name}</h2>
-                        <p className="text-brand-secondary font-medium">{user.role}</p>
+                        <h2 className="text-xl font-bold text-white">{user.full_name || 'Utilizador'}</h2>
+                        <p className="text-brand-secondary font-medium uppercase text-xs tracking-tighter">{user.role}</p>
                     </div>
 
                     <div className="w-full space-y-2 text-xs">
                         <div className="bg-gray-900/50 p-3 rounded border border-gray-700">
-                            <span className="text-gray-500 uppercase font-bold block mb-1">Identificação RH</span>
+                            <span className="text-gray-500 uppercase font-bold block mb-1 tracking-widest text-[9px]">Identificação RH</span>
                             <p className="flex justify-between"><span>Nº Mec:</span> <span className="text-white font-mono">{user.numero_mecanografico || '—'}</span></p>
                             <p className="flex justify-between mt-1"><span>Admissão:</span> <span className="text-white font-mono">{user.admission_date ? new Date(user.admission_date).toLocaleDateString() : '—'}</span></p>
                         </div>
@@ -156,13 +157,13 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs text-gray-500 uppercase mb-1">Email (Corporativo)</label>
+                            <label className="block text-xs text-gray-500 uppercase font-bold mb-1">Email (Corporativo)</label>
                             <div className="flex items-center gap-2 bg-gray-900/50 p-2 rounded text-gray-400 text-sm border border-gray-700">
                                 <FaEnvelope /> {user.email}
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs text-gray-500 uppercase mb-1">Telemóvel</label>
+                            <label className="block text-xs text-gray-500 uppercase font-bold mb-1">Telemóvel</label>
                             <input 
                                 type="text" 
                                 value={editData.telemovel} 
@@ -172,7 +173,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                             />
                         </div>
                         <div>
-                            <label className="block text-xs text-gray-500 uppercase mb-1">Data Nascimento</label>
+                            <label className="block text-xs text-gray-500 uppercase font-bold mb-1">Data Nascimento</label>
                             <input 
                                 type="date" 
                                 value={editData.date_of_birth} 
@@ -185,7 +186,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                     <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2 mt-6 mb-4"><FaMapMarkerAlt/> Localização & Morada</h3>
                     <div className="space-y-3">
                         <div>
-                            <label className="block text-xs text-gray-500 uppercase mb-1">Morada Residencial</label>
+                            <label className="block text-xs text-gray-500 uppercase font-bold mb-1">Morada Residencial</label>
                             <input 
                                 type="text" 
                                 value={editData.address_line} 
@@ -196,7 +197,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
-                                <label className="block text-xs text-gray-500 uppercase mb-1">Código Postal</label>
+                                <label className="block text-xs text-gray-500 uppercase font-bold mb-1">Código Postal</label>
                                 <input 
                                     type="text" 
                                     value={editData.postal_code} 
@@ -206,7 +207,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                                 />
                             </div>
                             <div className="sm:col-span-2">
-                                <label className="block text-xs text-gray-500 uppercase mb-1">Cidade / Localidade</label>
+                                <label className="block text-xs text-gray-500 uppercase font-bold mb-1">Cidade / Localidade</label>
                                 <input 
                                     type="text" 
                                     value={editData.city} 

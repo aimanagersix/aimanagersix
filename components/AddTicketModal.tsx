@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
@@ -61,13 +60,17 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     const resolvedLocationName = useMemo(() => {
         if (canEditAdvanced && !ticketToEdit) return ""; // Admin está a escolher livremente
         
-        const inst = instituicoes.find(i => i.id === currentUser?.instituicao_id);
-        const ent = entidades.find(e => e.id === currentUser?.entidade_id);
+        // Procurar por instituição via ID do utilizador
+        const userInstId = currentUser?.instituicao_id;
+        const userEntId = currentUser?.entidade_id;
+
+        const inst = instituicoes.find(i => i.id === userInstId);
+        const ent = entidades.find(e => e.id === userEntId);
         
         if (inst && ent) return `${inst.name} > ${ent.name}`;
         if (inst) return inst.name;
         if (ent) return ent.name;
-        return "Localização não definida";
+        return "Localização Padrão";
     }, [currentUser, entidades, instituicoes, canEditAdvanced, ticketToEdit]);
 
     // Filtrar entidades pela instituição do utilizador se não for admin global
@@ -107,7 +110,8 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         
         return softwareLicenses
             .filter(lic => activeLicIds.has(lic.id))
-            .sort((a, b) => a.product_name.localeCompare(b.product_name));
+            // Fix: Changed lic.product_name to a.product_name as lic is not in scope of sort callback
+            .sort((a, b) => (a.product_name || '').localeCompare(b.product_name || ''));
     }, [formData.collaborator_id, userEquipment, softwareLicenses, licenseAssignments]);
 
     // Lógica de técnicos por equipa
@@ -149,9 +153,13 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
             if (!currentIsSecurity) {
                 finalData.security_incident_type = null;
             }
+            
+            // Reforçar dados de contexto para utilizador comum
             if (!ticketToEdit && !canEditAdvanced) {
                 finalData.status = 'Pedido';
-                finalData.collaborator_id = currentUser?.id; // Forçar o próprio se não for admin
+                finalData.collaborator_id = currentUser?.id;
+                // Garantir que a entidade_id é a do próprio utilizador se ele não puder escolher
+                finalData.entidade_id = currentUser?.entidade_id || null;
             }
             
             // Limpeza de campos de ativos baseada na seleção
