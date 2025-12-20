@@ -1,2 +1,2 @@
 # Backup TicketManager v3
-Versão que carregava todos os tickets por defeito, incluindo os finalizados.
+Versão que apenas refrescava a lista após a criação, sem automação de mensagens de chat.

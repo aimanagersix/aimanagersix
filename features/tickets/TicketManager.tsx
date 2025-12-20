@@ -60,7 +60,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({
         if (!currentUser) return;
         setTicketsLoading(true);
         try {
-            // Se o dashboardFilter estiver vazio, passamos um objeto vazio e o serviço filtrará Pedido/Em progresso
             const { data, total } = await dataService.fetchTicketsPaginated({
                 page: ticketPage,
                 pageSize: ticketPageSize,
@@ -90,6 +89,35 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     const handleRefresh = async () => {
         await fetchTickets();
         refreshData(); 
+    };
+
+    const handleSaveTicket = async (ticket: any) => {
+        if (ticketToEdit) {
+            await dataService.updateTicket(ticketToEdit.id, ticket);
+        } else {
+            const newTicket = await dataService.addTicket(ticket);
+            
+            // Pedido 1: Automação de Chat para Membros da Equipa
+            if (newTicket && newTicket.team_id) {
+                const members = appData.teamMembers.filter((tm: any) => tm.team_id === newTicket.team_id);
+                
+                // Enviar mensagem para cada membro da equipa (exceto o próprio criador, se for técnico)
+                const chatPromises = members.map((member: any) => {
+                    if (member.collaborator_id === currentUser?.id) return Promise.resolve();
+                    
+                    return dataService.addMessage({
+                        sender_id: '00000000-0000-0000-0000-000000000000', // ID de Sistema
+                        receiver_id: member.collaborator_id,
+                        content: `📢 NOVO TICKET na sua Equipa: [#${newTicket.id.substring(0,8)}] - ${newTicket.title}.`,
+                        timestamp: new Date().toISOString(),
+                        read: false
+                    });
+                });
+                
+                await Promise.allSettled(chatPromises);
+            }
+        }
+        handleRefresh();
     };
 
     const handleAddActivity = async (activity: { description: string, equipment_id?: string }) => {
@@ -135,11 +163,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
             {showAddTicketModal && (
                 <AddTicketModal
                     onClose={() => setShowAddTicketModal(false)}
-                    onSave={async (ticket) => {
-                        if (ticketToEdit) await dataService.updateTicket(ticketToEdit.id, ticket);
-                        else await dataService.addTicket(ticket);
-                        handleRefresh();
-                    }}
+                    onSave={handleSaveTicket}
                     ticketToEdit={ticketToEdit}
                     escolasDepartamentos={appData.entidades}
                     instituicoes={appData.instituicoes}

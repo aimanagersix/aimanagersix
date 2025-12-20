@@ -1,2 +1,2 @@
 # Backup TicketDashboard v7
-Continha colunas simplificadas e ordenação única por data de pedido.
+Listagem padrão sem coluna de criação explícita e botões de edição visíveis para todos.

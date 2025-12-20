@@ -87,22 +87,23 @@ export const fetchTicketsPaginated = async (params: {
         if (params.filters.status) {
             query = query.eq('status', params.filters.status);
         } else {
-            // Pedido 1: Ocultar Finalizados e Cancelados por defeito se nenhum status for filtrado
+            // Pedido 1: Ocultar Finalizados e Cancelados por defeito se nenhum status for explicitamente filtrado
             query = query.in('status', ['Pedido', 'Em progresso']);
         }
         if (params.filters.category) query = query.eq('category', params.filters.category);
         if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
+        if (params.filters.id) query = query.eq('id', params.filters.id);
     } else {
-        // Fallback: mostrar apenas ativos se params.filters for undefined
+        // Fallback para filtro inicial
         query = query.in('status', ['Pedido', 'Em progresso']);
     }
 
     // Pedido 1: Ordenação descendente por data, mas priorizando status "Pedido" e "Em progresso"
-    // No PostgreSQL, como 'Pedido' > 'Em progresso' alfabeticamente, usamos DESC para o status primeiro
+    // Usamos um truque de SQL via Supabase: como 'Pedido' > 'Em progresso' alfabeticamente, status DESC coloca Pedido no topo.
     const sortObj = params.sort || { key: 'request_date', direction: 'descending' };
     
     query = query
-        .order('status', { ascending: false }) // 'Pedido' vem antes de 'Em progresso'
+        .order('status', { ascending: false }) // 'Pedido' vem antes de 'Em progresso' alfabeticamente DESC
         .order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
     
     const from = (params.page - 1) * params.pageSize;
@@ -112,7 +113,12 @@ export const fetchTicketsPaginated = async (params: {
     return { data: data || [], total: count || 0 };
 };
 
-export const addTicket = async (ticket: any) => { const { data } = await sb().from('tickets').insert(cleanPayload(ticket)).select().single(); return data; };
+export const addTicket = async (ticket: any) => { 
+    const { data, error } = await sb().from('tickets').insert(cleanPayload(ticket)).select().single(); 
+    if (error) throw error;
+    return data; 
+};
+
 export const updateTicket = async (id: string, updates: any) => { await sb().from('tickets').update(cleanPayload(updates)).eq('id', id); };
 export const getTicketActivities = async (ticketId: string) => { const { data } = await sb().from('ticket_activities').select('*').eq('ticket_id', ticketId); return data || []; };
 export const addTicketActivity = async (activity: any) => { await sb().from('ticket_activities').insert(cleanPayload(activity)); };

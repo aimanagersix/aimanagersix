@@ -84,6 +84,10 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
             if (!currentIsSecurity) {
                 finalData.security_incident_type = null;
             }
+            // Para novos tickets de utilizadores básicos, garantir o estado "Pedido"
+            if (!ticketToEdit && !canEditAdvanced) {
+                finalData.status = 'Pedido';
+            }
             await onSave(finalData);
             onClose();
         } finally { 
@@ -152,7 +156,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                         required={currentIsSecurity}
                                     >
                                         <option value="">-- Selecione o Tipo --</option>
-                                        {securityIncidentTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                        {securityIncidentTypes?.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                                     </select>
                                 ) : (
                                     <div className="w-full bg-gray-800 border border-red-900/30 text-gray-400 rounded p-2 text-sm">

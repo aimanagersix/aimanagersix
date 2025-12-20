@@ -1,2 +1,2 @@
 # Backup supportService v6
-Ordenação baseada apenas no parâmetro sort passado pelo frontend.
+Ordenação baseada estritamente na data de pedido.

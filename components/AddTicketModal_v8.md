@@ -1,2 +1,2 @@
 # Backup AddTicketModal v8
-Permitia a qualquer utilizador com acesso de criação alterar categorias e estados durante a abertura do ticket.
+Modal com todos os campos editáveis por qualquer utilizador com acesso à criação.
