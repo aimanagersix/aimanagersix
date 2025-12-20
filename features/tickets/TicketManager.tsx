@@ -34,7 +34,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     const [ticketsLoading, setTicketsLoading] = useState(false);
     const [ticketPage, setTicketPage] = useState(1);
     const [ticketPageSize, setTicketPageSize] = useState(20);
-    // Fix: requestDate to request_date
     const [ticketSort, setTicketSort] = useState<{ key: string, direction: 'ascending' | 'descending' }>({ key: 'request_date', direction: 'descending' });
 
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
@@ -101,7 +100,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({
             equipment_id: activity.equipment_id,
             date: new Date().toISOString()
         });
-        // Activities load internally in the modal, but we trigger a refresh of the list too
         handleRefresh();
     };
 
@@ -114,11 +112,10 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 page={ticketPage}
                 pageSize={ticketPageSize}
                 onPageChange={setTicketPage}
+                // Fix: use setTicketPageSize instead of non-existent setEquipmentPageSize
                 onPageSizeChange={setTicketPageSize}
                 onFilterChange={setDashboardFilter}
-                // Fix: TicketDashboard might need sort prop instead of separate sort handlers if not defined in props
                 sort={ticketSort}
-                
                 escolasDepartamentos={appData.entidades}
                 collaborators={appData.collaborators}
                 teams={appData.teams}
@@ -144,10 +141,10 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     }}
                     ticketToEdit={ticketToEdit}
                     escolasDepartamentos={appData.entidades}
-                    // Fix: Added instituicoes to AddTicketModal props if needed by component
                     instituicoes={appData.instituicoes}
                     collaborators={appData.collaborators}
                     teams={appData.teams}
+                    teamMembers={appData.teamMembers}
                     currentUser={currentUser}
                     categories={appData.ticketCategories}
                     securityIncidentTypes={appData.securityIncidentTypes}
@@ -178,7 +175,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                         await dataService.updateTicket(ticketToClose.id, { 
                             status: TicketStatus.Finished, 
                             technician_id: techId, 
-                            // Fix: finishDate to finish_date
                             finish_date: new Date().toISOString(),
                             resolution_summary: summary
                         });
@@ -191,7 +187,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
             {showRegulatoryModal && ticketForRegulatoryReport && (
                 <RegulatoryNotificationModal 
                     ticket={ticketForRegulatoryReport}
-                    activities={[]} // Fetched inside or passed
+                    activities={[]} 
                     onClose={() => setShowRegulatoryModal(false)}
                 />
             )}

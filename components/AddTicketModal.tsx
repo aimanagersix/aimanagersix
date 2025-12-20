@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, Team, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao } from '../types';
-import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle } from './common/Icons';
+import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao } from '../types';
+import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie } from './common/Icons';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -12,17 +12,17 @@ interface AddTicketModalProps {
     instituicoes: Instituicao[];
     collaborators: Collaborator[];
     teams: Team[];
+    teamMembers: TeamMember[];
     currentUser: Collaborator | null;
     categories: TicketCategoryItem[];
     securityIncidentTypes?: SecurityIncidentTypeItem[];
 }
 
 export const AddTicketModal: React.FC<AddTicketModalProps> = ({ 
-    onClose, onSave, ticketToEdit, collaborators, teams, currentUser, categories, securityIncidentTypes = [] 
+    onClose, onSave, ticketToEdit, collaborators, teams, teamMembers = [], currentUser, categories, securityIncidentTypes = [] 
 }) => {
     const [isSaving, setIsSaving] = useState(false);
     
-    // Inicia com valores padrão conforme pedido
     const [formData, setFormData] = useState<any>({
         title: '',
         description: '',
@@ -42,7 +42,37 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         }
     }, [ticketToEdit]);
 
-    // Lógica para detectar se é um incidente de segurança
+    // Lógica para filtrar técnicos baseada na equipa selecionada
+    const filteredTechnicians = useMemo(() => {
+        if (!formData.team_id) {
+            // Se nenhuma equipa estiver selecionada, mostramos todos os colaboradores (fallback)
+            // ou poderíamos mostrar vazio. Optamos por mostrar todos para flexibilidade.
+            return collaborators.sort((a, b) => a.full_name.localeCompare(b.full_name));
+        }
+        
+        // Obter IDs de colaboradores que pertencem à equipa selecionada
+        const memberIds = new Set(
+            teamMembers
+                .filter(tm => tm.team_id === formData.team_id)
+                .map(tm => tm.collaborator_id)
+        );
+
+        return collaborators
+            .filter(c => memberIds.has(c.id))
+            .sort((a, b) => a.full_name.localeCompare(b.full_name));
+    }, [formData.team_id, collaborators, teamMembers]);
+
+    // Monitorizar se o técnico atual ainda é válido para a nova equipa
+    useEffect(() => {
+        if (formData.team_id && formData.technician_id) {
+            const isValid = filteredTechnicians.some(t => t.id === formData.technician_id);
+            if (!isValid) {
+                // Limpa o técnico se ele não pertencer à nova equipa selecionada
+                setFormData(prev => ({ ...prev, technician_id: '' }));
+            }
+        }
+    }, [formData.team_id, filteredTechnicians]);
+
     const isSecurityCategory = (categoryName: string) => {
         const cat = categories.find(c => c.name === categoryName);
         return cat?.is_security || (categoryName || '').toLowerCase().includes('segurança');
@@ -54,7 +84,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         e.preventDefault();
         setIsSaving(true);
         try {
-            // Garante que campos de segurança estão limpos se não for categoria de segurança
             const finalData = { ...formData };
             if (!currentIsSecurity) {
                 finalData.security_incident_type = null;
@@ -99,7 +128,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                     </div>
                 </div>
 
-                {/* Campos Dinâmicos para Incidentes de Segurança (NIS2) */}
                 {currentIsSecurity && (
                     <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg space-y-4 animate-fade-in">
                         <h4 className="text-red-400 font-bold text-xs uppercase flex items-center gap-2">
@@ -162,7 +190,9 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-700 pt-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Atribuir a Equipa</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2">
+                            <FaUsers className="text-blue-400" /> Atribuir a Equipa
+                        </label>
                         <select 
                             value={formData.team_id || ''} 
                             onChange={e => setFormData({...formData, team_id: e.target.value})} 
@@ -173,15 +203,22 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Técnico Responsável</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2">
+                            <FaUserTie className="text-green-400" /> Técnico Responsável
+                        </label>
                         <select 
                             value={formData.technician_id || ''} 
                             onChange={e => setFormData({...formData, technician_id: e.target.value})} 
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm disabled:opacity-50"
                         >
-                            <option value="">-- Não Atribuído --</option>
-                            {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                            <option value="">-- Não Atribuído (Fila de Equipa) --</option>
+                            {filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                         </select>
+                        {formData.team_id && filteredTechnicians.length === 0 && (
+                            <p className="text-[10px] text-orange-400 mt-1 italic">
+                                * Esta equipa ainda não tem membros associados.
+                            </p>
+                        )}
                     </div>
                 </div>
 

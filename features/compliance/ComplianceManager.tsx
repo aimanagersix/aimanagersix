@@ -188,7 +188,20 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                 <AddResilienceTestModal onClose={() => setShowAddResilienceTestModal(false)} onSave={async (test) => { if (testToEdit) await dataService.updateResilienceTest(testToEdit.id, test); else await dataService.addResilienceTest(test); refreshData(); }} testToEdit={testToEdit} onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }} entidades={appData.entidades} suppliers={appData.suppliers} />
             )}
              {showAddTicketModal && (
-                <AddTicketModal onClose={() => setShowAddTicketModal(false)} onSave={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }} ticketToEdit={ticketToEdit} escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} collaborators={appData.collaborators} teams={appData.teams} currentUser={currentUser} categories={appData.ticketCategories} securityIncidentTypes={appData.securityIncidentTypes} />
+                <AddTicketModal 
+                   onClose={() => setShowAddTicketModal(false)} 
+                   onSave={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }} 
+                   ticketToEdit={ticketToEdit} 
+                   escolasDepartamentos={appData.entidades} 
+                   instituicoes={appData.instituicoes} 
+                   collaborators={appData.collaborators} 
+                   teams={appData.teams} 
+                   // Fix: Add missing teamMembers prop
+                   teamMembers={appData.teamMembers}
+                   currentUser={currentUser} 
+                   categories={appData.ticketCategories} 
+                   securityIncidentTypes={appData.securityIncidentTypes} 
+                />
             )}
             {showAddTrainingSessionModal && (
                 <AddTrainingSessionModal onClose={() => setShowAddTrainingSessionModal(false)} onSave={handleBatchAddTraining} collaborators={appData.collaborators} trainingTypes={appData.configTrainingTypes} instituicoes={appData.instituicoes} entidades={appData.entidades} />
