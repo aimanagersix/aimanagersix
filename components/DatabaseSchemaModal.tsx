@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaSearch } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaSearch, FaBroom, FaHistory } from 'react-icons/fa';
 
 interface DatabaseSchemaModalProps {
     onClose: () => void;
@@ -9,13 +9,35 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'migration' | 'inspect'>('migration');
+    const [activeTab, setActiveTab] = useState<'migration' | 'cleanup' | 'inspect'>('migration');
     
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
         setCopied(id);
         setTimeout(() => setCopied(null), 2000);
     };
+
+    const cleanupScript = `-- SCRIPT DE LIMPEZA OPERACIONAL (CLEANUP v1.0)
+-- Este script apaga dados transacionais/lixo mas PRESERVA as configurações e estrutura.
+-- AVISO: Execute isto no SQL Editor do Supabase se quiser "recomeçar" a operação.
+
+-- 1. Limpar Suporte (Tickets e Atividades)
+TRUNCATE public.ticket_activities RESTART IDENTITY CASCADE;
+TRUNCATE public.tickets RESTART IDENTITY CASCADE;
+TRUNCATE public.messages RESTART IDENTITY CASCADE;
+
+-- 2. Limpar Histórico de Ativos (Atribuições)
+TRUNCATE public.license_assignments RESTART IDENTITY CASCADE;
+TRUNCATE public.assignments RESTART IDENTITY CASCADE;
+
+-- 3. Limpar Compliance e Auditoria
+TRUNCATE public.audit_log RESTART IDENTITY CASCADE;
+TRUNCATE public.backup_executions RESTART IDENTITY CASCADE;
+TRUNCATE public.resilience_tests RESTART IDENTITY CASCADE;
+TRUNCATE public.vulnerabilities RESTART IDENTITY CASCADE;
+
+-- NOTA: Fornecedores, Colaboradores, Marcas, Tipos e Perfis de Acesso NÃO são apagados.
+`;
 
     const migrationScript = `DO $$ 
 BEGIN
@@ -54,31 +76,53 @@ BEGIN
 END $$;`;
 
     return (
-        <Modal title="Database Integrity Tools v33.0" onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title="Manutenção e Schema da Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
-                <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
-                    <h3 className="font-bold flex items-center gap-2 mb-2"><FaExclamationTriangle className="text-amber-400" /> Script v33.0 (Fixed Syntax)</h3>
-                    <p>O script abaixo migra as tabelas de <strong>Tickets</strong> e <strong>Calendário</strong> de camelCase para snake_case. Corrigido erro de sintaxe da versão anterior.</p>
-                </div>
-
                 <div className="flex border-b border-gray-700">
-                    <button onClick={() => setActiveTab('migration')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'migration' ? 'border-brand-primary text-white' : 'border-transparent text-gray-500 hover:text-white'}`}>Migração de Schema</button>
-                    <button onClick={() => setActiveTab('inspect')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'inspect' ? 'border-brand-primary text-white' : 'border-transparent text-gray-500 hover:text-white'}`}>Inspeção (Diagnóstico)</button>
+                    <button onClick={() => setActiveTab('migration')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'migration' ? 'border-brand-primary text-white bg-gray-800/50' : 'border-transparent text-gray-500 hover:text-white'}`}>Migração de Colunas</button>
+                    <button onClick={() => setActiveTab('cleanup')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'cleanup' ? 'border-red-500 text-white bg-red-900/10' : 'border-transparent text-gray-500 hover:text-white'}`}>Limpeza de "Lixo" (Reset)</button>
+                    <button onClick={() => setActiveTab('inspect')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'inspect' ? 'border-brand-primary text-white' : 'border-transparent text-gray-500 hover:text-white'}`}>Inspeção</button>
                 </div>
 
-                {activeTab === 'migration' ? (
-                    <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[45vh]">
-                        <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">
-                            {copied === 'mig' ? <FaCheck /> : <FaCopy />} Copiar Script SQL
-                        </button>
-                        <pre className="p-4 text-[10px] font-mono text-blue-400 overflow-auto h-full custom-scrollbar">{migrationScript}</pre>
+                {activeTab === 'migration' && (
+                    <div className="animate-fade-in space-y-4">
+                        <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
+                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v33.0</h3>
+                            <p>Este script normaliza os nomes das colunas de CamelCase para SnakeCase (ex: requestDate -> request_date) para garantir integridade absoluta com o código atual.</p>
+                        </div>
+                        <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[35vh]">
+                            <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">
+                                {copied === 'mig' ? <FaCheck /> : <FaCopy />} Copiar Script SQL
+                            </button>
+                            <pre className="p-4 text-[10px] font-mono text-blue-400 overflow-auto h-full custom-scrollbar">{migrationScript}</pre>
+                        </div>
                     </div>
-                ) : (
-                    <pre className="p-4 text-[10px] font-mono text-amber-400 overflow-auto h-full custom-scrollbar">Aguardando execução do script de migração.</pre>
+                )}
+
+                {activeTab === 'cleanup' && (
+                    <div className="animate-fade-in space-y-4">
+                        <div className="bg-red-900/30 border border-red-500/50 p-4 rounded-lg text-sm text-red-200">
+                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaBroom className="text-red-400" /> Ferramenta de Limpeza Operacional</h3>
+                            <p>Utilize o script abaixo para <strong>apagar todos os tickets, históricos e logs</strong>. Isto é útil para limpar dados de teste ou inconsistentes. <strong>As suas Marcas, Tipos de Equipamento e Colaboradores serão preservados.</strong></p>
+                        </div>
+                        <div className="relative bg-gray-900 border border-red-500/30 rounded-lg h-[35vh]">
+                            <button onClick={() => handleCopy(cleanupScript, 'clean')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded shadow-lg">
+                                {copied === 'clean' ? <FaCheck /> : <FaCopy />} Copiar Script de Limpeza
+                            </button>
+                            <pre className="p-4 text-[10px] font-mono text-red-400 overflow-auto h-full custom-scrollbar">{cleanupScript}</pre>
+                        </div>
+                        <p className="text-[10px] text-gray-500 italic">Nota: Copie o código acima e execute-o no SQL Editor do seu dashboard Supabase.</p>
+                    </div>
+                )}
+
+                {activeTab === 'inspect' && (
+                    <div className="animate-fade-in p-10 text-center text-gray-500 italic">
+                        Funcionalidade de inspeção de tabelas em tempo real em desenvolvimento.
+                    </div>
                 )}
 
                 <div className="flex justify-end pt-2">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Fechar</button>
+                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Fechar Janela</button>
                 </div>
             </div>
         </Modal>

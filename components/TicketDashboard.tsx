@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction, ConfigItem } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers, FaUserTie } from './common/Icons';
 import { FaPaperclip, FaChevronDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import * as dataService from '../services/dataService';
@@ -116,19 +116,17 @@ const getSecurityIcon = (type?: string) => {
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
     tickets, escolasDepartamentos: entidades, collaborators, teams, suppliers = [], equipment, categories, configTicketStatuses = [],
     onCreate, onEdit, onUpdateTicket, onOpenActivities, onGenerateSecurityReport, onOpenCloseTicketModal,
-    totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange,
+    totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onPageSizeChange: onItemsPerPageChange, onFilterChange,
     sort, onSortChange, checkPermission
 }) => {
     const [filters, setFilters] = useState({ status: '', team_id: '', category: '', title: '' });
     
-    // Pedido 1: Garantir ordenação decrescente por data de criação por defeito
     const sortConfig = sort || { key: 'request_date', direction: 'descending' };
     
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
-    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
     const statusConfigMap = useMemo(() => new Map(configTicketStatuses.map(s => [s.name, s])), [configTicketStatuses]);
 
@@ -153,12 +151,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         const config = statusConfigMap.get(status);
         if (config?.color) {
             return {
-                backgroundColor: `${config.color}25`, // Fundo sutil
+                backgroundColor: `${config.color}25`,
                 color: config.color,
                 borderColor: `${config.color}40`
             };
         }
-        // Fallback robusto para evitar Badges brancos
         switch (status) {
             case 'Pedido': return { backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#fbbf24', borderColor: 'rgba(234, 179, 8, 0.3)' };
             case 'Em progresso': return { backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.3)' };
@@ -215,8 +212,9 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                     <table className="w-full text-sm text-left">
                         <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                             <tr>
-                                <SortableHeader label="Data de Criação" sortKey="request_date" currentSort={sortConfig} onSort={handleSortRequest} />
+                                <SortableHeader label="Criação" sortKey="request_date" currentSort={sortConfig} onSort={handleSortRequest} />
                                 <th className="px-6 py-3">Entidade / Local</th>
+                                <th className="px-6 py-3">Requerente</th>
                                 <th className="px-6 py-3">Equipa</th>
                                 <SortableHeader label="Categoria" sortKey="category" currentSort={sortConfig} onSort={handleSortRequest} />
                                 <SortableHeader label="Assunto / Detalhes" sortKey="title" currentSort={sortConfig} onSort={handleSortRequest} />
@@ -231,7 +229,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 const requesterObj = ticket.collaborator_id ? collaboratorMap.get(ticket.collaborator_id) : undefined;
                                 const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : requesterObj?.full_name;
                                 
-                                // Pedido 1: Resolver Entidade/Local (Ticket ou Colaborador)
                                 const resolvedEntidadeId = ticket.entidade_id || requesterObj?.entidade_id;
                                 const entidadeName = (resolvedEntidadeId && entidadeMap.has(resolvedEntidadeId)) ? entidadeMap.get(resolvedEntidadeId) : '—';
 
@@ -252,6 +249,12 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                             <div className="font-medium text-white">{entidadeName}</div>
                                         </td>
                                         <td className="px-6 py-4">
+                                            <div className="text-white font-semibold flex items-center gap-2 whitespace-nowrap">
+                                                {ticket.requester_supplier_id ? <FaTruck className="text-yellow-500" /> : <FaUserTie className="text-gray-400" />}
+                                                {requesterName || 'Desconhecido'}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
                                             <span className="inline-flex items-center gap-1 bg-gray-900/50 border border-gray-700 px-2 py-1 rounded text-[10px] text-brand-secondary font-bold uppercase whitespace-nowrap">
                                                 <FaUsers /> {ticket.team_id ? teamMap.get(ticket.team_id) : 'Pendente'}
                                             </span>
@@ -268,9 +271,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                                 {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-1 text-gray-500" />}
                                                 {ticket.title}
                                             </div>
-                                            <div className="text-[10px] text-gray-400 flex items-center gap-1 mb-1">
-                                                {ticket.requester_supplier_id && <FaTruck className="text-yellow-500"/>} {requesterName}
-                                            </div>
                                             <div className="text-[11px] text-gray-500 line-clamp-1">{ticket.description}</div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -284,7 +284,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">
-                                            {ticket.technician_id ? collaboratorMap.get(ticket.technician_id)?.full_name : <span className="italic">Não Atribuído</span>}
+                                            {ticket.technician_id ? (collaboratorMap.get(ticket.technician_id)?.full_name || 'Técnico') : <span className="italic">Não Atribuído</span>}
                                         </td>
                                         <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
                                             {canEdit ? (
@@ -326,7 +326,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                     </tr>
                                 );
                             }) : (
-                                <tr><td colSpan={9} className="text-center py-20 text-gray-500 italic">Nenhum ticket encontrado com os filtros atuais.</td></tr>
+                                <tr><td colSpan={10} className="text-center py-20 text-gray-500 italic">Nenhum ticket encontrado com os filtros atuais.</td></tr>
                             )}
                         </tbody>
                     </table>
