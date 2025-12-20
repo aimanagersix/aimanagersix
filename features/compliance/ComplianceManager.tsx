@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Collaborator, BusinessService, ServiceDependency, Vulnerability, BackupExecution, ResilienceTest, ModuleKey, PermissionAction, SecurityTrainingRecord, TrainingType, Policy } from '../../types';
 import * as dataService from '../../services/dataService';
@@ -118,7 +119,6 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                             title: `Vulnerabilidade: ${vuln.cve_id}`,
                             description: `Correção necessária para vulnerabilidade ${vuln.cve_id}.\nAfeta: ${vuln.affected_software}\n\nDetalhes: ${vuln.description}`,
                             category: 'Incidente de Segurança',
-                            // FIX: Correct snake_case keys for the Modal
                             security_incident_type: 'Exploração de Vulnerabilidade',
                             impact_criticality: vuln.severity,
                         } as any);
@@ -195,13 +195,16 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                    instituicoes={appData.instituicoes} 
                    collaborators={appData.collaborators} 
                    teams={appData.teams} 
-                   // Fix: Add missing teamMembers prop
                    teamMembers={appData.teamMembers}
                    currentUser={currentUser} 
                    categories={appData.ticketCategories} 
                    securityIncidentTypes={appData.securityIncidentTypes} 
-                   // Fix: Pass missing checkPermission prop to AddTicketModal
                    checkPermission={checkPermission}
+                   equipment={appData.equipment}
+                   assignments={appData.assignments}
+                   // Pedido 1: Adição das props de software
+                   softwareLicenses={appData.softwareLicenses}
+                   licenseAssignments={appData.licenseAssignments}
                 />
             )}
             {showAddTrainingSessionModal && (

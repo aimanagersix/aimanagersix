@@ -239,6 +239,7 @@ export interface Ticket {
     entidade_id?: string;
     team_id?: string;
     equipment_id?: string;
+    software_license_id?: string;
     security_incident_type?: string;
     impact_criticality?: string;
     resolution_summary?: string;
@@ -498,6 +499,7 @@ export interface TicketActivity {
     description: string;
     date: string;
     equipment_id?: string;
+    software_license_id?: string;
 }
 
 export interface CollaboratorHistory {

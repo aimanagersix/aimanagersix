@@ -228,12 +228,12 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                         </thead>
                         <tbody className="divide-y divide-gray-800">
                             {tickets.length > 0 ? tickets.map((ticket) => {
-                                const requesterObj = collaboratorMap.get(ticket.collaborator_id);
+                                const requesterObj = ticket.collaborator_id ? collaboratorMap.get(ticket.collaborator_id) : undefined;
                                 const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : requesterObj?.full_name;
                                 
                                 // Pedido 1: Resolver Entidade/Local (Ticket ou Colaborador)
                                 const resolvedEntidadeId = ticket.entidade_id || requesterObj?.entidade_id;
-                                const entidadeName = resolvedEntidadeId ? entidadeMap.get(resolvedEntidadeId) : '—';
+                                const entidadeName = (resolvedEntidadeId && entidadeMap.has(resolvedEntidadeId)) ? entidadeMap.get(resolvedEntidadeId) : '—';
 
                                 const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
                                 const sla = getSLATimer(ticket, categoryObj);

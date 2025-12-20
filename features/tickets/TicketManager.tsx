@@ -97,16 +97,14 @@ const TicketManager: React.FC<TicketManagerProps> = ({
         } else {
             const newTicket = await dataService.addTicket(ticket);
             
-            // Pedido 1: Automação de Chat para Membros da Equipa
             if (newTicket && newTicket.team_id) {
                 const members = appData.teamMembers.filter((tm: any) => tm.team_id === newTicket.team_id);
                 
-                // Enviar mensagem para cada membro da equipa (exceto o próprio criador, se for técnico)
                 const chatPromises = members.map((member: any) => {
                     if (member.collaborator_id === currentUser?.id) return Promise.resolve();
                     
                     return dataService.addMessage({
-                        sender_id: '00000000-0000-0000-0000-000000000000', // ID de Sistema
+                        sender_id: '00000000-0000-0000-0000-000000000000', 
                         receiver_id: member.collaborator_id,
                         content: `📢 NOVO TICKET na sua Equipa: [#${newTicket.id.substring(0,8)}] - ${newTicket.title}.`,
                         timestamp: new Date().toISOString(),
@@ -175,6 +173,11 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     categories={appData.ticketCategories}
                     securityIncidentTypes={appData.securityIncidentTypes}
                     checkPermission={checkPermission}
+                    equipment={appData.equipment}
+                    assignments={appData.assignments}
+                    // Pedido 1: Passar licenças para o modal
+                    softwareLicenses={appData.softwareLicenses}
+                    licenseAssignments={appData.licenseAssignments}
                 />
             )}
 

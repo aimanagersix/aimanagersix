@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Ticket, TicketActivity, Collaborator, TicketStatus, Equipment, EquipmentType, Entidade, Assignment } from '../types';
-import { PlusIcon, FaPrint } from './common/Icons';
+import { Ticket, TicketActivity, Collaborator, TicketStatus, Equipment, EquipmentType, Entidade, Assignment, SoftwareLicense, LicenseAssignment } from '../types';
+import { PlusIcon, FaPrint, FaKey, FaLaptop } from './common/Icons';
 import { FaDownload, FaSpinner } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
@@ -14,41 +15,72 @@ interface TicketActivitiesModalProps {
     equipmentTypes: EquipmentType[];
     entidades: Entidade[];
     onClose: () => void;
-    // FIX: equipment_id
-    onAddActivity: (activity: { description: string, equipment_id?: string }) => Promise<void>;
+    onAddActivity: (activity: { description: string, equipment_id?: string, software_license_id?: string }) => Promise<void>;
     assignments: Assignment[];
+    softwareLicenses?: SoftwareLicense[];
+    licenseAssignments?: LicenseAssignment[];
 }
 
-const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, activities, collaborators, currentUser, equipment, equipmentTypes, entidades, onClose, onAddActivity, assignments }) => {
-    // Local state for activities to ensure immediate updates without full app refresh dependence
+const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ 
+    ticket, activities, collaborators, currentUser, equipment, equipmentTypes, entidades, onClose, onAddActivity, assignments,
+    softwareLicenses = [], licenseAssignments = []
+}) => {
     const [localActivities, setLocalActivities] = useState<TicketActivity[]>([]);
     const [isLoadingActivities, setIsLoadingActivities] = useState(false);
 
     const [newActivityDescription, setNewActivityDescription] = useState('');
-    // FIX: equipment_id
+    const [assetType, setAssetType] = useState<'none' | 'hardware' | 'software'>('none');
     const [selectedEquipmentId, setSelectedEquipmentId] = useState(ticket.equipment_id || '');
+    const [selectedLicenseId, setSelectedLicenseId] = useState(ticket.software_license_id || '');
     const [error, setError] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // FIX: full_name
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
+    const licenseMap = useMemo(() => new Map(softwareLicenses.map(l => [l.id, l])), [softwareLicenses]);
     
     const availableEquipment = useMemo(() => {
-        // FIX: entidade_id, collaborator_id
-        const entity = entidades.find(e => e.id === ticket.entidade_id);
-        if (!entity) return [];
+        const userId = ticket.collaborator_id;
+        const entityId = ticket.entidade_id;
+        
         return equipment.filter(e => {
-            // FIX: equipment_id, return_date, collaborator_id, entidade_id
             const currentAssignment = assignments.find(a => a.equipment_id === e.id && !a.return_date);
             return currentAssignment && (
-                currentAssignment.collaborator_id === ticket.collaborator_id ||
-                currentAssignment.entidade_id === ticket.entidade_id
+                currentAssignment.collaborator_id === userId ||
+                currentAssignment.entidade_id === entityId
             );
         });
-    }, [equipment, assignments, ticket.entidade_id, ticket.collaborator_id, entidades]);
+    }, [equipment, assignments, ticket.entidade_id, ticket.collaborator_id]);
 
-    // Fetch activities on mount and update local state
+    const availableLicenses = useMemo(() => {
+        const userId = ticket.collaborator_id;
+        if (!userId) return [];
+        
+        const activeEqIds = new Set(
+            assignments
+                .filter(a => a.collaborator_id === userId && !a.return_date)
+                .map(a => a.equipment_id)
+        );
+        
+        const activeLicIds = new Set(
+            licenseAssignments
+                .filter(la => activeEqIds.has(la.equipment_id) && !la.return_date)
+                .map(la => la.software_license_id)
+        );
+        
+        return softwareLicenses.filter(lic => activeLicIds.has(lic.id));
+    }, [softwareLicenses, licenseAssignments, assignments, ticket.collaborator_id]);
+
+    useEffect(() => {
+        if (ticket.equipment_id) {
+            setAssetType('hardware');
+            setSelectedEquipmentId(ticket.equipment_id);
+        } else if (ticket.software_license_id) {
+            setAssetType('software');
+            setSelectedLicenseId(ticket.software_license_id);
+        }
+    }, [ticket]);
+
     const fetchActivities = async () => {
         setIsLoadingActivities(true);
         try {
@@ -56,7 +88,6 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
             setLocalActivities(data);
         } catch (e) {
             console.error("Failed to load activities", e);
-            // Fallback to props if fetch fails
             setLocalActivities(activities);
         } finally {
             setIsLoadingActivities(false);
@@ -77,17 +108,13 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         try {
             await onAddActivity({ 
                 description: newActivityDescription,
-                // FIX: equipment_id
-                equipment_id: selectedEquipmentId || undefined,
+                equipment_id: assetType === 'hardware' ? selectedEquipmentId : undefined,
+                software_license_id: assetType === 'software' ? selectedLicenseId : undefined
             });
 
-            // Pedido 1: Lógica de automação de estado no primeiro registo
             if (localActivities.length === 0 && ticket.status === 'Pedido') {
                 await dataService.updateTicket(ticket.id, { status: 'Em progresso' });
-                
-                // Pedido 1: Enviar notificação automática por mensagem
                 await dataService.addMessage({
-                    // FIX: sender_id, receiver_id, collaborator_id
                     sender_id: currentUser?.id || '00000000-0000-0000-0000-000000000000',
                     receiver_id: ticket.collaborator_id,
                     content: `Nova resposta ao seu pedido #${ticket.id.substring(0,8)}: O estado foi alterado para "Em progresso".`,
@@ -97,7 +124,6 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
             }
 
             setNewActivityDescription('');
-            // Immediately reload activities to show the new one
             await fetchActivities();
         } catch (e) {
             console.error("Erro ao adicionar atividade:", e);
@@ -106,208 +132,39 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         }
     };
 
-    // FIX: collaborator_id, equipment_id, entidade_id, serial_number
     const requesterName = collaboratorMap.get(ticket.collaborator_id) || 'Desconhecido';
     const associatedEquipment = ticket.equipment_id ? equipmentMap.get(ticket.equipment_id) : null;
+    const associatedLicense = ticket.software_license_id ? licenseMap.get(ticket.software_license_id) : null;
     const entidadeName = entidades.find(e => e.id === ticket.entidade_id)?.name || 'Entidade Desconhecida';
     
-    // Use localActivities instead of props
     const sortedActivities = useMemo(() => {
         return [...localActivities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [localActivities]);
 
-    const handlePrint = async () => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            alert("Por favor, permita pop-ups para imprimir.");
-            return;
-        }
-
-        const [logoBase64, sizeStr, align, footerId] = await Promise.all([
-            dataService.getGlobalSetting('app_logo_base64'),
-            dataService.getGlobalSetting('app_logo_size'),
-            dataService.getGlobalSetting('app_logo_alignment'),
-            dataService.getGlobalSetting('report_footer_institution_id')
-        ]);
-        const logoSize = sizeStr ? parseInt(sizeStr) : 80;
-
-        const logoHtml = logoBase64 ? `<div style="display: flex; justify-content: ${align || 'center'}; margin-bottom: 20px;"><img src="${logoBase64}" alt="Logótipo" style="max-height: ${logoSize}px;" /></div>` : '';
-
-        let footerHtml = '';
-        if (footerId) {
-            const allData = await dataService.fetchAllData();
-            const inst = allData.instituicoes.find((i: any) => i.id === footerId);
-            if (inst) {
-                footerHtml = `
-                    <div class="footer">
-                        <p><strong>${inst.name}</strong></p>
-                        <p>${[inst.address_line, inst.postal_code, inst.city].filter(Boolean).join(', ')}</p>
-                        <p>Tel: ${inst.telefone} | Email: ${inst.email} | NIF: ${inst.nif}</p>
-                    </div>
-                `;
-            }
-        }
-
-
-        // FIX: technician_id, equipment_id, serial_number
-        const activitiesHtml = sortedActivities.map(act => `
-            <div class="activity-item">
-                <div class="activity-header">
-                    <span class="technician">${collaboratorMap.get(act.technician_id) || 'Técnico'}</span>
-                    <span class="date">${new Date(act.date).toLocaleString()}</span>
-                </div>
-                <div class="description">${act.description}</div>
-                ${act.equipment_id ? `<div class="equipment-ref">Equipamento: ${equipmentMap.get(act.equipment_id)?.description} (${equipmentMap.get(act.equipment_id)?.serial_number})</div>` : ''}
-            </div>
-        `).join('');
-
-        // FIX: request_date, serial_number
-        const content = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Ficha de Ticket #${ticket.id.substring(0, 8)}</title>
-                <style>
-                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #333; }
-                    h1 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px; }
-                    .header-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; background-color: #f9f9f9; pading: 20px; border-radius: 8px; border: 1px solid #ddd; padding: 15px;}
-                    .info-group { margin-bottom: 10px; }
-                    .label { font-weight: bold; color: #555; display: block; font-size: 12px; text-transform: uppercase; }
-                    .value { font-size: 16px; }
-                    .section-title { font-size: 18px; font-weight: bold; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-                    .description-box { padding: 15px; background-color: #fff; border: 1px solid #ccc; border-radius: 4px; min-height: 80px; white-space: pre-wrap; }
-                    .activity-item { border-left: 3px solid #0D47A1; padding-left: 15px; margin-bottom: 20px; }
-                    .activity-header { font-size: 12px; color: #777; margin-bottom: 5px; }
-                    .technician { font-weight: bold; color: #0D47A1; margin-right: 10px; }
-                    .equipment-ref { font-size: 12px; color: #666; font-style: italic; margin-top: 5px; }
-                    .footer { margin-top: 50px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 10px; text-align: center; color: #777; }
-                    .footer p { margin: 2px 0; }
-                    .signature-box { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-                    .signature-line { border-top: 1px solid #333; padding-top: 5px; text-align: center; font-size: 14px; }
-                    
-                    @media print {
-                        body { padding: 0; }
-                        .no-print { display: none; }
-                        button { display: none; }
-                    }
-                </style>
-            </head>
-            <body>
-                ${logoHtml}
-                <h1>Ficha de Intervenção Técnica</h1>
-                
-                <div class="header-info">
-                    <div>
-                        <div class="info-group">
-                            <span class="label">Ticket ID</span>
-                            <span class="value">#${ticket.id.substring(0, 8)}</span>
-                        </div>
-                        <div class="info-group">
-                            <span class="label">Data do Pedido</span>
-                            <span class="value">${new Date(ticket.request_date).toLocaleString()}</span>
-                        </div>
-                        <div class="info-group">
-                            <span class="label">Estado Atual</span>
-                            <span class="value">${ticket.status}</span>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="info-group">
-                            <span class="label">Requerente</span>
-                            <span class="value">${requesterName}</span>
-                        </div>
-                        <div class="info-group">
-                            <span class="label">Entidade</span>
-                            <span class="value">${entidadeName}</span>
-                        </div>
-                        ${associatedEquipment ? `
-                        <div class="info-group">
-                            <span class="label">Equipamento</span>
-                            <span class="value">${associatedEquipment.description} (${associatedEquipment.serial_number})</span>
-                        </div>` : ''}
-                    </div>
-                </div>
-
-                <div class="section-title">Descrição do Problema</div>
-                <div class="description-box">${ticket.description}</div>
-
-                ${sortedActivities.length > 0 ? `
-                    <div class="section-title">Registo de Intervenções</div>
-                    <div>${activitiesHtml}</div>
-                ` : ''}
-
-                <div class="signature-box">
-                    <div>
-                        <br><br><br>
-                        <div class="signature-line">Assinatura do Técnico</div>
-                    </div>
-                    <div>
-                        <br><br><br>
-                        <div class="signature-line">Assinatura do Requerente (Confirmação)</div>
-                    </div>
-                </div>
-
-                ${footerHtml}
-                
-                <script>
-                    window.onload = function() { window.print(); }
-                </script>
-            </body>
-            </html>
-        `;
-
-        printWindow.document.write(content);
-        printWindow.document.close();
-    };
-
     return (
-        <Modal title={`Atividades do Ticket - ${requesterName}`} onClose={onClose}>
-            <div className="absolute top-5 right-16 no-print">
-                <button 
-                    onClick={handlePrint}
-                    className="flex items-center gap-2 px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-600 transition-colors"
-                    title="Imprimir Ficha de Obra"
-                >
-                    <FaPrint /> Imprimir Ficha
-                </button>
-            </div>
-
+        <Modal title={`Atividades do Ticket - ${requesterName}`} onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-6 mt-2">
-                <div>
-                    <h3 className="font-semibold text-on-surface-dark mb-1">Descrição do Pedido:</h3>
-                    <p className="p-3 bg-gray-900/50 rounded-md text-on-surface-dark-secondary text-sm">{ticket.description}</p>
+                <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 flex flex-col md:flex-row justify-between gap-4">
+                    <div className="flex-grow">
+                        <h3 className="font-bold text-white mb-1">Descrição do Pedido:</h3>
+                        <p className="text-on-surface-dark-secondary text-sm italic">"{ticket.description}"</p>
+                    </div>
+                    <div className="min-w-[200px] border-l border-gray-700 pl-4 flex flex-col justify-center">
+                        <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">Ativo de Origem</p>
+                        {associatedEquipment ? (
+                             <div className="flex items-center gap-2 text-xs text-blue-400">
+                                <FaLaptop /> <span>{associatedEquipment.description}</span>
+                             </div>
+                        ) : associatedLicense ? (
+                            <div className="flex items-center gap-2 text-xs text-yellow-400">
+                                <FaKey /> <span>{associatedLicense.product_name}</span>
+                             </div>
+                        ) : (
+                            <span className="text-xs text-gray-500">Nenhum associado</span>
+                        )}
+                    </div>
                 </div>
 
-                {associatedEquipment && (
-                     <div>
-                        {/* FIX: serial_number */}
-                        <h3 className="font-semibold text-on-surface-dark mb-1">Equipamento Intervencionado:</h3>
-                        <p className="p-3 bg-gray-900/50 rounded-md text-on-surface-dark-secondary text-sm">
-                            {associatedEquipment.description} (S/N: {associatedEquipment.serial_number})
-                        </p>
-                    </div>
-                )}
-
-                {ticket.attachments && ticket.attachments.length > 0 && (
-                     <div>
-                        <h3 className="font-semibold text-on-surface-dark mb-2">Anexos:</h3>
-                        <div className="space-y-2">
-                            {ticket.attachments.map((att, index) => (
-                                <a
-                                    key={index}
-                                    href={att.dataUrl}
-                                    download={att.name}
-                                    className="flex items-center gap-3 p-2 bg-surface-dark rounded-md border border-gray-700 hover:bg-gray-800/50 transition-colors"
-                                >
-                                    <FaDownload className="text-brand-secondary h-4 w-4 flex-shrink-0" />
-                                    <span className="text-sm text-on-surface-dark-secondary truncate">{att.name}</span>
-                                </a>
-                            ))}
-                        </div>
-                    </div>
-                )}
-                
-                {/* Registar nova intervenção: Visível apenas para quem tem permissão de edição (técnicos/admins) */}
                 {ticket.status !== TicketStatus.Finished && (
                     <div className="border-t border-gray-700 pt-4">
                         <h3 className="font-semibold text-on-surface-dark mb-2">Registar Nova Intervenção</h3>
@@ -316,79 +173,113 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                                 value={newActivityDescription}
                                 onChange={(e) => setNewActivityDescription(e.target.value)}
                                 rows={3}
-                                // FIX: full_name
-                                placeholder={`Descreva o trabalho realizado por ${currentUser?.full_name}...`}
+                                placeholder={`Descreva o trabalho realizado...`}
                                 className={`w-full bg-gray-700 border text-white rounded-md p-2 text-sm ${error ? 'border-red-500' : 'border-gray-600'}`}
                             ></textarea>
-                            {availableEquipment.length > 0 && (
-                                <div>
-                                    {/* FIX: serial_number */}
-                                    <label htmlFor="equipment_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipamento Intervencionado (Opcional)</label>
-                                    <select
-                                        id="equipment_id"
-                                        value={selectedEquipmentId}
-                                        onChange={(e) => setSelectedEquipmentId(e.target.value)}
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
+                            
+                            <div className="bg-gray-900/50 p-3 rounded border border-gray-700 flex flex-col sm:flex-row gap-4 items-end">
+                                <div className="w-full sm:w-1/3">
+                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Tipo de Ativo</label>
+                                    <select 
+                                        value={assetType} 
+                                        onChange={(e) => setAssetType(e.target.value as any)}
+                                        className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs"
                                     >
-                                        <option value="">Nenhum específico</option>
-                                        {availableEquipment.map(eq => (
-                                            <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serial_number})</option>
-                                        ))}
+                                        <option value="none">Não Específico</option>
+                                        <option value="hardware">Hardware / Equipamento</option>
+                                        <option value="software">Software / Licença</option>
                                     </select>
                                 </div>
-                            )}
-                            {error && <p className="text-red-400 text-xs italic">{error}</p>}
-                            <div className="flex justify-end">
+
+                                <div className="flex-grow w-full">
+                                    {assetType === 'hardware' && (
+                                        <>
+                                            <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Equipamento Intervencionado</label>
+                                            <select
+                                                value={selectedEquipmentId}
+                                                onChange={(e) => setSelectedEquipmentId(e.target.value)}
+                                                className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs"
+                                            >
+                                                <option value="">-- Selecione --</option>
+                                                {availableEquipment.map(eq => <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serial_number})</option>)}
+                                            </select>
+                                        </>
+                                    )}
+                                    {assetType === 'software' && (
+                                        <>
+                                            <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Software Intervencionado</label>
+                                            <select
+                                                value={selectedLicenseId}
+                                                onChange={(e) => setSelectedLicenseId(e.target.value)}
+                                                className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs"
+                                            >
+                                                <option value="">-- Selecione --</option>
+                                                {availableLicenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name}</option>)}
+                                            </select>
+                                        </>
+                                    )}
+                                </div>
+
                                 <button
                                     onClick={handleAddActivity}
                                     disabled={isSaving}
-                                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary text-sm disabled:opacity-50"
+                                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary text-sm disabled:opacity-50 whitespace-nowrap"
                                 >
                                     {isSaving ? <FaSpinner className="animate-spin" /> : <PlusIcon className="h-4 w-4" />}
-                                    {isSaving ? 'A Gravar...' : 'Adicionar Registo'}
+                                    {isSaving ? 'A Gravar...' : 'Registar Resposta'}
                                 </button>
                             </div>
+                            {error && <p className="text-red-400 text-xs italic">{error}</p>}
                         </div>
                     </div>
                 )}
                 
-                <div>
-                    <h3 className="font-semibold text-on-surface-dark mb-2">Histórico de Intervenções</h3>
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-white border-b border-gray-700 pb-2">Histórico de Respostas e Diagnósticos</h3>
                     {isLoadingActivities ? (
-                         <div className="flex justify-center items-center py-8">
-                             <FaSpinner className="animate-spin text-gray-500" />
-                         </div>
+                         <div className="flex justify-center items-center py-8"><FaSpinner className="animate-spin text-gray-500" /></div>
                     ) : sortedActivities.length > 0 ? (
-                        <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
+                        <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                             {sortedActivities.map(activity => {
-                                // FIX: equipment_id, serial_number, technician_id
-                                const activityEquipment = activity.equipment_id ? equipmentMap.get(activity.equipment_id) : null;
+                                const actEq = activity.equipment_id ? equipmentMap.get(activity.equipment_id) : null;
+                                const actLic = activity.software_license_id ? licenseMap.get(activity.software_license_id) : null;
                                 return (
-                                <div key={activity.id} className="p-3 bg-surface-dark rounded-lg border border-gray-700">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <p className="font-semibold text-brand-secondary text-sm">
-                                            {collaboratorMap.get(activity.technician_id) || 'Técnico Desconhecido'}
-                                        </p>
-                                        <p className="text-xs text-on-surface-dark-secondary">
-                                            {new Date(activity.date).toLocaleString()}
-                                        </p>
+                                    <div key={activity.id} className="p-3 bg-gray-800/30 rounded-lg border border-gray-700 relative overflow-hidden">
+                                        {/* Barra lateral de tipo de ativo */}
+                                        {actEq && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" title="Intervenção em Hardware" />}
+                                        {actLic && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500" title="Intervenção em Software" />}
+                                        
+                                        <div className="flex justify-between items-center mb-1">
+                                            <p className="font-semibold text-brand-secondary text-sm">
+                                                {collaboratorMap.get(activity.technician_id) || 'Técnico'}
+                                            </p>
+                                            <p className="text-[10px] text-gray-500">{new Date(activity.date).toLocaleString()}</p>
+                                        </div>
+                                        <p className="text-sm text-on-surface-dark">{activity.description}</p>
+                                        
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {actEq && (
+                                                <span className="text-[10px] flex items-center gap-1 bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">
+                                                    <FaLaptop size={8}/> {actEq.description}
+                                                </span>
+                                            )}
+                                            {actLic && (
+                                                <span className="text-[10px] flex items-center gap-1 bg-yellow-900/30 text-yellow-400 px-2 py-0.5 rounded border border-yellow-500/20">
+                                                    <FaKey size={8}/> {actLic.product_name}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-on-surface-dark">{activity.description}</p>
-                                    {activityEquipment && (
-                                        <p className="text-xs text-indigo-400 mt-2 border-t border-gray-700/50 pt-2">
-                                            <strong>Equipamento:</strong> {activityEquipment.description} (S/N: {activityEquipment.serial_number})
-                                        </p>
-                                    )}
-                                </div>
-                            )})}
+                                );
+                            })}
                         </div>
                     ) : (
-                        <p className="text-sm text-on-surface-dark-secondary text-center py-4">Ainda não foram registadas intervenções para este ticket.</p>
+                        <p className="text-sm text-gray-500 text-center py-4">Sem registos técnicos.</p>
                     )}
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-gray-700">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar</button>
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar Janela</button>
                 </div>
             </div>
         </Modal>

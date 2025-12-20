@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction } from '../types';
-import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie } from './common/Icons';
+import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment } from '../types';
+import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey } from './common/Icons';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -17,12 +17,18 @@ interface AddTicketModalProps {
     categories: TicketCategoryItem[];
     securityIncidentTypes?: SecurityIncidentTypeItem[];
     checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
+    equipment: Equipment[];
+    assignments: Assignment[];
+    softwareLicenses: SoftwareLicense[];
+    licenseAssignments: LicenseAssignment[];
 }
 
 export const AddTicketModal: React.FC<AddTicketModalProps> = ({ 
-    onClose, onSave, ticketToEdit, collaborators, teams, teamMembers = [], currentUser, categories, securityIncidentTypes = [], checkPermission 
+    onClose, onSave, ticketToEdit, collaborators, teams, teamMembers = [], currentUser, categories, securityIncidentTypes = [], checkPermission, escolasDepartamentos: entidades,
+    equipment, assignments, softwareLicenses, licenseAssignments
 }) => {
     const [isSaving, setIsSaving] = useState(false);
+    const [assetType, setAssetType] = useState<'none' | 'hardware' | 'software'>('none');
     
     const [formData, setFormData] = useState<any>({
         title: '',
@@ -32,9 +38,12 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         impact_criticality: 'Baixa',
         request_date: new Date().toISOString(),
         collaborator_id: currentUser?.id || '',
+        entidade_id: currentUser?.entidade_id || '', 
         team_id: '',
         technician_id: '',
-        security_incident_type: ''
+        security_incident_type: '',
+        equipment_id: '',
+        software_license_id: ''
     });
 
     const canEditAdvanced = checkPermission('tickets', 'edit');
@@ -42,13 +51,48 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     useEffect(() => {
         if (ticketToEdit) {
             setFormData({ ...ticketToEdit });
+            if (ticketToEdit.equipment_id) setAssetType('hardware');
+            else if (ticketToEdit.software_license_id) setAssetType('software');
         }
     }, [ticketToEdit]);
 
-    // Pedido 1: Filtrar técnicos APENAS se a equipa estiver selecionada
+    // Resolver equipamentos do utilizador selecionado
+    const userEquipment = useMemo(() => {
+        const userId = formData.collaborator_id;
+        if (!userId) return [];
+        
+        const activeAssignedEqIds = new Set(
+            assignments
+                .filter(a => a.collaborator_id === userId && !a.return_date)
+                .map(a => a.equipment_id)
+        );
+        
+        return equipment
+            .filter(e => activeAssignedEqIds.has(e.id))
+            .sort((a, b) => a.description.localeCompare(b.description));
+    }, [formData.collaborator_id, equipment, assignments]);
+
+    // Resolver licenças de software instaladas nos equipamentos do utilizador
+    const userLicenses = useMemo(() => {
+        const userId = formData.collaborator_id;
+        if (!userId || userEquipment.length === 0) return [];
+        
+        const activeEqIds = new Set(userEquipment.map(e => e.id));
+        const activeLicIds = new Set(
+            licenseAssignments
+                .filter(la => activeEqIds.has(la.equipment_id) && !la.return_date)
+                .map(la => la.software_license_id)
+        );
+        
+        return softwareLicenses
+            .filter(lic => activeLicIds.has(lic.id))
+            .sort((a, b) => a.product_name.localeCompare(b.product_name));
+    }, [formData.collaborator_id, userEquipment, softwareLicenses, licenseAssignments]);
+
+    // Lógica de técnicos por equipa
     const filteredTechnicians = useMemo(() => {
         if (!formData.team_id) {
-            return []; // Retorna vazio se não houver equipa
+            return [];
         }
         const memberIds = new Set(
             teamMembers
@@ -84,10 +128,20 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
             if (!currentIsSecurity) {
                 finalData.security_incident_type = null;
             }
-            // Para novos tickets de utilizadores básicos, garantir o estado "Pedido"
             if (!ticketToEdit && !canEditAdvanced) {
                 finalData.status = 'Pedido';
             }
+            
+            // Limpeza de campos de ativos baseada na seleção
+            if (assetType === 'none') {
+                finalData.equipment_id = null;
+                finalData.software_license_id = null;
+            } else if (assetType === 'hardware') {
+                finalData.software_license_id = null;
+            } else {
+                finalData.equipment_id = null;
+            }
+
             await onSave(finalData);
             onClose();
         } finally { 
@@ -96,7 +150,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     };
 
     return (
-        <Modal title={ticketToEdit ? `Editar Ticket #${ticketToEdit.id.substring(0,8)}` : "Abrir Novo Ticket de Suporte"} onClose={onClose} maxWidth="max-w-3xl">
+        <Modal title={ticketToEdit ? `Editar Ticket #${ticketToEdit.id.substring(0,8)}` : "Abrir Novo Ticket de Suporte"} onClose={onClose} maxWidth="max-w-4xl">
             <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[75vh] pr-2 custom-scrollbar">
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -184,16 +238,121 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                     </div>
                 )}
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Assunto / Título Curto</label>
-                    <input 
-                        type="text" 
-                        value={formData.title} 
-                        onChange={e => setFormData({...formData, title: e.target.value})} 
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" 
-                        placeholder="Ex: Falha no acesso à VPN"
-                        required 
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Assunto / Título Curto</label>
+                        <input 
+                            type="text" 
+                            value={formData.title} 
+                            onChange={e => setFormData({...formData, title: e.target.value})} 
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" 
+                            placeholder="Ex: Falha no acesso à VPN"
+                            required 
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2">
+                            <FaBuilding className="text-brand-secondary" /> Entidade / Localização
+                        </label>
+                        {canEditAdvanced ? (
+                            <select 
+                                value={formData.entidade_id || ''} 
+                                onChange={e => setFormData({...formData, entidade_id: e.target.value})} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                            >
+                                <option value="">-- Selecione Local --</option>
+                                {entidades.map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
+                            </select>
+                        ) : (
+                            <div className="w-full bg-gray-800 border border-gray-700 text-gray-400 rounded p-2 text-sm">
+                                {entidades.find(ent => ent.id === formData.entidade_id)?.name || 'Local não definido'}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="space-y-4 border border-gray-700 rounded-lg p-3 bg-gray-900/30">
+                    <div className="flex justify-between items-center">
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                            <FaUserTie className="text-brand-secondary" /> Contexto do Requerente
+                        </label>
+                        {canEditAdvanced && (
+                            <select 
+                                value={formData.collaborator_id} 
+                                onChange={e => setFormData({...formData, collaborator_id: e.target.value})} 
+                                className="bg-gray-700 border border-gray-600 text-white rounded px-2 py-1 text-xs"
+                            >
+                                <option value="">-- Selecione Requerente --</option>
+                                {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                            </select>
+                        )}
+                    </div>
+
+                    <div className="bg-blue-900/10 border border-blue-500/20 rounded p-4 space-y-4">
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1">
+                                <label className="block text-[10px] font-bold text-blue-400 uppercase mb-2 flex items-center gap-1">
+                                    <FaLaptop size={10} /> Vincular Ativo de Origem
+                                </label>
+                                <div className="flex gap-2 mb-3">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setAssetType('none')}
+                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'none' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
+                                    >Nenhum</button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setAssetType('hardware')}
+                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'hardware' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
+                                    >Hardware</button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setAssetType('software')}
+                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'software' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
+                                    >Software</button>
+                                </div>
+
+                                {assetType === 'hardware' && (
+                                    <select 
+                                        value={formData.equipment_id || ''} 
+                                        onChange={e => setFormData({...formData, equipment_id: e.target.value})}
+                                        className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs"
+                                    >
+                                        <option value="">-- Selecione Equipamento --</option>
+                                        {userEquipment.map(eq => <option key={eq.id} value={eq.id}>{eq.description} (SN: {eq.serial_number})</option>)}
+                                        {userEquipment.length === 0 && <option disabled>Nenhum equipamento atribuído</option>}
+                                    </select>
+                                )}
+
+                                {assetType === 'software' && (
+                                    <select 
+                                        value={formData.software_license_id || ''} 
+                                        onChange={e => setFormData({...formData, software_license_id: e.target.value})}
+                                        className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs"
+                                    >
+                                        <option value="">-- Selecione Licença/Software --</option>
+                                        {userLicenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name} ({lic.license_key})</option>)}
+                                        {userLicenses.length === 0 && <option disabled>Nenhuma licença atribuída</option>}
+                                    </select>
+                                )}
+                            </div>
+
+                            <div className="flex-1 border-l border-blue-500/20 pl-4 hidden sm:block">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Informação de Referência</p>
+                                <div className="space-y-1 max-h-24 overflow-y-auto custom-scrollbar">
+                                    {!formData.collaborator_id ? (
+                                        <p className="text-[10px] text-gray-600 italic">Selecione um requerente para ver ativos.</p>
+                                    ) : (
+                                        <>
+                                            <p className="text-[10px] text-gray-400 font-bold">Resumo de Ativos em Uso:</p>
+                                            <p className="text-[10px] text-gray-500">{userEquipment.length} Equipamentos</p>
+                                            <p className="text-[10px] text-gray-500">{userLicenses.length} Licenças de Software</p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div>

@@ -13,6 +13,7 @@ const cleanPayload = (data: any) => {
         'entidadeId': 'entidade_id',
         'teamId': 'team_id',
         'equipmentId': 'equipment_id',
+        'softwareLicenseId': 'software_license_id',
         'securityIncidentType': 'security_incident_type',
         'impactCriticality': 'impact_criticality',
         'resolutionSummary': 'resolution_summary',
@@ -99,11 +100,10 @@ export const fetchTicketsPaginated = async (params: {
     }
 
     // Pedido 1: Ordenação descendente por data, mas priorizando status "Pedido" e "Em progresso"
-    // Usamos um truque de SQL via Supabase: como 'Pedido' > 'Em progresso' alfabeticamente, status DESC coloca Pedido no topo.
     const sortObj = params.sort || { key: 'request_date', direction: 'descending' };
     
     query = query
-        .order('status', { ascending: false }) // 'Pedido' vem antes de 'Em progresso' alfabeticamente DESC
+        .order('status', { ascending: false }) 
         .order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
     
     const from = (params.page - 1) * params.pageSize;
