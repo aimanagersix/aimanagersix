@@ -46,7 +46,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     const filteredTechnicians = useMemo(() => {
         if (!formData.team_id) {
             // Se nenhuma equipa estiver selecionada, mostramos todos os colaboradores (fallback)
-            // ou poderíamos mostrar vazio. Optamos por mostrar todos para flexibilidade.
             return collaborators.sort((a, b) => a.full_name.localeCompare(b.full_name));
         }
         
@@ -67,8 +66,9 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         if (formData.team_id && formData.technician_id) {
             const isValid = filteredTechnicians.some(t => t.id === formData.technician_id);
             if (!isValid) {
+                // Fix: Adicionada tipagem (prev: any) para resolver erro de build TS7006
                 // Limpa o técnico se ele não pertencer à nova equipa selecionada
-                setFormData(prev => ({ ...prev, technician_id: '' }));
+                setFormData((prev: any) => ({ ...prev, technician_id: '' }));
             }
         }
     }, [formData.team_id, filteredTechnicians]);
