@@ -5,6 +5,46 @@ import { Collaborator, Entidade, Instituicao } from '../types';
 import { FaCamera, FaTrash, FaBuilding, FaUserTie, FaEnvelope, FaIdCard, FaSpinner, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaSave } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
+// Auxiliar para compressão de imagem (Freeze UI - Implementação inline para consistência)
+const compressProfileImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_SIZE = 400; // Suficiente para avatares
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > MAX_SIZE) {
+                        height *= MAX_SIZE / width;
+                        width = MAX_SIZE;
+                    }
+                } else {
+                    if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height;
+                        height = MAX_SIZE;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg', lastModified: Date.now() }));
+                    } else {
+                        resolve(file);
+                    }
+                }, 'image/jpeg', 0.7); // 70% qualidade para reduzir egress
+            };
+        };
+    });
+};
+
 interface UserProfileModalProps {
     user: Collaborator;
     entidade?: Entidade;
@@ -30,13 +70,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
     const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            if (file.size > 2 * 1024 * 1024) {
-                alert("Imagem muito grande (Max 2MB)");
-                return;
-            }
             setIsUploading(true);
             try {
-                const url = await dataService.uploadCollaboratorPhoto(user.id, file);
+                // Comprime antes do upload para o storage (NIS2/DORA Optimization)
+                const compressedFile = await compressProfileImage(file);
+                const url = await dataService.uploadCollaboratorPhoto(user.id, compressedFile);
                 await onUpdatePhoto(url);
             } catch (err: any) {
                 alert("Erro ao carregar foto: " + err.message);

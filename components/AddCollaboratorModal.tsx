@@ -34,6 +34,46 @@ const extractDomain = (url: string): string => {
     } catch { return ''; }
 };
 
+// Auxiliar para compressão de imagem (Freeze UI - Implementação inline para evitar refactoring estrutural)
+const compressProfileImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_SIZE = 400; // Tamanho ideal para perfil
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > MAX_SIZE) {
+                        height *= MAX_SIZE / width;
+                        width = MAX_SIZE;
+                    }
+                } else {
+                    if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height;
+                        height = MAX_SIZE;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg', lastModified: Date.now() }));
+                    } else {
+                        resolve(file); // Fallback se falhar
+                    }
+                }, 'image/jpeg', 0.7); // 70% de qualidade JPEG
+            };
+        };
+    });
+};
+
 interface AddCollaboratorModalProps {
     onClose: () => void;
     onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator, password?: string) => Promise<any>;
@@ -82,6 +122,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     
     const [password, setPassword] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isCompressing, setIsCompressing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [successMessage, setSuccessMessage] = useState('');
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
@@ -182,12 +223,23 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         if (errors[name]) setErrors(prev => { const n = {...prev}; delete n[name]; return n; });
     };
     
-    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            if (file.size > 2 * 1024 * 1024) { alert("Max 2MB."); return; }
-            setPhotoFile(file);
-            setPhotoPreview(URL.createObjectURL(file));
+            setIsCompressing(true);
+            try {
+                // Comprime e redimensiona antes de guardar no estado local para upload
+                const compressedFile = await compressProfileImage(file);
+                setPhotoFile(compressedFile);
+                setPhotoPreview(URL.createObjectURL(compressedFile));
+            } catch (err) {
+                console.error("Erro ao processar imagem:", err);
+                // Fallback para o original se a compressão falhar
+                setPhotoFile(file);
+                setPhotoPreview(URL.createObjectURL(file));
+            } finally {
+                setIsCompressing(false);
+            }
         }
     };
 
@@ -275,13 +327,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 <div className="flex flex-col items-center mb-6">
                     <div className="relative group">
                         <div className="w-24 h-24 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center overflow-hidden">
-                            {/* FIX: full_name */}
-                            {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <span className="text-2xl font-bold text-gray-500">{formData.full_name ? formData.full_name.charAt(0).toUpperCase() : '?'}</span>}
+                            {isCompressing ? (
+                                <SpinnerIcon className="text-brand-secondary h-8 w-8" />
+                            ) : photoPreview ? (
+                                <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-2xl font-bold text-gray-500">{formData.full_name ? formData.full_name.charAt(0).toUpperCase() : '?'}</span>
+                            )}
                         </div>
                         <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-brand-primary p-2 rounded-full text-white cursor-pointer hover:bg-brand-secondary shadow-lg"><FaCamera className="w-4 h-4" /></label>
                         {photoPreview && <button type="button" onClick={handleRemovePhoto} className="absolute top-0 right-0 bg-red-600 p-1.5 rounded-full text-white hover:bg-red-500 shadow-lg"><FaTrash className="w-3 h-3" /></button>}
                         <input type="file" id="photo-upload" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoChange} />
                     </div>
+                    {isCompressing && <p className="text-[10px] text-brand-secondary mt-1 animate-pulse">A otimizar imagem...</p>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -373,7 +431,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
+                    <button type="submit" disabled={isSaving || isCompressing} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50">
                         {isSaving ? <SpinnerIcon className="h-4 w-4" /> : 'Salvar'}
                     </button>
                 </div>

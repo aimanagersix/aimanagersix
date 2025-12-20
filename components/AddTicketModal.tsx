@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment } from '../types';
+import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
 import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey } from './common/Icons';
 
 interface AddTicketModalProps {
@@ -47,6 +47,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     });
 
     const canEditAdvanced = checkPermission('tickets', 'edit');
+    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
     useEffect(() => {
         if (ticketToEdit) {
@@ -55,6 +56,13 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
             else if (ticketToEdit.software_license_id) setAssetType('software');
         }
     }, [ticketToEdit]);
+
+    // Pedido 1: Filtrar entidades pela instituição do utilizador se não for admin global
+    const availableEntidades = useMemo(() => {
+        if (isSuperAdmin) return entidades;
+        if (!currentUser?.instituicao_id) return [];
+        return entidades.filter(e => e.instituicao_id === currentUser.instituicao_id);
+    }, [entidades, currentUser, isSuperAdmin]);
 
     // Resolver equipamentos do utilizador selecionado
     const userEquipment = useMemo(() => {
@@ -130,10 +138,11 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
             }
             if (!ticketToEdit && !canEditAdvanced) {
                 finalData.status = 'Pedido';
+                finalData.collaborator_id = currentUser?.id; // Forçar o próprio se não for admin
             }
             
             // Limpeza de campos de ativos baseada na seleção
-            if (assetType === 'none') {
+            if (assetType === 'none' || !canEditAdvanced) {
                 finalData.equipment_id = null;
                 finalData.software_license_id = null;
             } else if (assetType === 'hardware') {
@@ -239,7 +248,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div className="md:col-span-1">
                         <label className="block text-sm font-medium text-gray-400 mb-1">Assunto / Título Curto</label>
                         <input 
                             type="text" 
@@ -254,20 +263,15 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                         <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2">
                             <FaBuilding className="text-brand-secondary" /> Entidade / Localização
                         </label>
-                        {canEditAdvanced ? (
-                            <select 
-                                value={formData.entidade_id || ''} 
-                                onChange={e => setFormData({...formData, entidade_id: e.target.value})} 
-                                className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                            >
-                                <option value="">-- Selecione Local --</option>
-                                {entidades.map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
-                            </select>
-                        ) : (
-                            <div className="w-full bg-gray-800 border border-gray-700 text-gray-400 rounded p-2 text-sm">
-                                {entidades.find(ent => ent.id === formData.entidade_id)?.name || 'Local não definido'}
-                            </div>
-                        )}
+                        <select 
+                            value={formData.entidade_id || ''} 
+                            onChange={e => setFormData({...formData, entidade_id: e.target.value})} 
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                            required
+                        >
+                            <option value="">-- Selecione Local --</option>
+                            {availableEntidades.map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
+                        </select>
                     </div>
                 </div>
 
@@ -286,73 +290,80 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                 {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                             </select>
                         )}
+                        {!canEditAdvanced && (
+                             <div className="text-sm font-bold text-white flex items-center gap-2">
+                                <FaUserTie size={14} className="text-brand-secondary"/> {currentUser?.full_name}
+                             </div>
+                        )}
                     </div>
 
-                    <div className="bg-blue-900/10 border border-blue-500/20 rounded p-4 space-y-4">
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <div className="flex-1">
-                                <label className="block text-[10px] font-bold text-blue-400 uppercase mb-2 flex items-center gap-1">
-                                    <FaLaptop size={10} /> Vincular Ativo de Origem
-                                </label>
-                                <div className="flex gap-2 mb-3">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setAssetType('none')}
-                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'none' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
-                                    >Nenhum</button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setAssetType('hardware')}
-                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'hardware' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
-                                    >Hardware</button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setAssetType('software')}
-                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'software' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
-                                    >Software</button>
+                    {canEditAdvanced && (
+                        <div className="bg-blue-900/10 border border-blue-500/20 rounded p-4 space-y-4">
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-blue-400 uppercase mb-2 flex items-center gap-1">
+                                        <FaLaptop size={10} /> Vincular Ativo de Origem
+                                    </label>
+                                    <div className="flex gap-2 mb-3">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setAssetType('none')}
+                                            className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'none' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
+                                        >Nenhum</button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setAssetType('hardware')}
+                                            className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'hardware' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
+                                        >Hardware</button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setAssetType('software')}
+                                            className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'software' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
+                                        >Software</button>
+                                    </div>
+
+                                    {assetType === 'hardware' && (
+                                        <select 
+                                            value={formData.equipment_id || ''} 
+                                            onChange={e => setFormData({...formData, equipment_id: e.target.value})}
+                                            className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs"
+                                        >
+                                            <option value="">-- Selecione Equipamento --</option>
+                                            {userEquipment.map(eq => <option key={eq.id} value={eq.id}>{eq.description} (SN: {eq.serial_number})</option>)}
+                                            {userEquipment.length === 0 && <option disabled>Nenhum equipamento atribuído</option>}
+                                        </select>
+                                    )}
+
+                                    {assetType === 'software' && (
+                                        <select 
+                                            value={formData.software_license_id || ''} 
+                                            onChange={e => setFormData({...formData, software_license_id: e.target.value})}
+                                            className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs"
+                                        >
+                                            <option value="">-- Selecione Licença/Software --</option>
+                                            {userLicenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name} ({lic.license_key})</option>)}
+                                            {userLicenses.length === 0 && <option disabled>Nenhuma licença atribuída</option>}
+                                        </select>
+                                    )}
                                 </div>
 
-                                {assetType === 'hardware' && (
-                                    <select 
-                                        value={formData.equipment_id || ''} 
-                                        onChange={e => setFormData({...formData, equipment_id: e.target.value})}
-                                        className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs"
-                                    >
-                                        <option value="">-- Selecione Equipamento --</option>
-                                        {userEquipment.map(eq => <option key={eq.id} value={eq.id}>{eq.description} (SN: {eq.serial_number})</option>)}
-                                        {userEquipment.length === 0 && <option disabled>Nenhum equipamento atribuído</option>}
-                                    </select>
-                                )}
-
-                                {assetType === 'software' && (
-                                    <select 
-                                        value={formData.software_license_id || ''} 
-                                        onChange={e => setFormData({...formData, software_license_id: e.target.value})}
-                                        className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs"
-                                    >
-                                        <option value="">-- Selecione Licença/Software --</option>
-                                        {userLicenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name} ({lic.license_key})</option>)}
-                                        {userLicenses.length === 0 && <option disabled>Nenhuma licença atribuída</option>}
-                                    </select>
-                                )}
-                            </div>
-
-                            <div className="flex-1 border-l border-blue-500/20 pl-4 hidden sm:block">
-                                <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Informação de Referência</p>
-                                <div className="space-y-1 max-h-24 overflow-y-auto custom-scrollbar">
-                                    {!formData.collaborator_id ? (
-                                        <p className="text-[10px] text-gray-600 italic">Selecione um requerente para ver ativos.</p>
-                                    ) : (
-                                        <>
-                                            <p className="text-[10px] text-gray-400 font-bold">Resumo de Ativos em Uso:</p>
-                                            <p className="text-[10px] text-gray-500">{userEquipment.length} Equipamentos</p>
-                                            <p className="text-[10px] text-gray-500">{userLicenses.length} Licenças de Software</p>
-                                        </>
-                                    )}
+                                <div className="flex-1 border-l border-blue-500/20 pl-4 hidden sm:block">
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Informação de Referência</p>
+                                    <div className="space-y-1 max-h-24 overflow-y-auto custom-scrollbar">
+                                        {!formData.collaborator_id ? (
+                                            <p className="text-[10px] text-gray-600 italic">Selecione um requerente para ver ativos.</p>
+                                        ) : (
+                                            <>
+                                                <p className="text-[10px] text-gray-400 font-bold">Resumo de Ativos em Uso:</p>
+                                                <p className="text-[10px] text-gray-500">{userEquipment.length} Equipamentos</p>
+                                                <p className="text-[10px] text-gray-500">{userLicenses.length} Licenças de Software</p>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 <div>
