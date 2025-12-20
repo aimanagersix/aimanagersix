@@ -30,22 +30,28 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({
 }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'collaborators' | 'equipment'>('info');
     
-    const activeCollaborators = collaborators.filter(c => c.entidadeId === entidade.id);
+    // Fix: entidadeId to entidade_id
+    const activeCollaborators = collaborators.filter(c => c.entidade_id === entidade.id);
     
     // Maps for quick lookup
     const brandMap = useMemo(() => new Map(brands.map(b => [b.id, b.name])), [brands]);
     const typeMap = useMemo(() => new Map(equipmentTypes.map(t => [t.id, t.name])), [equipmentTypes]);
-    const collabMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    // Fix: fullName to full_name
+    const collabMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
 
     const associatedEquipment = useMemo(() => {
         return assignments
-            .filter(a => a.entidadeId === entidade.id && !a.returnDate)
+            // Fix: entidadeId, returnDate to entidade_id, return_date
+            .filter(a => a.entidade_id === entidade.id && !a.return_date)
             .map(a => {
-                const eq = equipment.find(e => e.id === a.equipmentId);
+                // Fix: equipmentId to equipment_id
+                const eq = equipment.find(e => e.id === a.equipment_id);
                 return {
                     ...eq,
-                    assignmentDate: a.assignedDate,
-                    assignedToName: a.collaboratorId ? collabMap.get(a.collaboratorId) : 'Atribuído à Localização'
+                    // Fix: assignedDate to assigned_date
+                    assignmentDate: a.assigned_date,
+                    // Fix: collaboratorId to collaborator_id
+                    assignedToName: a.collaborator_id ? collabMap.get(a.collaborator_id) : 'Atribuído à Localização'
                 };
             })
             .filter(item => item.id) // Filter out undefined if equipment deleted
@@ -76,12 +82,15 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({
         }
 
         // 3. Calculate Financials
-        const totalAssetValue = associatedEquipment.reduce((sum, eq) => sum + (eq.acquisitionCost || 0), 0);
+        // Fix: acquisitionCost to acquisition_cost
+        const totalAssetValue = associatedEquipment.reduce((sum, eq) => sum + (eq.acquisition_cost || 0), 0);
 
         // 4. Generate Rows
         const collaboratorRows = activeCollaborators.map(col => {
-            const phone = col.telemovel || col.telefoneInterno || '-';
-            const name = (col.title ? col.title + ' ' : '') + col.fullName;
+            // Fix: telefoneInterno to telefone_interno
+            const phone = col.telemovel || col.telefone_interno || '-';
+            // Fix: fullName to full_name
+            const name = (col.title ? col.title + ' ' : '') + col.full_name;
             return `
                 <tr>
                     <td>${name}</td>
@@ -95,10 +104,10 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({
         const equipmentRows = associatedEquipment.map(eq => `
             <tr>
                 <td>${eq.description}</td>
-                <td>${brandMap.get(eq.brandId || '')} ${typeMap.get(eq.typeId || '')}</td>
-                <td>${eq.serialNumber}</td>
+                <td>${brandMap.get(eq.brand_id || '')} ${typeMap.get(eq.type_id || '')}</td>
+                <td>${eq.serial_number}</td>
                 <td>${eq.assignedToName}</td>
-                <td style="text-align: right;">€ ${(eq.acquisitionCost || 0).toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
+                <td style="text-align: right;">€ ${(eq.acquisition_cost || 0).toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
             </tr>
         `).join('');
 
@@ -379,7 +388,8 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-white flex items-center gap-2">
-                                                        {col.fullName}
+                                                        {/* Fix: fullName to full_name */}
+                                                        {col.full_name}
                                                         {onOpenCollaborator && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
                                                     </p>
                                                     <p className="text-xs text-gray-400">{col.email}</p>
@@ -436,12 +446,15 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({
                                                         {onOpenEquipment && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
                                                     </td>
                                                     <td className="px-4 py-2 text-gray-300 text-xs">
-                                                        {brandMap.get(eq.brandId || '')} {typeMap.get(eq.typeId || '')}
+                                                        {/* Fix: brandId, typeId to brand_id, type_id */}
+                                                        {brandMap.get(eq.brand_id || '')} {typeMap.get(eq.type_id || '')}
                                                     </td>
-                                                    <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serialNumber}</td>
+                                                    {/* Fix: serialNumber to serial_number */}
+                                                    <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serial_number}</td>
                                                     <td className="px-4 py-2 text-gray-300">{eq.assignedToName}</td>
                                                     <td className="px-4 py-2 text-gray-400 text-xs text-right">
-                                                        € {(eq.acquisitionCost || 0).toLocaleString()}
+                                                        {/* Fix: acquisitionCost to acquisition_cost */}
+                                                        € {(eq.acquisition_cost || 0).toLocaleString()}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -450,7 +463,8 @@ const EntidadeDetailModal: React.FC<EntidadeDetailModalProps> = ({
                                             <tr>
                                                 <td colSpan={4} className="px-4 py-2 text-right font-bold text-white">TOTAL:</td>
                                                 <td className="px-4 py-2 text-right font-bold text-green-400">
-                                                    € {associatedEquipment.reduce((sum, e) => sum + (e.acquisitionCost||0), 0).toLocaleString()}
+                                                    {/* Fix: acquisitionCost to acquisition_cost */}
+                                                    € {associatedEquipment.reduce((sum, e) => sum + (e.acquisition_cost||0), 0).toLocaleString()}
                                                 </td>
                                             </tr>
                                         </tfoot>

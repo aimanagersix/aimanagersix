@@ -26,13 +26,15 @@ const OffboardingModal: React.FC<OffboardingModalProps> = ({ onClose, onConfirm,
     const [reasonId, setReasonId] = useState<string>('');
 
     const assets = useMemo(() => {
+        // FIX: collaborator_id, return_date, equipment_id
         const assignedEquipmentIds = new Set(
-            assignments.filter(a => a.collaboratorId === collaborator.id && !a.returnDate).map(a => a.equipmentId)
+            assignments.filter(a => a.collaborator_id === collaborator.id && !a.return_date).map(a => a.equipment_id)
         );
         
+        // FIX: equipment_id, return_date, software_license_id
         const assignedLicenses = licenseAssignments
-            .filter(la => assignedEquipmentIds.has(la.equipmentId) && !la.returnDate)
-            .map(la => softwareLicenses.find(l => l.id === la.softwareLicenseId))
+            .filter(la => assignedEquipmentIds.has(la.equipment_id) && !la.return_date)
+            .map(la => softwareLicenses.find(l => l.id === la.software_license_id))
             .filter(Boolean) as SoftwareLicense[];
         
         return {
@@ -56,7 +58,8 @@ const OffboardingModal: React.FC<OffboardingModalProps> = ({ onClose, onConfirm,
     };
 
     return (
-        <Modal title={`Processo de Saída (Offboarding): ${collaborator.fullName}`} onClose={onClose} maxWidth="max-w-3xl">
+        // FIX: full_name
+        <Modal title={`Processo de Saída (Offboarding): ${collaborator.full_name}`} onClose={onClose} maxWidth="max-w-3xl">
             <div className="space-y-6">
                 <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg text-sm text-red-200">
                     <div className="flex items-center gap-2 font-bold mb-2">
@@ -73,7 +76,8 @@ const OffboardingModal: React.FC<OffboardingModalProps> = ({ onClose, onConfirm,
                         <ul className="list-disc list-inside bg-gray-800/50 p-3 rounded border border-gray-700 text-sm text-gray-300">
                             {assets.equipment.map(eq => (
                                 <li key={eq.id}>
-                                    <strong>{eq.description}</strong> (S/N: {eq.serialNumber})
+                                    {/* FIX: serial_number */}
+                                    <strong>{eq.description}</strong> (S/N: {eq.serial_number})
                                 </li>
                             ))}
                         </ul>
@@ -85,7 +89,7 @@ const OffboardingModal: React.FC<OffboardingModalProps> = ({ onClose, onConfirm,
                     {assets.licenses.length > 0 ? (
                         <ul className="list-disc list-inside bg-gray-800/50 p-3 rounded border border-gray-700 text-sm text-gray-300">
                             {assets.licenses.map(lic => (
-                                <li key={lic.id}>{lic.productName}</li>
+                                <li key={lic.id}>{lic.product_name}</li>
                             ))}
                         </ul>
                     ) : <p className="text-sm text-gray-500 italic">Nenhuma licença a revogar.</p>}

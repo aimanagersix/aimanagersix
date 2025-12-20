@@ -1,3 +1,3 @@
 
-# Backup types.ts v1
-O tipo ModuleKey não possuía distinção entre tickets comuns e de segurança.
+# Backup types.ts v1 (camelCase)
+Estrutura original baseada em JavaScript standard naming conventions antes da conversão para PostgreSQL Snake Case.

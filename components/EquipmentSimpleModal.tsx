@@ -22,7 +22,8 @@ const EquipmentSimpleModal: React.FC<EquipmentSimpleModalProps> = ({ equipment, 
                     </div>
                     <div className="text-center">
                         <h3 className="text-xl font-bold text-white">{equipment.description}</h3>
-                        <p className="text-sm text-gray-500 uppercase tracking-widest font-mono">S/N: {equipment.serialNumber}</p>
+                        {/* FIX: serial_number */}
+                        <p className="text-sm text-gray-500 uppercase tracking-widest font-mono">S/N: {equipment.serial_number}</p>
                     </div>
                 </div>
 
@@ -31,7 +32,8 @@ const EquipmentSimpleModal: React.FC<EquipmentSimpleModalProps> = ({ equipment, 
                         <FaNetworkWired className="text-blue-400" size={20} />
                         <div>
                             <p className="text-gray-500 uppercase text-[10px] font-bold">Nome na Rede</p>
-                            <p className="text-white font-mono">{equipment.nomeNaRede || 'Não configurado'}</p>
+                            {/* FIX: nome_na_rede */}
+                            <p className="text-white font-mono">{equipment.nome_na_rede || 'Não configurado'}</p>
                         </div>
                     </div>
 
@@ -64,7 +66,8 @@ const EquipmentSimpleModal: React.FC<EquipmentSimpleModalProps> = ({ equipment, 
                             <FaCalendarCheck className="text-blue-400" size={20} />
                             <div>
                                 <p className="text-blue-300 uppercase text-[10px] font-bold">Atribuído em</p>
-                                <p className="text-white font-bold">{new Date(assignment.assignedDate).toLocaleDateString()}</p>
+                                {/* FIX: assigned_date */}
+                                <p className="text-white font-bold">{new Date(assignment.assigned_date).toLocaleDateString()}</p>
                             </div>
                         </div>
                     )}

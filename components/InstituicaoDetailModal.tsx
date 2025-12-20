@@ -32,7 +32,8 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
     
     // Filter and Deduplicate Entities
     const relatedEntidades = useMemo(() => {
-        const filtered = entidades.filter(e => e.instituicaoId === instituicao.id);
+        // Fix: instituicaoId to instituicao_id
+        const filtered = entidades.filter(e => e.instituicao_id === instituicao.id);
         const uniqueMap = new Map();
         filtered.forEach(e => {
             if (e.codigo) {
@@ -48,7 +49,8 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
 
     // Filter collaborators belonging to entities of this institution
     const relatedCollaborators = useMemo(() => {
-        return collaborators.filter(c => c.entidadeId && relatedEntityIds.has(c.entidadeId));
+        // Fix: entidadeId to entidade_id
+        return collaborators.filter(c => c.entidade_id && relatedEntityIds.has(c.entidade_id));
     }, [collaborators, relatedEntityIds]);
 
     // Filter equipment belonging to any entity in this institution
@@ -56,17 +58,23 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
         const brandMap = new Map(brands.map(b => [b.id, b.name]));
         const typeMap = new Map(equipmentTypes.map(t => [t.id, t.name]));
         const entMap = new Map(entidades.map(e => [e.id, e.name]));
-        const collabMap = new Map(collaborators.map(c => [c.id, c.fullName]));
+        // Fix: fullName to full_name
+        const collabMap = new Map(collaborators.map(c => [c.id, c.full_name]));
 
         return assignments
-            .filter(a => a.entidadeId && relatedEntityIds.has(a.entidadeId) && !a.returnDate)
+            // Fix: entidadeId, returnDate to entidade_id, return_date
+            .filter(a => a.entidade_id && relatedEntityIds.has(a.entidade_id) && !a.return_date)
             .map(a => {
-                const eq = equipment.find(e => e.id === a.equipmentId);
+                // Fix: equipmentId to equipment_id
+                const eq = equipment.find(e => e.id === a.equipment_id);
                 return {
                     ...eq,
-                    assignmentDate: a.assignedDate,
-                    assignedToName: a.collaboratorId ? collabMap.get(a.collaboratorId) : 'Atribuído à Localização',
-                    entityName: entMap.get(a.entidadeId || '')
+                    // Fix: assignedDate to assigned_date
+                    assignmentDate: a.assigned_date,
+                    // Fix: collaboratorId to collaborator_id
+                    assignedToName: a.collaborator_id ? collabMap.get(a.collaborator_id) : 'Atribuído à Localização',
+                    // Fix: entidadeId to entidade_id
+                    entityName: entMap.get(a.entidade_id || '')
                 };
             })
             .filter(item => item.id)
@@ -75,7 +83,8 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
 
     // Calculate Total Asset Value for display
     const totalAssetValue = useMemo(() => {
-        return relatedEquipment.reduce((sum, eq) => sum + (eq.acquisitionCost || 0), 0);
+        // Fix: acquisitionCost to acquisition_cost
+        return relatedEquipment.reduce((sum, eq) => sum + (eq.acquisition_cost || 0), 0);
     }, [relatedEquipment]);
 
     const handlePrint = async () => {
@@ -102,9 +111,12 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
 
         // 3. Generate Tables
         const collaboratorRows = relatedCollaborators.map(col => {
-            const entName = entidades.find(e => e.id === col.entidadeId)?.name || 'N/A';
-            const phone = col.telemovel || col.telefoneInterno || '-';
-            const name = (col.title ? col.title + ' ' : '') + col.fullName;
+            // Fix: entidadeId to entidade_id
+            const entName = entidades.find(e => e.id === col.entidade_id)?.name || 'N/A';
+            // Fix: telefoneInterno to telefone_interno
+            const phone = col.telemovel || col.telefone_interno || '-';
+            // Fix: fullName to full_name
+            const name = (col.title ? col.title + ' ' : '') + col.full_name;
             return `
                 <tr>
                     <td>${name}</td>
@@ -120,9 +132,9 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
             <tr>
                 <td>${eq.description}</td>
                 <td>${eq.entityName}</td>
-                <td>${eq.serialNumber}</td>
+                <td>${eq.serial_number}</td>
                 <td>${eq.assignedToName}</td>
-                <td style="text-align: right;">€ ${(eq.acquisitionCost || 0).toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
+                <td style="text-align: right;">€ ${(eq.acquisition_cost || 0).toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
             </tr>
         `).join('');
 
@@ -402,7 +414,8 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                             {relatedCollaborators.length > 0 ? (
                                 <div className="space-y-2">
                                     {relatedCollaborators.map(col => {
-                                        const entName = relatedEntidades.find(e => e.id === col.entidadeId)?.name || 'N/A';
+                                        // Fix: entidadeId to entidade_id
+                                        const entName = relatedEntidades.find(e => e.id === col.entidade_id)?.name || 'N/A';
                                         return (
                                             <div 
                                                 key={col.id} 
@@ -415,7 +428,8 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-white flex items-center gap-2">
-                                                            {col.fullName}
+                                                            {/* Fix: fullName to full_name */}
+                                                            {col.full_name}
                                                             {onOpenCollaborator && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
                                                         </p>
                                                         <p className="text-xs text-gray-400">{col.email}</p>
@@ -470,9 +484,11 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                                                         {onOpenEquipment && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
                                                     </td>
                                                     <td className="px-4 py-2 text-gray-300 text-xs">{eq.entityName}</td>
-                                                    <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serialNumber}</td>
+                                                    {/* Fix: serialNumber to serial_number */}
+                                                    <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serial_number}</td>
                                                     <td className="px-4 py-2 text-gray-300">{eq.assignedToName}</td>
-                                                    <td className="px-4 py-2 text-gray-400 text-xs text-right">€ {(eq.acquisitionCost || 0).toLocaleString()}</td>
+                                                    {/* Fix: acquisitionCost to acquisition_cost */}
+                                                    <td className="px-4 py-2 text-gray-400 text-xs text-right">€ {(eq.acquisition_cost || 0).toLocaleString()}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

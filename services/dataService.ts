@@ -5,9 +5,9 @@ import { fetchSupportData, fetchTicketsPaginated } from './supportService';
 import { fetchComplianceData } from './complianceService';
 
 /**
- * Barrel Export Service
- * Este ficheiro centraliza todas as chamadas de dados para manter compatibilidade
- * com as importações existentes nos componentes (Freeze UI / Zero Refactoring).
+ * Barrel Export Service - V4.0
+ * Centraliza todas as chamadas de dados para manter compatibilidade
+ * com os componentes existentes (Freeze UI / Zero Refactoring).
  */
 
 export * from './authService';
@@ -17,7 +17,7 @@ export * from './complianceService';
 export * from './orgService';
 export * from './configService';
 
-// Helper para carregamento massivo (usado no App.tsx e hooks)
+// Helper para carregamento massivo inicial e refresh global
 export const fetchAllData = async () => {
     const results = await Promise.allSettled([
         fetchOrganizationData(), 
@@ -26,12 +26,11 @@ export const fetchAllData = async () => {
         fetchComplianceData()
     ]);
     
-    // Merge de resultados bem-sucedidos
-    let merged = {};
+    let merged: any = {};
     results.forEach(res => {
         if (res.status === 'fulfilled') {
             merged = { ...merged, ...res.value };
         }
     });
-    return merged as any;
+    return merged;
 };

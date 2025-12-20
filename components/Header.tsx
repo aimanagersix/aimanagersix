@@ -241,10 +241,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
 
             <div className="relative" ref={userMenuRef}>
                 <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-800 transition-colors">
-                    {currentUser?.photoUrl ? (
-                        <img src={currentUser.photoUrl} alt={currentUser.fullName} className="h-8 w-8 rounded-full object-cover" />
+                    {/* FIX: photo_url and full_name */}
+                    {currentUser?.photo_url ? (
+                        <img src={currentUser.photo_url} alt={currentUser.full_name} className="h-8 w-8 rounded-full object-cover" />
                     ) : (
-                        <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser?.fullName.charAt(0)}</div>
+                        <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs">{currentUser?.full_name.charAt(0)}</div>
                     )}
                     <FaChevronDown className="w-3 h-3 text-gray-500" />
                 </button>
@@ -252,7 +253,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                 {isUserMenuOpen && currentUser && (
                     <div className="absolute right-0 mt-2 w-56 rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 z-50 overflow-hidden">
                         <div className="px-4 py-3 border-b border-gray-700">
-                            <p className="text-sm text-white font-medium truncate">{currentUser.fullName}</p>
+                            {/* FIX: full_name */}
+                            <p className="text-sm text-white font-medium truncate">{currentUser.full_name}</p>
                             <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
                         </div>
                         <div className="py-1">

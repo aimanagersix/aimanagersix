@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import * as dataService from '../services/dataService';
 import { Equipment, Brand, EquipmentType, Assignment, SoftwareLicense, LicenseAssignment, ProcurementRequest, ConfigItem, SoftwareProduct, JobTitle } from '../types';

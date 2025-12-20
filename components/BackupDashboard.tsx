@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { BackupExecution, Collaborator, BackupType, Equipment } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaServer, FaSearch, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaClock, FaPaperclip } from './common/Icons';
@@ -8,7 +7,7 @@ import SortableHeader from './common/SortableHeader';
 interface BackupDashboardProps {
     backups: BackupExecution[];
     collaborators: Collaborator[];
-    equipment: Equipment[]; // Added prop
+    equipment: Equipment[];
     onEdit?: (backup: BackupExecution) => void;
     onDelete?: (id: string) => void;
     onCreate?: () => void;
@@ -38,13 +37,12 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     
-    // Sorting State
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
         key: 'test_date',
         direction: 'descending'
     });
 
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
     
     const handleSort = (key: string) => {
@@ -69,7 +67,6 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
             return searchMatch && statusMatch;
         });
         
-        // Sorting Logic
         filtered.sort((a, b) => {
             let valA: any = '';
             let valB: any = '';
@@ -112,7 +109,6 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
         return filteredBackups.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     }, [filteredBackups, currentPage, itemsPerPage]);
 
-    // Stats
     const successRate = useMemo(() => {
         if (filteredBackups.length === 0) return 0;
         const successCount = filteredBackups.filter(b => b.status === 'Sucesso').length;
@@ -154,7 +150,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Pesquisar sistema, equipamento..."
-                        className="w-full bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm"
+                        className="w-full bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
                 <select
@@ -194,7 +190,7 @@ const BackupDashboard: React.FC<BackupDashboardProps> = ({ backups, collaborator
                                     {linkedEquipment ? (
                                         <div>
                                             <span className="block text-indigo-300">{linkedEquipment.description}</span>
-                                            <span className="text-xs text-gray-500">S/N: {linkedEquipment.serialNumber}</span>
+                                            <span className="text-xs text-gray-500">S/N: {linkedEquipment.serial_number}</span>
                                         </div>
                                     ) : (
                                         <span>{backup.system_name}</span>

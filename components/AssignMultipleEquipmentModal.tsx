@@ -9,7 +9,8 @@ interface AssignMultipleEquipmentModalProps {
     escolasDepartamentos: Entidade[];
     collaborators: Collaborator[];
     onClose: () => void;
-    onAssign: (assignment: { entidadeId: string, collaboratorId?: string, assignedDate: string }) => void;
+    // FIX: entidade_id, collaborator_id, assigned_date
+    onAssign: (assignment: { entidade_id: string, collaborator_id?: string, assigned_date: string }) => void;
 }
 
 const AssignMultipleEquipmentModal: React.FC<AssignMultipleEquipmentModalProps> = ({ equipmentList, brandMap, equipmentTypeMap, escolasDepartamentos: entidades, collaborators, onClose, onAssign }) => {
@@ -18,7 +19,8 @@ const AssignMultipleEquipmentModal: React.FC<AssignMultipleEquipmentModalProps> 
 
     const filteredCollaborators = useMemo(() => {
         if (!selectedEntidadeId) return [];
-        return collaborators.filter(c => c.entidadeId === selectedEntidadeId);
+        // FIX: entidade_id
+        return collaborators.filter(c => c.entidade_id === selectedEntidadeId);
     }, [selectedEntidadeId, collaborators]);
 
     useEffect(() => {
@@ -34,10 +36,11 @@ const AssignMultipleEquipmentModal: React.FC<AssignMultipleEquipmentModalProps> 
             alert("Por favor, selecione uma entidade.");
             return;
         }
+        // FIX: entidade_id, collaborator_id, assigned_date
         onAssign({
-            entidadeId: selectedEntidadeId,
-            collaboratorId: selectedCollaboratorId || undefined,
-            assignedDate: new Date().toISOString().split('T')[0],
+            entidade_id: selectedEntidadeId,
+            collaborator_id: selectedCollaboratorId || undefined,
+            assigned_date: new Date().toISOString().split('T')[0],
         });
     };
 
@@ -50,9 +53,10 @@ const AssignMultipleEquipmentModal: React.FC<AssignMultipleEquipmentModalProps> 
                         {equipmentList.map(equipment => (
                             <li key={equipment.id} className="text-on-surface-dark-secondary">
                                 <span className="font-semibold text-on-surface-dark">
-                                    {brandMap.get(equipment.brandId) || 'N/A'} {equipmentTypeMap.get(equipment.typeId) || 'N/A'}
+                                    {/* FIX: brand_id, type_id, serial_number */}
+                                    {brandMap.get(equipment.brand_id) || 'N/A'} {equipmentTypeMap.get(equipment.type_id) || 'N/A'}
                                 </span>
-                                ({equipment.serialNumber})
+                                ({equipment.serial_number})
                             </li>
                         ))}
                     </ul>
@@ -85,7 +89,8 @@ const AssignMultipleEquipmentModal: React.FC<AssignMultipleEquipmentModalProps> 
                              <option value="">-- Atribuir apenas à Localização --</option>
                              {filteredCollaborators.length > 0 ? (
                                 filteredCollaborators.map(collaborator => (
-                                    <option key={collaborator.id} value={collaborator.id}>{collaborator.fullName}</option>
+                                    // FIX: full_name
+                                    <option key={collaborator.id} value={collaborator.id}>{collaborator.full_name}</option>
                                 ))
                             ) : (
                                 <option value="" disabled>Nenhum colaborador nesta entidade</option>

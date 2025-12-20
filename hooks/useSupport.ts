@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import * as dataService from '../services/dataService';
 import { Ticket, TicketCategoryItem, SecurityIncidentTypeItem, Team, TeamMember, CalendarEvent, TicketActivity, Message, ConfigItem } from '../types';

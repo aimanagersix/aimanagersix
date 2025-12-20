@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, ConfigItem, TrainingType, Instituicao, Entidade } from '../types';
@@ -44,7 +45,8 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
 
     const filteredEntidades = useMemo(() => {
         if (!filterInstituicao) return entidades;
-        return entidades.filter(e => e.instituicaoId === filterInstituicao);
+        // Fix: instituicaoId to instituicao_id
+        return entidades.filter(e => e.instituicao_id === filterInstituicao);
     }, [entidades, filterInstituicao]);
 
     useEffect(() => {
@@ -56,21 +58,26 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
         let collabs = collaborators.filter(c => c.status === 'Ativo');
 
         if (filterEntidade) {
-            collabs = collabs.filter(c => c.entidadeId === filterEntidade);
+            // Fix: entidadeId to entidade_id
+            collabs = collabs.filter(c => c.entidade_id === filterEntidade);
         } else if (filterInstituicao) {
-            const entityIdsInInst = new Set(entidades.filter(e => e.instituicaoId === filterInstituicao).map(e => e.id));
-            collabs = collabs.filter(c => c.entidadeId && entityIdsInInst.has(c.entidadeId));
+            // Fix: instituicaoId to instituicao_id
+            const entityIdsInInst = new Set(entidades.filter(e => e.instituicao_id === filterInstituicao).map(e => e.id));
+            // Fix: entidadeId to entidade_id
+            collabs = collabs.filter(c => c.entidade_id && entityIdsInInst.has(c.entidade_id));
         }
         
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
+            // Fix: fullName to full_name
             collabs = collabs.filter(c => 
-                c.fullName.toLowerCase().includes(query) || 
+                c.full_name.toLowerCase().includes(query) || 
                 c.email.toLowerCase().includes(query)
             );
         }
         
-        return collabs.sort((a,b) => a.fullName.localeCompare(b.fullName));
+        // Fix: fullName to full_name
+        return collabs.sort((a,b) => a.full_name.localeCompare(b.full_name));
     }, [collaborators, searchQuery, filterInstituicao, filterEntidade, entidades]);
 
     const toggleCollaborator = (id: string) => {
@@ -241,7 +248,8 @@ const AddTrainingSessionModal: React.FC<AddTrainingSessionModalProps> = ({ onClo
                                     className="rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary mr-3"
                                 />
                                 <div className="flex-grow">
-                                    <p className="text-sm text-white font-medium">{col.fullName}</p>
+                                    {/* Fix: fullName to full_name */}
+                                    <p className="text-sm text-white font-medium">{col.full_name}</p>
                                     <p className="text-xs text-gray-400">{col.email}</p>
                                 </div>
                                 {selectedCollaborators.has(col.id) && <FaCheck className="text-green-400 text-xs"/>}

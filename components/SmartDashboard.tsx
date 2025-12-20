@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { Ticket, TicketStatus, CriticalityLevel, Vulnerability, VulnerabilityStatus, BackupExecution, SecurityTrainingRecord, Collaborator, UserRole, Equipment, EquipmentStatus } from '../types';
 import { FaShieldAlt, FaTachometerAlt, FaExclamationTriangle, FaCheckCircle, FaUserShield, FaFileSignature, FaSpinner, FaEuroSign, FaChartLine, FaServer, FaGraduationCap } from './common/Icons';
@@ -31,21 +30,18 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
         loadExtraData();
     }, []);
 
-    // 1. Incident Response
     const openCriticalIncidents = useMemo(() => tickets.filter(t => 
-        (t.category === 'Incidente de Segurança' || t.securityIncidentType) && 
-        (t.impactCriticality === CriticalityLevel.Critical || t.impactCriticality === CriticalityLevel.High) &&
+        (t.category === 'Incidente de Segurança' || t.security_incident_type) && 
+        (t.impact_criticality === CriticalityLevel.Critical || t.impact_criticality === CriticalityLevel.High) &&
         t.status !== TicketStatus.Finished
     ).length, [tickets]);
 
-    // 2. Vulnerability Status
     const unmitigatedCriticalVulns = useMemo(() => vulnerabilities.filter(v => 
         v.severity === CriticalityLevel.Critical && 
         v.status !== VulnerabilityStatus.Resolved && 
         v.status !== VulnerabilityStatus.Mitigated
     ).length, [vulnerabilities]);
 
-    // 3. Backup Health
     const backupSuccessRate = useMemo(() => {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -55,26 +51,24 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
         return Math.round((successes / recentBackups.length) * 100);
     }, [backups]);
 
-    // 4. Training Coverage
     const trainingCoverage = useMemo(() => {
         if (collaborators.length === 0) return 0;
         const trainedUserIds = new Set(trainings.map(t => t.collaborator_id));
         return Math.round((trainedUserIds.size / collaborators.length) * 100);
     }, [collaborators, trainings]);
 
-    // 5. FinOps Data
     const finOpsData = useMemo(() => {
         let totalAcquisition = 0;
         let totalCurrentValue = 0;
 
         equipment.forEach(eq => {
-            const cost = eq.acquisitionCost || 0;
+            const cost = eq.acquisition_cost || 0;
             totalAcquisition += cost;
             
-            if (eq.status !== EquipmentStatus.Retirado && eq.status !== EquipmentStatus.Abate && eq.purchaseDate) {
-                const purchaseDate = new Date(eq.purchaseDate);
+            if (eq.status !== EquipmentStatus.Retirado && eq.status !== EquipmentStatus.Abate && eq.purchase_date) {
+                const purchaseDate = new Date(eq.purchase_date);
                 const ageInYears = (new Date().getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-                const lifespan = eq.expectedLifespanYears || 4;
+                const lifespan = eq.expected_lifespan_years || 4;
                 const annualDepreciation = cost / lifespan;
                 const accumulatedDepreciation = Math.min(annualDepreciation * ageInYears, cost);
                 totalCurrentValue += Math.max(cost - accumulatedDepreciation, 0);
@@ -106,15 +100,13 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
             <div className="flex justify-between items-center border-b border-gray-700 pb-4">
                 <div>
                     <h2 className="text-2xl font-bold text-white flex items-center gap-3"><FaTachometerAlt className="text-purple-500" /> C-Level Dashboard</h2>
-                    <p className="text-on-surface-dark-secondary text-sm mt-1">Supervisão Executiva NIS2 / Governance.</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
+                <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 flex flex-col items-center justify-center text-center shadow-2xl">
                     <h3 className="text-gray-400 uppercase tracking-widest text-xs mb-4">Compliance Score</h3>
                     <div className={`text-6xl font-black mb-2 ${complianceScore >= 80 ? 'text-green-500' : 'text-yellow-500'}`}>{complianceScore}%</div>
-                    <p className="text-xs text-gray-500 mt-2">Algoritmo de Risco Dinâmico</p>
                 </div>
 
                 <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -128,44 +120,29 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ tickets, vulnerabilitie
                     </div>
                     <div className="p-4 rounded-lg border bg-gray-800/30 border-gray-700">
                         <p className="text-gray-400 text-xs uppercase">Sucesso Backups (30d)</p>
-                        <div className="flex items-center gap-2">
-                            <FaServer className={backupSuccessRate >= 90 ? 'text-green-400' : 'text-yellow-400'} />
-                            <p className={`text-2xl font-bold ${backupSuccessRate >= 90 ? 'text-green-400' : 'text-yellow-400'}`}>{backupSuccessRate}%</p>
-                        </div>
+                        <p className={`text-2xl font-bold ${backupSuccessRate >= 90 ? 'text-green-400' : 'text-yellow-400'}`}>{backupSuccessRate}%</p>
                     </div>
                     <div className="p-4 rounded-lg border bg-gray-800/30 border-gray-700">
                         <p className="text-gray-400 text-xs uppercase">Cobertura Formação</p>
-                        <div className="flex items-center gap-2">
-                            <FaGraduationCap className={trainingCoverage >= 80 ? 'text-green-400' : 'text-yellow-400'} />
-                            <p className={`text-2xl font-bold ${trainingCoverage >= 80 ? 'text-green-400' : 'text-yellow-400'}`}>{trainingCoverage}%</p>
-                        </div>
+                        <p className={`text-2xl font-bold ${trainingCoverage >= 80 ? 'text-green-400' : 'text-yellow-400'}`}>{trainingCoverage}%</p>
                     </div>
                 </div>
             </div>
 
-            {/* Financial Overview Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-5 rounded-lg border bg-gray-800/30 border-gray-700 flex items-center justify-between">
                     <div>
-                        <p className="text-gray-400 text-xs uppercase font-bold tracking-wider">CAPEX (Aquisição Total)</p>
-                        <p className="text-3xl font-black text-white mt-1">
-                            {finOpsData.capex.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
-                        </p>
+                        <p className="text-gray-400 text-xs uppercase font-bold tracking-wider">CAPEX</p>
+                        <p className="text-3xl font-black text-white mt-1">{finOpsData.capex.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
                     </div>
-                    <div className="p-3 bg-blue-900/30 text-blue-400 rounded-full">
-                        <FaEuroSign className="text-2xl" />
-                    </div>
+                    <div className="p-3 bg-blue-900/30 text-blue-400 rounded-full"><FaEuroSign className="text-2xl" /></div>
                 </div>
                 <div className="p-5 rounded-lg border bg-gray-800/30 border-gray-700 flex items-center justify-between">
                     <div>
-                        <p className="text-gray-400 text-xs uppercase font-bold tracking-wider">Valor Atual (Depreciado)</p>
-                        <p className="text-3xl font-black text-green-400 mt-1">
-                            {finOpsData.currentValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
-                        </p>
+                        <p className="text-gray-400 text-xs uppercase font-bold tracking-wider">Valor Atual</p>
+                        <p className="text-3xl font-black text-green-400 mt-1">{finOpsData.currentValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
                     </div>
-                    <div className="p-3 bg-green-900/30 text-green-400 rounded-full">
-                        <FaChartLine className="text-2xl" />
-                    </div>
+                    <div className="p-3 bg-green-900/30 text-green-400 rounded-full"><FaChartLine className="text-2xl" /></div>
                 </div>
             </div>
 

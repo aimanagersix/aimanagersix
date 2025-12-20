@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Ticket, TicketActivity, Collaborator, TicketStatus, Equipment, EquipmentType, Entidade, Assignment } from '../types';
@@ -15,7 +14,8 @@ interface TicketActivitiesModalProps {
     equipmentTypes: EquipmentType[];
     entidades: Entidade[];
     onClose: () => void;
-    onAddActivity: (activity: { description: string, equipmentId?: string }) => Promise<void>;
+    // FIX: equipment_id
+    onAddActivity: (activity: { description: string, equipment_id?: string }) => Promise<void>;
     assignments: Assignment[];
 }
 
@@ -25,24 +25,28 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
     const [isLoadingActivities, setIsLoadingActivities] = useState(false);
 
     const [newActivityDescription, setNewActivityDescription] = useState('');
-    const [selectedEquipmentId, setSelectedEquipmentId] = useState(ticket.equipmentId || '');
+    // FIX: equipment_id
+    const [selectedEquipmentId, setSelectedEquipmentId] = useState(ticket.equipment_id || '');
     const [error, setError] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    // FIX: full_name
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
     
     const availableEquipment = useMemo(() => {
-        const entity = entidades.find(e => e.id === ticket.entidadeId);
+        // FIX: entidade_id, collaborator_id
+        const entity = entidades.find(e => e.id === ticket.entidade_id);
         if (!entity) return [];
         return equipment.filter(e => {
-            const currentAssignment = assignments.find(a => a.equipmentId === e.id && !a.returnDate);
+            // FIX: equipment_id, return_date, collaborator_id, entidade_id
+            const currentAssignment = assignments.find(a => a.equipment_id === e.id && !a.return_date);
             return currentAssignment && (
-                currentAssignment.collaboratorId === ticket.collaboratorId ||
-                currentAssignment.entidadeId === ticket.entidadeId
+                currentAssignment.collaborator_id === ticket.collaborator_id ||
+                currentAssignment.entidade_id === ticket.entidade_id
             );
         });
-    }, [equipment, assignments, ticket.entidadeId, ticket.collaboratorId, entidades]);
+    }, [equipment, assignments, ticket.entidade_id, ticket.collaborator_id, entidades]);
 
     // Fetch activities on mount and update local state
     const fetchActivities = async () => {
@@ -73,7 +77,8 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         try {
             await onAddActivity({ 
                 description: newActivityDescription,
-                equipmentId: selectedEquipmentId || undefined,
+                // FIX: equipment_id
+                equipment_id: selectedEquipmentId || undefined,
             });
 
             // Pedido 1: Lógica de automação de estado no primeiro registo
@@ -82,8 +87,9 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                 
                 // Pedido 1: Enviar notificação automática por mensagem
                 await dataService.addMessage({
-                    senderId: currentUser?.id || '00000000-0000-0000-0000-000000000000',
-                    receiverId: ticket.collaboratorId,
+                    // FIX: sender_id, receiver_id, collaborator_id
+                    sender_id: currentUser?.id || '00000000-0000-0000-0000-000000000000',
+                    receiver_id: ticket.collaborator_id,
                     content: `Nova resposta ao seu pedido #${ticket.id.substring(0,8)}: O estado foi alterado para "Em progresso".`,
                     timestamp: new Date().toISOString(),
                     read: false
@@ -100,9 +106,10 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         }
     };
 
-    const requesterName = collaboratorMap.get(ticket.collaboratorId) || 'Desconhecido';
-    const associatedEquipment = ticket.equipmentId ? equipmentMap.get(ticket.equipmentId) : null;
-    const entidadeName = entidades.find(e => e.id === ticket.entidadeId)?.name || 'Entidade Desconhecida';
+    // FIX: collaborator_id, equipment_id, entidade_id, serial_number
+    const requesterName = collaboratorMap.get(ticket.collaborator_id) || 'Desconhecido';
+    const associatedEquipment = ticket.equipment_id ? equipmentMap.get(ticket.equipment_id) : null;
+    const entidadeName = entidades.find(e => e.id === ticket.entidade_id)?.name || 'Entidade Desconhecida';
     
     // Use localActivities instead of props
     const sortedActivities = useMemo(() => {
@@ -142,17 +149,19 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
         }
 
 
+        // FIX: technician_id, equipment_id, serial_number
         const activitiesHtml = sortedActivities.map(act => `
             <div class="activity-item">
                 <div class="activity-header">
-                    <span class="technician">${collaboratorMap.get(act.technicianId) || 'Técnico'}</span>
+                    <span class="technician">${collaboratorMap.get(act.technician_id) || 'Técnico'}</span>
                     <span class="date">${new Date(act.date).toLocaleString()}</span>
                 </div>
                 <div class="description">${act.description}</div>
-                ${act.equipmentId ? `<div class="equipment-ref">Equipamento: ${equipmentMap.get(act.equipmentId)?.description} (${equipmentMap.get(act.equipmentId)?.serialNumber})</div>` : ''}
+                ${act.equipment_id ? `<div class="equipment-ref">Equipamento: ${equipmentMap.get(act.equipment_id)?.description} (${equipmentMap.get(act.equipment_id)?.serial_number})</div>` : ''}
             </div>
         `).join('');
 
+        // FIX: request_date, serial_number
         const content = `
             <!DOCTYPE html>
             <html>
@@ -195,7 +204,7 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                         </div>
                         <div class="info-group">
                             <span class="label">Data do Pedido</span>
-                            <span class="value">${new Date(ticket.requestDate).toLocaleString()}</span>
+                            <span class="value">${new Date(ticket.request_date).toLocaleString()}</span>
                         </div>
                         <div class="info-group">
                             <span class="label">Estado Atual</span>
@@ -214,7 +223,7 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                         ${associatedEquipment ? `
                         <div class="info-group">
                             <span class="label">Equipamento</span>
-                            <span class="value">${associatedEquipment.description} (${associatedEquipment.serialNumber})</span>
+                            <span class="value">${associatedEquipment.description} (${associatedEquipment.serial_number})</span>
                         </div>` : ''}
                     </div>
                 </div>
@@ -271,9 +280,10 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
 
                 {associatedEquipment && (
                      <div>
+                        {/* FIX: serial_number */}
                         <h3 className="font-semibold text-on-surface-dark mb-1">Equipamento Intervencionado:</h3>
                         <p className="p-3 bg-gray-900/50 rounded-md text-on-surface-dark-secondary text-sm">
-                            {associatedEquipment.description} (S/N: {associatedEquipment.serialNumber})
+                            {associatedEquipment.description} (S/N: {associatedEquipment.serial_number})
                         </p>
                     </div>
                 )}
@@ -306,21 +316,23 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                                 value={newActivityDescription}
                                 onChange={(e) => setNewActivityDescription(e.target.value)}
                                 rows={3}
-                                placeholder={`Descreva o trabalho realizado por ${currentUser?.fullName}...`}
+                                // FIX: full_name
+                                placeholder={`Descreva o trabalho realizado por ${currentUser?.full_name}...`}
                                 className={`w-full bg-gray-700 border text-white rounded-md p-2 text-sm ${error ? 'border-red-500' : 'border-gray-600'}`}
                             ></textarea>
                             {availableEquipment.length > 0 && (
                                 <div>
-                                    <label htmlFor="equipmentId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipamento Intervencionado (Opcional)</label>
+                                    {/* FIX: serial_number */}
+                                    <label htmlFor="equipment_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipamento Intervencionado (Opcional)</label>
                                     <select
-                                        id="equipmentId"
+                                        id="equipment_id"
                                         value={selectedEquipmentId}
                                         onChange={(e) => setSelectedEquipmentId(e.target.value)}
                                         className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
                                     >
                                         <option value="">Nenhum específico</option>
                                         {availableEquipment.map(eq => (
-                                            <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
+                                            <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serial_number})</option>
                                         ))}
                                     </select>
                                 </div>
@@ -349,12 +361,13 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                     ) : sortedActivities.length > 0 ? (
                         <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
                             {sortedActivities.map(activity => {
-                                const activityEquipment = activity.equipmentId ? equipmentMap.get(activity.equipmentId) : null;
+                                // FIX: equipment_id, serial_number, technician_id
+                                const activityEquipment = activity.equipment_id ? equipmentMap.get(activity.equipment_id) : null;
                                 return (
                                 <div key={activity.id} className="p-3 bg-surface-dark rounded-lg border border-gray-700">
                                     <div className="flex justify-between items-center mb-1">
                                         <p className="font-semibold text-brand-secondary text-sm">
-                                            {collaboratorMap.get(activity.technicianId) || 'Técnico Desconhecido'}
+                                            {collaboratorMap.get(activity.technician_id) || 'Técnico Desconhecido'}
                                         </p>
                                         <p className="text-xs text-on-surface-dark-secondary">
                                             {new Date(activity.date).toLocaleString()}
@@ -363,7 +376,7 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({ ticket, a
                                     <p className="text-sm text-on-surface-dark">{activity.description}</p>
                                     {activityEquipment && (
                                         <p className="text-xs text-indigo-400 mt-2 border-t border-gray-700/50 pt-2">
-                                            <strong>Equipamento:</strong> {activityEquipment.description} (S/N: {activityEquipment.serialNumber})
+                                            <strong>Equipamento:</strong> {activityEquipment.description} (S/N: {activityEquipment.serial_number})
                                         </p>
                                     )}
                                 </div>

@@ -39,14 +39,16 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
             if (currentMemberIds.has(collaborator.id)) {
                 members.push(collaborator);
             } else {
-                if (searchQuery === '' || collaborator.fullName.toLowerCase().includes(searchQuery.toLowerCase())) {
+                // FIX: Updated property names to snake_case
+                if (searchQuery === '' || collaborator.full_name.toLowerCase().includes(searchQuery.toLowerCase())) {
                     available.push(collaborator);
                 }
             }
         });
         
-        members.sort((a,b) => a.fullName.localeCompare(b.fullName));
-        available.sort((a,b) => a.fullName.localeCompare(b.fullName));
+        // FIX: Updated property names to snake_case
+        members.sort((a,b) => a.full_name.localeCompare(b.full_name));
+        available.sort((a,b) => a.full_name.localeCompare(b.full_name));
 
         return { teamMembersList: members, availableCollaborators: available };
     }, [allCollaborators, currentMemberIds, searchQuery]);
@@ -134,7 +136,8 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
                             {availableCollaborators.length > 0 ? (
                                 availableCollaborators.map(col => (
                                     <div key={col.id} className="flex items-center justify-between p-2 bg-surface-dark rounded-md border border-gray-700 hover:bg-gray-700 transition-colors">
-                                        <span className="text-sm truncate mr-2" title={col.fullName}>{col.fullName}</span>
+                                        {/* FIX: Updated property names to snake_case */}
+                                        <span className="text-sm truncate mr-2" title={col.full_name}>{col.full_name}</span>
                                         <button 
                                             onClick={() => addMember(col.id)} 
                                             className="p-1.5 text-green-400 hover:bg-green-500/20 rounded-full transition-colors"
@@ -167,7 +170,8 @@ const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({ onClose
                                         >
                                             <FaChevronLeft />
                                         </button>
-                                        <span className="text-sm truncate ml-2" title={col.fullName}>{col.fullName}</span>
+                                        {/* FIX: Updated property names to snake_case */}
+                                        <span className="text-sm truncate ml-2" title={col.full_name}>{col.full_name}</span>
                                     </div>
                                 ))
                             ) : (

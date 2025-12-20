@@ -30,11 +30,16 @@ export const fetchComplianceData = async () => {
         sb().from('config_resilience_test_types').select('*')
     ]);
     return {
-        businessServices: results[0].data || [], serviceDependencies: results[1].data || [], 
-        vulnerabilities: results[2].data || [], backupExecutions: results[3].data || [], 
-        resilienceTests: results[4].data || [], securityTrainings: results[5].data || [], 
-        policies: results[6].data || [], policyAcceptances: results[7].data || [], 
-        continuityPlans: results[8].data || [], configTrainingTypes: results[9].data || [],
+        businessServices: results[0].data || [], 
+        serviceDependencies: results[1].data || [], 
+        vulnerabilities: results[2].data || [], 
+        backupExecutions: results[3].data || [], 
+        resilienceTests: results[4].data || [], 
+        securityTrainings: results[5].data || [], 
+        policies: results[6].data || [], 
+        policyAcceptances: results[7].data || [], 
+        continuityPlans: results[8].data || [], 
+        configTrainingTypes: results[9].data || [],
         configCriticalityLevels: results[10].data || [],
         configCiaRatings: results[11].data || [],
         configServiceStatuses: results[12].data || [],
@@ -43,21 +48,21 @@ export const fetchComplianceData = async () => {
     };
 };
 
-export const addBusinessService = async (svc: any) => { const { data, error } = await sb().from('business_services').insert(cleanPayload(svc)).select().single(); if (error) throw error; return data; };
-export const updateBusinessService = async (id: string, updates: any) => { const { data, error } = await sb().from('business_services').update(cleanPayload(updates)).eq('id', id).select().single(); if (error) throw error; return data; };
-export const deleteBusinessService = async (id: string) => { const { error } = await sb().from('business_services').delete().eq('id', id); if (error) throw error; };
-export const addServiceDependency = async (dep: any) => { const { error } = await sb().from('service_dependencies').insert(cleanPayload(dep)); if (error) throw error; };
-export const deleteServiceDependency = async (id: string) => { const { error } = await sb().from('service_dependencies').delete().eq('id', id); if (error) throw error; };
-export const addVulnerability = async (vuln: any) => { const { data, error } = await sb().from('vulnerabilities').insert(cleanPayload(vuln)).select().single(); if (error) throw error; return data; };
-export const updateVulnerability = async (id: string, updates: any) => { const { data, error } = await sb().from('vulnerabilities').update(cleanPayload(updates)).eq('id', id).select().single(); if (error) throw error; return data; };
-export const deleteVulnerability = async (id: string) => { const { error } = await sb().from('vulnerabilities').delete().eq('id', id); if (error) throw error; };
-export const addBackupExecution = async (b: any) => { const { data, error } = await sb().from('backup_executions').insert(cleanPayload(b)).select().single(); if (error) throw error; return data; };
-export const updateBackupExecution = async (id: string, updates: any) => { const { data, error } = await sb().from('backup_executions').update(cleanPayload(updates)).eq('id', id).select().single(); if (error) throw error; return data; };
-export const deleteBackupExecution = async (id: string) => { const { error } = await sb().from('backup_executions').delete().eq('id', id); if (error) throw error; };
-export const addResilienceTest = async (t: any) => { const { data, error } = await sb().from('resilience_tests').insert(cleanPayload(t)).select().single(); if (error) throw error; return data; };
-export const updateResilienceTest = async (id: string, updates: any) => { const { data, error } = await sb().from('resilience_tests').update(cleanPayload(updates)).eq('id', id).select().single(); if (error) throw error; return data; };
-export const deleteResilienceTest = async (id: string) => { const { error } = await sb().from('resilience_tests').delete().eq('id', id); if (error) throw error; };
-export const addSecurityTraining = async (t: any) => { const { data, error } = await sb().from('security_trainings').insert(cleanPayload(t)).select().single(); if (error) throw error; return data; };
+export const addBusinessService = async (svc: any) => { const { data } = await sb().from('business_services').insert(cleanPayload(svc)).select().single(); return data; };
+export const updateBusinessService = async (id: string, updates: any) => { await sb().from('business_services').update(cleanPayload(updates)).eq('id', id); };
+export const deleteBusinessService = async (id: string) => { await sb().from('business_services').delete().eq('id', id); };
+export const addServiceDependency = async (dep: any) => { await sb().from('service_dependencies').insert(cleanPayload(dep)); };
+export const deleteServiceDependency = async (id: string) => { await sb().from('service_dependencies').delete().eq('id', id); };
+export const addVulnerability = async (vuln: any) => { const { data } = await sb().from('vulnerabilities').insert(cleanPayload(vuln)).select().single(); return data; };
+export const updateVulnerability = async (id: string, updates: any) => { await sb().from('vulnerabilities').update(cleanPayload(updates)).eq('id', id); };
+export const deleteVulnerability = async (id: string) => { await sb().from('vulnerabilities').delete().eq('id', id); };
+export const addBackupExecution = async (b: any) => { const { data } = await sb().from('backup_executions').insert(cleanPayload(b)).select().single(); return data; };
+export const updateBackupExecution = async (id: string, updates: any) => { await sb().from('backup_executions').update(cleanPayload(updates)).eq('id', id); };
+export const deleteBackupExecution = async (id: string) => { await sb().from('backup_executions').delete().eq('id', id); };
+export const addResilienceTest = async (t: any) => { const { data } = await sb().from('resilience_tests').insert(cleanPayload(t)).select().single(); return data; };
+export const updateResilienceTest = async (id: string, updates: any) => { await sb().from('resilience_tests').update(cleanPayload(updates)).eq('id', id); };
+export const deleteResilienceTest = async (id: string) => { await sb().from('resilience_tests').delete().eq('id', id); };
+export const addSecurityTraining = async (t: any) => { await sb().from('security_trainings').insert(cleanPayload(t)); };
 export const addPolicy = async (p: any) => { await sb().from('policies').insert(cleanPayload(p)); };
 export const updatePolicy = async (id: string, updates: any) => { await sb().from('policies').update(cleanPayload(updates)).eq('id', id); };
 export const deletePolicy = async (id: string) => { await sb().from('policies').delete().eq('id', id); };

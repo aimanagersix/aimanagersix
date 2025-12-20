@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, ResourceContact } from '../types';
-import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic } from 'react-icons/fa';
+// Added FaSave to imports
+import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic, FaSave } from 'react-icons/fa';
 // FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
 import { SearchIcon, SpinnerIcon, FaTrash as DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
 import { ContactList } from './common/ContactList'; // Import generic contact list
@@ -43,6 +44,7 @@ const extractDomain = (url: string): string => {
 const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, supplierToEdit, teams = [], onCreateTicket, businessServices = [] }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'contacts' | 'contracts'>('details');
     
+    // FIX: Removed 'address' from formData to match Supplier interface in types.ts
     const [formData, setFormData] = useState<Partial<Supplier>>({
         name: '',
         contact_name: '',
@@ -50,7 +52,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         contact_phone: '',
         nif: '',
         website: '',
-        address: '', // Legacy
         address_line: '',
         postal_code: '',
         city: '',
@@ -103,7 +104,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             setFormData({ 
                 ...supplierToEdit, 
                 iso_certificate_expiry: supplierToEdit.iso_certificate_expiry || '',
-                address_line: supplierToEdit.address_line || supplierToEdit.address || '',
+                // FIX: Map address to address_line for consistency
+                address_line: supplierToEdit.address_line || (supplierToEdit as any).address || '',
                 postal_code: supplierToEdit.postal_code || '',
                 city: supplierToEdit.city || '',
                 locality: supplierToEdit.locality || '',
@@ -425,7 +427,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     const ticketPayload: Partial<Ticket> = {
                         title: `Renovação Certificado ISO 27001: ${formData.name}`,
                         description: `O certificado ISO 27001 do fornecedor ${formData.name} expira em ${formData.iso_certificate_expiry}. Por favor iniciar processo de renovação ou solicitar novo certificado.`,
-                        requestDate: requestDate,
+                        // FIX: Updated property name to snake_case
+                        request_date: requestDate,
                         status: TicketStatus.Requested,
                         team_id: ticketTeamId,
                         category: 'Manutenção'
@@ -468,27 +471,29 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             <div className="flex flex-col h-[80vh]">
                 <div className="flex border-b border-gray-700 mb-4">
                     <button 
+                        type="button"
                         onClick={() => setActiveTab('details')} 
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         Detalhes Gerais
                     </button>
                     <button 
+                        type="button"
                         onClick={() => setActiveTab('contacts')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         Pessoas de Contacto
                     </button>
                     <button 
+                        type="button"
                         onClick={() => setActiveTab('contracts')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         Contratos & DORA
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2">
-                    {/* ... (Existing tab content rendering logic remains unchanged) ... */}
                     {activeTab === 'details' && (
                     <div className="space-y-4">
                         {/* Header Info - Grid Layout Fixed */}
@@ -758,226 +763,118 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                     </button>
                                 </div>
                             </div>
-
-                            <button 
-                                type="button" 
-                                onClick={generateEmailTemplate} 
-                                className="text-xs flex items-center gap-2 text-brand-secondary hover:text-white transition-colors mb-4"
-                            >
-                                <FaCopy /> Copiar Modelo de Email para Pedido de Evidências
-                            </button>
                         </div>
 
-                        {/* Attachments */}
-                        <div>
-                            <label className="block text-sm font-medium text-on-surface-dark-secondary mb-2">Anexos (Certificados, Relatórios)</label>
-                            <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                        {/* Attachments Section */}
+                        <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700">
+                            <label className="block text-sm font-medium text-white mb-2">Ficheiros e Documentos (PDF, Imagens)</label>
+                            <div className="bg-gray-800 p-3 rounded border border-gray-600">
                                 {attachments.length > 0 && (
                                     <ul className="space-y-2 mb-3">
                                         {attachments.map((file, index) => (
-                                            <li key={index} className="flex justify-between items-center text-sm p-2 bg-surface-dark rounded-md">
-                                                <span className="truncate text-on-surface-dark-secondary">
-                                                    {file.name}
-                                                    {file.size > 0 && <span className="text-xs ml-2 text-gray-400">({formatFileSize(file.size)})</span>}
-                                                </span>
-                                                <div className="flex gap-2">
-                                                    {file.size === 0 && ( // Existing file from DB
-                                                        <a href={file.dataUrl} download={file.name} className="text-brand-secondary hover:text-white" title="Download">
-                                                            <FaDownload />
-                                                        </a>
-                                                    )}
-                                                    <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 ml-2">
-                                                        <DeleteIcon className="h-4 w-4" />
-                                                    </button>
+                                            <li key={index} className="flex justify-between items-center text-xs p-2 bg-surface-dark rounded-md">
+                                                <span className="truncate text-gray-300">{file.name}</span>
+                                                <div className="flex items-center gap-2">
+                                                    {file.size > 0 && <span className="text-[10px] text-gray-500">{formatFileSize(file.size)}</span>}
+                                                    <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 p-1"><DeleteIcon className="h-4 w-4" /></button>
                                                 </div>
                                             </li>
                                         ))}
                                     </ul>
                                 )}
-                                <input
-                                    type="file"
-                                    multiple
-                                    ref={fileInputRef}
-                                    onChange={handleFileSelect}
-                                    className="hidden"
-                                    accept="application/pdf,image/*"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={attachments.length >= MAX_FILES}
-                                    className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    <FaFileContract />
-                                    {`Anexar Documentos (${attachments.length}/${MAX_FILES})`}
+                                <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf" />
+                                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={attachments.length >= MAX_FILES} className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors border border-dashed border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    + Anexar Documento ({attachments.length}/{MAX_FILES})
                                 </button>
                             </div>
                         </div>
 
                         <div>
-                            <label htmlFor="notes" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Notas Internas</label>
-                            <textarea name="notes" id="notes" value={formData.notes} onChange={handleChange} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"></textarea>
+                            <label htmlFor="notes" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Notas / Observações</label>
+                            <textarea name="notes" id="notes" value={formData.notes} onChange={handleChange} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"></textarea>
                         </div>
                     </div>
                     )}
 
                     {activeTab === 'contacts' && (
-                        <ContactList 
-                            contacts={formData.contacts || []} 
-                            onChange={handleContactsChange} 
-                            resourceType="supplier"
-                        />
+                        <div className="animate-fade-in h-full">
+                            <ContactList contacts={formData.contacts || []} onChange={handleContactsChange} resourceType="supplier" />
+                        </div>
                     )}
 
                     {activeTab === 'contracts' && (
-                        <div className="space-y-6 p-1">
+                        <div className="space-y-6 animate-fade-in">
                             <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
-                                <h3 className="font-bold flex items-center gap-2 mb-2"><FaFileContract /> Artigo 28º do DORA - Gestão de Risco de Terceiros</h3>
-                                <p className="text-xs text-gray-300">
-                                    É obrigatório manter um registo de informação sobre todos os acordos contratuais. Para funções críticas ou importantes, deve definir explicitamente a estratégia de saída e períodos de pré-aviso.
-                                </p>
+                                <div className="flex items-center gap-2 font-bold mb-1">
+                                    <FaFileContract /> Contratos com Fornecedores TIC (DORA Art. 28º)
+                                </div>
+                                <p>Registe os contratos vigentes para cumprir com o Registo de Informações exigido pelo regulamento DORA.</p>
                             </div>
 
-                            {/* Add New Contract Form */}
-                            <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                                <h4 className="text-white font-bold mb-4 flex items-center gap-2"><FaPlus /> Adicionar Contrato</h4>
+                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 space-y-4">
+                                <h4 className="font-bold text-white text-sm border-b border-gray-700 pb-2">Adicionar Novo Contrato</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Ref. Contrato</label>
+                                        <input type="text" value={newContract.ref_number} onChange={e => setNewContract({...newContract, ref_number: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Ex: CTR-2024-001" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Descrição Breve</label>
+                                        <input type="text" value={newContract.description} onChange={e => setNewContract({...newContract, description: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Ex: Licenciamento Office 365" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Início</label>
+                                        <input type="date" value={newContract.start_date} onChange={e => setNewContract({...newContract, start_date: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Fim</label>
+                                        <input type="date" value={newContract.end_date} onChange={e => setNewContract({...newContract, end_date: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Pré-Aviso Rescisão (Dias)</label>
+                                        <input type="number" value={newContract.notice_period_days} onChange={e => setNewContract({...newContract, notice_period_days: parseInt(e.target.value)})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
+                                    </div>
+                                </div>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Ref. Contrato</label>
-                                        <input 
-                                            type="text" 
-                                            value={newContract.ref_number}
-                                            onChange={(e) => setNewContract({...newContract, ref_number: e.target.value})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                            placeholder="Ex: CTR-2024-001"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Descrição</label>
-                                        <input 
-                                            type="text" 
-                                            value={newContract.description}
-                                            onChange={(e) => setNewContract({...newContract, description: e.target.value})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                            placeholder="Ex: Alojamento Cloud SLA Gold"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Início</label>
-                                        <input 
-                                            type="date" 
-                                            value={newContract.start_date}
-                                            onChange={(e) => setNewContract({...newContract, start_date: e.target.value})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Fim / Renovação</label>
-                                        <input 
-                                            type="date" 
-                                            value={newContract.end_date}
-                                            onChange={(e) => setNewContract({...newContract, end_date: e.target.value})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Pré-Aviso (Dias)</label>
-                                        <input 
-                                            type="number" 
-                                            value={newContract.notice_period_days}
-                                            onChange={(e) => setNewContract({...newContract, notice_period_days: parseInt(e.target.value)})}
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label className="block text-xs font-bold text-red-400 mb-1 flex items-center gap-2">
-                                        <FaDoorOpen /> Estratégia de Saída (Obrigatório para Funções Críticas)
-                                    </label>
-                                    <textarea 
-                                        value={newContract.exit_strategy}
-                                        onChange={(e) => setNewContract({...newContract, exit_strategy: e.target.value})}
-                                        rows={2}
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                                        placeholder="Descreva como migrar o serviço em caso de falha do fornecedor (ex: Backup offline, fornecedor alternativo pré-aprovado...)"
-                                    ></textarea>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label className="block text-xs text-gray-400 mb-2">Funções Críticas Suportadas (Business Services)</label>
-                                    <div className="max-h-32 overflow-y-auto border border-gray-600 rounded bg-gray-900 p-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {businessServices.map(service => (
-                                            <label key={service.id} className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:bg-gray-800 p-1 rounded">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={(newContract.supported_service_ids || []).includes(service.id)}
-                                                    onChange={() => handleServiceToggle(service.id)}
-                                                    className="rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                                                />
-                                                <span className={service.criticality === CriticalityLevel.Critical ? 'text-red-400 font-bold' : ''}>
-                                                    {service.name}
-                                                </span>
-                                            </label>
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-2 uppercase">Serviços Suportados (BIA)</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {businessServices.map(svc => (
+                                            <button 
+                                                key={svc.id}
+                                                type="button"
+                                                onClick={() => handleServiceToggle(svc.id)}
+                                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${newContract.supported_service_ids?.includes(svc.id) ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 border border-gray-600'}`}
+                                            >
+                                                {svc.name}
+                                            </button>
                                         ))}
-                                        {businessServices.length === 0 && <span className="text-gray-500 italic text-xs p-1">Nenhum serviço registado.</span>}
+                                        {businessServices.length === 0 && <span className="text-gray-500 text-xs italic">Nenhum serviço de negócio configurado.</span>}
                                     </div>
                                 </div>
 
-                                <button 
-                                    type="button" 
-                                    onClick={handleAddContract}
-                                    className="w-full bg-brand-primary hover:bg-brand-secondary text-white py-2 rounded flex items-center justify-center gap-2 transition-colors"
-                                >
-                                    <FaFileSignature /> Registar Contrato
-                                </button>
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-1 uppercase">Estratégia de Saída (DORA)</label>
+                                    <textarea value={newContract.exit_strategy} onChange={e => setNewContract({...newContract, exit_strategy: e.target.value})} rows={2} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Como mitigar a interrupção se o contrato for cancelado?"></textarea>
+                                </div>
+
+                                <button type="button" onClick={handleAddContract} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded flex items-center justify-center gap-2 font-bold transition-all"><FaPlus /> Adicionar Contrato à Lista</button>
                             </div>
 
-                            {/* Existing Contracts List */}
                             <div>
-                                <h4 className="text-white font-bold mb-3 border-b border-gray-700 pb-1">Contratos Registados ({formData.contracts?.length || 0})</h4>
-                                <div className="space-y-3">
-                                    {(formData.contracts || []).map((contract, idx) => (
-                                        <div key={contract.id || idx} className="bg-gray-800 p-3 rounded border border-gray-700 relative group">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div>
-                                                    <span className="text-brand-secondary font-bold text-sm">{contract.ref_number}</span>
-                                                    <span className="text-gray-400 text-xs ml-2">| {contract.description}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded ${contract.is_active ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'}`}>
-                                                        {contract.is_active ? 'Ativo' : 'Inativo'}
-                                                    </span>
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => handleRemoveContract(contract.id)}
-                                                        className="text-red-400 hover:text-red-300 p-1"
-                                                    >
-                                                        <DeleteIcon className="h-4 w-4"/>
-                                                    </button>
-                                                </div>
+                                <h4 className="font-bold text-white text-sm mb-3">Contratos Registados ({(formData.contracts || []).length})</h4>
+                                <div className="space-y-2">
+                                    {(formData.contracts || []).map(contract => (
+                                        <div key={contract.id} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center group">
+                                            <div>
+                                                <p className="font-bold text-brand-secondary text-sm">{contract.ref_number}</p>
+                                                <p className="text-xs text-white">{contract.description}</p>
+                                                <p className="text-[10px] text-gray-500 mt-1 uppercase">Termina em: {contract.end_date}</p>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 mb-2">
-                                                <div>Início: {contract.start_date}</div>
-                                                <div>Fim: {contract.end_date}</div>
-                                                <div>Pré-Aviso: {contract.notice_period_days} dias</div>
-                                                <div>Funções: {contract.supported_service_ids?.length || 0}</div>
-                                            </div>
-                                            {contract.exit_strategy && (
-                                                <div className="text-xs bg-gray-900 p-2 rounded text-gray-300 italic border-l-2 border-red-500">
-                                                    <span className="font-bold not-italic text-red-400">Exit Strategy: </span>
-                                                    {contract.exit_strategy}
-                                                </div>
-                                            )}
+                                            <button type="button" onClick={() => handleRemoveContract(contract.id)} className="text-red-400 opacity-0 group-hover:opacity-100 p-2 hover:bg-red-900/20 rounded transition-all"><DeleteIcon/></button>
                                         </div>
                                     ))}
-                                    {(formData.contracts || []).length === 0 && (
-                                        <p className="text-center text-gray-500 text-sm py-4 italic">Nenhum contrato registado.</p>
-                                    )}
+                                    {(formData.contracts || []).length === 0 && <p className="text-center py-4 text-gray-500 text-sm italic">Nenhum contrato registado.</p>}
                                 </div>
                             </div>
                         </div>
@@ -985,16 +882,19 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 </form>
 
                 {successMessage && (
-                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in">
+                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in mt-4">
                         {successMessage}
                     </div>
                 )}
 
-                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-2">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar / Fechar</button>
-                    <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2">
-                        {isSaving && <SpinnerIcon className="h-4 w-4" />}
-                        {isSaving ? 'A Gravar...' : successMessage ? <CheckIcon className="h-4 w-4"/> : 'Salvar Tudo'}
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-4 flex-shrink-0">
+                    {activeTab === 'details' && (
+                        <button type="button" onClick={generateEmailTemplate} className="mr-auto text-xs text-brand-secondary hover:underline flex items-center gap-1"><FaEnvelope /> Modelo Email NIS2</button>
+                    )}
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Fechar / Cancelar</button>
+                    <button type="submit" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2 shadow-lg">
+                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : successMessage ? <CheckIcon className="h-4 w-4" /> : <FaSave />}
+                        {isSaving ? 'A Gravar...' : 'Salvar Fornecedor'}
                     </button>
                 </div>
             </div>

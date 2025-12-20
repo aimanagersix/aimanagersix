@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, BusinessService, ServiceDependency, Instituicao, Brand, EquipmentType } from '../types';
@@ -39,23 +40,27 @@ const ReportModal: React.FC<ReportModalProps> = ({
     const ticketReportData = useMemo(() => {
         if (type !== 'ticket') return null;
 
-        const filteredTickets = tickets.filter(ticket => {
-            const requestDate = new Date(ticket.requestDate);
+        const filteredTickets = (tickets || []).filter(ticket => {
+            // FIX: request_date
+            const requestDate = new Date(ticket.request_date);
             const fromMatch = !ticketDateFrom || requestDate >= new Date(ticketDateFrom);
             const toMatch = !ticketDateTo || requestDate <= new Date(ticketDateTo);
             return fromMatch && toMatch;
         });
 
-        const entidadeInstituicaoMap = new Map(entidades.map(e => [e.id, e.instituicaoId]));
+        // FIX: instituicao_id
+        const entidadeInstituicaoMap = new Map(entidades.map(e => [e.id, e.instituicao_id]));
 
         const byEntidade = filteredTickets.reduce((acc, ticket) => {
-            const entidadeName = entidadeMap.get(ticket.entidadeId || '') || 'Desconhecido';
+            // FIX: entidade_id
+            const entidadeName = entidadeMap.get(ticket.entidade_id || '') || 'Desconhecido';
             acc.set(entidadeName, (acc.get(entidadeName) || 0) + 1);
             return acc;
         }, new Map<string, number>());
 
         const byInstituicao = filteredTickets.reduce((acc, ticket) => {
-            const instituicaoId = entidadeInstituicaoMap.get(ticket.entidadeId || '');
+            // FIX: entidade_id
+            const instituicaoId = entidadeInstituicaoMap.get(ticket.entidade_id || '');
             if (instituicaoId) {
                 const instituicaoName = instituicaoMap.get(instituicaoId)?.name || 'Desconhecido';
                 acc.set(instituicaoName, (acc.get(instituicaoName) || 0) + 1);

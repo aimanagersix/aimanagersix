@@ -25,10 +25,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ onClose, targetCollaborator, curr
     };
 
     const conversationMessages = useMemo(() => {
+        // FIX: sender_id, receiver_id
         return messages
             .filter(msg =>
-                (msg.senderId === currentUser.id && msg.receiverId === targetCollaborator.id) ||
-                (msg.senderId === targetCollaborator.id && msg.receiverId === currentUser.id)
+                (msg.sender_id === currentUser.id && msg.receiver_id === targetCollaborator.id) ||
+                (msg.sender_id === targetCollaborator.id && msg.receiver_id === currentUser.id)
             )
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     }, [messages, currentUser.id, targetCollaborator.id]);
@@ -44,12 +45,13 @@ const ChatModal: React.FC<ChatModalProps> = ({ onClose, targetCollaborator, curr
         setNewMessage('');
     };
 
+    // FIX: full_name, sender_id
     return (
-        <Modal title={`Conversa com ${targetCollaborator.fullName}`} onClose={onClose} maxWidth="max-w-2xl">
+        <Modal title={`Conversa com ${targetCollaborator.full_name}`} onClose={onClose} maxWidth="max-w-2xl">
             <div className="flex flex-col h-[60vh]">
                 <div className="flex-grow overflow-y-auto p-4 bg-gray-900/50 rounded-lg space-y-4">
                     {conversationMessages.length > 0 ? conversationMessages.map(msg => {
-                        const isSender = msg.senderId === currentUser.id;
+                        const isSender = msg.sender_id === currentUser.id;
                         return (
                             <div key={msg.id} className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-xs md:max-w-md p-3 rounded-xl ${isSender ? 'bg-brand-primary text-white' : 'bg-gray-700 text-on-surface-dark'}`}>

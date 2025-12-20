@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus, ServiceDependency } from '../types';
 // FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
@@ -39,7 +38,8 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({ services, dependenc
         direction: 'descending'
     });
 
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    // FIX: Updated property names to snake_case
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     
     const dependencyCountMap = useMemo(() => {
         return dependencies.reduce((acc, dep) => {

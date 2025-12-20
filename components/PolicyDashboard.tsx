@@ -25,7 +25,8 @@ const PolicyDashboard: React.FC<PolicyDashboardProps> = ({ policies, acceptances
     });
 
     // Stats calculation
-    const totalUsers = collaborators.filter(c => c.canLogin && c.status === 'Ativo').length;
+    // Fix: canLogin to can_login
+    const totalUsers = collaborators.filter(c => c.can_login && c.status === 'Ativo').length;
     
     const getAcceptanceRate = (policyId: string, version: string) => {
         const count = acceptances.filter(a => a.policy_id === policyId && a.version === version).length;

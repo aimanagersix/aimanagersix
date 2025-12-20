@@ -13,7 +13,7 @@ interface AssignEquipmentModalProps {
     instituicoes?: Instituicao[]; // NEW prop needed for direct assignment
     collaborators: Collaborator[];
     onClose: () => void;
-    onAssign: (assignment: Omit<Assignment, 'id' | 'returnDate'>) => Promise<any>;
+    onAssign: (assignment: Omit<Assignment, 'id' | 'return_date'>) => Promise<any>;
 }
 
 const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, brandMap, equipmentTypeMap, escolasDepartamentos: entidades, instituicoes = [], collaborators, onClose, onAssign }) => {
@@ -33,11 +33,13 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
     const filteredCollaborators = useMemo(() => {
         if (assignType === 'entidade') {
             if (!selectedEntidadeId) return [];
-            return collaborators.filter(c => c.entidadeId === selectedEntidadeId && c.status === CollaboratorStatus.Ativo);
+            // FIX: entidade_id
+            return collaborators.filter(c => c.entidade_id === selectedEntidadeId && c.status === CollaboratorStatus.Ativo);
         } else {
             if (!selectedInstituicaoId) return [];
             // Collaborators directly assigned to institution OR to any entity within it
-            return collaborators.filter(c => c.instituicaoId === selectedInstituicaoId && c.status === CollaboratorStatus.Ativo);
+            // FIX: instituicao_id
+            return collaborators.filter(c => c.instituicao_id === selectedInstituicaoId && c.status === CollaboratorStatus.Ativo);
         }
     }, [selectedEntidadeId, selectedInstituicaoId, collaborators, assignType]);
     
@@ -50,7 +52,8 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
         e.preventDefault();
         
         // --- VALIDATION: Prevent assignment if serial number is missing ---
-        if (!equipment.serialNumber || equipment.serialNumber.trim() === '') {
+        // FIX: serial_number
+        if (!equipment.serial_number || equipment.serial_number.trim() === '') {
             alert("Não é possível atribuir um equipamento sem Número de Série.\n\nPor favor, edite o equipamento e adicione o S/N antes de prosseguir (Estado atual: Aquisição).");
             return;
         }
@@ -67,19 +70,21 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
         setIsSaving(true);
         try {
             // Determine target status based on Loan flag
-            const targetStatus = equipment.isLoan ? EquipmentStatus.Empréstimo : EquipmentStatus.Operacional;
+            // FIX: is_loan
+            const targetStatus = equipment.is_loan ? EquipmentStatus.Empréstimo : EquipmentStatus.Operacional;
             await dataService.updateEquipment(equipment.id, { status: targetStatus });
 
+            // FIX: equipment_id, collaborator_id, assigned_date, entidade_id, instituicao_id
             const payload: any = {
-                equipmentId: equipment.id,
-                collaboratorId: selectedCollaboratorId || undefined,
-                assignedDate: new Date().toISOString().split('T')[0],
+                equipment_id: equipment.id,
+                collaborator_id: selectedCollaboratorId || undefined,
+                assigned_date: new Date().toISOString().split('T')[0],
             };
 
             if (assignType === 'entidade') {
-                payload.entidadeId = selectedEntidadeId;
+                payload.entidade_id = selectedEntidadeId;
             } else {
-                payload.instituicaoId = selectedInstituicaoId;
+                payload.instituicao_id = selectedInstituicaoId;
             }
 
             await onAssign(payload);
@@ -92,23 +97,26 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
         }
     };
     
-    const brandName = brandMap.get(equipment.brandId) || 'Marca Desconhecida';
-    const equipmentTypeName = equipmentTypeMap.get(equipment.typeId) || 'Equipamento';
+    // FIX: brand_id and type_id
+    const brandName = brandMap.get(equipment.brand_id) || 'Marca Desconhecida';
+    const equipmentTypeName = equipmentTypeMap.get(equipment.type_id) || 'Equipamento';
 
     return (
         <Modal title={`Atribuir ${brandName} ${equipmentTypeName}`} onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <p className="text-on-surface-dark-secondary">Equipamento: <span className="font-semibold text-on-surface-dark">{equipment.serialNumber || '(Sem Nº Série)'}</span></p>
+                    {/* FIX: serial_number */}
+                    <p className="text-on-surface-dark-secondary">Equipamento: <span className="font-semibold text-on-surface-dark">{equipment.serial_number || '(Sem Nº Série)'}</span></p>
                     
-                    {!equipment.serialNumber && (
+                    {!equipment.serial_number && (
                         <p className="text-sm text-red-400 font-bold mt-2 bg-red-900/20 p-2 rounded border border-red-500/50">
                             Atenção: Este equipamento não tem número de série. A atribuição será bloqueada.
                         </p>
                     )}
 
                     <p className="text-xs text-green-400 mt-1">
-                        Nota: O equipamento passará para o estado <strong>{equipment.isLoan ? 'Empréstimo' : 'Operacional'}</strong>.
+                        {/* FIX: is_loan */}
+                        Nota: O equipamento passará para o estado <strong>{equipment.is_loan ? 'Empréstimo' : 'Operacional'}</strong>.
                     </p>
                 </div>
 
@@ -175,7 +183,7 @@ const AssignEquipmentModal: React.FC<AssignEquipmentModalProps> = ({ equipment, 
                     >
                         <option value="">-- Atribuir apenas à Localização --</option>
                         {filteredCollaborators.map(collaborator => (
-                            <option key={collaborator.id} value={collaborator.id}>{collaborator.fullName}</option>
+                            <option key={collaborator.id} value={collaborator.id}>{collaborator.full_name}</option>
                         ))}
                     </select>
                 </div>

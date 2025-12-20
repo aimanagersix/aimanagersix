@@ -13,13 +13,14 @@ const CollaboratorHistoryModal: React.FC<CollaboratorHistoryModalProps> = ({ col
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
 
     const collaboratorAssignments = useMemo(() => {
+        // FIX: Updated property names to snake_case
         return history
-            .filter(h => h.collaboratorId === collaborator.id)
-            .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+            .filter(h => h.collaborator_id === collaborator.id)
+            .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
     }, [history, collaborator.id]);
 
     return (
-        <Modal title={`Histórico de Entidades: ${collaborator.fullName}`} onClose={onClose}>
+        <Modal title={`Histórico de Entidades: ${collaborator.full_name}`} onClose={onClose}>
             <div className="space-y-4">
                 {collaboratorAssignments.length > 0 ? (
                     <div className="overflow-x-auto">
@@ -34,10 +35,11 @@ const CollaboratorHistoryModal: React.FC<CollaboratorHistoryModalProps> = ({ col
                             <tbody>
                                 {collaboratorAssignments.map(item => (
                                     <tr key={item.id} className="bg-surface-dark border-b border-gray-700">
-                                        <td className="px-6 py-4 font-medium text-on-surface-dark">{entidadeMap.get(item.entidadeId) || 'Entidade Desconhecida'}</td>
-                                        <td className="px-6 py-4">{item.startDate}</td>
+                                        {/* FIX: Updated property names to snake_case */}
+                                        <td className="px-6 py-4 font-medium text-on-surface-dark">{entidadeMap.get(item.entidade_id) || 'Entidade Desconhecida'}</td>
+                                        <td className="px-6 py-4">{item.start_date}</td>
                                         <td className="px-6 py-4">
-                                            {item.endDate ? item.endDate : (
+                                            {item.end_date ? item.end_date : (
                                                 <span className="px-2 py-1 text-xs rounded-full bg-green-500/30 text-green-300">
                                                     Presente
                                                 </span>

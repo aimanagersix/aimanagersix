@@ -1,8 +1,7 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, Ticket, Collaborator, Team, LicenseAssignment } from '../types';
-import { FaEye, FaBellSlash, FaTicketAlt, FaExclamationTriangle, FaShieldAlt, FaHistory, FaCheckCircle } from './common/Icons';
+import { FaEye, FaBellSlash, FaTicketAlt, FaExclamationTriangle, FaShieldAlt, FaHistory, FaCheckCircle, FaClock } from './common/Icons';
 import * as dataService from '../services/dataService';
 
 interface NotificationsModalProps {
@@ -81,12 +80,14 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
         }
     };
 
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    // FIX: Updated property names to snake_case
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
 
     const usedSeatsMap = useMemo(() => {
+         // FIX: Updated property names to snake_case
          return licenseAssignments.reduce((acc, a) => {
-             acc.set(a.softwareLicenseId, (acc.get(a.softwareLicenseId) || 0) + 1);
+             acc.set(a.software_license_id, (acc.get(a.software_license_id) || 0) + 1);
              return acc;
         }, new Map<string, number>());
     }, [licenseAssignments]);
@@ -94,16 +95,19 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
     const filterVisible = (items: any[]) => items.filter(item => showSnoozed || !snoozedIds.has(item.id));
 
     const sortedWarranties = useMemo(() => filterVisible(expiringWarranties).sort((a, b) => 
-        (getExpiryStatus(a.warrantyEndDate).daysRemaining ?? Infinity) - (getExpiryStatus(b.warrantyEndDate).daysRemaining ?? Infinity)
+        // FIX: Updated property names to snake_case
+        (getExpiryStatus(a.warranty_end_date).daysRemaining ?? Infinity) - (getExpiryStatus(b.warranty_end_date).daysRemaining ?? Infinity)
     ), [expiringWarranties, snoozedIds, showSnoozed]);
 
     const sortedLicenses = useMemo(() => filterVisible(expiringLicenses).sort((a, b) => {
-        const aDate = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
-        const bDate = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+        // FIX: Updated property names to snake_case
+        const aDate = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+        const bDate = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
         return aDate - bDate;
     }), [expiringLicenses, snoozedIds, showSnoozed]);
     
-    const sortedTeamTickets = useMemo(() => filterVisible(teamTickets).sort((a,b) => new Date(a.requestDate).getTime() - new Date(b.requestDate).getTime()), [teamTickets, snoozedIds, showSnoozed]);
+    // FIX: Updated property names to snake_case
+    const sortedTeamTickets = useMemo(() => filterVisible(teamTickets).sort((a,b) => new Date(a.request_date).getTime() - new Date(b.request_date).getTime()), [teamTickets, snoozedIds, showSnoozed]);
 
     const NotificationItem = ({ id, children, onView, isSnoozed }: { id: string, children: React.ReactNode, onView: () => void, isSnoozed: boolean }) => (
         <div className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isSnoozed ? 'bg-gray-900/30 border-gray-800 opacity-60 grayscale' : 'bg-surface-dark border-gray-700 hover:border-gray-600'}`}>
@@ -135,12 +139,13 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                     </h3>
                     <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                         {sortedTeamTickets.length > 0 ? sortedTeamTickets.map(ticket => {
-                            const requesterName = collaboratorMap.get(ticket.collaboratorId) || 'Desconhecido';
+                            // FIX: Updated property names to snake_case
+                            const requesterName = collaboratorMap.get(ticket.collaborator_id) || 'Desconhecido';
                             const isSnoozed = snoozedIds.has(ticket.id);
                             return (
                                 <NotificationItem key={ticket.id} id={ticket.id} isSnoozed={isSnoozed} onView={() => { onViewItem('tickets', { id: ticket.id }); onClose(); }}>
                                     <p className="font-semibold text-white truncate text-sm">{ticket.title || ticket.description}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">Pedido por {requesterName} em {new Date(ticket.requestDate).toLocaleDateString()}</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">Pedido por {requesterName} em {new Date(ticket.request_date).toLocaleDateString()}</p>
                                 </NotificationItem>
                             );
                         }) : <p className="text-gray-500 text-sm italic">Sem tickets pendentes.</p>}
@@ -154,16 +159,17 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                     </h3>
                      <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                         {sortedLicenses.length > 0 ? sortedLicenses.map(license => {
-                            const status = getExpiryStatus(license.expiryDate);
+                            // FIX: Updated property names to snake_case
+                            const status = getExpiryStatus(license.expiry_date);
                             const used = usedSeatsMap.get(license.id) || 0;
                             const isSnoozed = snoozedIds.has(license.id);
                             return (
-                                <NotificationItem key={license.id} id={license.id} isSnoozed={isSnoozed} onView={() => { onViewItem('licensing', { licenseKey: license.licenseKey }); onClose(); }}>
-                                    <p className="font-semibold text-white text-sm">{license.productName}</p>
+                                <NotificationItem key={license.id} id={license.id} isSnoozed={isSnoozed} onView={() => { onViewItem('licensing', { license_key: license.license_key }); onClose(); }}>
+                                    <p className="font-semibold text-white text-sm">{license.product_name}</p>
                                     <div className="flex flex-wrap gap-2 text-[10px] mt-1 uppercase font-bold">
                                         <span className={status.className}>{status.text}</span>
                                         <span className="text-gray-500">|</span>
-                                        <span className={license.totalSeats - used <= 0 ? 'text-red-400' : 'text-gray-400'}>Ativações: {used}/{license.totalSeats}</span>
+                                        <span className={license.total_seats - used <= 0 ? 'text-red-400' : 'text-gray-400'}>Ativações: {used}/{license.total_seats}</span>
                                     </div>
                                 </NotificationItem>
                             );
@@ -178,12 +184,13 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                     </h3>
                     <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                         {sortedWarranties.length > 0 ? sortedWarranties.map(item => {
-                            const status = getExpiryStatus(item.warrantyEndDate);
+                            // FIX: Updated property names to snake_case
+                            const status = getExpiryStatus(item.warranty_end_date);
                             const isSnoozed = snoozedIds.has(item.id);
                             return (
-                                <NotificationItem key={item.id} id={item.id} isSnoozed={isSnoozed} onView={() => { onViewItem('equipment.inventory', { serialNumber: item.serialNumber }); onClose(); }}>
+                                <NotificationItem key={item.id} id={item.id} isSnoozed={isSnoozed} onView={() => { onViewItem('equipment.inventory', { serial_number: item.serial_number }); onClose(); }}>
                                     <p className="font-semibold text-white text-sm">{item.description}</p>
-                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">S/N: {item.serialNumber} — <span className={status.className}>{status.text}</span></p>
+                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">S/N: {item.serial_number} — <span className={status.className}>{status.text}</span></p>
                                 </NotificationItem>
                             );
                         }) : <p className="text-gray-500 text-sm italic">Sem garantias a expirar.</p>}

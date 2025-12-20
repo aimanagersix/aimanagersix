@@ -103,21 +103,22 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
     const criticalities = criticalityOptions && criticalityOptions.length > 0 ? criticalityOptions.map(o => o.name) : Object.values(CriticalityLevel);
     const ciaRatings = ciaOptions && ciaOptions.length > 0 ? ciaOptions.map(o => o.name) : Object.values(CIARating);
 
+    // FIX: Map properties to match Equipment interface in types.ts (snake_case)
     const [formData, setFormData] = useState<Partial<Equipment>>({
-        brandId: '', typeId: '', description: '', serialNumber: '', inventoryNumber: '', nomeNaRede: '', macAddressWIFI: '', macAddressCabo: '', 
-        purchaseDate: '',
-        warrantyEndDate: '', invoiceNumber: '', requisitionNumber: '',
+        brand_id: '', type_id: '', description: '', serial_number: '', inventory_number: '', nome_na_rede: '', mac_address_wifi: '', mac_address_cabo: '', 
+        purchase_date: '',
+        warranty_end_date: '', invoice_number: '', requisition_number: '',
         status: EquipmentStatus.Stock,
         criticality: CriticalityLevel.Low,
         confidentiality: CIARating.Low,
         integrity: CIARating.Low,
         availability: CIARating.Low,
         supplier_id: '',
-        acquisitionCost: 0,
-        expectedLifespanYears: 4,
+        acquisition_cost: 0,
+        expected_lifespan_years: 4,
         embedded_license_key: '',
-        installationLocation: '',
-        isLoan: false,
+        installation_location: '',
+        is_loan: false,
         parent_equipment_id: '',
         os_version: '',
         last_security_update: '',
@@ -170,13 +171,13 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         if (equipmentToEdit) {
             setFormData({
                 ...equipmentToEdit,
-                purchaseDate: equipmentToEdit.purchaseDate || '',
+                purchase_date: equipmentToEdit.purchase_date || '',
                 parent_equipment_id: equipmentToEdit.parent_equipment_id || '',
                 accounting_category_id: equipmentToEdit.accounting_category_id || '',
                 conservation_state_id: equipmentToEdit.conservation_state_id || '',
                 decommission_reason_id: equipmentToEdit.decommission_reason_id || '',
                 residual_value: equipmentToEdit.residual_value || 0,
-                warrantyEndDate: equipmentToEdit.warrantyEndDate || '',
+                warranty_end_date: equipmentToEdit.warranty_end_date || '',
                 last_security_update: equipmentToEdit.last_security_update || '',
                 manufacture_date: equipmentToEdit.manufacture_date || '',
                 cpu_info: equipmentToEdit.cpu_info || '',
@@ -187,15 +188,17 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             });
         } else if (initialData) {
              setFormData(prev => ({ ...prev, ...initialData }));
-             if ((initialData as any)?.entidadeId) setAssignToEntityId((initialData as any).entidadeId);
+             // FIX: entidade_id
+             if ((initialData as any)?.entidade_id) setAssignToEntityId((initialData as any).entidade_id);
         }
     }, [equipmentToEdit, initialData]);
 
     useEffect(() => {
         if (equipmentToEdit?.id) return; 
 
-        const brandName = brands.find(b => b.id === formData.brandId)?.name;
-        const typeName = equipmentTypes.find(t => t.id === formData.typeId)?.name;
+        // FIX: brand_id and type_id
+        const brandName = brands.find(b => b.id === formData.brand_id)?.name;
+        const typeName = equipmentTypes.find(t => t.id === formData.type_id)?.name;
         
         const isDescriptionDefaultOrEmpty = () => {
             const currentDesc = (formData.description || '').trim();
@@ -211,11 +214,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         if (brandName && typeName && isDescriptionDefaultOrEmpty()) {
             setFormData(prev => ({ ...prev, description: `${brandName} ${typeName} ` }));
         }
-    }, [formData.brandId, formData.typeId, brands, equipmentTypes, equipmentToEdit, formData.description]);
+    }, [formData.brand_id, formData.type_id, brands, equipmentTypes, equipmentToEdit, formData.description]);
 
     const selectedType = useMemo(() => {
-        return equipmentTypes.find(t => t.id === formData.typeId);
-    }, [formData.typeId, equipmentTypes]);
+        // FIX: type_id
+        return equipmentTypes.find(t => t.id === formData.type_id);
+    }, [formData.type_id, equipmentTypes]);
     
     const isMaintenanceType = useMemo(() => {
         return selectedType?.is_maintenance === true;
@@ -236,7 +240,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
 
     const filteredCollaborators = useMemo(() => {
         if (!assignToEntityId) return [];
-        return collaborators.filter(c => c.entidadeId === assignToEntityId && c.status === CollaboratorStatus.Ativo);
+        // FIX: entidade_id
+        return collaborators.filter(c => c.entidade_id === assignToEntityId && c.status === CollaboratorStatus.Ativo);
     }, [assignToEntityId, collaborators]);
 
     const validate = useCallback(() => {
@@ -246,25 +251,28 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         const isAcquisition = statusNormalized.includes('aquisiç') || statusNormalized.includes('encomenda') || statusNormalized.includes('compra');
         const isDecommissioned = formData.status === 'Abate' || formData.status === 'Retirado (Arquivo)';
         
-        if (!formData.serialNumber?.trim()) {
+        // FIX: serial_number
+        if (!formData.serial_number?.trim()) {
             if (isEditMode) {
-                newErrors.serialNumber = "O número de série é obrigatório ao editar.";
+                newErrors.serial_number = "O número de série é obrigatório ao editar.";
             } else if (!isAcquisition) {
-                newErrors.serialNumber = "O número de série é obrigatório (exceto se estado 'Aquisição').";
+                newErrors.serial_number = "O número de série é obrigatório (exceto se estado 'Aquisição').";
             }
         }
 
-        if (!formData.brandId) newErrors.brandId = "A marca é obrigatória.";
-        if (!formData.typeId) newErrors.typeId = "O tipo é obrigatória.";
+        // FIX: brand_id and type_id
+        if (!formData.brand_id) newErrors.brand_id = "A marca é obrigatória.";
+        if (!formData.type_id) newErrors.type_id = "O tipo é obrigatória.";
         if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
         
         if (isDecommissioned && !formData.decommission_reason_id) {
             newErrors.decommission_reason_id = "É obrigatório indicar o motivo da saída.";
         }
 
-        const type = equipmentTypes.find(t => t.id === formData.typeId);
-        if (type?.requiresLocation && !formData.installationLocation?.trim()) {
-            newErrors.installationLocation = "O local de instalação é obrigatório para este tipo de equipamento.";
+        // FIX: type_id, requires_location, and installation_location
+        const type = equipmentTypes.find(t => t.id === formData.type_id);
+        if (type?.requires_location && !formData.installation_location?.trim()) {
+            newErrors.installation_location = "O local de instalação é obrigatório para este tipo de equipamento.";
         }
         
         if (type?.is_maintenance && !formData.parent_equipment_id) {
@@ -284,18 +292,18 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         }));
     };
 
-    // Fix: Added missing handleEntityChange handler
     const handleEntityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setAssignToEntityId(e.target.value);
         setAssignToCollaboratorId('');
     };
     
      const handleSetWarranty = (years: number) => {
-        if (!formData.purchaseDate) return;
-        const purchase = new Date(formData.purchaseDate);
+        // FIX: purchase_date and warranty_end_date
+        if (!formData.purchase_date) return;
+        const purchase = new Date(formData.purchase_date);
         purchase.setUTCFullYear(purchase.getUTCFullYear() + years);
         const warrantyEnd = purchase.toISOString().split('T')[0];
-        setFormData(prev => ({ ...prev, warrantyEndDate: warrantyEnd }));
+        setFormData(prev => ({ ...prev, warranty_end_date: warrantyEnd }));
     };
     
     const handleGenerateName = async () => {
@@ -307,11 +315,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         const equipmentList = allEq.equipment;
         
         let maxNum = 0;
+        // FIX: nome_na_rede
         const regex = new RegExp(`^${prefix}(\\d{${digits}})$`);
         
         equipmentList.forEach((eq: Equipment) => {
-            if (eq.nomeNaRede) {
-                const match = eq.nomeNaRede.match(regex);
+            if (eq.nome_na_rede) {
+                const match = eq.nome_na_rede.match(regex);
                 if (match && match[1]) {
                     const num = parseInt(match[1], 10);
                     if (num > maxNum) maxNum = num;
@@ -321,7 +330,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         
         const nextNum = maxNum + 1;
         const nextName = `${prefix}${String(nextNum).padStart(digits, '0')}`;
-        setFormData(prev => ({ ...prev, nomeNaRede: nextName }));
+        // FIX: nome_na_rede
+        setFormData(prev => ({ ...prev, nome_na_rede: nextName }));
     };
     
     const handleFetchInfo = useCallback(async (serial: string) => {
@@ -334,11 +344,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             const info = await getDeviceInfoFromText(serial);
             const matchedBrand = brands.find(b => b.name.toLowerCase() === info.brand.toLowerCase());
             const matchedType = equipmentTypes.find(et => et.name.toLowerCase() === info.type.toLowerCase());
+            // FIX: serial_number, brand_id, type_id
             setFormData(prev => ({
                 ...prev,
-                serialNumber: serial,
-                brandId: matchedBrand ? matchedBrand.id : (prev.brandId || ''),
-                typeId: matchedType ? matchedType.id : (prev.typeId || '')
+                serial_number: serial,
+                brand_id: matchedBrand ? matchedBrand.id : (prev.brand_id || ''),
+                type_id: matchedType ? matchedType.id : (prev.type_id || '')
             }));
         } catch (error) {
             console.error(error);
@@ -368,21 +379,23 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
      const handleAddNewBrand = async () => {
         if (newBrandName.trim() === '') return;
         const newBrand = await onSaveBrand({ name: newBrandName.trim(), risk_level: CriticalityLevel.Low, is_iso27001_certified: false });
-        setFormData(prev => ({...prev, brandId: newBrand.id }));
+        // FIX: brand_id
+        setFormData(prev => ({...prev, brand_id: newBrand.id }));
         setNewBrandName('');
         setIsAddingBrand(false);
     };
 
     const handleAddNewType = async () => {
         if (newTypeName.trim() === '') return;
+        // FIX: requirements in snake_case
         const newType = await onSaveEquipmentType({ 
             name: newTypeName.trim(),
-            requiresNomeNaRede: false,
-            requiresMacWIFI: false,
-            requiresMacCabo: false,
-            requiresInventoryNumber: false,
-            requiresBackupTest: false,
-            requiresLocation: false,
+            requires_nome_na_rede: false,
+            requires_mac_wifi: false,
+            requires_mac_cabo: false,
+            requires_inventory_number: false,
+            requires_backup_test: false,
+            requires_location: false,
             is_maintenance: false,
             requires_wwan_address: false,
             requires_bluetooth_address: false,
@@ -393,7 +406,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             requires_manufacture_date: false,
             requires_ip: false
         });
-        setFormData(prev => ({...prev, typeId: newType.id }));
+        // FIX: type_id
+        setFormData(prev => ({...prev, type_id: newType.id }));
         setNewTypeName('');
         setIsAddingType(false);
     };
@@ -408,17 +422,20 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             const dataToSubmit: any = { ...formData };
             
             // Requisito 4: Aquisição -> Stock se tiver S/N
-            if (dataToSubmit.status === EquipmentStatus.Acquisition && dataToSubmit.serialNumber) {
+            // FIX: serial_number
+            if (dataToSubmit.status === EquipmentStatus.Acquisition && dataToSubmit.serial_number) {
                 dataToSubmit.status = EquipmentStatus.Stock;
             }
 
             // Requisito 5: Stock -> Operacional se houver atribuição
             const hasInitialAssignment = !isEditMode && assignToEntityId;
+            // FIX: is_loan
             if (dataToSubmit.status === EquipmentStatus.Stock && hasInitialAssignment) {
-                dataToSubmit.status = dataToSubmit.isLoan ? EquipmentStatus.Empréstimo : EquipmentStatus.Operacional;
+                dataToSubmit.status = dataToSubmit.is_loan ? EquipmentStatus.Empréstimo : EquipmentStatus.Operacional;
             }
 
-            const dateFields = ['purchaseDate', 'warrantyEndDate', 'last_security_update', 'manufacture_date'];
+            // FIX: date fields in snake_case
+            const dateFields = ['purchase_date', 'warranty_end_date', 'last_security_update', 'manufacture_date'];
             dateFields.forEach(field => {
                 if (dataToSubmit[field] === '') {
                     dataToSubmit[field] = null;
@@ -433,16 +450,18 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
             });
 
             if (!equipmentToEdit) {
-                delete dataToSubmit.creationDate;
-                delete dataToSubmit.modifiedDate;
+                // FIX: snake_case
+                delete dataToSubmit.creation_date;
+                delete dataToSubmit.modified_date;
             }
 
             let assignment = null;
             if (!equipmentToEdit && assignToEntityId) {
+                // FIX: assigned_date, entidade_id, collaborator_id
                 assignment = {
-                    entidadeId: assignToEntityId,
-                    collaboratorId: assignToCollaboratorId || undefined,
-                    assignedDate: new Date().toISOString().split('T')[0]
+                    entidade_id: assignToEntityId,
+                    collaborator_id: assignToCollaboratorId || undefined,
+                    assigned_date: new Date().toISOString().split('T')[0]
                 };
             }
 
@@ -495,18 +514,20 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                     <div className="space-y-4 animate-fade-in">
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="relative">
-                                <label htmlFor="serialNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
+                                {/* FIX: serial_number */}
+                                <label htmlFor="serial_number" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
                                     Número de Série {isAcquisitionStatus ? '(Opcional em Aquisição)' : ''}
                                 </label>
                                 <div className="flex">
-                                    <input type="text" name="serialNumber" id="serialNumber" value={formData.serialNumber} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serialNumber ? 'border-red-500' : 'border-gray-600'}`} placeholder={isAcquisitionStatus ? "Pendente (Opcional)" : "S/N"} />
+                                    <input type="text" name="serial_number" id="serial_number" value={formData.serial_number} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 focus:ring-brand-secondary focus:border-brand-secondary ${errors.serial_number ? 'border-red-500' : 'border-gray-600'}`} placeholder={isAcquisitionStatus ? "Pendente (Opcional)" : "S/N"} />
                                     <button type="button" onClick={() => setIsScanning(true)} disabled={!aiConfigured} className={`p-2 bg-brand-primary text-white hover:bg-brand-secondary transition-colors ${!aiConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}>{isLoading.serial ? <SpinnerIcon /> : <CameraIcon />}</button>
-                                    <button type="button" onClick={() => handleFetchInfo(formData.serialNumber!)} disabled={!formData.serialNumber || isLoading.info || !aiConfigured} className={`p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50 ${!aiConfigured ? 'cursor-not-allowed' : ''}`}>{isLoading.info ? <SpinnerIcon /> : <SearchIcon />}</button>
+                                    <button type="button" onClick={() => handleFetchInfo(formData.serial_number!)} disabled={!formData.serial_number || isLoading.info || !aiConfigured} className={`p-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-500 transition-colors disabled:opacity-50 ${!aiConfigured ? 'cursor-not-allowed' : ''}`}>{isLoading.info ? <SpinnerIcon /> : <SearchIcon />}</button>
                                 </div>
-                                {errors.serialNumber && <p className="text-red-400 text-xs italic mt-1">{errors.serialNumber}</p>}
+                                {errors.serial_number && <p className="text-red-400 text-xs italic mt-1">{errors.serial_number}</p>}
                             </div>
                             <div>
-                                <label htmlFor="brandId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Marca</label>
+                                {/* FIX: brand_id */}
+                                <label htmlFor="brand_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Marca</label>
                                 {isAddingBrand ? (
                                     <div className="flex gap-2">
                                         <input type="text" value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} placeholder="Nome da nova marca" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewBrand(); }}} />
@@ -515,7 +536,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     </div>
                                 ) : (
                                     <div className="flex items-center gap-2">
-                                        <select name="brandId" id="brandId" value={formData.brandId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.brandId ? 'border-red-500' : 'border-gray-600'}`}>
+                                        <select name="brand_id" id="brand_id" value={formData.brand_id} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.brand_id ? 'border-red-500' : 'border-gray-600'}`}>
                                             <option value="" disabled>Selecione uma marca</option>
                                             {brands.map(brand => (<option key={brand.id as string} value={brand.id as string}>{brand.name as string}</option>))}
                                         </select>
@@ -527,7 +548,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="typeId" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Tipo</label>
+                                {/* FIX: type_id */}
+                                <label htmlFor="type_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Tipo</label>
                                 {isAddingType ? (
                                     <div className="flex gap-2">
                                         <input type="text" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} placeholder="Nome do novo tipo" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewType(); }}} />
@@ -536,7 +558,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     </div>
                                 ) : (
                                     <div className="flex items-center gap-2">
-                                        <select name="typeId" id="typeId" value={formData.typeId} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.typeId ? 'border-red-500' : 'border-gray-600'}`}>
+                                        <select name="type_id" id="type_id" value={formData.type_id} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.type_id ? 'border-red-500' : 'border-gray-600'}`}>
                                             <option value="" disabled>Selecione um tipo</option>
                                             {equipmentTypes.map(type => (<option key={type.id} value={type.id}>{type.name}</option>))}
                                         </select>
@@ -544,11 +566,13 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     </div>
                                 )}
                             </div>
-                            {selectedType?.requiresNomeNaRede && (
+                            {/* FIX: requires_nome_na_rede */}
+                            {selectedType?.requires_nome_na_rede && (
                                 <div>
-                                    <label htmlFor="nomeNaRede" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome na Rede (Opcional)</label>
+                                    {/* FIX: nome_na_rede */}
+                                    <label htmlFor="nome_na_rede" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome na Rede (Opcional)</label>
                                     <div className="flex">
-                                        <input type="text" name="nomeNaRede" id="nomeNaRede" value={formData.nomeNaRede} onChange={handleChange} className="flex-grow bg-gray-700 border border-gray-600 text-white rounded-l-md p-2" />
+                                        <input type="text" name="nome_na_rede" id="nome_na_rede" value={formData.nome_na_rede} onChange={handleChange} className="flex-grow bg-gray-700 border border-gray-600 text-white rounded-l-md p-2" />
                                         <button type="button" onClick={handleGenerateName} className="bg-gray-600 hover:bg-gray-500 px-3 rounded-r-md border border-gray-600 text-white flex items-center justify-center"><FaMagic /></button>
                                     </div>
                                 </div>
@@ -556,10 +580,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {selectedType?.requiresInventoryNumber && (
+                            {/* FIX: requires_inventory_number */}
+                            {selectedType?.requires_inventory_number && (
                                 <div>
-                                    <label htmlFor="inventoryNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Inventário / Etiqueta</label>
-                                    <input type="text" name="inventoryNumber" id="inventoryNumber" value={formData.inventoryNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" placeholder="Etiqueta física" />
+                                    {/* FIX: inventory_number */}
+                                    <label htmlFor="inventory_number" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número de Inventário / Etiqueta</label>
+                                    <input type="text" name="inventory_number" id="inventory_number" value={formData.inventory_number} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" placeholder="Etiqueta física" />
                                 </div>
                             )}
                             <div>
@@ -596,7 +622,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                         
                         <div className="bg-purple-900/20 p-3 rounded border border-purple-500/30">
                             <label className="flex items-center cursor-pointer">
-                                <input type="checkbox" name="isLoan" checked={formData.isLoan} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                                {/* FIX: is_loan */}
+                                <input type="checkbox" name="is_loan" checked={formData.is_loan} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                                 <span className="ml-2 text-sm font-bold text-purple-200 flex items-center gap-2"><FaHandHoldingHeart /> Equipamento de Empréstimo / Pool</span>
                             </label>
                         </div>
@@ -616,7 +643,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                         <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Colaborador</label>
                                         <select value={assignToCollaboratorId} onChange={(e) => setAssignToCollaboratorId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm disabled:bg-gray-800 disabled:cursor-not-allowed" disabled={!assignToEntityId}>
                                             <option value="">-- Atribuir apenas à Localização --</option>
-                                            {filteredCollaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                                            {/* FIX: full_name */}
+                                            {filteredCollaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                                         </select>
                                     </div>
                                 </div>
@@ -630,7 +658,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                 <label htmlFor="parent_equipment_id" className="block text-xs font-medium text-white mb-1">Equipamento Principal (Pai)</label>
                                 <select name="parent_equipment_id" id="parent_equipment_id" value={formData.parent_equipment_id} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.parent_equipment_id ? 'border-red-500' : 'border-gray-600'}`}>
                                     <option value="">-- Selecione o equipamento onde será instalado --</option>
-                                    {allEquipment.map(eq => (<option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>))}
+                                    {/* FIX: serial_number */}
+                                    {allEquipment.map(eq => (<option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serial_number})</option>))}
                                 </select>
                                 {errors.parent_equipment_id && <p className="text-red-400 text-xs italic mt-1">{errors.parent_equipment_id}</p>}
                             </div>
@@ -707,28 +736,31 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                 {selectedType?.requiresMacWIFI && (
+                                 {/* FIX: requires_mac_wifi and mac_address_wifi */}
+                                 {selectedType?.requires_mac_wifi && (
                                     <div>
-                                        <label htmlFor="macAddressWIFI" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC WIFI</label>
-                                        <input type="text" name="macAddressWIFI" id="macAddressWIFI" value={formData.macAddressWIFI} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5E" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.macAddressWIFI ? 'border-red-500' : 'border-gray-600'}`} />
+                                        <label htmlFor="mac_address_wifi" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC WIFI</label>
+                                        <input type="text" name="mac_address_wifi" id="mac_address_wifi" value={formData.mac_address_wifi} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5E" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.mac_address_wifi ? 'border-red-500' : 'border-gray-600'}`} />
                                     </div>
                                  )}
-                                 {selectedType?.requiresMacCabo && (
+                                 {/* FIX: requires_mac_cabo and mac_address_cabo */}
+                                 {selectedType?.requires_mac_cabo && (
                                     <div>
-                                        <label htmlFor="macAddressCabo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC Cabo</label>
-                                        <input type="text" name="macAddressCabo" id="macAddressCabo" value={formData.macAddressCabo} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5F" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.macAddressCabo ? 'border-red-500' : 'border-gray-600'}`} />
+                                        <label htmlFor="mac_address_cabo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC Cabo</label>
+                                        <input type="text" name="mac_address_cabo" id="mac_address_cabo" value={formData.mac_address_cabo} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5F" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.mac_address_cabo ? 'border-red-500' : 'border-gray-600'}`} />
                                     </div>
                                 )}
                             </div>
                         </div>
                         
-                        {(selectedType?.requiresLocation || formData.installationLocation) && (
+                        {/* FIX: requires_location and installation_location */}
+                        {(selectedType?.requires_location || formData.installation_location) && (
                             <div>
-                                <label htmlFor="installationLocation" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
-                                    Local de Instalação (Físico) {selectedType?.requiresLocation && <span className="text-red-400">*</span>}
+                                <label htmlFor="installation_location" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
+                                    Local de Instalação (Físico) {selectedType?.requires_location && <span className="text-red-400">*</span>}
                                 </label>
-                                <input type="text" name="installationLocation" id="installationLocation" value={formData.installationLocation} onChange={handleChange} placeholder="Ex: Sala 204, Rack 3" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.installationLocation ? 'border-red-500' : 'border-gray-600'}`} />
-                                 {errors.installationLocation && <p className="text-red-400 text-xs italic mt-1">{errors.installationLocation}</p>}
+                                <input type="text" name="installation_location" id="installation_location" value={formData.installation_location} onChange={handleChange} placeholder="Ex: Sala 204, Rack 3" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.installation_location ? 'border-red-500' : 'border-gray-600'}`} />
+                                 {errors.installation_location && <p className="text-red-400 text-xs italic mt-1">{errors.installation_location}</p>}
                             </div>
                         )}
                     </div>
@@ -772,12 +804,14 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="acquisitionCost" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Custo de Aquisição (€)</label>
-                                    <input type="number" name="acquisitionCost" id="acquisitionCost" value={formData.acquisitionCost} onChange={handleChange} placeholder="0.00" min="0" step="0.01" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                    {/* FIX: acquisition_cost */}
+                                    <label htmlFor="acquisition_cost" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Custo de Aquisição (€)</label>
+                                    <input type="number" name="acquisition_cost" id="acquisition_cost" value={formData.acquisition_cost} onChange={handleChange} placeholder="0.00" min="0" step="0.01" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                                 </div>
                                 <div>
-                                    <label htmlFor="expectedLifespanYears" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Vida Útil Esperada (Anos)</label>
-                                    <input type="number" name="expectedLifespanYears" id="expectedLifespanYears" value={formData.expectedLifespanYears} onChange={handleChange} min="1" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                    {/* FIX: expected_lifespan_years */}
+                                    <label htmlFor="expected_lifespan_years" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Vida Útil Esperada (Anos)</label>
+                                    <input type="number" name="expected_lifespan_years" id="expected_lifespan_years" value={formData.expected_lifespan_years} onChange={handleChange} min="1" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                                 </div>
                                 <div>
                                     <label htmlFor="residual_value" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Valor Residual Estimado (€)</label>
@@ -787,21 +821,25 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-700">
                                 <div>
-                                    <label htmlFor="purchaseDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Compra</label>
-                                    <input type="date" name="purchaseDate" id="purchaseDate" value={formData.purchaseDate || ''} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.purchaseDate ? 'border-red-500' : 'border-gray-600'}`} />
+                                    {/* FIX: purchase_date */}
+                                    <label htmlFor="purchase_date" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Compra</label>
+                                    <input type="date" name="purchase_date" id="purchase_date" value={formData.purchase_date || ''} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.purchase_date ? 'border-red-500' : 'border-gray-600'}`} />
                                 </div>
                                 <div>
-                                    <label htmlFor="invoiceNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura</label>
-                                    <input type="text" name="invoiceNumber" id="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                    {/* FIX: invoice_number */}
+                                    <label htmlFor="invoice_number" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura</label>
+                                    <input type="text" name="invoice_number" id="invoice_number" value={formData.invoice_number} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                                 </div>
                                 <div>
-                                    <label htmlFor="requisitionNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Requisição</label>
-                                    <input type="text" name="requisitionNumber" id="requisitionNumber" value={formData.requisitionNumber} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                                    {/* FIX: requisition_number */}
+                                    <label htmlFor="requisition_number" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Requisição</label>
+                                    <input type="text" name="requisition_number" id="requisition_number" value={formData.requisition_number} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                                 </div>
                                 <div>
-                                    <label htmlFor="warrantyEndDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fim da Garantia</label>
+                                    {/* FIX: warranty_end_date */}
+                                    <label htmlFor="warranty_end_date" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Fim da Garantia</label>
                                     <div className="flex items-center gap-2">
-                                        <input type="date" name="warrantyEndDate" id="warrantyEndDate" value={formData.warrantyEndDate || ''} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded-md p-2" />
+                                        <input type="date" name="warranty_end_date" id="warranty_end_date" value={formData.warranty_end_date || ''} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded-md p-2" />
                                         <button type="button" onClick={() => handleSetWarranty(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
                                         <button type="button" onClick={() => handleSetWarranty(3)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">3 Anos</button>
                                     </div>

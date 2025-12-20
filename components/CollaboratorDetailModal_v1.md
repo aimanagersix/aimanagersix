@@ -1,3 +1,2 @@
-
 # Backup CollaboratorDetailModal v1
-Versão original onde a abertura da ficha de equipamento a partir do colaborador não garantia explicitamente o modo de edição para administradores.
+Continha chaves como photoUrl e mapeamento de equipamentos via collaboratorId. Normalizado na v14.

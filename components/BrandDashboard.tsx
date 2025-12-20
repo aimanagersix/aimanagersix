@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { Brand, Equipment, CriticalityLevel } from '../types';
-import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaCheckCircle, FaTimesCircle } from './common/Icons';
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaPlus, FaShieldAlt, FaCheckCircle, FaTimesCircle } from './common/Icons';
 import Pagination from './common/Pagination';
 import SortableHeader from './common/SortableHeader';
 
@@ -35,8 +34,9 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
     });
 
     const equipmentCountByBrand = React.useMemo(() => {
-        return equipment.reduce((acc, curr) => {
-            acc[curr.brandId] = (acc[curr.brandId] || 0) + 1;
+        return (equipment || []).reduce((acc, curr) => {
+            // FIX: brand_id
+            acc[curr.brand_id] = (acc[curr.brand_id] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
     }, [equipment]);
@@ -105,8 +105,9 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
                     Classifique o risco de segurança dos fabricantes de hardware e software.
                 </p>
             </div>
+            {/* FIX: FaPlus added to imports */}
             <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                <PlusIcon /> Adicionar
+                <FaPlus /> Adicionar
             </button>
         </div>
       
@@ -142,27 +143,16 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
                         <FaTimesCircle className="text-gray-600 h-5 w-5 mx-auto" title="Não Certificado"/>
                     )}
                 </td>
-                <td className="px-6 py-4 text-xs font-mono text-gray-400">
-                    {brand.security_contact_email || '—'}
-                </td>
+                <td className="px-6 py-4">{brand.security_contact_email || '-'}</td>
                 <td className="px-6 py-4 text-center">{equipmentCountByBrand[brand.id] || 0}</td>
                 <td className="px-6 py-4 text-center">
                     <div className="flex justify-center items-center gap-4">
-                        {onEdit && (
-                            <button onClick={() => onEdit(brand)} className="text-blue-400 hover:text-blue-300" aria-label={`Editar ${brand.name}`}>
-                                <EditIcon />
-                            </button>
-                        )}
+                        <button onClick={() => onEdit(brand)} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>
                         {onDelete && (
-                             <button 
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    if (!isDeleteDisabled) onDelete(brand.id); 
-                                }} 
+                            <button 
+                                onClick={() => !isDeleteDisabled && onDelete(brand.id)} 
                                 className={isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}
                                 disabled={isDeleteDisabled}
-                                title={isDeleteDisabled ? "Impossível excluir: Existem equipamentos associados" : `Excluir ${brand.name}`}
-                                aria-label={isDeleteDisabled ? "Exclusão desabilitada" : `Excluir ${brand.name}`}
                             >
                                 <DeleteIcon />
                             </button>
@@ -171,14 +161,12 @@ const BrandDashboard: React.FC<BrandDashboardProps> = ({ brands, equipment, onEd
                 </td>
               </tr>
             )}) : (
-                <tr>
-                    <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma marca encontrada.</td>
-                </tr>
+                <tr><td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma marca encontrada.</td></tr>
             )}
           </tbody>
         </table>
       </div>
-      <Pagination
+       <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}

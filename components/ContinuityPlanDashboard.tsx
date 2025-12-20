@@ -31,7 +31,8 @@ const ContinuityPlanDashboard: React.FC<ContinuityPlanDashboardProps> = ({ plans
     const [itemsPerPage, setItemsPerPage] = useState(10);
     
     // Maps for performance
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    // Fix: fullName to full_name
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const serviceMap = useMemo(() => new Map(businessServices.map(s => [s.id, s.name])), [businessServices]);
 
     const filteredPlans = useMemo(() => {

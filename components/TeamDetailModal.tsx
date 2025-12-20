@@ -23,9 +23,10 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
+        // Fix: fullName to full_name
         const membersRows = members.map(m => `
             <tr>
-                <td>${m.fullName}</td>
+                <td>${m.full_name}</td>
                 <td>${m.email}</td>
                 <td>${m.role}</td>
             </tr>
@@ -121,15 +122,18 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                             {members.map(member => (
                                 <div key={member.id} className="flex items-center gap-3 bg-surface-dark p-3 rounded border border-gray-700">
-                                    {member.photoUrl ? (
-                                        <img src={member.photoUrl} alt={member.fullName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                    {/* Fix: photoUrl to photo_url */}
+                                    {member.photo_url ? (
+                                        <img src={member.photo_url} alt={member.full_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                                     ) : (
                                         <div className="w-10 h-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">
-                                            {member.fullName.charAt(0)}
+                                            {/* Fix: fullName to full_name */}
+                                            {member.full_name.charAt(0)}
                                         </div>
                                     )}
                                     <div className="overflow-hidden">
-                                        <p className="font-semibold text-white truncate" title={member.fullName}>{member.fullName}</p>
+                                        {/* Fix: fullName to full_name */}
+                                        <p className="font-semibold text-white truncate" title={member.full_name}>{member.full_name}</p>
                                         <p className="text-xs text-gray-400 truncate">{member.email}</p>
                                         <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1">
                                             <FaUserTag className="h-2.5 w-2.5"/> {member.role}

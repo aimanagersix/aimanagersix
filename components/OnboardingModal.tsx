@@ -28,17 +28,16 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
         loadJobs();
     }, []);
 
-    // Form State
+    // Form State NORMALIZED to snake_case
     const [formData, setFormData] = useState({
-        fullName: '',
+        full_name: '',
         email: '',
-        role: 'Utilizador', // Default system role
-        jobTitleId: '', // Functional role from config
-        startDate: '',
-        entidadeId: '',
-        instituicaoId: '',
+        role: 'Utilizador',
+        job_title_id: '',
+        start_date: '',
+        entidade_id: '',
+        instituicao_id: '',
         
-        // Resources
         selectedHardwareTypes: [] as string[],
         selectedSoftwareCategories: [] as string[],
         needsVpn: false,
@@ -47,14 +46,13 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
         notes: ''
     });
 
-    // Compute institution based on entity
     const handleEntityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const entId = e.target.value;
         const entity = entidades.find(ent => ent.id === entId);
         setFormData(prev => ({
             ...prev,
-            entidadeId: entId,
-            instituicaoId: entity ? entity.instituicaoId : prev.instituicaoId
+            entidade_id: entId,
+            instituicao_id: entity ? entity.instituicao_id : prev.instituicao_id
         }));
     };
 
@@ -75,25 +73,24 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
     };
 
     const handleSubmit = async () => {
-        if (!formData.fullName || !formData.email) {
+        if (!formData.full_name || !formData.email) {
             alert("Nome e Email são obrigatórios.");
             return;
         }
 
         setIsSaving(true);
         try {
-            // 1. Create Collaborator with 'Onboarding' status
             const collabData = {
-                fullName: formData.fullName,
+                full_name: formData.full_name,
                 email: formData.email,
                 role: formData.role,
                 status: CollaboratorStatus.Onboarding, 
-                entidadeId: formData.entidadeId || null,
-                instituicaoId: formData.instituicaoId || null,
-                canLogin: false, // Ensure no auth user is created
-                receivesNotifications: false,
-                numeroMecanografico: 'N/A',
-                job_title_id: formData.jobTitleId || null
+                entidade_id: formData.entidade_id || null,
+                instituicao_id: formData.instituicao_id || null,
+                can_login: false,
+                receives_notifications: false,
+                numero_mecanografico: 'N/A',
+                job_title_id: formData.job_title_id || null
             };
 
             const newCollab = await dataService.addCollaborator(collabData);
@@ -102,17 +99,16 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSave, equi
                 throw new Error("Falha ao criar registo de colaborador.");
             }
 
-            // 2. Create Ticket
             const hardwareNames = formData.selectedHardwareTypes.map(id => equipmentTypes.find(t => t.id === id)?.name).join(', ');
             const softwareNames = formData.selectedSoftwareCategories.map(id => softwareCategories.find(c => c.id === id)?.name).join(', ');
-            const jobTitleName = jobTitles.find(j => j.id === formData.jobTitleId)?.name || 'N/A';
+            const jobTitleName = jobTitles.find(j => j.id === formData.job_title_id)?.name || 'N/A';
             
             const description = `
-**Novo Colaborador:** ${formData.fullName}
+**Novo Colaborador:** ${formData.full_name}
 **Função:** ${jobTitleName}
 **Email:** ${formData.email}
-**Data de Início:** ${formData.startDate}
-**Localização:** ${entidades.find(e => e.id === formData.entidadeId)?.name || 'N/A'}
+**Data de Início:** ${formData.start_date}
+**Localização:** ${entidades.find(e => e.id === formData.entidade_id)?.name || 'N/A'}
 
 **Requisitos de Hardware:**
 ${hardwareNames || 'Nenhum'}
@@ -129,35 +125,33 @@ ${formData.notes}
             `;
 
             await dataService.addTicket({
-                title: `Onboarding: ${formData.fullName}`,
+                title: `Onboarding: ${formData.full_name}`,
                 description: description.trim(),
                 status: TicketStatus.Requested,
                 category: 'Pedido de Acesso', 
-                requestDate: new Date().toISOString(),
-                collaboratorId: newCollab.id, // Linked to the new user directly!
-                entidadeId: formData.entidadeId || currentUser?.entidadeId,
-                impactCriticality: 'Média',
-                technicianId: undefined // Not assigned yet
+                request_date: new Date().toISOString(),
+                collaborator_id: newCollab.id,
+                entidade_id: formData.entidade_id || currentUser?.entidade_id,
+                impact_criticality: 'Média'
             });
 
-            await dataService.logAction('ONBOARDING', 'Collaborator', `Onboarding request created for ${formData.fullName}`);
+            await dataService.logAction('ONBOARDING', 'Collaborator', `Onboarding request created for ${formData.full_name}`);
             
             onSave();
             onClose();
-            alert("Pedido de Onboarding criado com sucesso! O colaborador foi registado como 'Onboarding' e gerado um ticket.");
+            alert("Pedido de Onboarding criado com sucesso!");
 
         } catch (e: any) {
-            console.error("Onboarding Error:", e);
-            alert(`Erro ao criar pedido: ${e.message || "Verifique a conexão."}`);
+            console.error(e);
+            alert(`Erro: ${e.message || "Erro de rede."}`);
         } finally {
             setIsSaving(false);
         }
     };
 
     return (
-        <Modal title="Assistente de Onboarding (Entrada de Colaborador)" onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title="Assistente de Onboarding" onClose={onClose} maxWidth="max-w-4xl">
             <div className="flex flex-col h-[70vh]">
-                {/* Steps Indicator */}
                 <div className="flex items-center justify-between mb-6 px-12 relative">
                     <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-700 -z-10"></div>
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-brand-primary text-white' : 'bg-gray-800 text-gray-500'}`}>1</div>
@@ -172,13 +166,13 @@ ${formData.notes}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm text-gray-400 mb-1">Nome Completo</label>
-                                    <input type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" />
+                                    <input type="text" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" />
                                 </div>
                                 <div>
                                     <label className="block text-sm text-gray-400 mb-1 flex items-center gap-2"><FaBriefcase/> Função / Cargo</label>
                                     <select 
-                                        value={formData.jobTitleId} 
-                                        onChange={e => setFormData({...formData, jobTitleId: e.target.value})} 
+                                        value={formData.job_title_id} 
+                                        onChange={e => setFormData({...formData, job_title_id: e.target.value})} 
                                         className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white"
                                     >
                                         <option value="">-- Selecione Cargo --</option>
@@ -191,11 +185,11 @@ ${formData.notes}
                                 </div>
                                 <div>
                                     <label className="block text-sm text-gray-400 mb-1">Data de Início</label>
-                                    <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" />
+                                    <input type="date" value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" />
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm text-gray-400 mb-1">Entidade / Departamento</label>
-                                    <select value={formData.entidadeId} onChange={handleEntityChange} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white">
+                                    <select value={formData.entidade_id} onChange={handleEntityChange} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white">
                                         <option value="">Selecione...</option>
                                         {entidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                                     </select>
@@ -206,8 +200,7 @@ ${formData.notes}
 
                     {step === 2 && (
                         <div className="space-y-6 animate-fade-in">
-                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><FaLaptop /> Requisitos de Equipamento</h3>
-                            
+                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><FaLaptop /> Requisitos</h3>
                             <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
                                 <h4 className="text-sm font-bold text-blue-300 mb-3">Hardware Necessário</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -219,60 +212,17 @@ ${formData.notes}
                                     ))}
                                 </div>
                             </div>
-
-                            <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
-                                <h4 className="text-sm font-bold text-purple-300 mb-3">Software e Acessos</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {softwareCategories.map(cat => (
-                                        <label key={cat.id} className={`flex items-center gap-2 p-2 rounded cursor-pointer border ${formData.selectedSoftwareCategories.includes(cat.id) ? 'bg-purple-900/30 border-purple-500' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}>
-                                            <input type="checkbox" checked={formData.selectedSoftwareCategories.includes(cat.id)} onChange={() => toggleSoftware(cat.id)} className="rounded bg-gray-800 border-gray-500 text-purple-500" />
-                                            <span className="text-sm text-white">{cat.name}</span>
-                                        </label>
-                                    ))}
-                                    <label className={`flex items-center gap-2 p-2 rounded cursor-pointer border ${formData.needsVpn ? 'bg-purple-900/30 border-purple-500' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}>
-                                        <input type="checkbox" checked={formData.needsVpn} onChange={e => setFormData({...formData, needsVpn: e.target.checked})} className="rounded bg-gray-800 border-gray-500 text-purple-500" />
-                                        <span className="text-sm text-white">VPN / Acesso Remoto</span>
-                                    </label>
-                                     <label className={`flex items-center gap-2 p-2 rounded cursor-pointer border ${formData.needsMobile ? 'bg-purple-900/30 border-purple-500' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}>
-                                        <input type="checkbox" checked={formData.needsMobile} onChange={e => setFormData({...formData, needsMobile: e.target.checked})} className="rounded bg-gray-800 border-gray-500 text-purple-500" />
-                                        <span className="text-sm text-white">Telemóvel Corporativo</span>
-                                    </label>
-                                </div>
-                            </div>
                         </div>
                     )}
 
                     {step === 3 && (
                         <div className="space-y-4 animate-fade-in">
-                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><FaCheck /> Revisão e Confirmação</h3>
-                            
+                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><FaCheck /> Confirmação</h3>
                             <div className="bg-gray-800 p-4 rounded border border-gray-700 text-sm space-y-2">
-                                <p><strong className="text-gray-400">Nome:</strong> {formData.fullName}</p>
-                                <p><strong className="text-gray-400">Cargo:</strong> {jobTitles.find(j => j.id === formData.jobTitleId)?.name || 'N/A'}</p>
-                                <p><strong className="text-gray-400">Início:</strong> {formData.startDate}</p>
-                                <p><strong className="text-gray-400">Entidade:</strong> {entidades.find(e => e.id === formData.entidadeId)?.name || 'N/A'}</p>
-                                <div className="border-t border-gray-700 pt-2 mt-2">
-                                    <p><strong className="text-gray-400">Hardware:</strong> {formData.selectedHardwareTypes.length > 0 ? formData.selectedHardwareTypes.map(id => equipmentTypes.find(t => t.id === id)?.name).join(', ') : 'Nenhum'}</p>
-                                    <p><strong className="text-gray-400">Software:</strong> {formData.selectedSoftwareCategories.length > 0 ? formData.selectedSoftwareCategories.map(id => softwareCategories.find(c => c.id === id)?.name).join(', ') : 'Nenhum'}</p>
-                                </div>
+                                <p><strong className="text-gray-400">Nome:</strong> {formData.full_name}</p>
+                                <p><strong className="text-gray-400">Início:</strong> {formData.start_date}</p>
                             </div>
-                            
-                            <div className="bg-blue-900/20 p-3 rounded border border-blue-500/30 text-xs text-blue-200">
-                                <p>
-                                    Ao confirmar, será criado um registo de colaborador com estado <strong>"Onboarding"</strong> e um Ticket para a equipa de TI iniciar o provisionamento.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-1">Notas Adicionais para TI</label>
-                                <textarea 
-                                    value={formData.notes} 
-                                    onChange={e => setFormData({...formData, notes: e.target.value})} 
-                                    rows={3} 
-                                    className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white"
-                                    placeholder="Ex: Precisa de monitor extra, teclado em francês..."
-                                />
-                            </div>
+                            <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} rows={3} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" placeholder="Notas adicionais..." />
                         </div>
                     )}
                 </div>
@@ -288,7 +238,7 @@ ${formData.notes}
                          <button onClick={() => setStep(step + 1)} className="px-6 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary">Seguinte</button>
                     ) : (
                          <button onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-500 flex items-center gap-2">
-                             {isSaving ? <FaSpinner className="animate-spin" /> : <FaPlaneArrival />} Confirmar Onboarding
+                             {isSaving ? <FaSpinner className="animate-spin" /> : <FaPlaneArrival />} Confirmar
                          </button>
                     )}
                 </div>

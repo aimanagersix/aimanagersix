@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { BusinessService, Equipment, SoftwareLicense, ServiceDependency } from '../types';
@@ -34,7 +33,8 @@ const ServiceDependencyModal: React.FC<ServiceDependencyModalProps> = ({ onClose
         } else {
             return allLicenses
                 .filter(l => !linkedLicenseIds.has(l.id))
-                .sort((a,b) => a.productName.localeCompare(b.productName));
+                // FIX: Updated property names to snake_case
+                .sort((a,b) => a.product_name.localeCompare(b.product_name));
         }
     }, [type, allEquipment, allLicenses, linkedEquipmentIds, linkedLicenseIds]);
 
@@ -80,8 +80,10 @@ const ServiceDependencyModal: React.FC<ServiceDependencyModalProps> = ({ onClose
                                  {availableItems.map(item => (
                                      <option key={item.id} value={item.id}>
                                          {type === 'equipment' 
-                                            ? `${(item as Equipment).description} (S/N: ${(item as Equipment).serialNumber})` 
-                                            : `${(item as SoftwareLicense).productName} (${(item as SoftwareLicense).licenseKey})`
+                                            // FIX: Updated property names to snake_case
+                                            ? `${(item as Equipment).description} (S/N: ${(item as Equipment).serial_number})` 
+                                            // FIX: Updated property names to snake_case
+                                            : `${(item as SoftwareLicense).product_name} (${(item as SoftwareLicense).license_key})`
                                          }
                                      </option>
                                  ))}
@@ -116,10 +118,12 @@ const ServiceDependencyModal: React.FC<ServiceDependencyModalProps> = ({ onClose
                                         </div>
                                         <div>
                                             <p className="font-semibold text-white">
-                                                {eq ? eq.description : lic?.productName}
+                                                {/* FIX: Updated property names to snake_case */}
+                                                {eq ? eq.description : lic?.product_name}
                                             </p>
                                             <p className="text-xs text-gray-400">
-                                                {eq ? `S/N: ${eq.serialNumber}` : `Key: ${lic?.licenseKey}`}
+                                                {/* FIX: Updated property names to snake_case */}
+                                                {eq ? `S/N: ${eq.serial_number}` : `Key: ${lic?.license_key}`}
                                                 {dep.dependency_type && <span className="ml-2 px-2 py-0.5 bg-gray-600 rounded-full text-white">{dep.dependency_type}</span>}
                                             </p>
                                         </div>

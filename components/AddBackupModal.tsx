@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
 import { BackupExecution, BackupType, Collaborator, Equipment, EquipmentType, Ticket, TicketStatus } from '../types';
@@ -43,41 +42,26 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     
-    // Ticket creation state
     const [createTicket, setCreateTicket] = useState(false);
     const [ticketDate, setTicketDate] = useState('');
     const [showAllEquipment, setShowAllEquipment] = useState(false);
     
-    // AI Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const aiConfigured = isAiConfigured();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Robust Equipment Filtering Logic
     const eligibleEquipment = useMemo(() => {
-        // Se a opção "Mostrar Todos" estiver ativa, retorna a lista completa ordenada
         if (showAllEquipment) {
             return equipmentList.sort((a, b) => a.description.localeCompare(b.description));
         }
 
         return equipmentList
             .filter(e => {
-                // 1. Estado deve ser Operacional
                 if (e.status !== 'Operacional') return false;
-
-                // 2. Verificar Tipo
-                const type = equipmentTypes.find(t => t.id === e.typeId);
+                const type = equipmentTypes.find(t => t.id === e.type_id);
                 if (!type) return false;
-
-                // 3. Verificação Robusta da Flag (CamelCase, SnakeCase ou LowerCase)
-                // O Supabase/Postgres pode devolver nomes de colunas de forma diferente dependendo da criação
-                const needsBackup = 
-                    (type as any).requiresBackupTest === true || 
-                    (type as any).requires_backup_test === true ||
-                    (type as any).requiresbackuptest === true;
-
-                return needsBackup;
+                return type.requires_backup_test === true;
             })
             .sort((a, b) => a.description.localeCompare(b.description));
     }, [equipmentList, equipmentTypes, showAllEquipment]);
@@ -90,8 +74,6 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             if (backupToEdit.attachments) {
                 setAttachments(backupToEdit.attachments.map(a => ({ ...a, size: 0 })));
             }
-            // Se estiver a editar, verifica se o equipamento está na lista filtrada.
-            // Se não estiver (ex: já não é Operacional), força "Mostrar Todos" para não quebrar a UI.
             if (backupToEdit.equipment_id) {
                 const inList = eligibleEquipment.some(e => e.id === backupToEdit.equipment_id);
                 if (!inList) {
@@ -101,7 +83,6 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
         }
     }, [backupToEdit, eligibleEquipment]);
 
-    // Update system name when equipment changes
     useEffect(() => {
         if (formData.equipment_id && !backupToEdit) {
             const eq = equipmentMap.get(formData.equipment_id);
@@ -222,9 +203,9 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
             const ticketPayload: Partial<Ticket> = {
                 title: title,
                 description: `Agendamento automático de teste de restauro (backup verify) para o sistema: ${formData.system_name}.\n\nBaseado no teste anterior realizado em ${formData.test_date}.`,
-                requestDate: ticketDate,
+                request_date: ticketDate,
                 status: TicketStatus.Requested,
-                equipmentId: formData.equipment_id || undefined,
+                equipment_id: formData.equipment_id || undefined,
                 category: 'Manutenção'
             };
             onCreateTicket(ticketPayload);
@@ -238,11 +219,9 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
     return (
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-2xl">
             <form onSubmit={handleSubmit} className="space-y-4">
-                
-                {/* Equipment Selection */}
                 <div className="bg-gray-900/30 p-3 rounded border border-gray-700">
                     <label htmlFor="equipment_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">
-                        Sistema / Equipamento <span className="text-xs text-gray-500">(Carregados: {equipmentList.length})</span>
+                        Sistema / Equipamento
                     </label>
                     <div className="flex gap-2 mb-2">
                         <select 
@@ -253,11 +232,9 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
                         >
                             <option value="">-- Selecione Equipamento (Opcional) --</option>
-                            {eligibleEquipment.length > 0 ? eligibleEquipment.map(eq => (
-                                <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serialNumber})</option>
-                            )) : (
-                                <option value="" disabled>Nenhum equipamento 'Operacional' requer backup.</option>
-                            )}
+                            {eligibleEquipment.map(eq => (
+                                <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serial_number})</option>
+                            ))}
                         </select>
                     </div>
 
@@ -269,7 +246,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                                 onChange={(e) => setShowAllEquipment(e.target.checked)} 
                                 className="rounded bg-gray-700 border-gray-600 text-brand-secondary focus:ring-brand-secondary"
                             />
-                            <span className="flex items-center gap-1"><FaFilter className="text-[10px]"/> Mostrar todos os equipamentos (Ignorar filtros de Tipo/Estado)</span>
+                            <span className="flex items-center gap-1"><FaFilter className="text-[10px]"/> Mostrar todos os equipamentos</span>
                         </label>
                     </div>
                     
@@ -321,14 +298,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
 
                 <div>
                     <label htmlFor="restore_time_minutes" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Tempo de Restauro (Minutos)</label>
-                    <input 
-                        type="number" 
-                        name="restore_time_minutes" 
-                        value={formData.restore_time_minutes} 
-                        onChange={handleChange} 
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" 
-                        placeholder="Opcional (para validar RTO)"
-                    />
+                    <input type="number" name="restore_time_minutes" value={formData.restore_time_minutes} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="Opcional (para validar RTO)" />
                 </div>
 
                 <div>
@@ -336,92 +306,37 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                     <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"></textarea>
                 </div>
 
-                {/* Evidence / Attachments Section */}
                 <div>
                     <label className="block text-sm font-medium text-on-surface-dark-secondary mb-2">Evidências (Print Screens, Logs)</label>
-                    
-                    {aiConfigured && (
-                        <div className="mb-2 p-2 bg-indigo-900/30 rounded border border-indigo-500/30 text-xs text-indigo-200 flex items-center gap-2">
-                            <FaRobot />
-                            <span>Dica: Anexe um print screen do sucesso do backup para preenchimento automático dos campos pela IA.</span>
-                        </div>
-                    )}
-
                     <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700">
                         {attachments.length > 0 && (
                             <ul className="space-y-2 mb-3">
                                 {attachments.map((file, index) => (
                                     <li key={index} className="flex justify-between items-center text-sm p-2 bg-surface-dark rounded-md">
-                                        <div className="flex items-center gap-2 overflow-hidden">
-                                            <FaFileContract className="text-gray-400 flex-shrink-0" />
-                                            <span className="truncate text-on-surface-dark-secondary">
-                                                {file.name}
-                                                {file.size > 0 && <span className="text-xs ml-2 text-gray-400">({formatFileSize(file.size)})</span>}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {file.size === 0 && file.dataUrl && (
-                                                <a href={file.dataUrl} download={file.name} className="text-blue-400 hover:text-blue-300 p-1" title="Download">
-                                                    <FaDownload />
-                                                </a>
-                                            )}
-                                            <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 ml-2 p-1" title="Remover">
-                                                <DeleteIcon className="h-4 w-4" />
-                                            </button>
-                                        </div>
+                                        <span className="truncate text-on-surface-dark-secondary">{file.name}</span>
+                                        <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 ml-2 p-1" title="Remover"><DeleteIcon className="h-4 w-4" /></button>
                                     </li>
                                 ))}
                             </ul>
                         )}
-                        <input
-                            type="file"
-                            multiple
-                            ref={fileInputRef}
-                            onChange={handleFileSelect}
-                            className="hidden"
-                            accept="image/*,application/pdf,text/plain"
-                        />
-                         <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={attachments.length >= MAX_FILES}
-                            className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dashed border border-gray-500"
-                        >
-                            {`+ Anexar Evidências (${attachments.length}/${MAX_FILES})`}
-                        </button>
+                        <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf,text/plain" />
+                         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={attachments.length >= MAX_FILES} className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors disabled:opacity-50 border border-dashed border-gray-500">+ Anexar Evidências ({attachments.length}/{MAX_FILES})</button>
                     </div>
                 </div>
 
-                {/* Automated Ticket Creation Section */}
                 {!backupToEdit && onCreateTicket && (
                     <div className="border-t border-gray-700 pt-4 mt-2">
                         <div className="flex items-center mb-3">
-                            <input
-                                type="checkbox"
-                                id="createTicket"
-                                checked={createTicket}
-                                onChange={(e) => setCreateTicket(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                            />
-                            <label htmlFor="createTicket" className="ml-2 block text-sm font-bold text-white flex items-center gap-2">
-                                <FaTicketAlt className="text-brand-secondary" />
-                                Criar Ticket Automático para Próximo Teste?
-                            </label>
+                            <input type="checkbox" id="createTicket" checked={createTicket} onChange={(e) => setCreateTicket(e.target.checked)} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <label htmlFor="createTicket" className="ml-2 block text-sm font-bold text-white flex items-center gap-2"><FaTicketAlt className="text-brand-secondary" /> Criar Ticket Automático para Próximo Teste?</label>
                         </div>
-
                         {createTicket && (
                             <div className="pl-6 animate-fade-in space-y-2">
                                 <label className="block text-xs font-medium text-on-surface-dark-secondary">Data para o Ticket (Agendamento)</label>
                                 <div className="flex gap-2 items-center">
-                                    <input 
-                                        type="date" 
-                                        value={ticketDate} 
-                                        onChange={(e) => setTicketDate(e.target.value)}
-                                        className={`bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.ticketDate ? 'border-red-500' : 'border-gray-600'}`} 
-                                    />
-                                    <button type="button" onClick={() => handleSetTicketDate(3)} className="px-2 py-1 text-xs bg-gray-600 rounded hover:bg-gray-500 flex items-center gap-1"><FaCalendarPlus/> +3 Meses</button>
-                                    <button type="button" onClick={() => handleSetTicketDate(6)} className="px-2 py-1 text-xs bg-gray-600 rounded hover:bg-gray-500 flex items-center gap-1"><FaCalendarPlus/> +6 Meses</button>
-                                    <button type="button" onClick={() => handleSetTicketDate(12)} className="px-2 py-1 text-xs bg-gray-600 rounded hover:bg-gray-500 flex items-center gap-1"><FaCalendarPlus/> +1 Ano</button>
+                                    <input type="date" value={ticketDate} onChange={(e) => setTicketDate(e.target.value)} className={`bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.ticketDate ? 'border-red-500' : 'border-gray-600'}`} />
+                                    <button type="button" onClick={() => handleSetTicketDate(3)} className="px-2 py-1 text-xs bg-gray-600 rounded hover:bg-gray-500 flex items-center gap-1">+3 Meses</button>
+                                    <button type="button" onClick={() => handleSetTicketDate(12)} className="px-2 py-1 text-xs bg-gray-600 rounded hover:bg-gray-500 flex items-center gap-1">+1 Ano</button>
                                 </div>
                                 {errors.ticketDate && <p className="text-red-400 text-xs italic">{errors.ticketDate}</p>}
                             </div>
@@ -430,11 +345,8 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                 )}
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
-                        <FaServer />
-                        Registar Teste
-                    </button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
+                    <button type="submit" className="px-6 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2"><FaServer /> Registar Teste</button>
                 </div>
             </form>
         </Modal>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { ContinuityPlan, Collaborator, BusinessService } from '../types';
@@ -127,7 +128,8 @@ const AddContinuityPlanModal: React.FC<AddContinuityPlanModalProps> = ({ onClose
                     <label className="block text-sm text-gray-400 mb-1">Responsável (Owner)</label>
                     <select value={formData.owner_id} onChange={e => setFormData({...formData, owner_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" required>
                         <option value="" disabled>Selecione...</option>
-                        {collaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                        {/* Fix: fullName to full_name */}
+                        {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                     </select>
                 </div>
 
@@ -137,28 +139,4 @@ const AddContinuityPlanModal: React.FC<AddContinuityPlanModalProps> = ({ onClose
                         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="flex-shrink-0 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 flex items-center gap-2">
                             {isUploading ? <FaSpinner className="animate-spin"/> : <FaUpload />} Carregar
                         </button>
-                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf" />
-                        <div className="flex-grow p-2 bg-gray-800 rounded text-sm truncate">
-                            {formData.document_name ? (
-                                <a href={formData.document_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline flex items-center gap-2">
-                                    <FaFilePdf /> {formData.document_name}
-                                </a>
-                            ) : (
-                                <span className="text-gray-500">Nenhum ficheiro selecionado</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-6 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2" disabled={isSaving || isUploading}>
-                         {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Guardar
-                    </button>
-                </div>
-            </form>
-        </Modal>
-    );
-};
-
-export default AddContinuityPlanModal;
+                        <

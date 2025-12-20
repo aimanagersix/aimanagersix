@@ -19,7 +19,6 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
     const [priority, setPriority] = useState(0);
     const [isActive, setIsActive] = useState(true);
 
-    // Helpers Data
     const [teams, setTeams] = useState<Team[]>([]);
     const [users, setUsers] = useState<Collaborator[]>([]);
     const [categories, setCategories] = useState<TicketCategoryItem[]>([]);
@@ -34,7 +33,6 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
             setIsActive(ruleToEdit.is_active);
         }
         
-        // Load helpers
         const loadData = async () => {
             const d = await dataService.fetchAllData();
             setTeams(d.teams);
@@ -92,7 +90,6 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
         <Modal title={ruleToEdit ? "Editar Regra" : "Nova Regra de Automação"} onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-6 h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
                 
-                {/* General Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs text-gray-400 uppercase mb-1">Nome da Regra</label>
@@ -107,7 +104,6 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
                     </div>
                 </div>
 
-                {/* Conditions */}
                 <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="font-bold text-white text-sm">SE (Condições - Todas devem ser verdadeiras)</h4>
@@ -127,8 +123,9 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
                                     </>
                                 ) : (
                                     <>
-                                        <option value="brandId">Marca (ID)</option>
-                                        <option value="typeId">Tipo (ID)</option>
+                                        {/* FIX: brand_id and type_id */}
+                                        <option value="brand_id">Marca (ID)</option>
+                                        <option value="type_id">Tipo (ID)</option>
                                         <option value="description">Descrição</option>
                                     </>
                                 )}
@@ -140,7 +137,6 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
                                 <option value="starts_with">Começa com</option>
                             </select>
                             
-                            {/* Dynamic Value Input */}
                             {cond.field === 'category' && trigger === 'TICKET_CREATED' ? (
                                 <select value={String(cond.value)} onChange={e => updateCondition(idx, 'value', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 text-sm flex-grow">
                                     <option value="">Selecione...</option>
@@ -159,7 +155,6 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
                     <FaArrowRight className="text-gray-500 transform rotate-90 md:rotate-90"/>
                 </div>
 
-                {/* Actions */}
                 <div className="bg-gray-900/50 p-4 rounded border border-gray-700">
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="font-bold text-white text-sm">ENTÃO (Ações)</h4>
@@ -174,7 +169,6 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
                                 <option value="SET_STATUS">Mudar Estado</option>
                             </select>
 
-                            {/* Dynamic Value Input based on Action Type */}
                             {act.type === 'ASSIGN_TEAM' ? (
                                 <select value={act.value} onChange={e => updateAction(idx, 'value', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 text-sm flex-grow">
                                     <option value="">Selecione Equipa...</option>
@@ -183,7 +177,7 @@ const AddAutomationRuleModal: React.FC<AddAutomationRuleModalProps> = ({ onClose
                             ) : act.type === 'ASSIGN_USER' ? (
                                 <select value={act.value} onChange={e => updateAction(idx, 'value', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 text-sm flex-grow">
                                     <option value="">Selecione Técnico...</option>
-                                    {users.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+                                    {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
                                 </select>
                             ) : (
                                 <input type="text" value={act.value} onChange={e => updateAction(idx, 'value', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 text-sm flex-grow" placeholder="Valor..."/>

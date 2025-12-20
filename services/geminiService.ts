@@ -15,7 +15,7 @@ export const isAiConfigured = (): boolean => {
 };
 
 /**
- * Executes a request to Gemini models following strict SDK guidelines.
+ * Executes a request to Gemini models following strict SDK guidelines v21.
  */
 const runGeminiRequest = async (
     modelName: string, 
@@ -39,13 +39,17 @@ const runGeminiRequest = async (
         });
 
         if (error) {
-            console.error("Edge Function Error:", error);
-            throw new Error(`IA Offline: ${error.message}`);
+            console.error("[Diamond Proxy Error]:", error);
+            const msg = error.message || "Erro de ligação à Edge Function.";
+            if (msg.includes("Requested entity was not found")) {
+                 return "ERRO_AUTH: Selecione uma chave de API válida no Supabase.";
+            }
+            throw new Error(`IA Offline: ${msg}`);
         }
         return data?.text || "";
     }
 
-    // New instance per request to ensure fresh API Key state
+    // Direct mode Diamond Edition
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     
     const parts: any[] = [];
@@ -63,14 +67,21 @@ const runGeminiRequest = async (
     if (responseMimeType) config.responseMimeType = responseMimeType;
     if (schema) config.responseSchema = schema;
 
-    const response = await ai.models.generateContent({
-        model: modelName,
-        contents: { parts },
-        config: config
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: modelName,
+            contents: { parts },
+            config: config
+        });
 
-    // CORRETO: Acesso à propriedade .text, sem parênteses de método.
-    return response.text ? response.text.trim() : "";
+        // SDK compliance: .text property access
+        const result = response.text;
+        if (!result) throw new Error("Resposta vazia da IA.");
+        return result.trim();
+    } catch (e: any) {
+        console.error("[Diamond Direct Error]:", e);
+        throw new Error(`IA Error: ${e.message}`);
+    }
 };
 
 export const extractTextFromImage = async (base64Image: string, mimeType: string): Promise<string> => {

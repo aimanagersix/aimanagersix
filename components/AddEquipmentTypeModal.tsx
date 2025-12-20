@@ -12,15 +12,16 @@ interface AddEquipmentTypeModalProps {
 }
 
 const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit, teams, existingTypes = [] }) => {
+    // FIX: Map properties to match EquipmentType interface in types.ts (snake_case)
     const [formData, setFormData] = useState({
         name: '',
-        requiresNomeNaRede: false,
-        requiresMacWIFI: false,
-        requiresMacCabo: false,
-        requiresInventoryNumber: false,
+        requires_nome_na_rede: false,
+        requires_mac_wifi: false,
+        requires_mac_cabo: false,
+        requires_inventory_number: false,
         default_team_id: '',
-        requiresBackupTest: false, // Reverted to camelCase to match User DB
-        requiresLocation: false,
+        requires_backup_test: false,
+        requires_location: false,
         is_maintenance: false,
         requires_wwan_address: false,
         requires_bluetooth_address: false,
@@ -35,15 +36,16 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
 
     useEffect(() => {
         if (typeToEdit) {
+            // FIX: Map properties to match EquipmentType interface in types.ts (snake_case)
             setFormData({
                 name: typeToEdit.name,
-                requiresNomeNaRede: typeToEdit.requiresNomeNaRede || false,
-                requiresMacWIFI: typeToEdit.requiresMacWIFI || false,
-                requiresMacCabo: typeToEdit.requiresMacCabo || false,
-                requiresInventoryNumber: typeToEdit.requiresInventoryNumber || false,
+                requires_nome_na_rede: typeToEdit.requires_nome_na_rede || false,
+                requires_mac_wifi: typeToEdit.requires_mac_wifi || false,
+                requires_mac_cabo: typeToEdit.requires_mac_cabo || false,
+                requires_inventory_number: typeToEdit.requires_inventory_number || false,
                 default_team_id: typeToEdit.default_team_id || '',
-                requiresBackupTest: typeToEdit.requiresBackupTest || false, // Reverted to camelCase
-                requiresLocation: typeToEdit.requiresLocation || false,
+                requires_backup_test: typeToEdit.requires_backup_test || false,
+                requires_location: typeToEdit.requires_location || false,
                 is_maintenance: typeToEdit.is_maintenance || false,
                 requires_wwan_address: typeToEdit.requires_wwan_address || false,
                 requires_bluetooth_address: typeToEdit.requires_bluetooth_address || false,
@@ -140,7 +142,8 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                     <h3 className="text-md font-medium text-on-surface-dark mb-2">Campos e Requisitos</h3>
                      <div className="space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                         <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" name="requiresNomeNaRede" checked={formData.requiresNomeNaRede} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            {/* FIX: requires_nome_na_rede */}
+                            <input type="checkbox" name="requires_nome_na_rede" checked={formData.requires_nome_na_rede} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Nome na Rede"</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
@@ -148,19 +151,23 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Endereço IP"</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" name="requiresMacWIFI" checked={formData.requiresMacWIFI} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            {/* FIX: requires_mac_wifi */}
+                            <input type="checkbox" name="requires_mac_wifi" checked={formData.requires_mac_wifi} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Endereço MAC WIFI"</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" name="requiresMacCabo" checked={formData.requiresMacCabo} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            {/* FIX: requires_mac_cabo */}
+                            <input type="checkbox" name="requires_mac_cabo" checked={formData.requires_mac_cabo} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Endereço MAC Cabo"</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" name="requiresInventoryNumber" checked={formData.requiresInventoryNumber} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            {/* FIX: requires_inventory_number */}
+                            <input type="checkbox" name="requires_inventory_number" checked={formData.requires_inventory_number} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Número de Inventário"</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" name="requiresLocation" checked={formData.requiresLocation} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            {/* FIX: requires_location */}
+                            <input type="checkbox" name="requires_location" checked={formData.requires_location} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer "Local de Instalação" (Obrigatório)</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
@@ -191,9 +198,9 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                             <input type="checkbox" name="requires_manufacture_date" checked={formData.requires_manufacture_date} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-on-surface-dark-secondary">Requer Data de Fabrico</span>
                         </label>
-                        {/* UPDATE: Using the camelCase name 'requiresBackupTest' to match DB */}
                         <label className="flex items-center cursor-pointer sm:col-span-2 mt-2 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">
-                            <input type="checkbox" name="requiresBackupTest" checked={formData.requiresBackupTest} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            {/* FIX: requires_backup_test */}
+                            <input type="checkbox" name="requires_backup_test" checked={formData.requires_backup_test} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-indigo-200 font-bold">Requer Teste de Restauro (Backups)</span>
                         </label>
                         <label className="flex items-center cursor-pointer sm:col-span-2 mt-2 bg-orange-900/20 p-2 rounded border border-orange-500/30">

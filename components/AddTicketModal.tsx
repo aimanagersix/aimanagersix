@@ -1,238 +1,95 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, UserRole, CollaboratorStatus, Team, Equipment, EquipmentType, Assignment, TicketCategory, CriticalityLevel, CIARating, TicketCategoryItem, SecurityIncidentTypeItem, TicketStatus, TicketActivity, Supplier, Instituicao, ConfigItem } from '../types';
-import { FaTrash as DeleteIcon, FaShieldAlt, FaExclamationTriangle, FaMagic, FaSpinner, FaCheck, FaLandmark, FaDownload, SpinnerIcon } from './common/Icons';
-import { analyzeTicketRequest, findSimilarPastTickets, isAiConfigured } from '../services/geminiService';
-import { FaLightbulb, FaLock, FaUserTie, FaTruck, FaUsers, FaBuilding, FaTools } from 'react-icons/fa';
-import RegulatoryNotificationModal from './RegulatoryNotificationModal';
-import * as dataService from '../services/dataService';
-import { getSupabase } from '../services/supabaseClient';
+import { Ticket, Entidade, Collaborator, Team, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao } from '../types';
+import { FaShieldAlt, FaSpinner } from './common/Icons';
 
 interface AddTicketModalProps {
     onClose: () => void;
-    onSave: (ticket: Omit<Ticket, 'id' | 'requestDate' | 'status' | 'finishDate'> | Ticket) => Promise<any>;
+    onSave: (ticket: any) => Promise<any>;
     ticketToEdit?: Ticket | null;
     escolasDepartamentos: Entidade[];
+    // Fix: Added instituicoes prop
     instituicoes: Instituicao[];
     collaborators: Collaborator[];
-    suppliers?: Supplier[];
     teams: Team[];
     currentUser: Collaborator | null;
-    userPermissions: { viewScope: string; canManage?: boolean };
-    equipment: Equipment[];
-    equipmentTypes: EquipmentType[];
-    assignments: Assignment[];
     categories: TicketCategoryItem[];
-    securityIncidentTypes?: SecurityIncidentTypeItem[]; 
-    pastTickets?: Ticket[];
-    initialData?: Partial<Ticket> | null;
-    statusOptions?: ConfigItem[];
+    securityIncidentTypes?: SecurityIncidentTypeItem[];
 }
 
-const MAX_FILES = 3;
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
-
-export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, escolasDepartamentos: entidades, instituicoes, collaborators, suppliers = [], teams, currentUser, userPermissions, equipment, equipmentTypes, assignments, categories, securityIncidentTypes = [], pastTickets = [], initialData, statusOptions = [] }) => {
-    
-    const activeCategories = useMemo(() => categories.filter(c => c.is_active).map(c => c.name), [categories]);
-    const canManage = userPermissions.canManage || currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === UserRole.SuperAdmin || currentUser?.role === 'Técnico';
-    const modalTitle = ticketToEdit ? "Editar Ticket de Suporte" : "Abrir Novo Ticket de Suporte";
-
-    const [formData, setFormData] = useState<Partial<Ticket>>(() => {
-        if (ticketToEdit) return { ...ticketToEdit };
-        
-        const triageTeam = teams.find(t => t.name === 'Pendente Atribuição');
-        const generalCategory = categories.find(c => c.name === 'Geral');
-
-        const baseData: any = {
-            title: initialData?.title || '',
-            description: initialData?.description || '',
-            team_id: triageTeam?.id || '',
-            category: initialData?.category || generalCategory?.name || activeCategories[0] || 'Geral',
-            impactCriticality: (initialData?.impactCriticality as CriticalityLevel) || CriticalityLevel.Low,
-            status: 'Pedido'
-        };
-        
-        if (!generalCategory || baseData.category !== 'Geral') {
-            const defaultCatObj = categories.find(c => c.name === baseData.category);
-            if (defaultCatObj?.default_team_id) baseData.team_id = defaultCatObj.default_team_id;
-        }
-
-        if (currentUser) {
-            baseData.entidadeId = currentUser.entidadeId;
-            baseData.collaboratorId = currentUser.id;
-        }
-        
-        return baseData;
+export const AddTicketModal: React.FC<AddTicketModalProps> = ({ onClose, onSave, ticketToEdit, collaborators, teams, currentUser, categories, securityIncidentTypes = [] }) => {
+    const [isSaving, setIsSaving] = useState(false);
+    const [formData, setFormData] = useState<any>({
+        title: '',
+        description: '',
+        status: 'Pedido',
+        category: 'Geral',
+        impact_criticality: 'Baixa',
+        request_date: new Date().toISOString(),
+        collaborator_id: currentUser?.id,
+        team_id: '',
+        technician_id: '',
+        security_incident_type: ''
     });
 
     useEffect(() => {
-        if (!ticketToEdit && currentUser && !formData.collaboratorId) {
-            setFormData(prev => ({
-                ...prev,
-                collaboratorId: currentUser.id,
-                entidadeId: currentUser.entidadeId
-            }));
-        }
-    }, [currentUser, ticketToEdit]);
+        if (ticketToEdit) setFormData({ ...ticketToEdit });
+    }, [ticketToEdit]);
 
-    const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [isSaving, setIsSaving] = useState(false);
-     
-    const isSecurityIncident = useMemo(() => {
-        const selectedCatObj = categories.find(c => c.name === formData.category);
-        return selectedCatObj?.is_security || (formData.category || '').toLowerCase().includes('segurança');
-    }, [formData.category, categories]);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        if (name === 'category') {
-             const catObj = categories.find(c => c.name === value);
-             setFormData(prev => ({ ...prev, category: value, team_id: catObj?.default_team_id || prev.team_id }));
-        } else setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const validate = () => {
-        const newErrors: Record<string, string> = {};
-        if (!formData.title?.trim()) newErrors.title = "O assunto é obrigatório.";
-        if (!formData.description?.trim()) newErrors.description = "A descrição é obrigatória.";
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
+    const isSecurity = categories.find(c => c.name === formData.category)?.is_security || (formData.category || '').toLowerCase().includes('segurança');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
         setIsSaving(true);
         try {
-            const dataToSave: any = { 
-                ...formData, 
-                attachments: attachments.map(a => ({ name: a.name, dataUrl: a.dataUrl })) 
-            };
-            
-            if (!dataToSave.team_id) dataToSave.team_id = null;
-            if (!dataToSave.equipmentId) dataToSave.equipmentId = null;
-            if (!dataToSave.technicianId) dataToSave.technicianId = null;
-
-            await onSave(ticketToEdit ? { ...ticketToEdit, ...dataToSave } : dataToSave);
+            await onSave(formData);
             onClose();
-        } catch (error: any) { 
-            console.error("Error saving ticket:", error);
-            alert("Erro ao gravar ticket: " + (error.message || "Erro desconhecido. Verifique as suas permissões."));
-        } finally {
-            setIsSaving(false);
-        }
+        } finally { setIsSaving(false); }
     };
 
     return (
-        <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-3xl">
-             <form onSubmit={handleSubmit} className="space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Modal title={ticketToEdit ? "Editar Ticket" : "Abrir Ticket"} onClose={onClose}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Categoria</label>
-                        <select 
-                            name="category" 
-                            value={formData.category} 
-                            onChange={handleChange} 
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
-                        >
-                            {activeCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
+                        <label className="block text-sm text-gray-400 mb-1">Categoria</label>
+                        <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2">
+                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Estado {!canManage && '(Apenas Leitura)'}</label>
-                        <select 
-                            name="status" 
-                            value={formData.status} 
-                            onChange={handleChange} 
-                            disabled={!canManage}
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 disabled:bg-gray-800 disabled:text-gray-400"
-                        >
-                            {statusOptions.length > 0 ? statusOptions.map(opt => <option key={opt.id} value={opt.name}>{opt.name}</option>) : (
-                                <>
-                                    <option value="Pedido">Pedido</option>
-                                    <option value="Em progresso">Em progresso</option>
-                                    <option value="Finalizado">Finalizado</option>
-                                    <option value="Cancelado">Cancelado</option>
-                                </>
-                            )}
+                        <label className="block text-sm text-gray-400 mb-1">Impacto (NIS2)</label>
+                        <select value={formData.impact_criticality} onChange={e => setFormData({...formData, impact_criticality: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2">
+                            {Object.values(CriticalityLevel).map(l => <option key={l} value={l}>{l}</option>)}
                         </select>
                     </div>
                 </div>
-                
-                {/* Campos Específicos de Segurança NIS2 */}
-                {isSecurityIncident && (
-                    <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg animate-fade-in space-y-4">
-                        <div className="flex items-center gap-2 text-red-400 font-bold text-sm mb-2">
-                            <FaShieldAlt /> Detalhes do Incidente (Requisito NIS2)
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Tipo de Incidente</label>
-                                <select 
-                                    name="securityIncidentType" 
-                                    value={formData.securityIncidentType || ''} 
-                                    onChange={handleChange}
-                                    className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2 text-sm"
-                                >
-                                    <option value="">-- Selecione o Tipo --</option>
-                                    {securityIncidentTypes.filter(t => t.is_active).map(type => (
-                                        <option key={type.id} value={type.name}>{type.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Impacto / Severidade</label>
-                                <select 
-                                    name="impactCriticality" 
-                                    value={formData.impactCriticality || ''} 
-                                    onChange={handleChange}
-                                    className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2 text-sm"
-                                >
-                                    {Object.values(CriticalityLevel).map(lvl => (
-                                        <option key={lvl} value={lvl}>{lvl}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-red-300/70 italic">
-                            <FaExclamationTriangle className="inline mr-1" /> 
-                            Prazos de Notificação: Alerta Precoce (24h) e Notificação de Incidente (72h) serão monitorizados.
-                        </p>
+
+                {isSecurity && (
+                    <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg space-y-3">
+                        <label className="block text-xs font-bold text-red-400 uppercase">Tipo de Incidente de Segurança</label>
+                        <select value={formData.security_incident_type} onChange={e => setFormData({...formData, security_incident_type: e.target.value})} className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2">
+                            <option value="">-- Selecione --</option>
+                            {securityIncidentTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                        </select>
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Assunto</label>
-                        <input type="text" name="title" value={formData.title} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.title ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa de Suporte {!canManage && '(Consulta)'}</label>
-                        <select name="team_id" value={formData.team_id || ''} onChange={handleChange} disabled={!canManage} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 disabled:bg-gray-800 disabled:text-gray-400">
-                            <option value="">-- Sem Equipa (Geral) --</option>
-                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
-                    </div>
+                <div>
+                    <label className="block text-sm text-gray-400 mb-1">Assunto</label>
+                    <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" required />
+                </div>
+                <div>
+                    <label className="block text-sm text-gray-400 mb-1">Descrição Detalhada</label>
+                    <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" required />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Descrição do Problema</label>
-                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.description ? 'border-red-500' : 'border-gray-600'}`} placeholder="Descreva o problema..."></textarea>
-                    {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
-                </div>
-                
-                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
-                    {(canManage || !ticketToEdit) && (
-                        <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
-                            {isSaving ? <FaSpinner className="animate-spin" /> : null}
-                            {isSaving ? 'A Gravar...' : 'Salvar'}
-                        </button>
-                    )}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded">Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded flex items-center gap-2">
+                        {isSaving ? <FaSpinner className="animate-spin" /> : null} Gravar Ticket
+                    </button>
                 </div>
             </form>
         </Modal>

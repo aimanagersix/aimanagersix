@@ -1,10 +1,8 @@
-
-
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Collaborator, TicketActivity } from '../types';
-import { FaMagic, FaSpinner } from './common/Icons';
+import { FaMagic } from 'react-icons/fa';
+import { FaSpinner } from './common/Icons';
 import { generateTicketResolutionSummary } from '../services/geminiService';
 
 interface CloseTicketModalProps {
@@ -43,8 +41,9 @@ const CloseTicketModal: React.FC<CloseTicketModalProps> = ({ ticket, collaborato
         }
     };
 
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
-    const requesterName = collaboratorMap.get(ticket.collaboratorId);
+    // FIX: full_name, collaborator_id
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
+    const requesterName = collaboratorMap.get(ticket.collaborator_id);
 
     return (
         <Modal title="Finalizar Ticket de Suporte" onClose={onClose}>
@@ -64,7 +63,7 @@ const CloseTicketModal: React.FC<CloseTicketModalProps> = ({ ticket, collaborato
                     >
                         <option value="" disabled>Selecione um técnico</option>
                         {collaborators.map(collaborator => (
-                            <option key={collaborator.id} value={collaborator.id}>{collaborator.fullName}</option>
+                            <option key={collaborator.id} value={collaborator.id}>{collaborator.full_name}</option>
                         ))}
                     </select>
                 </div>

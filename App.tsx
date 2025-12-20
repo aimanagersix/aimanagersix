@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import LoginPage from './components/LoginPage';
@@ -29,6 +29,7 @@ import NotificationsModal from './components/NotificationsModal';
 import CalendarModal from './components/CalendarModal';
 import UserManualModal from './components/UserManualModal';
 
+// Atomic Hooks
 import { useOrganization } from './hooks/useOrganization';
 import { useInventory } from './hooks/useInventory';
 import { useSupport } from './hooks/useSupport';
@@ -37,6 +38,7 @@ import { useCompliance } from './hooks/useCompliance';
 export const App: React.FC = () => {
     const { layoutMode } = useLayout();
     const { t } = useLanguage();
+    const isRefreshing = useRef(false);
 
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
         return !!(process.env.SUPABASE_URL || localStorage.getItem('SUPABASE_URL'));
@@ -48,11 +50,13 @@ export const App: React.FC = () => {
     const [passwordExpired, setPasswordExpired] = useState(false);
     const [snoozedNotificationIds, setSnoozedNotificationIds] = useState<Set<string>>(new Set());
 
+    // Initialize Specialized Hooks
     const org = useOrganization(isConfigured);
     const inv = useInventory(isConfigured);
     const support = useSupport(isConfigured);
     const compliance = useCompliance(isConfigured);
 
+    // Navigation & Interaction State
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarExpanded, setSidebarExpanded] = useState(false);
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
@@ -63,13 +67,14 @@ export const App: React.FC = () => {
     const [chatOpen, setChatOpen] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     
-    // Viewing State (Controlled by Orchestrator)
+    // Global Modals State (Orchestrated)
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
     const [viewingLicense, setViewingLicense] = useState<SoftwareLicense | null>(null);
     const [viewingTraining, setViewingTraining] = useState<SecurityTrainingRecord | null>(null);
 
+    // Permission Engine - v6.2 Stable SnakeCase
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
         if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
@@ -79,42 +84,51 @@ export const App: React.FC = () => {
         return action === 'view' && modulePerms['view_own'] ? true : !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
+    // Unified Data View
     const appData = useMemo(() => {
         const rawData = { ...org.data, ...inv.data, ...support.data, ...compliance.data };
         if (currentUser) {
             rawData.tickets = rawData.tickets.filter((t: Ticket) => {
-                const isSecurity = (t.category || '').toLowerCase().includes('segurança') || !!t.securityIncidentType;
+                const isSecurity = (t.category || '').toLowerCase().includes('segurança') || !!t.security_incident_type;
                 const module: ModuleKey = isSecurity ? 'tickets_security' : 'tickets';
                 if (checkPermission(module, 'view')) return true;
-                return checkPermission(module, 'view_own') ? (t.collaboratorId === currentUser.id || t.technicianId === currentUser.id) : false;
+                return checkPermission(module, 'view_own') ? (t.collaborator_id === currentUser.id || t.technician_id === currentUser.id) : false;
             });
             if (!checkPermission('equipment', 'view')) {
-                const myAssignments = rawData.assignments.filter((a: any) => (a.collaboratorId === currentUser.id || a.collaborator_id === currentUser.id) && !a.returnDate);
-                const myEquipmentIds = new Set(myAssignments.map((a: any) => a.equipmentId || a.equipment_id));
+                const myAssignments = rawData.assignments.filter((a: any) => (a.collaborator_id === currentUser.id) && !a.return_date);
+                const myEquipmentIds = new Set(myAssignments.map((a: any) => a.equipment_id));
                 rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
             }
         }
         return rawData;
     }, [org.data, inv.data, support.data, compliance.data, currentUser, checkPermission]);
 
+    // Notification Engine Diamond Edition
     const notificationItems = useMemo(() => {
         const now = new Date();
         const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        const myWarranties = appData.equipment.filter(e => e.warrantyEndDate && new Date(e.warrantyEndDate) <= thirtyDays);
-        const myLicenses = appData.softwareLicenses.filter(l => l.expiryDate && new Date(l.expiryDate) <= thirtyDays);
-        const myTickets = appData.tickets.filter(t => t.status === 'Pedido' && (!t.technicianId || t.technicianId === currentUser?.id));
+        const myWarranties = appData.equipment.filter(e => e.warranty_end_date && new Date(e.warranty_end_date) <= thirtyDays);
+        const myLicenses = appData.softwareLicenses.filter(l => l.expiry_date && new Date(l.expiry_date) <= thirtyDays);
+        const myTickets = appData.tickets.filter(t => t.status === 'Pedido' && (!t.technician_id || t.technician_id === currentUser?.id));
         return { 
-            warranties: myWarranties, licenses: myLicenses, tickets: myTickets,
+            warranties: myWarranties, 
+            licenses: myLicenses, 
+            tickets: myTickets,
             totalVisible: [...myWarranties, ...myLicenses, ...myTickets].filter(item => !snoozedNotificationIds.has(item.id)).length
         };
     }, [appData, currentUser, snoozedNotificationIds]);
 
     const refreshAll = useCallback(async () => {
-        setIsAppLoading(true);
-        await Promise.allSettled([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
-        setIsAppLoading(false);
+        if (isRefreshing.current) return;
+        isRefreshing.current = true;
+        try {
+            await Promise.allSettled([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
+        } finally {
+            isRefreshing.current = false;
+        }
     }, [org, inv, support, compliance]);
 
+    // Auth & Persistence
     useEffect(() => {
         if (!isConfigured) return;
         const supabase = getSupabase();
@@ -129,8 +143,15 @@ export const App: React.FC = () => {
         };
         initSession();
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => setSession(curSess));
-        return () => subscription.unsubscribe();
-    }, [org.data.collaborators, isConfigured]);
+        
+        // Auto-refresh loop Diamond Safety
+        const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 60000);
+
+        return () => {
+            subscription.unsubscribe();
+            clearInterval(interval);
+        };
+    }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll]);
 
     const handleLogout = async () => {
         await getSupabase().auth.signOut();
@@ -140,7 +161,7 @@ export const App: React.FC = () => {
     };
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isAppLoading) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p>A carregar ambiente seguro...</p></div>;
+    if (isAppLoading) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs animate-pulse">AIManager Diamond</p></div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
@@ -148,7 +169,15 @@ export const App: React.FC = () => {
     return (
         <div className={`min-h-screen bg-background-dark text-on-surface-dark-secondary flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`}>
             {passwordExpired && <ResetPasswordModal session={session} onClose={() => setPasswordExpired(false)} />}
-            {showProfile && <UserProfileModal user={currentUser} entidade={org.data.entidades.find(e => e.id === currentUser.entidadeId)} instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicaoId)} onClose={() => setShowProfile(false)} onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(); }} />}
+            {showProfile && (
+                <UserProfileModal 
+                    user={currentUser} 
+                    entidade={org.data.entidades.find(e => e.id === currentUser.entidade_id)} 
+                    instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicao_id)} 
+                    onClose={() => setShowProfile(false)} 
+                    onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(); }} 
+                />
+            )}
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} expiringWarranties={notificationItems.warranties} expiringLicenses={notificationItems.licenses} teamTickets={notificationItems.tickets} collaborators={appData.collaborators} teams={appData.teams} onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} currentUser={currentUser} licenseAssignments={appData.licenseAssignments} />}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
@@ -179,17 +208,9 @@ export const App: React.FC = () => {
             </main>
 
             <MagicCommandBar brands={appData.brands} types={appData.equipmentTypes} collaborators={appData.collaborators} currentUser={currentUser} onAction={() => {}} />
-            <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={async (r,c) => { await dataService.addMessage({ senderId: currentUser.id, receiverId: r, content: c, timestamp: new Date().toISOString(), read: false }); support.refresh(); }} onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); support.refresh(); }} isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} unreadMessagesCount={appData.messages.filter((m: any) => m.receiverId === currentUser.id && !m.read).length} onSelectConversation={setActiveChatCollaboratorId} checkPermission={checkPermission} />
+            <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={async (r,c) => { await dataService.addMessage({ sender_id: currentUser.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); support.refresh(); }} onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); support.refresh(); }} isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} unreadMessagesCount={appData.messages.filter((m: any) => m.receiver_id === currentUser.id && !m.read).length} onSelectConversation={setActiveChatCollaboratorId} checkPermission={checkPermission} />
             
-            <ModalOrchestrator 
-                currentUser={currentUser} appData={appData} checkPermission={checkPermission} refreshSupport={support.refresh}
-                viewingTicket={viewingTicket} setViewingTicket={setViewingTicket}
-                viewingEquipment={viewingEquipment} setViewingEquipment={setViewingEquipment}
-                readingPolicy={readingPolicy} setReadingPolicy={setReadingPolicy}
-                viewingLicense={viewingLicense} setViewingLicense={setViewingLicense}
-                viewingTraining={viewingTraining} setViewingTraining={setViewingTraining}
-                setActiveTab={setActiveTab} setDashboardFilter={setDashboardFilter}
-            />
+            <ModalOrchestrator currentUser={currentUser} appData={appData} checkPermission={checkPermission} refreshSupport={support.refresh} viewingTicket={viewingTicket} setViewingTicket={setViewingTicket} viewingEquipment={viewingEquipment} setViewingEquipment={setViewingEquipment} readingPolicy={readingPolicy} setReadingPolicy={setReadingPolicy} viewingLicense={viewingLicense} setViewingLicense={setViewingLicense} viewingTraining={viewingTraining} setViewingTraining={setViewingTraining} setActiveTab={setActiveTab} setDashboardFilter={setDashboardFilter} />
         </div>
     );
 };

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, SoftwareLicense, LicenseAssignment, Brand, EquipmentType, ConfigItem } from '../types';
@@ -38,20 +37,23 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
 
     // Active Assets
     const activeAssignments = useMemo(() => {
-        return assignments.filter(a => a.collaboratorId === collaborator.id && !a.returnDate);
+        // FIX: Updated property names to snake_case
+        return assignments.filter(a => a.collaborator_id === collaborator.id && !a.return_date);
     }, [assignments, collaborator.id]);
 
     const assignedEquipment = useMemo(() => {
-        const eqIds = new Set(activeAssignments.map(a => a.equipmentId));
+        // FIX: Updated property names to snake_case
+        const eqIds = new Set(activeAssignments.map(a => a.equipment_id));
         return equipment.filter(e => eqIds.has(e.id));
     }, [equipment, activeAssignments]);
     
     const activeLicenses = useMemo(() => {
         const equipmentIds = new Set(assignedEquipment.map(e => e.id));
+        // FIX: Updated property names to snake_case
         const licenseIds = new Set(
             licenseAssignments
-                .filter(la => equipmentIds.has(la.equipmentId) && !la.returnDate)
-                .map(la => la.softwareLicenseId)
+                .filter(la => la.equipment_id && equipmentIds.has(la.equipment_id) && !la.return_date)
+                .map(la => la.software_license_id)
         );
         return softwareLicenses.filter(lic => licenseIds.has(lic.id));
     }, [licenseAssignments, softwareLicenses, assignedEquipment]);
@@ -59,18 +61,20 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
 
     // History (Returned Assets)
     const returnedAssignments = useMemo(() => {
+        // FIX: Updated property names to snake_case
         return assignments
-            .filter(a => a.collaboratorId === collaborator.id && a.returnDate)
-            .sort((a, b) => new Date(b.returnDate!).getTime() - new Date(a.returnDate!).getTime());
+            .filter(a => a.collaborator_id === collaborator.id && a.return_date)
+            .sort((a, b) => new Date(b.return_date!).getTime() - new Date(a.return_date!).getTime());
     }, [assignments, collaborator.id]);
 
     const returnedEquipmentHistory = useMemo(() => {
         return returnedAssignments.map(a => {
-            const eq = equipment.find(e => e.id === a.equipmentId);
+            // FIX: Updated property names to snake_case
+            const eq = equipment.find(e => e.id === a.equipment_id);
             return {
                 ...eq,
-                assignmentStart: a.assignedDate,
-                assignmentEnd: a.returnDate
+                assignmentStart: a.assigned_date,
+                assignmentEnd: a.return_date
             };
         });
     }, [returnedAssignments, equipment]);
@@ -78,8 +82,9 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
 
     // Tickets
     const collaboratorTickets = useMemo(() => {
-        return tickets.filter(t => t.collaboratorId === collaborator.id)
-            .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+        // FIX: Updated property names to snake_case
+        return tickets.filter(t => t.collaborator_id === collaborator.id)
+            .sort((a, b) => new Date(b.request_date).getTime() - new Date(a.request_date).getTime());
     }, [tickets, collaborator.id]);
 
     const handleOffboardClick = () => {
@@ -113,16 +118,16 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
         const equipmentRows = assignedEquipment.map(eq => `
             <tr>
                 <td>${eq.description}</td>
-                <td>${brandMap.get(eq.brandId) || ''} ${equipmentTypeMap.get(eq.typeId) || ''}</td>
-                <td>${eq.serialNumber}</td>
-                <td>${activeAssignments.find(a => a.equipmentId === eq.id)?.assignedDate}</td>
+                <td>${brandMap.get(eq.brand_id) || ''} ${equipmentTypeMap.get(eq.type_id) || ''}</td>
+                <td>${eq.serial_number}</td>
+                <td>${activeAssignments.find(a => a.equipment_id === eq.id)?.assigned_date}</td>
             </tr>
         `).join('');
 
         printWindow.document.write(`
             <html>
             <head>
-                <title>Ficha de Colaborador - ${collaborator.fullName}</title>
+                <title>Ficha de Colaborador - ${collaborator.full_name}</title>
                 <style>
                     body { font-family: sans-serif; padding: 20px; color: #333; }
                     h1 { border-bottom: 2px solid #0D47A1; padding-bottom: 10px; color: #0D47A1; }
@@ -138,14 +143,14 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
             </head>
             <body>
                 ${logoHtml}
-                <h1>${collaborator.fullName}</h1>
+                <h1>${collaborator.full_name}</h1>
                 <div class="section">
                     <div class="label">Nº Mecanográfico</div>
-                    <div class="value">${collaborator.numeroMecanografico}</div>
+                    <div class="value">${collaborator.numero_mecanografico}</div>
                     <div class="label">Email</div>
                     <div class="value">${collaborator.email}</div>
                     <div class="label">Telefone</div>
-                    <div class="value">${collaborator.telemovel || collaborator.telefoneInterno || '-'}</div>
+                    <div class="value">${collaborator.telemovel || collaborator.telefone_interno || '-'}</div>
                     <div class="label">Função</div>
                     <div class="value">${collaborator.role}</div>
                 </div>
@@ -176,26 +181,26 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
     
     return (
         <>
-            <Modal title={`Detalhes de: ${collaborator.fullName}`} onClose={onClose} maxWidth="max-w-5xl">
+            <Modal title={`Detalhes de: ${collaborator.full_name}`} onClose={onClose} maxWidth="max-w-5xl">
                 <div className="flex flex-col h-[75vh]">
                     {/* Header */}
                     <div className="flex-shrink-0 flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 mb-4">
                         <div className="relative">
-                            {collaborator.photoUrl ? (
-                                <img src={collaborator.photoUrl} alt={collaborator.fullName} className="w-16 h-16 rounded-full object-cover"/>
+                            {collaborator.photo_url ? (
+                                <img src={collaborator.photo_url} alt={collaborator.full_name} className="w-16 h-16 rounded-full object-cover"/>
                             ) : (
                                 <div className="w-16 h-16 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-2xl">
-                                    {collaborator.fullName.charAt(0)}
+                                    {collaborator.full_name.charAt(0)}
                                 </div>
                             )}
                         </div>
                         <div className="flex-grow">
-                            <h2 className="text-xl font-bold text-white">{collaborator.fullName}</h2>
+                            <h2 className="text-xl font-bold text-white">{collaborator.full_name}</h2>
                             <p className="text-sm text-gray-400">{collaborator.role}</p>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-300 mt-2">
                                 <span className="flex items-center gap-1"><FaEnvelope className="text-gray-500"/>{collaborator.email}</span>
                                 {collaborator.telemovel && <span className="flex items-center gap-1"><FaMobileAlt className="text-gray-500"/>{collaborator.telemovel}</span>}
-                                {collaborator.telefoneInterno && <span className="flex items-center gap-1"><FaPhone className="text-gray-500"/> Ext: {collaborator.telefoneInterno}</span>}
+                                {collaborator.telefone_interno && <span className="flex items-center gap-1"><FaPhone className="text-gray-500"/> Ext: {collaborator.telefone_interno}</span>}
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
@@ -239,10 +244,12 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                                             {eq.description}
                                                             {onViewEquipment && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-brand-secondary text-xs transition-opacity" />}
                                                         </p>
-                                                        <p className="text-xs text-gray-400">S/N: {eq.serialNumber} | Marca: {brandMap.get(eq.brandId)}</p>
+                                                        {/* FIX: Updated property names to snake_case */}
+                                                        <p className="text-xs text-gray-400">S/N: {eq.serial_number} | Marca: {brandMap.get(eq.brand_id)}</p>
                                                     </div>
                                                     <div className="text-right text-xs text-gray-500">
-                                                        Desde: {activeAssignments.find(a => a.equipmentId === eq.id)?.assignedDate}
+                                                        {/* FIX: Updated property names to snake_case */}
+                                                        Desde: {activeAssignments.find(a => a.equipment_id === eq.id)?.assigned_date}
                                                     </div>
                                                 </div>
                                             ))}
@@ -256,8 +263,9 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                         <div className="space-y-2">
                                             {activeLicenses.map(lic => (
                                                 <div key={lic.id} className="bg-gray-800 p-3 rounded border border-gray-700">
-                                                    <p className="font-bold text-white">{lic.productName}</p>
-                                                    <p className="text-xs text-gray-400 font-mono">{lic.licenseKey}</p>
+                                                    {/* FIX: Updated property names to snake_case */}
+                                                    <p className="font-bold text-white">{lic.product_name}</p>
+                                                    <p className="text-xs text-gray-400 font-mono">{lic.license_key}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -284,7 +292,8 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                             {returnedEquipmentHistory.map((item, idx) => (
                                                 <tr key={idx} className="hover:bg-gray-800/50">
                                                     <td className="p-3 text-white">{item.description || 'Equipamento Apagado'}</td>
-                                                    <td className="p-3 text-gray-400">{item.serialNumber}</td>
+                                                    {/* FIX: Updated property names to snake_case */}
+                                                    <td className="p-3 text-gray-400">{item.serial_number}</td>
                                                     <td className="p-3 text-gray-400">{item.assignmentStart}</td>
                                                     <td className="p-3 text-gray-400">{item.assignmentEnd}</td>
                                                 </tr>
@@ -318,7 +327,8 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                                                             {t.status}
                                                         </span>
                                                     </div>
-                                                    <span className="text-xs text-gray-400">{new Date(t.requestDate).toLocaleDateString()}</span>
+                                                    {/* FIX: Updated property names to snake_case */}
+                                                    <span className="text-xs text-gray-400">{new Date(t.request_date).toLocaleDateString()}</span>
                                                 </div>
                                                 <p className="text-xs text-gray-300 mt-2 line-clamp-2">{t.description}</p>
                                             </div>

@@ -21,7 +21,6 @@ serve(async (req) => {
     const payload = await req.json()
     console.log("Sophos Advanced Alert Received:", payload)
 
-    // Parser Avançado de Texto do Sophos
     const raw = payload.description || payload.text || "";
     const extract = (regex: RegExp) => {
         const match = raw.match(regex);
@@ -39,7 +38,7 @@ serve(async (req) => {
     const { data: equip } = await supabase
       .from('equipment')
       .select('id, description')
-      .or(`nomeNaRede.ilike.${hostname},serialNumber.ilike.${hostname}`)
+      .or(`nome_na_rede.ilike.${hostname},serial_number.ilike.${hostname}`)
       .maybeSingle()
 
     const { data: ticket, error: ticketError } = await supabase
@@ -57,10 +56,10 @@ AÇÃO SOPHOS: ${extract(/What Sophos has done so far:\s*([^\n\r]+)/i) || 'Tenta
 RECOMENDAÇÃO: ${extract(/What you need to do:\s*([^\n\r]+)/i) || 'Verificar manualmente.'}`,
         status: 'Pedido',
         category: 'Incidente de Segurança',
-        securityIncidentType: 'Malware',
-        impactCriticality: severity,
-        requestDate: new Date().toISOString(),
-        equipmentId: equip?.id
+        security_incident_type: 'Malware',
+        impact_criticality: severity,
+        request_date: new Date().toISOString(),
+        equipment_id: equip?.id
       })
       .select()
       .single()

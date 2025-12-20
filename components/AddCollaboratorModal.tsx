@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao, JobTitle } from '../types';
@@ -54,28 +55,29 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     roleOptions,
     titleOptions 
 }) => {
+    // FIX: Map properties to match Collaborator interface in types.ts (snake_case)
     const [formData, setFormData] = useState<Partial<Collaborator>>({
-        numeroMecanografico: '',
+        numero_mecanografico: '',
         title: '',
-        fullName: '',
-        entidadeId: '',
-        instituicaoId: '',
+        full_name: '',
+        entidade_id: '',
+        instituicao_id: '',
         email: '',
         nif: '',
-        telefoneInterno: '',
+        telefone_interno: '',
         telemovel: '',
-        dateOfBirth: '',
-        admissionDate: '', // Novo campo
+        date_of_birth: '',
+        admission_date: '',
         address_line: '',
         postal_code: '',
         city: '',
         locality: '',
-        canLogin: false,
-        receivesNotifications: false,
+        can_login: false,
+        receives_notifications: false,
         role: 'Utilizador',
         job_title_id: '',
         status: CollaboratorStatus.Ativo,
-        photoUrl: ''
+        photo_url: ''
     });
     
     const [password, setPassword] = useState('');
@@ -97,7 +99,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
     const [selectedInstituicao, setSelectedInstituicao] = useState<string>('');
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
-    // Fix: Added missing showGlobalToggle definition to allow toggling global access for SuperAdmin roles
     const showGlobalToggle = isSuperAdmin && formData.role === UserRole.SuperAdmin;
 
     useEffect(() => {
@@ -112,13 +113,14 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
     const defaultRoles = ['Admin', 'Técnico', 'Utilizador'];
     const displayRoles = availableRoles.length > 0 ? availableRoles.map(r => r.name) : defaultRoles;
-    // Fix: Dynamically filter roles based on current user's privileges; only SuperAdmins can assign the SuperAdmin role
     const filteredRoles = isSuperAdmin ? displayRoles : displayRoles.filter(role => role !== UserRole.SuperAdmin);
     const titles = titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª'];
-    const filteredEntidades = entidades.filter(e => e.instituicaoId === selectedInstituicao);
+    // FIX: instituicao_id
+    const filteredEntidades = entidades.filter(e => e.instituicao_id === selectedInstituicao);
 
     useEffect(() => {
         if (collaboratorToEdit) {
+            // FIX: snake_case mapping
             setFormData({
                 ...collaboratorToEdit,
                 address_line: collaboratorToEdit.address_line || collaboratorToEdit.address || '',
@@ -127,40 +129,44 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 locality: collaboratorToEdit.locality || '',
                 nif: collaboratorToEdit.nif || '',
                 title: collaboratorToEdit.title || '',
-                dateOfBirth: collaboratorToEdit.dateOfBirth || '',
-                admissionDate: collaboratorToEdit.admissionDate || '',
-                entidadeId: collaboratorToEdit.entidadeId || '',
-                instituicaoId: collaboratorToEdit.instituicaoId || '',
+                date_of_birth: collaboratorToEdit.date_of_birth || '',
+                admission_date: collaboratorToEdit.admission_date || '',
+                entidade_id: collaboratorToEdit.entidade_id || '',
+                instituicao_id: collaboratorToEdit.instituicao_id || '',
                 job_title_id: collaboratorToEdit.job_title_id || ''
             });
-            setPhotoPreview(collaboratorToEdit.photoUrl || null);
-            if (collaboratorToEdit.entidadeId) {
-                const ent = entidades.find(e => e.id === collaboratorToEdit.entidadeId);
-                if (ent) setSelectedInstituicao(ent.instituicaoId);
-            } else if (collaboratorToEdit.instituicaoId) {
-                setSelectedInstituicao(collaboratorToEdit.instituicaoId);
+            // FIX: photo_url
+            setPhotoPreview(collaboratorToEdit.photo_url || null);
+            if (collaboratorToEdit.entidade_id) {
+                const ent = entidades.find(e => e.id === collaboratorToEdit.entidade_id);
+                // FIX: instituicao_id
+                if (ent) setSelectedInstituicao(ent.instituicao_id);
+            } else if (collaboratorToEdit.instituicao_id) {
+                setSelectedInstituicao(collaboratorToEdit.instituicao_id);
             }
-            if (!collaboratorToEdit.entidadeId && !collaboratorToEdit.instituicaoId && (collaboratorToEdit.role === UserRole.SuperAdmin)) {
+            if (!collaboratorToEdit.entidade_id && !collaboratorToEdit.instituicao_id && (collaboratorToEdit.role === UserRole.SuperAdmin)) {
                 setIsGlobalAdmin(true);
             }
         } else {
              if (instituicoes.length > 0) {
                  const defaultInst = instituicoes[0].id;
                  setSelectedInstituicao(defaultInst);
-                 const firstEnt = entidades.find(e => e.instituicaoId === defaultInst);
-                 setFormData(prev => ({ ...prev, instituicaoId: defaultInst, entidadeId: firstEnt?.id || '' }));
+                 // FIX: instituicao_id, entidade_id
+                 const firstEnt = entidades.find(e => e.instituicao_id === defaultInst);
+                 setFormData(prev => ({ ...prev, instituicao_id: defaultInst, entidade_id: firstEnt?.id || '' }));
              }
         }
     }, [collaboratorToEdit, entidades, instituicoes]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.fullName?.trim()) newErrors.fullName = "O nome é obrigatório.";
+        // FIX: full_name
+        if (!formData.full_name?.trim()) newErrors.full_name = "O nome é obrigatório.";
         if (!formData.email?.trim()) newErrors.email = "O email é obrigatório.";
         else if (!isValidEmail(formData.email)) newErrors.email = "Formato de email inválido.";
         if (formData.telemovel?.trim() && !isValidMobile(formData.telemovel)) newErrors.telemovel = "Móvel inválido (9 dígitos, iniciar com 9).";
         if (formData.nif?.trim() && !isValidNif(formData.nif)) newErrors.nif = "O NIF deve ter 9 dígitos numéricos.";
-        if (!isGlobalAdmin && !selectedInstituicao) newErrors.instituicaoId = "A Instituição é obrigatória.";
+        if (!isGlobalAdmin && !selectedInstituicao) newErrors.instituicao_id = "A Instituição é obrigatória.";
         if (showPasswordReset && !password) newErrors.general = "Preencha a nova password.";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -188,7 +194,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const handleRemovePhoto = () => {
         setPhotoFile(null);
         setPhotoPreview(null);
-        setFormData(prev => ({ ...prev, photoUrl: '' }));
+        // FIX: photo_url
+        setFormData(prev => ({ ...prev, photo_url: '' }));
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
     
@@ -202,13 +209,15 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const handleInstituicaoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const instId = e.target.value;
         setSelectedInstituicao(instId);
-        setFormData(prev => ({ ...prev, instituicaoId: instId, entidadeId: '' }));
+        // FIX: instituicao_id, entidade_id
+        setFormData(prev => ({ ...prev, instituicao_id: instId, entidade_id: '' }));
     };
     
     const handleGlobalAdminToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (formData.role !== UserRole.SuperAdmin) { alert("Apenas SuperAdmin pode ter Acesso Global."); return; }
         setIsGlobalAdmin(e.target.checked);
-        if (e.target.checked) setFormData(prev => ({ ...prev, entidadeId: '', instituicaoId: '' }));
+        // FIX: entidade_id, instituicao_id
+        if (e.target.checked) setFormData(prev => ({ ...prev, entidade_id: '', instituicao_id: '' }));
         else if (instituicoes.length > 0) setSelectedInstituicao(instituicoes[0].id);
     };
 
@@ -228,17 +237,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         if (!validate()) return;
         setIsSaving(true);
         const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
-        const cleanDateOfBirth = formData.dateOfBirth === '' ? null : formData.dateOfBirth;
-        const cleanAdmissionDate = formData.admissionDate === '' ? null : formData.admissionDate;
+        // FIX: date_of_birth, admission_date
+        const cleanDateOfBirth = formData.date_of_birth === '' ? null : formData.date_of_birth;
+        const cleanAdmissionDate = formData.admission_date === '' ? null : formData.admission_date;
 
         const dataToSave: any = { 
             ...formData, 
             address,
-            dateOfBirth: cleanDateOfBirth,
-            admissionDate: cleanAdmissionDate,
-            numeroMecanografico: formData.numeroMecanografico || 'N/A',
-            entidadeId: isGlobalAdmin ? null : (formData.entidadeId || null),
-            instituicaoId: isGlobalAdmin ? null : (selectedInstituicao || null),
+            date_of_birth: cleanDateOfBirth,
+            admission_date: cleanAdmissionDate,
+            // FIX: numero_mecanografico, entidade_id, instituicao_id
+            numero_mecanografico: formData.numero_mecanografico || 'N/A',
+            entidade_id: isGlobalAdmin ? null : (formData.entidade_id || null),
+            instituicao_id: isGlobalAdmin ? null : (selectedInstituicao || null),
             job_title_id: formData.job_title_id || null
         };
         
@@ -264,7 +275,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 <div className="flex flex-col items-center mb-6">
                     <div className="relative group">
                         <div className="w-24 h-24 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center overflow-hidden">
-                            {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <span className="text-2xl font-bold text-gray-500">{formData.fullName ? formData.fullName.charAt(0).toUpperCase() : '?'}</span>}
+                            {/* FIX: full_name */}
+                            {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <span className="text-2xl font-bold text-gray-500">{formData.full_name ? formData.full_name.charAt(0).toUpperCase() : '?'}</span>}
                         </div>
                         <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-brand-primary p-2 rounded-full text-white cursor-pointer hover:bg-brand-secondary shadow-lg"><FaCamera className="w-4 h-4" /></label>
                         {photoPreview && <button type="button" onClick={handleRemovePhoto} className="absolute top-0 right-0 bg-red-600 p-1.5 rounded-full text-white hover:bg-red-500 shadow-lg"><FaTrash className="w-3 h-3" /></button>}
@@ -281,8 +293,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         </select>
                     </div>
                     <div className="md:col-span-2">
+                        {/* FIX: full_name */}
                         <label className="block text-xs font-medium text-gray-400 mb-1">Nome Completo</label>
-                        <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" required />
+                        <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" required />
                     </div>
                 </div>
 
@@ -298,8 +311,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         </div>
                     </div>
                     <div>
+                        {/* FIX: admission_date */}
                         <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2"><FaCalendarAlt /> Data Admissão</label>
-                        <input type="date" name="admissionDate" value={formData.admissionDate} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                        <input type="date" name="admission_date" value={formData.admission_date} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                     </div>
                 </div>
 
@@ -309,15 +323,17 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" required />
                     </div>
                     <div>
+                        {/* FIX: numero_mecanografico */}
                         <label className="block text-xs font-medium text-gray-400 mb-1">Nº Mecanográfico</label>
-                        <input type="text" name="numeroMecanografico" value={formData.numeroMecanografico} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                        <input type="text" name="numero_mecanografico" value={formData.numero_mecanografico} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div><label className="block text-xs font-medium text-gray-400 mb-1">NIF</label><input type="text" name="nif" value={formData.nif} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" maxLength={9} /></div>
                     <div><label className="block text-xs font-medium text-gray-400 mb-1">Móvel</label><input type="text" name="telemovel" value={formData.telemovel} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" maxLength={9} /></div>
-                    <div><label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-1"><FaBirthdayCake/> Data Nasc.</label><input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" /></div>
+                    {/* FIX: date_of_birth */}
+                    <div><label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-1"><FaBirthdayCake/> Data Nasc.</label><input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" /></div>
                 </div>
                 
                 <div className="bg-gray-800 p-4 rounded border border-gray-700 space-y-3">
@@ -331,7 +347,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Entidade / Departamento</label>
-                        <select name="entidadeId" value={formData.entidadeId} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" disabled={isGlobalAdmin || !selectedInstituicao}>
+                        {/* FIX: entidade_id */}
+                        <select name="entidade_id" value={formData.entidade_id} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" disabled={isGlobalAdmin || !selectedInstituicao}>
                             <option value="">-- Diretamente à Instituição --</option>
                             {filteredEntidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
@@ -341,8 +358,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 <div className="bg-gray-900/50 p-4 rounded border border-gray-600 mt-4">
                     <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Acesso ao Sistema</h4>
                     <div className="flex flex-wrap gap-4 items-center">
-                        <label className="flex items-center cursor-pointer"><input type="checkbox" name="canLogin" checked={formData.canLogin} onChange={handleChange} className="h-4 w-4 rounded bg-gray-700 text-brand-primary" /><span className="ml-2 text-sm text-gray-300">Permitir Login</span></label>
-                        {formData.canLogin && (
+                        {/* FIX: can_login */}
+                        <label className="flex items-center cursor-pointer"><input type="checkbox" name="can_login" checked={formData.can_login} onChange={handleChange} className="h-4 w-4 rounded bg-gray-700 text-brand-primary" /><span className="ml-2 text-sm text-gray-300">Permitir Login</span></label>
+                        {formData.can_login && (
                             <select name="role" value={formData.role} onChange={handleChange} className="flex-grow bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm">
                                 {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>

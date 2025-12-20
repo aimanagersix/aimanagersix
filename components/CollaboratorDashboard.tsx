@@ -24,6 +24,7 @@ interface CollaboratorDashboardProps {
   onShowDetails?: (collaborator: Collaborator) => void;
   onGenerateReport?: () => void;
   onStartChat?: (collaborator: Collaborator) => void;
+  onConfirmOffboarding?: (collaboratorId: string, reasonId?: string) => Promise<void>;
   onToggleStatus?: (collaborator: Collaborator) => void;
   onCreate?: () => void;
   tooltipConfig?: TooltipConfig;
@@ -107,15 +108,18 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     
     const entidadeMap = React.useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const instituicaoMap = React.useMemo(() => new Map(instituicoes.map(i => [i.id, i.name])), [instituicoes]);
-    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, `${e.description} (SN: ${e.serialNumber})`])), [equipment]);
+    // FIX: serial_number
+    const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, `${e.description} (SN: ${e.serial_number})`])), [equipment]);
     const jobTitleMap = useMemo(() => new Map(jobTitles.map(j => [j.id, j.name])), [jobTitles]);
 
     const equipmentByCollaborator = useMemo(() => {
         const map = new Map<string, string[]>();
-        const activeAssignments = assignments.filter(a => !a.returnDate);
+        // FIX: return_date
+        const activeAssignments = (assignments || []).filter(a => !a.return_date);
         for (const assignment of activeAssignments) {
-            const collaboratorId = assignment.collaboratorId;
-            const equipmentDetails = equipmentMap.get(assignment.equipmentId);
+            // FIX: collaborator_id and equipment_id
+            const collaboratorId = assignment.collaborator_id;
+            const equipmentDetails = equipmentMap.get(assignment.equipment_id);
             if (collaboratorId && equipmentDetails) {
                 if (!map.has(collaboratorId)) {
                     map.set(collaboratorId, []);
@@ -132,8 +136,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
              if (!map.has(id)) map.set(id, []);
              if (!map.get(id)!.includes(reason)) map.get(id)!.push(reason);
         };
-        assignments.forEach(a => { if (a.collaboratorId) addDependency(a.collaboratorId, 'Atribuições'); });
-        tickets.forEach(t => { if (t.collaboratorId) addDependency(t.collaboratorId, 'Tickets'); if (t.technicianId) addDependency(t.technicianId, 'Tickets'); });
+        // FIX: collaborator_id and technician_id
+        (assignments || []).forEach(a => { if (a.collaborator_id) addDependency(a.collaborator_id, 'Atribuições'); });
+        (tickets || []).forEach(t => { if (t.collaborator_id) addDependency(t.collaborator_id, 'Tickets'); if (t.technician_id) addDependency(t.technician_id, 'Tickets'); });
         return map;
     }, [assignments, tickets]);
 
@@ -162,19 +167,21 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     };
 
     const sortedCollaborators = useMemo(() => {
-        const sorted = [...collaborators];
+        const sorted = [...(collaborators || [])];
         sorted.sort((a, b) => {
             let valA: any = '';
             let valB: any = '';
 
             switch (sortConfig.key) {
                 case 'fullName':
-                    valA = a.fullName;
-                    valB = b.fullName;
+                    // FIX: full_name
+                    valA = a.full_name;
+                    valB = b.full_name;
                     break;
                 case 'numeroMecanografico':
-                    valA = a.numeroMecanografico || '';
-                    valB = b.numeroMecanografico || '';
+                    // FIX: numero_mecanografico
+                    valA = a.numero_mecanografico || '';
+                    valB = b.numero_mecanografico || '';
                     break;
                 case 'email':
                     valA = a.email;
@@ -189,8 +196,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     valB = b.status;
                     break;
                 case 'association':
-                    valA = a.entidadeId ? (entidadeMap.get(a.entidadeId) || '') : (instituicaoMap.get(a.instituicaoId || '') || '');
-                    valB = b.entidadeId ? (entidadeMap.get(b.entidadeId) || '') : (instituicaoMap.get(b.instituicaoId || '') || '');
+                    // FIX: entidade_id and instituicao_id
+                    valA = a.entidade_id ? (entidadeMap.get(a.entidade_id) || '') : (instituicaoMap.get(a.instituicao_id || '') || '');
+                    valB = b.entidade_id ? (entidadeMap.get(b.entidade_id) || '') : (instituicaoMap.get(b.instituicao_id || '') || '');
                     break;
                 default:
                     return 0;
@@ -210,15 +218,20 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         if (window.innerWidth < 768) return; // Disable tooltip on mobile
         const assignedEquipment = equipmentByCollaborator.get(col.id) || [];
         const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
-        const entityName = col.entidadeId ? entidadeMap.get(col.entidadeId) : col.instituicaoId ? instituicaoMap.get(col.instituicaoId) : 'Global / N/A';
+        // FIX: entidade_id and instituicao_id
+        const entityName = col.entidade_id ? entidadeMap.get(col.entidade_id) : col.instituicao_id ? instituicaoMap.get(col.instituicao_id) : 'Global / N/A';
         const displayJob = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : col.role);
 
         const content = (
             <div className="text-xs leading-tight space-y-1">
-                {cfg.showCollabName && <p className="font-bold text-white">{col.fullName}</p>}
-                {cfg.showCollabJob && <p><strong className="text-gray-400">Função:</strong> <span className="text-white">{displayJob}</span></p>}
-                {cfg.showCollabEntity && <p><strong className="text-gray-400">Associação:</strong> <span className="text-white">{entityName}</span></p>}
-                {cfg.showCollabContact && (
+                {/* FIX: show_collab_name and full_name */}
+                {cfg.show_collab_name && <p className="font-bold text-white">{col.full_name}</p>}
+                {/* FIX: show_collab_job */}
+                {cfg.show_collab_job && <p><strong className="text-gray-400">Função:</strong> <span className="text-white">{displayJob}</span></p>}
+                {/* FIX: show_collab_entity */}
+                {cfg.show_collab_entity && <p><strong className="text-gray-400">Associação:</strong> <span className="text-white">{entityName}</span></p>}
+                {/* FIX: show_collab_contact */}
+                {cfg.show_collab_contact && (
                     <div>
                         <p><strong className="text-gray-400">Email:</strong> <span className="text-white">{col.email}</span></p>
                         {col.telemovel && <p><strong className="text-gray-400">Móvel:</strong> <span className="text-white">{col.telemovel}</span></p>}
@@ -245,8 +258,9 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
     const handleMouseLeave = () => setTooltip(null);
     
     const getAssociationText = (col: Collaborator) => {
-        if (col.entidadeId) return entidadeMap.get(col.entidadeId) || 'Entidade N/A';
-        if (col.instituicaoId) return `${instituicaoMap.get(col.instituicaoId)} (Instituição)`;
+        // FIX: entidade_id and instituicao_id
+        if (col.entidade_id) return entidadeMap.get(col.entidade_id) || 'Entidade N/A';
+        if (col.instituicao_id) return `${instituicaoMap.get(col.instituicao_id)} (Instituição)`;
         if (col.role === UserRole.SuperAdmin) return 'Acesso Global';
         return 'Sem Associação';
     };
@@ -358,13 +372,14 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         {/* Header: Photo + Name + Status */}
                         <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3 overflow-hidden">
-                                {col.photoUrl ? (
-                                    <img src={col.photoUrl} alt={col.fullName} className="h-10 w-10 rounded-full object-cover border border-gray-600 flex-shrink-0" />
+                                {/* FIX: photo_url and full_name */}
+                                {col.photo_url ? (
+                                    <img src={col.photo_url} alt={col.full_name} className="h-10 w-10 rounded-full object-cover border border-gray-600 flex-shrink-0" />
                                 ) : (
-                                    <div className="h-10 w-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-sm flex-shrink-0">{col.fullName.charAt(0)}</div>
+                                    <div className="h-10 w-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-sm flex-shrink-0">{col.full_name.charAt(0)}</div>
                                 )}
                                 <div className="min-w-0">
-                                    <h3 className="font-bold text-white text-base truncate">{col.fullName}</h3>
+                                    <h3 className="font-bold text-white text-base truncate">{col.full_name}</h3>
                                     <p className="text-xs text-brand-secondary truncate">{resolvedJobTitle || col.role}</p>
                                 </div>
                             </div>
@@ -378,9 +393,10 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                             <div className="flex items-center gap-2 truncate">
                                 <FaEnvelope className="text-gray-500 w-3"/> <span className="truncate">{col.email}</span>
                             </div>
-                            {(col.telemovel || col.telefoneInterno) && (
+                            {/* FIX: telefone_interno */}
+                            {(col.telemovel || col.telefone_interno) && (
                                 <div className="flex items-center gap-2">
-                                    <FaPhone className="text-gray-500 w-3"/> <span>{col.telemovel || col.telefoneInterno}</span>
+                                    <FaPhone className="text-gray-500 w-3"/> <span>{col.telemovel || col.telefone_interno}</span>
                                 </div>
                             )}
                             <div className="flex items-center gap-2 truncate">
@@ -463,7 +479,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  
                  const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || isCurrentUser || isProtectedUser;
                  
-                 let deleteTooltip = `Excluir ${col.fullName}`;
+                 {/* FIX: full_name */}
+                 let deleteTooltip = `Excluir ${col.full_name}`;
                  if (isProtectedUser) deleteTooltip = "Utilizador Protegido pelo Sistema (Raiz)";
                  else if (isSuperAdmin) deleteTooltip = "Impossível excluir perfil SuperAdmin";
                  else if (isCurrentUser) deleteTooltip = "Não pode apagar o seu próprio utilizador";
@@ -480,16 +497,19 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 onMouseLeave={handleMouseLeave}
                 onClick={() => onShowDetails ? onShowDetails(col) : (onEdit && onEdit(col))}
               >
-                <td className="px-6 py-4 font-mono text-xs">{col.numeroMecanografico}</td>
+                {/* FIX: numero_mecanografico */}
+                <td className="px-6 py-4 font-mono text-xs">{col.numero_mecanografico}</td>
                 <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
                   <div className="flex items-center gap-3">
-                    {col.photoUrl ? (
-                        <img src={col.photoUrl} alt={col.fullName} className="h-10 w-10 rounded-full object-cover" />
+                    {/* FIX: photo_url and full_name */}
+                    {col.photo_url ? (
+                        <img src={col.photo_url} alt={col.full_name} className="h-10 w-10 rounded-full object-cover" />
                     ) : (
-                        <div className="h-10 w-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">{col.fullName.charAt(0)}</div>
+                        <div className="h-10 w-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">{col.full_name.charAt(0)}</div>
                     )}
                     <div>
-                        <span className="text-white font-semibold">{col.fullName}</span>
+                        {/* FIX: full_name */}
+                        <span className="text-white font-semibold">{col.full_name}</span>
                         {isOnboarding && <span className="ml-2 text-[10px] uppercase bg-blue-900/50 text-blue-300 px-1 rounded border border-blue-500/30 flex items-center w-fit gap-1 mt-0.5"><FaPlaneArrival/> Novo</span>}
                         {equipmentCount > 0 && <div className="text-xs text-brand-secondary mt-1 font-normal">{equipmentCount} equipamento(s) atribuído(s)</div>}
                     </div>
@@ -497,7 +517,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 </td>
                 <td className="px-6 py-4">
                     <div className="text-white">{col.email}</div>
-                    {col.telefoneInterno && <div className="text-xs text-gray-400">Int: {col.telefoneInterno}</div>}
+                    {/* FIX: telefone_interno */}
+                    {col.telefone_interno && <div className="text-xs text-gray-400">Int: {col.telefone_interno}</div>}
                     {col.telemovel && <div className="text-xs text-gray-400">Móvel: {col.telemovel}</div>}
                 </td>
                 <td className="px-6 py-4">
@@ -509,7 +530,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     <span className={`px-2 py-1 text-xs rounded-full font-bold uppercase tracking-wider ${getStatusClass(col.status)}`}>{col.status}</span>
                 </td>
                 <td className="px-6 py-4 text-center">
-                    {col.canLogin ? (
+                    {/* FIX: can_login */}
+                    {col.can_login ? (
                         <span className="inline-flex items-center justify-center p-1.5 bg-green-500/20 rounded-full" title="Acesso permitido"><CheckIcon className="h-4 w-4 text-green-400" /></span>
                     ) : (
                         <span className="inline-flex items-center justify-center p-1.5 bg-red-500/20 rounded-full" title="Acesso negado"><XIcon className="h-4 w-4 text-red-400" /></span>

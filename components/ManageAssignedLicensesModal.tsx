@@ -19,12 +19,13 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
     const [successMessage, setSuccessMessage] = useState('');
 
     useEffect(() => {
-        // Filter assignments that are ACTIVE (returnDate is null)
+        // Filter assignments that are ACTIVE (return_date is null)
         // Use a Set immediately to deduplicate if multiple active records exist in DB for same license
+        // FIX: Updated property names to snake_case
         const initialIds = new Set(
             allAssignments
-                .filter(a => a.equipmentId === equipment.id && !a.returnDate)
-                .map(a => a.softwareLicenseId)
+                .filter(a => a.equipment_id === equipment.id && !a.return_date)
+                .map(a => a.software_license_id)
         );
         setAssignedLicenseIds(initialIds);
     }, [allAssignments, equipment.id]);
@@ -32,8 +33,9 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
     const usedSeatsMap = useMemo(() => {
         return allAssignments.reduce((acc, assignment) => {
             // Only count active assignments for seat usage
-            if (!assignment.returnDate) {
-                acc.set(assignment.softwareLicenseId, (acc.get(assignment.softwareLicenseId) || 0) + 1);
+            // FIX: Updated property names to snake_case
+            if (!assignment.return_date) {
+                acc.set(assignment.software_license_id, (acc.get(assignment.software_license_id) || 0) + 1);
             }
             return acc;
         }, new Map<string, number>());
@@ -44,7 +46,8 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
             const usedSeats = usedSeatsMap.get(license.id) || 0;
             const isAssignedToCurrent = assignedLicenseIds.has(license.id);
             // Available if it's not yet assigned to this PC AND has free seats
-            return !isAssignedToCurrent && (license.is_oem || usedSeats < license.totalSeats);
+            // FIX: Updated property names to snake_case
+            return !isAssignedToCurrent && (license.is_oem || usedSeats < license.total_seats);
         });
     }, [allLicenses, usedSeatsMap, assignedLicenseIds]);
 
@@ -55,7 +58,8 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
 
     const isOS = (license: SoftwareLicense) => {
         // Check category first (if available), then fallback to name heuristic
-        const name = license.productName.toLowerCase();
+        // FIX: Updated property names to snake_case
+        const name = license.product_name.toLowerCase();
         return name.includes('windows') || name.includes('macos') || name.includes('linux') || name.includes('ubuntu') || license.is_oem;
     };
 
@@ -69,7 +73,8 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
         if (isOS(licenseToAdd)) {
             const existingOS = assignedLicensesDetails.find(l => isOS(l));
             if (existingOS) {
-                alert(`Não é possível adicionar "${licenseToAdd.productName}".\n\nEste equipamento já possui uma licença de Sistema Operativo ativa: "${existingOS.productName}".\n\nPara alterar o SO, remova a licença atual primeiro.`);
+                // FIX: Updated property names to snake_case
+                alert(`Não é possível adicionar "${licenseToAdd.product_name}".\n\nEste equipamento já possui uma licença de Sistema Operativo ativa: "${existingOS.product_name}".\n\nPara alterar o SO, remova a licença atual primeiro.`);
                 return;
             }
         }
@@ -115,10 +120,11 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                                 <div key={license.id} className="flex items-center gap-2 p-2 bg-gray-900/50 rounded-md">
                                     <div className="flex-1">
                                         <p className="font-semibold text-on-surface-dark">
-                                            {license.productName}
+                                            {/* FIX: Updated property names to snake_case */}
+                                            {license.product_name}
                                             {isOS(license) && <span className="ml-2 text-[10px] bg-blue-900 text-blue-200 px-1 rounded border border-blue-500">SO</span>}
                                         </p>
-                                        <p className="text-sm text-on-surface-dark-secondary font-mono tracking-wider">{license.licenseKey}</p>
+                                        <p className="text-sm text-on-surface-dark-secondary font-mono tracking-wider">{license.license_key}</p>
                                     </div>
                                     <button
                                         type="button"
@@ -152,7 +158,8 @@ const ManageAssignedLicensesModal: React.FC<ManageAssignedLicensesModalProps> = 
                                 <option value="">Selecione uma licença...</option>
                                 {availableLicenses.map(l => (
                                     <option key={l.id} value={l.id}>
-                                        {l.productName} {l.is_oem ? '(OEM)' : `(${l.licenseKey})`}
+                                        {/* FIX: Updated property names to snake_case */}
+                                        {l.product_name} {l.is_oem ? '(OEM)' : `(${l.license_key})`}
                                     </option>
                                 ))}
                             </select>

@@ -24,7 +24,8 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
         direction: 'descending'
     });
 
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    // Fix: fullName to full_name
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const trainingOptions = useMemo(() => {
         if (trainingTypes && trainingTypes.length > 0) return trainingTypes.map(t => t.name);
         return Object.values(TrainingType);

@@ -38,18 +38,20 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     const typeMap = useMemo(() => new Map(types.map(t => [t.id, t.name])), [types]);
 
     const myEquipment = useMemo(() => {
+        // FIX: collaborator_id, return_date, assigned_date, equipment_id
         const activeIds = assignments
-            .filter(a => (a.collaboratorId === currentUser.id || (a as any).collaborator_id === currentUser.id) && !a.returnDate)
-            .sort((a,b) => new Date(b.assignedDate).getTime() - new Date(a.assignedDate).getTime())
-            .map(a => a.equipmentId || (a as any).equipment_id);
+            .filter(a => (a.collaborator_id === currentUser.id) && !a.return_date)
+            .sort((a,b) => new Date(b.assigned_date).getTime() - new Date(a.assigned_date).getTime())
+            .map(a => a.equipment_id);
         return equipment.filter(e => activeIds.includes(e.id));
     }, [assignments, equipment, currentUser.id]);
 
     const myLicenses = useMemo(() => {
         const myEqIds = new Set(myEquipment.map(e => e.id));
+        // FIX: equipment_id, return_date, software_license_id
         const licenseIds = licenseAssignments
-            .filter(la => myEqIds.has(la.equipmentId || (la as any).equipment_id) && !la.returnDate)
-            .map(la => la.softwareLicenseId || (la as any).software_license_id);
+            .filter(la => myEqIds.has(la.equipment_id) && !la.return_date)
+            .map(la => la.software_license_id);
         return softwareLicenses.filter(l => licenseIds.includes(l.id));
     }, [myEquipment, licenseAssignments, softwareLicenses]);
 
@@ -61,23 +63,26 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
     const myApplicablePolicies = useMemo(() => {
         const myAcceptanceMap = new Map();
         acceptances.forEach(a => {
-            const cid = (a as any).collaboratorId || a.collaborator_id;
+            // FIX: collaborator_id
+            const cid = a.collaborator_id;
             if (cid === currentUser.id) myAcceptanceMap.set(a.policy_id, a);
         });
         return policies.filter(p => {
             if (!p.is_active) return false;
             const targetType = p.target_type || 'Global';
             if (targetType === 'Global') return true;
-            if (targetType === 'Instituicao' && currentUser.instituicaoId) return (p.target_instituicao_ids || []).includes(currentUser.instituicaoId);
-            if (targetType === 'Entidade' && currentUser.entidadeId) return (p.target_entidade_ids || []).includes(currentUser.entidadeId);
+            // FIX: instituicao_id, entidade_id
+            if (targetType === 'Instituicao' && currentUser.instituicao_id) return (p.target_instituicao_ids || []).includes(currentUser.instituicao_id);
+            if (targetType === 'Entidade' && currentUser.entidade_id) return (p.target_entidade_ids || []).includes(currentUser.entidade_id);
             return false;
         }).map(p => ({ ...p, acceptance: myAcceptanceMap.get(p.id) }))
           .sort((a, b) => (a.acceptance ? 0 : 1) - (b.acceptance ? 0 : 1));
     }, [policies, acceptances, currentUser]);
 
     const myActiveTickets = useMemo(() => {
-        return tickets.filter(t => t.collaboratorId === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado')
-            .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+        // FIX: collaborator_id, request_date
+        return tickets.filter(t => t.collaborator_id === currentUser.id && t.status !== 'Finalizado' && t.status !== 'Cancelado')
+            .sort((a, b) => new Date(b.request_date).getTime() - new Date(a.request_date).getTime());
     }, [tickets, currentUser.id]);
 
     const CardContainer = ({ title, icon, children, count }: { title: string, icon: React.ReactNode, children: React.ReactNode, count?: number }) => (
@@ -100,7 +105,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                         <span className="p-2 bg-brand-primary/20 rounded-lg text-brand-secondary">👋</span>
                         A Minha Área
                     </h2>
-                    <p className="text-gray-400 text-sm mt-1">Olá, {currentUser.fullName}. Central de ativos e conformidade pessoal.</p>
+                    {/* FIX: full_name */}
+                    <p className="text-gray-400 text-sm mt-1">Olá, {currentUser.full_name}. Central de ativos e conformidade pessoal.</p>
                 </div>
             </header>
 
@@ -112,7 +118,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                                 <p className="font-bold text-white text-sm group-hover:text-blue-300">{eq.description}</p>
                                 <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-blue-400" />
                             </div>
-                            <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase">S/N: {eq.serialNumber}</p>
+                            {/* FIX: serial_number */}
+                            <p className="text-[10px] text-gray-500 font-mono mt-1 uppercase">S/N: {eq.serial_number}</p>
                         </div>
                     )) : <p className="text-gray-500 text-sm italic text-center py-4">Nenhum equipamento atribuído.</p>}
                 </CardContainer>
@@ -126,7 +133,8 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                             </div>
                             <div className="flex justify-between items-center mt-2">
                                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-500/30 uppercase">{t.status}</span>
-                                <p className="text-[9px] text-gray-500 flex items-center gap-1"><FaClock/> {new Date(t.requestDate).toLocaleDateString()}</p>
+                                {/* FIX: request_date */}
+                                <p className="text-[9px] text-gray-500 flex items-center gap-1"><FaClock/> {new Date(t.request_date).toLocaleDateString()}</p>
                             </div>
                         </div>
                     )) : <p className="text-gray-500 text-sm italic text-center py-4">Não tem tickets em aberto.</p>}
@@ -136,10 +144,12 @@ const SelfServiceDashboard: React.FC<SelfServiceDashboardProps> = ({
                     {myLicenses.length > 0 ? myLicenses.map(lic => (
                         <div key={lic.id} onClick={() => onViewLicense?.(lic)} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-yellow-500/50 transition-colors cursor-pointer group">
                             <div className="flex justify-between items-start">
-                                <p className="font-bold text-white text-sm group-hover:text-yellow-300">{lic.productName}</p>
+                                {/* FIX: product_name */}
+                                <p className="font-bold text-white text-sm group-hover:text-yellow-300">{lic.product_name}</p>
                                 <FaExternalLinkAlt className="text-[10px] text-gray-600 group-hover:text-yellow-400" />
                             </div>
-                            <p className="text-[10px] text-gray-500 font-mono mt-1 truncate uppercase">{lic.licenseKey}</p>
+                            {/* FIX: license_key */}
+                            <p className="text-[10px] text-gray-500 font-mono mt-1 truncate uppercase">{lic.license_key}</p>
                         </div>
                     )) : <p className="text-gray-500 text-sm italic text-center py-4">Sem licenças associadas.</p>}
                 </CardContainer>

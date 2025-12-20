@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Equipment, EquipmentStatus, EquipmentType, Brand, Assignment, Collaborator, Entidade, CriticalityLevel, BusinessService, ServiceDependency, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, TooltipConfig, defaultTooltipConfig, ConfigItem, Instituicao, ProcurementRequest } from '../types';
 import { AssignIcon, ReportIcon, UnassignIcon, EditIcon, FaKey, PlusIcon, FaFileImport, XIcon, FaHistory, FaSort, FaSortUp, FaSortDown, FaRobot, FaCopy, FaTrash } from './common/Icons';
@@ -109,9 +108,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         typeId: '', 
         status: '', 
         description: '', 
-        serialNumber: '', 
-        nomeNaRede: '', 
-        collaboratorId: '',
+        serial_number: '', 
+        nome_na_rede: '', 
+        collaborator_id: '',
         criticality: '',
         creationDateFrom: '',
         creationDateTo: '',
@@ -146,19 +145,22 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         if (initialFilter) setFilters(prev => ({ ...prev, ...initialFilter }));
     }, [initialFilter]);
     
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    // FIX: Updated property names to snake_case
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const activeAssignmentsMap = useMemo(() => {
         const map = new Map<string, Assignment>();
-        assignments.filter(a => !a.returnDate).forEach(a => map.set(a.equipmentId, a));
+        // FIX: Updated property names to snake_case
+        assignments.filter(a => !a.return_date).forEach(a => map.set(a.equipment_id, a));
         return map;
     }, [assignments]);
     
     const equipmentDependencies = useMemo(() => {
         const deps = new Set<string>();
+        // FIX: Updated property names to snake_case
         serviceDependencies?.forEach(d => { if (d.equipment_id) deps.add(d.equipment_id); });
-        tickets?.forEach(t => { if (t.equipmentId && t.status !== 'Finalizado' && t.status !== 'Cancelado') deps.add(t.equipmentId); });
-        licenseAssignments?.forEach(la => { if (la.equipmentId && !la.returnDate) deps.add(la.equipmentId); });
+        tickets?.forEach(t => { if (t.equipment_id && t.status !== 'Finalizado' && t.status !== 'Cancelado') deps.add(t.equipment_id); });
+        licenseAssignments?.forEach(la => { if (la.equipment_id && !la.return_date) deps.add(la.equipment_id); });
         equipment.forEach(e => { if (e.parent_equipment_id) deps.add(e.parent_equipment_id); });
         return deps;
     }, [serviceDependencies, tickets, licenseAssignments, equipment]);
@@ -190,9 +192,9 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
             typeId: '', 
             status: '', 
             description: '', 
-            serialNumber: '', 
-            nomeNaRede: '', 
-            collaboratorId: '', 
+            serial_number: '', 
+            nome_na_rede: '', 
+            collaborator_id: '', 
             criticality: '',
             creationDateFrom: '',
             creationDateTo: '',
@@ -267,10 +269,13 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         const cfg = { ...defaultTooltipConfig, ...tooltipConfig };
         const content = (
             <div className="text-xs leading-tight space-y-1">
-                {cfg.showNomeNaRede && <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> <span className="text-white">{item.nomeNaRede || 'N/A'}</span></p>}
-                {cfg.showAssignedTo && <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{assignedTo || 'Stock'}</span></p>}
-                {cfg.showSerialNumber && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serialNumber || 'N/A'}</span></p>}
-                {item.isLoan && <p className="text-purple-400 font-bold">Equipamento de Empréstimo</p>}
+                {/* FIX: Updated property names to snake_case */}
+                {cfg.show_nome_na_rede && <p><strong className="text-on-surface-dark-secondary">Nome na Rede:</strong> <span className="text-white">{item.nome_na_rede || 'N/A'}</span></p>}
+                {cfg.show_assigned_to && <p><strong className="text-on-surface-dark-secondary">Atribuído a:</strong> <span className="text-white">{assignedTo || 'Stock'}</span></p>}
+                {/* FIX: Updated property names to snake_case */}
+                {cfg.show_serial_number && <p><strong className="text-on-surface-dark-secondary">Nº Série:</strong> <span className="text-white">{item.serial_number || 'N/A'}</span></p>}
+                {/* FIX: Updated property names to snake_case */}
+                {item.is_loan && <p className="text-purple-400 font-bold">Equipamento de Empréstimo</p>}
             </div>
         );
         setTooltip({ visible: true, content: content, x: event.clientX, y: event.clientY });
@@ -314,7 +319,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
         {/* --- FILTROS AVANÇADOS --- */}
         <div className="space-y-4 mb-6 bg-gray-900/40 p-4 rounded-lg border border-gray-700/50">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <input type="text" name="serialNumber" value={filters.serialNumber} onChange={handleFilterChange} placeholder="Filtrar por Nº Série..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                <input type="text" name="serial_number" value={filters.serial_number} onChange={handleFilterChange} placeholder="Filtrar por Nº Série..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                 <input type="text" name="description" value={filters.description} onChange={handleFilterChange} placeholder="Filtrar por Descrição..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                 <select name="brandId" value={filters.brandId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                     <option value="">Todas as Marcas</option>
@@ -335,9 +340,10 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     <option value="">Todas as Criticidades</option>
                     {Object.values(CriticalityLevel).map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <select name="collaboratorId" value={filters.collaboratorId} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
+                {/* FIX: Updated property names to snake_case */}
+                <select name="collaborator_id" value={filters.collaborator_id} onChange={handleFilterChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
                     <option value="">Atribuído a (Qualquer)</option>
-                    {collaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                    {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                 </select>
                 <div className="flex gap-2">
                     <button onClick={clearFilters} className="flex-1 px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Limpar Tudo</button>
@@ -374,12 +380,14 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                 <th scope="col" className="px-4 py-3 w-12">
                     <input type="checkbox" className="rounded bg-gray-700 text-brand-secondary" onChange={handleSelectAll} />
                 </th>
-                <SortableHeader label="Equipamento" sortKey="description" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
-                <SortableHeader label="Nº Série" sortKey="serialNumber" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
+                <SortableHeader label="Equipamento" sortKey="description" currentSort={sort || { key: 'creation_date', direction: 'descending' }} onSort={requestSort} />
+                {/* FIX: Updated property names to snake_case */}
+                <SortableHeader label="Nº Série" sortKey="serial_number" currentSort={sort || { key: 'creation_date', direction: 'descending' }} onSort={requestSort} />
                 <th scope="col" className="px-6 py-3">Atribuído a</th>
-                <SortableHeader label="Criticidade" sortKey="criticality" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
-                <SortableHeader label="Garantia" sortKey="warrantyEndDate" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
-                <SortableHeader label="Estado" sortKey="status" currentSort={sort || { key: 'creationDate', direction: 'descending' }} onSort={requestSort} />
+                <SortableHeader label="Criticidade" sortKey="criticality" currentSort={sort || { key: 'creation_date', direction: 'descending' }} onSort={requestSort} />
+                {/* FIX: Updated property names to snake_case */}
+                <SortableHeader label="Garantia" sortKey="warranty_end_date" currentSort={sort || { key: 'creation_date', direction: 'descending' }} onSort={requestSort} />
+                <SortableHeader label="Estado" sortKey="status" currentSort={sort || { key: 'creation_date', direction: 'descending' }} onSort={requestSort} />
                 <th scope="col" className="px-6 py-3 text-center">Ações</th>
                 </tr>
             </thead>
@@ -388,10 +396,12 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                     const assignment = activeAssignmentsMap.get(item.id);
                     let assignedTo = '';
                     if (assignment) {
-                        if (assignment.collaboratorId) assignedTo = collaboratorMap.get(assignment.collaboratorId) || 'Colaborador';
-                        else if (assignment.entidadeId) assignedTo = entidadeMap.get(assignment.entidadeId) || 'Entidade';
+                        // FIX: Updated property names to snake_case
+                        if (assignment.collaborator_id) assignedTo = collaboratorMap.get(assignment.collaborator_id) || 'Colaborador';
+                        else if (assignment.entidade_id) assignedTo = entidadeMap.get(assignment.entidade_id) || 'Entidade';
                     }
-                    const warrantyInfo = getWarrantyStatus(item.warrantyEndDate);
+                    // FIX: Updated property names to snake_case
+                    const warrantyInfo = getWarrantyStatus(item.warranty_end_date);
                     const isAssigned = assignedEquipmentIds.has(item.id);
                     const linkedServiceCriticality = equipmentCriticalityMap.get(item.id);
                     const customColor = statusColors[item.status];
@@ -415,11 +425,14 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                             <div className="flex items-center gap-2">
                                 {item.description}
                                 {linkedServiceCriticality && <span className="flex h-2 w-2 relative" title="Crítico"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span>}
-                                {item.isLoan && <span className="text-[10px] bg-purple-900/30 text-purple-300 px-1 rounded border border-purple-500/30">LOAN</span>}
+                                {/* FIX: Updated property names to snake_case */}
+                                {item.is_loan && <span className="text-[10px] bg-purple-900/30 text-purple-300 px-1 rounded border border-purple-500/30">LOAN</span>}
                             </div>
-                            <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brandId) || ''} / {equipmentTypeMap.get(item.typeId) || ''}</div>
+                            {/* FIX: Updated property names to snake_case */}
+                            <div className="text-xs text-on-surface-dark-secondary">{brandMap.get(item.brand_id) || ''} / {equipmentTypeMap.get(item.type_id) || ''}</div>
                         </td>
-                        <td className="px-6 py-4">{item.serialNumber}</td>
+                        {/* FIX: Updated property names to snake_case */}
+                        <td className="px-6 py-4">{item.serial_number}</td>
                         <td className="px-6 py-4">{assignedTo}</td>
                         <td className="px-6 py-4">
                             <span className={`px-2 py-1 text-xs rounded-full border ${getCriticalityClass(item.criticality || CriticalityLevel.Low)}`}>{item.criticality || 'Baixa'}</span>
@@ -471,7 +484,7 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
       </div>
        <Pagination currentPage={page || 1} totalPages={Math.ceil((totalItems || 0) / (pageSize || 20))} onPageChange={(p) => onPageChange && onPageChange(p)} itemsPerPage={pageSize || 20} onItemsPerPageChange={(s) => onPageSizeChange && onPageSizeChange(s)} totalItems={totalItems || 0} />
         {detailEquipment && (
-            <EquipmentHistoryModal
+            <EquipmentHistoryModal 
                 equipment={detailEquipment} assignments={assignments} collaborators={collaborators} escolasDepartamentos={entidades} tickets={tickets} ticketActivities={ticketActivities} onClose={() => setDetailEquipment(null)} onEdit={(eq) => { setDetailEquipment(null); if (onEdit) { onEdit(eq); } }}
                 businessServices={businessServices} serviceDependencies={serviceDependencies} softwareLicenses={softwareLicenses} licenseAssignments={licenseAssignments} vulnerabilities={vulnerabilities} suppliers={suppliers} procurementRequests={procurementRequests} onViewItem={onViewItem} accountingCategories={accountingCategories} conservationStates={conservationStates}
             />

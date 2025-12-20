@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { FaMagic, FaSpinner, FaArrowRight, FaMicrophone } from 'react-icons/fa';
+import { FaMagic, FaSpinner, FaArrowRight } from 'react-icons/fa';
 import { parseNaturalLanguageAction, isAiConfigured } from '../services/geminiService';
 import { Brand, EquipmentType, Collaborator } from '../types';
 
@@ -19,7 +18,6 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
     const inputRef = useRef<HTMLInputElement>(null);
     const aiConfigured = isAiConfigured();
 
-    // Hotkey listener (Ctrl+K or Cmd+K)
     useEffect(() => {
         if (!aiConfigured) return;
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -36,7 +34,6 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [aiConfigured]);
 
-    // Auto-focus input when opened
     useEffect(() => {
         if (isOpen && inputRef.current) {
             inputRef.current.focus();
@@ -52,7 +49,7 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
             const context = {
                 brands: brands.map(b => b.name),
                 types: types.map(t => t.name),
-                users: collaborators.map(c => ({ name: c.fullName, id: c.id })),
+                users: collaborators.map(c => ({ name: c.full_name, id: c.id })),
                 currentUser: currentUser?.id || ''
             };
 
@@ -100,7 +97,7 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="Descreva o que quer fazer (ex: 'Criar portátil Dell para o João', 'Ticket impressora avariada')..."
+                            placeholder="Descreva o que quer fazer..."
                             className="w-full bg-transparent border-none text-white text-lg px-4 focus:ring-0 placeholder-gray-500 font-medium"
                             autoComplete="off"
                         />
@@ -117,13 +114,11 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
                         </div>
                     </form>
                     
-                    {/* Suggestions / Footer */}
                     <div className="bg-gray-800/50 px-4 py-2 border-t border-gray-700 flex justify-between items-center text-xs text-gray-400">
                         <div className="flex gap-3">
                             <span>Sugestões:</span>
-                            <span className="hover:text-white cursor-pointer" onClick={() => setInput("Adicionar portátil Dell Latitude serial 123")}>"Adicionar portátil..."</span>
-                            <span className="hover:text-white cursor-pointer" onClick={() => setInput("Criar ticket: Internet lenta no escritório")}>"Criar ticket..."</span>
-                            <span className="hover:text-white cursor-pointer" onClick={() => setInput("Pesquisar por João Silva")}>"Pesquisar..."</span>
+                            <span className="hover:text-white cursor-pointer" onClick={() => setInput("Adicionar portátil Dell Latitude")}>"Adicionar portátil..."</span>
+                            <span className="hover:text-white cursor-pointer" onClick={() => setInput("Criar ticket: Internet lenta")}>"Criar ticket..."</span>
                         </div>
                         <div>
                             <span className="bg-gray-700 px-1.5 rounded text-[10px] mr-1">ESC</span> para fechar
@@ -131,8 +126,6 @@ const MagicCommandBar: React.FC<MagicCommandBarProps> = ({ brands, types, collab
                     </div>
                 </div>
             </div>
-            
-            {/* Invisible overlay to close on click outside */}
             <div className="absolute inset-0 -z-10" onClick={() => setIsOpen(false)}></div>
         </div>
     );

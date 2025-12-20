@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 
 const sb = () => getSupabase();
@@ -44,43 +43,53 @@ export const fetchTicketsPaginated = async (params: {
     userContext?: { id: string, role: string, teamIds: string[] }
 }) => {
     let query = sb().from('tickets').select('*', { count: 'exact' });
+    
     if (params.userContext && params.userContext.role !== 'SuperAdmin' && params.userContext.role !== 'Admin') {
         const { id, teamIds } = params.userContext;
         if (teamIds && teamIds.length > 0) {
-            query = query.or(`collaboratorId.eq.${id},team_id.in.(${teamIds.join(',')})`);
+            query = query.or(`collaborator_id.eq.${id},team_id.in.(${teamIds.join(',')})`);
         } else {
-            query = query.eq('collaboratorId', id);
+            query = query.eq('collaborator_id', id);
         }
     }
+
     if (params.filters) {
         if (params.filters.status) query = query.eq('status', params.filters.status);
         if (params.filters.category) query = query.eq('category', params.filters.category);
         if (params.filters.team_id) query = query.eq('team_id', params.filters.team_id);
         if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
     }
-    const sortObj = params.sort || { key: 'requestDate', direction: 'descending' };
+
+    const sortObj = params.sort || { key: 'request_date', direction: 'descending' };
     query = query.order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
+    
     const from = (params.page - 1) * params.pageSize;
-    const to = from + params.pageSize - 1;
-    const { data, count, error } = await query.range(from, to);
+    const { data, count, error } = await query.range(from, from + params.pageSize - 1);
+    
     if (error) throw error;
     return { data: data || [], total: count || 0 };
 };
 
-export const addTicket = async (ticket: any) => { const { data, error } = await sb().from('tickets').insert(cleanPayload(ticket)).select().single(); if (error) throw error; return data; };
-export const updateTicket = async (id: string, updates: any) => { const { data, error } = await sb().from('tickets').update(cleanPayload(updates)).eq('id', id).select().single(); if (error) throw error; return data; };
-export const getTicketActivities = async (ticketId: string) => { const { data, error } = await sb().from('ticket_activities').select('*').eq('ticketId', ticketId); if (error) throw error; return data || []; };
-export const addTicketActivity = async (activity: any) => { const { data, error } = await sb().from('ticket_activities').insert(cleanPayload(activity)).select().single(); if (error) throw error; return data; };
-export const addTicketCategory = async (cat: any) => { const { data, error } = await sb().from('ticket_categories').insert(cleanPayload(cat)).select().single(); if (error) throw error; return data; };
-export const updateTicketCategory = async (id: string, updates: any) => { const { data, error } = await sb().from('ticket_categories').update(cleanPayload(updates)).eq('id', id).select().single(); if (error) throw error; return data; };
-export const addSecurityIncidentType = async (type: any) => { const { data, error } = await sb().from('security_incident_types').insert(cleanPayload(type)).select().single(); if (error) throw error; return data; };
-export const updateSecurityIncidentType = async (id: string, updates: any) => { const { data, error } = await sb().from('security_incident_types').update(cleanPayload(updates)).eq('id', id).select().single(); if (error) throw error; return data; };
-export const addTeam = async (team: any) => { const { data, error } = await sb().from('teams').insert(cleanPayload(team)).select().single(); if (error) throw error; return data; };
-export const updateTeam = async (id: string, updates: any) => { const { data, error } = await sb().from('teams').update(cleanPayload(updates)).eq('id', id).select().single(); if (error) throw error; return data; };
-export const deleteTeam = async (id: string) => { const { error } = await sb().from('teams').delete().eq('id', id); if (error) throw error; };
-export const syncTeamMembers = async (teamId: string, memberIds: string[]) => { await sb().from('team_members').delete().eq('team_id', teamId); if (memberIds.length > 0) { const items = memberIds.map(id => ({ team_id: teamId, collaborator_id: id })); await sb().from('team_members').insert(items); } };
-export const addMessage = async (msg: any) => { const { data, error } = await sb().from('messages').insert(cleanPayload(msg)).select().single(); if (error) throw error; return data; };
-export const markMessagesAsRead = async (senderId: string) => { await sb().from('messages').update({ read: true }).eq('senderId', senderId); };
-export const addCalendarEvent = async (event: any) => { const { data, error } = await sb().from('calendar_events').insert(cleanPayload(event)).select().single(); if (error) throw error; return data; };
+export const addTicket = async (ticket: any) => { const { data } = await sb().from('tickets').insert(cleanPayload(ticket)).select().single(); return data; };
+export const updateTicket = async (id: string, updates: any) => { await sb().from('tickets').update(cleanPayload(updates)).eq('id', id); };
+export const getTicketActivities = async (ticketId: string) => { const { data } = await sb().from('ticket_activities').select('*').eq('ticket_id', ticketId); return data || []; };
+export const addTicketActivity = async (activity: any) => { await sb().from('ticket_activities').insert(cleanPayload(activity)); };
+export const addTicketCategory = async (cat: any) => { await sb().from('ticket_categories').insert(cleanPayload(cat)); };
+export const updateTicketCategory = async (id: string, updates: any) => { await sb().from('ticket_categories').update(cleanPayload(updates)).eq('id', id); };
+export const addSecurityIncidentType = async (type: any) => { await sb().from('security_incident_types').insert(cleanPayload(type)); };
+export const updateSecurityIncidentType = async (id: string, updates: any) => { await sb().from('security_incident_types').update(cleanPayload(updates)).eq('id', id); };
+export const addTeam = async (team: any) => { const { data } = await sb().from('teams').insert(cleanPayload(team)).select().single(); return data; };
+export const updateTeam = async (id: string, updates: any) => { await sb().from('teams').update(cleanPayload(updates)).eq('id', id); };
+export const deleteTeam = async (id: string) => { await sb().from('teams').delete().eq('id', id); };
+export const syncTeamMembers = async (teamId: string, memberIds: string[]) => { 
+    await sb().from('team_members').delete().eq('team_id', teamId); 
+    if (memberIds.length > 0) { 
+        const items = memberIds.map(id => ({ team_id: teamId, collaborator_id: id })); 
+        await sb().from('team_members').insert(items); 
+    } 
+};
+export const addMessage = async (msg: any) => { await sb().from('messages').insert(cleanPayload(msg)); };
+export const markMessagesAsRead = async (senderId: string) => { await sb().from('messages').update({ read: true }).eq('sender_id', senderId); };
+export const addCalendarEvent = async (event: any) => { const { data } = await sb().from('calendar_events').insert(cleanPayload(event)).select().single(); return data; };
 export const updateCalendarEvent = async (id: string, updates: any) => { await sb().from('calendar_events').update(cleanPayload(updates)).eq('id', id); };
 export const deleteCalendarEvent = async (id: string) => { await sb().from('calendar_events').delete().eq('id', id); };

@@ -20,7 +20,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
 
     const [editData, setEditData] = useState({
         telemovel: user.telemovel || '',
-        dateOfBirth: user.dateOfBirth || '',
+        // FIX: date_of_birth
+        date_of_birth: user.date_of_birth || '',
         address_line: user.address_line || '',
         postal_code: user.postal_code || '',
         city: user.city || '',
@@ -62,17 +63,19 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
     // Lógica de resolução de nomes corrigida para o Pedido 1
     const displayInstituicao = useMemo(() => {
         if (instituicao?.name) return instituicao.name;
-        if (user.instituicaoId) return 'Instituição Associada'; // Fallback se a prop falhar mas o ID existir
+        // FIX: instituicao_id
+        if (user.instituicao_id) return 'Instituição Associada'; // Fallback se a prop falhar mas o ID existir
         if (user.role === 'SuperAdmin') return 'Acesso Global';
         return 'Não definida';
-    }, [instituicao, user.instituicaoId, user.role]);
+    }, [instituicao, user.instituicao_id, user.role]);
     
     const displayEntidade = useMemo(() => {
         if (entidade?.name) return entidade.name;
-        if (user.instituicaoId && !user.entidadeId) return 'Diretamente à Instituição';
+        // FIX: instituicao_id, entidade_id
+        if (user.instituicao_id && !user.entidade_id) return 'Diretamente à Instituição';
         if (user.role === 'SuperAdmin') return 'Acesso Global';
         return 'Sem departamento fixo';
-    }, [entidade, user.instituicaoId, user.entidadeId, user.role]);
+    }, [entidade, user.instituicao_id, user.entidade_id, user.role]);
 
     return (
         <Modal title="O Meu Perfil" onClose={onClose} maxWidth="max-w-2xl">
@@ -80,12 +83,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                 <div className="flex flex-col items-center space-y-6 w-full md:w-1/3 border-r border-gray-700/50 pr-8">
                     <div className="relative group">
                         <div className="w-40 h-40 rounded-full border-4 border-brand-primary overflow-hidden bg-gray-800 flex items-center justify-center shadow-2xl">
+                            {/* FIX: photo_url */}
                             {isUploading ? (
                                 <FaSpinner className="animate-spin text-white text-2xl" />
-                            ) : user.photoUrl ? (
-                                <img src={user.photoUrl} alt={user.fullName} className="w-full h-full object-cover" />
+                            ) : user.photo_url ? (
+                                <img src={user.photo_url} alt={user.full_name} className="w-full h-full object-cover" />
                             ) : (
-                                <span className="text-6xl font-bold text-gray-500">{user.fullName.charAt(0)}</span>
+                                // FIX: full_name
+                                <span className="text-6xl font-bold text-gray-500">{user.full_name.charAt(0)}</span>
                             )}
                         </div>
                         <button 
@@ -99,15 +104,17 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                     </div>
 
                     <div className="text-center w-full">
-                        <h2 className="text-xl font-bold text-white">{user.fullName}</h2>
+                        {/* FIX: full_name */}
+                        <h2 className="text-xl font-bold text-white">{user.full_name}</h2>
                         <p className="text-brand-secondary font-medium">{user.role}</p>
                     </div>
 
                     <div className="w-full space-y-2 text-xs">
                         <div className="bg-gray-900/50 p-3 rounded border border-gray-700">
                             <span className="text-gray-500 uppercase font-bold block mb-1">Identificação RH</span>
-                            <p className="flex justify-between"><span>Nº Mec:</span> <span className="text-white font-mono">{user.numeroMecanografico || '—'}</span></p>
-                            <p className="flex justify-between mt-1"><span>Admissão:</span> <span className="text-white font-mono">{user.admissionDate ? new Date(user.admissionDate).toLocaleDateString() : '—'}</span></p>
+                            {/* FIX: numero_mecanografico, admission_date */}
+                            <p className="flex justify-between"><span>Nº Mec:</span> <span className="text-white font-mono">{user.numero_mecanografico || '—'}</span></p>
+                            <p className="flex justify-between mt-1"><span>Admissão:</span> <span className="text-white font-mono">{user.admission_date ? new Date(user.admission_date).toLocaleDateString() : '—'}</span></p>
                         </div>
                     </div>
                 </div>
@@ -136,8 +143,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
                             <label className="block text-xs text-gray-500 uppercase mb-1">Data Nascimento</label>
                             <input 
                                 type="date" 
-                                value={editData.dateOfBirth} 
-                                onChange={e => setEditData({...editData, dateOfBirth: e.target.value})}
+                                value={editData.date_of_birth} 
+                                onChange={e => setEditData({...editData, date_of_birth: e.target.value})}
                                 className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:border-brand-secondary"
                             />
                         </div>

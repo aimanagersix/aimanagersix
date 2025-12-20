@@ -1,3 +1,2 @@
-
 # Backup InventoryManager v1
-Problemas de re-render e sincronização com dashboardFilter.
+Lógica de clonagem e importação de agentes atualizada na v15.

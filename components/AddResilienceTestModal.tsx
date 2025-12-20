@@ -132,10 +132,13 @@ const AddResilienceTestModal: React.FC<AddResilienceTestModalProps> = ({ onClose
             title: `Vuln: ${finding.title}`,
             description: `Detetado em Teste de Resiliência (${formData.title}).\n\nDescrição: ${finding.description}\n\nRemediação Sugerida: ${finding.remediation}`,
             category: 'Incidente de Segurança',
-            securityIncidentType: 'Exploração de Vulnerabilidade',
-            impactCriticality: severityMap[finding.severity] || CriticalityLevel.Medium,
+            // Fix: securityIncidentType to security_incident_type
+            security_incident_type: 'Exploração de Vulnerabilidade',
+            // Fix: impactCriticality to impact_criticality
+            impact_criticality: severityMap[finding.severity] || CriticalityLevel.Medium,
             status: TicketStatus.Requested,
-            requestDate: new Date().toISOString()
+            // Fix: requestDate to request_date
+            request_date: new Date().toISOString()
         });
         alert("Ticket criado com sucesso!");
     };
@@ -161,7 +164,8 @@ const AddResilienceTestModal: React.FC<AddResilienceTestModalProps> = ({ onClose
             onCreateTicket({
                 title: `Agendamento: ${formData.title} (Recorrência)`,
                 description: `Agendamento automático do próximo teste de resiliência (${formData.test_type}).\nBaseado no teste realizado em ${formData.planned_date}.`,
-                requestDate: nextDate.toISOString().split('T')[0],
+                // Fix: requestDate to request_date
+                request_date: nextDate.toISOString().split('T')[0],
                 category: 'Manutenção',
                 status: TicketStatus.Requested,
                 team_id: undefined // Can be set if known
@@ -385,7 +389,7 @@ const AddResilienceTestModal: React.FC<AddResilienceTestModalProps> = ({ onClose
 
             <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-4">
                 <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                <button onClick={handleSubmit} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
+                <button type="button" onClick={handleSubmit} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
             </div>
         </Modal>
     );

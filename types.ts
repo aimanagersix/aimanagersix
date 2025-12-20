@@ -68,60 +68,6 @@ export enum TicketStatus {
     Cancelled = 'Cancelado'
 }
 
-export enum TicketCategory {
-    TechnicalFault = 'Avaria Técnica',
-    SoftwareRequest = 'Pedido de Software',
-    AccessRequest = 'Pedido de Acesso',
-    SecurityIncident = 'Incidente de Segurança'
-}
-
-export enum LicenseStatus {
-    Ativo = 'Ativo',
-    Inativo = 'Inativo'
-}
-
-export enum ServiceStatus {
-    Ativo = 'Ativo',
-    Inativo = 'Inativo'
-}
-
-export enum VulnerabilityStatus {
-    Open = 'Aberto',
-    InProgress = 'Em Resolução',
-    Mitigated = 'Mitigado',
-    Resolved = 'Resolvido',
-    FalsePositive = 'Falso Positivo'
-}
-
-export enum BackupType {
-    Full = 'Completo',
-    Incremental = 'Incremental',
-    Differential = 'Diferencial'
-}
-
-export enum ResilienceTestType {
-    VulnerabilityScan = 'Vulnerability Scan',
-    Pentest = 'Pentest',
-    DRP = 'DRP (Recovery Test)',
-    RedTeaming = 'Red Teaming'
-}
-
-export enum TrainingType {
-    Phishing = 'Phishing Awareness',
-    SecurityPolicy = 'Security Policy',
-    GDPR = 'Proteção de Dados (RGPD)',
-    SafeBrowsing = 'Navegação Segura'
-}
-
-export enum ProcurementStatus {
-    Pending = 'Pendente',
-    Approved = 'Aprovado',
-    Rejected = 'Rejeitado',
-    Ordered = 'Encomendado',
-    Received = 'Recebido',
-    Completed = 'Concluído'
-}
-
 export interface Brand {
     id: string;
     name: string;
@@ -133,13 +79,13 @@ export interface Brand {
 export interface EquipmentType {
     id: string;
     name: string;
-    requiresNomeNaRede: boolean;
-    requiresMacWIFI: boolean;
-    requiresMacCabo: boolean;
-    requiresInventoryNumber: boolean;
+    requires_nome_na_rede: boolean;
+    requires_mac_wifi: boolean;
+    requires_mac_cabo: boolean;
+    requires_inventory_number: boolean;
     default_team_id?: string;
-    requiresBackupTest: boolean;
-    requiresLocation: boolean;
+    requires_backup_test: boolean;
+    requires_location: boolean;
     is_maintenance: boolean;
     requires_wwan_address: boolean;
     requires_bluetooth_address: boolean;
@@ -153,59 +99,61 @@ export interface EquipmentType {
 
 export interface Collaborator {
     id: string;
-    fullName: string;
+    full_name: string;
     email: string;
-    numeroMecanografico?: string;
+    numero_mecanografico?: string;
     title?: string;
     role: string;
     status: CollaboratorStatus;
-    canLogin: boolean;
-    receivesNotifications: boolean;
-    entidadeId?: string;
-    instituicaoId?: string;
+    can_login: boolean;
+    receives_notifications: boolean;
+    entidade_id?: string;
+    instituicao_id?: string;
     job_title_id?: string;
     job_title_name?: string;
     telemovel?: string;
-    telefoneInterno?: string;
+    telefone_interno?: string;
     address?: string;
     address_line?: string;
     postal_code?: string;
     city?: string;
     locality?: string;
     nif?: string;
-    dateOfBirth?: string;
-    admissionDate?: string;
-    photoUrl?: string;
+    date_of_birth?: string;
+    admission_date?: string;
+    photo_url?: string;
+    password_updated_at?: string;
     preferences?: {
-        tooltipConfig?: TooltipConfig;
+        tooltip_config?: TooltipConfig;
     };
+    deactivation_reason_id?: string;
 }
 
 export interface Equipment {
     id: string;
-    brandId: string;
-    typeId: string;
+    brand_id: string;
+    type_id: string;
     description: string;
-    serialNumber: string;
-    inventoryNumber?: string;
-    nomeNaRede?: string;
-    macAddressWIFI?: string;
-    macAddressCabo?: string;
+    serial_number: string;
+    inventory_number?: string;
+    nome_na_rede?: string;
+    mac_address_wifi?: string;
+    mac_address_cabo?: string;
     status: EquipmentStatus;
-    purchaseDate?: string;
-    warrantyEndDate?: string;
-    invoiceNumber?: string;
-    requisitionNumber?: string;
+    purchase_date?: string;
+    warranty_end_date?: string;
+    invoice_number?: string;
+    requisition_number?: string;
     criticality?: CriticalityLevel;
     confidentiality?: CIARating;
     integrity?: CIARating;
     availability?: CIARating;
     supplier_id?: string;
-    acquisitionCost?: number;
-    expectedLifespanYears?: number;
+    acquisition_cost?: number;
+    expected_lifespan_years?: number;
     embedded_license_key?: string;
-    installationLocation?: string;
-    isLoan: boolean;
+    installation_location?: string;
+    is_loan: boolean;
     parent_equipment_id?: string;
     os_version?: string;
     last_security_update?: string;
@@ -224,19 +172,19 @@ export interface Equipment {
     decommission_reason_id?: string;
     residual_value?: number;
     last_inventory_scan?: string;
-    creationDate: string;
-    modifiedDate: string;
+    creation_date: string;
+    modified_date: string;
     procurement_request_id?: string;
 }
 
 export interface Assignment {
     id: string;
-    equipmentId: string;
-    collaboratorId?: string;
-    entidadeId?: string;
-    instituicaoId?: string;
-    assignedDate: string;
-    returnDate?: string;
+    equipment_id: string;
+    collaborator_id?: string;
+    entidade_id?: string;
+    instituicao_id?: string;
+    assigned_date: string;
+    return_date?: string;
 }
 
 export interface Instituicao {
@@ -258,7 +206,7 @@ export interface Instituicao {
 
 export interface Entidade {
     id: string;
-    instituicaoId: string;
+    instituicao_id: string;
     codigo: string;
     name: string;
     description?: string;
@@ -268,7 +216,7 @@ export interface Entidade {
     responsavel?: string;
     telefone?: string;
     telemovel?: string;
-    telefoneInterno?: string;
+    telefone_interno?: string;
     status: EntidadeStatus;
     address?: string;
     address_line?: string;
@@ -284,55 +232,43 @@ export interface Ticket {
     description: string;
     status: string;
     category: string;
-    requestDate: string;
-    finishDate?: string;
-    collaboratorId: string;
-    technicianId?: string;
-    entidadeId?: string;
+    request_date: string;
+    finish_date?: string;
+    collaborator_id: string;
+    technician_id?: string;
+    entidade_id?: string;
     team_id?: string;
-    equipmentId?: string;
-    securityIncidentType?: string;
-    impactCriticality?: string;
-    attachments?: { name: string; dataUrl: string }[];
+    equipment_id?: string;
+    security_incident_type?: string;
+    impact_criticality?: string;
     resolution_summary?: string;
     requester_supplier_id?: string;
-}
-
-export interface TicketActivity {
-    id: string;
-    ticketId: string;
-    technicianId: string;
-    description: string;
-    date: string;
-    equipmentId?: string;
+    attachments?: { name: string; dataUrl: string }[];
 }
 
 export interface SoftwareLicense {
     id: string;
-    productName: string;
-    licenseKey: string;
-    totalSeats: number;
-    purchaseDate?: string;
-    expiryDate?: string;
-    purchaseEmail?: string;
-    invoiceNumber?: string;
+    product_name: string;
+    license_key: string;
+    total_seats: number;
+    purchase_date?: string;
+    expiry_date?: string;
+    purchase_email?: string;
+    invoice_number?: string;
     status: string;
     criticality: CriticalityLevel;
-    confidentiality: CIARating;
-    integrity: CIARating;
-    availability: CIARating;
     supplier_id?: string;
-    unitCost?: number;
+    unit_cost?: number;
     is_oem: boolean;
     category_id?: string;
 }
 
 export interface LicenseAssignment {
     id: string;
-    softwareLicenseId: string;
-    equipmentId: string;
-    assignedDate: string;
-    returnDate?: string;
+    software_license_id: string;
+    equipment_id: string;
+    assigned_date: string;
+    return_date?: string;
 }
 
 export interface Team {
@@ -350,57 +286,32 @@ export interface TeamMember {
 
 export interface Message {
     id: string;
-    senderId: string;
-    receiverId: string;
+    sender_id: string;
+    receiver_id: string;
     content: string;
     timestamp: string;
     read: boolean;
 }
 
-export interface CollaboratorHistory {
-    id: string;
-    collaboratorId: string;
-    entidadeId: string;
-    startDate: string;
-    endDate?: string;
+export interface TooltipConfig {
+    show_nome_na_rede: boolean;
+    show_assigned_to: boolean;
+    show_serial_number: boolean;
+    show_collab_name: boolean;
+    show_collab_job: boolean;
+    show_collab_entity: boolean;
+    show_collab_contact: boolean;
 }
 
-export interface TicketCategoryItem {
-    id: string;
-    name: string;
-    is_active: boolean;
-    default_team_id?: string;
-    sla_warning_hours: number;
-    sla_critical_hours: number;
-    is_security: boolean;
-}
-
-export interface SecurityIncidentTypeItem {
-    id: string;
-    name: string;
-    description?: string;
-    is_active: boolean;
-}
-
-export interface BusinessService {
-    id: string;
-    name: string;
-    description?: string;
-    criticality: CriticalityLevel;
-    rto_goal?: string;
-    owner_id: string;
-    status: ServiceStatus;
-    external_provider_id?: string;
-}
-
-export interface ServiceDependency {
-    id: string;
-    service_id: string;
-    equipment_id?: string;
-    software_license_id?: string;
-    dependency_type?: string;
-    notes?: string;
-}
+export const defaultTooltipConfig: TooltipConfig = {
+    show_nome_na_rede: true,
+    show_assigned_to: true,
+    show_serial_number: true,
+    show_collab_name: true,
+    show_collab_job: true,
+    show_collab_entity: true,
+    show_collab_contact: true
+};
 
 export interface Vulnerability {
     id: string;
@@ -409,7 +320,7 @@ export interface Vulnerability {
     severity: CriticalityLevel;
     affected_software?: string;
     remediation?: string;
-    status: VulnerabilityStatus;
+    status: string;
     published_date: string;
     ticket_id?: string;
     affected_assets?: string;
@@ -422,7 +333,7 @@ export interface BackupExecution {
     backup_date: string;
     test_date: string;
     status: string;
-    type: BackupType;
+    type: string;
     restore_time_minutes?: number;
     tester_id: string;
     notes?: string;
@@ -432,7 +343,7 @@ export interface BackupExecution {
 export interface ResilienceTest {
     id: string;
     title: string;
-    test_type: ResilienceTestType;
+    test_type: string;
     planned_date: string;
     executed_date?: string;
     status: string;
@@ -452,55 +363,6 @@ export interface SecurityTrainingRecord {
     score?: number;
     notes?: string;
     duration_hours?: number;
-}
-
-export interface Supplier {
-    id: string;
-    name: string;
-    contact_name?: string;
-    contact_email?: string;
-    contact_phone?: string;
-    nif?: string;
-    website?: string;
-    address?: string;
-    address_line?: string;
-    postal_code?: string;
-    city?: string;
-    locality?: string;
-    notes?: string;
-    is_iso27001_certified: boolean;
-    iso_certificate_expiry?: string;
-    security_contact_email?: string;
-    risk_level: CriticalityLevel;
-    attachments?: { name: string; dataUrl: string }[];
-    other_certifications?: { name: string; expiryDate: string }[];
-    contracts?: SupplierContract[];
-    contacts?: ResourceContact[];
-    is_active?: boolean;
-}
-
-export interface SupplierContract {
-    id: string;
-    ref_number: string;
-    description: string;
-    start_date: string;
-    end_date: string;
-    notice_period_days: number;
-    exit_strategy: string;
-    supported_service_ids: string[];
-    is_active: boolean;
-}
-
-export interface ResourceContact {
-    id: string;
-    resource_type: 'supplier' | 'entidade' | 'instituicao';
-    resource_id: string;
-    title?: string;
-    name: string;
-    role: string;
-    email: string;
-    phone: string;
-    is_active?: boolean;
 }
 
 export interface CustomRole {
@@ -539,12 +401,11 @@ export interface ProcurementRequest {
     quantity: number;
     estimated_cost: number;
     requester_id: string;
-    status: ProcurementStatus;
+    status: string;
     request_date: string;
     priority: 'Normal' | 'Urgente';
     resource_type: 'Hardware' | 'Software';
     specifications: any;
-    attachments?: { name: string; dataUrl: string }[];
     brand_id?: string;
     supplier_id?: string;
     order_reference?: string;
@@ -555,6 +416,7 @@ export interface ProcurementRequest {
     equipment_type_id?: string;
     software_category_id?: string;
     order_date?: string;
+    attachments?: { name: string; dataUrl: string }[];
 }
 
 export interface CalendarEvent {
@@ -572,116 +434,31 @@ export interface CalendarEvent {
     created_at: string;
 }
 
-export interface ContinuityPlan {
-    id: string;
-    title: string;
-    type: 'BCP' | 'DRP' | 'Crise';
-    description?: string;
-    service_id?: string;
-    last_review_date: string;
-    next_review_date?: string;
-    owner_id: string;
-    document_url?: string;
-    document_name?: string;
-}
-
-export interface SoftwareProduct {
+export interface Supplier {
     id: string;
     name: string;
-    category_id: string;
+    contact_name?: string;
+    contact_email?: string;
+    contact_phone?: string;
+    nif?: string;
+    website?: string;
+    address_line?: string;
+    postal_code?: string;
+    city?: string;
+    locality?: string;
+    is_iso27001_certified: boolean;
+    iso_certificate_expiry?: string;
+    risk_level: CriticalityLevel;
+    is_active?: boolean;
+    notes?: string;
+    security_contact_email?: string;
+    other_certifications?: { name: string; expiryDate: string }[];
+    contracts?: SupplierContract[];
+    contacts?: ResourceContact[];
+    attachments?: { name: string; dataUrl: string }[];
 }
 
-export interface AuditLogEntry {
-    id: string;
-    timestamp: string;
-    user_email: string;
-    action: string;
-    resource_type: string;
-    resource_id?: string;
-    details?: string;
-}
-
-export interface DiagnosticResult {
-    module: string;
-    status: 'Success' | 'Failure' | 'Warning';
-    message: string;
-}
-
-export interface DbPolicy {
-    tablename: string;
-    policyname: string;
-    cmd: string;
-    roles: string[];
-    qual: string;
-    with_check: string;
-}
-
-export interface DbTrigger {
-    table_name: string;
-    trigger_name: string;
-    event_manipulation: string;
-    action_statement: string;
-    action_timing: string;
-}
-
-export interface DbFunction {
-    routine_name: string;
-    data_type: string;
-    external_language: string;
-    definition: string;
-}
-
-export interface VulnerabilityScanConfig {
-    includeEol: boolean;
-    lookbackYears: number;
-    customInstructions?: string;
-}
-
-export interface TooltipConfig {
-    showNomeNaRede: boolean;
-    showAssignedTo: boolean;
-    showSerialNumber: boolean;
-    showCollabName: boolean;
-    showCollabJob: boolean;
-    showCollabEntity: boolean;
-    showCollabContact: boolean;
-}
-
-export const defaultTooltipConfig: TooltipConfig = {
-    showNomeNaRede: true,
-    showAssignedTo: true,
-    showSerialNumber: true,
-    showCollabName: true,
-    showCollabJob: true,
-    showCollabEntity: true,
-    showCollabContact: true
-};
-
-export interface AutomationRule {
-    id: string;
-    name: string;
-    trigger_event: 'TICKET_CREATED' | 'EQUIPMENT_CREATED';
-    conditions: RuleCondition[];
-    actions: RuleAction[];
-    priority: number;
-    is_active: boolean;
-    description?: string;
-    created_at: string;
-}
-
-export interface RuleCondition {
-    field: string;
-    operator: 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
-    value: any;
-}
-
-export interface RuleAction {
-    type: 'ASSIGN_TEAM' | 'ASSIGN_USER' | 'SET_PRIORITY' | 'SET_STATUS' | 'UPDATE_FIELD' | 'SEND_EMAIL';
-    value: string;
-    target_field?: string;
-}
-
-export interface SoftwareCategory {
+export interface JobTitle {
     id: string;
     name: string;
 }
@@ -696,9 +473,205 @@ export interface ContactRole {
     name: string;
 }
 
-export interface JobTitle {
+export interface ResourceContact {
+    id: string;
+    resource_type: 'supplier' | 'entidade' | 'instituicao';
+    resource_id: string;
+    title?: string;
+    name: string;
+    role: string;
+    email: string;
+    phone: string;
+    is_active?: boolean;
+}
+
+export interface VulnerabilityScanConfig {
+    includeEol: boolean;
+    lookbackYears: number;
+    customInstructions?: string;
+}
+
+export interface TicketActivity {
+    id: string;
+    ticket_id: string;
+    technician_id: string;
+    description: string;
+    date: string;
+    equipment_id?: string;
+}
+
+export interface CollaboratorHistory {
+    id: string;
+    collaborator_id: string;
+    entidade_id: string;
+    start_date: string;
+    end_date?: string;
+}
+
+export type TicketCategoryItem = ConfigItem & {
+    is_active: boolean;
+    default_team_id?: string;
+    sla_warning_hours?: number;
+    sla_critical_hours?: number;
+    is_security?: boolean;
+};
+
+export type SecurityIncidentTypeItem = ConfigItem & {
+    description?: string;
+    is_active: boolean;
+};
+
+export interface BusinessService {
     id: string;
     name: string;
+    description?: string;
+    criticality: CriticalityLevel;
+    rto_goal?: string;
+    owner_id?: string;
+    status: ServiceStatus;
+    external_provider_id?: string;
+}
+
+export enum ServiceStatus {
+    Ativo = 'Ativo',
+    Inativo = 'Inativo'
+}
+
+export interface ServiceDependency {
+    id: string;
+    service_id: string;
+    dependency_type?: string;
+    notes?: string;
+    equipment_id?: string;
+    software_license_id?: string;
+}
+
+export enum VulnerabilityStatus {
+    Open = 'Open',
+    InProgress = 'In Progress',
+    Mitigated = 'Mitigated',
+    Resolved = 'Resolved',
+    FalsePositive = 'False Positive'
+}
+
+export enum LicenseStatus {
+    Ativo = 'Ativo',
+    Inativo = 'Inativo'
+}
+
+export interface SoftwareCategory extends ConfigItem {}
+
+export interface SoftwareProduct {
+    id: string;
+    name: string;
+    category_id: string;
+}
+
+export enum ProcurementStatus {
+    Pending = 'Pendente',
+    Approved = 'Aprovado',
+    Rejected = 'Rejeitado',
+    Ordered = 'Encomendado',
+    Received = 'Recebido',
+    Completed = 'Concluído'
+}
+
+export interface SupplierContract {
+    id: string;
+    ref_number: string;
+    description: string;
+    start_date: string;
+    end_date: string;
+    notice_period_days: number;
+    exit_strategy?: string;
+    supported_service_ids: string[];
+    is_active: boolean;
+}
+
+export interface ContinuityPlan {
+    id: string;
+    title: string;
+    type: 'BCP' | 'DRP' | 'Crise';
+    description?: string;
+    service_id?: string;
+    last_review_date: string;
+    next_review_date?: string;
+    owner_id: string;
+    document_url?: string;
+    document_name?: string;
+}
+
+export enum BackupType {
+    Full = 'Full',
+    Incremental = 'Incremental',
+    Differential = 'Differential'
+}
+
+export enum ResilienceTestType {
+    VulnerabilityScan = 'Vulnerability Scan',
+    Pentest = 'Pentest',
+    RedTeaming = 'Red Teaming',
+    DRPTest = 'DRP Test',
+    Tabletop = 'Tabletop'
+}
+
+export enum TrainingType {
+    Phishing = 'Phishing',
+    Awareness = 'Geral / Awareness',
+    Technical = 'Técnica / SOC',
+    Privacy = 'Privacidade / RGPD'
+}
+
+export interface DiagnosticResult {
+    module: string;
+    status: 'Success' | 'Failure' | 'Warning';
+    message: string;
+}
+
+export interface DbPolicy {
+    tablename: string;
+    policyname: string;
+    permissive: string;
+    roles: string[];
+    cmd: string;
+    qual: string;
+    with_check: string;
+}
+
+export interface DbTrigger {
+    trigger_name: string;
+    event_manipulation: string;
+    event_object_table: string;
+    action_statement: string;
+}
+
+export interface DbFunction {
+    routine_name: string;
+    routine_type: string;
+}
+
+export interface AutomationRule {
+    id: string;
+    name: string;
+    trigger_event: 'TICKET_CREATED' | 'EQUIPMENT_CREATED';
+    conditions: RuleCondition[];
+    actions: RuleAction[];
+    priority: number;
+    is_active: boolean;
+    description?: string;
+    created_at?: string;
+}
+
+export interface RuleCondition {
+    field: string;
+    operator: 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+    value: any;
+}
+
+export interface RuleAction {
+    type: 'ASSIGN_TEAM' | 'ASSIGN_USER' | 'SET_PRIORITY' | 'SET_STATUS' | 'UPDATE_FIELD' | 'SEND_EMAIL';
+    value: any;
+    target_field?: string;
 }
 
 export interface DocumentTemplate {
@@ -707,5 +680,15 @@ export interface DocumentTemplate {
     type: 'equipment' | 'collaborator' | 'generic';
     template_json: any;
     is_active: boolean;
-    created_at?: string;
+    created_at: string;
+}
+
+export interface AuditLogEntry {
+    id: string;
+    timestamp: string;
+    action: string;
+    resource_type: string;
+    resource_id?: string;
+    user_email: string;
+    details?: string;
 }

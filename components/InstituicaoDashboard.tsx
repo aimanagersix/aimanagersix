@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Instituicao, Entidade, Collaborator, Assignment, Equipment, Brand, EquipmentType } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaPrint, FaFileImport, SearchIcon } from './common/Icons';
@@ -63,8 +62,9 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({
     });
 
     const entidadesCountByInstituicao = useMemo(() => {
+        // FIX: Updated property names to snake_case
         return entidades.reduce((acc, curr) => {
-            acc[curr.instituicaoId] = (acc[curr.instituicaoId] || 0) + 1;
+            acc[curr.instituicao_id] = (acc[curr.instituicao_id] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
     }, [entidades]);
@@ -345,7 +345,8 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({
         {selectedEntityForDrillDown && (
             <EntidadeDetailModal 
                 entidade={selectedEntityForDrillDown}
-                instituicao={instituicoes.find(i => i.id === selectedEntityForDrillDown.instituicaoId)}
+                // FIX: Updated property names to snake_case
+                instituicao={instituicoes.find(i => i.id === selectedEntityForDrillDown.instituicao_id)}
                 collaborators={collaborators}
                 assignments={assignments}
                 onClose={() => setSelectedEntityForDrillDown(null)}
@@ -356,7 +357,8 @@ const InstituicaoDashboard: React.FC<InstituicaoDashboardProps> = ({
                 onAddCollaborator={onAddCollaborator}
                 onAssignEquipment={onAssignEquipment}
                 onOpenInstitution={() => {
-                    const inst = instituicoes.find(i => i.id === selectedEntityForDrillDown.instituicaoId);
+                    // FIX: Updated property names to snake_case
+                    const inst = instituicoes.find(i => i.id === selectedEntityForDrillDown.instituicao_id);
                     setSelectedEntityForDrillDown(null);
                     if (inst) setSelectedInstituicao(inst);
                 }}

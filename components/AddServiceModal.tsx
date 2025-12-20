@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { BusinessService, Collaborator, CriticalityLevel, ServiceStatus, Supplier } from '../types';
@@ -106,7 +105,8 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onSave, serv
                         <label htmlFor="owner_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Dono do Serviço (Owner)</label>
                         <select name="owner_id" value={formData.owner_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
                             <option value="">Selecione um responsável...</option>
-                            {collaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                            {/* FIX: Updated property names to snake_case */}
+                            {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                         </select>
                     </div>
                     <div>

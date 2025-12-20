@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { SoftwareLicense, LicenseStatus, CriticalityLevel, CIARating, Supplier, SoftwareCategory, SoftwareProduct } from '../types';
@@ -14,21 +13,19 @@ interface AddLicenseModalProps {
 }
 
 const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, licenseToEdit, suppliers = [], categories = [] }) => {
+    // FIX: Updated property names to snake_case to match types.ts
     const [formData, setFormData] = useState<Partial<SoftwareLicense>>({
-        productName: '',
-        licenseKey: '',
-        totalSeats: 1,
-        purchaseDate: new Date().toISOString().split('T')[0],
-        expiryDate: '',
-        purchaseEmail: '',
-        invoiceNumber: '',
+        product_name: '',
+        license_key: '',
+        total_seats: 1,
+        purchase_date: new Date().toISOString().split('T')[0],
+        expiry_date: '',
+        purchase_email: '',
+        invoice_number: '',
         status: LicenseStatus.Ativo,
         criticality: CriticalityLevel.Low,
-        confidentiality: CIARating.Low,
-        integrity: CIARating.Low,
-        availability: CIARating.Low,
         supplier_id: '',
-        unitCost: 0,
+        unit_cost: 0,
         is_oem: false,
         category_id: ''
     });
@@ -49,21 +46,19 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
 
     useEffect(() => {
         if (licenseToEdit) {
+            // FIX: Updated property names to snake_case
             setFormData({
-                productName: licenseToEdit.productName,
-                licenseKey: licenseToEdit.licenseKey,
-                totalSeats: licenseToEdit.totalSeats,
-                purchaseDate: licenseToEdit.purchaseDate || '',
-                expiryDate: licenseToEdit.expiryDate || '',
-                purchaseEmail: licenseToEdit.purchaseEmail || '',
-                invoiceNumber: licenseToEdit.invoiceNumber || '',
+                product_name: licenseToEdit.product_name,
+                license_key: licenseToEdit.license_key,
+                total_seats: licenseToEdit.total_seats,
+                purchase_date: licenseToEdit.purchase_date || '',
+                expiry_date: licenseToEdit.expiry_date || '',
+                purchase_email: licenseToEdit.purchase_email || '',
+                invoice_number: licenseToEdit.invoice_number || '',
                 status: licenseToEdit.status || LicenseStatus.Ativo,
                 criticality: licenseToEdit.criticality || CriticalityLevel.Low,
-                confidentiality: licenseToEdit.confidentiality || CIARating.Low,
-                integrity: licenseToEdit.integrity || CIARating.Low,
-                availability: licenseToEdit.availability || CIARating.Low,
                 supplier_id: licenseToEdit.supplier_id || '',
-                unitCost: licenseToEdit.unitCost || 0,
+                unit_cost: licenseToEdit.unit_cost || 0,
                 is_oem: licenseToEdit.is_oem || false,
                 category_id: licenseToEdit.category_id || ''
             });
@@ -72,16 +67,17 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.productName?.trim()) newErrors.productName = "O nome do produto é obrigatório.";
-        if (!formData.licenseKey?.trim()) newErrors.licenseKey = "A chave de licença (ou identificador) é obrigatória.";
+        // FIX: Updated property names to snake_case
+        if (!formData.product_name?.trim()) newErrors.product_name = "O nome do produto é obrigatório.";
+        if (!formData.license_key?.trim()) newErrors.license_key = "A chave de licença (ou identificador) é obrigatória.";
         
         // Total seats required only if NOT OEM
-        if (!formData.is_oem && (formData.totalSeats || 0) < 1) {
-            newErrors.totalSeats = "O total deve ser pelo menos 1.";
+        if (!formData.is_oem && (formData.total_seats || 0) < 1) {
+            newErrors.total_seats = "O total deve ser pelo menos 1.";
         }
         
-        if (formData.purchaseEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.purchaseEmail)) {
-            newErrors.purchaseEmail = "O formato do email é inválido.";
+        if (formData.purchase_email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.purchase_email)) {
+            newErrors.purchase_email = "O formato do email é inválido.";
         }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -102,50 +98,52 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
         setSelectedProduct(prodId);
         const prod = products.find(p => p.id === prodId);
         if (prod) {
+            // FIX: Updated property names to snake_case
             setFormData(prev => ({
                 ...prev,
-                productName: prod.name,
+                product_name: prod.name,
                 category_id: prod.category_id
             }));
         }
     };
 
     const handleSetExpiry = (years: number) => {
-        if (!formData.purchaseDate) return;
-        const purchase = new Date(formData.purchaseDate);
+        // FIX: Updated property names to snake_case
+        if (!formData.purchase_date) return;
+        const purchase = new Date(formData.purchase_date);
         purchase.setUTCFullYear(purchase.getUTCFullYear() + years);
         const expiry = purchase.toISOString().split('T')[0];
-        setFormData(prev => ({ ...prev, expiryDate: expiry }));
+        setFormData(prev => ({ ...prev, expiry_date: expiry }));
     };
 
     const handleSetLifetime = () => {
-        setFormData(prev => ({ ...prev, expiryDate: '' }));
+        // FIX: Updated property names to snake_case
+        setFormData(prev => ({ ...prev, expiry_date: '' }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         
+        // FIX: Updated property names to snake_case
         const dataToSave = {
             ...formData,
-            productName: formData.productName!,
-            licenseKey: formData.licenseKey!,
-            // If OEM, totalSeats is 0 or ignored, but DB expects int usually. Let's set 1 as placeholder or 0 if allowed.
-            // Logic says total activations updates automatically, so 0 or high number is fine.
-            totalSeats: formData.is_oem ? 0 : formData.totalSeats!,
+            product_name: formData.product_name!,
+            license_key: formData.license_key!,
+            total_seats: formData.is_oem ? 0 : formData.total_seats!,
             status: formData.status!,
-            purchaseDate: formData.purchaseDate || undefined,
-            expiryDate: formData.expiryDate || undefined,
-            purchaseEmail: formData.purchaseEmail || undefined,
-            invoiceNumber: formData.invoiceNumber || undefined,
+            purchase_date: formData.purchase_date || undefined,
+            expiry_date: formData.expiry_date || undefined,
+            purchase_email: formData.purchase_email || undefined,
+            invoice_number: formData.invoice_number || undefined,
             supplier_id: formData.supplier_id || undefined,
-            unitCost: formData.unitCost || 0,
+            unit_cost: formData.unit_cost || 0,
             is_oem: formData.is_oem || false,
             category_id: formData.category_id || undefined
         };
 
         if (licenseToEdit) {
-            onSave({ ...licenseToEdit, ...dataToSave });
+            onSave({ ...licenseToEdit, ...dataToSave } as SoftwareLicense);
         } else {
             onSave(dataToSave as Omit<SoftwareLicense, 'id'>);
         }
@@ -172,14 +170,14 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                 </div>
 
                 <div>
-                    <label htmlFor="productName" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome do Produto</label>
-                    <input type="text" name="productName" id="productName" value={formData.productName} onChange={handleChange} placeholder="Ex: Windows 11 Pro OEM, Adobe CC..." className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.productName ? 'border-red-500' : 'border-gray-600'}`} />
-                    {errors.productName && <p className="text-red-400 text-xs italic mt-1">{errors.productName}</p>}
+                    <label htmlFor="product_name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome do Produto</label>
+                    <input type="text" name="product_name" id="product_name" value={formData.product_name} onChange={handleChange} placeholder="Ex: Windows 11 Pro OEM, Adobe CC..." className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.product_name ? 'border-red-500' : 'border-gray-600'}`} />
+                    {errors.product_name && <p className="text-red-400 text-xs italic mt-1">{errors.product_name}</p>}
                 </div>
                  <div>
-                    <label htmlFor="licenseKey" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Chave de Licença / Identificador</label>
-                    <input type="text" name="licenseKey" id="licenseKey" value={formData.licenseKey} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.licenseKey ? 'border-red-500' : 'border-gray-600'}`} />
-                    {errors.licenseKey && <p className="text-red-400 text-xs italic mt-1">{errors.licenseKey}</p>}
+                    <label htmlFor="license_key" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Chave de Licença / Identificador</label>
+                    <input type="text" name="license_key" id="license_key" value={formData.license_key} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.license_key ? 'border-red-500' : 'border-gray-600'}`} />
+                    {errors.license_key && <p className="text-red-400 text-xs italic mt-1">{errors.license_key}</p>}
                 </div>
                 
                 {/* Category Dropdown */}
@@ -221,17 +219,17 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                 {!formData.is_oem && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
                         <div>
-                            <label htmlFor="totalSeats" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Total de Ativações Compradas</label>
-                            <input type="number" name="totalSeats" id="totalSeats" value={formData.totalSeats} onChange={handleChange} min="1" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.totalSeats ? 'border-red-500' : 'border-gray-600'}`} />
-                            {errors.totalSeats && <p className="text-red-400 text-xs italic mt-1">{errors.totalSeats}</p>}
+                            <label htmlFor="total_seats" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Total de Ativações Compradas</label>
+                            <input type="number" name="total_seats" id="total_seats" value={formData.total_seats} onChange={handleChange} min="1" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.total_seats ? 'border-red-500' : 'border-gray-600'}`} />
+                            {errors.total_seats && <p className="text-red-400 text-xs italic mt-1">{errors.total_seats}</p>}
                         </div>
                     </div>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div>
-                        <label htmlFor="invoiceNumber" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura (Opcional)</label>
-                        <input type="text" name="invoiceNumber" id="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600`} />
+                        <label htmlFor="invoice_number" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Número da Fatura (Opcional)</label>
+                        <input type="text" name="invoice_number" id="invoice_number" value={formData.invoice_number} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 border-gray-600`} />
                     </div>
                      <div>
                         <label htmlFor="status" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Status</label>
@@ -257,18 +255,18 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="purchaseEmail" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email Associado à Compra (Opcional)</label>
-                        <input type="email" name="purchaseEmail" id="purchaseEmail" value={formData.purchaseEmail} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.purchaseEmail ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.purchaseEmail && <p className="text-red-400 text-xs italic mt-1">{errors.purchaseEmail}</p>}
+                        <label htmlFor="purchase_email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email Associado à Compra (Opcional)</label>
+                        <input type="email" name="purchase_email" id="purchase_email" value={formData.purchase_email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.purchase_email ? 'border-red-500' : 'border-gray-600'}`} />
+                        {errors.purchase_email && <p className="text-red-400 text-xs italic mt-1">{errors.purchase_email}</p>}
                     </div>
                     <div>
-                        <label htmlFor="purchaseDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Compra (Opcional)</label>
-                        <input type="date" name="purchaseDate" id="purchaseDate" value={formData.purchaseDate} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        <label htmlFor="purchase_date" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Compra (Opcional)</label>
+                        <input type="date" name="purchase_date" id="purchase_date" value={formData.purchase_date} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                     </div>
                     <div className="md:col-span-2">
-                        <label htmlFor="expiryDate" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Expiração (Opcional)</label>
+                        <label htmlFor="expiry_date" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Data de Expiração (Opcional)</label>
                         <div className="flex items-center gap-2">
-                            <input type="date" name="expiryDate" id="expiryDate" value={formData.expiryDate} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                            <input type="date" name="expiry_date" id="expiry_date" value={formData.expiry_date} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
                             <button type="button" onClick={() => handleSetExpiry(1)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">1 Ano</button>
                             <button type="button" onClick={() => handleSetExpiry(2)} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">2 Anos</button>
                             <button type="button" onClick={handleSetLifetime} className="px-3 py-2 text-sm bg-gray-600 rounded-md hover:bg-gray-500 whitespace-nowrap">Vitalícia</button>
@@ -283,12 +281,12 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                         Custos (FinOps)
                     </h3>
                     <div>
-                        <label htmlFor="unitCost" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Custo Unitário (€)</label>
+                        <label htmlFor="unit_cost" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Custo Unitário (€)</label>
                         <input 
                             type="number" 
-                            name="unitCost" 
-                            id="unitCost" 
-                            value={formData.unitCost} 
+                            name="unit_cost" 
+                            id="unit_cost" 
+                            value={formData.unit_cost} 
                             onChange={handleChange} 
                             placeholder="0.00"
                             min="0"
@@ -311,30 +309,6 @@ const AddLicenseModal: React.FC<AddLicenseModalProps> = ({ onClose, onSave, lice
                             <select name="criticality" id="criticality" value={formData.criticality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
                                 {Object.values(CriticalityLevel).map(level => (
                                     <option key={level} value={level}>{level}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="confidentiality" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Confidencialidade</label>
-                            <select name="confidentiality" id="confidentiality" value={formData.confidentiality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                {Object.values(CIARating).map(rating => (
-                                    <option key={rating} value={rating}>{rating}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="integrity" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Integridade</label>
-                            <select name="integrity" id="integrity" value={formData.integrity} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                {Object.values(CIARating).map(rating => (
-                                    <option key={rating} value={rating}>{rating}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="availability" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Disponibilidade</label>
-                            <select name="availability" id="availability" value={formData.availability} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                {Object.values(CIARating).map(rating => (
-                                    <option key={rating} value={rating}>{rating}</option>
                                 ))}
                             </select>
                         </div>

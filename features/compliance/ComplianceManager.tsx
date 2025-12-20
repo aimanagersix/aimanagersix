@@ -1,9 +1,6 @@
 
 import React, { useState } from 'react';
-import { 
-    Collaborator, BusinessService, ServiceDependency, Vulnerability, 
-    BackupExecution, ResilienceTest, ModuleKey, PermissionAction, SecurityTrainingRecord, TrainingType, Policy
-} from '../../types';
+import { Collaborator, BusinessService, ServiceDependency, Vulnerability, BackupExecution, ResilienceTest, ModuleKey, PermissionAction, SecurityTrainingRecord, TrainingType, Policy } from '../../types';
 import * as dataService from '../../services/dataService';
 
 // Dashboards
@@ -54,14 +51,11 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
     const [showAddResilienceTestModal, setShowAddResilienceTestModal] = useState(false);
     const [testToEdit, setTestToEdit] = useState<ResilienceTest | null>(null);
     
-    // Training
     const [showAddTrainingSessionModal, setShowAddTrainingSessionModal] = useState(false);
     
-    // Policies
     const [showAddPolicyModal, setShowAddPolicyModal] = useState(false);
     const [policyToEdit, setPolicyToEdit] = useState<Policy | null>(null);
     
-    // Ticket Modal (for auto-ticket creation from findings)
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
     const [ticketToEdit, setTicketToEdit] = useState<any>(null);
 
@@ -74,8 +68,6 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
         duration_hours?: number;
     }) => {
         try {
-            // Sequencial ou Promise.all? Supabase prefere sequencial se houver RLS complexo em alguns ambientes
-            // Vamos usar Promise.all mas com tratamento individual
             const promises = data.collaboratorIds.map(collabId => {
                 const record: any = {
                     collaborator_id: collabId,
@@ -91,11 +83,11 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
 
             await Promise.all(promises);
             refreshData();
-            alert(`Sessão registada com sucesso para ${data.collaboratorIds.length} colaboradores.`);
+            alert(`Sucesso!`);
             setShowAddTrainingSessionModal(false);
         } catch (e: any) {
-            console.error("Batch training failed", e);
-            alert("Erro ao registar sessões em lote: " + (e.message || "Verifique as permissões de acesso."));
+            console.error(e);
+            alert("Erro ao registar.");
         }
     };
 
@@ -107,7 +99,7 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     dependencies={appData.serviceDependencies}
                     collaborators={appData.collaborators}
                     onEdit={checkPermission('compliance_bia', 'edit') ? (s) => { setServiceToEdit(s); setShowAddServiceModal(true); } : undefined}
-                    onDelete={checkPermission('compliance_bia', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBusinessService(id); refreshData(); } } : undefined}
+                    onDelete={checkPermission('compliance_bia', 'delete') ? async (id) => { if (window.confirm("Apagar?")) { await dataService.deleteBusinessService(id); refreshData(); } } : undefined}
                     onCreate={checkPermission('compliance_bia', 'create') ? () => { setServiceToEdit(null); setShowAddServiceModal(true); } : undefined}
                     onManageDependencies={checkPermission('compliance_bia', 'edit') ? (s) => { setServiceForDependencies(s); setShowServiceDependencyModal(true); } : undefined}
                     onGenerateReport={() => setReportType('bia')}
@@ -118,7 +110,7 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                 <VulnerabilityDashboard 
                     vulnerabilities={appData.vulnerabilities}
                     onEdit={checkPermission('compliance_security', 'edit') ? (v) => { setVulnerabilityToEdit(v); setShowAddVulnerabilityModal(true); } : undefined}
-                    onDelete={checkPermission('compliance_security', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteVulnerability(id); refreshData(); } } : undefined}
+                    onDelete={checkPermission('compliance_security', 'delete') ? async (id) => { if (window.confirm("Apagar?")) { await dataService.deleteVulnerability(id); refreshData(); } } : undefined}
                     onCreate={checkPermission('compliance_security', 'create') ? () => { setVulnerabilityToEdit(null); setShowAddVulnerabilityModal(true); } : undefined}
                     initialFilter={dashboardFilter}
                     onClearInitialFilter={() => setDashboardFilter(null)}
@@ -127,8 +119,9 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                             title: `Vulnerabilidade: ${vuln.cve_id}`,
                             description: `Correção necessária para vulnerabilidade ${vuln.cve_id}.\nAfeta: ${vuln.affected_software}\n\nDetalhes: ${vuln.description}`,
                             category: 'Incidente de Segurança',
-                            securityIncidentType: 'Exploração de Vulnerabilidade',
-                            impactCriticality: vuln.severity,
+                            // FIX: Correct snake_case keys for the Modal
+                            security_incident_type: 'Exploração de Vulnerabilidade',
+                            impact_criticality: vuln.severity,
                         } as any);
                         setShowAddTicketModal(true);
                     }}
@@ -141,7 +134,7 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     collaborators={appData.collaborators}
                     equipment={appData.equipment}
                     onEdit={checkPermission('compliance_backups', 'edit') ? (b) => { setBackupToEdit(b); setShowAddBackupModal(true); } : undefined}
-                    onDelete={checkPermission('compliance_backups', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteBackupExecution(id); refreshData(); } } : undefined}
+                    onDelete={checkPermission('compliance_backups', 'delete') ? async (id) => { if (window.confirm("Apagar?")) { await dataService.deleteBackupExecution(id); refreshData(); } } : undefined}
                     onCreate={checkPermission('compliance_backups', 'create') ? () => { setBackupToEdit(null); setShowAddBackupModal(true); } : undefined}
                 />
             )}
@@ -150,7 +143,7 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                 <ResilienceDashboard 
                     resilienceTests={appData.resilienceTests}
                     onEdit={checkPermission('compliance_resilience', 'edit') ? (t) => { setTestToEdit(t); setShowAddResilienceTestModal(true); } : undefined}
-                    onDelete={checkPermission('compliance_resilience', 'delete') ? async (id) => { if (window.confirm("Tem a certeza?")) { await dataService.deleteResilienceTest(id); refreshData(); } } : undefined}
+                    onDelete={checkPermission('compliance_resilience', 'delete') ? async (id) => { if (window.confirm("Apagar?")) { await dataService.deleteResilienceTest(id); refreshData(); } } : undefined}
                     onCreate={checkPermission('compliance_resilience', 'create') ? () => { setTestToEdit(null); setShowAddResilienceTestModal(true); } : undefined}
                     onCreateTicket={(ticketData) => {
                         setTicketToEdit(ticketData as any);
@@ -174,118 +167,34 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                     acceptances={appData.policyAcceptances}
                     collaborators={appData.collaborators}
                     onEdit={checkPermission('compliance_policies', 'edit') ? (p) => { setPolicyToEdit(p); setShowAddPolicyModal(true); } : undefined}
-                    onDelete={checkPermission('compliance_policies', 'delete') ? async (id) => { if (window.confirm("Tem a certeza? O histórico de aceitação será perdido.")) { await dataService.deletePolicy(id); refreshData(); } } : undefined}
+                    onDelete={checkPermission('compliance_policies', 'delete') ? async (id) => { if (window.confirm("Apagar?")) { await dataService.deletePolicy(id); refreshData(); } } : undefined}
                     onCreate={checkPermission('compliance_policies', 'create') ? () => { setPolicyToEdit(null); setShowAddPolicyModal(true); } : undefined}
                 />
             )}
 
-            {/* --- MODALS --- */}
             {showAddServiceModal && (
-                <AddServiceModal 
-                    onClose={() => setShowAddServiceModal(false)}
-                    onSave={async (svc) => {
-                        if (serviceToEdit) await dataService.updateBusinessService(serviceToEdit.id, svc);
-                        else await dataService.addBusinessService(svc);
-                        refreshData();
-                    }}
-                    serviceToEdit={serviceToEdit}
-                    collaborators={appData.collaborators}
-                    suppliers={appData.suppliers}
-                />
+                <AddServiceModal onClose={() => setShowAddServiceModal(false)} onSave={async (svc) => { if (serviceToEdit) await dataService.updateBusinessService(serviceToEdit.id, svc); else await dataService.addBusinessService(svc); refreshData(); }} serviceToEdit={serviceToEdit} collaborators={appData.collaborators} suppliers={appData.suppliers} />
             )}
             {showServiceDependencyModal && serviceForDependencies && (
-                <ServiceDependencyModal 
-                    onClose={() => setShowServiceDependencyModal(false)}
-                    service={serviceForDependencies}
-                    dependencies={appData.serviceDependencies.filter((d:any) => d.service_id === serviceForDependencies.id)}
-                    allEquipment={appData.equipment}
-                    allLicenses={appData.softwareLicenses}
-                    onAddDependency={async (dep) => { await dataService.addServiceDependency(dep); refreshData(); }}
-                    onRemoveDependency={async (id) => { await dataService.deleteServiceDependency(id); refreshData(); }}
-                />
+                <ServiceDependencyModal onClose={() => setShowServiceDependencyModal(false)} service={serviceForDependencies} dependencies={appData.serviceDependencies.filter((d:any) => d.service_id === serviceForDependencies.id)} allEquipment={appData.equipment} allLicenses={appData.softwareLicenses} onAddDependency={async (dep) => { await dataService.addServiceDependency(dep); refreshData(); }} onRemoveDependency={async (id) => { await dataService.deleteServiceDependency(id); refreshData(); }} />
             )}
             {showAddVulnerabilityModal && (
-                <AddVulnerabilityModal 
-                    onClose={() => setShowAddVulnerabilityModal(false)}
-                    onSave={async (vuln) => {
-                        if (vulnerabilityToEdit) await dataService.updateVulnerability(vulnerabilityToEdit.id, vuln);
-                        else await dataService.addVulnerability(vuln);
-                        refreshData();
-                    }}
-                    vulnToEdit={vulnerabilityToEdit}
-                />
+                <AddVulnerabilityModal onClose={() => setShowAddVulnerabilityModal(false)} onSave={async (vuln) => { if (vulnerabilityToEdit) await dataService.updateVulnerability(vulnerabilityToEdit.id, vuln); else await dataService.addVulnerability(vuln); refreshData(); }} vulnToEdit={vulnerabilityToEdit} />
             )}
             {showAddBackupModal && (
-                <AddBackupModal 
-                    onClose={() => setShowAddBackupModal(false)}
-                    onSave={async (backup) => {
-                        if (backupToEdit) await dataService.updateBackupExecution(backupToEdit.id, backup);
-                        else await dataService.addBackupExecution(backup);
-                        refreshData();
-                    }}
-                    backupToEdit={backupToEdit}
-                    currentUser={currentUser}
-                    equipmentList={appData.equipment}
-                    equipmentTypes={appData.equipmentTypes}
-                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }}
-                />
+                <AddBackupModal onClose={() => setShowAddBackupModal(false)} onSave={async (backup) => { if (backupToEdit) await dataService.updateBackupExecution(backupToEdit.id, backup); else await dataService.addBackupExecution(backup); refreshData(); }} backupToEdit={backupToEdit} currentUser={currentUser} equipmentList={appData.equipment} equipmentTypes={appData.equipmentTypes} onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }} />
             )}
             {showAddResilienceTestModal && (
-                <AddResilienceTestModal 
-                    onClose={() => setShowAddResilienceTestModal(false)}
-                    onSave={async (test) => {
-                        if (testToEdit) await dataService.updateResilienceTest(testToEdit.id, test);
-                        else await dataService.addResilienceTest(test);
-                        refreshData();
-                    }}
-                    testToEdit={testToEdit}
-                    onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }}
-                    entidades={appData.entidades}
-                    suppliers={appData.suppliers}
-                />
+                <AddResilienceTestModal onClose={() => setShowAddResilienceTestModal(false)} onSave={async (test) => { if (testToEdit) await dataService.updateResilienceTest(testToEdit.id, test); else await dataService.addResilienceTest(test); refreshData(); }} testToEdit={testToEdit} onCreateTicket={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }} entidades={appData.entidades} suppliers={appData.suppliers} />
             )}
              {showAddTicketModal && (
-                <AddTicketModal
-                    onClose={() => setShowAddTicketModal(false)}
-                    onSave={async (ticket) => {
-                         await dataService.addTicket(ticket);
-                         refreshData();
-                    }}
-                    ticketToEdit={ticketToEdit}
-                    escolasDepartamentos={appData.entidades}
-                    instituicoes={appData.instituicoes}
-                    collaborators={appData.collaborators}
-                    teams={appData.teams}
-                    currentUser={currentUser}
-                    userPermissions={{ viewScope: 'all' }}
-                    equipment={appData.equipment}
-                    equipmentTypes={appData.equipmentTypes}
-                    assignments={appData.assignments}
-                    categories={appData.ticketCategories}
-                    securityIncidentTypes={appData.securityIncidentTypes}
-                    pastTickets={appData.tickets}
-                />
+                <AddTicketModal onClose={() => setShowAddTicketModal(false)} onSave={async (ticket) => { await dataService.addTicket(ticket); refreshData(); }} ticketToEdit={ticketToEdit} escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} collaborators={appData.collaborators} teams={appData.teams} currentUser={currentUser} categories={appData.ticketCategories} securityIncidentTypes={appData.securityIncidentTypes} />
             )}
             {showAddTrainingSessionModal && (
-                <AddTrainingSessionModal
-                    onClose={() => setShowAddTrainingSessionModal(false)}
-                    onSave={handleBatchAddTraining}
-                    collaborators={appData.collaborators}
-                    trainingTypes={appData.configTrainingTypes}
-                    instituicoes={appData.instituicoes}
-                    entidades={appData.entidades}
-                />
+                <AddTrainingSessionModal onClose={() => setShowAddTrainingSessionModal(false)} onSave={handleBatchAddTraining} collaborators={appData.collaborators} trainingTypes={appData.configTrainingTypes} instituicoes={appData.instituicoes} entidades={appData.entidades} />
             )}
             {showAddPolicyModal && (
-                <AddPolicyModal 
-                    onClose={() => setShowAddPolicyModal(false)}
-                    onSave={async (p) => {
-                        if (policyToEdit) await dataService.updatePolicy(policyToEdit.id, p);
-                        else await dataService.addPolicy(p);
-                        refreshData();
-                    }}
-                    policyToEdit={policyToEdit}
-                />
+                <AddPolicyModal onClose={() => setShowAddPolicyModal(false)} onSave={async (p) => { if (policyToEdit) await dataService.updatePolicy(policyToEdit.id, p); else await dataService.addPolicy(p); refreshData(); }} policyToEdit={policyToEdit} />
             )}
         </>
     );

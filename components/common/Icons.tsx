@@ -1,10 +1,42 @@
 
 import React, { FC } from 'react';
-import { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, FaFingerprint, FaClipboardList, FaUserShield, FaQrcode, FaClock, FaDatabase, FaSitemap, FaNetworkWired, FaSearch, FaFilter, FaTimes, FaChartPie, FaSkull, FaUserSecret, FaBug, FaFileContract, FaGlobe, FaServer, FaPaperclip, FaUnlock, FaColumns, FaRobot, FaSpinner, FaCheck, FaMapMarkerAlt, FaCertificate, FaDownload, FaEdit, FaDoorOpen, FaLandmark, FaCopy, FaGraduationCap, FaPlus, FaFileSignature, FaTachometerAlt, FaTruck, FaCalendarPlus, FaUserCircle, FaBook, FaQuestionCircle, FaCog, FaUserTie, FaExternalLinkAlt, FaTrash, FaMapMarkedAlt, FaMousePointer, FaInfoCircle, FaBuilding, FaUnlink, FaChartLine, FaStopwatch, FaEuroSign, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash, FaBroom, FaPlay, FaSeedling, FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, FaShieldVirus, FaAddressBook, FaBars } from 'react-icons/fa';
+import { 
+    FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, 
+    FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, 
+    FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, 
+    FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, 
+    FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, 
+    FaFingerprint, FaClipboardList, FaUserShield, FaQrcode, FaClock, FaDatabase, FaSitemap, 
+    FaNetworkWired, FaSearch, FaFilter, FaTimes, FaChartPie, FaSkull, FaUserSecret, FaBug, 
+    FaFileContract, FaGlobe, FaServer, FaPaperclip, FaUnlock, FaColumns, FaRobot, FaSpinner, 
+    FaCheck, FaMapMarkerAlt, FaCertificate, FaDownload, FaEdit, FaDoorOpen, FaLandmark, 
+    FaCopy, FaGraduationCap, FaPlus, FaFileSignature, FaTachometerAlt, FaTruck, FaCalendarPlus, 
+    FaUserCircle, FaBook, FaQuestionCircle, FaCog, FaUserTie, FaExternalLinkAlt, FaTrash, 
+    FaMapMarkedAlt, FaMousePointer, FaInfoCircle, FaBuilding, FaUnlink, FaChartLine, FaStopwatch, 
+    FaEuroSign, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash, FaBroom, FaPlay, FaSeedling, 
+    FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, 
+    FaShieldVirus, FaAddressBook, FaBars, 
+    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc
+} from 'react-icons/fa';
 
-// Fix: Add FaList and FaThLarge to exports
-// Added missing icons for Sidebar and Header: FaToolbox, FaChevronRight, FaShoppingCart, FaShieldVirus, FaAddressBook, FaBars
-export { FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, FaFingerprint, FaClipboardList, FaUserShield, FaQrcode, FaClock, FaDatabase, FaSitemap, FaNetworkWired, FaSearch, FaFilter, FaTimes, FaChartPie, FaSkull, FaUserSecret, FaBug, FaFileContract, FaGlobe, FaServer, FaPaperclip, FaUnlock, FaColumns, FaRobot, FaSpinner, FaCheck, FaMapMarkerAlt, FaCertificate, FaDownload, FaEdit, FaDoorOpen, FaLandmark, FaCopy, FaGraduationCap, FaPlus, FaFileSignature, FaTachometerAlt, FaTruck, FaCalendarPlus, FaUserCircle, FaBook, FaQuestionCircle, FaCog, FaUserTie, FaExternalLinkAlt, FaTrash, FaMapMarkedAlt, FaMousePointer, FaInfoCircle, FaBuilding, FaUnlink, FaChartLine, FaStopwatch, FaEuroSign, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash, FaBroom, FaPlay, FaSeedling, FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, FaShieldVirus, FaAddressBook, FaBars };
+export { 
+    FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, 
+    FaKey, FaArrowLeft, FaFilePdf, FaBell, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, 
+    FaCheckCircle, FaTimesCircle, FaLink, FaSave, FaBellSlash, FaEyeSlash, FaCalendarAlt, 
+    FaLaptop, FaTicketAlt, FaHistory, FaUsers, FaShieldAlt, FaBoxOpen, FaExclamationTriangle, 
+    FaTools, FaWarehouse, FaDesktop, FaPrint, FaUserLock, FaExclamationCircle, FaLock, 
+    FaFingerprint, FaClipboardList, FaUserShield, FaQrcode, FaClock, FaDatabase, FaSitemap, 
+    FaNetworkWired, FaSearch, FaFilter, FaTimes, FaChartPie, FaSkull, FaUserSecret, FaBug, 
+    FaFileContract, FaGlobe, FaServer, FaPaperclip, FaUnlock, FaColumns, FaRobot, FaSpinner, 
+    FaCheck, FaMapMarkerAlt, FaCertificate, FaDownload, FaEdit, FaDoorOpen, FaLandmark, 
+    FaCopy, FaGraduationCap, FaPlus, FaFileSignature, FaTachometerAlt, FaTruck, FaCalendarPlus, 
+    FaUserCircle, FaBook, FaQuestionCircle, FaCog, FaUserTie, FaExternalLinkAlt, FaTrash, 
+    FaMapMarkedAlt, FaMousePointer, FaInfoCircle, FaBuilding, FaUnlink, FaChartLine, FaStopwatch, 
+    FaEuroSign, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash, FaBroom, FaPlay, FaSeedling, 
+    FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, 
+    FaShieldVirus, FaAddressBook, FaBars,
+    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc
+};
 
 export const PlusIcon: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>

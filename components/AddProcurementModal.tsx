@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand, Equipment } from '../types';
 import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags, FaMemory, FaHdd, FaListUl, FaLaptop, FaDownload } from 'react-icons/fa';
@@ -439,7 +439,8 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
                                 <div>
                                     <label className="block text-sm text-gray-400 mb-1">Requerente</label>
                                     <select name="requester_id" value={formData.requester_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2">
-                                        {collaborators.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+                                        {/* Fix: fullName to full_name */}
+                                        {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -604,11 +605,13 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
                                                     <td className="px-4 py-2 font-medium text-white flex items-center gap-2">
                                                         <FaLaptop className="text-gray-500"/> {asset.description}
                                                     </td>
-                                                    <td className="px-4 py-2 text-gray-300 font-mono text-xs">{asset.serialNumber || 'Pendente'}</td>
+                                                    {/* Fix: serialNumber to serial_number */}
+                                                    <td className="px-4 py-2 text-gray-300 font-mono text-xs">{asset.serial_number || 'Pendente'}</td>
                                                     <td className="px-4 py-2 text-center">
                                                         <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded text-xs">{asset.status}</span>
                                                     </td>
-                                                    <td className="px-4 py-2 text-center text-gray-400">€ {asset.acquisitionCost}</td>
+                                                    {/* Fix: acquisitionCost to acquisition_cost */}
+                                                    <td className="px-4 py-2 text-center text-gray-400">€ {asset.acquisition_cost}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -622,7 +625,7 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 flex-shrink-0">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
-                    <button onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50">
+                    <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50">
                         {isSaving ? <SpinnerIcon className="h-4 w-4"/> : <FaSave />} Guardar
                     </button>
                 </div>

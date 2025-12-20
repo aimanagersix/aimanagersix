@@ -77,7 +77,8 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
         loadBrands();
     }, []);
 
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.fullName])), [collaborators]);
+    // Fix: fullName to full_name
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
 
     const handleSort = (key: string) => {

@@ -78,7 +78,8 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
     // Derived filter options
     const entityOptions = useMemo(() => {
         if (filters.institutionIds.length === 0) return appData.entidades;
-        return appData.entidades.filter(e => filters.institutionIds.includes(e.instituicaoId));
+        // Fix: instituicaoId to instituicao_id
+        return appData.entidades.filter(e => filters.institutionIds.includes(e.instituicao_id));
     }, [appData.entidades, filters.institutionIds]);
 
     const statusOptions = useMemo(() => appData.configEquipmentStatuses.map(s => ({id: s.name, name: s.name})), [appData.configEquipmentStatuses]);
@@ -88,32 +89,36 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
         let filteredEquipment = appData.equipment;
 
         // Date Filter - Add check for undefined purchaseDate
-        if (filters.dateFrom) filteredEquipment = filteredEquipment.filter(e => e.purchaseDate && e.purchaseDate >= filters.dateFrom);
-        if (filters.dateTo) filteredEquipment = filteredEquipment.filter(e => e.purchaseDate && e.purchaseDate <= filters.dateTo);
+        // Fix: purchaseDate to purchase_date
+        if (filters.dateFrom) filteredEquipment = filteredEquipment.filter(e => e.purchase_date && e.purchase_date >= filters.dateFrom);
+        if (filters.dateTo) filteredEquipment = filteredEquipment.filter(e => e.purchase_date && e.purchase_date <= filters.dateTo);
         
         // Status & Type Filter
         if (filters.status.length > 0) filteredEquipment = filteredEquipment.filter(e => filters.status.includes(e.status));
-        if (filters.typeIds.length > 0) filteredEquipment = filteredEquipment.filter(e => filters.typeIds.includes(e.typeId));
+        // Fix: typeId to type_id
+        if (filters.typeIds.length > 0) filteredEquipment = filteredEquipment.filter(e => filters.typeIds.includes(e.type_id));
         
         // Org Filter (most complex)
         if (filters.institutionIds.length > 0 || filters.entityIds.length > 0) {
             const allowedEntityIds = new Set(filters.entityIds);
             if(filters.institutionIds.length > 0) {
                 appData.entidades.forEach(e => {
-                    if(filters.institutionIds.includes(e.instituicaoId)) allowedEntityIds.add(e.id);
+                    // Fix: instituicaoId to instituicao_id
+                    if(filters.institutionIds.includes(e.instituicao_id)) allowedEntityIds.add(e.id);
                 });
             }
 
             const equipmentInEntities = new Set<string>();
             appData.assignments.forEach(a => {
-                if (!a.returnDate) { // Only active assignments
-                    let entityId = a.entidadeId;
-                    if(!entityId && a.collaboratorId) {
-                        const collab = collabMap.get(a.collaboratorId);
-                        if (collab) entityId = collab.entidadeId;
+                // Fix: returnDate, entidadeId, collaboratorId, equipmentId to snake_case
+                if (!a.return_date) { // Only active assignments
+                    let entityId = a.entidade_id;
+                    if(!entityId && a.collaborator_id) {
+                        const collab = collabMap.get(a.collaborator_id);
+                        if (collab) entityId = collab.entidade_id;
                     }
                     if (entityId && allowedEntityIds.has(entityId)) {
-                        equipmentInEntities.add(a.equipmentId);
+                        equipmentInEntities.add(a.equipment_id);
                     }
                 }
             });
@@ -124,9 +129,11 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
         let softwareCost = 0;
         const filteredEquipmentIds = new Set(filteredEquipment.map(e => e.id));
         appData.licenseAssignments.forEach(la => {
-            if (!la.returnDate && filteredEquipmentIds.has(la.equipmentId)) {
-                const license = appData.softwareLicenses.find(l => l.id === la.softwareLicenseId);
-                if (license) softwareCost += (license.unitCost || 0);
+            // Fix: returnDate, equipmentId, softwareLicenseId to snake_case
+            if (!la.return_date && filteredEquipmentIds.has(la.equipment_id)) {
+                const license = appData.softwareLicenses.find(l => l.id === la.software_license_id);
+                // Fix: unitCost to unit_cost
+                if (license) softwareCost += (license.unit_cost || 0);
             }
         });
         
@@ -135,7 +142,8 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
 
     // KPI Calculations
     const kpiData = useMemo(() => {
-        const hardwareCost = filteredData.filteredEquipment.reduce((sum, eq) => sum + (eq.acquisitionCost || 0), 0);
+        // Fix: acquisitionCost to acquisition_cost
+        const hardwareCost = filteredData.filteredEquipment.reduce((sum, eq) => sum + (eq.acquisition_cost || 0), 0);
         return {
             totalAssets: filteredData.filteredEquipment.length,
             hardwareCost,
@@ -148,15 +156,17 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
     const costByEntity = useMemo(() => {
         const costs = new Map<string, number>();
         filteredData.filteredEquipment.forEach(eq => {
-            const assignment = appData.assignments.find(a => a.equipmentId === eq.id && !a.returnDate);
+            // Fix: equipmentId, returnDate, entidadeId, collaboratorId to snake_case
+            const assignment = appData.assignments.find(a => a.equipment_id === eq.id && !a.return_date);
             if (assignment) {
-                let entityId = assignment.entidadeId;
-                if (!entityId && assignment.collaboratorId) {
-                    entityId = collabMap.get(assignment.collaboratorId)?.entidadeId;
+                let entityId = assignment.entidade_id;
+                if (!entityId && assignment.collaborator_id) {
+                    entityId = collabMap.get(assignment.collaborator_id)?.entidade_id;
                 }
                 if(entityId) {
                     const name = entityMap.get(entityId)?.name || 'Desconhecido';
-                    costs.set(name, (costs.get(name) || 0) + (eq.acquisitionCost || 0));
+                    // Fix: acquisitionCost to acquisition_cost
+                    costs.set(name, (costs.get(name) || 0) + (eq.acquisition_cost || 0));
                 }
             }
         });
@@ -167,7 +177,8 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
         const costs = new Map<string, number>();
         filteredData.filteredEquipment.forEach(eq => {
             const status = String(eq.status);
-            costs.set(status, (costs.get(status) || 0) + (eq.acquisitionCost || 0));
+            // Fix: acquisitionCost to acquisition_cost
+            costs.set(status, (costs.get(status) || 0) + (eq.acquisition_cost || 0));
         });
         return Array.from(costs.entries()).map(([name, value]) => ({ name, value }));
     }, [filteredData]);
@@ -176,8 +187,9 @@ const BIReportDashboard: React.FC<{ appData: AppData }> = ({ appData }) => {
         const typeMap = new Map(appData.equipmentTypes.map(t => [t.id, t.name]));
         const costs = new Map<string, number>();
         filteredData.filteredEquipment.forEach(eq => {
-            const name = String(typeMap.get(eq.typeId) || 'Desconhecido');
-            costs.set(name, (costs.get(name) || 0) + (eq.acquisitionCost || 0));
+            // Fix: typeId, acquisitionCost to snake_case
+            const name = String(typeMap.get(eq.type_id) || 'Desconhecido');
+            costs.set(name, (costs.get(name) || 0) + (eq.acquisition_cost || 0));
         });
         return Array.from(costs.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
     }, [filteredData, appData.equipmentTypes]);

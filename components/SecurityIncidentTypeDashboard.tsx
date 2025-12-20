@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { SecurityIncidentTypeItem, Ticket } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
@@ -28,8 +27,9 @@ const SecurityIncidentTypeDashboard: React.FC<SecurityIncidentTypeDashboardProps
 
     const ticketCountByType = React.useMemo(() => {
         return tickets.reduce((acc, curr) => {
-            if (curr.securityIncidentType) {
-                acc[curr.securityIncidentType] = (acc[curr.securityIncidentType] || 0) + 1;
+            // FIX: Updated property names to snake_case
+            if (curr.security_incident_type) {
+                acc[curr.security_incident_type] = (acc[curr.security_incident_type] || 0) + 1;
             }
             return acc;
         }, {} as Record<string, number>);
