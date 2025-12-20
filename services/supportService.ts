@@ -3,10 +3,6 @@ import { getSupabase } from './supabaseClient';
 
 const sb = () => getSupabase();
 
-/**
- * Normaliza chaves Omni v23:
- * Tratamento rigoroso de UUIDs e Datas para evitar erros de cast no Postgres.
- */
 const cleanPayload = (data: any) => {
     const cleaned: any = {};
     const keyMap: Record<string, string> = {
@@ -33,8 +29,6 @@ const cleanPayload = (data: any) => {
     Object.keys(data).forEach(key => {
         const targetKey = keyMap[key] || key;
         const val = data[key];
-        
-        // Garantir que UUIDs vazios são null
         if (typeof val === 'string' && val.trim() === '') {
             cleaned[targetKey] = null;
         } else {
@@ -78,19 +72,20 @@ export const fetchTicketsPaginated = async (params: {
 }) => {
     let query = sb().from('tickets').select('*', { count: 'exact' });
     
+    // RBAC: Construção robusta do filtro OR
     if (params.userContext && params.userContext.role !== 'SuperAdmin' && params.userContext.role !== 'Admin') {
         const { id, teamIds } = params.userContext;
+        const orParts = [`collaborator_id.eq.${id}`, `technician_id.eq.${id}`];
+        
         if (teamIds && teamIds.length > 0) {
-            query = query.or(`collaborator_id.eq.${id},team_id.in.(${teamIds.join(',')})`);
-        } else {
-            query = query.eq('collaborator_id', id);
+            orParts.push(`team_id.in.(${teamIds.join(',')})`);
         }
+        query = query.or(orParts.join(','));
     }
 
     if (params.filters) {
         if (params.filters.status) query = query.eq('status', params.filters.status);
         if (params.filters.category) query = query.eq('category', params.filters.category);
-        if (params.filters.team_id) query = query.eq('team_id', params.filters.team_id);
         if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
     }
 
