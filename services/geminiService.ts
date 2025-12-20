@@ -15,7 +15,8 @@ export const isAiConfigured = (): boolean => {
 };
 
 /**
- * Executes a request to Gemini models following strict SDK guidelines v21.
+ * Executes a request to Gemini models following strict SDK guidelines v25.
+ * Uses .text property instead of .text() method.
  */
 const runGeminiRequest = async (
     modelName: string, 
@@ -39,17 +40,15 @@ const runGeminiRequest = async (
         });
 
         if (error) {
-            console.error("[Diamond Proxy Error]:", error);
-            const msg = error.message || "Erro de ligação à Edge Function.";
-            if (msg.includes("Requested entity was not found")) {
-                 return "ERRO_AUTH: Selecione uma chave de API válida no Supabase.";
-            }
-            throw new Error(`IA Offline: ${msg}`);
+            console.error("[Absolute Proxy Error]:", error);
+            const msg = error.message || "IA Offline.";
+            throw new Error(`IA Error: ${msg}`);
         }
         return data?.text || "";
     }
 
-    // Direct mode Diamond Edition
+    // Direct mode Absolute Integrity
+    // REQUIREMENT: Must use named parameter for apiKey
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     
     const parts: any[] = [];
@@ -74,29 +73,29 @@ const runGeminiRequest = async (
             config: config
         });
 
-        // SDK compliance: .text property access
+        // SDK compliance v25: Use .text property (not a method)
         const result = response.text;
-        if (!result) throw new Error("Resposta vazia da IA.");
+        if (result === undefined) throw new Error("Resposta vazia da IA.");
         return result.trim();
     } catch (e: any) {
-        console.error("[Diamond Direct Error]:", e);
+        console.error("[Absolute Direct Error]:", e);
         throw new Error(`IA Error: ${e.message}`);
     }
 };
 
 export const extractTextFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
   try {
-    const prompt = "Extract the most prominent serial number or alphanumeric code from this image. Return only the code itself, with no additional text or labels.";
+    const prompt = "Extract the most prominent serial number or alphanumeric code from this image. Return only the code itself.";
     return await runGeminiRequest(flashModel, prompt, [{ data: base64Image, mimeType }]);
   } catch (error) {
-    console.error("Vision Analysis Error:", error);
-    throw new Error("Falha ao analisar imagem. Verifique a qualidade da foto.");
+    console.error("Vision Error:", error);
+    throw new Error("Falha na análise visual.");
   }
 };
 
 export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ brand: string; type: string }> => {
     try {
-        const prompt = `Based on the serial number or model code "${serialNumber}", identify the brand and type of the electronic device. JSON output.`;
+        const prompt = `Based on serial "${serialNumber}", identify brand and type. JSON output.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -109,31 +108,7 @@ export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ bra
         const jsonStr = await runGeminiRequest(flashModel, prompt, [], schema, "application/json");
         return JSON.parse(jsonStr || "{}");
     } catch (error) {
-        console.error("Device ID Error:", error);
         return { brand: "Desconhecida", type: "Desconhecido" };
-    }
-};
-
-export const suggestPeripheralsForKit = async (primaryDevice: { brand: string; type: string; description: string }): Promise<Array<{ brandName: string; typeName: string; description: string }>> => {
-    try {
-        const prompt = `For a primary device that is a ${primaryDevice.brand} ${primaryDevice.type} described as "${primaryDevice.description}", suggest standard peripherals.`;
-        const schema = {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    brandName: { type: Type.STRING },
-                    typeName: { type: Type.STRING },
-                    description: { type: Type.STRING }
-                },
-                required: ["brandName", "typeName", "description"]
-            }
-        };
-
-        const jsonStr = await runGeminiRequest(flashModel, prompt, [], schema, "application/json");
-        return JSON.parse(jsonStr || "[]");
-    } catch (error) {
-        return [];
     }
 };
 
@@ -148,8 +123,7 @@ export const parseNaturalLanguageAction = async (
     context: { brands: string[], types: string[], users: {name: string, id: string}[], currentUser: string }
 ): Promise<MagicActionResponse> => {
     try {
-        const prompt = `Assistant IT Manager. User request: "${text}". Confidence and intent identification. Context provided: ${JSON.stringify(context)}.`;
-        
+        const prompt = `Assistant IT Manager. User request: "${text}". Context: ${JSON.stringify(context)}. Identify intent and data.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -180,24 +154,7 @@ export const parseNaturalLanguageAction = async (
     }
 };
 
-export const generateExecutiveReport = async (reportType: string, dataContext: any): Promise<string> => {
-    try {
-        const contextString = JSON.stringify(dataContext).substring(0, 30000);
-        const prompt = `Expert IT Manager. HTML Executive Summary (PT-PT) for "${reportType}": ${contextString}. Sections: Summary, Risk, Insights, Recommendations.`;
-        return await runGeminiRequest(proModel, prompt);
-    } catch (error) {
-        return "<p>Erro ao gerar relatório com IA.</p>";
-    }
-};
-
-export interface TicketTriageResult {
-    suggestedCategory: string;
-    suggestedPriority: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
-    suggestedSolution: string;
-    isSecurityIncident: boolean;
-}
-
-export const analyzeTicketRequest = async (description: string): Promise<TicketTriageResult> => {
+export const analyzeTicketRequest = async (description: string): Promise<any> => {
     try {
         const prompt = `Analyze IT ticket: "${description}". Categorize, prioritize, solution suggested.`;
         const schema = {
@@ -218,69 +175,38 @@ export const analyzeTicketRequest = async (description: string): Promise<TicketT
     }
 };
 
-export const parseSecurityAlert = async (rawJson: string): Promise<any> => {
+// Fix for error in components/CloseTicketModal.tsx
+// Added generateTicketResolutionSummary to exported members
+export const generateTicketResolutionSummary = async (description: string, activities: string[]): Promise<string> => {
     try {
-        const prompt = `SOC Analyst. Parse security alert JSON: ${rawJson.substring(0,10000)}.`;
-        const schema = {
-            type: Type.OBJECT,
-            properties: {
-                title: { type: Type.STRING },
-                description: { type: Type.STRING },
-                severity: { type: Type.STRING },
-                affectedAsset: { type: Type.STRING },
-                incidentType: { type: Type.STRING },
-                sourceSystem: { type: Type.STRING }
-            },
-            required: ["title", "description", "affectedAsset"]
-        };
-        const jsonStr = await runGeminiRequest(proModel, prompt, [], schema, "application/json");
-        return JSON.parse(jsonStr || "{}");
+        const prompt = `Based on the IT ticket description: "${description}" and the following resolution activities: ${JSON.stringify(activities)}, write a concise summary of the final solution for a Knowledge Base.`;
+        return await runGeminiRequest(flashModel, prompt);
     } catch (error) {
-        return { title: "Parse Failed", description: rawJson, affectedAsset: "Unknown" };
+        console.error("Summary Generation Error:", error);
+        throw new Error("Falha ao gerar resumo da resolução.");
     }
 };
 
-export const generateTicketResolutionSummary = async (ticketDescription: string, activities: string[]): Promise<string> => {
+// Fix for error in components/AddBackupModal.tsx
+// Added analyzeBackupScreenshot to exported members
+export const analyzeBackupScreenshot = async (base64Image: string, mimeType: string): Promise<{ status: string; date: string; systemName: string }> => {
     try {
-        const prompt = `Summarize ticket resolution for KB. Problem: "${ticketDescription}". Notes: ${JSON.stringify(activities)}.`;
-        return await runGeminiRequest(proModel, prompt);
-    } catch (e) { return "Resumo indisponível."; }
-};
-
-export const findSimilarPastTickets = async (currentDescription: string, pastResolvedTickets: any[]): Promise<any> => {
-    try {
-        const context = pastResolvedTickets.slice(0, 50).map(t => ({ id: t.id, desc: t.description.substring(0, 100), res: t.resolution }));
-        const prompt = `New Ticket: "${currentDescription}". Past Tickets: ${JSON.stringify(context)}. Exact match search.`;
+        const prompt = "Analyze this backup report screenshot. Extract: 1. Status (Sucesso, Falha, or Parcial), 2. Date of backup (YYYY-MM-DD), 3. System Name. JSON output.";
         const schema = {
             type: Type.OBJECT,
             properties: {
-                found: { type: Type.BOOLEAN },
-                ticketId: { type: Type.STRING },
-                similarityReason: { type: Type.STRING },
-                resolution: { type: Type.STRING }
+                status: { type: Type.STRING, enum: ['Sucesso', 'Falha', 'Parcial'] },
+                date: { type: Type.STRING },
+                systemName: { type: Type.STRING }
             },
-            required: ["found"]
+            required: ["status", "date", "systemName"]
         };
-        const jsonStr = await runGeminiRequest(proModel, prompt, [], schema, "application/json");
+        const jsonStr = await runGeminiRequest(flashModel, prompt, [{ data: base64Image, mimeType }], schema, "application/json");
         return JSON.parse(jsonStr || "{}");
     } catch (error) {
-        return { found: false };
+        console.error("Backup Analysis Error:", error);
+        throw new Error("Falha na análise visual do backup.");
     }
-};
-
-export const analyzeBackupScreenshot = async (base64Image: string, mimeType: string = 'image/jpeg'): Promise<any> => {
-    const prompt = "Analyze backup screenshot status, date, system.";
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            status: { type: Type.STRING, enum: ['Sucesso', 'Falha', 'Parcial'] },
-            date: { type: Type.STRING },
-            systemName: { type: Type.STRING }
-        },
-        required: ["status", "date"]
-    };
-    const jsonStr = await runGeminiRequest(flashModel, prompt, [{ data: base64Image, mimeType }], schema, "application/json");
-    return JSON.parse(jsonStr || "{}");
 };
 
 export const scanForVulnerabilities = async (inventory: string[], config?: VulnerabilityScanConfig): Promise<any[]> => {
@@ -308,7 +234,7 @@ export const scanForVulnerabilities = async (inventory: string[], config?: Vulne
 };
 
 export const generateNis2Notification = async (ticket: any, activities: any[]): Promise<any> => {
-    const prompt = `NIS2 incident notification. ${JSON.stringify(ticket)}. JSON and HTML format.`;
+    const prompt = `NIS2 incident notification. ${JSON.stringify(ticket)}. JSON output.`;
     const schema = {
         type: Type.OBJECT,
         properties: {
@@ -316,21 +242,6 @@ export const generateNis2Notification = async (ticket: any, activities: any[]): 
             report_summary_html: { type: Type.STRING }
         },
         required: ["report_json", "report_summary_html"]
-    };
-    const jsonStr = await runGeminiRequest(proModel, prompt, [], schema, "application/json");
-    return JSON.parse(jsonStr || "{}");
-};
-
-export const analyzeCollaboratorRisk = async (ticketHistory: any[]): Promise<any> => {
-    const prompt = `User risk analysis: ${JSON.stringify(ticketHistory)}. Training module recommendation.`;
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            needsTraining: { type: Type.BOOLEAN },
-            reason: { type: Type.STRING },
-            recommendedModule: { type: Type.STRING }
-        },
-        required: ["needsTraining"]
     };
     const jsonStr = await runGeminiRequest(proModel, prompt, [], schema, "application/json");
     return JSON.parse(jsonStr || "{}");
@@ -353,14 +264,4 @@ export const extractFindingsFromReport = async (base64File: string, mimeType: st
     };
     const jsonStr = await runGeminiRequest(flashModel, prompt, [{ data: base64File, mimeType }], schema, "application/json");
     return JSON.parse(jsonStr || "[]");
-};
-
-export const generateSqlHelper = async (userRequest: string): Promise<string> => {
-    const prompt = `PostgreSQL query generator: "${userRequest}". SQL Code only.`;
-    return await runGeminiRequest(proModel, prompt);
-};
-
-export const generatePlaywrightTest = async (userPrompt: string, credentials: {email: string, pass: string}): Promise<string> => {
-    const prompt = `Playwright TS test generator: "${userPrompt}".`;
-    return await runGeminiRequest(proModel, prompt);
 };

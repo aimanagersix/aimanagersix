@@ -1,12 +1,73 @@
+
 import { getSupabase } from './supabaseClient';
 import { Equipment } from '../types';
 
 const sb = () => getSupabase();
 
+/**
+ * Função de limpeza profunda Universal v24:
+ * Adiciona coerção de tipos (String -> Number) para campos financeiros.
+ */
 const cleanPayload = (data: any) => {
-    const cleaned = { ...data };
-    Object.keys(cleaned).forEach(key => {
-        if (cleaned[key] === '') cleaned[key] = null;
+    const cleaned: any = {};
+    const keyMap: Record<string, string> = {
+        'serialNumber': 'serial_number',
+        'inventoryNumber': 'inventory_number',
+        'brandId': 'brand_id',
+        'typeId': 'type_id',
+        'purchaseDate': 'purchase_date',
+        'warrantyEndDate': 'warranty_end_date',
+        'invoiceNumber': 'invoice_number',
+        'requisitionNumber': 'requisition_number',
+        'acquisitionCost': 'acquisition_cost',
+        'creationDate': 'creation_date',
+        'modifiedDate': 'modified_date',
+        'nomeNaRede': 'nome_na_rede',
+        'macAddressWIFI': 'mac_address_wifi',
+        'macAddressCabo': 'mac_address_cabo',
+        'lastSecurityUpdate': 'last_security_update',
+        'embeddedLicenseKey': 'embedded_license_key',
+        'isLoan': 'is_loan',
+        'parentEquipmentId': 'parent_equipment_id',
+        'procurementRequestId': 'procurement_request_id',
+        'accountingCategoryId': 'accounting_category_id',
+        'conservationStateId': 'conservation_state_id',
+        'decommissionReasonId': 'decommission_reason_id',
+        'residualValue': 'residual_value',
+        'lastInventoryScan': 'last_inventory_scan',
+        'softwareLicenseId': 'software_license_id',
+        'equipmentId': 'equipment_id',
+        'assignedDate': 'assigned_date',
+        'returnDate': 'return_date',
+        'productName': 'product_name',
+        'licenseKey': 'license_key',
+        'totalSeats': 'total_seats',
+        'expiryDate': 'expiry_date',
+        'purchaseEmail': 'purchase_email',
+        'unitCost': 'unit_cost',
+        'isOem': 'is_oem',
+        'categoryId': 'category_id',
+        'supplier_id': 'supplier_id',
+        'supplierId': 'supplier_id',
+        'externalProviderId': 'external_provider_id'
+    };
+
+    const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity'];
+
+    Object.keys(data).forEach(key => {
+        const targetKey = keyMap[key] || key;
+        const val = data[key];
+        
+        // No Postgres, '' não é um UUID/Data válido.
+        if (typeof val === 'string' && val.trim() === '') {
+            cleaned[targetKey] = null;
+        } else if (numericFields.includes(targetKey)) {
+            // Coerção para garantir tipo numérico
+            const parsed = parseFloat(val);
+            cleaned[targetKey] = isNaN(parsed) ? null : parsed;
+        } else {
+            cleaned[targetKey] = val === undefined ? null : val;
+        }
     });
     return cleaned;
 };

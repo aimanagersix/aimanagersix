@@ -1,11 +1,45 @@
+
 import { getSupabase } from './supabaseClient';
 
 const sb = () => getSupabase();
 
+/**
+ * Normaliza chaves Omni v23:
+ * Tratamento rigoroso de UUIDs e Datas para evitar erros de cast no Postgres.
+ */
 const cleanPayload = (data: any) => {
-    const cleaned = { ...data };
-    Object.keys(cleaned).forEach(key => {
-        if (cleaned[key] === '') cleaned[key] = null;
+    const cleaned: any = {};
+    const keyMap: Record<string, string> = {
+        'requestDate': 'request_date',
+        'finishDate': 'finish_date',
+        'collaboratorId': 'collaborator_id',
+        'technicianId': 'technician_id',
+        'entidadeId': 'entidade_id',
+        'teamId': 'team_id',
+        'equipmentId': 'equipment_id',
+        'securityIncidentType': 'security_incident_type',
+        'impactCriticality': 'impact_criticality',
+        'resolutionSummary': 'resolution_summary',
+        'requesterSupplierId': 'requester_supplier_id',
+        'ticketId': 'ticket_id',
+        'startDate': 'start_date',
+        'endDate': 'end_date',
+        'isAllDay': 'is_all_day',
+        'isPrivate': 'is_private',
+        'createdBy': 'created_by',
+        'reminderMinutes': 'reminder_minutes'
+    };
+
+    Object.keys(data).forEach(key => {
+        const targetKey = keyMap[key] || key;
+        const val = data[key];
+        
+        // Garantir que UUIDs vazios são null
+        if (typeof val === 'string' && val.trim() === '') {
+            cleaned[targetKey] = null;
+        } else {
+            cleaned[targetKey] = val === undefined ? null : val;
+        }
     });
     return cleaned;
 };

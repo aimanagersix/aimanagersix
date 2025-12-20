@@ -47,6 +47,7 @@ export const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
     const [session, setSession] = useState<any>(null);
     const [isAppLoading, setIsAppLoading] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [passwordExpired, setPasswordExpired] = useState(false);
     const [snoozedNotificationIds, setSnoozedNotificationIds] = useState<Set<string>>(new Set());
 
@@ -56,7 +57,7 @@ export const App: React.FC = () => {
     const support = useSupport(isConfigured);
     const compliance = useCompliance(isConfigured);
 
-    // Navigation & Interaction State
+    // Navigation State
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarExpanded, setSidebarExpanded] = useState(false);
     const [dashboardFilter, setDashboardFilter] = useState<any>(null);
@@ -67,14 +68,14 @@ export const App: React.FC = () => {
     const [chatOpen, setChatOpen] = useState(false);
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     
-    // Global Modals State (Orchestrated)
+    // Global Modals State
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
     const [viewingLicense, setViewingLicense] = useState<SoftwareLicense | null>(null);
     const [viewingTraining, setViewingTraining] = useState<SecurityTrainingRecord | null>(null);
 
-    // Permission Engine - v6.2 Stable SnakeCase
+    // Permission Engine - v6.5 Stable SnakeCase
     const checkPermission = useCallback((module: ModuleKey, action: PermissionAction): boolean => {
         if (!currentUser) return false;
         if (currentUser.role === 'SuperAdmin' || currentUser.role === UserRole.SuperAdmin) return true;
@@ -84,51 +85,60 @@ export const App: React.FC = () => {
         return action === 'view' && modulePerms['view_own'] ? true : !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
-    // Unified Data View
+    // Unified Data View - Absolute Integrity v25 (Fail-Safe Arrays)
     const appData = useMemo(() => {
-        const rawData = { ...org.data, ...inv.data, ...support.data, ...compliance.data };
+        const rawData = { 
+            ...org.data, 
+            ...inv.data, 
+            ...support.data, 
+            ...compliance.data,
+            // Fail-safe initialization to prevent .map/filter errors on null data
+            collaborators: org.data.collaborators || [],
+            equipment: inv.data.equipment || [],
+            tickets: support.data.tickets || [],
+            assignments: inv.data.assignments || [],
+            messages: support.data.messages || [],
+            softwareLicenses: inv.data.softwareLicenses || [],
+            licenseAssignments: inv.data.licenseAssignments || [],
+            teams: support.data.teams || [],
+            teamMembers: support.data.teamMembers || [],
+            vulnerabilities: compliance.data.vulnerabilities || [],
+            securityTrainings: compliance.data.securityTrainings || [],
+            brands: inv.data.brands || [],
+            equipmentTypes: inv.data.equipmentTypes || [],
+            policies: compliance.data.policies || [],
+            policyAcceptances: compliance.data.policyAcceptances || []
+        };
+
         if (currentUser) {
+            // Optimized ticket segregation
             rawData.tickets = rawData.tickets.filter((t: Ticket) => {
                 const isSecurity = (t.category || '').toLowerCase().includes('segurança') || !!t.security_incident_type;
                 const module: ModuleKey = isSecurity ? 'tickets_security' : 'tickets';
                 if (checkPermission(module, 'view')) return true;
                 return checkPermission(module, 'view_own') ? (t.collaborator_id === currentUser.id || t.technician_id === currentUser.id) : false;
             });
+            // Posse filter for Self-Service
             if (!checkPermission('equipment', 'view')) {
-                const myAssignments = rawData.assignments.filter((a: any) => (a.collaborator_id === currentUser.id) && !a.return_date);
-                const myEquipmentIds = new Set(myAssignments.map((a: any) => a.equipment_id));
-                rawData.equipment = rawData.equipment.filter(e => myEquipmentIds.has(e.id));
+                const myEqIds = new Set(rawData.assignments.filter((a: any) => (a.collaborator_id === currentUser.id) && !a.return_date).map((a: any) => a.equipment_id));
+                rawData.equipment = rawData.equipment.filter(e => myEqIds.has(e.id));
             }
         }
         return rawData;
     }, [org.data, inv.data, support.data, compliance.data, currentUser, checkPermission]);
 
-    // Notification Engine Diamond Edition
-    const notificationItems = useMemo(() => {
-        const now = new Date();
-        const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        const myWarranties = appData.equipment.filter(e => e.warranty_end_date && new Date(e.warranty_end_date) <= thirtyDays);
-        const myLicenses = appData.softwareLicenses.filter(l => l.expiry_date && new Date(l.expiry_date) <= thirtyDays);
-        const myTickets = appData.tickets.filter(t => t.status === 'Pedido' && (!t.technician_id || t.technician_id === currentUser?.id));
-        return { 
-            warranties: myWarranties, 
-            licenses: myLicenses, 
-            tickets: myTickets,
-            totalVisible: [...myWarranties, ...myLicenses, ...myTickets].filter(item => !snoozedNotificationIds.has(item.id)).length
-        };
-    }, [appData, currentUser, snoozedNotificationIds]);
-
     const refreshAll = useCallback(async () => {
         if (isRefreshing.current) return;
         isRefreshing.current = true;
+        setIsSyncing(true);
         try {
             await Promise.allSettled([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
         } finally {
             isRefreshing.current = false;
+            setTimeout(() => setIsSyncing(false), 600);
         }
     }, [org, inv, support, compliance]);
 
-    // Auth & Persistence
     useEffect(() => {
         if (!isConfigured) return;
         const supabase = getSupabase();
@@ -143,49 +153,29 @@ export const App: React.FC = () => {
         };
         initSession();
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => setSession(curSess));
-        
-        // Auto-refresh loop Diamond Safety
         const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 60000);
-
-        return () => {
-            subscription.unsubscribe();
-            clearInterval(interval);
-        };
+        return () => { subscription.unsubscribe(); clearInterval(interval); };
     }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll]);
 
-    const handleLogout = async () => {
-        await getSupabase().auth.signOut();
-        localStorage.removeItem('supabase.auth.token');
-        setCurrentUser(null);
-        window.location.reload();
-    };
-
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isAppLoading) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs animate-pulse">AIManager Diamond</p></div>;
+    if (isAppLoading) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">AIManager Absolute Zero</p></div>;
     if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
 
     return (
         <div className={`min-h-screen bg-background-dark text-on-surface-dark-secondary flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`}>
-            {passwordExpired && <ResetPasswordModal session={session} onClose={() => setPasswordExpired(false)} />}
-            {showProfile && (
-                <UserProfileModal 
-                    user={currentUser} 
-                    entidade={org.data.entidades.find(e => e.id === currentUser.entidade_id)} 
-                    instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicao_id)} 
-                    onClose={() => setShowProfile(false)} 
-                    onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(); }} 
-                />
-            )}
-            {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} expiringWarranties={notificationItems.warranties} expiringLicenses={notificationItems.licenses} teamTickets={notificationItems.tickets} collaborators={appData.collaborators} teams={appData.teams} onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} currentUser={currentUser} licenseAssignments={appData.licenseAssignments} />}
+            {isSyncing && <div className="fixed top-0 left-0 w-full h-1 z-[200] overflow-hidden bg-gray-800"><div className="h-full bg-brand-secondary animate-pulse w-full origin-left transform scale-x-0" style={{ animation: 'progress 1s infinite linear' }}></div></div>}
+            
+            {showProfile && <UserProfileModal user={currentUser} entidade={org.data.entidades.find(e => e.id === currentUser.entidade_id)} instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicao_id)} onClose={() => setShowProfile(false)} onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(); }} />}
+            {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} expiringWarranties={appData.equipment.filter(e => e.warranty_end_date && new Date(e.warranty_end_date) <= new Date(Date.now() + 30*24*60*60*1000))} expiringLicenses={appData.softwareLicenses.filter(l => l.expiry_date && new Date(l.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000))} teamTickets={appData.tickets.filter(t => t.status === 'Pedido')} collaborators={appData.collaborators} teams={appData.teams} onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} currentUser={currentUser} licenseAssignments={appData.licenseAssignments} />}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
             
             {layoutMode === 'side' ? (
-                <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={{}} notificationCount={notificationItems.totalVisible} onNotificationClick={() => setShowNotifications(true)} isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
+                <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={0} onNotificationClick={() => setShowNotifications(true)} isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
             ) : (
-                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={{}} notificationCount={notificationItems.totalVisible} onNotificationClick={() => setShowNotifications(true)} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
+                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={0} onNotificationClick={() => setShowNotifications(true)} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
             )}
 
             <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
