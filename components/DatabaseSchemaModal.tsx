@@ -88,7 +88,7 @@ END $$;`;
                     <div className="animate-fade-in space-y-4">
                         <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
                             <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v33.0</h3>
-                            <p>Este script normaliza os nomes das colunas de CamelCase para SnakeCase (ex: requestDate -> request_date) para garantir integridade absoluta com o código atual.</p>
+                            <p>Este script normaliza os nomes das colunas de CamelCase para SnakeCase (ex: requestDate &rarr; request_date) para garantir integridade absoluta com o código atual.</p>
                         </div>
                         <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[35vh]">
                             <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">

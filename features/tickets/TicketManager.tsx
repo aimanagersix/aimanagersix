@@ -91,6 +91,16 @@ const TicketManager: React.FC<TicketManagerProps> = ({
         refreshData(); 
     };
 
+    const handleUpdateTicket = async (ticket: Ticket) => {
+        try {
+            await dataService.updateTicket(ticket.id, ticket);
+            handleRefresh();
+        } catch (e) {
+            console.error("Erro ao atualizar ticket:", e);
+            alert("Erro ao gravar alteração de estado.");
+        }
+    };
+
     const handleSaveTicket = async (ticket: any) => {
         if (ticketToEdit) {
             await dataService.updateTicket(ticketToEdit.id, ticket);
@@ -151,6 +161,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 categories={appData.ticketCategories}
                 configTicketStatuses={appData.configTicketStatuses}
                 onEdit={checkPermission('tickets', 'edit') ? (t) => { setTicketToEdit(t); setShowAddTicketModal(true); } : undefined}
+                onUpdateTicket={handleUpdateTicket}
                 onCreate={checkPermission('tickets', 'create') ? () => { setTicketToEdit(null); setShowAddTicketModal(true); } : undefined}
                 onOpenActivities={(t) => { setTicketForActivities(t); setShowTicketActivitiesModal(true); }}
                 onGenerateSecurityReport={(t) => { 
@@ -158,6 +169,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     setShowRegulatoryModal(true);
                 }}
                 checkPermission={checkPermission}
+                onOpenCloseTicketModal={(t) => { setTicketToClose(t); setShowCloseTicketModal(true); }}
             />
 
             {showAddTicketModal && (

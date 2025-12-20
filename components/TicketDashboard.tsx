@@ -130,7 +130,9 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
-    const statusConfigMap = useMemo(() => new Map(configTicketStatuses.map(s => [s.name, s])), [configTicketStatuses]);
+    
+    // Normalizar mapa de cores para minúsculas
+    const statusConfigMap = useMemo(() => new Map(configTicketStatuses.map(s => [s.name.toLowerCase(), s])), [configTicketStatuses]);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -150,7 +152,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     };
 
     const getStatusStyle = (status: string) => {
-        const config = statusConfigMap.get(status);
+        const config = statusConfigMap.get(status.toLowerCase());
         if (config?.color) {
             return {
                 backgroundColor: `${config.color}25`,
@@ -231,7 +233,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 const requesterObj = ticket.collaborator_id ? collaboratorMap.get(ticket.collaborator_id) : undefined;
                                 const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : requesterObj?.full_name;
                                 
-                                // Pedido 1: Resolver Local hierárquico (Entidade > Instituição)
                                 const resolvedEntidadeId = ticket.entidade_id || requesterObj?.entidade_id;
                                 const resolvedInstituicaoId = requesterObj?.instituicao_id;
                                 
@@ -304,7 +305,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                                     style={statusStyle}
                                                     className={`px-2 py-1 rounded text-[10px] font-black uppercase border focus:outline-none transition-all cursor-pointer`}
                                                 >
-                                                    {configTicketStatuses.length > 0 ? (
+                                                    {configTicketStatuses && configTicketStatuses.length > 0 ? (
                                                         configTicketStatuses.map(st => <option key={st.id} value={st.name} className="bg-gray-800 text-white">{st.name}</option>)
                                                     ) : (
                                                         <>
