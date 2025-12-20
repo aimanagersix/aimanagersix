@@ -150,6 +150,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 suppliers={appData.suppliers} 
                 equipment={appData.equipment}
                 categories={appData.ticketCategories}
+                configTicketStatuses={appData.configTicketStatuses}
                 onEdit={checkPermission('tickets', 'edit') ? (t) => { setTicketToEdit(t); setShowAddTicketModal(true); } : undefined}
                 onCreate={checkPermission('tickets', 'create') ? () => { setTicketToEdit(null); setShowAddTicketModal(true); } : undefined}
                 onOpenActivities={(t) => { setTicketForActivities(t); setShowTicketActivitiesModal(true); }}

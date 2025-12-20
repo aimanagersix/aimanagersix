@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction } from '../types';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction, ConfigItem } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers } from './common/Icons';
 import { FaPaperclip, FaChevronDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -15,6 +15,7 @@ interface TicketDashboardProps {
   suppliers?: Supplier[]; 
   equipment: Equipment[];
   categories: TicketCategoryItem[];
+  configTicketStatuses?: ConfigItem[];
   onCreate?: () => void;
   onEdit?: (ticket: Ticket) => void;
   onUpdateTicket?: (ticket: Ticket) => void;
@@ -34,16 +35,6 @@ interface TicketDashboardProps {
   sort?: { key: string, direction: 'ascending' | 'descending' };
   onSortChange?: (sort: { key: string, direction: 'ascending' | 'descending' }) => void;
 }
-
-const getStatusClass = (status: string) => {
-    switch (status) {
-        case 'Pedido': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-        case 'Em progresso': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-        case 'Finalizado': return 'bg-green-500/20 text-green-400 border-green-500/30';
-        case 'Cancelado': return 'bg-red-500/20 text-red-400 border-red-500/30';
-        default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    }
-};
 
 const getNis2Countdown = (ticket: Ticket) => {
     if (ticket.status === 'Finalizado') return null;
@@ -123,7 +114,7 @@ const getSecurityIcon = (type?: string) => {
 };
 
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
-    tickets, escolasDepartamentos: entidades, collaborators, teams, suppliers = [], equipment, categories,
+    tickets, escolasDepartamentos: entidades, collaborators, teams, suppliers = [], equipment, categories, configTicketStatuses = [],
     onCreate, onEdit, onUpdateTicket, onOpenActivities, onGenerateSecurityReport, onOpenCloseTicketModal,
     totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange,
     sort, onSortChange, checkPermission
@@ -135,10 +126,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
-    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const equipmentMap = useMemo(() => new Map(equipment.map(e => [e.id, e])), [equipment]);
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
+    const statusConfigMap = useMemo(() => new Map(configTicketStatuses.map(s => [s.name, s])), [configTicketStatuses]);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -155,6 +147,25 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
             direction = 'descending';
         }
         onSortChange({ key, direction });
+    };
+
+    const getStatusStyle = (status: string) => {
+        const config = statusConfigMap.get(status);
+        if (config?.color) {
+            return {
+                backgroundColor: `${config.color}25`, // Fundo sutil
+                color: config.color,
+                borderColor: `${config.color}40`
+            };
+        }
+        // Fallback robusto para evitar Badges brancos
+        switch (status) {
+            case 'Pedido': return { backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#fbbf24', borderColor: 'rgba(234, 179, 8, 0.3)' };
+            case 'Em progresso': return { backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.3)' };
+            case 'Finalizado': return { backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', borderColor: 'rgba(34, 197, 94, 0.3)' };
+            case 'Cancelado': return { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' };
+            default: return { backgroundColor: 'rgba(156, 163, 175, 0.15)', color: '#9ca3af', borderColor: 'rgba(156, 163, 175, 0.3)' };
+        }
     };
 
     const handleQuickStatusChange = (ticket: Ticket, newStatus: string) => {
@@ -217,12 +228,19 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                         </thead>
                         <tbody className="divide-y divide-gray-800">
                             {tickets.length > 0 ? tickets.map((ticket) => {
-                                const associatedEquipment = ticket.equipment_id ? equipmentMap.get(ticket.equipment_id) : null;
+                                const requesterObj = collaboratorMap.get(ticket.collaborator_id);
+                                const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : requesterObj?.full_name;
+                                
+                                // Pedido 1: Resolver Entidade/Local (Ticket ou Colaborador)
+                                const resolvedEntidadeId = ticket.entidade_id || requesterObj?.entidade_id;
+                                const entidadeName = resolvedEntidadeId ? entidadeMap.get(resolvedEntidadeId) : '—';
+
                                 const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
                                 const sla = getSLATimer(ticket, categoryObj);
                                 const nis2 = getNis2Countdown(ticket);
                                 const isSecurity = (ticket.category || '').toLowerCase().includes('segurança') || !!ticket.security_incident_type;
-                                const requester = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : collaboratorMap.get(ticket.collaborator_id);
+                                
+                                const statusStyle = getStatusStyle(ticket.status);
 
                                 return (
                                     <tr key={ticket.id} className={`hover:bg-gray-800/40 transition-colors cursor-pointer ${isSecurity ? 'bg-red-900/10' : ''}`} onClick={() => onOpenActivities?.(ticket)}>
@@ -231,7 +249,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                             <div className="text-[10px] text-gray-500">{new Date(ticket.request_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="font-medium text-white">{entidadeMap.get(ticket.entidade_id || '') || '—'}</div>
+                                            <div className="font-medium text-white">{entidadeName}</div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="inline-flex items-center gap-1 bg-gray-900/50 border border-gray-700 px-2 py-1 rounded text-[10px] text-brand-secondary font-bold uppercase whitespace-nowrap">
@@ -251,7 +269,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                                 {ticket.title}
                                             </div>
                                             <div className="text-[10px] text-gray-400 flex items-center gap-1 mb-1">
-                                                {ticket.requester_supplier_id && <FaTruck className="text-yellow-500"/>} {requester}
+                                                {ticket.requester_supplier_id && <FaTruck className="text-yellow-500"/>} {requesterName}
                                             </div>
                                             <div className="text-[11px] text-gray-500 line-clamp-1">{ticket.description}</div>
                                         </td>
@@ -266,22 +284,32 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">
-                                            {ticket.technician_id ? collaboratorMap.get(ticket.technician_id) : <span className="italic">Não Atribuído</span>}
+                                            {ticket.technician_id ? collaboratorMap.get(ticket.technician_id)?.full_name : <span className="italic">Não Atribuído</span>}
                                         </td>
                                         <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
                                             {canEdit ? (
                                                 <select 
                                                     value={ticket.status} 
                                                     onChange={(e) => handleQuickStatusChange(ticket, e.target.value)}
-                                                    className={`px-2 py-1 rounded text-[10px] font-black uppercase border focus:outline-none transition-all cursor-pointer ${getStatusClass(ticket.status)}`}
+                                                    style={statusStyle}
+                                                    className={`px-2 py-1 rounded text-[10px] font-black uppercase border focus:outline-none transition-all cursor-pointer`}
                                                 >
-                                                    <option value="Pedido">Pedido</option>
-                                                    <option value="Em progresso">Em progresso</option>
-                                                    <option value="Finalizado">Finalizado</option>
-                                                    <option value="Cancelado">Cancelado</option>
+                                                    {configTicketStatuses.length > 0 ? (
+                                                        configTicketStatuses.map(st => <option key={st.id} value={st.name} className="bg-gray-800 text-white">{st.name}</option>)
+                                                    ) : (
+                                                        <>
+                                                            <option value="Pedido">Pedido</option>
+                                                            <option value="Em progresso">Em progresso</option>
+                                                            <option value="Finalizado">Finalizado</option>
+                                                            <option value="Cancelado">Cancelado</option>
+                                                        </>
+                                                    )}
                                                 </select>
                                             ) : (
-                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase border ${getStatusClass(ticket.status)}`}>
+                                                <span 
+                                                    style={statusStyle}
+                                                    className={`px-2 py-1 rounded text-[10px] font-black uppercase border`}
+                                                >
                                                     {ticket.status}
                                                 </span>
                                             )}
