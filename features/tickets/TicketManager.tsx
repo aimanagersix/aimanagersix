@@ -143,6 +143,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 onFilterChange={setDashboardFilter}
                 sort={ticketSort}
                 escolasDepartamentos={appData.entidades}
+                instituicoes={appData.instituicoes}
                 collaborators={appData.collaborators}
                 teams={appData.teams}
                 suppliers={appData.suppliers} 
@@ -175,7 +176,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     checkPermission={checkPermission}
                     equipment={appData.equipment}
                     assignments={appData.assignments}
-                    // Pedido 1: Passar licenças para o modal
                     softwareLicenses={appData.softwareLicenses}
                     licenseAssignments={appData.licenseAssignments}
                 />

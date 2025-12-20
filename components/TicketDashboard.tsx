@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction, ConfigItem } from '../types';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction, ConfigItem, Instituicao } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers, FaUserTie } from './common/Icons';
 import { FaPaperclip, FaChevronDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -10,6 +10,7 @@ import SortableHeader from './common/SortableHeader';
 interface TicketDashboardProps {
   tickets: Ticket[];
   escolasDepartamentos: Entidade[];
+  instituicoes: Instituicao[];
   collaborators: Collaborator[];
   teams: Team[];
   suppliers?: Supplier[]; 
@@ -114,9 +115,9 @@ const getSecurityIcon = (type?: string) => {
 };
 
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
-    tickets, escolasDepartamentos: entidades, collaborators, teams, suppliers = [], equipment, categories, configTicketStatuses = [],
+    tickets, escolasDepartamentos: entidades, instituicoes, collaborators, teams, suppliers = [], equipment, categories, configTicketStatuses = [],
     onCreate, onEdit, onUpdateTicket, onOpenActivities, onGenerateSecurityReport, onOpenCloseTicketModal,
-    totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onPageSizeChange: onItemsPerPageChange, onFilterChange,
+    totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange,
     sort, onSortChange, checkPermission
 }) => {
     const [filters, setFilters] = useState({ status: '', team_id: '', category: '', title: '' });
@@ -125,6 +126,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+    const instituicaoMap = useMemo(() => new Map(instituicoes.map(i => [i.id, i.name])), [instituicoes]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
@@ -229,8 +231,16 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 const requesterObj = ticket.collaborator_id ? collaboratorMap.get(ticket.collaborator_id) : undefined;
                                 const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : requesterObj?.full_name;
                                 
+                                // Pedido 1: Resolver Local hierárquico (Entidade > Instituição)
                                 const resolvedEntidadeId = ticket.entidade_id || requesterObj?.entidade_id;
-                                const entidadeName = (resolvedEntidadeId && entidadeMap.has(resolvedEntidadeId)) ? entidadeMap.get(resolvedEntidadeId) : '—';
+                                const resolvedInstituicaoId = requesterObj?.instituicao_id;
+                                
+                                let locationName = '—';
+                                if (resolvedEntidadeId && entidadeMap.has(resolvedEntidadeId)) {
+                                    locationName = entidadeMap.get(resolvedEntidadeId)!;
+                                } else if (resolvedInstituicaoId && instituicaoMap.has(resolvedInstituicaoId)) {
+                                    locationName = instituicaoMap.get(resolvedInstituicaoId)!;
+                                }
 
                                 const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
                                 const sla = getSLATimer(ticket, categoryObj);
@@ -246,7 +256,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                             <div className="text-[10px] text-gray-500">{new Date(ticket.request_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="font-medium text-white">{entidadeName}</div>
+                                            <div className="font-medium text-white">{locationName}</div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="text-white font-semibold flex items-center gap-2 whitespace-nowrap">
