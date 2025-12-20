@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Collaborator, BusinessService, ServiceDependency, Vulnerability, BackupExecution, ResilienceTest, ModuleKey, PermissionAction, SecurityTrainingRecord, TrainingType, Policy } from '../../types';
 import * as dataService from '../../services/dataService';
@@ -201,6 +200,8 @@ const ComplianceManager: React.FC<ComplianceManagerProps> = ({
                    currentUser={currentUser} 
                    categories={appData.ticketCategories} 
                    securityIncidentTypes={appData.securityIncidentTypes} 
+                   // Fix: Pass missing checkPermission prop to AddTicketModal
+                   checkPermission={checkPermission}
                 />
             )}
             {showAddTrainingSessionModal && (

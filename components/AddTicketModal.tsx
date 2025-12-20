@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao } from '../types';
+import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction } from '../types';
 import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie } from './common/Icons';
 
 interface AddTicketModalProps {
@@ -16,10 +16,11 @@ interface AddTicketModalProps {
     currentUser: Collaborator | null;
     categories: TicketCategoryItem[];
     securityIncidentTypes?: SecurityIncidentTypeItem[];
+    checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
 }
 
 export const AddTicketModal: React.FC<AddTicketModalProps> = ({ 
-    onClose, onSave, ticketToEdit, collaborators, teams, teamMembers = [], currentUser, categories, securityIncidentTypes = [] 
+    onClose, onSave, ticketToEdit, collaborators, teams, teamMembers = [], currentUser, categories, securityIncidentTypes = [], checkPermission 
 }) => {
     const [isSaving, setIsSaving] = useState(false);
     
@@ -36,38 +37,33 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         security_incident_type: ''
     });
 
+    const canEditAdvanced = checkPermission('tickets', 'edit');
+
     useEffect(() => {
         if (ticketToEdit) {
             setFormData({ ...ticketToEdit });
         }
     }, [ticketToEdit]);
 
-    // Lógica para filtrar técnicos baseada na equipa selecionada
+    // Filtrar técnicos baseada na equipa selecionada
     const filteredTechnicians = useMemo(() => {
         if (!formData.team_id) {
-            // Se nenhuma equipa estiver selecionada, mostramos todos os colaboradores (fallback)
             return collaborators.sort((a, b) => a.full_name.localeCompare(b.full_name));
         }
-        
-        // Obter IDs de colaboradores que pertencem à equipa selecionada
         const memberIds = new Set(
             teamMembers
                 .filter(tm => tm.team_id === formData.team_id)
                 .map(tm => tm.collaborator_id)
         );
-
         return collaborators
             .filter(c => memberIds.has(c.id))
             .sort((a, b) => a.full_name.localeCompare(b.full_name));
     }, [formData.team_id, collaborators, teamMembers]);
 
-    // Monitorizar se o técnico atual ainda é válido para a nova equipa
     useEffect(() => {
         if (formData.team_id && formData.technician_id) {
             const isValid = filteredTechnicians.some(t => t.id === formData.technician_id);
             if (!isValid) {
-                // Fix: Adicionada tipagem (prev: any) para resolver erro de build TS7006
-                // Limpa o técnico se ele não pertencer à nova equipa selecionada
                 setFormData((prev: any) => ({ ...prev, technician_id: '' }));
             }
         }
@@ -102,29 +98,41 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Categoria do Pedido</label>
-                        <select 
-                            value={formData.category} 
-                            onChange={e => setFormData({...formData, category: e.target.value})} 
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:ring-brand-primary"
-                        >
-                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                        </select>
+                        {canEditAdvanced ? (
+                            <select 
+                                value={formData.category} 
+                                onChange={e => setFormData({...formData, category: e.target.value})} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:ring-brand-primary"
+                            >
+                                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                            </select>
+                        ) : (
+                            <div className="w-full bg-gray-800 border border-gray-700 text-gray-400 rounded p-2 text-sm">
+                                {formData.category || 'Geral'}
+                            </div>
+                        )}
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2">
                              <FaHistory className="text-brand-secondary" /> Estado Atual
                         </label>
-                        <select 
-                            value={formData.status} 
-                            onChange={e => setFormData({...formData, status: e.target.value})} 
-                            className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm font-bold text-brand-secondary"
-                        >
-                            <option value="Pedido">Pedido (Novo)</option>
-                            <option value="Em progresso">Em progresso</option>
-                            <option value="Finalizado">Finalizado</option>
-                            <option value="Cancelado">Cancelado</option>
-                        </select>
+                        {canEditAdvanced ? (
+                            <select 
+                                value={formData.status} 
+                                onChange={e => setFormData({...formData, status: e.target.value})} 
+                                className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm font-bold text-brand-secondary"
+                            >
+                                <option value="Pedido">Pedido (Novo)</option>
+                                <option value="Em progresso">Em progresso</option>
+                                <option value="Finalizado">Finalizado</option>
+                                <option value="Cancelado">Cancelado</option>
+                            </select>
+                        ) : (
+                            <div className="w-full bg-gray-800 border border-gray-700 text-brand-secondary rounded p-2 text-sm font-bold">
+                                {formData.status}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -136,31 +144,39 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-medium text-gray-400 mb-1">Natureza da Ameaça</label>
-                                <select 
-                                    value={formData.security_incident_type || ''} 
-                                    onChange={e => setFormData({...formData, security_incident_type: e.target.value})} 
-                                    className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2 text-sm"
-                                    required={currentIsSecurity}
-                                >
-                                    <option value="">-- Selecione o Tipo --</option>
-                                    {securityIncidentTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                                </select>
+                                {canEditAdvanced ? (
+                                    <select 
+                                        value={formData.security_incident_type || ''} 
+                                        onChange={e => setFormData({...formData, security_incident_type: e.target.value})} 
+                                        className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2 text-sm"
+                                        required={currentIsSecurity}
+                                    >
+                                        <option value="">-- Selecione o Tipo --</option>
+                                        {securityIncidentTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                    </select>
+                                ) : (
+                                    <div className="w-full bg-gray-800 border border-red-900/30 text-gray-400 rounded p-2 text-sm">
+                                        {formData.security_incident_type || 'Não especificado'}
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-400 mb-1">Criticidade do Impacto</label>
-                                <select 
-                                    value={formData.impact_criticality || 'Baixa'} 
-                                    onChange={e => setFormData({...formData, impact_criticality: e.target.value})} 
-                                    className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2 text-sm"
-                                >
-                                    {Object.values(CriticalityLevel).map(l => <option key={l} value={l}>{l}</option>)}
-                                </select>
+                                {canEditAdvanced ? (
+                                    <select 
+                                        value={formData.impact_criticality || 'Baixa'} 
+                                        onChange={e => setFormData({...formData, impact_criticality: e.target.value})} 
+                                        className="w-full bg-gray-800 border border-red-500/30 text-white rounded p-2 text-sm"
+                                    >
+                                        {Object.values(CriticalityLevel).map(l => <option key={l} value={l}>{l}</option>)}
+                                    </select>
+                                ) : (
+                                    <div className="w-full bg-gray-800 border border-red-900/30 text-gray-400 rounded p-2 text-sm">
+                                        {formData.impact_criticality}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <p className="text-[10px] text-red-300 italic">
-                            <FaExclamationTriangle className="inline mr-1" /> 
-                            Incidentes de segurança ativam o cronómetro de notificação regulatória (24h/72h).
-                        </p>
                     </div>
                 )}
 
@@ -193,31 +209,38 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                         <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2">
                             <FaUsers className="text-blue-400" /> Atribuir a Equipa
                         </label>
-                        <select 
-                            value={formData.team_id || ''} 
-                            onChange={e => setFormData({...formData, team_id: e.target.value})} 
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
-                        >
-                            <option value="">-- Pendente Atribuição --</option>
-                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
+                        {canEditAdvanced ? (
+                            <select 
+                                value={formData.team_id || ''} 
+                                onChange={e => setFormData({...formData, team_id: e.target.value})} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"
+                            >
+                                <option value="">-- Pendente Atribuição --</option>
+                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                        ) : (
+                            <div className="w-full bg-gray-800 border border-gray-700 text-gray-400 rounded p-2 text-sm">
+                                {teams.find(t => t.id === formData.team_id)?.name || 'Pendente'}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2">
                             <FaUserTie className="text-green-400" /> Técnico Responsável
                         </label>
-                        <select 
-                            value={formData.technician_id || ''} 
-                            onChange={e => setFormData({...formData, technician_id: e.target.value})} 
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm disabled:opacity-50"
-                        >
-                            <option value="">-- Não Atribuído (Fila de Equipa) --</option>
-                            {filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
-                        </select>
-                        {formData.team_id && filteredTechnicians.length === 0 && (
-                            <p className="text-[10px] text-orange-400 mt-1 italic">
-                                * Esta equipa ainda não tem membros associados.
-                            </p>
+                        {canEditAdvanced ? (
+                            <select 
+                                value={formData.technician_id || ''} 
+                                onChange={e => setFormData({...formData, technician_id: e.target.value})} 
+                                className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm disabled:opacity-50"
+                            >
+                                <option value="">-- Não Atribuído (Fila de Equipa) --</option>
+                                {filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                            </select>
+                        ) : (
+                            <div className="w-full bg-gray-800 border border-gray-700 text-gray-400 rounded p-2 text-sm">
+                                {collaborators.find(c => c.id === formData.technician_id)?.full_name || 'Não Atribuído'}
+                            </div>
                         )}
                     </div>
                 </div>

@@ -60,10 +60,11 @@ const TicketManager: React.FC<TicketManagerProps> = ({
         if (!currentUser) return;
         setTicketsLoading(true);
         try {
+            // Se o dashboardFilter estiver vazio, passamos um objeto vazio e o serviço filtrará Pedido/Em progresso
             const { data, total } = await dataService.fetchTicketsPaginated({
                 page: ticketPage,
                 pageSize: ticketPageSize,
-                filters: dashboardFilter,
+                filters: dashboardFilter || {},
                 sort: ticketSort,
                 userContext: {
                     id: currentUser.id,
@@ -112,7 +113,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 page={ticketPage}
                 pageSize={ticketPageSize}
                 onPageChange={setTicketPage}
-                // Fix: use setTicketPageSize instead of non-existent setEquipmentPageSize
                 onPageSizeChange={setTicketPageSize}
                 onFilterChange={setDashboardFilter}
                 sort={ticketSort}
@@ -129,6 +129,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     setTicketForRegulatoryReport(t);
                     setShowRegulatoryModal(true);
                 }}
+                checkPermission={checkPermission}
             />
 
             {showAddTicketModal && (
@@ -148,6 +149,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     currentUser={currentUser}
                     categories={appData.ticketCategories}
                     securityIncidentTypes={appData.securityIncidentTypes}
+                    checkPermission={checkPermission}
                 />
             )}
 

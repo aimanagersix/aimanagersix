@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier } from '../types';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers } from './common/Icons';
 import { FaPaperclip, FaChevronDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -22,6 +22,7 @@ interface TicketDashboardProps {
   onGenerateSecurityReport?: (ticket: Ticket) => void;
   onOpenCloseTicketModal?: (ticket: Ticket) => void;
   onFilterChange?: (filter: any) => void;
+  checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
   
   // Server-Side Pagination & Sort Props
   totalItems?: number;
@@ -125,10 +126,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     tickets, escolasDepartamentos: entidades, collaborators, teams, suppliers = [], equipment, categories,
     onCreate, onEdit, onUpdateTicket, onOpenActivities, onGenerateSecurityReport, onOpenCloseTicketModal,
     totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange,
-    sort, onSortChange
+    sort, onSortChange, checkPermission
 }) => {
     const [filters, setFilters] = useState({ status: '', team_id: '', category: '', title: '' });
     
+    // Pedido 1: Garantir ordenação decrescente por data de criação por defeito
     const sortConfig = sort || { key: 'request_date', direction: 'descending' };
     
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
@@ -164,6 +166,8 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         }
     };
 
+    const canEdit = checkPermission('tickets', 'edit');
+
     return (
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl animate-fade-in">
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
@@ -183,10 +187,10 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                             {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                         </select>
                         <select name="status" value={filters.status} onChange={handleFilterChange} className="bg-gray-700 text-gray-300 px-2 py-1.5 text-xs border-l border-gray-600 focus:outline-none">
-                            <option value="">Estados</option>
+                            <option value="">Estados Ativos</option>
                             <option value="Pedido">Pedido</option>
                             <option value="Em progresso">Em progresso</option>
-                            <option value="Finalizado">Finalizado</option>
+                            <option value="Finalizado">Finalizado (Histórico)</option>
                             <option value="Cancelado">Cancelado</option>
                         </select>
                     </div>
@@ -200,6 +204,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                     <table className="w-full text-sm text-left">
                         <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                             <tr>
+                                <SortableHeader label="Data de Criação" sortKey="request_date" currentSort={sortConfig} onSort={handleSortRequest} />
                                 <th className="px-6 py-3">Entidade / Local</th>
                                 <th className="px-6 py-3">Equipa</th>
                                 <SortableHeader label="Categoria" sortKey="category" currentSort={sortConfig} onSort={handleSortRequest} />
@@ -221,6 +226,10 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
 
                                 return (
                                     <tr key={ticket.id} className={`hover:bg-gray-800/40 transition-colors cursor-pointer ${isSecurity ? 'bg-red-900/10' : ''}`} onClick={() => onOpenActivities?.(ticket)}>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="font-mono text-xs text-white">{new Date(ticket.request_date).toLocaleDateString()}</div>
+                                            <div className="text-[10px] text-gray-500">{new Date(ticket.request_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                        </td>
                                         <td className="px-6 py-4">
                                             <div className="font-medium text-white">{entidadeMap.get(ticket.entidade_id || '') || '—'}</div>
                                         </td>
@@ -245,7 +254,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                                 {ticket.requester_supplier_id && <FaTruck className="text-yellow-500"/>} {requester}
                                             </div>
                                             <div className="text-[11px] text-gray-500 line-clamp-1">{ticket.description}</div>
-                                            <div className="text-[9px] text-gray-600 mt-1">{new Date(ticket.request_date).toLocaleString()}</div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1.5">
@@ -261,16 +269,22 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                             {ticket.technician_id ? collaboratorMap.get(ticket.technician_id) : <span className="italic">Não Atribuído</span>}
                                         </td>
                                         <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
-                                            <select 
-                                                value={ticket.status} 
-                                                onChange={(e) => handleQuickStatusChange(ticket, e.target.value)}
-                                                className={`px-2 py-1 rounded text-[10px] font-black uppercase border focus:outline-none transition-all cursor-pointer ${getStatusClass(ticket.status)}`}
-                                            >
-                                                <option value="Pedido">Pedido</option>
-                                                <option value="Em progresso">Em progresso</option>
-                                                <option value="Finalizado">Finalizado</option>
-                                                <option value="Cancelado">Cancelado</option>
-                                            </select>
+                                            {canEdit ? (
+                                                <select 
+                                                    value={ticket.status} 
+                                                    onChange={(e) => handleQuickStatusChange(ticket, e.target.value)}
+                                                    className={`px-2 py-1 rounded text-[10px] font-black uppercase border focus:outline-none transition-all cursor-pointer ${getStatusClass(ticket.status)}`}
+                                                >
+                                                    <option value="Pedido">Pedido</option>
+                                                    <option value="Em progresso">Em progresso</option>
+                                                    <option value="Finalizado">Finalizado</option>
+                                                    <option value="Cancelado">Cancelado</option>
+                                                </select>
+                                            ) : (
+                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase border ${getStatusClass(ticket.status)}`}>
+                                                    {ticket.status}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-center" onClick={e => e.stopPropagation()}>
                                             <div className="flex justify-center gap-3">
@@ -278,13 +292,13 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                                     <button onClick={() => onGenerateSecurityReport(ticket)} className="text-red-400 hover:text-red-300" title="Relatório NIS2"><FaFileContract/></button>
                                                 )}
                                                 <button onClick={() => onOpenActivities?.(ticket)} className="text-teal-400 hover:text-teal-300" title="Ver Atividade"><FaTasks/></button>
-                                                {onEdit && <button onClick={() => onEdit(ticket)} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>}
+                                                {onEdit && canEdit && <button onClick={() => onEdit(ticket)} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>}
                                             </div>
                                         </td>
                                     </tr>
                                 );
                             }) : (
-                                <tr><td colSpan={8} className="text-center py-20 text-gray-500 italic">Nenhum ticket encontrado com os filtros atuais.</td></tr>
+                                <tr><td colSpan={9} className="text-center py-20 text-gray-500 italic">Nenhum ticket encontrado com os filtros atuais.</td></tr>
                             )}
                         </tbody>
                     </table>
