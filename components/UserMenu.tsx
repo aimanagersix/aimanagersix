@@ -42,15 +42,14 @@ const UserMenu: React.FC<UserMenuProps> = ({ currentUser, onLogout, onOpenProfil
     return (
         <div className="relative" ref={menuRef}>
             <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-800 transition-colors w-full">
-                {/* FIX: photo_url */}
                 {currentUser.photo_url ? (
                     <img src={currentUser.photo_url} alt={currentUser.full_name} className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
                 ) : (
-                    // FIX: full_name
-                    <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs flex-shrink-0">{currentUser.full_name.charAt(0)}</div>
+                    <div className="h-8 w-8 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white text-xs flex-shrink-0">
+                        {(currentUser?.full_name || '?').charAt(0)}
+                    </div>
                 )}
                 <div className="hidden md:block text-left overflow-hidden flex-grow">
-                    {/* FIX: full_name */}
                     <p className="text-xs font-bold text-white truncate">{currentUser.full_name}</p>
                     <p className="text-[10px] text-gray-500 uppercase">{currentUser.role}</p>
                 </div>
@@ -60,7 +59,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ currentUser, onLogout, onOpenProfil
             {isOpen && (
                 <div className={`absolute right-0 ${align === 'up' ? 'bottom-full mb-2' : 'mt-2'} w-64 rounded-md bg-surface-dark shadow-2xl ring-1 ring-black ring-opacity-5 z-[100] overflow-hidden border border-gray-700`}>
                     <div className="px-4 py-3 border-b border-gray-700 bg-gray-900/50">
-                        {/* FIX: full_name */}
                         <p className="text-sm text-white font-medium truncate">{currentUser.full_name}</p>
                         <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
                     </div>

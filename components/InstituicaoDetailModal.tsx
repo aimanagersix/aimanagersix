@@ -14,7 +14,6 @@ interface InstituicaoDetailModalProps {
     onAddEntity?: (instituicaoId: string) => void;
     onCreateCollaborator?: () => void; 
     onOpenEntity?: (entidade: Entidade) => void;
-    // New Drill-down handlers
     onOpenCollaborator?: (collaborator: Collaborator) => void;
     onOpenEquipment?: (equipment: Equipment) => void;
     assignments?: Assignment[];
@@ -30,9 +29,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
 }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'collabs' | 'equipment'>('info');
     
-    // Filter and Deduplicate Entities
     const relatedEntidades = useMemo(() => {
-        // Fix: instituicaoId to instituicao_id
         const filtered = entidades.filter(e => e.instituicao_id === instituicao.id);
         const uniqueMap = new Map();
         filtered.forEach(e => {
@@ -47,33 +44,24 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
     
     const relatedEntityIds = useMemo(() => new Set(relatedEntidades.map(e => e.id)), [relatedEntidades]);
 
-    // Filter collaborators belonging to entities of this institution
     const relatedCollaborators = useMemo(() => {
-        // Fix: entidadeId to entidade_id
         return collaborators.filter(c => c.entidade_id && relatedEntityIds.has(c.entidade_id));
     }, [collaborators, relatedEntityIds]);
 
-    // Filter equipment belonging to any entity in this institution
     const relatedEquipment = useMemo(() => {
         const brandMap = new Map(brands.map(b => [b.id, b.name]));
         const typeMap = new Map(equipmentTypes.map(t => [t.id, t.name]));
         const entMap = new Map(entidades.map(e => [e.id, e.name]));
-        // Fix: fullName to full_name
         const collabMap = new Map(collaborators.map(c => [c.id, c.full_name]));
 
         return assignments
-            // Fix: entidadeId, returnDate to entidade_id, return_date
             .filter(a => a.entidade_id && relatedEntityIds.has(a.entidade_id) && !a.return_date)
             .map(a => {
-                // Fix: equipmentId to equipment_id
                 const eq = equipment.find(e => e.id === a.equipment_id);
                 return {
                     ...eq,
-                    // Fix: assignedDate to assigned_date
                     assignmentDate: a.assigned_date,
-                    // Fix: collaboratorId to collaborator_id
                     assignedToName: a.collaborator_id ? collabMap.get(a.collaborator_id) : 'Atribuído à Localização',
-                    // Fix: entidadeId to entidade_id
                     entityName: entMap.get(a.entidade_id || '')
                 };
             })
@@ -81,9 +69,7 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
             .sort((a,b) => (a.description || '').localeCompare(b.description || ''));
     }, [assignments, relatedEntityIds, equipment, brands, equipmentTypes, entidades, collaborators]);
 
-    // Calculate Total Asset Value for display
     const totalAssetValue = useMemo(() => {
-        // Fix: acquisitionCost to acquisition_cost
         return relatedEquipment.reduce((sum, eq) => sum + (eq.acquisition_cost || 0), 0);
     }, [relatedEquipment]);
 
@@ -91,7 +77,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        // 1. Fetch Logo & Settings
         const [logoBase64, sizeStr, align, footerId] = await Promise.all([
             dataService.getGlobalSetting('app_logo_base64'),
             dataService.getGlobalSetting('app_logo_size'),
@@ -109,13 +94,9 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
             }
         }
 
-        // 3. Generate Tables
         const collaboratorRows = relatedCollaborators.map(col => {
-            // Fix: entidadeId to entidade_id
             const entName = entidades.find(e => e.id === col.entidade_id)?.name || 'N/A';
-            // Fix: telefoneInterno to telefone_interno
             const phone = col.telemovel || col.telefone_interno || '-';
-            // Fix: fullName to full_name
             const name = (col.title ? col.title + ' ' : '') + col.full_name;
             return `
                 <tr>
@@ -138,7 +119,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
             </tr>
         `).join('');
 
-        // 4. Print Template
         printWindow.document.write(`
             <html>
             <head>
@@ -155,19 +135,16 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                     .section { margin-bottom: 30px; page-break-inside: avoid; }
                     h3 { color: #333; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 0; text-transform: uppercase; }
                     
-                    /* Summary Box */
-                    .summary-box { background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 5px; display: flex; justify-content: space-around; margin-bottom: 30px; }
+                    .summary-box { background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 5px; display: flex; justify-content: space-around; margin-bottom: 30px; }
                     .kpi { text-align: center; }
                     .kpi-val { font-size: 20px; font-weight: bold; color: #0D47A1; display: block; }
                     .kpi-lbl { font-size: 11px; text-transform: uppercase; color: #666; }
-
-                    /* Data Grid */
+                    
                     .grid-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
                     .info-item { margin-bottom: 8px; }
                     .label { font-weight: bold; color: #555; font-size: 11px; text-transform: uppercase; }
                     .value { font-size: 14px; }
 
-                    /* Tables */
                     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
                     th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
                     th { background-color: #f2f2f2; font-weight: bold; border-bottom: 2px solid #ddd; }
@@ -270,7 +247,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
     return (
         <Modal title={`Detalhes: ${instituicao.name}`} onClose={onClose} maxWidth="max-w-4xl">
             <div className="flex flex-col h-[80vh]">
-                {/* Header */}
                 <div className="flex-shrink-0 flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 relative mb-4">
                     <div className="p-3 bg-brand-primary/20 rounded-full text-brand-secondary">
                         <FaSitemap className="h-8 w-8" />
@@ -301,7 +277,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                     </div>
                 </div>
 
-                {/* Tabs */}
                 <div className="flex border-b border-gray-700 mb-4 flex-shrink-0">
                     <button 
                         onClick={() => setActiveTab('info')} 
@@ -323,7 +298,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                     </button>
                 </div>
 
-                {/* Content Area */}
                 <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
                     
                     {activeTab === 'info' && (
@@ -356,7 +330,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                                 </div>
                             </div>
 
-                            {/* Org Structure */}
                             <div className="mt-6">
                                 <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-3">
                                     <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Estrutura Organizacional</h3>
@@ -414,7 +387,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                             {relatedCollaborators.length > 0 ? (
                                 <div className="space-y-2">
                                     {relatedCollaborators.map(col => {
-                                        // Fix: entidadeId to entidade_id
                                         const entName = relatedEntidades.find(e => e.id === col.entidade_id)?.name || 'N/A';
                                         return (
                                             <div 
@@ -428,7 +400,6 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-white flex items-center gap-2">
-                                                            {/* Fix: fullName to full_name */}
                                                             {col.full_name}
                                                             {onOpenCollaborator && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
                                                         </p>
@@ -484,10 +455,8 @@ const InstituicaoDetailModal: React.FC<InstituicaoDetailModalProps> = ({
                                                         {onOpenEquipment && <FaExternalLinkAlt className="opacity-0 group-hover:opacity-100 text-xs text-brand-secondary" />}
                                                     </td>
                                                     <td className="px-4 py-2 text-gray-300 text-xs">{eq.entityName}</td>
-                                                    {/* Fix: serialNumber to serial_number */}
                                                     <td className="px-4 py-2 font-mono text-xs text-gray-400">{eq.serial_number}</td>
                                                     <td className="px-4 py-2 text-gray-300">{eq.assignedToName}</td>
-                                                    {/* Fix: acquisitionCost to acquisition_cost */}
                                                     <td className="px-4 py-2 text-gray-400 text-xs text-right">€ {(eq.acquisition_cost || 0).toLocaleString()}</td>
                                                 </tr>
                                             ))}

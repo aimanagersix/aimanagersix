@@ -23,7 +23,6 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        // Fix: fullName to full_name
         const membersRows = members.map(m => `
             <tr>
                 <td>${m.full_name}</td>
@@ -79,7 +78,6 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
     return (
         <Modal title={`Detalhes da Equipa: ${team.name}`} onClose={onClose} maxWidth="max-w-3xl">
             <div className="space-y-6">
-                {/* Header */}
                 <div className="flex items-start gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                     <div className="p-3 bg-brand-primary/20 rounded-full text-brand-secondary">
                         <FaUsers className="h-8 w-8" />
@@ -114,7 +112,6 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
                     </div>
                 </div>
 
-                {/* Members List */}
                 <div>
                     <h3 className="text-sm font-semibold text-white uppercase tracking-wider border-b border-gray-700 pb-2 mb-3">Membros da Equipa</h3>
                     
@@ -122,17 +119,14 @@ const TeamDetailModal: React.FC<TeamDetailModalProps> = ({ team, teamMembers, co
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                             {members.map(member => (
                                 <div key={member.id} className="flex items-center gap-3 bg-surface-dark p-3 rounded border border-gray-700">
-                                    {/* Fix: photoUrl to photo_url */}
                                     {member.photo_url ? (
                                         <img src={member.photo_url} alt={member.full_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                                     ) : (
                                         <div className="w-10 h-10 rounded-full bg-brand-secondary flex items-center justify-center font-bold text-white flex-shrink-0">
-                                            {/* Fix: fullName to full_name */}
-                                            {member.full_name.charAt(0)}
+                                            {(member.full_name || '?').charAt(0)}
                                         </div>
                                     )}
                                     <div className="overflow-hidden">
-                                        {/* Fix: fullName to full_name */}
                                         <p className="font-semibold text-white truncate" title={member.full_name}>{member.full_name}</p>
                                         <p className="text-xs text-gray-400 truncate">{member.email}</p>
                                         <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1">

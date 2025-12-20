@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, ModuleKey, PermissionAction } from './types';
 // Added FaBell to imports to resolve line 145 error
-import { FaClipboardList, FaBuilding, FaUsers, FaTicketAlt, FaSitemap, FaShieldAlt, FaBoxOpen, FaToolbox, FaChevronDown, FaBars, FaChartBar, FaUserTie, FaTachometerAlt, FaKey, FaShoppingCart, FaNetworkWired, FaServer, FaShieldVirus, FaFileSignature, FaGraduationCap, FaAddressBook, FaMapMarkedAlt, FaCalendarAlt, FaBook, FaBell } from './components/common/Icons';
+import { FaClipboardList, FaBuilding, FaUsers, FaTicketAlt, FaSitemap, FaShieldAlt, FaBoxOpen, FaToolbox, FaChevronDown, FaBars, FaChartBar, FaUserTie, FaTachometerAlt, FaKey, FaShoppingCart, FaNetworkWired, FaServer, FaShieldVirus, FaFileSignature, FaUserTie as FaGraduationCap, FaAddressBook, FaMapMarkedAlt, FaCalendarAlt, FaBook, FaBell } from './components/common/Icons';
 import { useLanguage } from './contexts/LanguageContext';
 import UserMenu from './components/UserMenu';
 
@@ -111,7 +111,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         <div className="relative">
                             <button onClick={() => toggleMenu('nis2')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isNis2Active ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
                                 <FaShieldAlt /> {t('nav.compliance')} <FaChevronDown className="w-3 h-3 ml-1" />
-                            </button>
+                                </button>
                             {openMenu === 'nis2' && (
                                 <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg py-1">
                                     {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
