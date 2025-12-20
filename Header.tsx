@@ -1,8 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, ModuleKey, PermissionAction } from './types';
-// Added FaBell to imports to resolve line 145 error
-import { FaClipboardList, FaBuilding, FaUsers, FaTicketAlt, FaSitemap, FaShieldAlt, FaBoxOpen, FaToolbox, FaChevronDown, FaBars, FaChartBar, FaUserTie, FaTachometerAlt, FaKey, FaShoppingCart, FaNetworkWired, FaServer, FaShieldVirus, FaFileSignature, FaUserTie as FaGraduationCap, FaAddressBook, FaMapMarkedAlt, FaCalendarAlt, FaBook, FaBell } from './components/common/Icons';
+import { FaClipboardList, FaBuilding, FaUsers, FaTicketAlt, FaSitemap, FaShieldAlt, FaBoxOpen, FaToolbox, FaChevronDown, FaBars, FaChartBar, FaUserTie, FaTachometerAlt, FaKey, FaShoppingCart, FaNetworkWired, FaServer, FaShieldVirus, FaFileSignature, FaUserTie as FaGraduationCap, FaAddressBook, FaMapMarkedAlt, FaCalendarAlt, FaBook, FaBell, FaSync, FaTags } from './components/common/Icons';
 import { useLanguage } from './contexts/LanguageContext';
 import UserMenu from './components/UserMenu';
 
@@ -48,10 +47,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     }, []);
 
     const toggleMenu = (menu: string) => setOpenMenu(openMenu === menu ? null : menu);
+    
+    // Logic for active groups
+    const isOverviewActive = activeTab.startsWith('overview') || activeTab === 'my_area';
     const isOrganizationActive = activeTab.startsWith('organizacao') || activeTab === 'collaborators';
     const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
     const isNis2Active = activeTab.startsWith('nis2');
-    const isOverviewActive = activeTab.startsWith('overview') || activeTab === 'my_area';
 
     return (
         <header className="bg-gray-800 shadow-lg relative z-30 flex-shrink-0" ref={menuRef}>
@@ -64,78 +65,81 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                         </div>
                     </div>
 
-                    <nav className="hidden md:flex items-center space-x-2">
-                        {tabConfig['overview'] && (
-                            <div className="relative">
-                                <button onClick={() => toggleMenu('overview')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isOverviewActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
-                                    <FaChartBar /> {t('nav.overview')} <FaChevronDown className="w-3 h-3 ml-1" />
-                                </button>
-                                {openMenu === 'overview' && (
-                                    <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg ring-1 ring-black ring-opacity-5 py-1">
-                                        {checkPermission('widget_kpi_cards', 'view') && <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
-                                        {checkPermission('my_area', 'view') && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie className="text-brand-secondary" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
-                                        {tabConfig['overview.smart'] && <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                    <nav className="hidden md:flex items-center space-x-1">
+                        {/* GRUPO: DASHBOARDS */}
+                        <div className="relative">
+                            <button onClick={() => toggleMenu('overview')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isOverviewActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
+                                <FaChartBar /> {t('nav.overview')} <FaChevronDown className="w-2 h-2 ml-1" />
+                            </button>
+                            {openMenu === 'overview' && (
+                                <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg border border-gray-700 py-1">
+                                    {checkPermission('widget_kpi_cards', 'view') && <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                                    {checkPermission('my_area', 'view') && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie className="text-brand-secondary" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                                    {checkPermission('dashboard_smart', 'view') && <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                                </div>
+                            )}
+                        </div>
 
-                        {(tabConfig['organizacao.instituicoes'] || tabConfig['organizacao.entidades'] || tabConfig['collaborators']) && (
-                            <div className="relative">
-                                <button onClick={() => toggleMenu('org')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isOrganizationActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
-                                    <FaSitemap /> {t('nav.organization')} <FaChevronDown className="w-3 h-3 ml-1" />
-                                </button>
-                                {openMenu === 'org' && (
-                                    <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg py-1">
-                                        {tabConfig['organizacao.instituicoes'] && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                        {tabConfig['organizacao.entidades'] && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                        {tabConfig['collaborators'] && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {/* GRUPO: ORGANIZAÇÃO */}
+                        <div className="relative">
+                            <button onClick={() => toggleMenu('org')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isOrganizationActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
+                                <FaSitemap /> {t('nav.organization')} <FaChevronDown className="w-2 h-2 ml-1" />
+                            </button>
+                            {openMenu === 'org' && (
+                                <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg border border-gray-700 py-1">
+                                    {checkPermission('org_institutions', 'view') && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('org_entities', 'view') && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('org_collaborators', 'view') && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('organization', 'view') && <TabButton tab="organizacao.teams" label={t('nav.teams')} icon={<FaUsers className="text-green-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('org_suppliers', 'view') && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt className="text-orange-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                </div>
+                            )}
+                        </div>
 
+                        {/* GRUPO: INVENTÁRIO */}
                         <div className="relative">
                             <button onClick={() => toggleMenu('inventory')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isInventoryActive ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
-                                <FaBoxOpen /> {t('nav.inventory')} <FaChevronDown className="w-3 h-3 ml-1" />
+                                <FaBoxOpen /> {t('nav.inventory')} <FaChevronDown className="w-2 h-2 ml-1" />
                             </button>
                             {openMenu === 'inventory' && (
-                                <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg py-1">
-                                    {tabConfig['equipment.inventory'] && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    {tabConfig['licensing'] && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    {tabConfig['equipment.procurement'] && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg border border-gray-700 py-1">
+                                    {checkPermission('equipment', 'view') && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('licensing', 'view') && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('procurement', 'view') && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 </div>
                             )}
                         </div>
 
+                        {/* GRUPO: COMPLIANCE NIS2 */}
                         <div className="relative">
                             <button onClick={() => toggleMenu('nis2')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isNis2Active ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
-                                <FaShieldAlt /> {t('nav.compliance')} <FaChevronDown className="w-3 h-3 ml-1" />
-                                </button>
+                                <FaShieldAlt /> {t('nav.compliance')} <FaChevronDown className="w-2 h-2 ml-1" />
+                            </button>
                             {openMenu === 'nis2' && (
-                                <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg py-1">
-                                    {tabConfig.nis2?.bia && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    {tabConfig.nis2?.security && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    {tabConfig.nis2?.backups && <TabButton tab="nis2.backups" label={t('nav.backups')} icon={<FaServer />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    {tabConfig.nis2?.resilience && <TabButton tab="nis2.resilience" label={t('nav.resilience')} icon={<FaShieldVirus className="text-purple-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    {tabConfig.nis2?.training && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap className="text-green-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    {tabConfig.nis2?.policies && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature className="text-yellow-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg border border-gray-700 py-1">
+                                    {checkPermission('compliance_bia', 'view') && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('compliance_security', 'view') && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('compliance_backups', 'view') && <TabButton tab="nis2.backups" label={t('nav.backups')} icon={<FaServer />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('compliance_resilience', 'view') && <TabButton tab="nis2.resilience" label={t('nav.resilience')} icon={<FaShieldVirus className="text-purple-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('compliance_training', 'view') && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap className="text-green-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('compliance_policies', 'view') && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature className="text-yellow-400"/>} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 </div>
                             )}
                         </div>
 
-                        {tabConfig['tickets'] && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>}
+                        {checkPermission('tickets', 'view') && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={setActiveTab}/>}
                         
+                        {/* GRUPO: FERRAMENTAS */}
                         <div className="relative">
                             <button onClick={() => toggleMenu('tools')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab.startsWith('tools') ? 'bg-brand-primary text-white' : 'text-on-surface-dark-secondary hover:bg-surface-dark hover:text-white'}`}>
-                                <FaToolbox /> {t('nav.tools')} <FaChevronDown className="w-3 h-3 ml-1" />
+                                <FaToolbox /> {t('nav.tools')} <FaChevronDown className="w-2 h-2 ml-1" />
                             </button>
                             {openMenu === 'tools' && (
-                                <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg py-1">
-                                    <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />
-                                    <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />
-                                    <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => onOpenCalendar()} />
-                                    <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => onOpenManual()} />
+                                <div className="absolute z-20 mt-2 w-60 rounded-md bg-surface-dark shadow-lg border border-gray-700 py-1">
+                                    {checkPermission('tools_agenda', 'view') && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('tools_map', 'view') && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
+                                    {checkPermission('tools_calendar', 'view') && <TabButton label={t('nav.calendar')} icon={<FaCalendarAlt className="text-blue-400" />} isDropdownItem onClick={() => onOpenCalendar()} />}
+                                    {checkPermission('tools_manual', 'view') && <TabButton label={t('nav.manual')} icon={<FaBook className="text-green-400" />} isDropdownItem onClick={() => onOpenManual()} />}
                                 </div>
                             )}
                         </div>

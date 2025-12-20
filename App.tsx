@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -28,6 +27,8 @@ import UserProfileModal from './components/UserProfileModal';
 import NotificationsModal from './components/NotificationsModal';
 import CalendarModal from './components/CalendarModal';
 import UserManualModal from './components/UserManualModal';
+// Fix: Added ReportModal import
+import ReportModal from './components/ReportModal';
 
 // Atomic Hooks
 import { useOrganization } from './hooks/useOrganization';
@@ -69,6 +70,8 @@ export const App: React.FC = () => {
     const [activeChatCollaboratorId, setActiveChatCollaboratorId] = useState<string | null>(null);
     
     // Global Modals State
+    // Fix: Added reportType state to fix line 187, 188, 189 errors
+    const [reportType, setReportType] = useState<string | null>(null);
     const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
     const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
     const [readingPolicy, setReadingPolicy] = useState<Policy | null>(null);
@@ -92,7 +95,6 @@ export const App: React.FC = () => {
             ...inv.data, 
             ...support.data, 
             ...compliance.data,
-            // Fail-safe initialization to prevent .map/filter errors on null data
             collaborators: org.data.collaborators || [],
             equipment: inv.data.equipment || [],
             tickets: support.data.tickets || [],
@@ -111,14 +113,12 @@ export const App: React.FC = () => {
         };
 
         if (currentUser) {
-            // Optimized ticket segregation
             rawData.tickets = rawData.tickets.filter((t: Ticket) => {
                 const isSecurity = (t.category || '').toLowerCase().includes('segurança') || !!t.security_incident_type;
                 const module: ModuleKey = isSecurity ? 'tickets_security' : 'tickets';
                 if (checkPermission(module, 'view')) return true;
                 return checkPermission(module, 'view_own') ? (t.collaborator_id === currentUser.id || t.technician_id === currentUser.id) : false;
             });
-            // Posse filter for Self-Service
             if (!checkPermission('equipment', 'view')) {
                 const myEqIds = new Set(rawData.assignments.filter((a: any) => (a.collaborator_id === currentUser.id) && !a.return_date).map((a: any) => a.equipment_id));
                 rawData.equipment = rawData.equipment.filter(e => myEqIds.has(e.id));
@@ -171,6 +171,25 @@ export const App: React.FC = () => {
             {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} expiringWarranties={appData.equipment.filter(e => e.warranty_end_date && new Date(e.warranty_end_date) <= new Date(Date.now() + 30*24*60*60*1000))} expiringLicenses={appData.softwareLicenses.filter(l => l.expiry_date && new Date(l.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000))} teamTickets={appData.tickets.filter(t => t.status === 'Pedido')} collaborators={appData.collaborators} teams={appData.teams} onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} currentUser={currentUser} licenseAssignments={appData.licenseAssignments} />}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
+            {/* Fix: Added ReportModal rendering when reportType is set */}
+            {reportType && (
+                <ReportModal 
+                    type={reportType} 
+                    onClose={() => setReportType(null)}
+                    equipment={appData.equipment}
+                    brandMap={new Map(appData.brands.map((b: any) => [b.id, b.name]))}
+                    equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))}
+                    instituicoes={appData.instituicoes}
+                    escolasDepartamentos={appData.entidades}
+                    collaborators={appData.collaborators}
+                    assignments={appData.assignments}
+                    tickets={appData.tickets}
+                    softwareLicenses={appData.softwareLicenses}
+                    licenseAssignments={appData.licenseAssignments}
+                    businessServices={appData.businessServices}
+                    serviceDependencies={appData.serviceDependencies}
+                />
+            )}
             
             {layoutMode === 'side' ? (
                 <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={0} onNotificationClick={() => setShowNotifications(true)} isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
@@ -186,10 +205,11 @@ export const App: React.FC = () => {
                         <SelfServiceDashboard currentUser={currentUser} equipment={appData.equipment} assignments={appData.assignments} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes} policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets} onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy} onViewEquipment={setViewingEquipment} onViewTraining={setViewingTraining} onViewLicense={setViewingLicense} />
                     ) : null}
 
-                    {(activeTab.startsWith('equipment') || activeTab === 'licensing') && <InventoryManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={inv.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }} />}
-                    {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && <OrganizationManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={org.refresh} currentUser={currentUser} setActiveTab={setActiveTab} onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setChatOpen(true); }} setReportType={() => {}} />}
-                    {activeTab === 'tickets.list' && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={support.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
-                    {activeTab.startsWith('nis2') && <ComplianceManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={compliance.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={() => {}} currentUser={currentUser} />}
+                    {/* Fix: Passed setReportType instead of empty function to InventoryManager */}
+                    {(activeTab.startsWith('equipment') || activeTab === 'licensing') && <InventoryManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={inv.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }} />}
+                    {(activeTab.startsWith('organizacao') || activeTab === 'collaborators') && <OrganizationManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={org.refresh} currentUser={currentUser} setActiveTab={setActiveTab} onStartChat={(c) => { setActiveChatCollaboratorId(c.id); setChatOpen(true); }} setReportType={setReportType} />}
+                    {activeTab === 'tickets.list' && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={support.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} />}
+                    {activeTab.startsWith('nis2') && <ComplianceManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={compliance.refresh} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} />}
                     {activeTab === 'reports' && <BIReportDashboard appData={appData} />}
                     {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={refreshAll} />}
                     {activeTab === 'tools.agenda' && <AgendaDashboard />}
