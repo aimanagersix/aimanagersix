@@ -45,10 +45,10 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         }
     }, [ticketToEdit]);
 
-    // Filtrar técnicos baseada na equipa selecionada
+    // Pedido 1: Filtrar técnicos APENAS se a equipa estiver selecionada
     const filteredTechnicians = useMemo(() => {
         if (!formData.team_id) {
-            return collaborators.sort((a, b) => a.full_name.localeCompare(b.full_name));
+            return []; // Retorna vazio se não houver equipa
         }
         const memberIds = new Set(
             teamMembers
@@ -238,8 +238,14 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                 onChange={e => setFormData({...formData, technician_id: e.target.value})} 
                                 className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm disabled:opacity-50"
                             >
-                                <option value="">-- Não Atribuído (Fila de Equipa) --</option>
-                                {filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                                {filteredTechnicians.length === 0 ? (
+                                    <option value="">{formData.team_id ? "-- Nenhum técnico disponível nesta equipa --" : "-- Selecione uma equipa primeiro --"}</option>
+                                ) : (
+                                    <>
+                                        <option value="">-- Não Atribuído (Fila de Equipa) --</option>
+                                        {filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                                    </>
+                                )}
                             </select>
                         ) : (
                             <div className="w-full bg-gray-800 border border-gray-700 text-gray-400 rounded p-2 text-sm">
