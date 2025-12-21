@@ -33,14 +33,23 @@ BEGIN
         ALTER TABLE public.tickets ADD COLUMN instituicao_id UUID REFERENCES public.instituicoes(id) ON DELETE SET NULL;
     END IF;
 
-    -- 2. [Garantia de Dados] Equipa de Triagem
+    -- 2. [Tabela: messages] Normalização de CamelCase para Snake_Case (Correção Erro v39)
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='senderId') THEN
+        ALTER TABLE public.messages RENAME COLUMN "senderId" TO sender_id;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='receiverId') THEN
+        ALTER TABLE public.messages RENAME COLUMN "receiverId" TO receiver_id;
+    END IF;
+
+    -- 3. [Garantia de Dados] Equipa de Triagem
     IF NOT EXISTS (SELECT 1 FROM public.teams WHERE name = 'Triagem') THEN
         INSERT INTO public.teams (id, name, description, is_active)
         VALUES (gen_random_uuid(), 'Triagem', 'Equipa responsável pela classificação e encaminhamento inicial de pedidos.', true);
     END IF;
 
-    -- 3. POLÍTICAS DE SEGURANÇA (RLS) - Correção Mensagens de Sistema
-    -- Permitir que mensagens com sender '0000...' sejam inseridas e lidas
+    -- 4. POLÍTICAS DE SEGURANÇA (RLS) - Mensagens de Sistema e Privadas
+    ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
     DROP POLICY IF EXISTS "System can send messages" ON public.messages;
     CREATE POLICY "System can send messages" ON public.messages
     FOR INSERT TO authenticated
@@ -49,9 +58,13 @@ BEGIN
     DROP POLICY IF EXISTS "Users can read system messages" ON public.messages;
     CREATE POLICY "Users can read system messages" ON public.messages
     FOR SELECT TO authenticated
-    USING (receiver_id = auth.uid() OR sender_id = '00000000-0000-0000-0000-000000000000'::uuid OR receiver_id = '00000000-0000-0000-0000-000000000000'::uuid);
+    USING (
+        receiver_id = auth.uid() 
+        OR sender_id = '00000000-0000-0000-0000-000000000000'::uuid 
+        OR receiver_id = '00000000-0000-0000-0000-000000000000'::uuid
+    );
 
-    -- Garantir permissões básicas de leitura
+    -- 5. Permissões de Leitura Geral
     GRANT SELECT, INSERT, UPDATE, DELETE ON public.license_assignments TO authenticated;
     GRANT SELECT ON public.software_licenses TO authenticated;
     GRANT SELECT ON public.assignments TO authenticated;
@@ -73,8 +86,8 @@ END $$;`;
                 {activeTab === 'migration' && (
                     <div className="animate-fade-in space-y-4">
                         <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
-                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v39.0</h3>
-                            <p>Este script garante a existência da equipa de <strong>Triagem</strong> e permissões de <strong>alertas visuais</strong> no chat.</p>
+                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v40.0</h3>
+                            <p>Este script resolve o erro de colunas <strong>senderId/receiverId</strong> e garante as permissões do Chat.</p>
                         </div>
                         <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[35vh]">
                             <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">
