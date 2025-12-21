@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, Ticket, Collaborator, Team, LicenseAssignment } from '../types';
@@ -40,29 +41,33 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
     const [showSnoozed, setShowSnoozed] = useState(false);
 
     useEffect(() => {
-        const snoozedRaw = localStorage.getItem('snoozed_notifications');
-        if (snoozedRaw) {
-            try {
-                const snoozed = JSON.parse(snoozedRaw);
-                const now = new Date().toISOString();
-                const activeSnoozedIds = new Set<string>();
-                
-                if(Array.isArray(snoozed)) {
-                    snoozed.forEach((item: { id: string; until: string }) => {
-                        if (item.until > now) {
-                            activeSnoozedIds.add(item.id);
-                        }
-                    });
-                    setSnoozedIds(activeSnoozedIds);
+        const loadSnoozed = () => {
+            const snoozedRaw = localStorage.getItem('snoozed_notifications');
+            if (snoozedRaw) {
+                try {
+                    const snoozed = JSON.parse(snoozedRaw);
+                    const now = new Date().toISOString();
+                    const activeSnoozedIds = new Set<string>();
+                    
+                    if(Array.isArray(snoozed)) {
+                        snoozed.forEach((item: { id: string; until: string }) => {
+                            if (item.until > now) {
+                                activeSnoozedIds.add(item.id);
+                            }
+                        });
+                        setSnoozedIds(activeSnoozedIds);
+                    }
+                } catch(e) {
+                    console.error("Error parsing snoozed notifications", e);
                 }
-            } catch(e) {
-                console.error("Error parsing snoozed notifications", e);
             }
-        }
+        };
+        loadSnoozed();
     }, []);
 
     const handleSnooze = (id: string) => {
         dataService.snoozeNotification(id);
+        // Atualização reativa imediata para o Pedido 2
         setSnoozedIds(prev => new Set(prev).add(id));
     };
 
@@ -80,37 +85,35 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
         }
     };
 
-    // FIX: Updated property names to snake_case
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
-    const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
 
     const usedSeatsMap = useMemo(() => {
-         // FIX: Updated property names to snake_case
          return licenseAssignments.reduce((acc, a) => {
              acc.set(a.software_license_id, (acc.get(a.software_license_id) || 0) + 1);
              return acc;
         }, new Map<string, number>());
     }, [licenseAssignments]);
 
-    const filterVisible = (items: any[]) => items.filter(item => showSnoozed || !snoozedIds.has(item.id));
+    // Função de filtragem corrigida para o Pedido 2
+    const filterVisible = (items: any[]) => {
+        if (showSnoozed) return items; // Se marcar "mostrar ocultas", ignora o set de snoozed
+        return items.filter(item => !snoozedIds.has(item.id));
+    };
 
     const sortedWarranties = useMemo(() => filterVisible(expiringWarranties).sort((a, b) => 
-        // FIX: Updated property names to snake_case
         (getExpiryStatus(a.warranty_end_date).daysRemaining ?? Infinity) - (getExpiryStatus(b.warranty_end_date).daysRemaining ?? Infinity)
     ), [expiringWarranties, snoozedIds, showSnoozed]);
 
     const sortedLicenses = useMemo(() => filterVisible(expiringLicenses).sort((a, b) => {
-        // FIX: Updated property names to snake_case
         const aDate = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
         const bDate = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
         return aDate - bDate;
     }), [expiringLicenses, snoozedIds, showSnoozed]);
     
-    // FIX: Updated property names to snake_case
     const sortedTeamTickets = useMemo(() => filterVisible(teamTickets).sort((a,b) => new Date(a.request_date).getTime() - new Date(b.request_date).getTime()), [teamTickets, snoozedIds, showSnoozed]);
 
     const NotificationItem = ({ id, children, onView, isSnoozed }: { id: string, children: React.ReactNode, onView: () => void, isSnoozed: boolean }) => (
-        <div className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isSnoozed ? 'bg-gray-900/30 border-gray-800 opacity-60 grayscale' : 'bg-surface-dark border-gray-700 hover:border-gray-600'}`}>
+        <div className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isSnoozed ? 'bg-gray-900/30 border-gray-800 opacity-60' : 'bg-surface-dark border-gray-700 hover:border-gray-600'}`}>
             <div className="flex-1 min-w-0 pr-4">
                 {children}
             </div>
@@ -121,7 +124,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                 <button 
                     onClick={() => isSnoozed ? handleUnSnooze(id) : handleSnooze(id)}
                     className={`p-2 rounded-md transition-colors ${isSnoozed ? 'bg-green-900/20 text-green-400 hover:bg-green-900/40' : 'bg-gray-700 text-gray-400 hover:text-red-400'}`}
-                    title={isSnoozed ? "Restaurar Notificação" : "Ocultar Temporariamente"}
+                    title={isSnoozed ? "Restaurar Notificação" : "Silenciar Notificação"}
                 >
                     {isSnoozed ? <FaHistory size={14} /> : <FaBellSlash size={14} />}
                 </button>
@@ -139,11 +142,10 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                     </h3>
                     <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                         {sortedTeamTickets.length > 0 ? sortedTeamTickets.map(ticket => {
-                            // FIX: Updated property names to snake_case
                             const requesterName = collaboratorMap.get(ticket.collaborator_id) || 'Desconhecido';
                             const isSnoozed = snoozedIds.has(ticket.id);
                             return (
-                                <NotificationItem key={ticket.id} id={ticket.id} isSnoozed={isSnoozed} onView={() => { onViewItem('tickets', { id: ticket.id }); onClose(); }}>
+                                <NotificationItem key={ticket.id} id={ticket.id} isSnoozed={isSnoozed} onView={() => { onViewItem('tickets.list', { id: ticket.id }); }}>
                                     <p className="font-semibold text-white truncate text-sm">{ticket.title || ticket.description}</p>
                                     <p className="text-xs text-gray-500 mt-0.5">Pedido por {requesterName} em {new Date(ticket.request_date).toLocaleDateString()}</p>
                                 </NotificationItem>
@@ -159,12 +161,11 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                     </h3>
                      <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                         {sortedLicenses.length > 0 ? sortedLicenses.map(license => {
-                            // FIX: Updated property names to snake_case
                             const status = getExpiryStatus(license.expiry_date);
                             const used = usedSeatsMap.get(license.id) || 0;
                             const isSnoozed = snoozedIds.has(license.id);
                             return (
-                                <NotificationItem key={license.id} id={license.id} isSnoozed={isSnoozed} onView={() => { onViewItem('licensing', { license_key: license.license_key }); onClose(); }}>
+                                <NotificationItem key={license.id} id={license.id} isSnoozed={isSnoozed} onView={() => { onViewItem('licensing', { license_key: license.license_key }); }}>
                                     <p className="font-semibold text-white text-sm">{license.product_name}</p>
                                     <div className="flex flex-wrap gap-2 text-[10px] mt-1 uppercase font-bold">
                                         <span className={status.className}>{status.text}</span>
@@ -184,11 +185,10 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                     </h3>
                     <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                         {sortedWarranties.length > 0 ? sortedWarranties.map(item => {
-                            // FIX: Updated property names to snake_case
                             const status = getExpiryStatus(item.warranty_end_date);
                             const isSnoozed = snoozedIds.has(item.id);
                             return (
-                                <NotificationItem key={item.id} id={item.id} isSnoozed={isSnoozed} onView={() => { onViewItem('equipment.inventory', { serial_number: item.serial_number }); onClose(); }}>
+                                <NotificationItem key={item.id} id={item.id} isSnoozed={isSnoozed} onView={() => { onViewItem('equipment.inventory', { serial_number: item.serial_number }); }}>
                                     <p className="font-semibold text-white text-sm">{item.description}</p>
                                     <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">S/N: {item.serial_number} — <span className={status.className}>{status.text}</span></p>
                                 </NotificationItem>
@@ -205,9 +205,9 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                             onChange={(e) => setShowSnoozed(e.target.checked)}
                             className="rounded bg-gray-700 border-gray-600 text-brand-primary"
                         />
-                        <span className="text-xs text-gray-500 group-hover:text-gray-300 transition-colors">Mostrar Notificações Ocultas ({snoozedIds.size})</span>
+                        <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">Mostrar notificações ocultas ({snoozedIds.size})</span>
                     </label>
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar</button>
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Fechar Janela</button>
                 </div>
             </div>
         </Modal>

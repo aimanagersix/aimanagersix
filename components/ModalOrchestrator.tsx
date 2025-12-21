@@ -50,17 +50,14 @@ const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
                 softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
                 vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers}
                 accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates}
-                // FIX: serial_number
+                onRefresh={refreshSupport} // Reutilizando a função de refresh global passada pelo App.tsx
                 onEdit={checkPermission('equipment', 'edit') ? (eq) => { setViewingEquipment(null); setActiveTab('equipment.inventory'); setDashboardFilter({serial_number: eq.serial_number}); } : undefined}
             />
         ) : (
             <EquipmentSimpleModal
                 equipment={viewingEquipment}
-                // FIX: equipment_id, return_date
                 assignment={appData.assignments.find((a: Assignment) => a.equipment_id === viewingEquipment.id && !a.return_date)}
-                // FIX: brand_id
                 brand={appData.brands.find((b: Brand) => b.id === viewingEquipment.brand_id)}
-                // FIX: type_id
                 type={appData.equipmentTypes.find((t: EquipmentType) => t.id === viewingEquipment.type_id)}
                 onClose={() => setViewingEquipment(null)}
             />
@@ -79,7 +76,6 @@ const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
                 entidades={appData.entidades}
                 onClose={() => setViewingTicket(null)}
                 onAddActivity={async (act) => {
-                    // FIX: ticket_id, technician_id
                     await dataService.addTicketActivity({ ...act, ticket_id: viewingTicket.id, technician_id: currentUser.id, date: new Date().toISOString() });
                     refreshSupport();
                 }}
@@ -93,12 +89,10 @@ const ModalOrchestrator: React.FC<ModalOrchestratorProps> = ({
             <Modal title="Consulta de Licença" onClose={() => setViewingLicense(null)}>
                 <div className="space-y-4">
                     <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                        {/* FIX: product_name, license_key */}
                         <h3 className="text-xl font-bold text-white mb-2">{viewingLicense.product_name}</h3>
                         <p className="text-sm text-gray-400 font-mono tracking-wider bg-black/30 p-2 rounded">{viewingLicense.license_key}</p>
                         <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
                             <div><span className="text-gray-500">Estado:</span> <span className="text-green-400 font-bold">{viewingLicense.status}</span></div>
-                            {/* FIX: expiry_date */}
                             <div><span className="text-gray-500">Expira em:</span> <span className="text-white">{viewingLicense.expiry_date || 'Vitalícia'}</span></div>
                             <div><span className="text-gray-500">Tipo:</span> <span className="text-white">{viewingLicense.is_oem ? 'OEM / Volume' : 'Retail'}</span></div>
                         </div>

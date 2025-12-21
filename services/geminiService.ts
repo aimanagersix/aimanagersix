@@ -47,8 +47,6 @@ const runGeminiRequest = async (
         return data?.text || "";
     }
 
-    // Direct mode Absolute Integrity
-    // REQUIREMENT: Must use named parameter for apiKey
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     
     const parts: any[] = [];
@@ -73,7 +71,6 @@ const runGeminiRequest = async (
             config: config
         });
 
-        // SDK compliance v25: Use .text property (not a method)
         const result = response.text;
         if (result === undefined) throw new Error("Resposta vazia da IA.");
         return result.trim();
@@ -175,11 +172,13 @@ export const analyzeTicketRequest = async (description: string): Promise<any> =>
     }
 };
 
-// Fix for error in components/CloseTicketModal.tsx
-// Added generateTicketResolutionSummary to exported members
 export const generateTicketResolutionSummary = async (description: string, activities: string[]): Promise<string> => {
     try {
-        const prompt = `Based on the IT ticket description: "${description}" and the following resolution activities: ${JSON.stringify(activities)}, write a concise summary of the final solution for a Knowledge Base.`;
+        const activityContext = activities.length > 0 ? activities.join('; ') : "Sem notas técnicas registadas.";
+        const prompt = `As a professional IT Support, write a clean, 2-3 sentence technical summary of the solution for the following ticket: "${description}".
+        The technicians performed these actions: "${activityContext}". 
+        Language: Portuguese (PT). Be direct and factual for a Knowledge Base entry.`;
+        
         return await runGeminiRequest(flashModel, prompt);
     } catch (error) {
         console.error("Summary Generation Error:", error);
@@ -187,8 +186,6 @@ export const generateTicketResolutionSummary = async (description: string, activ
     }
 };
 
-// Fix for error in components/AddBackupModal.tsx
-// Added analyzeBackupScreenshot to exported members
 export const analyzeBackupScreenshot = async (base64Image: string, mimeType: string): Promise<{ status: string; date: string; systemName: string }> => {
     try {
         const prompt = "Analyze this backup report screenshot. Extract: 1. Status (Sucesso, Falha, or Parcial), 2. Date of backup (YYYY-MM-DD), 3. System Name. JSON output.";

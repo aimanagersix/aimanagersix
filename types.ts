@@ -1,4 +1,5 @@
 
+
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -237,6 +238,8 @@ export interface Ticket {
     collaborator_id: string;
     technician_id?: string;
     entidade_id?: string;
+    // Added instituicao_id to Ticket interface to support organizational context in support requests
+    instituicao_id?: string;
     team_id?: string;
     equipment_id?: string;
     software_license_id?: string;
