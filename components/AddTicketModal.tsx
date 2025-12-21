@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
-import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey } from './common/Icons';
+import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey, FaBoxOpen } from './common/Icons';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -160,12 +160,18 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 </div>
 
                 <div className="space-y-4 border border-gray-700 rounded-lg p-3 bg-gray-900/30">
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2"><FaUserTie className="text-brand-secondary" /> Requerente: {currentUser?.full_name}</label>
+                    <div className="flex justify-between items-center">
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2"><FaUserTie className="text-brand-secondary" /> Requerente: {currentUser?.full_name}</label>
+                        {/* Pedido 3: Resumo Simples de Inventário */}
+                        <div className="flex gap-2">
+                             {userEquipment.length > 0 && <span className="flex items-center gap-1 text-[9px] bg-blue-900/40 text-blue-300 px-1.5 py-0.5 rounded border border-blue-800" title={userEquipment.map(e => e.description).join(', ')}><FaLaptop size={10}/> {userEquipment.length} Itens</span>}
+                             {userLicenses.length > 0 && <span className="flex items-center gap-1 text-[9px] bg-yellow-900/40 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-800" title={userLicenses.map(l => l.product_name).join(', ')}><FaKey size={10}/> {userLicenses.length} Lic.</span>}
+                        </div>
+                    </div>
                     
-                    {/* Pedido 3: Apenas perfis com privilégios podem vincular ativos */}
                     {canEditAdvanced ? (
                         <div className="bg-blue-900/10 border border-blue-500/20 rounded p-4 animate-fade-in">
-                            <label className="block text-[10px] font-bold text-blue-400 uppercase mb-2 flex items-center gap-1"><FaLaptop size={10} /> Vincular Ativo</label>
+                            <label className="block text-[10px] font-bold text-blue-400 uppercase mb-2 flex items-center gap-1"><FaBoxOpen size={10} /> Vincular Ativo Específico</label>
                             <div className="flex gap-2 mb-3">
                                 {['none', 'hardware', 'software'].map(t => (
                                     <button key={t} type="button" onClick={() => setAssetType(t as any)} className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === t ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}>{t === 'none' ? 'Nenhum' : t.charAt(0).toUpperCase() + t.slice(1)}</button>
@@ -185,7 +191,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                             )}
                         </div>
                     ) : (
-                        /* Exibição informativa se já houver algo vinculado (pela triagem ou editores) */
                         (formData.equipment_id || formData.software_license_id) && (
                             <div className="p-3 bg-gray-800 border border-gray-700 rounded text-xs text-gray-400 flex items-center gap-2">
                                 <FaLaptop /> Ativo vinculado ao processo.

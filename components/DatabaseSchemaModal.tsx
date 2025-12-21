@@ -39,18 +39,17 @@ BEGIN
         VALUES (gen_random_uuid(), 'Triagem', 'Equipa responsável pela classificação e encaminhamento inicial de pedidos.', true);
     END IF;
 
-    -- 3. POLÍTICAS DE SEGURANÇA (RLS) - Correção Pedido 2 (Visibilidade de Licenças)
-    -- Garantir que todos os utilizadores autenticados podem ver as atribuições de licenças
-    DROP POLICY IF EXISTS "Authenticated users can view license assignments" ON public.license_assignments;
-    CREATE POLICY "Authenticated users can view license assignments" ON public.license_assignments
-    FOR SELECT TO authenticated
-    USING (true);
-
-    DROP POLICY IF EXISTS "Admins can manage license assignments" ON public.license_assignments;
-    CREATE POLICY "Admins can manage license assignments" ON public.license_assignments
-    FOR ALL TO authenticated
-    USING (true)
+    -- 3. POLÍTICAS DE SEGURANÇA (RLS) - Correção Mensagens de Sistema
+    -- Permitir que mensagens com sender '0000...' sejam inseridas e lidas
+    DROP POLICY IF EXISTS "System can send messages" ON public.messages;
+    CREATE POLICY "System can send messages" ON public.messages
+    FOR INSERT TO authenticated
     WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Users can read system messages" ON public.messages;
+    CREATE POLICY "Users can read system messages" ON public.messages
+    FOR SELECT TO authenticated
+    USING (receiver_id = auth.uid() OR sender_id = '00000000-0000-0000-0000-000000000000'::uuid OR receiver_id = '00000000-0000-0000-0000-000000000000'::uuid);
 
     -- Garantir permissões básicas de leitura
     GRANT SELECT, INSERT, UPDATE, DELETE ON public.license_assignments TO authenticated;
@@ -74,8 +73,8 @@ END $$;`;
                 {activeTab === 'migration' && (
                     <div className="animate-fade-in space-y-4">
                         <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
-                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v38.0</h3>
-                            <p>Este script garante a existência da equipa de <strong>Triagem</strong> e permissões de leitura de <strong>licenças</strong> para todos.</p>
+                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v39.0</h3>
+                            <p>Este script garante a existência da equipa de <strong>Triagem</strong> e permissões de <strong>alertas visuais</strong> no chat.</p>
                         </div>
                         <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[35vh]">
                             <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">

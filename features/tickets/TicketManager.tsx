@@ -14,6 +14,9 @@ import CloseTicketModal from '../../components/CloseTicketModal';
 import TicketActivitiesModal from '../../components/TicketActivitiesModal';
 import RegulatoryNotificationModal from '../../components/RegulatoryNotificationModal';
 
+const SYSTEM_SENDER_ID = '00000000-0000-0000-0000-000000000000';
+const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';
+
 interface TicketManagerProps {
     appData: any;
     checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
@@ -67,14 +70,27 @@ const TicketManager: React.FC<TicketManagerProps> = ({
 
     const handleRefresh = async () => { await fetchTickets(); refreshData(); };
 
-    const notifyTeamMates = async (teamId: string, ticketTitle: string, ticketId: string) => {
+    const notifyTeamMates = async (teamId: string, ticketTitle: string, ticketId: string, isNew: boolean) => {
         const members = appData.teamMembers.filter((tm: any) => tm.team_id === teamId);
+        const teamName = appData.teams.find((t: any) => t.id === teamId)?.name || 'Equipa';
+        
+        const alertMsg = `📢 ${isNew ? 'NOVO TICKET' : 'ATRIBUIÇÃO'}: [#${ticketId.substring(0,8)}] - ${ticketTitle} (${teamName}).`;
+
+        // 1. Notificação para o Canal Geral (Garante o Alerta Visual para todos)
+        await dataService.addMessage({
+            sender_id: SYSTEM_SENDER_ID,
+            receiver_id: GENERAL_CHANNEL_ID,
+            content: alertMsg,
+            timestamp: new Date().toISOString(),
+            read: false
+        });
+
+        // 2. Mensagens privadas para os membros
         const promises = members.map((member: any) => {
-            if (member.collaborator_id === currentUser?.id) return Promise.resolve();
             return dataService.addMessage({
-                sender_id: '00000000-0000-0000-0000-000000000000',
+                sender_id: SYSTEM_SENDER_ID,
                 receiver_id: member.collaborator_id,
-                content: `📢 ALERTA TICKET: [#${ticketId.substring(0,8)}] - ${ticketTitle}.`,
+                content: alertMsg,
                 timestamp: new Date().toISOString(),
                 read: false
             });
@@ -85,22 +101,21 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     const handleSaveTicket = async (ticket: any) => {
         try {
             if (ticketToEdit) {
-                // Lógica de Transição Automática (Pedido 4)
-                if (ticketToEdit.team_id !== ticket.team_id && ticket.status === 'Pedido') {
+                const isTeamChange = ticketToEdit.team_id !== ticket.team_id;
+                if (isTeamChange && ticket.status === 'Pedido') {
                     ticket.status = 'Em progresso';
                 }
                 await dataService.updateTicket(ticketToEdit.id, ticket);
-                if (ticketToEdit.team_id !== ticket.team_id && ticket.team_id) {
-                    await notifyTeamMates(ticket.team_id, ticket.title, ticketToEdit.id);
+                if (isTeamChange && ticket.team_id) {
+                    await notifyTeamMates(ticket.team_id, ticket.title, ticketToEdit.id, false);
                 }
             } else {
-                // Criação Inicial (Pedido 2 - Triagem Automática)
                 const triagemTeam = appData.teams.find((t: any) => t.name === 'Triagem');
                 if (!ticket.team_id && triagemTeam) ticket.team_id = triagemTeam.id;
                 
                 const newTicket = await dataService.addTicket(ticket);
                 if (newTicket && newTicket.team_id) {
-                    await notifyTeamMates(newTicket.team_id, newTicket.title, newTicket.id);
+                    await notifyTeamMates(newTicket.team_id, newTicket.title, newTicket.id, true);
                 }
             }
             handleRefresh();
