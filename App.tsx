@@ -36,6 +36,8 @@ import { useSupport } from './hooks/useSupport';
 import { useCompliance } from './hooks/useCompliance';
 
 const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';
+// Fix: Added missing constant for system messages
+const SYSTEM_SENDER_ID = '00000000-0000-0000-0000-000000000000';
 
 export const App: React.FC = () => {
     const { layoutMode } = useLayout();
@@ -50,6 +52,9 @@ export const App: React.FC = () => {
     const [session, setSession] = useState<any>(null);
     const [isAppLoading, setIsAppLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
+    
+    // Notificações silenciadas para o contador
+    const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
 
     // Initialize Specialized Hooks
     const org = useOrganization(isConfigured);
@@ -91,6 +96,33 @@ export const App: React.FC = () => {
         return support.data.teamMembers.filter((tm: any) => tm.collaborator_id === currentUser.id).map((tm: any) => tm.team_id);
     }, [support.data.teamMembers, currentUser]);
 
+    // Carregar IDs silenciados do localStorage
+    const loadSnoozedIds = useCallback(() => {
+        const raw = localStorage.getItem('snoozed_notifications');
+        if (raw) {
+            try {
+                const data = JSON.parse(raw);
+                const now = new Date().toISOString();
+                const active = new Set<string>();
+                if (Array.isArray(data)) {
+                    data.forEach((item: any) => {
+                        if (item.until > now) active.add(item.id);
+                    });
+                }
+                setSnoozedIds(active);
+            } catch (e) { console.error(e); }
+        } else {
+            setSnoozedIds(new Set());
+        }
+    }, []);
+
+    useEffect(() => {
+        loadSnoozedIds();
+        // Listener para mudanças no localStorage (mesmo que disparadas manualmente)
+        window.addEventListener('storage', loadSnoozedIds);
+        return () => window.removeEventListener('storage', loadSnoozedIds);
+    }, [loadSnoozedIds]);
+
     // Fail-Safe Unified Data
     const appData = useMemo(() => {
         return { 
@@ -129,22 +161,52 @@ export const App: React.FC = () => {
         );
     }, [appData.tickets, currentUser, userTeamIds]);
 
-    // Otimização "Pente Fino": Contador de Alertas (Mensagens + Tickets Pendentes)
+    // Contador de Alertas (Mensagens + Tickets Pendentes + Licenças/Garantias) considerando SNOOZE e PERMISSÕES
     const alertBadgeCount = useMemo(() => {
         if (!currentUser) return 0;
         
-        // 1. Mensagens não lidas
-        const unreadMsgs = (appData.messages || []).filter((m: any) => 
-            (m.receiver_id === currentUser.id || m.receiver_id === GENERAL_CHANNEL_ID) && 
-            !m.read && 
-            m.sender_id !== currentUser.id
-        ).length;
+        // 1. Mensagens não lidas (Filtro por permissão msg_...)
+        const unreadMsgs = (appData.messages || []).filter((m: any) => {
+            const isTarget = m.receiver_id === currentUser.id || m.receiver_id === GENERAL_CHANNEL_ID;
+            const isUnread = !m.read && m.sender_id !== currentUser.id;
+            if (!isTarget || !isUnread) return false;
 
-        // 2. Tickets pendentes urgentes (Pedido) para técnicos ou Admins
-        const pendingTickets = teamTicketsForNotifications.filter((t: any) => t.status === 'Pedido').length;
+            // Filtro de recepção de mensagens de sistema (Canal Geral)
+            if (m.receiver_id === GENERAL_CHANNEL_ID && m.sender_id === SYSTEM_SENDER_ID) {
+                const content = m.content.toUpperCase();
+                const isTicket = content.includes('TICKET') || content.includes('ATRIBUIÇÃO') || content.includes('ATUALIZAÇÃO');
+                const isLicense = content.includes('LICENÇA');
+                const isWarranty = content.includes('GARANTIA');
+                
+                if (isTicket && !checkPermission('msg_tickets', 'view')) return false;
+                if (isLicense && !checkPermission('msg_licenses', 'view')) return false;
+                if (isWarranty && !checkPermission('msg_warranties', 'view')) return false;
+            }
+            return true;
+        }).length;
 
-        return unreadMsgs + pendingTickets;
-    }, [appData.messages, teamTicketsForNotifications, currentUser]);
+        // 2. Tickets pendentes urgentes (Pedido) - Ocultar se silenciados ou sem permissão notif_tickets
+        const canSeeTicketNotifs = checkPermission('notif_tickets', 'view');
+        const pendingTicketsCount = canSeeTicketNotifs ? teamTicketsForNotifications.filter((t: any) => 
+            t.status === 'Pedido' && !snoozedIds.has(t.id)
+        ).length : 0;
+        
+        // 3. Licenças e Garantias (Alertas críticos a expirar em 30 dias) - Ocultar se silenciados ou sem permissão
+        const now = new Date();
+        const next30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+        const canSeeLicenseNotifs = checkPermission('notif_licenses', 'view');
+        const criticalExpiringLicenses = canSeeLicenseNotifs ? (appData.softwareLicenses || []).filter((l: any) => 
+            l.expiry_date && new Date(l.expiry_date) <= next30 && !snoozedIds.has(l.id)
+        ).length : 0;
+
+        const canSeeWarrantyNotifs = checkPermission('notif_warranties', 'view');
+        const criticalExpiringWarranties = canSeeWarrantyNotifs ? (appData.equipment || []).filter((e: any) => 
+            e.warranty_end_date && new Date(e.warranty_end_date) <= next30 && !snoozedIds.has(e.id)
+        ).length : 0;
+
+        return unreadMsgs + pendingTicketsCount + criticalExpiringLicenses + criticalExpiringWarranties;
+    }, [appData.messages, appData.softwareLicenses, appData.equipment, teamTicketsForNotifications, currentUser, snoozedIds, checkPermission]);
 
     const refreshAll = useCallback(async (force = false) => {
         if (isRefreshing.current) return;
@@ -197,7 +259,20 @@ export const App: React.FC = () => {
             {isSyncing && <div className="fixed top-0 left-0 w-full h-1 z-[200] overflow-hidden bg-gray-800"><div className="h-full bg-brand-secondary animate-pulse w-full origin-left transform scale-x-0" style={{ animation: 'progress 1s infinite linear' }}></div></div>}
             
             {showProfile && <UserProfileModal user={currentUser} entidade={org.data.entidades.find(e => e.id === currentUser.entidade_id)} instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicao_id)} onClose={() => setShowProfile(false)} onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(true); }} />}
-            {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} expiringWarranties={appData.equipment.filter(e => e.warranty_end_date && new Date(e.warranty_end_date) <= new Date(Date.now() + 30*24*60*60*1000))} expiringLicenses={appData.softwareLicenses.filter(l => l.expiry_date && new Date(l.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000))} teamTickets={teamTicketsForNotifications} collaborators={appData.collaborators} teams={appData.teams} onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} currentUser={currentUser} licenseAssignments={appData.licenseAssignments} />}
+            {showNotifications && (
+                <NotificationsModal 
+                    onClose={() => setShowNotifications(false)} 
+                    expiringWarranties={checkPermission('notif_warranties', 'view') ? appData.equipment.filter(e => e.warranty_end_date && new Date(e.warranty_end_date) <= new Date(Date.now() + 30*24*60*60*1000)) : []} 
+                    expiringLicenses={checkPermission('notif_licenses', 'view') ? appData.softwareLicenses.filter(l => l.expiry_date && new Date(l.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000)) : []} 
+                    teamTickets={checkPermission('notif_tickets', 'view') ? teamTicketsForNotifications : []} 
+                    collaborators={appData.collaborators} 
+                    teams={appData.teams} 
+                    onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} 
+                    currentUser={currentUser} 
+                    licenseAssignments={appData.licenseAssignments} 
+                    checkPermission={checkPermission}
+                />
+            )}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
             {reportType && <ReportModal type={reportType} onClose={() => setReportType(null)} equipment={appData.equipment} brandMap={new Map(appData.brands.map((b: any) => [b.id, b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))} instituicoes={appData.instituicoes} escolasDepartamentos={appData.entidades} collaborators={appData.collaborators} assignments={appData.assignments} tickets={appData.tickets} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies} />}
@@ -235,6 +310,7 @@ export const App: React.FC = () => {
                 isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} 
                 unreadMessagesCount={alertBadgeCount} onSelectConversation={setActiveChatCollaboratorId} 
                 onNavigateToTicket={handleNavigateFromChat}
+                checkPermission={checkPermission}
             />
             
             <ModalOrchestrator currentUser={currentUser} appData={appData} checkPermission={checkPermission} refreshSupport={() => refreshAll(true)} viewingTicket={viewingTicket} setViewingTicket={setViewingTicket} viewingEquipment={viewingEquipment} setViewingEquipment={setViewingEquipment} readingPolicy={readingPolicy} setReadingPolicy={setReadingPolicy} viewingLicense={viewingLicense} setViewingLicense={setViewingLicense} viewingTraining={viewingTraining} setViewingTraining={setViewingTraining} setActiveTab={setActiveTab} setDashboardFilter={setDashboardFilter} />

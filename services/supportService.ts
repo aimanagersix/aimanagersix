@@ -91,15 +91,11 @@ export const fetchTicketsPaginated = async (params: {
         query = query.in('status', ['Pedido', 'Em progresso']);
     }
 
-    // Otimização "Pente Fino": Ordenação determinística
-    // 1. Tickets em aberto primeiro
-    // 2. Incidentes críticos no topo
-    // 3. Data mais recente
     const sortObj = params.sort || { key: 'request_date', direction: 'descending' };
     
     query = query
-        .order('status', { ascending: false }) // Pedido > Em progresso
-        .order('impact_criticality', { ascending: false, nullsFirst: false }) // Crítica > Alta > Média > Baixa
+        .order('status', { ascending: false })
+        .order('impact_criticality', { ascending: false, nullsFirst: false })
         .order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
     
     const from = (params.page - 1) * params.pageSize;
@@ -134,6 +130,13 @@ export const syncTeamMembers = async (teamId: string, memberIds: string[]) => {
 };
 export const addMessage = async (msg: any) => { await sb().from('messages').insert(cleanPayload(msg)); };
 export const markMessagesAsRead = async (senderId: string) => { await sb().from('messages').update({ read: true }).eq('sender_id', senderId); };
+
+// Pedido 2: Função para resetar notificações do Canal Geral
+export const markGeneralMessagesAsRead = async () => {
+    const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';
+    await sb().from('messages').update({ read: true }).eq('receiver_id', GENERAL_CHANNEL_ID);
+};
+
 export const addCalendarEvent = async (event: any) => { const { data } = await sb().from('calendar_events').insert(cleanPayload(event)).select().single(); return data; };
 export const updateCalendarEvent = async (id: string, updates: any) => { await sb().from('calendar_events').update(cleanPayload(updates)).eq('id', id); };
 export const deleteCalendarEvent = async (id: string) => { await sb().from('calendar_events').delete().eq('id', id); };

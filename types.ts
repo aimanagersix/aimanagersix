@@ -1,5 +1,4 @@
 
-
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -24,7 +23,9 @@ export type ModuleKey =
     | 'ticket_categories' | 'security_incident_types' | 'contact_roles' | 'contact_titles' | 'config_custom_roles' | 'config_collaborator_deactivation_reasons' | 'config_accounting_categories' | 'config_conservation_states' | 'config_job_titles'
     | 'config_automation' | 'config_criticality_levels' | 'config_cia_ratings' | 'config_service_statuses' | 'config_backup_types' | 'config_training_types' | 'config_resilience_test_types' | 'document_templates'
     | 'my_area' | 'tools_agenda' | 'tools_map' | 'tools_calendar' | 'tools_manual'
-    | 'org_institutions' | 'org_entities' | 'org_collaborators' | 'org_suppliers';
+    | 'org_institutions' | 'org_entities' | 'org_collaborators' | 'org_suppliers'
+    | 'notif_tickets' | 'notif_licenses' | 'notif_warranties'
+    | 'msg_tickets' | 'msg_licenses' | 'msg_warranties'; // Pedido 2: Controlo de recepção de mensagens
 
 export type PermissionAction = 'view' | 'view_own' | 'create' | 'edit' | 'delete' | 'manage';
 
@@ -238,7 +239,6 @@ export interface Ticket {
     collaborator_id: string;
     technician_id?: string;
     entidade_id?: string;
-    // Added instituicao_id to Ticket interface to support organizational context in support requests
     instituicao_id?: string;
     team_id?: string;
     equipment_id?: string;

@@ -1,6 +1,7 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
-import { Equipment, SoftwareLicense, Ticket, Collaborator, Team, LicenseAssignment } from '../types';
+import { Equipment, SoftwareLicense, Ticket, Collaborator, Team, LicenseAssignment, ModuleKey, PermissionAction } from '../types';
 import { FaEye, FaBellSlash, FaTicketAlt, FaExclamationTriangle, FaShieldAlt, FaHistory, FaCheckCircle, FaClock } from './common/Icons';
 import * as dataService from '../services/dataService';
 
@@ -14,6 +15,7 @@ interface NotificationsModalProps {
     onViewItem: (tab: string, filter: any) => void;
     currentUser: Collaborator | null;
     licenseAssignments: LicenseAssignment[];
+    checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
 }
 
 const getExpiryStatus = (dateStr?: string): { text: string; className: string; daysRemaining: number | null } => {
@@ -35,9 +37,14 @@ const getExpiryStatus = (dateStr?: string): { text: string; className: string; d
     return { text: `Válido (${diffDays} dias restantes)`, className: 'text-green-400', daysRemaining: diffDays };
 };
 
-const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiringWarranties, expiringLicenses, teamTickets, collaborators, teams, onViewItem, currentUser, licenseAssignments }) => {
+const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiringWarranties, expiringLicenses, teamTickets, collaborators, teams, onViewItem, currentUser, licenseAssignments, checkPermission }) => {
     const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
     const [showSnoozed, setShowSnoozed] = useState(false);
+
+    const notifySync = () => {
+        // Disparar evento de storage manual para que o App.tsx ouça e atualize o contador na mesma aba
+        window.dispatchEvent(new Event('storage'));
+    };
 
     useEffect(() => {
         const loadSnoozed = () => {
@@ -66,12 +73,13 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
 
     const handleSnooze = (id: string) => {
         dataService.snoozeNotification(id);
-        // Atualização reativa imediata
+        // Atualização reativa imediata local
         setSnoozedIds(prev => {
             const next = new Set(prev);
             next.add(id);
             return next;
         });
+        notifySync();
     };
 
     const handleUnSnooze = (id: string) => {
@@ -86,7 +94,9 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                     next.delete(id);
                     return next;
                 });
+                notifySync();
             } catch (e) {
+                // Fixed: error(e) to console.error(e)
                 console.error(e);
             }
         }
@@ -139,70 +149,80 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
         </div>
     );
 
+    const canSeeTickets = checkPermission('notif_tickets', 'view');
+    const canSeeLicenses = checkPermission('notif_licenses', 'view');
+    const canSeeWarranties = checkPermission('notif_warranties', 'view');
+
     return (
         <Modal title="Centro de Notificações" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-6">
                  {/* Tickets Section */}
-                 <section>
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <FaTicketAlt className="text-brand-secondary"/> Tickets Pendentes
-                    </h3>
-                    <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                        {sortedTeamTickets.length > 0 ? sortedTeamTickets.map(ticket => {
-                            const requesterName = collaboratorMap.get(ticket.collaborator_id) || 'Desconhecido';
-                            const isSnoozed = snoozedIds.has(ticket.id);
-                            return (
-                                <NotificationItem key={ticket.id} id={ticket.id} isSnoozed={isSnoozed} onView={() => { onViewItem('tickets.list', { id: ticket.id }); }}>
-                                    <p className="font-semibold text-white truncate text-sm">{ticket.title || ticket.description}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">Pedido por {requesterName} em {new Date(ticket.request_date).toLocaleDateString()}</p>
-                                </NotificationItem>
-                            );
-                        }) : <p className="text-gray-500 text-sm italic">Sem tickets pendentes.</p>}
-                    </div>
-                </section>
+                 {canSeeTickets && (
+                    <section>
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <FaTicketAlt className="text-brand-secondary"/> Tickets Pendentes
+                        </h3>
+                        <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            {sortedTeamTickets.length > 0 ? sortedTeamTickets.map(ticket => {
+                                const requesterName = collaboratorMap.get(ticket.collaborator_id) || 'Desconhecido';
+                                const isSnoozed = snoozedIds.has(ticket.id);
+                                return (
+                                    <NotificationItem key={ticket.id} id={ticket.id} isSnoozed={isSnoozed} onView={() => { onViewItem('tickets.list', { id: ticket.id }); }}>
+                                        <p className="font-semibold text-white truncate text-sm">{ticket.title || ticket.description}</p>
+                                        <p className="text-xs text-gray-500 mt-0.5">Pedido por {requesterName} em {new Date(ticket.request_date).toLocaleDateString()}</p>
+                                    </NotificationItem>
+                                );
+                            }) : <p className="text-gray-500 text-sm italic">Sem tickets pendentes.</p>}
+                        </div>
+                    </section>
+                 )}
 
                 {/* Licenses Section */}
-                <section>
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <FaExclamationTriangle className="text-orange-400"/> Licenças Críticas
-                    </h3>
-                     <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                        {sortedLicenses.length > 0 ? sortedLicenses.map(license => {
-                            const status = getExpiryStatus(license.expiry_date);
-                            const used = usedSeatsMap.get(license.id) || 0;
-                            const isSnoozed = snoozedIds.has(license.id);
-                            return (
-                                <NotificationItem key={license.id} id={license.id} isSnoozed={isSnoozed} onView={() => { onViewItem('licensing', { license_key: license.license_key }); }}>
-                                    <p className="font-semibold text-white text-sm">{license.product_name}</p>
-                                    <div className="flex flex-wrap gap-2 text-[10px] mt-1 uppercase font-bold">
-                                        <span className={status.className}>{status.text}</span>
-                                        <span className="text-gray-500">|</span>
-                                        <span className={license.total_seats - used <= 0 ? 'text-red-400' : 'text-gray-400'}>Ativações: {used}/{license.total_seats}</span>
-                                    </div>
-                                </NotificationItem>
-                            );
-                        }) : <p className="text-gray-500 text-sm italic">Sem licenças críticas.</p>}
-                    </div>
-                </section>
+                {canSeeLicenses && (
+                    <section>
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <FaExclamationTriangle className="text-orange-400"/> Licenças Críticas
+                        </h3>
+                        <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            {sortedLicenses.length > 0 ? sortedLicenses.map(license => {
+                                const status = getExpiryStatus(license.expiry_date);
+                                const used = usedSeatsMap.get(license.id) || 0;
+                                const isSnoozed = snoozedIds.has(license.id);
+                                return (
+                                    <NotificationItem key={license.id} id={license.id} isSnoozed={isSnoozed} onView={() => { onViewItem('licensing', { license_key: license.license_key }); }}>
+                                        <p className="font-semibold text-white text-sm">{license.product_name}</p>
+                                        <div className="flex flex-wrap gap-2 text-[10px] mt-1 uppercase font-bold">
+                                            <span className={status.className}>{status.text}</span>
+                                            <span className="text-gray-500">|</span>
+                                            <span className={license.total_seats - used <= 0 ? 'text-red-400' : 'text-gray-400'}>Ativações: {used}/{license.total_seats}</span>
+                                        </div>
+                                    </NotificationItem>
+                                );
+                            }) : <p className="text-gray-500 text-sm italic">Sem licenças críticas.</p>}
+                        </div>
+                    </section>
+                )}
 
                 {/* Warranties Section */}
-                <section>
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <FaShieldAlt className="text-yellow-400"/> Garantias a Expirar
-                    </h3>
-                    <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                        {sortedWarranties.length > 0 ? sortedWarranties.map(item => {
-                            const status = getExpiryStatus(item.warranty_end_date);
-                            const isSnoozed = snoozedIds.has(item.id);
-                            return (
-                                <NotificationItem key={item.id} id={item.id} isSnoozed={isSnoozed} onView={() => { onViewItem('equipment.inventory', { serial_number: item.serial_number }); }}>
-                                    <p className="font-semibold text-white text-sm">{item.description}</p>
-                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">S/N: {item.serial_number} — <span className={status.className}>{status.text}</span></p>
-                                </NotificationItem>
-                            );
-                        }) : <p className="text-gray-500 text-sm italic">Sem garantias a expirar.</p>}
-                    </div>
-                </section>
+                {canSeeWarranties && (
+                    <section>
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <FaShieldAlt className="text-yellow-400"/> Garantias a Expirar
+                        </h3>
+                        <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            {sortedWarranties.length > 0 ? sortedWarranties.map(item => {
+                                const status = getExpiryStatus(item.warranty_end_date);
+                                const isSnoozed = snoozedIds.has(item.id);
+                                return (
+                                    <NotificationItem key={item.id} id={item.id} isSnoozed={isSnoozed} onView={() => { onViewItem('equipment.inventory', { serial_number: item.serial_number }); }}>
+                                        <p className="font-semibold text-white text-sm">{item.description}</p>
+                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">S/N: {item.serial_number} — <span className={status.className}>{status.text}</span></p>
+                                    </NotificationItem>
+                                );
+                            }) : <p className="text-gray-500 text-sm italic">Sem garantias a expirar.</p>}
+                        </div>
+                    </section>
+                )}
 
                 <div className="flex justify-between items-center pt-4 border-t border-gray-700">
                     <label className="flex items-center gap-2 cursor-pointer group">

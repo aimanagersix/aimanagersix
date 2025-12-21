@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { CustomRole, ModuleKey, PermissionAction } from '../types';
 import * as dataService from '../services/dataService';
-import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn } from 'react-icons/fa';
+import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn, FaBell } from 'react-icons/fa';
 
 interface PermissionItem {
     key: ModuleKey;
@@ -28,6 +28,22 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'widget_operational_charts', label: 'Dashboard: Gráficos Operacionais', isSimpleAccess: true },
             { key: 'widget_activity', label: 'Dashboard: Atividade Recente', isSimpleAccess: true },
             { key: 'dashboard_smart', label: 'Dashboard: C-Level / Gestão', isSimpleAccess: true },
+        ]
+    },
+    {
+        label: 'Alertas & Notificações (Badge)',
+        items: [
+            { key: 'notif_tickets', label: 'Ver Alertas: Tickets Pendentes', isSimpleAccess: true },
+            { key: 'notif_licenses', label: 'Ver Alertas: Licenças Críticas', isSimpleAccess: true },
+            { key: 'notif_warranties', label: 'Ver Alertas: Garantias a Expirar', isSimpleAccess: true },
+        ]
+    },
+    {
+        label: 'Mensagens de Sistema (Chat)',
+        items: [
+            { key: 'msg_tickets', label: 'Receber Mensagens: Suporte / Tickets', isSimpleAccess: true },
+            { key: 'msg_licenses', label: 'Receber Mensagens: Expiração Licenças', isSimpleAccess: true },
+            { key: 'msg_warranties', label: 'Receber Mensagens: Expiração Garantias', isSimpleAccess: true },
         ]
     },
     {
@@ -73,7 +89,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
         items: [
             { key: 'compliance_bia', label: 'Impacto (BIA)' },
             { key: 'compliance_security', label: 'Vulnerabilidades' },
-            { key: 'compliance_backups', label: 'Backups', supportsOwn: true },
+            { key: 'compliance_backups', label: 'Backups' },
             { key: 'compliance_resilience', label: 'Resiliência', supportsOwn: true },
             { key: 'compliance_training', label: 'Formações', supportsOwn: true },
             { key: 'compliance_policies', label: 'Políticas', supportsOwn: true },
