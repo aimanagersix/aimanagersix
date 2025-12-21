@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Math from 'react'; // Apenas para garantir que imports não quebrem nada
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
 import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey } from './common/Icons';
@@ -57,7 +58,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         }
     }, [ticketToEdit]);
 
-    // Pedido 1: Resolver nome da Localização para visualização (Instituição > Entidade)
+    // Pedido 1: Resolver nome da Localização com detecção de RLS
     const resolvedLocationName = useMemo(() => {
         if (canEditAdvanced && !ticketToEdit) return ""; 
         
@@ -70,8 +71,11 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         if (inst && ent) return `${inst.name} > ${ent.name}`;
         if (inst) return inst.name;
         if (ent) return ent.name;
+
+        // Caso o ID exista mas o objeto não esteja no array (Provável RLS)
+        if (instId) return "Localização Identificada (Nome em Sincronização...)";
         
-        return "Localização não identificada (Verifique perfil)";
+        return "Localização não definida no perfil";
     }, [currentUser, entidades, instituicoes, canEditAdvanced, ticketToEdit]);
 
     // Filtrar entidades pela instituição do utilizador se não for admin global
@@ -371,7 +375,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                         className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs disabled:opacity-80"
                                     >
                                         <option value="">-- Selecione Licença/Software --</option>
-                                        {userLicenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name} ({lic.license_key})</option>)}
+                                        {userLicenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name}</option>)}
                                         {userLicenses.length === 0 && <option disabled>Nenhuma licença atribuída</option>}
                                     </select>
                                 )}

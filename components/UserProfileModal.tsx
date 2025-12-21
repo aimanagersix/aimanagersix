@@ -72,7 +72,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
             const file = e.target.files[0];
             setIsUploading(true);
             try {
-                // Comprime antes do upload para o storage (NIS2/DORA Optimization)
                 const compressedFile = await compressProfileImage(file);
                 const url = await dataService.uploadCollaboratorPhoto(user.id, compressedFile);
                 await onUpdatePhoto(url);
@@ -100,16 +99,19 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
     const displayInstituicao = useMemo(() => {
         if (instituicao?.name) return instituicao.name;
         if (user.role === 'SuperAdmin') return 'Acesso Global (Sem Filtro)';
-        if (user.instituicao_id) return 'Instituição Identificada (A carregar nome...)';
-        return 'Instituição não definida no perfil';
+        
+        // Diagnóstico de RLS: O ID existe mas o objetoInstituicao não foi encontrado no find do App.tsx
+        if (user.instituicao_id) return 'Instituição Vínculada (Sem permissão de leitura do nome)';
+        
+        return 'Sem instituição no perfil';
     }, [instituicao, user.instituicao_id, user.role]);
     
     const displayEntidade = useMemo(() => {
         if (entidade?.name) return entidade.name;
         if (user.role === 'SuperAdmin') return 'Global';
-        if (user.instituicao_id && !user.entidade_id) return 'Diretamente à Instituição';
-        if (user.entidade_id) return 'Entidade Identificada (A carregar nome...)';
-        return 'Sem entidade atribuída';
+        if (user.instituicao_id && !user.entidade_id) return 'Vínculo Direto (Sem Entidade)';
+        if (user.entidade_id) return 'Entidade Vínculada (Sem permissão de leitura do nome)';
+        return 'Nenhuma';
     }, [entidade, user.instituicao_id, user.entidade_id, user.role]);
 
     return (
