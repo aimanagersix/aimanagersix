@@ -18,61 +18,42 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     };
 
     const cleanupScript = `-- SCRIPT DE LIMPEZA OPERACIONAL (CLEANUP v1.0)
--- Este script apaga dados transacionais mas PRESERVA as configurações e estrutura.
-
 TRUNCATE public.ticket_activities RESTART IDENTITY CASCADE;
 TRUNCATE public.tickets RESTART IDENTITY CASCADE;
 TRUNCATE public.messages RESTART IDENTITY CASCADE;
 TRUNCATE public.license_assignments RESTART IDENTITY CASCADE;
 TRUNCATE public.assignments RESTART IDENTITY CASCADE;
 TRUNCATE public.audit_log RESTART IDENTITY CASCADE;
-TRUNCATE public.backup_executions RESTART IDENTITY CASCADE;
-TRUNCATE public.resilience_tests RESTART IDENTITY CASCADE;
-TRUNCATE public.vulnerabilities RESTART IDENTITY CASCADE;
 `;
 
     const migrationScript = `DO $$ 
 BEGIN
     -- 1. [Tabela: tickets] Normalização
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tickets' AND column_name='softwareLicenseId') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tickets' AND column_name='software_license_id') THEN 
-        ALTER TABLE public.tickets RENAME COLUMN "softwareLicenseId" TO software_license_id; 
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tickets' AND column_name='software_license_id') THEN
-        ALTER TABLE public.tickets ADD COLUMN software_license_id UUID REFERENCES public.software_licenses(id) ON DELETE SET NULL;
-    END IF;
-
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tickets' AND column_name='instituicao_id') THEN
         ALTER TABLE public.tickets ADD COLUMN instituicao_id UUID REFERENCES public.instituicoes(id) ON DELETE SET NULL;
     END IF;
 
-    -- 2. [Tabela: license_assignments] Normalização CRÍTICA
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='equipmentId') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='equipment_id') THEN 
-        ALTER TABLE public.license_assignments RENAME COLUMN "equipmentId" TO equipment_id; 
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='softwareLicenseId') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='software_license_id') THEN 
-        ALTER TABLE public.license_assignments RENAME COLUMN "softwareLicenseId" TO software_license_id; 
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='assignedDate') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='assigned_date') THEN 
-        ALTER TABLE public.license_assignments RENAME COLUMN "assignedDate" TO assigned_date; 
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='returnDate') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='return_date') THEN 
-        ALTER TABLE public.license_assignments RENAME COLUMN "returnDate" TO return_date; 
+    -- 2. [Garantia de Dados] Equipa de Triagem
+    IF NOT EXISTS (SELECT 1 FROM public.teams WHERE name = 'Triagem') THEN
+        INSERT INTO public.teams (id, name, description, is_active)
+        VALUES (gen_random_uuid(), 'Triagem', 'Equipa responsável pela classificação e encaminhamento inicial de pedidos.', true);
     END IF;
 
-    -- 3. POLÍTICAS DE SEGURANÇA (RLS) - Correção Pedido 3 (Persistência)
-    -- Permitir gestão total de atribuições de licenças para Admins e SuperAdmins
+    -- 3. POLÍTICAS DE SEGURANÇA (RLS)
     DROP POLICY IF EXISTS "Admins can manage license assignments" ON public.license_assignments;
     CREATE POLICY "Admins can manage license assignments" ON public.license_assignments
     FOR ALL TO authenticated
     USING (true)
     WITH CHECK (true);
 
-    -- Garantir permissões básicas de leitura em tabelas auxiliares para todos
+    -- Garantir permissões básicas de leitura
     GRANT SELECT, INSERT, UPDATE, DELETE ON public.license_assignments TO authenticated;
     GRANT SELECT ON public.software_licenses TO authenticated;
     GRANT SELECT ON public.assignments TO authenticated;
     GRANT SELECT ON public.equipment TO authenticated;
+    GRANT SELECT, INSERT ON public.messages TO authenticated;
+    GRANT SELECT, INSERT, UPDATE ON public.tickets TO authenticated;
+    GRANT SELECT, INSERT ON public.ticket_activities TO authenticated;
 
 END $$;`;
 
@@ -82,35 +63,19 @@ END $$;`;
                 <div className="flex border-b border-gray-700">
                     <button onClick={() => setActiveTab('migration')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'migration' ? 'border-brand-primary text-white bg-gray-800/50' : 'border-transparent text-gray-400 hover:text-white'}`}>Migração de Colunas</button>
                     <button onClick={() => setActiveTab('cleanup')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'cleanup' ? 'border-red-500 text-white bg-red-900/10' : 'border-transparent text-gray-400 hover:text-white'}`}>Limpeza de "Lixo" (Reset)</button>
-                    <button onClick={() => setActiveTab('inspect')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'inspect' ? 'border-brand-primary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Inspeção</button>
                 </div>
 
                 {activeTab === 'migration' && (
                     <div className="animate-fade-in space-y-4">
                         <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
-                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v36.0</h3>
-                            <p>Este script garante que as **atribuições de licenças** sejam gravadas corretamente por administradores.</p>
+                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v37.0</h3>
+                            <p>Este script garante a existência da equipa de <strong>Triagem</strong> e permissões de mensagens para automação.</p>
                         </div>
                         <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[35vh]">
                             <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">
                                 {copied === 'mig' ? <FaCheck /> : <FaCopy />} Copiar Script SQL
                             </button>
                             <pre className="p-4 text-[10px] font-mono text-blue-400 overflow-auto h-full custom-scrollbar">{migrationScript}</pre>
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'cleanup' && (
-                    <div className="animate-fade-in space-y-4">
-                        <div className="bg-red-900/30 border border-red-500/50 p-4 rounded-lg text-sm text-red-200">
-                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaBroom className="text-red-400" /> Ferramenta de Limpeza Operacional</h3>
-                            <p>Utilize o script abaixo para <strong>apagar todos os tickets, históricos e logs</strong>.</p>
-                        </div>
-                        <div className="relative bg-gray-900 border border-red-500/30 rounded-lg h-[35vh]">
-                            <button onClick={() => handleCopy(cleanupScript, 'clean')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded shadow-lg">
-                                {copied === 'clean' ? <FaCheck /> : <FaCopy />} Copiar Script de Limpeza
-                            </button>
-                            <pre className="p-4 text-[10px] font-mono text-red-400 overflow-auto h-full custom-scrollbar">{cleanupScript}</pre>
                         </div>
                     </div>
                 )}
