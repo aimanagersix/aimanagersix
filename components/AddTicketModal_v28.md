@@ -1,3 +1,2 @@
-# Backup AddTicketModal v27
-Continha seletor de entidade editável em modo de edição de ticket.
-(Conteúdo idêntico ao components/AddTicketModal.tsx atual)
+# Backup AddTicketModal v28
+(Conteúdo integral do ficheiro components/AddTicketModal.tsx anterior)

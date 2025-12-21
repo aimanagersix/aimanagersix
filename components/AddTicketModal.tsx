@@ -216,11 +216,19 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Assunto / Título</label>
-                        <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Ex: Problema no monitor" required />
+                        {isEditMode ? (
+                            <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm italic">{formData.title}</div>
+                        ) : (
+                            <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Ex: Problema no monitor" required />
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Descrição Detalhada</label>
-                        <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Descreva o que aconteceu..." required />
+                        {isEditMode ? (
+                            <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm italic whitespace-pre-wrap min-h-[100px]">{formData.description}</div>
+                        ) : (
+                            <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Descreva o que aconteceu..." required />
+                        )}
                     </div>
                 </div>
 

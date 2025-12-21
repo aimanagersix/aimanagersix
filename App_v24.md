@@ -1,3 +1,2 @@
-# Backup App v23
-Contém lógica de unreadMessages do Canal Geral e filtragem baseada apenas em status.
-(Conteúdo idêntico ao App.tsx atual)
+# Backup App.tsx v24
+(Conteúdo integral do ficheiro App.tsx anterior)
