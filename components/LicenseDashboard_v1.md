@@ -1,1 +1,0 @@
-# Backup LicenseDashboard v1 (camelCase properties)
