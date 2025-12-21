@@ -72,6 +72,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
             const file = e.target.files[0];
             setIsUploading(true);
             try {
+                // Comprime antes do upload para o storage (NIS2/DORA Optimization)
                 const compressedFile = await compressProfileImage(file);
                 const url = await dataService.uploadCollaboratorPhoto(user.id, compressedFile);
                 await onUpdatePhoto(url);
@@ -99,14 +100,17 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, entidade, ins
     const displayInstituicao = useMemo(() => {
         if (instituicao?.name) return instituicao.name;
         if (user.role === 'SuperAdmin') return 'Acesso Global (Sem Filtro)';
-        return 'Instituição não identificada';
-    }, [instituicao, user.role]);
+        if (user.instituicao_id) return 'Instituição Identificada (A carregar nome...)';
+        return 'Instituição não definida no perfil';
+    }, [instituicao, user.instituicao_id, user.role]);
     
     const displayEntidade = useMemo(() => {
         if (entidade?.name) return entidade.name;
         if (user.role === 'SuperAdmin') return 'Global';
-        return 'Diretamente à Instituição';
-    }, [entidade, user.role]);
+        if (user.instituicao_id && !user.entidade_id) return 'Diretamente à Instituição';
+        if (user.entidade_id) return 'Entidade Identificada (A carregar nome...)';
+        return 'Sem entidade atribuída';
+    }, [entidade, user.instituicao_id, user.entidade_id, user.role]);
 
     return (
         <Modal title="O Meu Perfil" onClose={onClose} maxWidth="max-w-2xl">

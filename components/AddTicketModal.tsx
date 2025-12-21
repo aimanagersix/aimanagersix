@@ -71,7 +71,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         if (inst) return inst.name;
         if (ent) return ent.name;
         
-        return "Localização não definida";
+        return "Localização não identificada (Verifique perfil)";
     }, [currentUser, entidades, instituicoes, canEditAdvanced, ticketToEdit]);
 
     // Filtrar entidades pela instituição do utilizador se não for admin global
