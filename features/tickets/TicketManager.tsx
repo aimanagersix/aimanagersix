@@ -85,7 +85,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
             read: false
         });
 
-        // 2. Mensagens privadas para os membros
+        // 2. Mensagens privadas para os membros (Removido filtro de currentUser para garantir alerta em todos os terminais)
         const promises = members.map((member: any) => {
             return dataService.addMessage({
                 sender_id: SYSTEM_SENDER_ID,

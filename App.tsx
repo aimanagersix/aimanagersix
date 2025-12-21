@@ -35,6 +35,8 @@ import { useInventory } from './hooks/useInventory';
 import { useSupport } from './hooks/useSupport';
 import { useCompliance } from './hooks/useCompliance';
 
+const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';
+
 export const App: React.FC = () => {
     const { layoutMode } = useLayout();
     const { t } = useLanguage();
@@ -106,12 +108,20 @@ export const App: React.FC = () => {
         };
     }, [org.data, inv.data, support.data, compliance.data]);
 
+    const unreadMessagesCount = useMemo(() => {
+        if (!currentUser || !appData.messages) return 0;
+        return appData.messages.filter((m: any) => 
+            (m.receiver_id === currentUser.id || m.receiver_id === GENERAL_CHANNEL_ID) && 
+            !m.read && 
+            m.sender_id !== currentUser.id
+        ).length;
+    }, [appData.messages, currentUser]);
+
     const refreshAll = useCallback(async (force = false) => {
         if (isRefreshing.current) return;
         isRefreshing.current = true;
         setIsSyncing(true);
         try {
-            // Forçamos o refresh global se solicitado, senão o dataService gere o cache
             if (force) localStorage.removeItem('aimanager_cache_timestamp');
             await Promise.allSettled([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
         } finally {
@@ -134,10 +144,7 @@ export const App: React.FC = () => {
         };
         initSession();
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => setSession(curSess));
-        
-        // Aumentado para 5 minutos (300.000ms) para poupança de egress/transferência de dados
         const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 300000);
-        
         return () => { subscription.unsubscribe(); clearInterval(interval); };
     }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll]);
 
@@ -158,9 +165,9 @@ export const App: React.FC = () => {
             {reportType && <ReportModal type={reportType} onClose={() => setReportType(null)} equipment={appData.equipment} brandMap={new Map(appData.brands.map((b: any) => [b.id, b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))} instituicoes={appData.instituicoes} escolasDepartamentos={appData.entidades} collaborators={appData.collaborators} assignments={appData.assignments} tickets={appData.tickets} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies} />}
             
             {layoutMode === 'side' ? (
-                <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={0} onNotificationClick={() => setShowNotifications(true)} isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
+                <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={unreadMessagesCount} onNotificationClick={() => setShowNotifications(true)} isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
             ) : (
-                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={0} onNotificationClick={() => setShowNotifications(true)} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
+                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={unreadMessagesCount} onNotificationClick={() => setShowNotifications(true)} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
             )}
 
             <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
@@ -183,7 +190,7 @@ export const App: React.FC = () => {
             </main>
 
             <MagicCommandBar brands={appData.brands} types={appData.equipmentTypes} collaborators={appData.collaborators} currentUser={currentUser} onAction={() => {}} />
-            <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={async (r,c) => { await dataService.addMessage({ sender_id: currentUser.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); refreshAll(true); }} onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); refreshAll(true); }} isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} unreadMessagesCount={appData.messages.filter((m: any) => m.receiver_id === currentUser.id && !m.read).length} onSelectConversation={setActiveChatCollaboratorId} checkPermission={checkPermission} />
+            <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={async (r,c) => { await dataService.addMessage({ sender_id: currentUser.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); refreshAll(true); }} onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); refreshAll(true); }} isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} unreadMessagesCount={unreadMessagesCount} onSelectConversation={setActiveChatCollaboratorId} checkPermission={checkPermission} />
             
             <ModalOrchestrator currentUser={currentUser} appData={appData} checkPermission={checkPermission} refreshSupport={() => refreshAll(true)} viewingTicket={viewingTicket} setViewingTicket={setViewingTicket} viewingEquipment={viewingEquipment} setViewingEquipment={setViewingEquipment} readingPolicy={readingPolicy} setReadingPolicy={setReadingPolicy} viewingLicense={viewingLicense} setViewingLicense={setViewingLicense} viewingTraining={viewingTraining} setViewingTraining={setViewingTraining} setActiveTab={setActiveTab} setDashboardFilter={setDashboardFilter} />
         </div>
