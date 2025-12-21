@@ -102,30 +102,36 @@ const TicketManager: React.FC<TicketManagerProps> = ({
     };
 
     const handleSaveTicket = async (ticket: any) => {
-        if (ticketToEdit) {
-            await dataService.updateTicket(ticketToEdit.id, ticket);
-        } else {
-            const newTicket = await dataService.addTicket(ticket);
-            
-            if (newTicket && newTicket.team_id) {
-                const members = appData.teamMembers.filter((tm: any) => tm.team_id === newTicket.team_id);
+        try {
+            if (ticketToEdit) {
+                await dataService.updateTicket(ticketToEdit.id, ticket);
+            } else {
+                const newTicket = await dataService.addTicket(ticket);
                 
-                const chatPromises = members.map((member: any) => {
-                    if (member.collaborator_id === currentUser?.id) return Promise.resolve();
+                if (newTicket && newTicket.team_id) {
+                    const members = appData.teamMembers.filter((tm: any) => tm.team_id === newTicket.team_id);
                     
-                    return dataService.addMessage({
-                        sender_id: '00000000-0000-0000-0000-000000000000', 
-                        receiver_id: member.collaborator_id,
-                        content: `📢 NOVO TICKET na sua Equipa: [#${newTicket.id.substring(0,8)}] - ${newTicket.title}.`,
-                        timestamp: new Date().toISOString(),
-                        read: false
+                    const chatPromises = members.map((member: any) => {
+                        if (member.collaborator_id === currentUser?.id) return Promise.resolve();
+                        
+                        return dataService.addMessage({
+                            sender_id: '00000000-0000-0000-0000-000000000000', 
+                            receiver_id: member.collaborator_id,
+                            content: `📢 NOVO TICKET na sua Equipa: [#${newTicket.id.substring(0,8)}] - ${newTicket.title}.`,
+                            timestamp: new Date().toISOString(),
+                            read: false
+                        });
                     });
-                });
-                
-                await Promise.allSettled(chatPromises);
+                    
+                    await Promise.allSettled(chatPromises);
+                }
             }
+            handleRefresh();
+            return true;
+        } catch (error: any) {
+            console.error("Erro em handleSaveTicket:", error);
+            throw error; // Propaga para o modal tratar o erro visualmente
         }
-        handleRefresh();
     };
 
     const handleAddActivity = async (activity: { description: string, equipment_id?: string }) => {

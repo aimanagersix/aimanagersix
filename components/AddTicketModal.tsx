@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Math from 'react'; // Apenas para garantir que imports não quebrem nada
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
 import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey } from './common/Icons';
@@ -40,6 +39,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         request_date: new Date().toISOString(),
         collaborator_id: currentUser?.id || '',
         entidade_id: currentUser?.entidade_id || '', 
+        instituicao_id: currentUser?.instituicao_id || '', // Adicionado ao estado inicial
         team_id: '',
         technician_id: '',
         security_incident_type: '',
@@ -58,7 +58,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         }
     }, [ticketToEdit]);
 
-    // Pedido 1: Resolver nome da Localização com detecção de RLS
+    // Resolver nome da Localização com detecção de RLS
     const resolvedLocationName = useMemo(() => {
         if (canEditAdvanced && !ticketToEdit) return ""; 
         
@@ -72,7 +72,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         if (inst) return inst.name;
         if (ent) return ent.name;
 
-        // Caso o ID exista mas o objeto não esteja no array (Provável RLS)
         if (instId) return "Localização Identificada (Nome em Sincronização...)";
         
         return "Localização não definida no perfil";
@@ -154,6 +153,12 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         setIsSaving(true);
         try {
             const finalData = { ...formData };
+            
+            // Garantir vínculo organizacional para não perder o ticket em filtros
+            if (currentUser?.instituicao_id) {
+                finalData.instituicao_id = currentUser.instituicao_id;
+            }
+
             if (!currentIsSecurity) {
                 finalData.security_incident_type = null;
             }
@@ -177,6 +182,9 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
 
             await onSave(finalData);
             onClose();
+        } catch (err: any) {
+            console.error("Erro ao gravar ticket no Modal:", err);
+            alert("Não foi possível gravar o ticket. Erro: " + (err.message || "Falha na comunicação com o servidor."));
         } finally { 
             setIsSaving(false); 
         }
