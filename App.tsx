@@ -86,6 +86,11 @@ export const App: React.FC = () => {
         return action === 'view' && modulePerms['view_own'] ? true : !!modulePerms[action];
     }, [currentUser, org.data.customRoles]);
 
+    const userTeamIds = useMemo(() => {
+        if (!currentUser || !support.data.teamMembers) return [];
+        return support.data.teamMembers.filter((tm: any) => tm.collaborator_id === currentUser.id).map((tm: any) => tm.team_id);
+    }, [support.data.teamMembers, currentUser]);
+
     // Fail-Safe Unified Data
     const appData = useMemo(() => {
         return { 
@@ -117,6 +122,20 @@ export const App: React.FC = () => {
         ).length;
     }, [appData.messages, currentUser]);
 
+    // Pedido 2: Ajuste de tickets visíveis nas notificações
+    const teamTicketsForNotifications = useMemo(() => {
+        if (!currentUser || !appData.tickets) return [];
+        // Admins vêem todos os pedidos novos
+        if (currentUser.role === 'Admin' || currentUser.role === 'SuperAdmin') {
+            return appData.tickets.filter((t: any) => t.status === 'Pedido');
+        }
+        // Técnicos vêem os 'Pedido' da sua equipa OU os seus próprios
+        return appData.tickets.filter((t: any) => 
+            t.status === 'Pedido' && 
+            ( (t.team_id && userTeamIds.includes(t.team_id)) || t.collaborator_id === currentUser.id )
+        );
+    }, [appData.tickets, currentUser, userTeamIds]);
+
     const refreshAll = useCallback(async (force = false) => {
         if (isRefreshing.current) return;
         isRefreshing.current = true;
@@ -144,7 +163,10 @@ export const App: React.FC = () => {
         };
         initSession();
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => setSession(curSess));
-        const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 300000);
+        
+        // Pedido 2: Redução para 30 segundos (Equilíbrio Egress vs Realtime)
+        const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 30000);
+        
         return () => { subscription.unsubscribe(); clearInterval(interval); };
     }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll]);
 
@@ -159,7 +181,7 @@ export const App: React.FC = () => {
             {isSyncing && <div className="fixed top-0 left-0 w-full h-1 z-[200] overflow-hidden bg-gray-800"><div className="h-full bg-brand-secondary animate-pulse w-full origin-left transform scale-x-0" style={{ animation: 'progress 1s infinite linear' }}></div></div>}
             
             {showProfile && <UserProfileModal user={currentUser} entidade={org.data.entidades.find(e => e.id === currentUser.entidade_id)} instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicao_id)} onClose={() => setShowProfile(false)} onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(true); }} />}
-            {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} expiringWarranties={appData.equipment.filter(e => e.warranty_end_date && new Date(e.warranty_end_date) <= new Date(Date.now() + 30*24*60*60*1000))} expiringLicenses={appData.softwareLicenses.filter(l => l.expiry_date && new Date(l.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000))} teamTickets={appData.tickets.filter(t => t.status === 'Pedido')} collaborators={appData.collaborators} teams={appData.teams} onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} currentUser={currentUser} licenseAssignments={appData.licenseAssignments} />}
+            {showNotifications && <NotificationsModal onClose={() => setShowNotifications(false)} expiringWarranties={appData.equipment.filter(e => e.warranty_end_date && new Date(e.warranty_end_date) <= new Date(Date.now() + 30*24*60*60*1000))} expiringLicenses={appData.softwareLicenses.filter(l => l.expiry_date && new Date(l.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000))} teamTickets={teamTicketsForNotifications} collaborators={appData.collaborators} teams={appData.teams} onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} currentUser={currentUser} licenseAssignments={appData.licenseAssignments} />}
             {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
             {reportType && <ReportModal type={reportType} onClose={() => setReportType(null)} equipment={appData.equipment} brandMap={new Map(appData.brands.map((b: any) => [b.id, b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))} instituicoes={appData.instituicoes} escolasDepartamentos={appData.entidades} collaborators={appData.collaborators} assignments={appData.assignments} tickets={appData.tickets} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies} />}

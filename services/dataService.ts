@@ -5,8 +5,7 @@ import { fetchSupportData, fetchTicketsPaginated } from './supportService';
 import { fetchComplianceData } from './complianceService';
 
 /**
- * Barrel Export Service - V5.0 (Egress Optimization)
- * Implementa cache local para tabelas de configuração que mudam pouco.
+ * Barrel Export Service - V6.0 (Reactive Cache Optimization)
  */
 
 export * from './authService';
@@ -18,7 +17,13 @@ export * from './configService';
 
 const CACHE_KEY = 'aimanager_global_cache';
 const CACHE_TIME_KEY = 'aimanager_cache_timestamp';
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos em milissegundos
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos padrão
+
+// Invalida o cache local para forçar refresh na próxima chamada
+export const invalidateLocalCache = () => {
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CACHE_TIME_KEY);
+};
 
 // Helper para carregamento massivo inicial e refresh global com CACHE
 export const fetchAllData = async (forceRefresh = false) => {
@@ -50,7 +55,7 @@ export const fetchAllData = async (forceRefresh = false) => {
         }
     });
 
-    // Guardar no storage para reduzir Egress nos próximos refreshes
+    // Guardar no storage
     localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
     localStorage.setItem(CACHE_TIME_KEY, now.toString());
 

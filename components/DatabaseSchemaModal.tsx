@@ -17,19 +17,9 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const cleanupScript = `-- SCRIPT DE LIMPEZA OPERACIONAL (CLEANUP v1.0)
-TRUNCATE public.ticket_activities RESTART IDENTITY CASCADE;
-TRUNCATE public.tickets RESTART IDENTITY CASCADE;
-TRUNCATE public.messages RESTART IDENTITY CASCADE;
-TRUNCATE public.license_assignments RESTART IDENTITY CASCADE;
-TRUNCATE public.assignments RESTART IDENTITY CASCADE;
-TRUNCATE public.audit_log RESTART IDENTITY CASCADE;
-`;
-
     const migrationScript = `DO $$ 
 BEGIN
-    -- 1. [Tabela: messages] Normalização de nomes (Snake Case)
-    -- Usamos SQL dinâmico para evitar erros de compilação de RLS se as colunas ainda não existirem
+    -- 1. [Tabela: messages] Normalização Snake Case
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='senderId') THEN
         ALTER TABLE public.messages RENAME COLUMN "senderId" TO sender_id;
     END IF;
@@ -37,41 +27,29 @@ BEGIN
         ALTER TABLE public.messages RENAME COLUMN "receiverId" TO receiver_id;
     END IF;
 
-    -- 2. Garantia de Equipa de Triagem
-    IF NOT EXISTS (SELECT 1 FROM public.teams WHERE name = 'Triagem') THEN
-        INSERT INTO public.teams (id, name, description, is_active)
-        VALUES (gen_random_uuid(), 'Triagem', 'Responsável pela classificação inicial de pedidos.', true);
-    END IF;
-
-    -- 3. POLÍTICAS DE SEGURANÇA (RLS) - Mensagens
-    -- Desativar para garantir limpeza
+    -- 2. Garantia de RLS para Mensagens (Canal Geral e Privado)
     ALTER TABLE public.messages DISABLE ROW LEVEL SECURITY;
     DROP POLICY IF EXISTS "System can send messages" ON public.messages;
     DROP POLICY IF EXISTS "Users can read system messages" ON public.messages;
-
-    -- Ativar RLS
     ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
-    -- Política de Inserção (Universal para Autenticados)
     CREATE POLICY "System can send messages" ON public.messages
-    FOR INSERT TO authenticated
-    WITH CHECK (true);
+    FOR INSERT TO authenticated WITH CHECK (true);
 
-    -- Política de Seleção Dinâmica (Resolve erro v39/v40)
+    -- Política v42: Garante leitura de mensagens próprias OU do Canal Geral (ID Zero)
     EXECUTE 'CREATE POLICY "Users can read system messages" ON public.messages
     FOR SELECT TO authenticated
     USING (
         receiver_id = auth.uid() 
-        OR sender_id = ''00000000-0000-0000-0000-000000000000''::uuid 
-        OR receiver_id = ''00000000-0000-0000-0000-000000000000''::uuid
+        OR sender_id = auth.uid()
+        OR receiver_id = ''00000000-0000-0000-0000-000000000000''::uuid 
+        OR sender_id = ''00000000-0000-0000-0000-000000000000''::uuid
     )';
 
-    -- 4. Permissões de Acesso (Grants)
+    -- 3. Permissões de escrita para Tabelas de Atividade (Essencial para Triagem)
+    GRANT ALL ON public.ticket_activities TO authenticated;
     GRANT ALL ON public.messages TO authenticated;
     GRANT ALL ON public.tickets TO authenticated;
-    GRANT ALL ON public.ticket_activities TO authenticated;
-    GRANT ALL ON public.assignments TO authenticated;
-    GRANT ALL ON public.license_assignments TO authenticated;
 
 END $$;`;
 
@@ -79,19 +57,19 @@ END $$;`;
         <Modal title="Manutenção e Schema da Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 <div className="flex border-b border-gray-700">
-                    <button onClick={() => setActiveTab('migration')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'migration' ? 'border-brand-primary text-white bg-gray-800/50' : 'border-transparent text-gray-400 hover:text-white'}`}>Reparação de Schema</button>
+                    <button onClick={() => setActiveTab('migration')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'migration' ? 'border-brand-primary text-white bg-gray-800/50' : 'border-transparent text-gray-400 hover:text-white'}`}>Reparação de Schema v42</button>
                     <button onClick={() => setActiveTab('cleanup')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'cleanup' ? 'border-red-500 text-white bg-red-900/10' : 'border-transparent text-gray-400 hover:text-white'}`}>Limpeza Total</button>
                 </div>
 
                 {activeTab === 'migration' && (
                     <div className="animate-fade-in space-y-4">
                         <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
-                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção Crítica v41.0</h3>
-                            <p>Este script utiliza <strong>SQL Dinâmico</strong> para contornar o erro de colunas inexistentes durante a migração de políticas de segurança (RLS).</p>
+                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Atualização v42.0</h3>
+                            <p>Este script garante que as notificações do <strong>Canal Geral</strong> apareçam corretamente para todos os técnicos.</p>
                         </div>
                         <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[35vh]">
                             <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">
-                                {copied === 'mig' ? <FaCheck /> : <FaCopy />} Copiar SQL Dinâmico
+                                {copied === 'mig' ? <FaCheck /> : <FaCopy />} Copiar SQL
                             </button>
                             <pre className="p-4 text-[10px] font-mono text-blue-400 overflow-auto h-full custom-scrollbar">{migrationScript}</pre>
                         </div>
