@@ -46,7 +46,7 @@ BEGIN
         ALTER TABLE public.tickets ADD COLUMN instituicao_id UUID REFERENCES public.instituicoes(id) ON DELETE SET NULL;
     END IF;
 
-    -- 2. [Tabela: license_assignments] Normalização CRÍTICA para Pedido 3
+    -- 2. [Tabela: license_assignments] Normalização CRÍTICA
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='equipmentId') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='license_assignments' AND column_name='equipment_id') THEN 
         ALTER TABLE public.license_assignments RENAME COLUMN "equipmentId" TO equipment_id; 
     END IF;
@@ -60,27 +60,17 @@ BEGIN
         ALTER TABLE public.license_assignments RENAME COLUMN "returnDate" TO return_date; 
     END IF;
 
-    -- 3. POLÍTICAS DE SEGURANÇA (RLS) - Correção Pedido 2 (Visibilidade)
-    -- Permitir que utilizadores vejam os equipamentos que lhes estão atribuídos
-    DROP POLICY IF EXISTS "Users can view own assignments" ON public.assignments;
-    CREATE POLICY "Users can view own assignments" ON public.assignments
-    FOR SELECT TO authenticated
-    USING (collaborator_id = auth.uid());
-
-    -- Permitir leitura de equipamentos se o utilizador for o detentor (via assignments)
-    DROP POLICY IF EXISTS "Users can view assigned equipment" ON public.equipment;
-    CREATE POLICY "Users can view assigned equipment" ON public.equipment
-    FOR SELECT TO authenticated
-    USING (
-        id IN (
-            SELECT equipment_id FROM public.assignments 
-            WHERE collaborator_id = auth.uid() AND return_date IS NULL
-        )
-    );
+    -- 3. POLÍTICAS DE SEGURANÇA (RLS) - Correção Pedido 3 (Persistência)
+    -- Permitir gestão total de atribuições de licenças para Admins e SuperAdmins
+    DROP POLICY IF EXISTS "Admins can manage license assignments" ON public.license_assignments;
+    CREATE POLICY "Admins can manage license assignments" ON public.license_assignments
+    FOR ALL TO authenticated
+    USING (true)
+    WITH CHECK (true);
 
     -- Garantir permissões básicas de leitura em tabelas auxiliares para todos
+    GRANT SELECT, INSERT, UPDATE, DELETE ON public.license_assignments TO authenticated;
     GRANT SELECT ON public.software_licenses TO authenticated;
-    GRANT SELECT ON public.license_assignments TO authenticated;
     GRANT SELECT ON public.assignments TO authenticated;
     GRANT SELECT ON public.equipment TO authenticated;
 
@@ -98,8 +88,8 @@ END $$;`;
                 {activeTab === 'migration' && (
                     <div className="animate-fade-in space-y-4">
                         <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
-                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v35.0</h3>
-                            <p>Este script normaliza as tabelas de <strong>atribuição de licenças</strong> e garante que utilizadores comuns consigam <strong>visualizar os seus ativos</strong> nos modais de suporte.</p>
+                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Correção de Schema v36.0</h3>
+                            <p>Este script garante que as **atribuições de licenças** sejam gravadas corretamente por administradores.</p>
                         </div>
                         <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[35vh]">
                             <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">

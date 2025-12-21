@@ -179,26 +179,28 @@ export const addAssignment = async (assignment: any) => {
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const nowStr = new Date().toISOString().split('T')[0];
     
-    // Invalidação de cache local para evitar visualização de dados obsoletos após refresh
+    // Invalidação agressiva de cache local para Pedido 3
     localStorage.removeItem('aimanager_global_cache');
     localStorage.removeItem('aimanager_cache_timestamp');
 
-    // Finalizar atribuições atuais
-    await sb()
+    // 1. Finalizar atribuições atuais para este equipamento
+    const { error: updateError } = await sb()
         .from('license_assignments')
         .update({ return_date: nowStr })
         .eq('equipment_id', equipmentId)
         .is('return_date', null);
     
-    // Inserir novas atribuições com nomes de colunas normalizados (Pedido 3)
+    if (updateError) throw updateError;
+    
+    // 2. Inserir novas atribuições
     if (licenseIds.length > 0) {
         const items = licenseIds.map(id => ({ 
             equipment_id: equipmentId, 
             software_license_id: id, 
             assigned_date: nowStr 
         }));
-        const { error } = await sb().from('license_assignments').insert(items);
-        if (error) throw error;
+        const { error: insertError } = await sb().from('license_assignments').insert(items);
+        if (insertError) throw insertError;
     }
 };
 
