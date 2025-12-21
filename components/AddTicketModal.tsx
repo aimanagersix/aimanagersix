@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
@@ -58,19 +59,19 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
 
     // Pedido 1: Resolver nome da Localização para visualização (Instituição > Entidade)
     const resolvedLocationName = useMemo(() => {
-        if (canEditAdvanced && !ticketToEdit) return ""; // Admin está a escolher livremente
+        if (canEditAdvanced && !ticketToEdit) return ""; 
         
-        // Procurar por instituição via ID do utilizador
-        const userInstId = currentUser?.instituicao_id;
-        const userEntId = currentUser?.entidade_id;
+        const instId = currentUser?.instituicao_id;
+        const entId = currentUser?.entidade_id;
 
-        const inst = instituicoes.find(i => i.id === userInstId);
-        const ent = entidades.find(e => e.id === userEntId);
+        const inst = instituicoes.find(i => i.id === instId);
+        const ent = entidades.find(e => e.id === entId);
         
         if (inst && ent) return `${inst.name} > ${ent.name}`;
         if (inst) return inst.name;
         if (ent) return ent.name;
-        return "Localização Padrão";
+        
+        return "Localização não definida";
     }, [currentUser, entidades, instituicoes, canEditAdvanced, ticketToEdit]);
 
     // Filtrar entidades pela instituição do utilizador se não for admin global
@@ -110,7 +111,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         
         return softwareLicenses
             .filter(lic => activeLicIds.has(lic.id))
-            // Fix: Changed lic.product_name to a.product_name as lic is not in scope of sort callback
             .sort((a, b) => (a.product_name || '').localeCompare(b.product_name || ''));
     }, [formData.collaborator_id, userEquipment, softwareLicenses, licenseAssignments]);
 
@@ -154,11 +154,10 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 finalData.security_incident_type = null;
             }
             
-            // Reforçar dados de contexto para utilizador comum
+            // Forçar contexto do utilizador logado para utilizadores sem permissão técnica
             if (!ticketToEdit && !canEditAdvanced) {
                 finalData.status = 'Pedido';
                 finalData.collaborator_id = currentUser?.id;
-                // Garantir que a entidade_id é a do próprio utilizador se ele não puder escolher
                 finalData.entidade_id = currentUser?.entidade_id || null;
             }
             
