@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, Ticket, Collaborator, Team, LicenseAssignment } from '../types';
@@ -67,21 +66,29 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
 
     const handleSnooze = (id: string) => {
         dataService.snoozeNotification(id);
-        // Atualização reativa imediata para o Pedido 2
-        setSnoozedIds(prev => new Set(prev).add(id));
+        // Atualização reativa imediata
+        setSnoozedIds(prev => {
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+        });
     };
 
     const handleUnSnooze = (id: string) => {
         const snoozedRaw = localStorage.getItem('snoozed_notifications');
         if (snoozedRaw) {
-            const snoozed = JSON.parse(snoozedRaw);
-            const filtered = snoozed.filter((item: any) => item.id !== id);
-            localStorage.setItem('snoozed_notifications', JSON.stringify(filtered));
-            setSnoozedIds(prev => {
-                const next = new Set(prev);
-                next.delete(id);
-                return next;
-            });
+            try {
+                const snoozed = JSON.parse(snoozedRaw);
+                const filtered = snoozed.filter((item: any) => item.id !== id);
+                localStorage.setItem('snoozed_notifications', JSON.stringify(filtered));
+                setSnoozedIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                });
+            } catch (e) {
+                console.error(e);
+            }
         }
     };
 
@@ -94,9 +101,9 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
         }, new Map<string, number>());
     }, [licenseAssignments]);
 
-    // Função de filtragem corrigida para o Pedido 2
+    // Função de filtragem corrigida: se showSnoozed for true, mostra tudo
     const filterVisible = (items: any[]) => {
-        if (showSnoozed) return items; // Se marcar "mostrar ocultas", ignora o set de snoozed
+        if (showSnoozed) return items;
         return items.filter(item => !snoozedIds.has(item.id));
     };
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
@@ -65,7 +64,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     }, [ticketToEdit]);
 
     const resolvedLocationName = useMemo(() => {
-        // Na edição, usamos preferencialmente os IDs do próprio ticket
         const instId = formData.instituicao_id || (ticketToEdit ? ticketToEdit.instituicao_id : currentUser?.instituicao_id);
         const entId = formData.entidade_id || (ticketToEdit ? ticketToEdit.entidade_id : currentUser?.entidade_id);
         
@@ -75,10 +73,9 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         if (inst && ent) return `${inst.name} > ${ent.name}`;
         if (inst) return inst.name;
         if (ent) return ent.name;
-        return "Localização de Origem Preservada";
+        return "Localização de Origem";
     }, [currentUser, entidades, instituicoes, formData.instituicao_id, formData.entidade_id, ticketToEdit]);
 
-    // Resgate de ativos do Requerente para o Pedido 1
     const requesterAssets = useMemo(() => {
         const userId = formData.collaborator_id;
         if (!userId) return { equipment: [], licenses: [] };
@@ -129,14 +126,13 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     };
 
     return (
-        <Modal title={isEditMode ? `Editar Ticket #${ticketToEdit?.id.substring(0,8)}` : "Abrir Novo Ticket de Suporte"} onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title={isEditMode ? `Visualização Ticket #${ticketToEdit?.id.substring(0,8)}` : "Abrir Novo Ticket de Suporte"} onClose={onClose} maxWidth="max-w-4xl">
             <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[75vh] pr-2 custom-scrollbar">
                 
-                {/* Cabeçalho de Contexto Organizacional (Fixo na Edição para o Pedido 1) */}
                 <div className="bg-gray-800/40 p-4 rounded-lg border border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2">
-                            <FaBuilding className="text-brand-secondary" /> Localização / Entidade {isEditMode && "(Somente Consulta)"}
+                            <FaBuilding className="text-brand-secondary" /> Localização / Entidade {isEditMode && "(Consulta)"}
                         </label>
                         <div className="w-full bg-gray-900 border border-gray-600 text-gray-400 rounded p-2 text-sm font-semibold truncate">
                             {resolvedLocationName}
@@ -152,7 +148,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                     </div>
                 </div>
 
-                {/* Secção Restaurada: Contexto do Requerente (Ativos Clicáveis para o Pedido 1) */}
                 <div className="bg-blue-900/10 border border-blue-500/20 rounded-lg p-4 animate-fade-in">
                     <h4 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <FaInfoCircle /> Contexto do Requerente (Inventário Ativo)
@@ -209,7 +204,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                 {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                             </select>
                         ) : (
-                            <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm">Geral</div>
+                            <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm">{formData.category || "Geral"}</div>
                         )}
                     </div>
                     <div>
@@ -238,7 +233,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                     </div>
                 </div>
 
-                {/* Vínculo de Ativo Específico (Somente Técnicos/Admins) */}
                 {canEditAdvanced && (
                     <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
                         <label className="block text-[10px] font-black text-blue-400 uppercase mb-3 flex items-center gap-2">
