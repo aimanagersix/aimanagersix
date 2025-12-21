@@ -39,7 +39,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         request_date: new Date().toISOString(),
         collaborator_id: currentUser?.id || '',
         entidade_id: currentUser?.entidade_id || '', 
-        instituicao_id: currentUser?.instituicao_id || '', // Adicionado ao estado inicial
         team_id: '',
         technician_id: '',
         security_incident_type: '',
@@ -154,10 +153,8 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         try {
             const finalData = { ...formData };
             
-            // Garantir vínculo organizacional para não perder o ticket em filtros
-            if (currentUser?.instituicao_id) {
-                finalData.instituicao_id = currentUser.instituicao_id;
-            }
+            // Nota: O instituicao_id NÃO deve ser enviado para a tabela 'tickets' 
+            // pois ela não possui essa coluna no esquema atual.
 
             if (!currentIsSecurity) {
                 finalData.security_incident_type = null;
