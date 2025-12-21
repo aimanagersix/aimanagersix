@@ -39,6 +39,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         request_date: new Date().toISOString(),
         collaborator_id: currentUser?.id || '',
         entidade_id: currentUser?.entidade_id || '', 
+        instituicao_id: currentUser?.instituicao_id || '', 
         team_id: '',
         technician_id: '',
         security_incident_type: '',
@@ -83,20 +84,25 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         return entidades.filter(e => e.instituicao_id === currentUser.instituicao_id);
     }, [entidades, currentUser, isSuperAdmin]);
 
-    // Resolver equipamentos do utilizador selecionado
+    // Resolver equipamentos do utilizador selecionado (Pedido 2: Visibilidade Reforçada)
     const userEquipment = useMemo(() => {
         const userId = formData.collaborator_id;
         if (!userId) return [];
         
         const activeAssignedEqIds = new Set(
             assignments
-                .filter(a => a.collaborator_id === userId && !a.return_date)
+                .filter(a => {
+                    // Comparação defensiva (lowercase) para evitar mismatch de string vs UUID
+                    const aColId = String(a.collaborator_id || '').toLowerCase();
+                    const targetId = String(userId).toLowerCase();
+                    return aColId === targetId && !a.return_date;
+                })
                 .map(a => a.equipment_id)
         );
         
         return equipment
             .filter(e => activeAssignedEqIds.has(e.id))
-            .sort((a, b) => a.description.localeCompare(b.description));
+            .sort((a, b) => (a.description || '').localeCompare(b.description || ''));
     }, [formData.collaborator_id, equipment, assignments]);
 
     // Resolver licenças de software instaladas nos equipamentos do utilizador
@@ -128,7 +134,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         );
         return collaborators
             .filter(c => memberIds.has(c.id))
-            .sort((a, b) => a.full_name.localeCompare(b.full_name));
+            .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
     }, [formData.team_id, collaborators, teamMembers]);
 
     useEffect(() => {
@@ -153,8 +159,10 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         try {
             const finalData = { ...formData };
             
-            // Nota: O instituicao_id NÃO deve ser enviado para a tabela 'tickets' 
-            // pois ela não possui essa coluna no esquema atual.
+            // Garantir vínculo organizacional (agora suportado pelo schema v35.0)
+            if (currentUser?.instituicao_id) {
+                finalData.instituicao_id = currentUser.instituicao_id;
+            }
 
             if (!currentIsSecurity) {
                 finalData.security_incident_type = null;
@@ -181,7 +189,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
             onClose();
         } catch (err: any) {
             console.error("Erro ao gravar ticket no Modal:", err);
-            alert("Não foi possível gravar o ticket. Erro: " + (err.message || "Falha na comunicação com o servidor."));
+            alert("Não foi possível gravar o ticket. Erro: " + (err.message || "Falha na comunicação com o servidor. Verifique se executou o script SQL de migração em 'Menu Utilizador > Base de Dados'."));
         } finally { 
             setIsSaving(false); 
         }
@@ -342,20 +350,17 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                     <button 
                                         type="button" 
                                         onClick={() => setAssetType('none')}
-                                        disabled={!canEditAdvanced}
-                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'none' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'} ${!canEditAdvanced ? 'cursor-default opacity-80' : ''}`}
+                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'none' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
                                     >Nenhum</button>
                                     <button 
                                         type="button" 
                                         onClick={() => setAssetType('hardware')}
-                                        disabled={!canEditAdvanced}
-                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'hardware' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'} ${!canEditAdvanced ? 'cursor-default opacity-80' : ''}`}
+                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'hardware' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
                                     >Hardware</button>
                                     <button 
                                         type="button" 
                                         onClick={() => setAssetType('software')}
-                                        disabled={!canEditAdvanced}
-                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'software' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'} ${!canEditAdvanced ? 'cursor-default opacity-80' : ''}`}
+                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === 'software' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
                                     >Software</button>
                                 </div>
 
@@ -363,8 +368,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                     <select 
                                         value={formData.equipment_id || ''} 
                                         onChange={e => setFormData({...formData, equipment_id: e.target.value})}
-                                        disabled={!canEditAdvanced}
-                                        className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs disabled:opacity-80"
+                                        className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs"
                                     >
                                         <option value="">-- Selecione Equipamento --</option>
                                         {userEquipment.map(eq => <option key={eq.id} value={eq.id}>{eq.description} (SN: {eq.serial_number})</option>)}
@@ -376,8 +380,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                     <select 
                                         value={formData.software_license_id || ''} 
                                         onChange={e => setFormData({...formData, software_license_id: e.target.value})}
-                                        disabled={!canEditAdvanced}
-                                        className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs disabled:opacity-80"
+                                        className="w-full bg-gray-800 border border-blue-500/30 text-white rounded p-2 text-xs"
                                     >
                                         <option value="">-- Selecione Licença/Software --</option>
                                         {userLicenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name}</option>)}
