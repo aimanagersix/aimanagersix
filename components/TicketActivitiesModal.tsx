@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Ticket, TicketActivity, Collaborator, TicketStatus, Equipment, EquipmentType, Entidade, Assignment, SoftwareLicense, LicenseAssignment } from '../types';
-import { PlusIcon, FaKey, FaLaptop } from './common/Icons';
+import { PlusIcon, FaKey, FaLaptop, FaBoxOpen } from './common/Icons';
 import { FaSpinner } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
@@ -28,12 +28,29 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({
     const [localActivities, setLocalActivities] = useState<TicketActivity[]>([]);
     const [isLoadingActivities, setIsLoadingActivities] = useState(false);
     const [newActivityDescription, setNewActivityDescription] = useState('');
+    const [assetType, setAssetType] = useState<'none' | 'hardware' | 'software'>('none');
+    const [selectedEquipmentId, setSelectedEquipmentId] = useState('');
+    const [selectedLicenseId, setSelectedLicenseId] = useState('');
     const [error, setError] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     
-    // Função de refresh local ultra-otimizada
+    // Obter ativos do REQUERENTE do ticket para seleção rápida
+    const requesterAssets = useMemo(() => {
+        const userId = ticket.collaborator_id;
+        if (!userId) return { equipment: [], licenses: [] };
+        
+        const activeAssignedEqIds = new Set(assignments.filter(a => a.collaborator_id === userId && !a.return_date).map(a => a.equipment_id));
+        const userEq = equipment.filter(e => activeAssignedEqIds.has(e.id)).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+        
+        const activeEqIds = new Set(userEq.map(e => e.id));
+        const activeLicIds = new Set(licenseAssignments.filter(la => activeEqIds.has(la.equipment_id) && !la.return_date).map(la => la.software_license_id));
+        const userLic = softwareLicenses.filter(lic => activeLicIds.has(lic.id)).sort((a, b) => (a.product_name || '').localeCompare(b.product_name || ''));
+        
+        return { equipment: userEq, licenses: userLic };
+    }, [ticket.collaborator_id, equipment, assignments, softwareLicenses, licenseAssignments]);
+
     const fetchActivities = async () => {
         setIsLoadingActivities(true);
         try {
@@ -60,14 +77,14 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({
         setError('');
         setIsSaving(true);
         try {
-            // 1. Gravar atividade
+            // Gravar atividade com vínculo opcional
             await onAddActivity({ 
                 description: newActivityDescription,
-                equipment_id: ticket.equipment_id || undefined,
-                software_license_id: ticket.software_license_id || undefined
+                equipment_id: assetType === 'hardware' ? selectedEquipmentId : undefined,
+                software_license_id: assetType === 'software' ? selectedLicenseId : undefined
             });
 
-            // 2. Notificar Requerente via Chat (Sistema) - Formato Pente Fino [#ID] para links clicáveis
+            // Notificar Requerente via Chat (Sistema)
             if (currentUser?.id !== ticket.collaborator_id) {
                 await dataService.addMessage({
                     sender_id: '00000000-0000-0000-0000-000000000000',
@@ -78,11 +95,13 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({
                 });
             }
 
-            // 3. Limpar input e forçar refresh local imediato
+            // Limpar inputs
             setNewActivityDescription('');
-            await fetchActivities();
+            setAssetType('none');
+            setSelectedEquipmentId('');
+            setSelectedLicenseId('');
             
-            // 4. Invalida cache global para garantir integridade
+            await fetchActivities();
             dataService.invalidateLocalCache();
         } catch (e: any) { 
             console.error("Erro ao registar intervenção:", e);
@@ -103,7 +122,7 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({
                 </div>
 
                 {ticket.status !== 'Finalizado' && ticket.status !== 'Cancelado' && (
-                    <div className="border-t border-gray-700 pt-4">
+                    <div className="border-t border-gray-700 pt-4 bg-gray-900/20 p-4 rounded-lg">
                         <h3 className="font-semibold text-on-surface-dark mb-2">Registar Nova Intervenção</h3>
                         <textarea 
                             value={newActivityDescription} 
@@ -113,6 +132,46 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-primary outline-none" 
                             placeholder="Descreva o trabalho realizado..."
                         ></textarea>
+                        
+                        {/* Secção de Vínculo de Ativos Migrada para Intervenção */}
+                        <div className="mt-4 pt-4 border-t border-gray-700/50">
+                            <label className="block text-[10px] font-black text-blue-400 uppercase mb-3 flex items-center gap-2">
+                                <FaBoxOpen /> Vincular Ativo a esta Intervenção específica
+                            </label>
+                            <div className="flex gap-2 mb-3">
+                                {['none', 'hardware', 'software'].map(t => (
+                                    <button 
+                                        key={t} 
+                                        type="button" 
+                                        onClick={() => setAssetType(t as any)} 
+                                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === t ? 'bg-blue-600 border-blue-400 text-white font-bold' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
+                                    >
+                                        {t === 'none' ? 'Nenhum' : t === 'hardware' ? 'HARDWARE' : 'SOFTWARE'}
+                                    </button>
+                                ))}
+                            </div>
+                            {assetType === 'hardware' && (
+                                <select 
+                                    value={selectedEquipmentId} 
+                                    onChange={e => setSelectedEquipmentId(e.target.value)} 
+                                    className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-xs animate-fade-in"
+                                >
+                                    <option value="">-- Selecione Equipamento do Requerente --</option>
+                                    {requesterAssets.equipment.map(eq => <option key={eq.id} value={eq.id}>{eq.description} (SN: {eq.serial_number})</option>)}
+                                </select>
+                            )}
+                            {assetType === 'software' && (
+                                <select 
+                                    value={selectedLicenseId} 
+                                    onChange={e => setSelectedLicenseId(e.target.value)} 
+                                    className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-xs animate-fade-in"
+                                >
+                                    <option value="">-- Selecione Licença do Requerente --</option>
+                                    {requesterAssets.licenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name}</option>)}
+                                </select>
+                            )}
+                        </div>
+
                         {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
                         <div className="flex justify-end mt-4">
                             <button 
@@ -133,15 +192,35 @@ const TicketActivitiesModal: React.FC<TicketActivitiesModalProps> = ({
                         {isLoadingActivities && <FaSpinner className="animate-spin text-gray-500 text-xs" />}
                     </h3>
                     <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-                        {sortedActivities.length > 0 ? sortedActivities.map(activity => (
-                            <div key={activity.id} className="p-3 bg-gray-900/30 rounded-lg border border-gray-700">
-                                <div className="flex justify-between items-center mb-1">
-                                    <p className="font-bold text-brand-secondary text-sm">{collaboratorMap.get(activity.technician_id) || 'Sistema'}</p>
-                                    <p className="text-[10px] text-gray-500 font-mono">{new Date(activity.date).toLocaleString()}</p>
+                        {sortedActivities.length > 0 ? sortedActivities.map(activity => {
+                            const linkedEq = activity.equipment_id ? equipment.find(e => e.id === activity.equipment_id) : null;
+                            const linkedLic = activity.software_license_id ? softwareLicenses.find(l => l.id === activity.software_license_id) : null;
+
+                            return (
+                                <div key={activity.id} className="p-3 bg-gray-900/30 rounded-lg border border-gray-700 relative">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <p className="font-bold text-brand-secondary text-sm">{collaboratorMap.get(activity.technician_id) || 'Sistema'}</p>
+                                        <p className="text-[10px] text-gray-500 font-mono">{new Date(activity.date).toLocaleString()}</p>
+                                    </div>
+                                    <p className="text-sm text-on-surface-dark whitespace-pre-wrap mb-2">{activity.description}</p>
+                                    
+                                    {(linkedEq || linkedLic) && (
+                                        <div className="mt-2 pt-2 border-t border-gray-800 flex items-center gap-2">
+                                            {linkedEq && (
+                                                <span className="flex items-center gap-1.5 bg-blue-900/30 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                                                    <FaLaptop /> {linkedEq.description}
+                                                </span>
+                                            )}
+                                            {linkedLic && (
+                                                <span className="flex items-center gap-1.5 bg-yellow-900/30 text-yellow-300 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                                                    <FaKey /> {linkedLic.product_name}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="text-sm text-on-surface-dark whitespace-pre-wrap">{activity.description}</p>
-                            </div>
-                        )) : !isLoadingActivities && <p className="text-sm text-gray-500 text-center py-4 italic border border-dashed border-gray-700 rounded-lg">Ainda não existem intervenções registadas.</p>}
+                            );
+                        }) : !isLoadingActivities && <p className="text-sm text-gray-500 text-center py-4 italic border border-dashed border-gray-700 rounded-lg">Ainda não existem intervenções registadas.</p>}
                     </div>
                 </div>
                 <div className="flex justify-end pt-4 border-t border-gray-700">

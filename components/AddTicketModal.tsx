@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
@@ -30,7 +31,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     onViewEquipment, onViewLicense
 }) => {
     const [isSaving, setIsSaving] = useState(false);
-    const [assetType, setAssetType] = useState<'none' | 'hardware' | 'software'>('none');
     const isEditMode = !!ticketToEdit;
     
     const triagemTeam = useMemo(() => teams.find(t => t.name === 'Triagem'), [teams]);
@@ -58,8 +58,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     useEffect(() => {
         if (ticketToEdit) {
             setFormData({ ...ticketToEdit });
-            if (ticketToEdit.equipment_id) setAssetType('hardware');
-            else if (ticketToEdit.software_license_id) setAssetType('software');
         }
     }, [ticketToEdit]);
 
@@ -96,15 +94,12 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         return collaborators.filter(c => memberIds.has(c.id)).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
     }, [formData.team_id, collaborators, teamMembers]);
 
-    const currentIsSecurity = categories.find(c => c.name === formData.category)?.is_security;
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
         try {
             const finalData = { ...formData };
             if (currentUser?.instituicao_id && !isSuperAdmin) finalData.instituicao_id = currentUser.instituicao_id;
-            if (!currentIsSecurity) finalData.security_incident_type = null;
             
             if (!isEditMode && !canEditAdvanced) {
                 finalData.status = 'Pedido';
@@ -113,10 +108,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 finalData.collaborator_id = currentUser?.id;
                 finalData.entidade_id = currentUser?.entidade_id || null;
             }
-            
-            if (assetType === 'none') { finalData.equipment_id = null; finalData.software_license_id = null; }
-            else if (assetType === 'hardware') finalData.software_license_id = null;
-            else finalData.equipment_id = null;
 
             await onSave(finalData);
             onClose();
@@ -126,13 +117,13 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     };
 
     return (
-        <Modal title={isEditMode ? `Visualização Ticket #${ticketToEdit?.id.substring(0,8)}` : "Abrir Novo Ticket de Suporte"} onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title={isEditMode ? `Ticket #${ticketToEdit?.id.substring(0,8)}` : "Abrir Novo Ticket de Suporte"} onClose={onClose} maxWidth="max-w-4xl">
             <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[75vh] pr-2 custom-scrollbar">
                 
                 <div className="bg-gray-800/40 p-4 rounded-lg border border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2">
-                            <FaBuilding className="text-brand-secondary" /> Localização / Entidade {isEditMode && "(Consulta)"}
+                            <FaBuilding className="text-brand-secondary" /> Localização / Entidade
                         </label>
                         <div className="w-full bg-gray-900 border border-gray-600 text-gray-400 rounded p-2 text-sm font-semibold truncate">
                             {resolvedLocationName}
@@ -164,7 +155,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                     </div>
                                     <button 
                                         type="button" 
-                                        onClick={() => onViewEquipment?.(eq)}
+                                        onClick={() => { onViewEquipment?.(eq); }}
                                         className="p-1.5 bg-gray-700 text-blue-400 rounded hover:bg-blue-500 hover:text-white transition-colors"
                                         title="Abrir Ficha Técnica"
                                     >
@@ -184,7 +175,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                     </div>
                                     <button 
                                         type="button" 
-                                        onClick={() => onViewLicense?.(lic)}
+                                        onClick={() => { onViewLicense?.(lic); }}
                                         className="p-1.5 bg-gray-700 text-yellow-400 rounded hover:bg-yellow-500 hover:text-white transition-colors"
                                         title="Ver Licença"
                                     >
@@ -232,31 +223,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                         <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Descreva o que aconteceu..." required />
                     </div>
                 </div>
-
-                {canEditAdvanced && (
-                    <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
-                        <label className="block text-[10px] font-black text-blue-400 uppercase mb-3 flex items-center gap-2">
-                             <FaBoxOpen /> Vincular Ativo ao Ticket
-                        </label>
-                        <div className="flex gap-2 mb-3">
-                            {['none', 'hardware', 'software'].map(t => (
-                                <button key={t} type="button" onClick={() => setAssetType(t as any)} className={`flex-1 py-1 text-[10px] rounded border transition-all ${assetType === t ? 'bg-blue-600 border-blue-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}>{t === 'none' ? 'Nenhum' : t.toUpperCase()}</button>
-                            ))}
-                        </div>
-                        {assetType === 'hardware' && (
-                            <select value={formData.equipment_id || ''} onChange={e => setFormData({...formData, equipment_id: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-xs">
-                                <option value="">-- Selecione Equipamento --</option>
-                                {requesterAssets.equipment.map(eq => <option key={eq.id} value={eq.id}>{eq.description} (SN: {eq.serial_number})</option>)}
-                            </select>
-                        )}
-                        {assetType === 'software' && (
-                            <select value={formData.software_license_id || ''} onChange={e => setFormData({...formData, software_license_id: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-xs">
-                                <option value="">-- Selecione Software --</option>
-                                {requesterAssets.licenses.map(lic => <option key={lic.id} value={lic.id}>{lic.product_name}</option>)}
-                            </select>
-                        )}
-                    </div>
-                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-700 pt-4">
                     <div>

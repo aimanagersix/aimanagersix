@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction, ConfigItem, Instituicao } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers, FaUserTie } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers, FaUserTie, FaSync } from './common/Icons';
 import { FaPaperclip, FaChevronDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import * as dataService from '../services/dataService';
@@ -131,7 +131,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
     
-    // Normalizar mapa de cores para minúsculas
     const statusConfigMap = useMemo(() => new Map(configTicketStatuses.map(s => [s.name.toLowerCase(), s])), [configTicketStatuses]);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
@@ -139,6 +138,13 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         const newFilters = { ...filters, [name]: value };
         setFilters(newFilters);
         if (onFilterChange) onFilterChange(newFilters);
+        if (onPageChange) onPageChange(1);
+    };
+
+    const handleResetFilters = () => {
+        const empty = { status: '', team_id: '', category: '', title: '' };
+        setFilters(empty);
+        if (onFilterChange) onFilterChange(empty);
         if (onPageChange) onPageChange(1);
     };
 
@@ -192,7 +198,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                         <PlusIcon /> Abrir Ticket
                     </button>
                     
-                    <div className="flex bg-gray-800 rounded-md border border-gray-700 overflow-hidden">
+                    <div className="flex bg-gray-800 rounded-md border border-gray-700 overflow-hidden items-center">
                         <input type="text" name="title" placeholder="Pesquisar..." value={filters.title} onChange={handleFilterChange} className="bg-transparent text-white px-3 py-1.5 text-sm focus:outline-none w-40 md:w-64"/>
                         <select name="category" value={filters.category} onChange={handleFilterChange} className="bg-gray-700 text-gray-300 px-2 py-1.5 text-xs border-l border-gray-600 focus:outline-none">
                             <option value="">Categorias</option>
@@ -205,6 +211,13 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                             <option value="Finalizado">Finalizado (Histórico)</option>
                             <option value="Cancelado">Cancelado</option>
                         </select>
+                        <button 
+                            onClick={handleResetFilters} 
+                            className="bg-gray-600 text-white px-3 py-1.5 hover:bg-gray-500 transition-colors border-l border-gray-600"
+                            title="Limpar Filtros"
+                        >
+                            <FaSync className={(filters.title || filters.category || filters.status) ? "text-brand-secondary" : "opacity-30"} />
+                        </button>
                     </div>
                 </div>
             </div>
