@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
-    Ticket, Collaborator, ModuleKey, PermissionAction, TicketStatus
+    Ticket, Collaborator, ModuleKey, PermissionAction, TicketStatus, Equipment, SoftwareLicense
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -25,11 +25,14 @@ interface TicketManagerProps {
     setDashboardFilter: (filter: any) => void;
     setReportType: (type: string) => void;
     currentUser: Collaborator | null;
+    onViewEquipment?: (equipment: Equipment) => void;
+    onViewLicense?: (license: SoftwareLicense) => void;
 }
 
 const TicketManager: React.FC<TicketManagerProps> = ({ 
     appData, checkPermission, refreshData, 
-    dashboardFilter, setDashboardFilter, setReportType, currentUser 
+    dashboardFilter, setDashboardFilter, setReportType, currentUser,
+    onViewEquipment, onViewLicense
 }) => {
     const [ticketsData, setTicketsData] = useState<Ticket[]>([]);
     const [totalTickets, setTotalTickets] = useState(0);
@@ -68,15 +71,20 @@ const TicketManager: React.FC<TicketManagerProps> = ({
 
     useEffect(() => { fetchTickets(); }, [fetchTickets]);
 
-    const handleRefresh = async () => { await fetchTickets(); refreshData(); };
+    // Otimização "Pente Fino": Força refresh global e local
+    const handleRefresh = async () => { 
+        dataService.invalidateLocalCache();
+        await fetchTickets(); 
+        refreshData(); 
+    };
 
     const notifyTeamMates = async (teamId: string, ticketTitle: string, ticketId: string, isNew: boolean) => {
         const members = appData.teamMembers.filter((tm: any) => tm.team_id === teamId);
         const teamName = appData.teams.find((t: any) => t.id === teamId)?.name || 'Equipa';
         
-        const alertMsg = `📢 ${isNew ? 'NOVO TICKET' : 'ATRIBUIÇÃO'}: [#${ticketId.substring(0,8)}] - ${ticketTitle} (${teamName}).`;
+        // Padronização rigorosa de formato [#ID] para links
+        const alertMsg = `📢 ${isNew ? 'NOVO TICKET' : 'ATRIBUIÇÃO'}: [#${ticketId}] - ${ticketTitle} (${teamName}).`;
 
-        // 1. Notificação para o Canal Geral (Garante o Alerta Visual para todos)
         await dataService.addMessage({
             sender_id: SYSTEM_SENDER_ID,
             receiver_id: GENERAL_CHANNEL_ID,
@@ -85,8 +93,8 @@ const TicketManager: React.FC<TicketManagerProps> = ({
             read: false
         });
 
-        // 2. Mensagens privadas para os membros (Removido filtro de currentUser para garantir alerta em todos os terminais)
         const promises = members.map((member: any) => {
+            if (member.collaborator_id === currentUser?.id) return Promise.resolve(); // Não auto-notificar
             return dataService.addMessage({
                 sender_id: SYSTEM_SENDER_ID,
                 receiver_id: member.collaborator_id,
@@ -118,7 +126,7 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                     await notifyTeamMates(newTicket.team_id, newTicket.title, newTicket.id, true);
                 }
             }
-            handleRefresh();
+            await handleRefresh();
             return true;
         } catch (error: any) { throw error; }
     };
@@ -138,7 +146,17 @@ const TicketManager: React.FC<TicketManagerProps> = ({
                 onGenerateSecurityReport={(t) => { setTicketForRegulatoryReport(t); setShowRegulatoryModal(true); }}
                 checkPermission={checkPermission} onOpenCloseTicketModal={(t) => { setTicketToClose(t); setShowCloseTicketModal(true); }}
             />
-            {showAddTicketModal && <AddTicketModal onClose={() => setShowAddTicketModal(false)} onSave={handleSaveTicket} ticketToEdit={ticketToEdit} escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} collaborators={appData.collaborators} teams={appData.teams} teamMembers={appData.teamMembers} currentUser={currentUser} categories={appData.ticketCategories} securityIncidentTypes={appData.securityIncidentTypes} checkPermission={checkPermission} equipment={appData.equipment} assignments={appData.assignments} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} />}
+            {showAddTicketModal && (
+                <AddTicketModal 
+                    onClose={() => setShowAddTicketModal(false)} onSave={handleSaveTicket} ticketToEdit={ticketToEdit} 
+                    escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} collaborators={appData.collaborators} 
+                    teams={appData.teams} teamMembers={appData.teamMembers} currentUser={currentUser} 
+                    categories={appData.ticketCategories} securityIncidentTypes={appData.securityIncidentTypes} 
+                    checkPermission={checkPermission} equipment={appData.equipment} assignments={appData.assignments} 
+                    softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
+                    onViewEquipment={onViewEquipment} onViewLicense={onViewLicense}
+                />
+            )}
             {showTicketActivitiesModal && ticketForActivities && <TicketActivitiesModal ticket={ticketForActivities} activities={appData.ticketActivities} collaborators={appData.collaborators} currentUser={currentUser} equipment={appData.equipment} equipmentTypes={appData.equipmentTypes} entidades={appData.entidades} onClose={() => setShowTicketActivitiesModal(false)} onAddActivity={async (act) => { await dataService.addTicketActivity({...act, ticket_id: ticketForActivities.id, technician_id: currentUser?.id, date: new Date().toISOString()}); handleRefresh(); }} assignments={appData.assignments} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} />}
             {showCloseTicketModal && ticketToClose && <CloseTicketModal ticket={ticketToClose} collaborators={appData.collaborators} onClose={() => setShowCloseTicketModal(false)} onConfirm={async (techId, summary) => { await dataService.updateTicket(ticketToClose.id, { status: TicketStatus.Finished, technician_id: techId, finish_date: new Date().toISOString(), resolution_summary: summary }); handleRefresh(); setShowCloseTicketModal(false); }} />}
             {showRegulatoryModal && ticketForRegulatoryReport && <RegulatoryNotificationModal ticket={ticketForRegulatoryReport} activities={[]} onClose={() => setShowRegulatoryModal(false)} />}

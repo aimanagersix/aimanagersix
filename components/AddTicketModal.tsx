@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
-import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey, FaBoxOpen } from './common/Icons';
+import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey, FaBoxOpen, FaExternalLinkAlt } from './common/Icons';
 
 interface AddTicketModalProps {
     onClose: () => void;
@@ -21,11 +21,14 @@ interface AddTicketModalProps {
     assignments: Assignment[];
     softwareLicenses: SoftwareLicense[];
     licenseAssignments: LicenseAssignment[];
+    onViewEquipment?: (equipment: Equipment) => void;
+    onViewLicense?: (license: SoftwareLicense) => void;
 }
 
 export const AddTicketModal: React.FC<AddTicketModalProps> = ({ 
     onClose, onSave, ticketToEdit, collaborators, teams, teamMembers = [], currentUser, categories, securityIncidentTypes = [], checkPermission, escolasDepartamentos: entidades, instituicoes,
-    equipment, assignments, softwareLicenses, licenseAssignments
+    equipment, assignments, softwareLicenses, licenseAssignments,
+    onViewEquipment, onViewLicense
 }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [assetType, setAssetType] = useState<'none' | 'hardware' | 'software'>('none');
@@ -160,12 +163,35 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 </div>
 
                 <div className="space-y-4 border border-gray-700 rounded-lg p-3 bg-gray-900/30">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2"><FaUserTie className="text-brand-secondary" /> Requerente: {currentUser?.full_name}</label>
-                        {/* Pedido 3: Resumo Simples de Inventário */}
-                        <div className="flex gap-2">
-                             {userEquipment.length > 0 && <span className="flex items-center gap-1 text-[9px] bg-blue-900/40 text-blue-300 px-1.5 py-0.5 rounded border border-blue-800" title={userEquipment.map(e => e.description).join(', ')}><FaLaptop size={10}/> {userEquipment.length} Itens</span>}
-                             {userLicenses.length > 0 && <span className="flex items-center gap-1 text-[9px] bg-yellow-900/40 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-800" title={userLicenses.map(l => l.product_name).join(', ')}><FaKey size={10}/> {userLicenses.length} Lic.</span>}
+                        
+                        {/* Pedido 2: Inventário Clicável */}
+                        <div className="flex flex-wrap gap-1.5">
+                             {userEquipment.slice(0, 3).map(eq => (
+                                 <button 
+                                    key={eq.id} 
+                                    type="button" 
+                                    onClick={() => onViewEquipment?.(eq)}
+                                    className="flex items-center gap-1 text-[9px] bg-blue-900/40 text-blue-300 px-1.5 py-0.5 rounded border border-blue-800 hover:bg-blue-800 hover:text-white transition-all cursor-pointer"
+                                    title={`Consultar: ${eq.serial_number}`}
+                                 >
+                                     <FaLaptop size={10}/> {eq.description}
+                                 </button>
+                             ))}
+                             {userEquipment.length > 3 && <span className="text-[9px] text-gray-600 self-center">+{userEquipment.length - 3}</span>}
+
+                             {userLicenses.slice(0, 2).map(lic => (
+                                 <button 
+                                    key={lic.id} 
+                                    type="button" 
+                                    onClick={() => onViewLicense?.(lic)}
+                                    className="flex items-center gap-1 text-[9px] bg-yellow-900/40 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-800 hover:bg-yellow-800 hover:text-white transition-all cursor-pointer"
+                                    title={`Consultar Licença`}
+                                 >
+                                     <FaKey size={10}/> {lic.product_name}
+                                 </button>
+                             ))}
                         </div>
                     </div>
                     

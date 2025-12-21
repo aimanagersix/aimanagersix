@@ -19,37 +19,31 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const migrationScript = `DO $$ 
 BEGIN
-    -- 1. [Tabela: messages] Normalização Snake Case
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='senderId') THEN
-        ALTER TABLE public.messages RENAME COLUMN "senderId" TO sender_id;
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='receiverId') THEN
-        ALTER TABLE public.messages RENAME COLUMN "receiverId" TO receiver_id;
-    END IF;
+    -- 1. [Índices] Otimização de Performance para Mensagens e Alertas (Polling 30s)
+    CREATE INDEX IF NOT EXISTS idx_messages_unread_lookup 
+    ON public.messages (receiver_id, read, sender_id);
 
-    -- 2. Garantia de RLS para Mensagens (Canal Geral e Privado)
+    -- 2. [Índices] Otimização de Busca de Tickets por Status e Data
+    CREATE INDEX IF NOT EXISTS idx_tickets_workflow_sort 
+    ON public.tickets (status, request_date DESC);
+
+    -- 3. [Tabela: messages] RLS v46 para Canal Geral
+    -- Garante que todos possam ler o canal geral (ID Zero) e marcar como lido
     ALTER TABLE public.messages DISABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "System can send messages" ON public.messages;
-    DROP POLICY IF EXISTS "Users can read system messages" ON public.messages;
+    DROP POLICY IF EXISTS "Users can read and update messages" ON public.messages;
     ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
-    CREATE POLICY "System can send messages" ON public.messages
-    FOR INSERT TO authenticated WITH CHECK (true);
-
-    -- Política v42: Garante leitura de mensagens próprias OU do Canal Geral (ID Zero)
-    EXECUTE 'CREATE POLICY "Users can read system messages" ON public.messages
-    FOR SELECT TO authenticated
+    CREATE POLICY "Users can read and update messages" ON public.messages
+    FOR ALL TO authenticated
     USING (
         receiver_id = auth.uid() 
         OR sender_id = auth.uid()
-        OR receiver_id = ''00000000-0000-0000-0000-000000000000''::uuid 
-        OR sender_id = ''00000000-0000-0000-0000-000000000000''::uuid
-    )';
+        OR receiver_id = '00000000-0000-0000-0000-000000000000'::uuid 
+    );
 
-    -- 3. Permissões de escrita para Tabelas de Atividade (Essencial para Triagem)
+    -- 4. Garantir que as tabelas de suporte têm permissões totais para técnicos
     GRANT ALL ON public.ticket_activities TO authenticated;
-    GRANT ALL ON public.messages TO authenticated;
-    GRANT ALL ON public.tickets TO authenticated;
+    GRANT USAGE ON SEQUENCE public.ticket_activities_id_seq TO authenticated;
 
 END $$;`;
 
@@ -57,15 +51,15 @@ END $$;`;
         <Modal title="Manutenção e Schema da Base de Dados" onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
                 <div className="flex border-b border-gray-700">
-                    <button onClick={() => setActiveTab('migration')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'migration' ? 'border-brand-primary text-white bg-gray-800/50' : 'border-transparent text-gray-400 hover:text-white'}`}>Reparação de Schema v42</button>
+                    <button onClick={() => setActiveTab('migration')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'migration' ? 'border-brand-primary text-white bg-gray-800/50' : 'border-transparent text-gray-400 hover:text-white'}`}>Reparação de Schema v46</button>
                     <button onClick={() => setActiveTab('cleanup')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${activeTab === 'cleanup' ? 'border-red-500 text-white bg-red-900/10' : 'border-transparent text-gray-400 hover:text-white'}`}>Limpeza Total</button>
                 </div>
 
                 {activeTab === 'migration' && (
                     <div className="animate-fade-in space-y-4">
-                        <div className="bg-amber-900/20 border border-amber-500/50 p-4 rounded-lg text-sm text-amber-200">
-                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-amber-400" /> Atualização v42.0</h3>
-                            <p>Este script garante que as notificações do <strong>Canal Geral</strong> apareçam corretamente para todos os técnicos.</p>
+                        <div className="bg-green-900/20 border border-green-500/50 p-4 rounded-lg text-sm text-green-200">
+                            <h3 className="font-bold flex items-center gap-2 mb-1"><FaExclamationTriangle className="text-green-400" /> Atualização v46.0 (Performance & Sincronia)</h3>
+                            <p>Este script otimiza a <strong>velocidade de carregamento</strong> do dashboard e garante que as mensagens do Canal Geral fluam sem restrições.</p>
                         </div>
                         <div className="relative bg-gray-900 border border-gray-700 rounded-lg h-[35vh]">
                             <button onClick={() => handleCopy(migrationScript, 'mig')} className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded shadow-lg">

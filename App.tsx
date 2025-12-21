@@ -113,6 +113,7 @@ export const App: React.FC = () => {
         };
     }, [org.data, inv.data, support.data, compliance.data]);
 
+    // Otimização "Pente Fino": Ignora mensagens enviadas pelo próprio para o Canal Geral
     const unreadMessagesCount = useMemo(() => {
         if (!currentUser || !appData.messages) return 0;
         return appData.messages.filter((m: any) => 
@@ -122,17 +123,19 @@ export const App: React.FC = () => {
         ).length;
     }, [appData.messages, currentUser]);
 
-    // Pedido 2: Ajuste de tickets visíveis nas notificações
+    // Filtros de Tickets para Notificações
     const teamTicketsForNotifications = useMemo(() => {
         if (!currentUser || !appData.tickets) return [];
-        // Admins vêem todos os pedidos novos
         if (currentUser.role === 'Admin' || currentUser.role === 'SuperAdmin') {
-            return appData.tickets.filter((t: any) => t.status === 'Pedido');
+            return appData.tickets.filter((t: any) => t.status !== 'Finalizado' && t.status !== 'Cancelado');
         }
-        // Técnicos vêem os 'Pedido' da sua equipa OU os seus próprios
         return appData.tickets.filter((t: any) => 
-            t.status === 'Pedido' && 
-            ( (t.team_id && userTeamIds.includes(t.team_id)) || t.collaborator_id === currentUser.id )
+            (t.status !== 'Finalizado' && t.status !== 'Cancelado') && 
+            (
+                (t.team_id && userTeamIds.includes(t.team_id)) || 
+                t.technician_id === currentUser.id || 
+                t.collaborator_id === currentUser.id
+            )
         );
     }, [appData.tickets, currentUser, userTeamIds]);
 
@@ -141,7 +144,10 @@ export const App: React.FC = () => {
         isRefreshing.current = true;
         setIsSyncing(true);
         try {
-            if (force) localStorage.removeItem('aimanager_cache_timestamp');
+            if (force) {
+                localStorage.removeItem('aimanager_global_cache');
+                localStorage.removeItem('aimanager_cache_timestamp');
+            }
             await Promise.allSettled([org.refresh(), inv.refresh(), support.refresh(), compliance.refresh()]);
         } finally {
             isRefreshing.current = false;
@@ -163,12 +169,15 @@ export const App: React.FC = () => {
         };
         initSession();
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => setSession(curSess));
-        
-        // Pedido 2: Redução para 30 segundos (Equilíbrio Egress vs Realtime)
         const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 30000);
-        
         return () => { subscription.unsubscribe(); clearInterval(interval); };
     }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll]);
+
+    const handleNavigateFromChat = useCallback((ticketId: string) => {
+        setActiveTab('tickets.list');
+        setDashboardFilter({ id: ticketId });
+        setChatOpen(false);
+    }, []);
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     if (isAppLoading) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">AIManager Absolute Zero</p></div>;
@@ -212,7 +221,14 @@ export const App: React.FC = () => {
             </main>
 
             <MagicCommandBar brands={appData.brands} types={appData.equipmentTypes} collaborators={appData.collaborators} currentUser={currentUser} onAction={() => {}} />
-            <ChatWidget currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} onSendMessage={async (r,c) => { await dataService.addMessage({ sender_id: currentUser.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); refreshAll(true); }} onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); refreshAll(true); }} isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} unreadMessagesCount={unreadMessagesCount} onSelectConversation={setActiveChatCollaboratorId} checkPermission={checkPermission} />
+            <ChatWidget 
+                currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} 
+                onSendMessage={async (r,c) => { await dataService.addMessage({ sender_id: currentUser.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); refreshAll(true); }} 
+                onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); refreshAll(true); }} 
+                isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} 
+                unreadMessagesCount={unreadMessagesCount} onSelectConversation={setActiveChatCollaboratorId} 
+                onNavigateToTicket={handleNavigateFromChat}
+            />
             
             <ModalOrchestrator currentUser={currentUser} appData={appData} checkPermission={checkPermission} refreshSupport={() => refreshAll(true)} viewingTicket={viewingTicket} setViewingTicket={setViewingTicket} viewingEquipment={viewingEquipment} setViewingEquipment={setViewingEquipment} readingPolicy={readingPolicy} setReadingPolicy={setReadingPolicy} viewingLicense={viewingLicense} setViewingLicense={setViewingLicense} viewingTraining={viewingTraining} setViewingTraining={setViewingTraining} setActiveTab={setActiveTab} setDashboardFilter={setDashboardFilter} />
         </div>
