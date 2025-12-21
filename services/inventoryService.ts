@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { Equipment } from '../types';
 
@@ -178,29 +179,26 @@ export const addAssignment = async (assignment: any) => {
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const nowStr = new Date().toISOString().split('T')[0];
     
-    // Invalidação agressiva de cache local para Pedido 2
-    // Limpamos o cache global para que o próximo fetchAllData traga a versão real da DB
+    // Invalidação de cache local para evitar visualização de dados obsoletos após refresh
     localStorage.removeItem('aimanager_global_cache');
     localStorage.removeItem('aimanager_cache_timestamp');
 
-    // 1. Finalizar atribuições atuais para este equipamento
-    const { error: updateError } = await sb()
+    // Finalizar atribuições atuais
+    await sb()
         .from('license_assignments')
         .update({ return_date: nowStr })
         .eq('equipment_id', equipmentId)
         .is('return_date', null);
     
-    if (updateError) throw updateError;
-    
-    // 2. Inserir novas atribuições
+    // Inserir novas atribuições com nomes de colunas normalizados (Pedido 3)
     if (licenseIds.length > 0) {
         const items = licenseIds.map(id => ({ 
             equipment_id: equipmentId, 
             software_license_id: id, 
             assigned_date: nowStr 
         }));
-        const { error: insertError } = await sb().from('license_assignments').insert(items);
-        if (insertError) throw insertError;
+        const { error } = await sb().from('license_assignments').insert(items);
+        if (error) throw error;
     }
 };
 
@@ -217,7 +215,6 @@ export const addMultipleLicenses = async (items: any[]) => { await sb().from('so
 export const updateLicense = async (id: string, updates: any) => { await sb().from('software_licenses').update(cleanPayload(updates)).eq('id', id); };
 export const deleteLicense = async (id: string) => { await sb().from('software_licenses').delete().eq('id', id); };
 export const addProcurement = async (p: any) => { const { data } = await sb().from('procurement_requests').insert(cleanPayload(p)).select().single(); return data; };
-// Fix: Added missing 'export const' to updateProcurement
 export const updateProcurement = async (id: string, updates: any) => { await sb().from('procurement_requests').update(cleanPayload(updates)).eq('id', id); };
 export const deleteProcurement = async (id: string) => { await sb().from('procurement_requests').delete().eq('id', id); };
 export const addSoftwareProduct = async (p: any) => { await sb().from('config_software_products').insert(cleanPayload(p)); };

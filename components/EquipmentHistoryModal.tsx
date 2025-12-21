@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Assignment, Collaborator, Entidade, Ticket, TicketActivity, BusinessService, ServiceDependency, CriticalityLevel, SoftwareLicense, LicenseAssignment, Vulnerability, Supplier, ProcurementRequest, ConfigItem } from '../types';
@@ -26,7 +25,6 @@ interface EquipmentHistoryModalProps {
     onViewItem?: (tab: string, filter: any) => void;
     accountingCategories?: ConfigItem[];
     conservationStates?: ConfigItem[];
-    onRefresh?: () => void; // Adicionado para Pedido 3
 }
 
 const getCriticalityClass = (level: CriticalityLevel) => {
@@ -41,12 +39,13 @@ const getCriticalityClass = (level: CriticalityLevel) => {
 const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({ 
     equipment, assignments, collaborators, escolasDepartamentos: entidades, onClose, tickets, ticketActivities,
     businessServices = [], serviceDependencies = [], softwareLicenses = [], licenseAssignments = [], vulnerabilities = [], suppliers = [], onEdit, procurementRequests = [], onViewItem,
-    accountingCategories = [], conservationStates = [], onRefresh
+    accountingCategories = [], conservationStates = []
 }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'licenses' | 'security' | 'acquisition'>('details');
     const [showManageLicenses, setShowManageLicenses] = useState(false);
     const [childEquipment, setChildEquipment] = useState<Equipment[]>([]);
     
+    // FIX: Updated property names to snake_case to match types.ts
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
@@ -66,22 +65,26 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
     }, [equipment.id]);
 
     const currentAssignment = useMemo(() => {
+        // FIX: Updated property names to snake_case
         return assignments.find(a => a.equipment_id === equipment.id && !a.return_date);
     }, [assignments, equipment.id]);
 
     const equipmentAssignments = useMemo(() => {
+        // FIX: Updated property names to snake_case
         return assignments
             .filter(a => a.equipment_id === equipment.id)
             .sort((a, b) => new Date(b.assigned_date).getTime() - new Date(a.assigned_date).getTime());
     }, [assignments, equipment.id]);
 
     const equipmentTickets = useMemo(() => {
+        // FIX: Updated property names to snake_case
         return tickets
             .filter(t => t.equipment_id === equipment.id)
             .sort((a, b) => new Date(b.request_date).getTime() - new Date(a.request_date).getTime());
     }, [tickets, equipment.id]);
     
     const { activeLicenses, historyLicenses } = useMemo(() => {
+        // FIX: Updated property names to snake_case
         const allAssignments = licenseAssignments.filter(la => la.equipment_id === equipment.id);
         const activeMap = new Map<string, { license: SoftwareLicense, assignedDate: string }>();
         const history: { license: SoftwareLicense, assignedDate: string, returnDate: string }[] = [];
@@ -122,19 +125,15 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
         return conservationStates.find(c => c.id === equipment.conservation_state_id)?.name || equipment.conservation_state_id;
     }, [equipment.conservation_state_id, conservationStates]);
 
+    // FIX: Added handleSaveLicenses function
     const handleSaveLicenses = async (eqId: string, licenseIds: string[]) => {
-        try {
-            await dataService.syncLicenseAssignments(eqId, licenseIds);
-            if (onRefresh) onRefresh(); // Forçar refresh global para atualizar AppData e refletir no UI
-        } catch (e: any) {
-            alert("Erro ao sincronizar licenças: " + e.message);
-        }
+        await dataService.syncLicenseAssignments(eqId, licenseIds);
     };
 
     return (
         <Modal title={`Ficha Técnica: ${equipment.serial_number}`} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[80vh]">
-                <div className="flex-shrink-0 bg-gray-900/50 p-4 rounded-lg border border-gray-700 mb-4 flex flex-col md:flex-row justify-between gap-4">
+                <div className="flex-shrink-0 bg-gray-900/50 p-4 rounded-lg border border-gray-700 mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h2 className="text-xl font-bold text-white mb-1">{equipment.description}</h2>
                         <div className="flex flex-wrap gap-3 text-sm text-gray-300">
@@ -190,7 +189,7 @@ const EquipmentHistoryModal: React.FC<EquipmentHistoryModalProps> = ({
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <h3 className="text-sm font-bold text-gray-400 uppercase border-b border-gray-700 pb-1">Compra & Garantia</h3>
+                                    <h3 className="text-sm font-bold text-gray-400 uppercase border-b border-gray-700 pb-1">Financeiro</h3>
                                     <div className="text-sm space-y-2">
                                         <div className="flex justify-between"><span className="text-gray-500">Compra:</span> <span className="text-white">{equipment.purchase_date || '-'}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Garantia:</span> <span className="text-white">{equipment.warranty_end_date || '-'}</span></div>

@@ -73,33 +73,37 @@ export const fetchTicketsPaginated = async (params: {
 }) => {
     let query = sb().from('tickets').select('*', { count: 'exact' });
     
+    // RBAC: Construção do filtro de visibilidade
     if (params.userContext && params.userContext.role !== 'SuperAdmin' && params.userContext.role !== 'Admin') {
         const { id, teamIds } = params.userContext;
         const orParts = [`collaborator_id.eq.${id}`, `technician_id.eq.${id}`];
-        if (teamIds && teamIds.length > 0) orParts.push(`team_id.in.(${teamIds.join(',')})`);
+        
+        if (teamIds && teamIds.length > 0) {
+            orParts.push(`team_id.in.(${teamIds.join(',')})`);
+        }
         query = query.or(orParts.join(','));
     }
 
     if (params.filters) {
-        if (params.filters.status) query = query.eq('status', params.filters.status);
-        else query = query.in('status', ['Pedido', 'Em progresso']);
-        
+        if (params.filters.status) {
+            query = query.eq('status', params.filters.status);
+        } else {
+            // Pedido 1: Ocultar Finalizados e Cancelados por defeito se nenhum status for explicitamente filtrado
+            query = query.in('status', ['Pedido', 'Em progresso']);
+        }
         if (params.filters.category) query = query.eq('category', params.filters.category);
         if (params.filters.title) query = query.ilike('title', `%${params.filters.title}%`);
         if (params.filters.id) query = query.eq('id', params.filters.id);
     } else {
+        // Fallback para filtro inicial
         query = query.in('status', ['Pedido', 'Em progresso']);
     }
 
-    // Otimização "Pente Fino": Ordenação determinística
-    // 1. Tickets em aberto primeiro
-    // 2. Incidentes críticos no topo
-    // 3. Data mais recente
+    // Pedido 1: Ordenação descendente por data, mas priorizando status "Pedido" e "Em progresso"
     const sortObj = params.sort || { key: 'request_date', direction: 'descending' };
     
     query = query
-        .order('status', { ascending: false }) // Pedido > Em progresso
-        .order('impact_criticality', { ascending: false, nullsFirst: false }) // Crítica > Alta > Média > Baixa
+        .order('status', { ascending: false }) 
         .order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
     
     const from = (params.page - 1) * params.pageSize;

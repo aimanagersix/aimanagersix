@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
-    Ticket, Collaborator, ModuleKey, PermissionAction, TicketStatus, Equipment, SoftwareLicense
+    Ticket, Collaborator, ModuleKey, PermissionAction, TicketStatus
 } from '../../types';
 import * as dataService from '../../services/dataService';
 
@@ -14,9 +14,6 @@ import CloseTicketModal from '../../components/CloseTicketModal';
 import TicketActivitiesModal from '../../components/TicketActivitiesModal';
 import RegulatoryNotificationModal from '../../components/RegulatoryNotificationModal';
 
-const SYSTEM_SENDER_ID = '00000000-0000-0000-0000-000000000000';
-const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';
-
 interface TicketManagerProps {
     appData: any;
     checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
@@ -25,15 +22,13 @@ interface TicketManagerProps {
     setDashboardFilter: (filter: any) => void;
     setReportType: (type: string) => void;
     currentUser: Collaborator | null;
-    onViewEquipment?: (equipment: Equipment) => void;
-    onViewLicense?: (license: SoftwareLicense) => void;
 }
 
 const TicketManager: React.FC<TicketManagerProps> = ({ 
     appData, checkPermission, refreshData, 
-    dashboardFilter, setDashboardFilter, setReportType, currentUser,
-    onViewEquipment, onViewLicense
+    dashboardFilter, setDashboardFilter, setReportType, currentUser 
 }) => {
+    // Server-Side Data State for Tickets
     const [ticketsData, setTicketsData] = useState<Ticket[]>([]);
     const [totalTickets, setTotalTickets] = useState(0);
     const [ticketsLoading, setTicketsLoading] = useState(false);
@@ -43,16 +38,22 @@ const TicketManager: React.FC<TicketManagerProps> = ({
 
     const [showAddTicketModal, setShowAddTicketModal] = useState(false);
     const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
+    
     const [showCloseTicketModal, setShowCloseTicketModal] = useState(false);
     const [ticketToClose, setTicketToClose] = useState<Ticket | null>(null);
+    
     const [showTicketActivitiesModal, setShowTicketActivitiesModal] = useState(false);
     const [ticketForActivities, setTicketForActivities] = useState<Ticket | null>(null);
+
     const [showRegulatoryModal, setShowRegulatoryModal] = useState(false);
     const [ticketForRegulatoryReport, setTicketForRegulatoryReport] = useState<Ticket | null>(null);
 
+    // Get User's teams for filtered fetch
     const userTeamIds = useMemo(() => {
         if (!currentUser || !appData.teamMembers) return [];
-        return appData.teamMembers.filter((tm: any) => tm.collaborator_id === currentUser.id).map((tm: any) => tm.team_id);
+        return appData.teamMembers
+            .filter((tm: any) => tm.collaborator_id === currentUser.id)
+            .map((tm: any) => tm.team_id);
     }, [appData.teamMembers, currentUser]);
 
     const fetchTickets = useCallback(async () => {
@@ -60,106 +61,184 @@ const TicketManager: React.FC<TicketManagerProps> = ({
         setTicketsLoading(true);
         try {
             const { data, total } = await dataService.fetchTicketsPaginated({
-                page: ticketPage, pageSize: ticketPageSize, filters: dashboardFilter || {}, sort: ticketSort,
-                userContext: { id: currentUser.id, role: currentUser.role, teamIds: userTeamIds }
+                page: ticketPage,
+                pageSize: ticketPageSize,
+                filters: dashboardFilter || {},
+                sort: ticketSort,
+                userContext: {
+                    id: currentUser.id,
+                    role: currentUser.role,
+                    teamIds: userTeamIds
+                }
             });
             setTicketsData(data);
             setTotalTickets(total);
-        } catch (error) { console.error(error); }
-        finally { setTicketsLoading(false); }
+        } catch (error) {
+            console.error("Error fetching tickets:", error);
+            setTicketsData([]);
+            setTotalTickets(0);
+        } finally {
+            setTicketsLoading(false);
+        }
     }, [ticketPage, ticketPageSize, dashboardFilter, ticketSort, currentUser, userTeamIds]);
 
-    useEffect(() => { fetchTickets(); }, [fetchTickets]);
+    useEffect(() => {
+        fetchTickets();
+    }, [fetchTickets]);
 
-    // Otimização "Pente Fino": Força refresh global e local
-    const handleRefresh = async () => { 
-        dataService.invalidateLocalCache();
-        await fetchTickets(); 
+    const handleRefresh = async () => {
+        await fetchTickets();
         refreshData(); 
     };
 
-    const notifyTeamMates = async (teamId: string, ticketTitle: string, ticketId: string, isNew: boolean) => {
-        const members = appData.teamMembers.filter((tm: any) => tm.team_id === teamId);
-        const teamName = appData.teams.find((t: any) => t.id === teamId)?.name || 'Equipa';
-        
-        // Padronização rigorosa de formato [#ID] para links
-        const alertMsg = `📢 ${isNew ? 'NOVO TICKET' : 'ATRIBUIÇÃO'}: [#${ticketId}] - ${ticketTitle} (${teamName}).`;
-
-        await dataService.addMessage({
-            sender_id: SYSTEM_SENDER_ID,
-            receiver_id: GENERAL_CHANNEL_ID,
-            content: alertMsg,
-            timestamp: new Date().toISOString(),
-            read: false
-        });
-
-        const promises = members.map((member: any) => {
-            if (member.collaborator_id === currentUser?.id) return Promise.resolve(); // Não auto-notificar
-            return dataService.addMessage({
-                sender_id: SYSTEM_SENDER_ID,
-                receiver_id: member.collaborator_id,
-                content: alertMsg,
-                timestamp: new Date().toISOString(),
-                read: false
-            });
-        });
-        await Promise.allSettled(promises);
+    const handleUpdateTicket = async (ticket: Ticket) => {
+        try {
+            await dataService.updateTicket(ticket.id, ticket);
+            handleRefresh();
+        } catch (e) {
+            console.error("Erro ao atualizar ticket:", e);
+            alert("Erro ao gravar alteração de estado.");
+        }
     };
 
     const handleSaveTicket = async (ticket: any) => {
         try {
             if (ticketToEdit) {
-                const isTeamChange = ticketToEdit.team_id !== ticket.team_id;
-                if (isTeamChange && ticket.status === 'Pedido') {
-                    ticket.status = 'Em progresso';
-                }
                 await dataService.updateTicket(ticketToEdit.id, ticket);
-                if (isTeamChange && ticket.team_id) {
-                    await notifyTeamMates(ticket.team_id, ticket.title, ticketToEdit.id, false);
-                }
             } else {
-                const triagemTeam = appData.teams.find((t: any) => t.name === 'Triagem');
-                if (!ticket.team_id && triagemTeam) ticket.team_id = triagemTeam.id;
-                
                 const newTicket = await dataService.addTicket(ticket);
+                
                 if (newTicket && newTicket.team_id) {
-                    await notifyTeamMates(newTicket.team_id, newTicket.title, newTicket.id, true);
+                    const members = appData.teamMembers.filter((tm: any) => tm.team_id === newTicket.team_id);
+                    
+                    const chatPromises = members.map((member: any) => {
+                        if (member.collaborator_id === currentUser?.id) return Promise.resolve();
+                        
+                        return dataService.addMessage({
+                            sender_id: '00000000-0000-0000-0000-000000000000', 
+                            receiver_id: member.collaborator_id,
+                            content: `📢 NOVO TICKET na sua Equipa: [#${newTicket.id.substring(0,8)}] - ${newTicket.title}.`,
+                            timestamp: new Date().toISOString(),
+                            read: false
+                        });
+                    });
+                    
+                    await Promise.allSettled(chatPromises);
                 }
             }
-            await handleRefresh();
+            handleRefresh();
             return true;
-        } catch (error: any) { throw error; }
+        } catch (error: any) {
+            console.error("Erro em handleSaveTicket:", error);
+            throw error; // Propaga para o modal tratar o erro visualmente
+        }
+    };
+
+    const handleAddActivity = async (activity: { description: string, equipment_id?: string }) => {
+        if (!ticketForActivities) return;
+        await dataService.addTicketActivity({
+            ticket_id: ticketForActivities.id,
+            technician_id: currentUser?.id,
+            description: activity.description,
+            equipment_id: activity.equipment_id,
+            date: new Date().toISOString()
+        });
+        handleRefresh();
     };
 
     return (
         <>
             <TicketDashboard 
-                tickets={ticketsData} totalItems={totalTickets} loading={ticketsLoading} page={ticketPage} pageSize={ticketPageSize}
-                onPageChange={setTicketPage} onPageSizeChange={setTicketPageSize} onFilterChange={setDashboardFilter} sort={ticketSort}
-                escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} collaborators={appData.collaborators}
-                teams={appData.teams} suppliers={appData.suppliers} equipment={appData.equipment}
-                categories={appData.ticketCategories} configTicketStatuses={appData.configTicketStatuses}
+                tickets={ticketsData}
+                totalItems={totalTickets}
+                loading={ticketsLoading}
+                page={ticketPage}
+                pageSize={ticketPageSize}
+                onPageChange={setTicketPage}
+                onPageSizeChange={setTicketPageSize}
+                onFilterChange={setDashboardFilter}
+                sort={ticketSort}
+                escolasDepartamentos={appData.entidades}
+                instituicoes={appData.instituicoes}
+                collaborators={appData.collaborators}
+                teams={appData.teams}
+                suppliers={appData.suppliers} 
+                equipment={appData.equipment}
+                categories={appData.ticketCategories}
+                configTicketStatuses={appData.configTicketStatuses}
                 onEdit={checkPermission('tickets', 'edit') ? (t) => { setTicketToEdit(t); setShowAddTicketModal(true); } : undefined}
-                onUpdateTicket={async (t) => { await dataService.updateTicket(t.id, t); handleRefresh(); }}
+                onUpdateTicket={handleUpdateTicket}
                 onCreate={checkPermission('tickets', 'create') ? () => { setTicketToEdit(null); setShowAddTicketModal(true); } : undefined}
                 onOpenActivities={(t) => { setTicketForActivities(t); setShowTicketActivitiesModal(true); }}
-                onGenerateSecurityReport={(t) => { setTicketForRegulatoryReport(t); setShowRegulatoryModal(true); }}
-                checkPermission={checkPermission} onOpenCloseTicketModal={(t) => { setTicketToClose(t); setShowCloseTicketModal(true); }}
+                onGenerateSecurityReport={(t) => { 
+                    setTicketForRegulatoryReport(t);
+                    setShowRegulatoryModal(true);
+                }}
+                checkPermission={checkPermission}
+                onOpenCloseTicketModal={(t) => { setTicketToClose(t); setShowCloseTicketModal(true); }}
             />
+
             {showAddTicketModal && (
-                <AddTicketModal 
-                    onClose={() => setShowAddTicketModal(false)} onSave={handleSaveTicket} ticketToEdit={ticketToEdit} 
-                    escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} collaborators={appData.collaborators} 
-                    teams={appData.teams} teamMembers={appData.teamMembers} currentUser={currentUser} 
-                    categories={appData.ticketCategories} securityIncidentTypes={appData.securityIncidentTypes} 
-                    checkPermission={checkPermission} equipment={appData.equipment} assignments={appData.assignments} 
-                    softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments}
-                    onViewEquipment={onViewEquipment} onViewLicense={onViewLicense}
+                <AddTicketModal
+                    onClose={() => setShowAddTicketModal(false)}
+                    onSave={handleSaveTicket}
+                    ticketToEdit={ticketToEdit}
+                    escolasDepartamentos={appData.entidades}
+                    instituicoes={appData.instituicoes}
+                    collaborators={appData.collaborators}
+                    teams={appData.teams}
+                    teamMembers={appData.teamMembers}
+                    currentUser={currentUser}
+                    categories={appData.ticketCategories}
+                    securityIncidentTypes={appData.securityIncidentTypes}
+                    checkPermission={checkPermission}
+                    equipment={appData.equipment}
+                    assignments={appData.assignments}
+                    softwareLicenses={appData.softwareLicenses}
+                    licenseAssignments={appData.licenseAssignments}
                 />
             )}
-            {showTicketActivitiesModal && ticketForActivities && <TicketActivitiesModal ticket={ticketForActivities} activities={appData.ticketActivities} collaborators={appData.collaborators} currentUser={currentUser} equipment={appData.equipment} equipmentTypes={appData.equipmentTypes} entidades={appData.entidades} onClose={() => setShowTicketActivitiesModal(false)} onAddActivity={async (act) => { await dataService.addTicketActivity({...act, ticket_id: ticketForActivities.id, technician_id: currentUser?.id, date: new Date().toISOString()}); handleRefresh(); }} assignments={appData.assignments} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} />}
-            {showCloseTicketModal && ticketToClose && <CloseTicketModal ticket={ticketToClose} collaborators={appData.collaborators} onClose={() => setShowCloseTicketModal(false)} onConfirm={async (techId, summary) => { await dataService.updateTicket(ticketToClose.id, { status: TicketStatus.Finished, technician_id: techId, finish_date: new Date().toISOString(), resolution_summary: summary }); handleRefresh(); setShowCloseTicketModal(false); }} />}
-            {showRegulatoryModal && ticketForRegulatoryReport && <RegulatoryNotificationModal ticket={ticketForRegulatoryReport} activities={[]} onClose={() => setShowRegulatoryModal(false)} />}
+
+            {showTicketActivitiesModal && ticketForActivities && (
+                <TicketActivitiesModal
+                    ticket={ticketForActivities}
+                    activities={appData.ticketActivities}
+                    collaborators={appData.collaborators}
+                    currentUser={currentUser}
+                    equipment={appData.equipment}
+                    equipmentTypes={appData.equipmentTypes}
+                    entidades={appData.entidades}
+                    onClose={() => setShowTicketActivitiesModal(false)}
+                    onAddActivity={handleAddActivity}
+                    assignments={appData.assignments}
+                />
+            )}
+
+            {showCloseTicketModal && ticketToClose && (
+                <CloseTicketModal
+                    ticket={ticketToClose}
+                    collaborators={appData.collaborators}
+                    onClose={() => setShowCloseTicketModal(false)}
+                    onConfirm={async (techId, summary) => {
+                        await dataService.updateTicket(ticketToClose.id, { 
+                            status: TicketStatus.Finished, 
+                            technician_id: techId, 
+                            finish_date: new Date().toISOString(),
+                            resolution_summary: summary
+                        });
+                        handleRefresh();
+                        setShowCloseTicketModal(false);
+                    }}
+                />
+            )}
+
+            {showRegulatoryModal && ticketForRegulatoryReport && (
+                <RegulatoryNotificationModal 
+                    ticket={ticketForRegulatoryReport}
+                    activities={[]} 
+                    onClose={() => setShowRegulatoryModal(false)}
+                />
+            )}
         </>
     );
 };
