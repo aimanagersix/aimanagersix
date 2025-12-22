@@ -3,15 +3,15 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V3.3 (Massive Seeding & Schema Repair)
+ * DB Manager UI - V3.4 (Integrity Guard & Massive Seeding)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
- * - PEDIDO 4 (Abas BD):          FECHADO - AS 4 ABAS ORIGINAIS MANTIDAS
+ * - PEDIDO 4 (Abas BD):          FECHADO - AS 5 ABAS SÃO ESTRUTURAIS
  * -----------------------------------------------------------------------------
- * PEDIDO 5: Expansão de Seeding e Correção do Script de Categorias/Ataques.
+ * PEDIDO 6: Correção de erros SQL de relação inexistente e atualização do Seed.
  * -----------------------------------------------------------------------------
  */
 
@@ -32,15 +32,24 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const fullInitScript = `-- 1. EXTENSÕES & PERMISSÕES
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. ORGANIZAÇÃO & SEGURANÇA (RBAC)
-CREATE TABLE IF NOT EXISTS config_custom_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT UNIQUE NOT NULL,
-    description TEXT,
-    permissions JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
+-- 2. TABELAS DE CONFIGURAÇÃO (AUXILIARES - DEVEM VIR PRIMEIRO)
+CREATE TABLE IF NOT EXISTS config_custom_roles (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, description TEXT, permissions JSONB DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS config_job_titles (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS contact_titles (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS contact_roles (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS config_collaborator_deactivation_reasons (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS config_equipment_statuses (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, color TEXT);
+CREATE TABLE IF NOT EXISTS config_ticket_statuses (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, color TEXT);
+CREATE TABLE IF NOT EXISTS config_license_statuses (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, color TEXT);
+CREATE TABLE IF NOT EXISTS config_cpus (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS config_ram_sizes (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS config_storage_types (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS config_decommission_reasons (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS config_accounting_categories (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS config_conservation_states (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, color TEXT);
+CREATE TABLE IF NOT EXISTS config_software_categories (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
 
+-- 3. ORGANIZAÇÃO & RH
 CREATE TABLE IF NOT EXISTS institutions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -76,11 +85,6 @@ CREATE TABLE IF NOT EXISTS entities (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS config_job_titles (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS contact_titles (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS contact_roles (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS config_collaborator_deactivation_reasons (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-
 CREATE TABLE IF NOT EXISTS collaborators (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     full_name TEXT NOT NULL,
@@ -102,7 +106,7 @@ CREATE TABLE IF NOT EXISTS collaborators (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 3. INVENTÁRIO & ATIVOS
+-- 4. INVENTÁRIO & ATIVOS
 CREATE TABLE IF NOT EXISTS brands (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT UNIQUE NOT NULL,
@@ -110,6 +114,8 @@ CREATE TABLE IF NOT EXISTS brands (
     is_iso27001_certified BOOLEAN DEFAULT false,
     security_contact_email TEXT
 );
+
+CREATE TABLE IF NOT EXISTS config_software_products (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, category_id UUID REFERENCES config_software_categories(id));
 
 CREATE TABLE IF NOT EXISTS equipment_types (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -150,30 +156,16 @@ CREATE TABLE IF NOT EXISTS equipment (
     mac_address_wifi TEXT,
     mac_address_cabo TEXT,
     residual_value DECIMAL(12,2),
-    accounting_category_id UUID,
-    conservation_state_id UUID,
-    decommission_reason_id UUID,
+    accounting_category_id UUID REFERENCES config_accounting_categories(id),
+    conservation_state_id UUID REFERENCES config_conservation_states(id),
+    decommission_reason_id UUID REFERENCES config_decommission_reasons(id),
     created_at TIMESTAMPTZ DEFAULT now()
 );
-
--- 4. TABELAS DE CONFIGURAÇÃO (AUXILIARES)
-CREATE TABLE IF NOT EXISTS config_equipment_statuses (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, color TEXT);
-CREATE TABLE IF NOT EXISTS config_ticket_statuses (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, color TEXT);
-CREATE TABLE IF NOT EXISTS config_license_statuses (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, color TEXT);
-CREATE TABLE IF NOT EXISTS config_cpus (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS config_ram_sizes (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS config_storage_types (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS config_decommission_reasons (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS config_accounting_categories (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS config_conservation_states (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, color TEXT);
-CREATE TABLE IF NOT EXISTS config_software_categories (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL);
-CREATE TABLE IF NOT EXISTS config_software_products (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, category_id UUID REFERENCES config_software_categories(id));
 
 -- 5. SUPORTE & MENSAGENS
 CREATE TABLE IF NOT EXISTS teams (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT UNIQUE NOT NULL, description TEXT, is_active BOOLEAN DEFAULT true);
 CREATE TABLE IF NOT EXISTS team_members (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), team_id UUID REFERENCES teams(id) ON DELETE CASCADE, collaborator_id UUID REFERENCES collaborators(id) ON DELETE CASCADE);
 
--- TABELAS DE CATEGORIAS E TIPOS (CORRIGIDO V3.3)
 CREATE TABLE IF NOT EXISTS ticket_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(), 
     name TEXT UNIQUE NOT NULL, 
@@ -219,22 +211,11 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE TABLE IF NOT EXISTS global_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT, updated_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE IF NOT EXISTS audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), timestamp TIMESTAMPTZ DEFAULT now(), action TEXT NOT NULL, resource_type TEXT, user_email TEXT, details TEXT);
 
--- 7. SEED: DADOS INICIAIS & STANDARDS
-INSERT INTO institutions (id, name, codigo, is_active)
-VALUES ('00000000-0000-0000-0000-000000000001', 'Organização Sede', 'SEDE', true)
-ON CONFLICT (codigo) DO NOTHING;
-
-INSERT INTO entities (id, instituicao_id, name, codigo, status)
-VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Administração Geral', 'ADM', 'Ativo')
-ON CONFLICT (codigo) DO NOTHING;
-
-INSERT INTO config_custom_roles (id, name, permissions)
-VALUES (gen_random_uuid(), 'SuperAdmin', '{"*": {"*": true}}'::jsonb)
-ON CONFLICT (name) DO NOTHING;
-
-INSERT INTO collaborators (id, full_name, email, role, status, can_login, receives_notifications, instituicao_id, entidade_id)
-VALUES ('00000000-0000-0000-0000-000000000003', 'Super Administrador', 'josefsmoreira@outlook.com', 'SuperAdmin', 'Ativo', true, true, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002')
-ON CONFLICT (email) DO NOTHING;
+-- 7. SEED BÁSICO (SUPERADMIN)
+INSERT INTO config_custom_roles (id, name, permissions) VALUES (gen_random_uuid(), 'SuperAdmin', '{"*": {"*": true}}'::jsonb) ON CONFLICT (name) DO NOTHING;
+INSERT INTO institutions (id, name, codigo, is_active) VALUES ('00000000-0000-0000-0000-000000000001', 'Organização Sede', 'SEDE', true) ON CONFLICT (codigo) DO NOTHING;
+INSERT INTO entities (id, instituicao_id, name, codigo, status) VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Administração Geral', 'ADM', 'Ativo') ON CONFLICT (codigo) DO NOTHING;
+INSERT INTO collaborators (id, full_name, email, role, status, can_login, receives_notifications, instituicao_id, entidade_id) VALUES ('00000000-0000-0000-0000-000000000003', 'Super Administrador', 'josefsmoreira@outlook.com', 'SuperAdmin', 'Ativo', true, true, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002') ON CONFLICT (email) DO NOTHING;
 `;
 
     const triggersScript = `-- AUTO-AUDIT LOG TRIGGER
@@ -321,7 +302,7 @@ USING (
 `;
 
     const seedingScript = `-- SCRIPT DE SEEDING COMPLETO: TABELAS AUXILIARES PADRÃO
--- V3.3: Inclusão de Tratos, Marcas, Tipos e Software.
+-- IMPORTANTE: Execute primeiro a Aba "Inicialização Total" para criar as tabelas.
 
 -- 1. TRATOS HONORÍFICOS
 INSERT INTO contact_titles (name) VALUES 
@@ -342,8 +323,7 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO brands (name, risk_level, is_iso27001_certified) VALUES 
 ('Dell', 'Baixa', true), ('HP', 'Baixa', true), ('Apple', 'Baixa', true), ('Lenovo', 'Baixa', true),
 ('Cisco', 'Baixa', true), ('Ubiquiti', 'Média', false), ('Fortinet', 'Baixa', true),
-('Microsoft', 'Baixa', true), ('Adobe', 'Baixa', true), ('Logitech', 'Baixa', false),
-('Samsung', 'Baixa', true), ('APC / Schneider', 'Baixa', true)
+('Microsoft', 'Baixa', true), ('Adobe', 'Baixa', true), ('Samsung', 'Baixa', true)
 ON CONFLICT (name) DO NOTHING;
 
 -- 5. TIPOS DE EQUIPAMENTO
@@ -357,7 +337,6 @@ INSERT INTO equipment_types (name, requires_nome_na_rede, requires_ram_size, req
 ('Access Point', true, false, false, false),
 ('Smartphone', false, false, false, false),
 ('Tablet', false, false, false, false),
-('Impressora', true, false, false, false),
 ('UPS', false, false, false, false)
 ON CONFLICT (name) DO NOTHING;
 
@@ -370,8 +349,7 @@ INSERT INTO config_software_products (name, category_id) VALUES
 ('Windows 11 Pro', (SELECT id FROM config_software_categories WHERE name='Sistema Operativo' LIMIT 1)),
 ('Microsoft 365 Business', (SELECT id FROM config_software_categories WHERE name='Produtividade' LIMIT 1)),
 ('Adobe Creative Cloud', (SELECT id FROM config_software_categories WHERE name='Design' LIMIT 1)),
-('Sophos Endpoint Protection', (SELECT id FROM config_software_categories WHERE name='Segurança' LIMIT 1)),
-('ESET Endpoint Security', (SELECT id FROM config_software_categories WHERE name='Segurança' LIMIT 1))
+('Sophos Endpoint Protection', (SELECT id FROM config_software_categories WHERE name='Segurança' LIMIT 1))
 ON CONFLICT DO NOTHING;
 
 -- 7. ESTADOS DE LICENÇAS
@@ -379,21 +357,17 @@ INSERT INTO config_license_statuses (name, color) VALUES
 ('Ativo', '#22c55e'), ('Expirado', '#ef4444'), ('Suspenso', '#eab308'), ('Revogado', '#6b7280')
 ON CONFLICT (name) DO NOTHING;
 
--- 8. CPUS (Mapeamento de Hardware)
+-- 8. CPUS
 INSERT INTO config_cpus (name) VALUES 
 ('Intel Core i3'), ('Intel Core i5'), ('Intel Core i7'), ('Intel Core i9'),
 ('AMD Ryzen 5'), ('AMD Ryzen 7'), ('Apple M1'), ('Apple M2'), ('Apple M3')
 ON CONFLICT (name) DO NOTHING;
 
 -- 9. RAM SIZES
-INSERT INTO config_ram_sizes (name) VALUES 
-('4 GB'), ('8 GB'), ('16 GB'), ('32 GB'), ('64 GB')
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO config_ram_sizes (name) VALUES ('4 GB'), ('8 GB'), ('16 GB'), ('32 GB'), ('64 GB') ON CONFLICT (name) DO NOTHING;
 
 -- 10. STORAGE TYPES
-INSERT INTO config_storage_types (name) VALUES 
-('SSD SATA'), ('SSD NVMe Gen3'), ('SSD NVMe Gen4'), ('HDD 7200rpm')
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO config_storage_types (name) VALUES ('SSD SATA'), ('SSD NVMe Gen3'), ('SSD NVMe Gen4'), ('HDD 7200rpm') ON CONFLICT (name) DO NOTHING;
 
 -- 11. ESTADOS DE EQUIPAMENTO (CORES)
 INSERT INTO config_equipment_statuses (name, color) VALUES 
@@ -405,7 +379,7 @@ INSERT INTO config_ticket_statuses (name, color) VALUES
 ('Pedido', '#eab308'), ('Em progresso', '#3b82f6'), ('Finalizado', '#22c55e'), ('Cancelado', '#ef4444')
 ON CONFLICT (name) DO NOTHING;
 
--- 13. CATEGORIAS DE TICKETS (CORRIGIDO V3.3)
+-- 13. CATEGORIAS DE TICKETS
 INSERT INTO ticket_categories (name, is_active, is_security) VALUES 
 ('Hardware / Avaria', true, false),
 ('Software / Instalação', true, false),
@@ -416,7 +390,7 @@ INSERT INTO ticket_categories (name, is_active, is_security) VALUES
 ('Manutenção Preventiva', true, false)
 ON CONFLICT (name) DO NOTHING;
 
--- 14. TIPOS DE ATAQUE / INCIDENTE (NIS2) (CORRIGIDO V3.3)
+-- 14. TIPOS DE ATAQUE / INCIDENTE (NIS2)
 INSERT INTO security_incident_types (name, is_active, description) VALUES 
 ('Malware / Vírus', true, 'Infeção por software malicioso'),
 ('Phishing', true, 'Tentativa de obtenção de credenciais'),
