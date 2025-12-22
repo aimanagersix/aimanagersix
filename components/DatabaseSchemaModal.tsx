@@ -3,11 +3,11 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v5.1 (Colaboradores Patch & Repair)
+ * DB Manager UI - v5.2 (Collaborators Full Repair)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 4 & 7: MANTER E EXPANDIR ABAS
- * - PEDIDO 8: FIX MORADAS & SCHEMA CACHE
+ * - PEDIDO 8: REPARAÇÃO INTEGRAL DE CAMPOS DE COLABORADORES
  * -----------------------------------------------------------------------------
  */
 
@@ -190,15 +190,30 @@ INSERT INTO config_equipment_statuses (name, color) VALUES ('Operacional', '#22c
 INSERT INTO config_ticket_statuses (name, color) VALUES ('Pedido', '#fbbf24'), ('Em progresso', '#60a5fa'), ('Finalizado', '#4ade80'), ('Cancelado', '#f87171') ON CONFLICT (name) DO NOTHING;
 `;
 
-    const patchScript = `-- ⚡ PATCH / ALTERAÇÕES DE MOMENTO (MANTENÇÃO v5.1)
--- Utilize esta aba para executar alterações específicas sem rebentar o script de inicialização.
+    const patchScript = `-- ⚡ PATCH / ALTERAÇÕES DE MOMENTO (MANTENÇÃO v5.2)
+-- Reparação Integral da Tabela Collaborators (Pedido 8)
 
--- 1. [Fix: Pedido 8] Adição de Colunas de Morada em falta (Garante reparação de schema)
+-- 1. [Fix: Pedido 8] Garante existência de todas as colunas necessárias na tabela collaborators
 ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS address_line TEXT;
 ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS postal_code TEXT;
 ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS city TEXT;
 ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS locality TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS nif TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS admission_date DATE;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS numero_mecanografico TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS job_title_id UUID;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS telemovel TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS telefone_interno TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS can_login BOOLEAN DEFAULT false;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS receives_notifications BOOLEAN DEFAULT true;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'Utilizador';
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Ativo';
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS password_updated_at TIMESTAMPTZ;
 
+-- 2. Reparação em Instituições e Entidades
 ALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS address_line TEXT;
 ALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS postal_code TEXT;
 ALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS city TEXT;
@@ -209,14 +224,14 @@ ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS postal_code TEXT;
 ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS city TEXT;
 ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS locality TEXT;
 
--- 2. [Performance] Índices para Pesquisa
+-- 3. [Performance] Índices e Invalidação de Cache
 CREATE INDEX IF NOT EXISTS idx_messages_unread_lookup ON public.messages (receiver_id, read, sender_id);
 CREATE INDEX IF NOT EXISTS idx_equipment_serial_search ON public.equipment (serial_number);
 
--- 3. [Fix] Garantir que a equipe Triagem está ativa
-UPDATE teams SET is_active = true WHERE name = 'Triagem';
+-- 4. [Nota Técnica] O comando abaixo tenta forçar o PostgREST a recarregar o schema cache
+NOTIFY pgrst, 'reload schema';
 
--- 4. [Nota Técnica] Após correr este script, aguarde 30s para que o Supabase atualize o cache de schema.
+-- 5. [Aviso] Após correr este script, aguarde 30s e faça Refresh (F5) no browser.
 `;
 
     return (
