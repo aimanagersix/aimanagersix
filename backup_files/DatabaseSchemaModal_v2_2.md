@@ -4,13 +4,13 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V2.3 (Infrastructure Ready)
+ * DB Manager UI - V2.2 (GitHub Sync Ready)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO
  * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEADO
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO
- * - PEDIDO 4 (Abas BD):          FECHADO - NÃO ALTERAR AS 4 ABAS CONFIGURADAS
+ * - PEDIDO 4 (Abas BD):          FECHADO - NÃO ELIMINAR AS 4 ABAS CONFIGURADAS
  * -----------------------------------------------------------------------------
  */
 
@@ -165,7 +165,7 @@ CREATE TABLE tickets (
     request_date TIMESTAMPTZ DEFAULT now(),
     collaborator_id UUID REFERENCES collaborators(id),
     technician_id UUID REFERENCES collaborators(id),
-    team_id UUID REFERENCES teams(id),
+    team_id REFERENCES teams(id),
     equipment_id UUID REFERENCES equipment(id),
     impact_criticality TEXT DEFAULT 'Baixa'
 );

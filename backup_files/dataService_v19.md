@@ -6,7 +6,7 @@ import * as complSvc from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V20.0 (Infrastructure Verified)
+ * BARREL EXPORT SERVICE - V19.0 (Vercel Fix & Lock Integrity)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO DE MODULOS (Freeze UI & Zero Refactoring):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEIO TOTAL
@@ -14,7 +14,7 @@ import { MOCK_DATA_BUNDLE } from './mockData';
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEIO TOTAL
  * - PEDIDO 4 (Abas BD):          FECHADO - NÃO ALTERAR ABAS DA CONSOLA
  * -----------------------------------------------------------------------------
- * PEDIDO 5: Deploy Vercel Operacional. GitHub Actions "Pages" deve ser removido manualmente.
+ * PEDIDO 5: Deploy Vercel & GitHub Actions Fix.
  * -----------------------------------------------------------------------------
  */
 
