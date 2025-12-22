@@ -6,15 +6,15 @@ import * as complSvc from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V18.0 (Security & Lock Integrity)
+ * BARREL EXPORT SERVICE - V17.0 (Vercel & Multi-Env Ready)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO DE MODULOS (Freeze UI & Zero Refactoring):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEIO TOTAL (NÃO ALTERAR)
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEIO TOTAL (NÃO ALTERAR)
- * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEIO TOTAL (NÃO ALTERAR)
+ * - PEDIDO 1 (Menu Tickets):     FECHADO - Não alterar sem pedido explícito.
+ * - PEDIDO 2 (Menu Mensagens):   FECHADO - Não alterar sem pedido explícito.
+ * - PEDIDO 3 (Menu Notificações): FECHADO - Não alterar sem pedido explícito.
  * -----------------------------------------------------------------------------
  * PEDIDO 4: Menu Base de Dados - Abas e scripts SQL preservados.
- * PEDIDO 5: Deploy & Edge Secrets - Verifique VITE_SUPABASE_URL no Vercel.
+ * PEDIDO 5: Vercel Deploy Ready - Priorização de Variáveis de Ambiente.
  * -----------------------------------------------------------------------------
  */
 

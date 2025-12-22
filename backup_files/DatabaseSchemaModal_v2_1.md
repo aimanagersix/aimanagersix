@@ -4,14 +4,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V2.2 (GitHub Sync Ready)
- * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO (Freeze UI):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEADO
- * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO
- * - PEDIDO 4 (Abas BD):          FECHADO - NÃO ELIMINAR AS 4 ABAS CONFIGURADAS
- * -----------------------------------------------------------------------------
+ * DB Manager UI - V2.1 (GitHub Sync Ready)
+ * Pedido 1 (Tickets): BLOQUEADO - Não alterar.
+ * Pedido 2 (Mensagens): BLOQUEADO - Não alterar.
+ * Pedido 3 (Notificações): BLOQUEADO - Não alterar.
+ * Pedido 4: Adição de abas para Inicialização Total, Triggers e Funções - MANTIDO.
+ * Pedido 5: Sync GitHub - Newline added.
  */
 
 interface DatabaseSchemaModalProps {
