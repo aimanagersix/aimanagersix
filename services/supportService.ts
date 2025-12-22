@@ -1,7 +1,7 @@
 import { getSupabase } from './supabaseClient';
 
 /**
- * Support Service - V1.1
+ * Support Service - V1.2
  * Pedido 7: Correção de falhas silenciosas na gravação de categorias e equipas.
  */
 

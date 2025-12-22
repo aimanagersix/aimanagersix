@@ -33,7 +33,7 @@ const extractDomain = (url: string): string => {
     } catch { return ''; }
 };
 
-// Auxiliar para compressão de imagem (Freeze UI - Implementação inline para evitar refactoring estrutural)
+// Auxiliar para compressão de imagem
 const compressProfileImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -43,7 +43,7 @@ const compressProfileImage = (file: File): Promise<File> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_SIZE = 400; // Tamanho ideal para perfil
+                const MAX_SIZE = 400; 
                 let width = img.width;
                 let height = img.height;
                 if (width > height) {
@@ -65,9 +65,9 @@ const compressProfileImage = (file: File): Promise<File> => {
                     if (blob) {
                         resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg', lastModified: Date.now() }));
                     } else {
-                        resolve(file); // Fallback se falhar
+                        resolve(file); 
                     }
-                }, 'image/jpeg', 0.7); // 70% de qualidade JPEG
+                }, 'image/jpeg', 0.7);
             };
         };
     });
@@ -94,7 +94,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     roleOptions,
     titleOptions 
 }) => {
-    // FIX: Map properties to match Collaborator interface in types.ts (snake_case)
     const [formData, setFormData] = useState<Partial<Collaborator>>({
         numero_mecanografico: '',
         title: '',
@@ -130,14 +129,11 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [showAddJobTitle, setShowAddJobTitle] = useState(false);
     const [newJobTitleName, setNewJobTitleName] = useState('');
 
-    const [showPasswordReset, setShowPasswordReset] = useState(false);
-
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [selectedInstituicao, setSelectedInstituicao] = useState<string>('');
-    // Added missing state for isGlobalAdmin and its setter to fix compilation errors
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
     const showGlobalToggle = isSuperAdmin && formData.role === UserRole.SuperAdmin;
@@ -156,19 +152,14 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const defaultRoles = ['Admin', 'Técnico', 'Utilizador'];
     const displayRoles = availableRoles.length > 0 ? availableRoles.map(r => r.name) : defaultRoles;
     const filteredRoles = isSuperAdmin ? displayRoles : displayRoles.filter(role => role !== UserRole.SuperAdmin);
-    
-    // PEDIDO 5: Priorizar títulos da BD. Fallback apenas para evitar modal vazio na primeira vez absoluta.
     const titles = dbTitles.length > 0 ? dbTitles : (titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª']);
-    
-    // FIX: instituicao_id
     const filteredEntidades = entidades.filter(e => e.instituicao_id === selectedInstituicao);
 
     useEffect(() => {
         if (collaboratorToEdit) {
-            // FIX: snake_case mapping
             setFormData({
                 ...collaboratorToEdit,
-                address_line: collaboratorToEdit.address_line || collaboratorToEdit.address || '',
+                address_line: collaboratorToEdit.address_line || (collaboratorToEdit as any).address || '',
                 postal_code: collaboratorToEdit.postal_code || '',
                 city: collaboratorToEdit.city || '',
                 locality: collaboratorToEdit.locality || '',
@@ -180,24 +171,20 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 instituicao_id: collaboratorToEdit.instituicao_id || '',
                 job_title_id: collaboratorToEdit.job_title_id || ''
             });
-            // FIX: photo_url
             setPhotoPreview(collaboratorToEdit.photo_url || null);
             if (collaboratorToEdit.entidade_id) {
                 const ent = entidades.find(e => e.id === collaboratorToEdit.entidade_id);
-                // FIX: instituicao_id
                 if (ent) setSelectedInstituicao(ent.instituicao_id);
             } else if (collaboratorToEdit.instituicao_id) {
                 setSelectedInstituicao(collaboratorToEdit.instituicao_id);
             }
             if (!collaboratorToEdit.entidade_id && !collaboratorToEdit.instituicao_id && (collaboratorToEdit.role === UserRole.SuperAdmin)) {
-                // Corrected: Uses the newly added setIsGlobalAdmin setter
                 setIsGlobalAdmin(true);
             }
         } else {
              if (instituicoes.length > 0) {
                  const defaultInst = instituicoes[0].id;
                  setSelectedInstituicao(defaultInst);
-                 // FIX: instituicao_id, entidade_id
                  const firstEnt = entidades.find(e => e.instituicao_id === defaultInst);
                  setFormData(prev => ({ ...prev, instituicao_id: defaultInst, entidade_id: firstEnt?.id || '' }));
              }
@@ -206,15 +193,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        // FIX: full_name
         if (!formData.full_name?.trim()) newErrors.full_name = "O nome é obrigatório.";
         if (!formData.email?.trim()) newErrors.email = "O email é obrigatório.";
         else if (!isValidEmail(formData.email)) newErrors.email = "Formato de email inválido.";
         if (formData.telemovel?.trim() && !isValidMobile(formData.telemovel)) newErrors.telemovel = "Móvel inválido (9 dígitos, iniciar com 9).";
         if (formData.nif?.trim() && !isValidNif(formData.nif)) newErrors.nif = "O NIF deve ter 9 dígitos numéricos.";
-        // Corrected: Uses the newly added isGlobalAdmin state
         if (!isGlobalAdmin && !selectedInstituicao) newErrors.instituicao_id = "A Instituição é obrigatória.";
-        if (showPasswordReset && !password) newErrors.general = "Preencha a nova password.";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -223,7 +207,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         const { name, value, type } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value }));
         if (name === 'role' && value !== UserRole.SuperAdmin) {
-             // Corrected: Uses the newly added setIsGlobalAdmin setter
              setIsGlobalAdmin(false);
              if (!selectedInstituicao && instituicoes.length > 0) setSelectedInstituicao(instituicoes[0].id);
         }
@@ -235,13 +218,11 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             const file = e.target.files[0];
             setIsCompressing(true);
             try {
-                // Comprime e redimensiona antes de guardar no estado local para upload
                 const compressedFile = await compressProfileImage(file);
                 setPhotoFile(compressedFile);
                 setPhotoPreview(URL.createObjectURL(compressedFile));
             } catch (err) {
                 console.error("Erro ao processar imagem:", err);
-                // Fallback para o original se a compressão falhar
                 setPhotoFile(file);
                 setPhotoPreview(URL.createObjectURL(file));
             } finally {
@@ -253,7 +234,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const handleRemovePhoto = () => {
         setPhotoFile(null);
         setPhotoPreview(null);
-        // FIX: photo_url
         setFormData(prev => ({ ...prev, photo_url: '' }));
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -261,15 +241,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const handleInstituicaoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const instId = e.target.value;
         setSelectedInstituicao(instId);
-        // FIX: instituicao_id, entidade_id
         setFormData(prev => ({ ...prev, instituicao_id: instId, entidade_id: '' }));
     };
     
     const handleGlobalAdminToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (formData.role !== UserRole.SuperAdmin) { alert("Apenas SuperAdmin pode ter Acesso Global."); return; }
-        // Corrected: Uses the newly added setIsGlobalAdmin setter
         setIsGlobalAdmin(e.target.checked);
-        // FIX: entidade_id, instituicao_id
         if (e.target.checked) setFormData(prev => ({ ...prev, entidade_id: '', instituicao_id: '' }));
         else if (instituicoes.length > 0) setSelectedInstituicao(instituicoes[0].id);
     };
@@ -285,25 +262,31 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         } catch (e: any) { alert("Erro: " + e.message); }
     };
 
+    const handleGeneratePassword = () => {
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let newPass = "";
+        for (let i = 0; i < 12; i++) newPass += charset.charAt(Math.floor(Math.random() * charset.length));
+        setPassword(newPass);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         setIsSaving(true);
-        const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
-        // FIX: date_of_birth, admission_date
+        
+        // FIX: Remove 'address' completely from payload to match schema cache
+        const { ...baseData } = formData;
+        if ((baseData as any).address) delete (baseData as any).address;
+
         const cleanDateOfBirth = formData.date_of_birth === '' ? null : formData.date_of_birth;
         const cleanAdmissionDate = formData.admission_date === '' ? null : formData.admission_date;
 
         const dataToSave: any = { 
-            ...formData, 
-            address,
+            ...baseData, 
             date_of_birth: cleanDateOfBirth,
             admission_date: cleanAdmissionDate,
-            // FIX: numero_mecanografico, entidade_id, instituicao_id
             numero_mecanografico: formData.numero_mecanografico || 'N/A',
-            // Corrected: Uses the newly added isGlobalAdmin state
             entidade_id: isGlobalAdmin ? null : (formData.entidade_id || null),
-            // Corrected: Uses the newly added isGlobalAdmin state
             instituicao_id: isGlobalAdmin ? null : (selectedInstituicao || null),
             job_title_id: formData.job_title_id || null
         };
@@ -314,7 +297,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
 
         try {
             let savedCollab;
-            if (collaboratorToEdit) savedCollab = await onSave({ ...collaboratorToEdit, ...dataToSave }, showPasswordReset ? password : undefined);
+            // FIX: Use await to ensure the promise resolves before continuing
+            if (collaboratorToEdit) savedCollab = await onSave({ ...collaboratorToEdit, ...dataToSave }, password || undefined);
             else savedCollab = await onSave(dataToSave, password || undefined);
 
             const targetId = savedCollab?.id || collaboratorToEdit?.id;
@@ -354,7 +338,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         </select>
                     </div>
                     <div className="md:col-span-2">
-                        {/* FIX: full_name */}
                         <label className="block text-xs font-medium text-gray-400 mb-1">Nome Completo</label>
                         <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" required />
                     </div>
@@ -372,7 +355,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         </div>
                     </div>
                     <div>
-                        {/* FIX: admission_date */}
                         <label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-2"><FaCalendarAlt /> Data Admissão</label>
                         <input type="date" name="admission_date" value={formData.admission_date} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                     </div>
@@ -384,7 +366,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" required />
                     </div>
                     <div>
-                        {/* FIX: numero_mecanografico */}
                         <label className="block text-xs font-medium text-gray-400 mb-1">Nº Mecanográfico</label>
                         <input type="text" name="numero_mecanografico" value={formData.numero_mecanografico} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                     </div>
@@ -393,7 +374,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div><label className="block text-xs font-medium text-gray-400 mb-1">NIF</label><input type="text" name="nif" value={formData.nif} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" maxLength={9} /></div>
                     <div><label className="block text-xs font-medium text-gray-400 mb-1">Móvel</label><input type="text" name="telemovel" value={formData.telemovel} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" maxLength={9} /></div>
-                    {/* FIX: date_of_birth */}
                     <div><label className="block text-xs font-medium text-gray-400 mb-1 flex items-center gap-1"><FaBirthdayCake/> Data Nasc.</label><input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" /></div>
                 </div>
                 
@@ -401,7 +381,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     <h4 className="text-sm font-bold text-white">Associação Organizacional</h4>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Instituição</label>
-                        {/* Corrected: Uses the newly added isGlobalAdmin state */}
                         <select value={selectedInstituicao} onChange={handleInstituicaoChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" disabled={isGlobalAdmin}>
                             <option value="" disabled>Selecione...</option>
                             {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
@@ -409,8 +388,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Entidade / Departamento</label>
-                        {/* FIX: entidade_id */}
-                        {/* Corrected: Uses the newly added isGlobalAdmin state */}
                         <select name="entidade_id" value={formData.entidade_id} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" disabled={isGlobalAdmin || !selectedInstituicao}>
                             <option value="">-- Diretamente à Instituição --</option>
                             {filteredEntidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -421,16 +398,41 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 <div className="bg-gray-900/50 p-4 rounded border border-gray-600 mt-4">
                     <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Acesso ao Sistema</h4>
                     <div className="flex flex-wrap gap-4 items-center">
-                        {/* FIX: can_login */}
                         <label className="flex items-center cursor-pointer"><input type="checkbox" name="can_login" checked={formData.can_login} onChange={handleChange} className="h-4 w-4 rounded bg-gray-700 text-brand-primary" /><span className="ml-2 text-sm text-gray-300">Permitir Login</span></label>
+                        
                         {formData.can_login && (
-                            <select name="role" value={formData.role} onChange={handleChange} className="flex-grow bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm">
-                                {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
+                            <div className="mt-3 w-full space-y-3 animate-fade-in border-t border-gray-700 pt-3">
+                                <div>
+                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Perfil de Acesso</label>
+                                    <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm">
+                                        {filteredRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                
+                                <div className="relative">
+                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Definir Password Temporária</label>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={password} 
+                                            onChange={e => setPassword(e.target.value)} 
+                                            placeholder="Senha inicial..." 
+                                            className="flex-grow bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm font-mono"
+                                        />
+                                        <button 
+                                            type="button" 
+                                            onClick={handleGeneratePassword} 
+                                            className="bg-gray-700 px-3 rounded text-white hover:bg-gray-600 flex items-center gap-1"
+                                            title="Gerar Password Forte"
+                                        >
+                                            <FaMagic size={12}/> <span className="text-[10px]">Auto</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                     {showGlobalToggle && (
-                         // Corrected: Uses the newly added isGlobalAdmin state
                          <label className="flex items-center cursor-pointer mt-3"><input type="checkbox" checked={isGlobalAdmin} onChange={handleGlobalAdminToggle} className="h-4 w-4 rounded bg-gray-700 text-purple-500" /><span className="ml-2 text-sm text-white">Acesso Global (Super Admin)</span></label>
                     )}
                 </div>

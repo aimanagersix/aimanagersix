@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { TicketCategoryItem, Team } from '../types';
 import { FaClock, FaExclamationTriangle, FaShieldAlt } from 'react-icons/fa';
+import { SpinnerIcon } from './common/Icons';
 
 interface AddCategoryModalProps {
     onClose: () => void;
-    onSave: (category: Omit<TicketCategoryItem, 'id'> | TicketCategoryItem) => void;
+    onSave: (category: Omit<TicketCategoryItem, 'id'> | TicketCategoryItem) => Promise<void>;
     categoryToEdit?: TicketCategoryItem | null;
     teams: Team[];
 }
@@ -21,6 +21,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
         is_security: false
     });
     const [error, setError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (categoryToEdit) {
@@ -43,13 +44,15 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name?.trim()) {
             setError('O nome da categoria é obrigatório.');
             return;
         }
+        
         setError('');
+        setIsSaving(true);
         
         const dataToSave: any = {
             ...formData,
@@ -59,12 +62,19 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
             is_security: formData.is_security || false
         };
 
-        if (categoryToEdit) {
-            onSave({ ...categoryToEdit, ...dataToSave });
-        } else {
-            onSave(dataToSave);
+        try {
+            if (categoryToEdit) {
+                await onSave({ ...categoryToEdit, ...dataToSave });
+            } else {
+                await onSave(dataToSave);
+            }
+            onClose();
+        } catch (err: any) {
+            console.error("Erro ao salvar categoria:", err);
+            setError(err.message || "Falha na base de dados. Verifique o RLS.");
+        } finally {
+            setIsSaving(false);
         }
-        onClose();
     };
     
     const modalTitle = categoryToEdit ? "Editar Categoria" : "Adicionar Nova Categoria";
@@ -172,7 +182,10 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
 
                 <div className="flex justify-end gap-4 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary">Salvar</button>
+                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
+                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : null}
+                        {isSaving ? 'A gravar...' : 'Salvar'}
+                    </button>
                 </div>
             </form>
         </Modal>

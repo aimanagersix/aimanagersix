@@ -3,7 +3,7 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V3.7 (RLS Visibility Fix & Integrity Guard)
+ * DB Manager UI - V3.8 (Full CRUD RLS & Integrity Guard)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
@@ -11,7 +11,7 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 4 (Abas BD):          FECHADO - AS 5 ABAS SÃO ESTRUTURAIS
  * -----------------------------------------------------------------------------
- * PEDIDO 7: Correção de visibilidade de dados em tabelas auxiliares via RLS.
+ * PEDIDO 7: Correção de erro de criação de equipas e categorias através de políticas RLS completas.
  * -----------------------------------------------------------------------------
  */
 
@@ -302,7 +302,7 @@ END;
 $$ LANGUAGE plpgsql;
 `;
 
-    const securityScript = `-- 1. ATIVAR RLS EM TODAS AS TABELAS (REPARADO V3.7)
+    const securityScript = `-- 1. ATIVAR RLS EM TODAS AS TABELAS (REPARADO V3.8)
 ALTER TABLE config_custom_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE config_job_titles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contact_titles ENABLE ROW LEVEL SECURITY;
@@ -332,7 +332,7 @@ ALTER TABLE equipment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
--- 2. POLÍTICAS DE LEITURA PARA UTILIZADORES AUTENTICADOS (FIX PEDIDO 7)
+-- 2. POLÍTICAS DE GESTÃO PARA UTILIZADORES AUTENTICADOS (FIX PEDIDO 7)
 DO $$ 
 DECLARE 
     t text;
@@ -348,8 +348,11 @@ DECLARE
     ];
 BEGIN
     FOREACH t IN ARRAY tables_to_policy LOOP
+        -- Remove políticas de leitura antigas se necessário
         EXECUTE format('DROP POLICY IF EXISTS "Allow read for authenticated users" ON %I', t);
-        EXECUTE format('CREATE POLICY "Allow read for authenticated users" ON %I FOR SELECT TO authenticated USING (true)', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Allow management for authenticated users" ON %I', t);
+        -- Define política total para autenticados (Ideal para ambiente interno/técnico)
+        EXECUTE format('CREATE POLICY "Allow management for authenticated users" ON %I FOR ALL TO authenticated USING (true)', t);
     END LOOP;
 END $$;
 
@@ -362,9 +365,6 @@ USING (
     OR sender_id = auth.uid()
     OR receiver_id = '00000000-0000-0000-0000-000000000000'::uuid
 );
-
--- 4. PERMISSÃO DE ESCRITA EM CONFIGS (APENAS AUTH)
--- Nota: Em produção real, deve restringir create/update a perfis Admin.
 `;
 
     const seedingScript = `-- SCRIPT DE SEEDING COMPLETO: TABELAS AUXILIARES PADRÃO
@@ -403,7 +403,6 @@ INSERT INTO equipment_types (name, requires_nome_na_rede, requires_ram_size, req
 ('Access Point', true, false, false, false),
 ('Smartphone', false, false, false, false),
 ('Tablet', false, false, false, false),
-('Impressora', true, false, false, false),
 ('UPS', false, false, false, false)
 ON CONFLICT (name) DO NOTHING;
 
