@@ -6,10 +6,11 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.0 (Full Restoration)
+ * ADD COLLABORATOR MODAL - V5.1 (Fixed Edit Permissions)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 8: RESTAURADO COM TODOS OS CAMPOS (Morada, Datas, NIF, etc).
+ * - PEDIDO 8: PASSWORD APENAS NA CRIAÇÃO (Sincronizado com Supabase Auth).
  * -----------------------------------------------------------------------------
  */
 
@@ -110,7 +111,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             if (!payload.entidade_id) delete payload.entidade_id;
             if (!payload.job_title_id) delete payload.job_title_id;
 
-            const saved = await onSave(payload as any, password || undefined);
+            const saved = await onSave(payload as any, (!collaboratorToEdit && password) ? password : undefined);
             if (photoFile && saved?.id) await dataService.uploadCollaboratorPhoto(saved.id, photoFile);
             onClose();
         } catch (err: any) { 
@@ -231,42 +232,44 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                 </div>
 
-                {/* Acesso ao Sistema */}
-                <div className="bg-blue-900/10 p-6 rounded-xl border border-blue-900/30">
-                    <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Perfil de Acesso</h4>
-                    <div className="space-y-4">
-                        <label className="flex items-center cursor-pointer group">
-                            <input type="checkbox" checked={formData.can_login} onChange={e => setFormData({...formData, can_login: e.target.checked})} className="h-5 w-5 rounded bg-gray-700 text-brand-primary border-gray-600" />
-                            <span className="ml-3 text-sm text-gray-300 font-bold group-hover:text-white transition-colors">Ativar Login</span>
-                        </label>
-                        
-                        {formData.can_login && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in pt-4 border-t border-blue-900/20">
-                                <div>
-                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil (Role)</label>
-                                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
-                                        <option value="Utilizador">Utilizador</option>
-                                        <option value="Técnico">Técnico</option>
-                                        <option value="Admin">Administrador</option>
-                                        {availableRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Password Temporária</label>
-                                    <div className="flex gap-2">
-                                        <input type="text" value={password} onChange={e => setPassword(e.target.value)} className="flex-grow bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-mono" placeholder="Senha inicial..." />
-                                        <button type="button" onClick={generatePassword} className="bg-gray-700 px-4 rounded text-white hover:bg-gray-600"><FaMagic /></button>
+                {/* Acesso ao Sistema - Apenas na Criação */}
+                {!collaboratorToEdit && (
+                    <div className="bg-blue-900/10 p-6 rounded-xl border border-blue-900/30">
+                        <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Configuração de Acesso</h4>
+                        <div className="space-y-4">
+                            <label className="flex items-center cursor-pointer group">
+                                <input type="checkbox" checked={formData.can_login} onChange={e => setFormData({...formData, can_login: e.target.checked})} className="h-5 w-5 rounded bg-gray-700 text-brand-primary border-gray-600" />
+                                <span className="ml-3 text-sm text-gray-300 font-bold group-hover:text-white transition-colors">Ativar Login</span>
+                            </label>
+                            
+                            {formData.can_login && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in pt-4 border-t border-blue-900/20">
+                                    <div>
+                                        <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil (Role)</label>
+                                        <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
+                                            <option value="Utilizador">Utilizador</option>
+                                            <option value="Técnico">Técnico</option>
+                                            <option value="Admin">Administrador</option>
+                                            {availableRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Password Temporária</label>
+                                        <div className="flex gap-2">
+                                            <input type="text" value={password} onChange={e => setPassword(e.target.value)} className="flex-grow bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-mono" placeholder="Senha inicial..." />
+                                            <button type="button" onClick={generatePassword} className="bg-gray-700 px-4 rounded text-white hover:bg-gray-600"><FaMagic /></button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-700">
                     <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md font-bold hover:bg-gray-700">Cancelar</button>
                     <button type="submit" disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded-md font-black uppercase tracking-widest hover:bg-brand-secondary flex items-center gap-2 shadow-xl">
-                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : <FaSave />} Gravar Registo
+                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : <FaSave />} {collaboratorToEdit ? "Guardar Alterações" : "Gravar Registo"}
                     </button>
                 </div>
             </form>
