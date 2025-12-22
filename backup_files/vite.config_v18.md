@@ -7,9 +7,9 @@ export default defineConfig(({ mode }) => {
   // Carrega variáveis do .env e do ambiente do sistema (Vercel)
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Normalização de chaves para contornar restrição do Supabase (prefixo SB_ em vez de SUPABASE_)
-  const supabaseUrl = env.VITE_SB_URL || env.SB_URL || env.VITE_SUPABASE_URL || env.SUPABASE_URL || '';
-  const supabaseAnonKey = env.VITE_SB_ANON_KEY || env.SB_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || '';
+  // Normalização de chaves: Aceita VITE_SUPABASE_URL ou apenas SUPABASE_URL
+  const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || '';
+  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || '';
   const geminiKey = env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY || env.API_KEY || '';
 
   return {

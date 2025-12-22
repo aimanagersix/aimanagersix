@@ -3,7 +3,7 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V2.8 (Infrastructure & Prefix Lock)
+ * DB Manager UI - V2.7 (Zero Refactoring & Integrity Lock)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
@@ -11,9 +11,9 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 4 (Abas BD):          FECHADO - AS 4 ABAS SÃO ESTRUTURAIS
  * -----------------------------------------------------------------------------
- * NOTA TÉCNICA (Prefix Migration): 
- * O Supabase não permite prefixo "SUPABASE_" em segredos manuais. 
- * Use SB_URL, SB_ANON_KEY, SB_SERVICE_ROLE_KEY nas Edge Functions.
+ * NOTA TÉCNICA (Secrets): 
+ * As Edge Function Secrets (GEMINI_API_KEY, RESEND_API_KEY, etc) DEVEM ser
+ * criadas MANUALMENTE no Dashboard do Supabase para o ambiente Deno.
  * -----------------------------------------------------------------------------
  */
 

@@ -3,21 +3,21 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 let supabaseInstance: SupabaseClient | null = null;
 
 /**
- * Cliente Supabase V2.4 (Prefix SB_ Migration)
- * Deteção robusta de infraestrutura com prioridade para prefixo SB_.
+ * Cliente Supabase V2.3 (Resiliência Vercel)
+ * Diagnóstico automático de chaves injetadas.
  */
 export const getSupabase = (): SupabaseClient => {
     if (supabaseInstance) {
         return supabaseInstance;
     }
 
-    // 1. Deteção via LocalStorage (Configuração manual ou persistência)
-    const storageUrl = typeof window !== 'undefined' ? localStorage.getItem('SUPABASE_URL') : null;
-    const storageKey = typeof window !== 'undefined' ? localStorage.getItem('SUPABASE_ANON_KEY') : null;
-
-    // 2. Deteção via process.env (Injetado via Vite Config com suporte a prefixo SB_)
+    // 1. Deteção de chaves via process.env (injetadas pelo Vite no build)
     const envUrl = process.env.SUPABASE_URL;
     const envKey = process.env.SUPABASE_ANON_KEY;
+
+    // 2. Deteção via LocalStorage (Configuração manual ou persistência de sessão)
+    const storageUrl = typeof window !== 'undefined' ? localStorage.getItem('SUPABASE_URL') : null;
+    const storageKey = typeof window !== 'undefined' ? localStorage.getItem('SUPABASE_ANON_KEY') : null;
 
     const finalUrl = envUrl || storageUrl;
     const finalKey = envKey || storageKey;
@@ -27,7 +27,7 @@ export const getSupabase = (): SupabaseClient => {
             console.log("AIManager: A inicializar Supabase...");
             supabaseInstance = createClient(finalUrl, finalKey);
             
-            // Sincronizar storage para consistência
+            // Garantir que o Storage tem a cópia das chaves de ambiente para consistência
             if (envUrl && typeof window !== 'undefined' && storageUrl !== envUrl) {
                 localStorage.setItem('SUPABASE_URL', finalUrl);
                 localStorage.setItem('SUPABASE_ANON_KEY', finalKey);
@@ -46,7 +46,7 @@ export const getSupabase = (): SupabaseClient => {
         get: (_, prop) => {
             if (prop === 'auth') return { getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) };
             return () => {
-                throw new Error("Funcionalidade indisponível: Supabase não configurado.");
+                throw new Error("Funcionalidade indisponível: Supabase não configurado no Vercel.");
             };
         }
     });
