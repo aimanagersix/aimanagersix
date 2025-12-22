@@ -1,10 +1,9 @@
-
 import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
 
 /**
- * Organization Service - V2.0
- * Pedido 4: Standardização de tabelas para Inglês.
+ * Organization Service - V2.1
+ * Pedido 7: Correção de falhas silenciosas na gravação de colaboradores.
  */
 
 const sb = () => getSupabase();
@@ -38,21 +37,61 @@ export const fetchOrganizationData = async () => {
     };
 };
 
-export const addInstituicao = async (inst: any) => { const { data } = await sb().from('institutions').insert(cleanPayload(inst)).select().single(); return data; };
-export const updateInstituicao = async (id: string, updates: any) => { await sb().from('institutions').update(cleanPayload(updates)).eq('id', id); };
-export const deleteInstituicao = async (id: string) => { await sb().from('institutions').delete().eq('id', id); };
-export const addEntidade = async (ent: any) => { const { data } = await sb().from('entities').insert(cleanPayload(ent)).select().single(); return data; };
-export const updateEntidade = async (id: string, updates: any) => { await sb().from('entities').update(cleanPayload(updates)).eq('id', id); };
-export const deleteEntidade = async (id: string) => { await sb().from('entities').delete().eq('id', id); };
-export const addCollaborator = async (col: any, password?: string) => { const { data } = await sb().from('collaborators').insert(cleanPayload(col)).select().single(); return data; };
-export const updateCollaborator = async (id: string, updates: any) => { await sb().from('collaborators').update(cleanPayload(updates)).eq('id', id); };
-export const deleteCollaborator = async (id: string) => { await sb().from('collaborators').delete().eq('id', id); };
+export const addInstituicao = async (inst: any) => { 
+    const { data, error } = await sb().from('institutions').insert(cleanPayload(inst)).select().single(); 
+    if (error) throw error;
+    return data; 
+};
+
+export const updateInstituicao = async (id: string, updates: any) => { 
+    const { error } = await sb().from('institutions').update(cleanPayload(updates)).eq('id', id); 
+    if (error) throw error;
+};
+
+export const deleteInstituicao = async (id: string) => { 
+    const { error } = await sb().from('institutions').delete().eq('id', id); 
+    if (error) throw error;
+};
+
+export const addEntidade = async (ent: any) => { 
+    const { data, error } = await sb().from('entities').insert(cleanPayload(ent)).select().single(); 
+    if (error) throw error;
+    return data; 
+};
+
+export const updateEntidade = async (id: string, updates: any) => { 
+    const { error } = await sb().from('entities').update(cleanPayload(updates)).eq('id', id); 
+    if (error) throw error;
+};
+
+export const deleteEntidade = async (id: string) => { 
+    const { error } = await sb().from('entities').delete().eq('id', id); 
+    if (error) throw error;
+};
+
+export const addCollaborator = async (col: any, password?: string) => { 
+    const { data, error } = await sb().from('collaborators').insert(cleanPayload(col)).select().single(); 
+    if (error) throw error;
+    return data; 
+};
+
+export const updateCollaborator = async (id: string, updates: any) => { 
+    const { error } = await sb().from('collaborators').update(cleanPayload(updates)).eq('id', id); 
+    if (error) throw error;
+};
+
+export const deleteCollaborator = async (id: string) => { 
+    const { error } = await sb().from('collaborators').delete().eq('id', id); 
+    if (error) throw error;
+};
 
 export const uploadCollaboratorPhoto = async (id: string, file: File) => { 
     const filePath = `avatars/${id}-${file.name}`; 
-    await sb().storage.from('avatars').upload(filePath, file, { upsert: true }); 
+    const { error: uploadError } = await sb().storage.from('avatars').upload(filePath, file, { upsert: true }); 
+    if (uploadError) throw uploadError;
     const { data: { publicUrl } } = sb().storage.from('avatars').getPublicUrl(filePath); 
-    await sb().from('collaborators').update({ photo_url: publicUrl }).eq('id', id); 
+    const { error: updateError } = await sb().from('collaborators').update({ photo_url: publicUrl }).eq('id', id); 
+    if (updateError) throw updateError;
     return publicUrl; 
 };
 
@@ -85,9 +124,9 @@ export const syncResourceContacts = async (type: string, id: string, contacts: R
     } 
 };
 
-export const addContactRole = async (item: any) => { const { data } = await sb().from('contact_roles').insert(cleanPayload(item)).select().single(); return data; };
-export const updateContactRole = async (id: string, updates: any) => { await sb().from('contact_roles').update(cleanPayload(updates)).eq('id', id); };
-export const deleteContactRole = async (id: string) => { await sb().from('contact_roles').delete().eq('id', id); };
-export const addContactTitle = async (item: any) => { const { data } = await sb().from('contact_titles').insert(cleanPayload(item)).select().single(); return data; };
-export const updateContactTitle = async (id: string, updates: any) => { await sb().from('contact_titles').update(cleanPayload(updates)).eq('id', id); };
-export const deleteContactTitle = async (id: string) => { await sb().from('contact_titles').delete().eq('id', id); };
+export const addContactRole = async (item: any) => { const { data, error } = await sb().from('contact_roles').insert(cleanPayload(item)).select().single(); if (error) throw error; return data; };
+export const updateContactRole = async (id: string, updates: any) => { const { error } = await sb().from('contact_roles').update(cleanPayload(updates)).eq('id', id); if (error) throw error; };
+export const deleteContactRole = async (id: string) => { const { error } = await sb().from('contact_roles').delete().eq('id', id); if (error) throw error; };
+export const addContactTitle = async (item: any) => { const { data, error } = await sb().from('contact_titles').insert(cleanPayload(item)).select().single(); if (error) throw error; return data; };
+export const updateContactTitle = async (id: string, updates: any) => { const { error } = await sb().from('contact_titles').update(cleanPayload(updates)).eq('id', id); if (error) throw error; };
+export const deleteContactTitle = async (id: string) => { const { error } = await sb().from('contact_titles').delete().eq('id', id); if (error) throw error; };

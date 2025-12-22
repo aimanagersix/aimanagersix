@@ -1,5 +1,9 @@
-
 import { getSupabase } from './supabaseClient';
+
+/**
+ * Support Service - V1.1
+ * Pedido 7: Correção de falhas silenciosas na gravação de categorias e equipas.
+ */
 
 const sb = () => getSupabase();
 
@@ -111,32 +115,97 @@ export const addTicket = async (ticket: any) => {
     return data; 
 };
 
-export const updateTicket = async (id: string, updates: any) => { await sb().from('tickets').update(cleanPayload(updates)).eq('id', id); };
-export const getTicketActivities = async (ticketId: string) => { const { data } = await sb().from('ticket_activities').select('*').eq('ticket_id', ticketId); return data || []; };
-export const addTicketActivity = async (activity: any) => { await sb().from('ticket_activities').insert(cleanPayload(activity)); };
-export const addTicketCategory = async (cat: any) => { await sb().from('ticket_categories').insert(cleanPayload(cat)); };
-export const updateTicketCategory = async (id: string, updates: any) => { await sb().from('ticket_categories').update(cleanPayload(updates)).eq('id', id); };
-export const addSecurityIncidentType = async (type: any) => { await sb().from('security_incident_types').insert(cleanPayload(type)); };
-export const updateSecurityIncidentType = async (id: string, updates: any) => { await sb().from('security_incident_types').update(cleanPayload(updates)).eq('id', id); };
-export const addTeam = async (team: any) => { const { data } = await sb().from('teams').insert(cleanPayload(team)).select().single(); return data; };
-export const updateTeam = async (id: string, updates: any) => { await sb().from('teams').update(cleanPayload(updates)).eq('id', id); };
-export const deleteTeam = async (id: string) => { await sb().from('teams').delete().eq('id', id); };
+export const updateTicket = async (id: string, updates: any) => { 
+    const { error } = await sb().from('tickets').update(cleanPayload(updates)).eq('id', id); 
+    if (error) throw error;
+};
+
+export const getTicketActivities = async (ticketId: string) => { 
+    const { data, error } = await sb().from('ticket_activities').select('*').eq('ticket_id', ticketId); 
+    if (error) throw error;
+    return data || []; 
+};
+
+export const addTicketActivity = async (activity: any) => { 
+    const { error } = await sb().from('ticket_activities').insert(cleanPayload(activity)); 
+    if (error) throw error;
+};
+
+export const addTicketCategory = async (cat: any) => { 
+    const { data, error } = await sb().from('ticket_categories').insert(cleanPayload(cat)).select().single(); 
+    if (error) throw error;
+    return data;
+};
+
+export const updateTicketCategory = async (id: string, updates: any) => { 
+    const { error } = await sb().from('ticket_categories').update(cleanPayload(updates)).eq('id', id); 
+    if (error) throw error;
+};
+
+export const addSecurityIncidentType = async (type: any) => { 
+    const { error } = await sb().from('security_incident_types').insert(cleanPayload(type)); 
+    if (error) throw error;
+};
+
+export const updateSecurityIncidentType = async (id: string, updates: any) => { 
+    const { error } = await sb().from('security_incident_types').update(cleanPayload(updates)).eq('id', id); 
+    if (error) throw error;
+};
+
+export const addTeam = async (team: any) => { 
+    const { data, error } = await sb().from('teams').insert(cleanPayload(team)).select().single(); 
+    if (error) throw error;
+    return data; 
+};
+
+export const updateTeam = async (id: string, updates: any) => { 
+    const { error } = await sb().from('teams').update(cleanPayload(updates)).eq('id', id); 
+    if (error) throw error;
+};
+
+export const deleteTeam = async (id: string) => { 
+    const { error } = await sb().from('teams').delete().eq('id', id); 
+    if (error) throw error;
+};
+
 export const syncTeamMembers = async (teamId: string, memberIds: string[]) => { 
-    await sb().from('team_members').delete().eq('team_id', teamId); 
+    const { error: delError } = await sb().from('team_members').delete().eq('team_id', teamId); 
+    if (delError) throw delError;
     if (memberIds.length > 0) { 
         const items = memberIds.map(id => ({ team_id: teamId, collaborator_id: id })); 
-        await sb().from('team_members').insert(items); 
+        const { error: insError } = await sb().from('team_members').insert(items); 
+        if (insError) throw insError;
     } 
 };
-export const addMessage = async (msg: any) => { await sb().from('messages').insert(cleanPayload(msg)); };
-export const markMessagesAsRead = async (senderId: string) => { await sb().from('messages').update({ read: true }).eq('sender_id', senderId); };
 
-// Pedido 2: Função para resetar notificações do Canal Geral
-export const markGeneralMessagesAsRead = async () => {
-    const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';
-    await sb().from('messages').update({ read: true }).eq('receiver_id', GENERAL_CHANNEL_ID);
+export const addMessage = async (msg: any) => { 
+    const { error } = await sb().from('messages').insert(cleanPayload(msg)); 
+    if (error) throw error;
 };
 
-export const addCalendarEvent = async (event: any) => { const { data } = await sb().from('calendar_events').insert(cleanPayload(event)).select().single(); return data; };
-export const updateCalendarEvent = async (id: string, updates: any) => { await sb().from('calendar_events').update(cleanPayload(updates)).eq('id', id); };
-export const deleteCalendarEvent = async (id: string) => { await sb().from('calendar_events').delete().eq('id', id); };
+export const markMessagesAsRead = async (senderId: string) => { 
+    const { error } = await sb().from('messages').update({ read: true }).eq('sender_id', senderId); 
+    if (error) throw error;
+};
+
+export const markGeneralMessagesAsRead = async () => {
+    const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';
+    const { error } = await sb().from('messages').update({ read: true }).eq('receiver_id', GENERAL_CHANNEL_ID);
+    if (error) throw error;
+};
+
+export const addCalendarEvent = async (event: any) => { 
+    const { data, error } = await sb().from('calendar_events').insert(cleanPayload(event)).select().single(); 
+    if (error) throw error;
+    return data; 
+};
+
+export const updateCalendarEvent = async (id: string, updates: any) => { 
+    const { error } = await sb().from('calendar_events').update(cleanPayload(updates)).eq('id', id); 
+    if (error) throw error;
+};
+
+export const deleteCalendarEvent = async (id: string) => { 
+    const { error } = await sb().from('calendar_events').delete().eq('id', id); 
+    if (error) throw error;
+};

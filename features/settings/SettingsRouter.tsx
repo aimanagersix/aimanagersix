@@ -74,6 +74,7 @@ const SettingsRouter: React.FC<SettingsRouterProps> = ({
                 teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators}
                 tickets={appData.tickets} equipmentTypes={appData.equipmentTypes}
                 onEdit={onEditTeam} onManageMembers={onManageTeamMembers}
+                onCreate={() => onEditTeam(null)}
                 onDelete={async (id) => { if (confirm("Excluir?")) { /* delete logic implemented via dataService elsewhere */ } }}
             />
         );

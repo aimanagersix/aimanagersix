@@ -97,4 +97,1510 @@ END $$;
 
 ## 🧪 Histórico de Triggers & Funções (Abaixo cole o resultado do script)
 
-*(Aguardando colagem de resultados do Script de Inspeção v3.6...)*
+[
+  {
+    "tipo": "FUNÇÃO",
+    "nome": "cleanup_old_messages",
+    "detalhe": "FUNCTION",
+    "extra": "void",
+    "opcional": "N/A"
+  },
+  {
+    "tipo": "FUNÇÃO",
+    "nome": "get_sophos_config",
+    "detalhe": "FUNCTION",
+    "extra": "record",
+    "opcional": "N/A"
+  },
+  {
+    "tipo": "FUNÇÃO",
+    "nome": "log_changes",
+    "detalhe": "FUNCTION",
+    "extra": "trigger",
+    "opcional": "N/A"
+  },
+  {
+    "tipo": "FUNÇÃO",
+    "nome": "update_modified_column",
+    "detalhe": "FUNCTION",
+    "extra": "trigger",
+    "opcional": "N/A"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read access for authenticated users",
+    "detalhe": "institutions",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read access for authenticated users",
+    "detalhe": "entities",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read access for authenticated users",
+    "detalhe": "tickets",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read access for authenticated users",
+    "detalhe": "equipment",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read access for authenticated users",
+    "detalhe": "collaborators",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_ticket_statuses",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_cpus",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "collaborators",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "equipment",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_equipment_statuses",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_collaborator_deactivation_reasons",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_ram_sizes",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "contact_roles",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "entities",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_storage_types",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "institutions",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "team_members",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "equipment_types",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_software_products",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_software_categories",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_conservation_states",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_decommission_reasons",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_accounting_categories",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "contact_titles",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_job_titles",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_custom_roles",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "brands",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "teams",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "security_incident_types",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "ticket_categories",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "tickets",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Allow read for authenticated users",
+    "detalhe": "config_license_statuses",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "RLS_POLICY",
+    "nome": "Message Privacy",
+    "detalhe": "messages",
+    "extra": "SELECT",
+    "opcional": "{authenticated}"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "audit_log",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "audit_log",
+    "detalhe": "timestamp",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "audit_log",
+    "detalhe": "resource_type",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "audit_log",
+    "detalhe": "user_email",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "audit_log",
+    "detalhe": "details",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "audit_log",
+    "detalhe": "action",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "brands",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "brands",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "brands",
+    "detalhe": "is_iso27001_certified",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "brands",
+    "detalhe": "security_contact_email",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "brands",
+    "detalhe": "risk_level",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "status",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "receives_notifications",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "instituicao_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "entidade_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "full_name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "email",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "numero_mecanografico",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "role",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "job_title_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "can_login",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "admission_date",
+    "extra": "date",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "password_updated_at",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "created_at",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "photo_url",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "telefone_interno",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "collaborators",
+    "detalhe": "telemovel",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_accounting_categories",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_accounting_categories",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_collaborator_deactivation_reasons",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_collaborator_deactivation_reasons",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_conservation_states",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_conservation_states",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_conservation_states",
+    "detalhe": "color",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_cpus",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_cpus",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_custom_roles",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_custom_roles",
+    "detalhe": "permissions",
+    "extra": "jsonb",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_custom_roles",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_custom_roles",
+    "detalhe": "description",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_custom_roles",
+    "detalhe": "created_at",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_decommission_reasons",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_decommission_reasons",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_equipment_statuses",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_equipment_statuses",
+    "detalhe": "color",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_equipment_statuses",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_job_titles",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_job_titles",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_license_statuses",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_license_statuses",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_license_statuses",
+    "detalhe": "color",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_ram_sizes",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_ram_sizes",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_software_categories",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_software_categories",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_software_products",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_software_products",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_software_products",
+    "detalhe": "category_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_storage_types",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_storage_types",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_ticket_statuses",
+    "detalhe": "color",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_ticket_statuses",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "config_ticket_statuses",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "contact_roles",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "contact_roles",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "contact_titles",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "contact_titles",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "nif",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "instituicao_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "created_at",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "codigo",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "description",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "email",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "website",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "responsavel",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "telefone",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "status",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "address_line",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "postal_code",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "city",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "entities",
+    "detalhe": "locality",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "serial_number",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "brand_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "type_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "purchase_date",
+    "extra": "date",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "warranty_end_date",
+    "extra": "date",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "acquisition_cost",
+    "extra": "numeric",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "last_security_update",
+    "extra": "date",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "parent_equipment_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "residual_value",
+    "extra": "numeric",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "accounting_category_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "conservation_state_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "decommission_reason_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "created_at",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "mac_address_cabo",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "mac_address_wifi",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "ip_address",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "os_version",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "nome_na_rede",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "status",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "description",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment",
+    "detalhe": "inventory_number",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_wwan_address",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_ip",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_manufacture_date",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_cpu_info",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_disk_info",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_ram_size",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_usb_thunderbolt_address",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_bluetooth_address",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "is_maintenance",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_location",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_backup_test",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_inventory_number",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_mac_cabo",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_mac_wifi",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "requires_nome_na_rede",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "equipment_types",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "global_settings",
+    "detalhe": "setting_value",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "global_settings",
+    "detalhe": "setting_key",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "global_settings",
+    "detalhe": "updated_at",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "website",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "telefone",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "email",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "nif",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "codigo",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "address_line",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "is_active",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "locality",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "created_at",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "city",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "institutions",
+    "detalhe": "postal_code",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "messages",
+    "detalhe": "timestamp",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "messages",
+    "detalhe": "content",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "messages",
+    "detalhe": "read",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "messages",
+    "detalhe": "sender_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "messages",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "messages",
+    "detalhe": "receiver_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "security_incident_types",
+    "detalhe": "description",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "security_incident_types",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "security_incident_types",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "security_incident_types",
+    "detalhe": "is_active",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "team_members",
+    "detalhe": "team_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "team_members",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "team_members",
+    "detalhe": "collaborator_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "teams",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "teams",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "teams",
+    "detalhe": "is_active",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "teams",
+    "detalhe": "description",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "ticket_categories",
+    "detalhe": "name",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "ticket_categories",
+    "detalhe": "default_team_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "ticket_categories",
+    "detalhe": "sla_critical_hours",
+    "extra": "integer",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "ticket_categories",
+    "detalhe": "sla_warning_hours",
+    "extra": "integer",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "ticket_categories",
+    "detalhe": "is_security",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "ticket_categories",
+    "detalhe": "is_active",
+    "extra": "boolean",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "ticket_categories",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "category",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "impact_criticality",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "request_date",
+    "extra": "timestamp with time zone",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "technician_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "id",
+    "extra": "uuid",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "team_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "title",
+    "extra": "text",
+    "opcional": "NO"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "equipment_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "status",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "description",
+    "extra": "text",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TABELA",
+    "nome": "tickets",
+    "detalhe": "collaborator_id",
+    "extra": "uuid",
+    "opcional": "YES"
+  },
+  {
+    "tipo": "TRIGGER",
+    "nome": "trigger_audit_equipment",
+    "detalhe": "equipment",
+    "extra": "UPDATE",
+    "opcional": "N/A"
+  },
+  {
+    "tipo": "TRIGGER",
+    "nome": "trigger_audit_equipment",
+    "detalhe": "equipment",
+    "extra": "INSERT",
+    "opcional": "N/A"
+  },
+  {
+    "tipo": "TRIGGER",
+    "nome": "trigger_audit_equipment",
+    "detalhe": "equipment",
+    "extra": "DELETE",
+    "opcional": "N/A"
+  },
+  {
+    "tipo": "TRIGGER",
+    "nome": "update_settings_modtime",
+    "detalhe": "global_settings",
+    "extra": "UPDATE",
+    "opcional": "N/A"
+  }
+]
