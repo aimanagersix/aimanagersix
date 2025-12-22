@@ -4,19 +4,19 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 let supabaseInstance: SupabaseClient | null = null;
 
 /**
- * Cliente Supabase V2.2 (Resiliência Vercel)
- * Evita o "ecrã preto" ao não lançar erro se as chaves estiverem temporariamente ausentes.
+ * Cliente Supabase V2.3 (Resiliência Vercel)
+ * Diagnóstico automático de chaves injetadas.
  */
 export const getSupabase = (): SupabaseClient => {
     if (supabaseInstance) {
         return supabaseInstance;
     }
 
-    // 1. Prioridade para as chaves estáticas injetadas pelo Vite no build
+    // 1. Deteção de chaves via process.env (injetadas pelo Vite no build)
     const envUrl = process.env.SUPABASE_URL;
     const envKey = process.env.SUPABASE_ANON_KEY;
 
-    // 2. Fallback para LocalStorage (Configuração em runtime)
+    // 2. Deteção via LocalStorage (Configuração manual ou persistência de sessão)
     const storageUrl = typeof window !== 'undefined' ? localStorage.getItem('SUPABASE_URL') : null;
     const storageKey = typeof window !== 'undefined' ? localStorage.getItem('SUPABASE_ANON_KEY') : null;
 
@@ -25,30 +25,30 @@ export const getSupabase = (): SupabaseClient => {
 
     if (finalUrl && finalKey && finalUrl !== '' && finalKey !== '') {
         try {
+            console.log("AIManager: A inicializar Supabase...");
             supabaseInstance = createClient(finalUrl, finalKey);
             
-            // Sincronizar storage para persistência futura se veio do ENV
-            if (envUrl && typeof window !== 'undefined') {
+            // Garantir que o Storage tem a cópia das chaves de ambiente para consistência
+            if (envUrl && typeof window !== 'undefined' && storageUrl !== envUrl) {
                 localStorage.setItem('SUPABASE_URL', finalUrl);
                 localStorage.setItem('SUPABASE_ANON_KEY', finalKey);
             }
             
             return supabaseInstance;
         } catch (e) {
-            console.error("Erro ao instanciar Supabase:", e);
+            console.error("Erro fatal na instância Supabase:", e);
         }
     }
 
-    // Se chegamos aqui, não temos chaves. 
-    // Em vez de dar throw (que causa ecrã preto), retornamos um cliente dummy ou 
-    // o código que chama getSupabase deve tratar a nulidade.
-    // Para manter compatibilidade com o código atual que espera um objeto:
-    console.warn("AIManager: Credenciais Supabase ausentes. A aguardar configuração...");
+    // Fallback silencioso para evitar ecrã preto
+    console.warn("AIManager: Credenciais Supabase não detetadas. Modo offline ativo.");
     
-    // Retornamos um proxy que lança erro apenas ao tentar usar, preservando o render da UI
     return new Proxy({} as SupabaseClient, {
-        get: () => {
-            throw new Error("Supabase não configurado. Por favor, insira o URL e a Anon Key no painel de configuração.");
+        get: (_, prop) => {
+            if (prop === 'auth') return { getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) };
+            return () => {
+                throw new Error("Funcionalidade indisponível: Supabase não configurado no Vercel.");
+            };
         }
     });
 };

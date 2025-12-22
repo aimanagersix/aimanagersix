@@ -6,15 +6,13 @@ import * as complSvc from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V20.0 (Infrastructure Verified)
+ * BARREL EXPORT SERVICE - V21.0 (Hybrid Engine Ready)
  * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO DE MODULOS (Freeze UI & Zero Refactoring):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEIO TOTAL
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEIO TOTAL
- * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEIO TOTAL
- * - PEDIDO 4 (Abas BD):          FECHADO - NÃO ALTERAR ABAS DA CONSOLA
+ * STATUS DE BLOQUEIO DE MODULOS:
+ * - PEDIDO 1, 2, 3, 4: BLOQUEIO TOTAL (NÃO ALTERAR)
  * -----------------------------------------------------------------------------
- * PEDIDO 5: Deploy Vercel Operacional. GitHub Actions "Pages" deve ser removido manualmente.
+ * PEDIDO 5: Deteção Automática de Infraestrutura. 
+ * O sistema desativa o MOCK se detetar chaves no process.env.
  * -----------------------------------------------------------------------------
  */
 
@@ -29,11 +27,16 @@ const CACHE_KEY = 'aimanager_global_cache';
 const CACHE_TIME_KEY = 'aimanager_cache_timestamp';
 const CACHE_DURATION = 10 * 60 * 1000; 
 
-const FORCE_MOCK = true; 
+// --- DYNAMIC ENGINE CONFIG ---
+// Se houver URL do Supabase no ambiente, desativamos o Mock.
+const FORCE_MOCK = !(process.env.SUPABASE_URL && process.env.SUPABASE_URL !== ''); 
 const MOCK_DB_VERSION = '3.0.0'; 
 
 export const isUsingMock = () => FORCE_MOCK;
 
+/**
+ * Obtém a base de dados local de forma síncrona ou inicializa.
+ */
 export const getLocalDB = () => {
     const currentVersion = localStorage.getItem('aimanager_db_version');
     const data = localStorage.getItem('aimanager_mock_db');
@@ -66,7 +69,7 @@ export const disconnectInfrastructure = () => {
     window.location.reload();
 };
 
-// --- MOCKED SPECIALIZED FETCHERS ---
+// --- SPECIALIZED FETCHERS (HYBRID) ---
 
 export const fetchOrganizationData = async () => {
     if (FORCE_MOCK) return getLocalDB();

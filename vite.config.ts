@@ -2,13 +2,13 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import packageJson from './package.json'
-// Fixed: Explicitly import process to resolve "Property 'cwd' does not exist on type 'Process'" error
 import process from 'node:process'
 
 export default defineConfig(({ mode }) => {
+  // Carrega variáveis do .env e do ambiente do sistema (Vercel)
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Assegura que mesmo que o Vercel não use prefixo VITE_, as variáveis são capturadas
+  // Normalização de chaves: Aceita VITE_SUPABASE_URL ou apenas SUPABASE_URL
   const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || '';
   const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || '';
   const geminiKey = env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY || env.API_KEY || '';
@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // O Vite substitui estas strings por valores literais no código transpilado
+      // Injeção estática para que o navegador consiga ler process.env
       'process.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
       'process.env.API_KEY': JSON.stringify(geminiKey),
@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: true,
+      chunkSizeWarningLimit: 1600,
     }
   }
 })
