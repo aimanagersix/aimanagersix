@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
     Ticket, Collaborator, ModuleKey, PermissionAction, TicketStatus, Equipment, SoftwareLicense
@@ -13,6 +12,14 @@ import { AddTicketModal } from '../../components/AddTicketModal';
 import CloseTicketModal from '../../components/CloseTicketModal';
 import TicketActivitiesModal from '../../components/TicketActivitiesModal';
 import RegulatoryNotificationModal from '../../components/RegulatoryNotificationModal';
+
+/**
+ * TICKET MANAGER
+ * -----------------------------------------------------------------------------
+ * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
+ * - PEDIDO 1: FECHADO - NÃO ALTERAR SEM PEDIDO EXPLÍCITO.
+ * -----------------------------------------------------------------------------
+ */
 
 const SYSTEM_SENDER_ID = '00000000-0000-0000-0000-000000000000';
 const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000000';

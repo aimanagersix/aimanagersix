@@ -3,7 +3,7 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V3.6 (Metadados Absolutos & Doc Guard)
+ * DB Manager UI - V3.7 (RLS Visibility Fix & Integrity Guard)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
@@ -11,7 +11,7 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 4 (Abas BD):          FECHADO - AS 5 ABAS SÃO ESTRUTURAIS
  * -----------------------------------------------------------------------------
- * PEDIDO 6: Expansão do script de inspeção para Triggers e Funções.
+ * PEDIDO 7: Correção de visibilidade de dados em tabelas auxiliares via RLS.
  * -----------------------------------------------------------------------------
  */
 
@@ -302,30 +302,59 @@ END;
 $$ LANGUAGE plpgsql;
 `;
 
-    const securityScript = `-- ATIVAR RLS EM TODAS AS TABELAS
+    const securityScript = `-- 1. ATIVAR RLS EM TODAS AS TABELAS (REPARADO V3.7)
 ALTER TABLE config_custom_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_job_titles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contact_titles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contact_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_collaborator_deactivation_reasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_equipment_statuses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_ticket_statuses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_license_statuses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_cpus ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_ram_sizes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_storage_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_decommission_reasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_accounting_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_conservation_states ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_software_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_software_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
+ALTER TABLE equipment_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ticket_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE security_incident_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE institutions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE entities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE equipment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE contact_titles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE contact_roles ENABLE ROW LEVEL SECURITY;
 
--- POLÍTICAS RBAC (ROLES)
-CREATE POLICY "Allow management for authenticated users" ON config_custom_roles FOR ALL TO authenticated USING (true);
-CREATE POLICY "Allow read for authenticated users" ON contact_titles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow read for authenticated users" ON contact_roles FOR SELECT TO authenticated USING (true);
+-- 2. POLÍTICAS DE LEITURA PARA UTILIZADORES AUTENTICADOS (FIX PEDIDO 7)
+DO $$ 
+DECLARE 
+    t text;
+    tables_to_policy text[] := ARRAY[
+        'config_custom_roles', 'config_job_titles', 'contact_titles', 'contact_roles', 
+        'config_collaborator_deactivation_reasons', 'config_equipment_statuses', 
+        'config_ticket_statuses', 'config_license_statuses', 'config_cpus', 
+        'config_ram_sizes', 'config_storage_types', 'config_decommission_reasons', 
+        'config_accounting_categories', 'config_conservation_states', 
+        'config_software_categories', 'config_software_products', 'brands', 
+        'equipment_types', 'ticket_categories', 'security_incident_types', 
+        'teams', 'team_members', 'institutions', 'entities', 'collaborators', 'equipment', 'tickets'
+    ];
+BEGIN
+    FOREACH t IN ARRAY tables_to_policy LOOP
+        EXECUTE format('DROP POLICY IF EXISTS "Allow read for authenticated users" ON %I', t);
+        EXECUTE format('CREATE POLICY "Allow read for authenticated users" ON %I FOR SELECT TO authenticated USING (true)', t);
+    END LOOP;
+END $$;
 
--- POLÍTICA BÁSICA: UTILIZADORES AUTENTICADOS PODEM LER TUDO
-CREATE POLICY "Allow read access for authenticated users" ON institutions FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow read access for authenticated users" ON entities FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow read access for authenticated users" ON collaborators FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow read access for authenticated users" ON equipment FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow read access for authenticated users" ON tickets FOR SELECT TO authenticated USING (true);
-
--- POLÍTICA MENSAGENS: SÓ DESTINATÁRIO OU REMETENTE OU CANAL GERAL (UUID ZERO)
+-- 3. POLÍTICA ESPECIAL PARA MENSAGENS (PRIVACIDADE)
+DROP POLICY IF EXISTS "Message Privacy" ON messages;
 CREATE POLICY "Message Privacy" ON messages
 FOR SELECT TO authenticated
 USING (
@@ -333,6 +362,9 @@ USING (
     OR sender_id = auth.uid()
     OR receiver_id = '00000000-0000-0000-0000-000000000000'::uuid
 );
+
+-- 4. PERMISSÃO DE ESCRITA EM CONFIGS (APENAS AUTH)
+-- Nota: Em produção real, deve restringir create/update a perfis Admin.
 `;
 
     const seedingScript = `-- SCRIPT DE SEEDING COMPLETO: TABELAS AUXILIARES PADRÃO
@@ -371,6 +403,7 @@ INSERT INTO equipment_types (name, requires_nome_na_rede, requires_ram_size, req
 ('Access Point', true, false, false, false),
 ('Smartphone', false, false, false, false),
 ('Tablet', false, false, false, false),
+('Impressora', true, false, false, false),
 ('UPS', false, false, false, false)
 ON CONFLICT (name) DO NOTHING;
 

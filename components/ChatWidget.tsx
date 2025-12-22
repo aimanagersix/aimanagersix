@@ -1,9 +1,16 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Collaborator, Message, ModuleKey, PermissionAction } from '../types';
 import { FaComment, FaPaperPlane, FaArrowLeft, FaTimes, FaBroom } from './common/Icons';
 import { FaBullhorn } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
+
+/**
+ * CHAT WIDGET
+ * -----------------------------------------------------------------------------
+ * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
+ * - PEDIDO 2: FECHADO - NÃO ALTERAR SEM PEDIDO EXPLÍCITO.
+ * -----------------------------------------------------------------------------
+ */
 
 interface ChatWidgetProps {
     currentUser: Collaborator | null;

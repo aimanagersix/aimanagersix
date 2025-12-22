@@ -1,9 +1,16 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Equipment, SoftwareLicense, Ticket, Collaborator, Team, LicenseAssignment, ModuleKey, PermissionAction } from '../types';
 import { FaEye, FaBellSlash, FaTicketAlt, FaExclamationTriangle, FaShieldAlt, FaHistory, FaCheckCircle, FaClock } from './common/Icons';
 import * as dataService from '../services/dataService';
+
+/**
+ * NOTIFICATIONS MODAL
+ * -----------------------------------------------------------------------------
+ * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
+ * - PEDIDO 3: FECHADO - NÃO ALTERAR SEM PEDIDO EXPLÍCITO.
+ * -----------------------------------------------------------------------------
+ */
 
 interface NotificationsModalProps {
     onClose: () => void;
