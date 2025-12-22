@@ -5,13 +5,6 @@ import { SpinnerIcon, FaSave } from './common/Icons';
 import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey, FaBriefcase, FaPlus, FaBirthdayCake, FaUserShield, FaBell, FaCalendarAlt } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-const isValidMobile = (phone: string): boolean => {
-    if (!phone || phone.trim() === '') return true;
-    const regex = /^9[1236]\d{7}$/;
-    return regex.test(phone.replace(/[\s-()]/g, '').replace(/^\+351/, ''));
-};
-
 const compressProfileImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -60,7 +53,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedInstituicao, setSelectedInstituicao] = useState<string>('');
-    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
     useEffect(() => {
         const loadConfig = async () => {
@@ -90,11 +82,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
         setIsSaving(true);
         try {
-            // Limpeza explícita para evitar o erro 'address' não existente no cache v4.0
-            const payload = { ...formData };
-            delete (payload as any).address;
-
-            const saved = await onSave(payload as any, password || undefined);
+            // Limpeza definitiva Pedido 7: Remover a chave 'address' se existir por acidente no objeto
+            const { address, ...payload } = formData as any;
+            
+            const saved = await onSave(payload, password || undefined);
             if (photoFile && saved?.id) await dataService.uploadCollaboratorPhoto(saved.id, photoFile);
             onClose();
         } catch (err: any) { 

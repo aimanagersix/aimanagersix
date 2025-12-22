@@ -1,8 +1,8 @@
 import { getSupabase } from './supabaseClient';
 
 /**
- * Support Service - V1.3
- * Pedido 7: Correção de falhas silenciosas na gravação de categorias e equipas.
+ * Support Service - V1.4
+ * Pedido 7: Propagação obrigatória de erros de base de dados para evitar falhas silenciosas.
  */
 
 const sb = () => getSupabase();

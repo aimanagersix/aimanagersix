@@ -2,16 +2,15 @@ import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
 
 /**
- * Organization Service - V2.3
- * Pedido 7: Correção de falha de coluna inexistente e propagação de erros.
+ * Organization Service - V2.4
+ * Pedido 7: Limpeza de payload rigorosa e propagação de erros.
  */
 
 const sb = () => getSupabase();
 
 const cleanPayload = (data: any) => {
     const cleaned = { ...data };
-    // Requisito Pedido 7: Remover chaves que causam erro de schema cache
-    // O Supabase espera 'address_line', 'address' não existe mais na estrutura v3.6+
+    // Pedido 7: Impedir que chaves inexistentes no schema causem falha 400
     delete cleaned.address; 
     delete cleaned.contacts;
     delete cleaned.preferences;
