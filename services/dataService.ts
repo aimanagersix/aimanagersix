@@ -6,15 +6,15 @@ import * as complSvc from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V18.0 (Security & Lock Integrity)
+ * BARREL EXPORT SERVICE - V19.0 (Vercel Fix & Lock Integrity)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO DE MODULOS (Freeze UI & Zero Refactoring):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEIO TOTAL (NÃO ALTERAR)
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEIO TOTAL (NÃO ALTERAR)
- * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEIO TOTAL (NÃO ALTERAR)
+ * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEIO TOTAL
+ * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEIO TOTAL
+ * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEIO TOTAL
+ * - PEDIDO 4 (Abas BD):          FECHADO - NÃO ALTERAR ABAS DA CONSOLA
  * -----------------------------------------------------------------------------
- * PEDIDO 4: Menu Base de Dados - Abas e scripts SQL preservados.
- * PEDIDO 5: Deploy & Edge Secrets - Verifique VITE_SUPABASE_URL no Vercel.
+ * PEDIDO 5: Deploy Vercel & GitHub Actions Fix.
  * -----------------------------------------------------------------------------
  */
 
@@ -29,15 +29,11 @@ const CACHE_KEY = 'aimanager_global_cache';
 const CACHE_TIME_KEY = 'aimanager_cache_timestamp';
 const CACHE_DURATION = 10 * 60 * 1000; 
 
-// --- MOCK ENGINE CONFIG ---
 const FORCE_MOCK = true; 
 const MOCK_DB_VERSION = '3.0.0'; 
 
 export const isUsingMock = () => FORCE_MOCK;
 
-/**
- * Obtém a base de dados local de forma síncrona ou inicializa.
- */
 export const getLocalDB = () => {
     const currentVersion = localStorage.getItem('aimanager_db_version');
     const data = localStorage.getItem('aimanager_mock_db');
@@ -62,10 +58,6 @@ export const invalidateLocalCache = () => {
     localStorage.removeItem(CACHE_TIME_KEY);
 };
 
-/**
- * Ferramenta de Migração.
- * Limpa as credenciais de infraestrutura para permitir nova configuração.
- */
 export const disconnectInfrastructure = () => {
     localStorage.removeItem('SUPABASE_URL');
     localStorage.removeItem('SUPABASE_ANON_KEY');
@@ -89,6 +81,11 @@ export const fetchInventoryData = async () => {
 export const fetchSupportData = async () => {
     if (FORCE_MOCK) return getLocalDB();
     return suppSvc.fetchSupportData();
+};
+
+export const fetchComplianceData = async () => {
+    if (FORCE_MOCK) return getLocalDB();
+    return complSvc.fetchComplianceData();
 };
 
 export const fetchAllData = async (forceRefresh = false) => {
