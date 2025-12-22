@@ -3,17 +3,13 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V2.7 (Zero Refactoring & Integrity Lock)
+ * DB Manager UI - V2.3 (Infrastructure Ready)
  * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEADO - NÃO ALTERAR
- * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
- * - PEDIDO 4 (Abas BD):          FECHADO - AS 4 ABAS SÃO ESTRUTURAIS
- * -----------------------------------------------------------------------------
- * NOTA TÉCNICA (Secrets): 
- * As Edge Function Secrets (GEMINI_API_KEY, RESEND_API_KEY, etc) DEVEM ser
- * criadas MANUALMENTE no Dashboard do Supabase para o ambiente Deno.
+ * STATUS DE BLOQUEIO (Freeze UI):
+ * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO
+ * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEADO
+ * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO
+ * - PEDIDO 4 (Abas BD):          FECHADO - NÃO ALTERAR AS 4 ABAS CONFIGURADAS
  * -----------------------------------------------------------------------------
  */
 
@@ -54,7 +50,7 @@ CREATE TABLE institutions (
 CREATE TABLE entities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     instituicao_id UUID REFERENCES institutions(id) ON DELETE CASCADE,
-    codigo TEXT UNIQUE,
+    codigo TEXT,
     name TEXT NOT NULL,
     description TEXT,
     email TEXT,
@@ -184,24 +180,6 @@ CREATE TABLE messages (
 -- 6. CONFIGURAÇÕES GLOBAIS
 CREATE TABLE global_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT, updated_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), timestamp TIMESTAMPTZ DEFAULT now(), action TEXT NOT NULL, resource_type TEXT, user_email TEXT, details TEXT);
-
--- 7. SEED: DADOS INICIAIS & SUPERADMIN (EMERGÊNCIA)
--- Este bloco garante que existe pelo menos uma estrutura base e o utilizador mestre.
-INSERT INTO institutions (id, name, codigo, is_active)
-VALUES ('00000000-0000-0000-0000-000000000001', 'Organização Sede', 'SEDE', true)
-ON CONFLICT (codigo) DO NOTHING;
-
-INSERT INTO entities (id, instituicao_id, name, codigo, status)
-VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Administração Geral', 'ADM', 'Ativo')
-ON CONFLICT (codigo) DO NOTHING;
-
-INSERT INTO collaborators (id, full_name, email, role, status, can_login, receives_notifications, instituicao_id, entidade_id)
-VALUES ('00000000-0000-0000-0000-000000000003', 'Super Administrador', 'josefsmoreira@outlook.com', 'SuperAdmin', 'Ativo', true, true, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002')
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO collaborators (id, full_name, email, role, status, can_login, receives_notifications, instituicao_id, entidade_id)
-VALUES ('00000000-0000-0000-0000-000000000004', 'System Admin', 'aimanagersix@gmail.com', 'SuperAdmin', 'Ativo', true, true, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002')
-ON CONFLICT (email) DO NOTHING;
 `;
 
     const triggersScript = `-- AUTO-AUDIT LOG TRIGGER

@@ -3,17 +3,15 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V2.7 (Zero Refactoring & Integrity Lock)
+ * DB Manager UI - V2.6 (Pedido 5: Secondary SuperAdmin Added)
  * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEADO - NÃO ALTERAR
- * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
- * - PEDIDO 4 (Abas BD):          FECHADO - AS 4 ABAS SÃO ESTRUTURAIS
+ * STATUS DE BLOQUEIO (Freeze UI):
+ * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO
+ * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEADO
+ * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO
+ * - PEDIDO 4 (Abas BD):          FECHADO - NÃO ALTERAR AS 4 ABAS CONFIGURADAS
  * -----------------------------------------------------------------------------
- * NOTA TÉCNICA (Secrets): 
- * As Edge Function Secrets (GEMINI_API_KEY, RESEND_API_KEY, etc) DEVEM ser
- * criadas MANUALMENTE no Dashboard do Supabase para o ambiente Deno.
+ * PEDIDO 5: Adição de aimagersix@gmail.com como SuperAdmin no script de inicialização.
  * -----------------------------------------------------------------------------
  */
 
