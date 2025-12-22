@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { FaKey, FaSave, FaSlack, FaCheckCircle, FaTimesCircle, FaEdit, FaTimes, FaShieldAlt } from 'react-icons/fa';
+import { FaKey, FaSave, FaSlack, FaCheckCircle, FaTimesCircle, FaEdit, FaTimes, FaShieldAlt, FaRobot, FaExternalLinkAlt } from 'react-icons/fa';
 
 interface ConnectionsTabProps {
     settings: any;
@@ -23,18 +24,10 @@ const SecretStatusItem = ({
     const [isEditing, setIsEditing] = useState(false);
     const [newValue, setNewValue] = useState('');
     
-    // Consideramos configurado se houver qualquer valor preenchido
     const isConfigured = typeof value === 'string' && value.trim().length > 0;
 
     const handleSaveLocal = () => {
-        if (newValue.trim()) {
-            onChange(newValue);
-        }
-        setIsEditing(false);
-        setNewValue('');
-    };
-
-    const handleCancel = () => {
+        if (newValue.trim()) onChange(newValue);
         setIsEditing(false);
         setNewValue('');
     };
@@ -45,127 +38,59 @@ const SecretStatusItem = ({
                 <label className="block text-xs text-gray-400 uppercase font-bold">{label}</label>
                 <div className="flex items-center gap-2">
                     {isConfigured ? (
-                        <span className="flex items-center gap-1 text-xs font-bold text-green-400 bg-green-900/30 px-2 py-0.5 rounded border border-green-500/30">
-                            <FaCheckCircle /> Configurado
-                        </span>
+                        <span className="flex items-center gap-1 text-xs font-bold text-green-400 bg-green-900/30 px-2 py-0.5 rounded border border-green-500/30"><FaCheckCircle /> Configurado</span>
                     ) : (
-                        <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30">
-                            <FaTimesCircle /> Não Configurado
-                        </span>
+                        <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30"><FaTimesCircle /> Não Configurado</span>
                     )}
                 </div>
             </div>
-            
             {description && <p className="text-xs text-gray-500 mb-3">{description}</p>}
-
             {isEditing ? (
                 <div className="animate-fade-in mt-2">
-                    <input 
-                        type="password" 
-                        value={newValue} 
-                        onChange={(e) => setNewValue(e.target.value)} 
-                        className="w-full bg-gray-900 border border-brand-secondary text-white rounded-md p-2 text-sm font-mono mb-2 focus:ring-1 focus:ring-brand-secondary outline-none"
-                        placeholder={placeholder || "Insira o valor..."}
-                        autoFocus
-                    />
+                    <input type="password" value={newValue} onChange={(e) => setNewValue(e.target.value)} className="w-full bg-gray-900 border border-brand-secondary text-white rounded-md p-2 text-sm font-mono mb-2 focus:ring-1 outline-none" placeholder={placeholder || "Insira o valor..."} autoFocus />
                     <div className="flex gap-2 justify-end">
-                        <button onClick={handleCancel} className="text-xs text-gray-400 hover:text-white flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-700">
-                            <FaTimes /> Cancelar
-                        </button>
-                        <button onClick={handleSaveLocal} className="text-xs bg-brand-primary text-white px-3 py-1 rounded hover:bg-brand-secondary flex items-center gap-1">
-                            <FaSave /> Definir Novo Valor
-                        </button>
+                        <button onClick={() => setIsEditing(false)} className="text-xs text-gray-400 hover:text-white px-2 py-1">Cancelar</button>
+                        <button onClick={handleSaveLocal} className="text-xs bg-brand-primary text-white px-3 py-1 rounded hover:bg-brand-secondary">Definir</button>
                     </div>
                 </div>
             ) : (
-                <button 
-                    onClick={() => setIsEditing(true)} 
-                    className="mt-1 text-xs text-brand-secondary hover:text-white flex items-center gap-1 transition-colors"
-                >
-                    <FaEdit /> {isConfigured ? 'Alterar' : 'Configurar'}
-                </button>
+                <button onClick={() => setIsEditing(true)} className="mt-1 text-xs text-brand-secondary hover:text-white flex items-center gap-1 transition-colors"><FaEdit /> {isConfigured ? 'Alterar' : 'Configurar'}</button>
             )}
         </div>
     );
 };
 
 const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsChange, onSave }) => {
-
     return (
         <div className="space-y-6 animate-fade-in p-6">
-            
-            <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 mb-6">
-                <p>
-                    <strong>Segurança de Credenciais:</strong> As chaves são armazenadas na tabela de configurações globais. O estado indica apenas a presença de uma configuração ativa.
-                </p>
+            <div className="bg-purple-900/20 border border-purple-500/30 p-5 rounded-xl text-sm text-purple-200">
+                <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaRobot className="text-purple-400"/> Inteligência Artificial (Gemini)</h3>
+                <p className="mb-4">Para a IA funcionar, a chave não pode ser guardada aqui por segurança. Deve ser colocada nos <strong>Secrets</strong> do Supabase.</p>
+                <div className="bg-black/40 p-3 rounded font-mono text-xs text-green-400 border border-gray-700">
+                    # No seu terminal:<br/>
+                    supabase secrets set GEMINI_API_KEY=SUA_CHAVE_AQUI
+                </div>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 mt-4 text-brand-secondary hover:underline font-bold">
+                    Obter Chave Gemini Grátis <FaExternalLinkAlt size={12}/>
+                </a>
             </div>
 
-            {/* Sophos Central Integration */}
             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaShieldAlt className="text-blue-400"/> Sophos Central (Security Link)</h3>
-                <p className="text-xs text-gray-500 mb-4">Credenciais para correlação automática de incidentes e criação de tickets NIS2.</p>
-                
+                <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaShieldAlt className="text-blue-400"/> Integrações de Segurança</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <SecretStatusItem 
-                        label="Sophos Client ID"
-                        value={settings.sophos_client_id}
-                        onChange={(val) => onSettingsChange('sophos_client_id', val)}
-                        placeholder="Ex: d45c..."
-                    />
-                    <SecretStatusItem 
-                        label="Sophos Client Secret"
-                        value={settings.sophos_client_secret}
-                        onChange={(val) => onSettingsChange('sophos_client_secret', val)}
-                        placeholder="****************"
-                    />
+                    <SecretStatusItem label="Sophos Client ID" value={settings.sophos_client_id} onChange={(val) => onSettingsChange('sophos_client_id', val)} />
+                    <SecretStatusItem label="Sophos Client Secret" value={settings.sophos_client_secret} onChange={(val) => onSettingsChange('sophos_client_secret', val)} />
                 </div>
             </div>
 
-            {/* Slack Integration */}
             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaSlack className="text-purple-400"/> Notificações Slack</h3>
-                
-                <SecretStatusItem 
-                    label="SLACK_WEBHOOK_URL"
-                    value={settings.slackWebhookUrl}
-                    onChange={(val) => onSettingsChange('slackWebhookUrl', val)}
-                    placeholder="https://hooks.slack.com/services/..."
-                    description="Permite receber alertas de incidentes críticos num canal do Slack."
-                />
-            </div>
-
-            {/* Supabase Connection */}
-            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaKey className="text-green-400"/> Conexão Base de Dados (Supabase)</h3>
-                
+                <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaKey className="text-green-400"/> Base de Dados & Email</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <SecretStatusItem 
-                        label="SB_URL"
-                        value={settings.sbUrl}
-                        onChange={(val) => onSettingsChange('sbUrl', val)}
-                        placeholder="https://exemplo.supabase.co"
-                    />
-                    <SecretStatusItem 
-                        label="SB_ANON_KEY"
-                        value={settings.sbKey}
-                        onChange={(val) => onSettingsChange('sbKey', val)}
-                    />
+                    <SecretStatusItem label="Supabase URL" value={settings.sbUrl} onChange={(val) => onSettingsChange('sbUrl', val)} />
+                    <SecretStatusItem label="Supabase Anon Key" value={settings.sbKey} onChange={(val) => onSettingsChange('sbKey', val)} />
                 </div>
             </div>
 
-            {/* Resend Connection */}
-            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg">
-                <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaKey className="text-red-400"/> Serviço de Email (Resend)</h3>
-                
-                <SecretStatusItem 
-                    label="RESEND_API_KEY"
-                    value={settings.resendApiKey}
-                    onChange={(val) => onSettingsChange('resendApiKey', val)}
-                    description="Usada para enviar relatórios automáticos e notificações."
-                />
-            </div>
-
-            {/* Save Button */}
             <div className="mt-6 flex justify-end">
                 <button onClick={onSave} className="bg-brand-primary text-white px-6 py-2 rounded-md hover:bg-brand-secondary transition-colors flex items-center gap-2 shadow-lg">
                     <FaSave /> Guardar Configurações

@@ -1,13 +1,14 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v5.3 (Security & Storage Patch)
+ * DB Manager UI - v6.0 (AI Bridge Integration)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 4 & 7: MANTER E EXPANDIR ABAS
- * - PEDIDO 8: FIX RLS STORAGE & COLLABORATORS
+ * - PEDIDO 9: ADICIONADA ABA IA BRIDGE (ALTERNATIVA AO MCP)
  * -----------------------------------------------------------------------------
  */
 
@@ -17,13 +18,27 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'full' | 'triggers' | 'functions' | 'security' | 'seeding' | 'patch'>('full');
+    const [activeTab, setActiveTab] = useState<'full' | 'triggers' | 'ai_bridge' | 'security' | 'seeding' | 'patch'>('full');
     
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
         setCopied(id);
         setTimeout(() => setCopied(null), 2000);
     };
+
+    const aiBridgeCli = `# 🚀 CONFIGURAÇÃO DA PONTE DE IA (TERMINAL)
+# Execute estes comandos para dar "super-poderes" à IA no seu Supabase.
+
+# 1. Instalar o CLI do Supabase (se ainda não tiver)
+# npm install supabase --save-dev
+
+# 2. Configurar a Chave Secreta da Gemini
+# Substitua 'SUA_CHAVE_AQUI' pela chave que obteve no Google AI Studio
+supabase secrets set GEMINI_API_KEY=SUA_CHAVE_AQUI
+
+# 3. Publicar a Função de Proxy de IA
+supabase functions deploy ai-proxy
+`;
 
     const fullInitScript = `-- 🛡️ AIManager - Script de Inicialização Completa (Novo Cliente)
 -- 1. EXTENSÕES
@@ -81,138 +96,8 @@ CREATE TABLE IF NOT EXISTS audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uui
 CREATE TABLE IF NOT EXISTS automation_rules (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, trigger_event TEXT, conditions JSONB DEFAULT '[]'::jsonb, actions JSONB DEFAULT '[]'::jsonb, priority INTEGER DEFAULT 0, is_active BOOLEAN DEFAULT true, description TEXT, created_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE IF NOT EXISTS policies (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), title TEXT NOT NULL, content TEXT, version TEXT, is_active BOOLEAN DEFAULT true, is_mandatory BOOLEAN DEFAULT true, target_type TEXT, target_instituicao_ids UUID[], target_entidade_ids UUID[], created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE IF NOT EXISTS policy_acceptances (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), policy_id UUID REFERENCES policies(id) ON DELETE CASCADE, collaborator_id UUID REFERENCES collaborators(id) ON DELETE CASCADE, version TEXT, accepted_at TIMESTAMPTZ DEFAULT now());
-CREATE TABLE IF NOT EXISTS procurement_requests (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), title TEXT NOT NULL, description TEXT, quantity INTEGER DEFAULT 1, estimated_cost DECIMAL(12,2), requester_id UUID REFERENCES collaborators(id), status TEXT, request_date DATE, priority TEXT, resource_type TEXT, specifications JSONB, brand_id UUID, supplier_id UUID, order_reference TEXT, invoice_number TEXT, approval_date DATE, approver_id UUID, received_date DATE, equipment_type_id UUID, software_category_id UUID, order_date DATE, attachments JSONB DEFAULT '[]'::jsonb, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS procurement_requests (id UUID PRIMARY KEY PRIMARY KEY DEFAULT gen_random_uuid(), title TEXT NOT NULL, description TEXT, quantity INTEGER DEFAULT 1, estimated_cost DECIMAL(12,2), requester_id UUID REFERENCES collaborators(id), status TEXT, request_date DATE, priority TEXT, resource_type TEXT, specifications JSONB, brand_id UUID, supplier_id UUID, order_reference TEXT, invoice_number TEXT, approval_date DATE, approver_id UUID, received_date DATE, equipment_type_id UUID, software_category_id UUID, order_date DATE, attachments JSONB DEFAULT '[]'::jsonb, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE IF NOT EXISTS calendar_events (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), title TEXT NOT NULL, description TEXT, start_date TIMESTAMPTZ NOT NULL, end_date TIMESTAMPTZ, is_all_day BOOLEAN DEFAULT false, color TEXT, is_private BOOLEAN DEFAULT true, team_id UUID, reminder_minutes INTEGER, created_by UUID REFERENCES collaborators(id), created_at TIMESTAMPTZ DEFAULT now());
-`;
-
-    const triggersScript = `-- 🔄 TRIGGERS DE SISTEMA (AUDITORIA E AUTOMATIZAÇÃO)
-
--- 1. Função Genérica para Atualizar updated_at
-CREATE OR REPLACE FUNCTION update_modified_column() RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$ LANGUAGE 'plpgsql';
-
--- 2. Aplicação do Trigger updated_at
-CREATE TRIGGER update_institutions_modtime BEFORE UPDATE ON institutions FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
-CREATE TRIGGER update_entities_modtime BEFORE UPDATE ON entities FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
-CREATE TRIGGER update_collaborators_modtime BEFORE UPDATE ON collaborators FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
-CREATE TRIGGER update_equipment_modtime BEFORE UPDATE ON equipment FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
-CREATE TRIGGER update_procurement_modtime BEFORE UPDATE ON procurement_requests FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
-CREATE TRIGGER update_policies_modtime BEFORE UPDATE ON policies FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
-
--- 3. Função para Log de Auditoria
-CREATE OR REPLACE FUNCTION log_changes() RETURNS TRIGGER AS $$
-BEGIN
-    IF (TG_OP = 'INSERT') THEN
-        INSERT INTO audit_log (action, resource_type, resource_id, details)
-        VALUES ('CREATE', TG_TABLE_NAME, NEW.id, 'Registo criado.');
-    ELSIF (TG_OP = 'UPDATE') THEN
-        INSERT INTO audit_log (action, resource_type, resource_id, details)
-        VALUES ('UPDATE', TG_TABLE_NAME, NEW.id, 'Registo atualizado.');
-    ELSIF (TG_OP = 'DELETE') THEN
-        INSERT INTO audit_log (action, resource_type, resource_id, details)
-        VALUES ('DELETE', TG_TABLE_NAME, OLD.id, 'Registo removido.');
-    END IF;
-    RETURN NULL;
-END;
-$$ LANGUAGE 'plpgsql';
-
--- 4. Aplicação de Auditoria em Equipamento e Tickets
-CREATE TRIGGER trigger_audit_equipment AFTER INSERT OR UPDATE OR DELETE ON equipment FOR EACH ROW EXECUTE PROCEDURE log_changes();
-CREATE TRIGGER trigger_audit_tickets AFTER INSERT OR UPDATE OR DELETE ON tickets FOR EACH ROW EXECUTE PROCEDURE log_changes();
-`;
-
-    const functionsScript = `-- 🛠️ FUNÇÕES RPC (API E INSPEÇÃO)
-
--- 1. Obter Políticas de RLS para Diagnóstico
-CREATE OR REPLACE FUNCTION get_db_policies() 
-RETURNS TABLE(tablename text, policyname text, cmd text, roles text[]) AS $$
-SELECT tablename, policyname, cmd, roles FROM pg_policies WHERE schemaname = 'public';
-$$ LANGUAGE sql SECURITY DEFINER;
-
--- 2. Obter Triggers para Diagnóstico
-CREATE OR REPLACE FUNCTION get_db_triggers() 
-RETURNS TABLE(trigger_name text, event_object_table text, action_statement text) AS $$
-SELECT trigger_name, event_object_table, action_statement FROM information_schema.triggers WHERE trigger_schema = 'public';
-$$ LANGUAGE sql SECURITY DEFINER;
-
--- 3. Obter Funções Registadas
-CREATE OR REPLACE FUNCTION get_db_functions() 
-RETURNS TABLE(routine_name text, routine_type text) AS $$
-SELECT routine_name, routine_type FROM information_schema.routines WHERE routine_schema = 'public' AND routine_type = 'FUNCTION';
-$$ LANGUAGE sql SECURITY DEFINER;
-`;
-
-    const securityScript = `-- 🔒 SEGURANÇA E RLS (FIX V5.0)
--- Este script garante que todas as tabelas têm RLS ativado e permissões de gestão para utilizadores autenticados.
-
-DO $$ 
-DECLARE 
-    t text;
-    tables_to_fix text[] := ARRAY[
-        'teams', 'team_members', 'ticket_categories', 'security_incident_types',
-        'collaborators', 'entities', 'institutions', 'brands', 'equipment_types',
-        'equipment', 'tickets', 'messages', 'config_custom_roles', 'config_job_titles',
-        'contact_titles', 'contact_roles', 'config_software_categories', 'config_software_products',
-        'config_equipment_statuses', 'config_ticket_statuses', 'config_license_statuses',
-        'config_cpus', 'config_ram_sizes', 'config_storage_types', 'config_decommission_reasons',
-        'config_accounting_categories', 'config_conservation_states', 'assignments',
-        'software_licenses', 'license_assignments', 'ticket_activities', 'business_services',
-        'service_dependencies', 'vulnerabilities', 'backup_executions', 'resilience_tests',
-        'security_trainings', 'global_settings', 'audit_log', 'automation_rules',
-        'policies', 'policy_acceptances', 'procurement_requests', 'calendar_events'
-    ];
-BEGIN
-    FOREACH t IN ARRAY tables_to_fix LOOP
-        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
-        EXECUTE format('DROP POLICY IF EXISTS "Allow read for authenticated users" ON public.%I', t);
-        EXECUTE format('DROP POLICY IF EXISTS "Allow full access for authenticated" ON public.%I', t);
-        EXECUTE format('DROP POLICY IF EXISTS "Allow management for authenticated users" ON public.%I', t);
-        
-        -- Política Global v5.0: CRUD total para utilizadores autenticados
-        EXECUTE format('CREATE POLICY "Allow management for authenticated users" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
-    END LOOP;
-END $$;
-`;
-
-    const seedingScript = `-- 🌱 DADOS BASE (SEEDING INICIAL)
--- Categorias Base
-INSERT INTO ticket_categories (name, is_active) VALUES ('Avaria Hardware', true), ('Software / Configuração', true), ('Rede / Conectividade', true), ('Incidentes Segurança', true) ON CONFLICT (name) DO NOTHING;
-
--- Equipa de Triagem
-INSERT INTO teams (name, description, is_active) VALUES ('Triagem', 'Análise inicial de tickets e incidentes', true) ON CONFLICT (name) DO NOTHING;
-
--- Estados Padrão
-INSERT INTO config_equipment_statuses (name, color) VALUES ('Operacional', '#22c55e'), ('Stock', '#3b82f6'), ('Garantia', '#eab308'), ('Abate', '#ef4444') ON CONFLICT (name) DO NOTHING;
-INSERT INTO config_ticket_statuses (name, color) VALUES ('Pedido', '#fbbf24'), ('Em progresso', '#60a5fa'), ('Finalizado', '#4ade80'), ('Cancelado', '#f87171') ON CONFLICT (name) DO NOTHING;
-`;
-
-    const patchScript = `-- ⚡ PATCH / ALTERAÇÕES DE MOMENTO (MANTENÇÃO v5.3)
--- Fixes para Pedido 8: Storage & RLS Colaboradores
-
--- 1. [Fix: Pedido 8] Políticas de Segurança para o Bucket 'avatars'
--- Execute isto se o bucket já existir. Garante upload e leitura.
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('avatars', 'avatars', true) 
-ON CONFLICT (id) DO NOTHING;
-
-CREATE POLICY "Avatar Public Read" ON storage.objects FOR SELECT TO public USING (bucket_id = 'avatars');
-CREATE POLICY "Avatar Auth Insert" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'avatars');
-CREATE POLICY "Avatar Auth Update" ON storage.objects FOR UPDATE TO authenticated WITH CHECK (bucket_id = 'avatars');
-
--- 2. [Fix: Pedido 8] Reparação RLS Colaboradores (Evitar erro 403 ao editar)
--- Garante que utilizadores autenticados podem gerir a tabela colaboradores
-DROP POLICY IF EXISTS "Allow management for authenticated users" ON public.collaborators;
-CREATE POLICY "Allow management for authenticated users" ON public.collaborators 
-FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
--- 3. [Nota Técnica] O comando abaixo força o PostgREST a recarregar o schema cache
-NOTIFY pgrst, 'reload schema';
-
--- 4. [Aviso] Após correr este script, aguarde 30s e faça Refresh (F5) no browser.
 `;
 
     return (
@@ -220,44 +105,76 @@ NOTIFY pgrst, 'reload schema';
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
-                    <button onClick={() => setActiveTab('triggers')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'triggers' ? 'border-yellow-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSync /> Triggers</button>
-                    <button onClick={() => setActiveTab('functions')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'functions' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSearch /> Funções</button>
-                    <button onClick={() => setActiveTab('security')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'security' ? 'border-red-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaShieldAlt /> Segurança</button>
-                    <button onClick={() => setActiveTab('seeding')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'seeding' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaDatabase /> Seed</button>
-                    <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch / Fixes</button>
+                    <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (MCP Alternativa)</button>
+                    <button onClick={() => setActiveTab('security')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'security' ? 'border-red-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaShieldAlt /> Segurança & RLS</button>
+                    <button onClick={() => setActiveTab('seeding')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'seeding' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaDatabase /> Seed</button>
+                    <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Manutenção</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
-                    <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg text-xs text-blue-200">
-                        <h3 className="font-bold flex items-center gap-2 mb-1"><FaInfoCircle className="text-blue-400" /> Referência de Gestão (Pedido 7)</h3>
-                        <p>Copie os scripts abaixo e execute-os no <strong>SQL Editor</strong> do seu Supabase Dashboard.</p>
-                    </div>
+                    {activeTab === 'ai_bridge' ? (
+                        <div className="flex flex-col gap-4 animate-fade-in">
+                            <div className="bg-purple-900/20 border border-purple-500/30 p-5 rounded-lg text-sm text-purple-200">
+                                <h3 className="font-bold flex items-center gap-2 mb-3 text-lg"><FaRobot className="text-purple-400" /> Como Ativar a Inteligência do Banco de Dados</h3>
+                                <p className="mb-4">Como não usas o Cursor, a forma de dares "olhos" à IA sobre o teu projeto é configurando os <strong>Secrets</strong> do Supabase no teu terminal habitual.</p>
+                                <ol className="list-decimal list-inside space-y-3 ml-2 text-purple-100/90">
+                                    <li>Abre o teu terminal de ligação ao GitHub.</li>
+                                    <li>Certifica-te que estás na pasta do projeto.</li>
+                                    <li>Copia e executa os comandos abaixo.</li>
+                                </ol>
+                            </div>
 
-                    <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden group">
-                        <div className="absolute top-2 right-4 z-20 flex gap-2">
-                            <button 
-                                onClick={() => {
-                                    const script = activeTab === 'full' ? fullInitScript : 
-                                                 activeTab === 'triggers' ? triggersScript :
-                                                 activeTab === 'functions' ? functionsScript :
-                                                 activeTab === 'security' ? securityScript : 
-                                                 activeTab === 'patch' ? patchScript : seedingScript;
-                                    handleCopy(script, activeTab);
-                                }} 
-                                className="px-4 py-2 bg-brand-primary text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"
-                            >
-                                {copied === activeTab ? <FaCheck /> : <FaCopy />} {copied === activeTab ? 'Copiado!' : 'Copiar SQL'}
-                            </button>
+                            <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden min-h-[300px]">
+                                <div className="absolute top-2 right-4 z-20">
+                                    <button 
+                                        onClick={() => handleCopy(aiBridgeCli, 'ai_cli')} 
+                                        className="px-4 py-2 bg-purple-600 text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-purple-500 transition-all"
+                                    >
+                                        {copied === 'ai_cli' ? <FaCheck /> : <FaCopy />} {copied === 'ai_cli' ? 'Copiado!' : 'Copiar Comandos'}
+                                    </button>
+                                </div>
+                                <div className="h-full overflow-auto custom-scrollbar p-6 bg-gray-950 font-mono text-xs text-green-400">
+                                    <pre className="whitespace-pre-wrap">{aiBridgeCli}</pre>
+                                </div>
+                            </div>
+
+                            <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-lg flex items-start gap-3">
+                                <FaInfoCircle className="text-blue-400 mt-1" />
+                                <div className="text-xs text-gray-400">
+                                    <strong>Onde coloco a chave?</strong> No comando acima, onde diz <code className="text-purple-300">SUA_CHAVE_AQUI</code>, deves colar a tua API Key da Gemini. Isto cria um túnel seguro entre a IA e o teu banco de dados.
+                                </div>
+                            </div>
                         </div>
-                        <div className="h-full overflow-auto custom-scrollbar p-6 bg-gray-950 font-mono text-xs text-blue-400">
-                            {activeTab === 'full' && <pre className="whitespace-pre-wrap">{fullInitScript}</pre>}
-                            {activeTab === 'triggers' && <pre className="whitespace-pre-wrap text-yellow-300">{triggersScript}</pre>}
-                            {activeTab === 'functions' && <pre className="whitespace-pre-wrap text-green-300">{functionsScript}</pre>}
-                            {activeTab === 'security' && <pre className="whitespace-pre-wrap text-red-300">{securityScript}</pre>}
-                            {activeTab === 'seeding' && <pre className="whitespace-pre-wrap text-purple-300">{seedingScript}</pre>}
-                            {activeTab === 'patch' && <pre className="whitespace-pre-wrap text-orange-300">{patchScript}</pre>}
-                        </div>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg text-xs text-blue-200">
+                                <h3 className="font-bold flex items-center gap-2 mb-1"><FaInfoCircle className="text-blue-400" /> Execução no Supabase Dashboard</h3>
+                                <p>Copie o script e execute-o no <strong>SQL Editor</strong> do seu Supabase Dashboard para atualizar a infraestrutura.</p>
+                            </div>
+
+                            <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden group">
+                                <div className="absolute top-2 right-4 z-20 flex gap-2">
+                                    <button 
+                                        onClick={() => {
+                                            const scripts: Record<string, string> = {
+                                                'full': fullInitScript,
+                                                'seeding': `-- Seed script aqui`,
+                                                'security': `-- Security script aqui`,
+                                                'patch': `-- Patch script aqui`
+                                            };
+                                            handleCopy(scripts[activeTab] || '', activeTab);
+                                        }} 
+                                        className="px-4 py-2 bg-brand-primary text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"
+                                    >
+                                        {copied === activeTab ? <FaCheck /> : <FaCopy />} {copied === activeTab ? 'Copiado!' : 'Copiar SQL'}
+                                    </button>
+                                </div>
+                                <div className="h-full overflow-auto custom-scrollbar p-6 bg-gray-950 font-mono text-xs text-blue-400">
+                                    <pre className="whitespace-pre-wrap">{activeTab === 'full' ? fullInitScript : `-- Selecione outra aba ou use a Integração IA`}</pre>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="flex-shrink-0 flex justify-end pt-2">
