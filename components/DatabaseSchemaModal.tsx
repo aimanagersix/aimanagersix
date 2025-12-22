@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V3.4 (Integrity Guard & Massive Seeding)
+ * DB Manager UI - V3.5 (Inspection & Doc Ready)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
@@ -11,7 +11,7 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 4 (Abas BD):          FECHADO - AS 5 ABAS SÃO ESTRUTURAIS
  * -----------------------------------------------------------------------------
- * PEDIDO 6: Correção de erros SQL de relação inexistente e atualização do Seed.
+ * PEDIDO 6: Script de Inspeção para documentação oficial.
  * -----------------------------------------------------------------------------
  */
 
@@ -28,6 +28,21 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setCopied(id);
         setTimeout(() => setCopied(null), 2000);
     };
+
+    const inspectionScript = `-- SCRIPT DE INSPEÇÃO DE SCHEMA (PEDIDO 6)
+-- Execute este script para obter a listagem de todos os campos e tabelas para documentação.
+SELECT 
+    table_name, 
+    column_name, 
+    data_type, 
+    is_nullable,
+    column_default
+FROM 
+    information_schema.columns 
+WHERE 
+    table_schema = 'public'
+ORDER BY 
+    table_name, ordinal_position;`;
 
     const fullInitScript = `-- 1. EXTENSÕES & PERMISSÕES
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -214,8 +229,8 @@ CREATE TABLE IF NOT EXISTS audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uui
 -- 7. SEED BÁSICO (SUPERADMIN)
 INSERT INTO config_custom_roles (id, name, permissions) VALUES (gen_random_uuid(), 'SuperAdmin', '{"*": {"*": true}}'::jsonb) ON CONFLICT (name) DO NOTHING;
 INSERT INTO institutions (id, name, codigo, is_active) VALUES ('00000000-0000-0000-0000-000000000001', 'Organização Sede', 'SEDE', true) ON CONFLICT (codigo) DO NOTHING;
-INSERT INTO entities (id, instituicao_id, name, codigo, status) VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Administração Geral', 'ADM', 'Ativo') ON CONFLICT (codigo) DO NOTHING;
-INSERT INTO collaborators (id, full_name, email, role, status, can_login, receives_notifications, instituicao_id, entidade_id) VALUES ('00000000-0000-0000-0000-000000000003', 'Super Administrador', 'josefsmoreira@outlook.com', 'SuperAdmin', 'Ativo', true, true, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002') ON CONFLICT (email) DO NOTHING;
+INSERT INTO entities (id, instituicao_id, name, codigo, status) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Administração Geral', 'ADM', 'Ativo') ON CONFLICT (codigo) DO NOTHING;
+INSERT INTO collaborators (id, full_name, email, role, status, can_login, receives_notifications, instituicao_id, entidade_id) VALUES ('00000000-0000-0000-0000-000000000003', 'Super Administrador', 'josefsmoreira@outlook.com', 'SuperAdmin', 'Ativo', true, true, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001') ON CONFLICT (email) DO NOTHING;
 `;
 
     const triggersScript = `-- AUTO-AUDIT LOG TRIGGER
@@ -247,7 +262,10 @@ BEFORE UPDATE ON global_settings
 FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
 `;
 
-    const functionsScript = `-- FUNÇÃO PARA SINCRONIZAÇÃO SOPHOS (EDGE FUNCTION HELPER)
+    const functionsScript = `-- 1. SCRIPT DE INSPEÇÃO (PEDIDO 6)
+${inspectionScript}
+
+-- 2. FUNÇÃO PARA SINCRONIZAÇÃO SOPHOS
 CREATE OR REPLACE FUNCTION public.get_sophos_config()
 RETURNS TABLE (client_id text, client_secret text) 
 AS $$
@@ -259,7 +277,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- FUNÇÃO PARA LIMPEZA DE MENSAGENS ANTIGAS (> 90 DIAS)
+-- 3. FUNÇÃO PARA LIMPEZA DE MENSAGENS ANTIGAS (> 90 DIAS)
 CREATE OR REPLACE FUNCTION public.cleanup_old_messages()
 RETURNS void AS $$
 BEGIN
@@ -411,7 +429,7 @@ ON CONFLICT (name) DO NOTHING;
                         <FaBolt /> Triggers (Automatos)
                     </button>
                     <button onClick={() => setActiveTab('functions')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'functions' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}>
-                        <FaSync /> Funções (RPC)
+                        <FaSync /> Funções & Inspeção
                     </button>
                     <button onClick={() => setActiveTab('security')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'security' ? 'border-red-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}>
                         <FaShieldAlt /> Segurança (RLS)
