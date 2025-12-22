@@ -1,20 +1,14 @@
 
-import * as orgSvc from './orgService';
-import * as invSvc from './inventoryService';
-import * as suppSvc from './supportService';
-import * as complSvc from './complianceService';
+import { fetchOrganizationData } from './orgService';
+import { fetchInventoryData } from './inventoryService';
+import { fetchSupportData } from './supportService';
+import { fetchComplianceData } from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V15.0
- * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO DE MODULOS (Freeze UI & Zero Refactoring):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - Não alterar sem pedido explícito.
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - Não alterar sem pedido explícito.
- * - PEDIDO 3 (Menu Notificações): FECHADO - Não alterar sem pedido explícito.
- * -----------------------------------------------------------------------------
- * PEDIDO 4: REORGANIZAÇÃO DE BACKUPS -> Todos os ficheiros .md movidos para /backup_files
- * -----------------------------------------------------------------------------
+ * Barrel Export Service - V9.0 (Clean Slate Mock Support)
+ * Pedidos 1, 2 e 3: FECHADOS (Tickets, Mensagens, Notificações).
+ * Pedido 4: MOCK ENGINE - Base de dados local vazia com apenas SuperAdmin e Canal Geral.
  */
 
 export * from './authService';
@@ -30,30 +24,25 @@ const CACHE_DURATION = 10 * 60 * 1000;
 
 // --- MOCK ENGINE CONFIG ---
 const FORCE_MOCK = true; 
-const MOCK_DB_VERSION = '3.0.0'; 
 
 export const isUsingMock = () => FORCE_MOCK;
 
 /**
- * Obtém a base de dados local de forma síncrona ou inicializa.
+ * Obtém a base de dados local. 
+ * Se não existir, inicializa com o MOCK_DATA_BUNDLE (Clean Slate).
  */
-export const getLocalDB = () => {
-    const currentVersion = localStorage.getItem('aimanager_db_version');
+const getLocalDB = () => {
     const data = localStorage.getItem('aimanager_mock_db');
+    if (data) return JSON.parse(data);
     
-    if (!data || currentVersion !== MOCK_DB_VERSION) {
-        localStorage.setItem('aimanager_mock_db', JSON.stringify(MOCK_DATA_BUNDLE));
-        localStorage.setItem('aimanager_db_version', MOCK_DB_VERSION);
-        localStorage.removeItem('snoozed_notifications');
-        return MOCK_DATA_BUNDLE;
-    }
-    
-    return JSON.parse(data);
+    // Inicialização da primeira vez
+    localStorage.setItem('aimanager_mock_db', JSON.stringify(MOCK_DATA_BUNDLE));
+    return MOCK_DATA_BUNDLE;
 };
 
 const saveLocalDB = (data: any) => {
     localStorage.setItem('aimanager_mock_db', JSON.stringify(data));
-    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CACHE_KEY); // Força refresh da cache de leitura
 };
 
 export const invalidateLocalCache = () => {
@@ -61,41 +50,7 @@ export const invalidateLocalCache = () => {
     localStorage.removeItem(CACHE_TIME_KEY);
 };
 
-/**
- * Ferramenta de Migração.
- * Limpa as credenciais de infraestrutura para permitir nova configuração.
- */
-export const disconnectInfrastructure = () => {
-    localStorage.removeItem('SUPABASE_URL');
-    localStorage.removeItem('SUPABASE_ANON_KEY');
-    localStorage.removeItem('aimanager_global_cache');
-    localStorage.removeItem('aimanager_cache_timestamp');
-    window.location.reload();
-};
-
-// --- MOCKED SPECIALIZED FETCHERS ---
-
-export const fetchOrganizationData = async () => {
-    if (FORCE_MOCK) return getLocalDB();
-    return orgSvc.fetchOrganizationData();
-};
-
-export const fetchInventoryData = async () => {
-    if (FORCE_MOCK) return getLocalDB();
-    return invSvc.fetchInventoryData();
-};
-
-export const fetchSupportData = async () => {
-    if (FORCE_MOCK) return getLocalDB();
-    return suppSvc.fetchSupportData();
-};
-
-export const fetchComplianceData = async () => {
-    if (FORCE_MOCK) return getLocalDB();
-    return complSvc.fetchComplianceData();
-};
-
-// --- READ INTERCEPTOR (ALL) ---
+// --- READ INTERCEPTOR ---
 export const fetchAllData = async (forceRefresh = false) => {
     if (FORCE_MOCK) return getLocalDB();
 
@@ -108,10 +63,10 @@ export const fetchAllData = async (forceRefresh = false) => {
     }
 
     const results = await Promise.allSettled([
-        orgSvc.fetchOrganizationData(), 
-        invSvc.fetchInventoryData(), 
-        suppSvc.fetchSupportData(), 
-        complSvc.fetchComplianceData()
+        fetchOrganizationData(), 
+        fetchInventoryData(), 
+        fetchSupportData(), 
+        fetchComplianceData()
     ]);
     
     let merged: any = {};

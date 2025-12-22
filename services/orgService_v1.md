@@ -2,11 +2,6 @@
 import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
 
-/**
- * Organization Service - V2.0
- * Pedido 4: Standardização de tabelas para Inglês.
- */
-
 const sb = () => getSupabase();
 
 const cleanPayload = (data: any) => {
@@ -19,8 +14,8 @@ const cleanPayload = (data: any) => {
 
 export const fetchOrganizationData = async () => {
     const results = await Promise.all([
-        sb().from('institutions').select('*'),
-        sb().from('entities').select('*'),
+        sb().from('instituicoes').select('*'),
+        sb().from('entidades').select('*'),
         sb().from('collaborators').select('*'),
         sb().from('config_custom_roles').select('*'),
         sb().from('contact_titles').select('*'),
@@ -38,12 +33,12 @@ export const fetchOrganizationData = async () => {
     };
 };
 
-export const addInstituicao = async (inst: any) => { const { data } = await sb().from('institutions').insert(cleanPayload(inst)).select().single(); return data; };
-export const updateInstituicao = async (id: string, updates: any) => { await sb().from('institutions').update(cleanPayload(updates)).eq('id', id); };
-export const deleteInstituicao = async (id: string) => { await sb().from('institutions').delete().eq('id', id); };
-export const addEntidade = async (ent: any) => { const { data } = await sb().from('entities').insert(cleanPayload(ent)).select().single(); return data; };
-export const updateEntidade = async (id: string, updates: any) => { await sb().from('entities').update(cleanPayload(updates)).eq('id', id); };
-export const deleteEntidade = async (id: string) => { await sb().from('entities').delete().eq('id', id); };
+export const addInstituicao = async (inst: any) => { const { data } = await sb().from('instituicoes').insert(cleanPayload(inst)).select().single(); return data; };
+export const updateInstituicao = async (id: string, updates: any) => { await sb().from('instituicoes').update(cleanPayload(updates)).eq('id', id); };
+export const deleteInstituicao = async (id: string) => { await sb().from('instituicoes').delete().eq('id', id); };
+export const addEntidade = async (ent: any) => { const { data } = await sb().from('entidades').insert(cleanPayload(ent)).select().single(); return data; };
+export const updateEntidade = async (id: string, updates: any) => { await sb().from('entidades').update(cleanPayload(updates)).eq('id', id); };
+export const deleteEntidade = async (id: string) => { await sb().from('entidades').delete().eq('id', id); };
 export const addCollaborator = async (col: any, password?: string) => { const { data } = await sb().from('collaborators').insert(cleanPayload(col)).select().single(); return data; };
 export const updateCollaborator = async (id: string, updates: any) => { await sb().from('collaborators').update(cleanPayload(updates)).eq('id', id); };
 export const deleteCollaborator = async (id: string) => { await sb().from('collaborators').delete().eq('id', id); };

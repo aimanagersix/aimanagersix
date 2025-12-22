@@ -1,20 +1,14 @@
 
-import * as orgSvc from './orgService';
-import * as invSvc from './inventoryService';
-import * as suppSvc from './supportService';
-import * as complSvc from './complianceService';
+import { fetchOrganizationData } from './orgService';
+import { fetchInventoryData } from './inventoryService';
+import { fetchSupportData } from './supportService';
+import { fetchComplianceData } from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V15.0
- * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO DE MODULOS (Freeze UI & Zero Refactoring):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - Não alterar sem pedido explícito.
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - Não alterar sem pedido explícito.
- * - PEDIDO 3 (Menu Notificações): FECHADO - Não alterar sem pedido explícito.
- * -----------------------------------------------------------------------------
- * PEDIDO 4: REORGANIZAÇÃO DE BACKUPS -> Todos os ficheiros .md movidos para /backup_files
- * -----------------------------------------------------------------------------
+ * Barrel Export Service - V10.0 (Hard Reset & Versioning)
+ * Pedidos 1, 2 e 3: FECHADOS.
+ * Pedido 4: Implementado DB_VERSION para forçar limpeza de localStorage.
  */
 
 export * from './authService';
@@ -30,21 +24,24 @@ const CACHE_DURATION = 10 * 60 * 1000;
 
 // --- MOCK ENGINE CONFIG ---
 const FORCE_MOCK = true; 
-const MOCK_DB_VERSION = '3.0.0'; 
+const MOCK_DB_VERSION = '3.0.0'; // Incrementar para forçar wipe total no browser
 
 export const isUsingMock = () => FORCE_MOCK;
 
 /**
- * Obtém a base de dados local de forma síncrona ou inicializa.
+ * Obtém a base de dados local. 
+ * Se a versão não coincidir, limpa tudo e recarrega o bundle.
  */
-export const getLocalDB = () => {
+const getLocalDB = () => {
     const currentVersion = localStorage.getItem('aimanager_db_version');
     const data = localStorage.getItem('aimanager_mock_db');
     
+    // Se a versão for diferente ou não houver dados, faz o reset
     if (!data || currentVersion !== MOCK_DB_VERSION) {
+        console.log(`[DB Engine] Resetting local DB to version ${MOCK_DB_VERSION}`);
         localStorage.setItem('aimanager_mock_db', JSON.stringify(MOCK_DATA_BUNDLE));
         localStorage.setItem('aimanager_db_version', MOCK_DB_VERSION);
-        localStorage.removeItem('snoozed_notifications');
+        localStorage.removeItem('snoozed_notifications'); // Limpa também o estado de notificações silenciadas
         return MOCK_DATA_BUNDLE;
     }
     
@@ -61,41 +58,7 @@ export const invalidateLocalCache = () => {
     localStorage.removeItem(CACHE_TIME_KEY);
 };
 
-/**
- * Ferramenta de Migração.
- * Limpa as credenciais de infraestrutura para permitir nova configuração.
- */
-export const disconnectInfrastructure = () => {
-    localStorage.removeItem('SUPABASE_URL');
-    localStorage.removeItem('SUPABASE_ANON_KEY');
-    localStorage.removeItem('aimanager_global_cache');
-    localStorage.removeItem('aimanager_cache_timestamp');
-    window.location.reload();
-};
-
-// --- MOCKED SPECIALIZED FETCHERS ---
-
-export const fetchOrganizationData = async () => {
-    if (FORCE_MOCK) return getLocalDB();
-    return orgSvc.fetchOrganizationData();
-};
-
-export const fetchInventoryData = async () => {
-    if (FORCE_MOCK) return getLocalDB();
-    return invSvc.fetchInventoryData();
-};
-
-export const fetchSupportData = async () => {
-    if (FORCE_MOCK) return getLocalDB();
-    return suppSvc.fetchSupportData();
-};
-
-export const fetchComplianceData = async () => {
-    if (FORCE_MOCK) return getLocalDB();
-    return complSvc.fetchComplianceData();
-};
-
-// --- READ INTERCEPTOR (ALL) ---
+// --- READ INTERCEPTOR ---
 export const fetchAllData = async (forceRefresh = false) => {
     if (FORCE_MOCK) return getLocalDB();
 
@@ -108,10 +71,10 @@ export const fetchAllData = async (forceRefresh = false) => {
     }
 
     const results = await Promise.allSettled([
-        orgSvc.fetchOrganizationData(), 
-        invSvc.fetchInventoryData(), 
-        suppSvc.fetchSupportData(), 
-        complSvc.fetchComplianceData()
+        fetchOrganizationData(), 
+        fetchInventoryData(), 
+        fetchSupportData(), 
+        fetchComplianceData()
     ]);
     
     let merged: any = {};

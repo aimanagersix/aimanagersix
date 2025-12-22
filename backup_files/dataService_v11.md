@@ -6,15 +6,8 @@ import * as complSvc from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V15.0
- * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO DE MODULOS (Freeze UI & Zero Refactoring):
- * - PEDIDO 1 (Menu Tickets):     FECHADO - Não alterar sem pedido explícito.
- * - PEDIDO 2 (Menu Mensagens):   FECHADO - Não alterar sem pedido explícito.
- * - PEDIDO 3 (Menu Notificações): FECHADO - Não alterar sem pedido explícito.
- * -----------------------------------------------------------------------------
- * PEDIDO 4: REORGANIZAÇÃO DE BACKUPS -> Todos os ficheiros .md movidos para /backup_files
- * -----------------------------------------------------------------------------
+ * Barrel Export Service - V11.0 (Full Mock Interception)
+ * Pedido 4: Resolve o problema do carregamento infinito intercetando as chamadas dos hooks atómicos.
  */
 
 export * from './authService';
@@ -61,19 +54,7 @@ export const invalidateLocalCache = () => {
     localStorage.removeItem(CACHE_TIME_KEY);
 };
 
-/**
- * Ferramenta de Migração.
- * Limpa as credenciais de infraestrutura para permitir nova configuração.
- */
-export const disconnectInfrastructure = () => {
-    localStorage.removeItem('SUPABASE_URL');
-    localStorage.removeItem('SUPABASE_ANON_KEY');
-    localStorage.removeItem('aimanager_global_cache');
-    localStorage.removeItem('aimanager_cache_timestamp');
-    window.location.reload();
-};
-
-// --- MOCKED SPECIALIZED FETCHERS ---
+// --- MOCKED SPECIALIZED FETCHERS (Para intercetar Hooks Atómicos) ---
 
 export const fetchOrganizationData = async () => {
     if (FORCE_MOCK) return getLocalDB();
