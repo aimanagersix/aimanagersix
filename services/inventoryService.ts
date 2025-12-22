@@ -1,12 +1,10 @@
+
 import { getSupabase } from './supabaseClient';
 import { Equipment } from '../types';
+import { isUsingMock, mockAddRecord, mockUpdateRecord, mockDeleteRecord } from './dataService';
 
 const sb = () => getSupabase();
 
-/**
- * Função de limpeza profunda Universal v24:
- * Adiciona coerção de tipos (String -> Number) para campos financeiros.
- */
 const cleanPayload = (data: any) => {
     const cleaned: any = {};
     const keyMap: Record<string, string> = {
@@ -56,12 +54,9 @@ const cleanPayload = (data: any) => {
     Object.keys(data).forEach(key => {
         const targetKey = keyMap[key] || key;
         const val = data[key];
-        
-        // No Postgres, '' não é um UUID/Data válido.
         if (typeof val === 'string' && val.trim() === '') {
             cleaned[targetKey] = null;
         } else if (numericFields.includes(targetKey)) {
-            // Coerção para garantir tipo numérico
             const parsed = parseFloat(val);
             cleaned[targetKey] = isNaN(parsed) ? null : parsed;
         } else {
@@ -72,6 +67,8 @@ const cleanPayload = (data: any) => {
 };
 
 export const fetchInventoryData = async () => {
+    // Caso isUsingMock esteja ativo, dataService.fetchAllData já resolve isso.
+    // Mas mantemos as funções individuais para compatibilidade de hooks.
     const results = await Promise.all([
         sb().from('equipment').select('*'),
         sb().from('brands').select('*'),
@@ -126,19 +123,20 @@ export const fetchEquipmentPaginated = async (params: {
     userId?: string, 
     isAdmin?: boolean 
 }) => {
+    // No modo Mock, não paginamos no servidor (simulamos tudo local)
+    if (isUsingMock()) {
+        const db = localStorage.getItem('aimanager_mock_db');
+        const equipment = db ? JSON.parse(db).equipment : [];
+        return { data: equipment, total: equipment.length };
+    }
+
     let query = sb().from('equipment').select('*', { count: 'exact' });
-    
     if (!params.isAdmin && params.userId) {
-        const { data: userEq } = await sb().from('assignments')
-            .select('equipment_id')
-            .eq('collaborator_id', params.userId)
-            .is('return_date', null);
-            
+        const { data: userEq } = await sb().from('assignments').select('equipment_id').eq('collaborator_id', params.userId).is('return_date', null);
         const eqIds = userEq?.map(a => a.equipment_id) || [];
         if (eqIds.length > 0) query = query.in('id', eqIds);
         else return { data: [], total: 0 };
     }
-
     if (params.filters) {
         if (params.filters.serial_number) query = query.ilike('serial_number', `%${params.filters.serial_number}%`);
         if (params.filters.description) query = query.ilike('description', `%${params.filters.description}%`);
@@ -146,30 +144,30 @@ export const fetchEquipmentPaginated = async (params: {
         if (params.filters.type_id) query = query.eq('type_id', params.filters.type_id);
         if (params.filters.status) query = query.eq('status', params.filters.status);
     }
-
     const sortObj = params.sort || { key: 'creation_date', direction: 'descending' };
     query = query.order(sortObj.key, { ascending: sortObj.direction === 'ascending' });
-    
     const from = (params.page - 1) * params.pageSize;
     const { data, count, error } = await query.range(from, from + params.pageSize - 1);
-    
     if (error) throw error;
     return { data: data || [], total: count || 0 };
 };
 
 export const addEquipment = async (eq: any) => {
+    if (isUsingMock()) return mockAddRecord('equipment', eq);
     const { data, error } = await sb().from('equipment').insert(cleanPayload(eq)).select().single();
     if (error) throw error;
     return data;
 };
 
 export const updateEquipment = async (id: string, updates: any) => {
+    if (isUsingMock()) return mockUpdateRecord('equipment', id, updates);
     const { data, error } = await sb().from('equipment').update(cleanPayload(updates)).eq('id', id).select().single();
     if (error) throw error;
     return data;
 };
 
 export const addAssignment = async (assignment: any) => {
+    if (isUsingMock()) return mockAddRecord('assignments', assignment);
     const { data, error } = await sb().from('assignments').insert(cleanPayload(assignment)).select().single();
     if (error) throw error;
     return data;
@@ -177,53 +175,109 @@ export const addAssignment = async (assignment: any) => {
 
 export const syncLicenseAssignments = async (equipmentId: string, licenseIds: string[]) => {
     const nowStr = new Date().toISOString().split('T')[0];
-    
-    // Invalidação agressiva de cache local para Pedido 2
-    // Limpamos o cache global para que o próximo fetchAllData traga a versão real da DB
-    localStorage.removeItem('aimanager_global_cache');
-    localStorage.removeItem('aimanager_cache_timestamp');
-
-    // 1. Finalizar atribuições atuais para este equipamento
-    const { error: updateError } = await sb()
-        .from('license_assignments')
-        .update({ return_date: nowStr })
-        .eq('equipment_id', equipmentId)
-        .is('return_date', null);
-    
-    if (updateError) throw updateError;
-    
-    // 2. Inserir novas atribuições
+    if (isUsingMock()) {
+        const db = JSON.parse(localStorage.getItem('aimanager_mock_db') || '{}');
+        db.licenseAssignments = (db.licenseAssignments || []).map((la: any) => 
+            la.equipment_id === equipmentId ? { ...la, return_date: nowStr } : la
+        );
+        licenseIds.forEach(id => {
+            db.licenseAssignments.push({ id: crypto.randomUUID(), equipment_id: equipmentId, software_license_id: id, assigned_date: nowStr });
+        });
+        localStorage.setItem('aimanager_mock_db', JSON.stringify(db));
+        return;
+    }
+    await sb().from('license_assignments').update({ return_date: nowStr }).eq('equipment_id', equipmentId).is('return_date', null);
     if (licenseIds.length > 0) {
-        const items = licenseIds.map(id => ({ 
-            equipment_id: equipmentId, 
-            software_license_id: id, 
-            assigned_date: nowStr 
-        }));
-        const { error: insertError } = await sb().from('license_assignments').insert(items);
-        if (insertError) throw insertError;
+        const items = licenseIds.map(id => ({ equipment_id: equipmentId, software_license_id: id, assigned_date: nowStr }));
+        await sb().from('license_assignments').insert(items);
     }
 };
 
-export const addMultipleEquipment = async (items: any[]) => { await sb().from('equipment').insert(items.map(cleanPayload)); };
-export const deleteEquipment = async (id: string) => { await sb().from('equipment').delete().eq('id', id); };
-export const addBrand = async (brand: any) => { const { data } = await sb().from('brands').insert(cleanPayload(brand)).select().single(); return data; };
-export const updateBrand = async (id: string, updates: any) => { await sb().from('brands').update(cleanPayload(updates)).eq('id', id); };
-export const deleteBrand = async (id: string) => { await sb().from('brands').delete().eq('id', id); };
-export const addEquipmentType = async (type: any) => { const { data } = await sb().from('equipment_types').insert(cleanPayload(type)).select().single(); return data; };
-export const updateEquipmentType = async (id: string, updates: any) => { await sb().from('equipment_types').update(cleanPayload(updates)).eq('id', id); };
-export const deleteEquipmentType = async (id: string) => { await sb().from('equipment_types').delete().eq('id', id); };
-export const addLicense = async (lic: any) => { const { data } = await sb().from('software_licenses').insert(cleanPayload(lic)).select().single(); return data; };
-export const addMultipleLicenses = async (items: any[]) => { await sb().from('software_licenses').insert(items.map(cleanPayload)); };
-export const updateLicense = async (id: string, updates: any) => { await sb().from('software_licenses').update(cleanPayload(updates)).eq('id', id); };
-export const deleteLicense = async (id: string) => { await sb().from('software_licenses').delete().eq('id', id); };
-export const addProcurement = async (p: any) => { const { data } = await sb().from('procurement_requests').insert(cleanPayload(p)).select().single(); return data; };
-// Fix: Added missing 'export const' to updateProcurement
-export const updateProcurement = async (id: string, updates: any) => { await sb().from('procurement_requests').update(cleanPayload(updates)).eq('id', id); };
-export const deleteProcurement = async (id: string) => { await sb().from('procurement_requests').delete().eq('id', id); };
-export const addSoftwareProduct = async (p: any) => { await sb().from('config_software_products').insert(cleanPayload(p)); };
-export const updateSoftwareProduct = async (id: string, updates: any) => { await sb().from('config_software_products').update(cleanPayload(updates)).eq('id', id); };
-export const deleteSoftwareProduct = async (id: string) => { await sb().from('config_software_products').delete().eq('id', id); };
-export const addSupplier = async (sup: any) => { const { data } = await sb().from('suppliers').insert(cleanPayload(sup)).select().single(); return data; };
-export const updateSupplier = async (id: string, updates: any) => { await sb().from('suppliers').update(cleanPayload(updates)).eq('id', id); };
-export const deleteSupplier = async (id: string) => { await sb().from('suppliers').delete().eq('id', id); };
-export const addJobTitle = async (item: any) => { const { data } = await sb().from('config_job_titles').insert(cleanPayload(item)).select().single(); return data; };
+export const addMultipleEquipment = async (items: any[]) => { 
+    if (isUsingMock()) { for(const item of items) await mockAddRecord('equipment', item); return; }
+    await sb().from('equipment').insert(items.map(cleanPayload)); 
+};
+export const deleteEquipment = async (id: string) => { 
+    if (isUsingMock()) return mockDeleteRecord('equipment', id);
+    await sb().from('equipment').delete().eq('id', id); 
+};
+export const addBrand = async (brand: any) => { 
+    if (isUsingMock()) return mockAddRecord('brands', brand);
+    const { data } = await sb().from('brands').insert(cleanPayload(brand)).select().single(); return data; 
+};
+export const updateBrand = async (id: string, updates: any) => { 
+    if (isUsingMock()) return mockUpdateRecord('brands', id, updates);
+    await sb().from('brands').update(cleanPayload(updates)).eq('id', id); 
+};
+export const deleteBrand = async (id: string) => { 
+    if (isUsingMock()) return mockDeleteRecord('brands', id);
+    await sb().from('brands').delete().eq('id', id); 
+};
+export const addEquipmentType = async (type: any) => { 
+    if (isUsingMock()) return mockAddRecord('equipment_types', type);
+    const { data } = await sb().from('equipment_types').insert(cleanPayload(type)).select().single(); return data; 
+};
+export const updateEquipmentType = async (id: string, updates: any) => { 
+    if (isUsingMock()) return mockUpdateRecord('equipment_types', id, updates);
+    await sb().from('equipment_types').update(cleanPayload(updates)).eq('id', id); 
+};
+export const deleteEquipmentType = async (id: string) => { 
+    if (isUsingMock()) return mockDeleteRecord('equipment_types', id);
+    await sb().from('equipment_types').delete().eq('id', id); 
+};
+export const addLicense = async (lic: any) => { 
+    if (isUsingMock()) return mockAddRecord('software_licenses', lic);
+    const { data } = await sb().from('software_licenses').insert(cleanPayload(lic)).select().single(); return data; 
+};
+export const addMultipleLicenses = async (items: any[]) => { 
+    if (isUsingMock()) { for(const item of items) await mockAddRecord('software_licenses', item); return; }
+    await sb().from('software_licenses').insert(items.map(cleanPayload)); 
+};
+export const updateLicense = async (id: string, updates: any) => { 
+    if (isUsingMock()) return mockUpdateRecord('software_licenses', id, updates);
+    await sb().from('software_licenses').update(cleanPayload(updates)).eq('id', id); 
+};
+export const deleteLicense = async (id: string) => { 
+    if (isUsingMock()) return mockDeleteRecord('software_licenses', id);
+    await sb().from('software_licenses').delete().eq('id', id); 
+};
+export const addProcurement = async (p: any) => { 
+    if (isUsingMock()) return mockAddRecord('procurement_requests', p);
+    const { data } = await sb().from('procurement_requests').insert(cleanPayload(p)).select().single(); return data; 
+};
+export const updateProcurement = async (id: string, updates: any) => { 
+    if (isUsingMock()) return mockUpdateRecord('procurement_requests', id, updates);
+    await sb().from('procurement_requests').update(cleanPayload(updates)).eq('id', id); 
+};
+export const deleteProcurement = async (id: string) => { 
+    if (isUsingMock()) return mockDeleteRecord('procurement_requests', id);
+    await sb().from('procurement_requests').delete().eq('id', id); 
+};
+export const addSoftwareProduct = async (p: any) => { 
+    if (isUsingMock()) return mockAddRecord('config_software_products', p);
+    await sb().from('config_software_products').insert(cleanPayload(p)); 
+};
+export const updateSoftwareProduct = async (id: string, updates: any) => { 
+    if (isUsingMock()) return mockUpdateRecord('config_software_products', id, updates);
+    await sb().from('config_software_products').update(cleanPayload(updates)).eq('id', id); 
+};
+export const deleteSoftwareProduct = async (id: string) => { 
+    if (isUsingMock()) return mockDeleteRecord('config_software_products', id);
+    await sb().from('config_software_products').delete().eq('id', id); 
+};
+export const addSupplier = async (sup: any) => { 
+    if (isUsingMock()) return mockAddRecord('suppliers', sup);
+    const { data } = await sb().from('suppliers').insert(cleanPayload(sup)).select().single(); return data; 
+};
+export const updateSupplier = async (id: string, updates: any) => { 
+    if (isUsingMock()) return mockUpdateRecord('suppliers', id, updates);
+    await sb().from('suppliers').update(cleanPayload(updates)).eq('id', id); 
+};
+export const deleteSupplier = async (id: string) => { 
+    if (isUsingMock()) return mockDeleteRecord('suppliers', id);
+    await sb().from('suppliers').delete().eq('id', id); 
+};
+export const addJobTitle = async (item: any) => { 
+    if (isUsingMock()) return mockAddRecord('config_job_titles', item);
+    const { data } = await sb().from('config_job_titles').insert(cleanPayload(item)).select().single(); return data; 
+};

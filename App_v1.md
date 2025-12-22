@@ -202,11 +202,8 @@ export const App: React.FC = () => {
     useEffect(() => {
         if (!isConfigured) return;
         
-        // --- MOCK LOGIN LOGIC ---
         if (dataService.isUsingMock()) {
-            // Carrega diretamente da DB local ignorando os hooks para evitar hang
-            const db = dataService.getLocalDB();
-            const mockUser = db.collaborators.find((c: any) => c.id === 'user-superadmin') || db.collaborators[0];
+            const mockUser = appData.collaborators.find((c: any) => c.id === 'user-1');
             if (mockUser) {
                 setCurrentUser(mockUser);
                 setIsAppLoading(false);
@@ -291,7 +288,7 @@ export const App: React.FC = () => {
                     {activeTab === 'tickets.list' && <TicketManager appData={appData} checkPermission={checkPermission} refreshData={() => refreshAll(true)} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} onViewEquipment={setViewingEquipment} onViewLicense={setViewingLicense} />}
                     {activeTab.startsWith('nis2') && <ComplianceManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={() => refreshAll(true)} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} />}
                     {activeTab === 'reports' && <BIReportDashboard appData={appData} />}
-                    {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={() => refreshAll(true)} />}
+                    {activeTab === 'settings' && <SettingsManager appData={appData} refreshData={() => refreshData()} />}
                     {activeTab === 'tools.agenda' && <AgendaDashboard />}
                     {activeTab === 'tools.map' && <MapDashboard instituicoes={appData.instituicoes} entidades={appData.entidades} suppliers={appData.suppliers} equipment={appData.equipment} assignments={appData.assignments} />}
                 </div>

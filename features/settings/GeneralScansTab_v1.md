@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { FaRobot, FaKeyboard, FaSave, FaLock, FaSync, FaExclamationTriangle } from 'react-icons/fa';
-import * as dataService from '../../services/dataService';
+import { FaRobot, FaKeyboard, FaSave, FaLock } from 'react-icons/fa';
 
 interface GeneralScansTabProps {
     settings: any;
@@ -12,12 +11,6 @@ interface GeneralScansTabProps {
 
 const GeneralScansTab: React.FC<GeneralScansTabProps> = ({ settings, onSettingsChange, onSave }) => {
     
-    const handleResetInfrastructure = () => {
-        if (window.confirm("ATENÇÃO: Isto irá desligar a aplicação da base de dados atual. Terá de inserir as novas credenciais Supabase. Deseja continuar?")) {
-            dataService.disconnectInfrastructure();
-        }
-    };
-
     return (
         <div className="space-y-6 animate-fade-in p-6">
             {/* Auto Scan Section */}
@@ -80,21 +73,6 @@ const GeneralScansTab: React.FC<GeneralScansTabProps> = ({ settings, onSettingsC
                         <input type="number" min="1" max="8" value={settings.equipment_naming_digits} onChange={e => onSettingsChange('equipment_naming_digits', e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"/>
                     </div>
                 </div>
-            </div>
-
-            {/* Pedido 4: Migration Section */}
-            <div className="bg-red-900/10 border border-red-500/30 p-4 rounded-lg mt-12">
-                <h3 className="font-bold text-red-400 mb-2 flex items-center gap-2"><FaSync /> Migração de Infraestrutura</h3>
-                <p className="text-xs text-gray-400 mb-4">
-                    Utilize este botão para desligar esta instância do Supabase antigo e preparar a migração para a nova conta. O inventário local (Mock) não será apagado.
-                </p>
-                <button 
-                    type="button"
-                    onClick={handleResetInfrastructure}
-                    className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/50 px-4 py-2 rounded text-xs font-bold transition-all"
-                >
-                    Reiniciar Ligação ao Supabase
-                </button>
             </div>
 
             {/* Save Button */}

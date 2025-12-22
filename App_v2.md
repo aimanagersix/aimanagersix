@@ -204,11 +204,14 @@ export const App: React.FC = () => {
         
         // --- MOCK LOGIN LOGIC ---
         if (dataService.isUsingMock()) {
-            // Carrega diretamente da DB local ignorando os hooks para evitar hang
-            const db = dataService.getLocalDB();
-            const mockUser = db.collaborators.find((c: any) => c.id === 'user-superadmin') || db.collaborators[0];
+            // Procura pelo SuperAdmin raiz ou pelo primeiro disponível
+            const mockUser = appData.collaborators.find((c: any) => c.id === 'user-superadmin') || appData.collaborators[0];
             if (mockUser) {
                 setCurrentUser(mockUser);
+                setIsAppLoading(false);
+            } else if (org.data.collaborators.length > 0) {
+                 // Fallback para quando o appData ainda está a fundir
+                setCurrentUser(org.data.collaborators[0]);
                 setIsAppLoading(false);
             }
             return;

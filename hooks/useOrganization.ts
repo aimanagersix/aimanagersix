@@ -20,7 +20,12 @@ export const useOrganization = (isConfigured: boolean) => {
         setIsLoading(true);
         try {
             const orgData = await dataService.fetchOrganizationData();
-            setData(orgData);
+            // Fallback para quando o service retorna apenas uma parte do bundle
+            if (dataService.isUsingMock()) {
+                setData(orgData);
+            } else {
+                setData(prev => ({ ...prev, ...orgData }));
+            }
         } catch (error) {
             console.error("Failed to fetch organization data", error);
         } finally {

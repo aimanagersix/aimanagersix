@@ -6,11 +6,8 @@ import * as complSvc from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * Barrel Export Service - V12.0 (Migration & Support)
- * Pedido 1 (Tickets): FECHADO - Não alterar.
- * Pedido 2 (Mensagens): FECHADO - Não alterar.
- * Pedido 3 (Notificações): FECHADO - Não alterar.
- * Pedido 4: Suporte à migração de infraestrutura (Supabase/Vercel).
+ * Barrel Export Service - V11.0 (Full Mock Interception)
+ * Pedido 4: Resolve o problema do carregamento infinito intercetando as chamadas dos hooks atómicos.
  */
 
 export * from './authService';
@@ -55,19 +52,6 @@ const saveLocalDB = (data: any) => {
 export const invalidateLocalCache = () => {
     localStorage.removeItem(CACHE_KEY);
     localStorage.removeItem(CACHE_TIME_KEY);
-};
-
-/**
- * Pedido 4: Ferramenta de Migração.
- * Limpa as credenciais de infraestrutura para permitir nova configuração.
- */
-export const disconnectInfrastructure = () => {
-    localStorage.removeItem('SUPABASE_URL');
-    localStorage.removeItem('SUPABASE_ANON_KEY');
-    localStorage.removeItem('aimanager_global_cache');
-    localStorage.removeItem('aimanager_cache_timestamp');
-    // Força reload para que o App.tsx dispare o ecrã de Setup
-    window.location.reload();
 };
 
 // --- MOCKED SPECIALIZED FETCHERS (Para intercetar Hooks Atómicos) ---
