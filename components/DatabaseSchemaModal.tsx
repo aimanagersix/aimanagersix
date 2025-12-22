@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-/* Added FaInfoCircle to the imported icons from react-icons/fa */
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaHistory, FaTools, FaInfoCircle } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle } from 'react-icons/fa';
 
 /**
  * DB Manager UI - v5.0 (Full restoration & Current Patches)
@@ -25,7 +24,8 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const fullInitScript = `-- 1. EXTENSÕES
+    const fullInitScript = `-- 🛡️ AIManager - Script de Inicialização Completa (Novo Cliente)
+-- 1. EXTENSÕES
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. DICIONÁRIOS E CONFIGURAÇÕES
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS procurement_requests (id UUID PRIMARY KEY DEFAULT gen
 CREATE TABLE IF NOT EXISTS calendar_events (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), title TEXT NOT NULL, description TEXT, start_date TIMESTAMPTZ NOT NULL, end_date TIMESTAMPTZ, is_all_day BOOLEAN DEFAULT false, color TEXT, is_private BOOLEAN DEFAULT true, team_id UUID, reminder_minutes INTEGER, created_by UUID REFERENCES collaborators(id), created_at TIMESTAMPTZ DEFAULT now());
 `;
 
-    const triggersScript = `-- TRIGGERS DE SISTEMA (AUDITORIA E AUTOMATIZAÇÃO)
+    const triggersScript = `-- 🔄 TRIGGERS DE SISTEMA (AUDITORIA E AUTOMATIZAÇÃO)
 
 -- 1. Função Genérica para Atualizar updated_at
 CREATE OR REPLACE FUNCTION update_modified_column() RETURNS TRIGGER AS $$
@@ -119,11 +119,12 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
--- 4. Aplicação de Auditoria em Equipamento
+-- 4. Aplicação de Auditoria em Equipamento e Tickets
 CREATE TRIGGER trigger_audit_equipment AFTER INSERT OR UPDATE OR DELETE ON equipment FOR EACH ROW EXECUTE PROCEDURE log_changes();
+CREATE TRIGGER trigger_audit_tickets AFTER INSERT OR UPDATE OR DELETE ON tickets FOR EACH ROW EXECUTE PROCEDURE log_changes();
 `;
 
-    const functionsScript = `-- FUNÇÕES RPC (API E INSPEÇÃO)
+    const functionsScript = `-- 🛠️ FUNÇÕES RPC (API E INSPEÇÃO)
 
 -- 1. Obter Políticas de RLS para Diagnóstico
 CREATE OR REPLACE FUNCTION get_db_policies() 
@@ -144,7 +145,9 @@ SELECT routine_name, routine_type FROM information_schema.routines WHERE routine
 $$ LANGUAGE sql SECURITY DEFINER;
 `;
 
-    const securityScript = `-- SEGURANÇA E RLS (FIX V5.0)
+    const securityScript = `-- 🔒 SEGURANÇA E RLS (FIX V5.0)
+-- Este script garante que todas as tabelas têm RLS ativado e permissões de gestão para utilizadores autenticados.
+
 DO $$ 
 DECLARE 
     t text;
@@ -167,32 +170,43 @@ BEGIN
         EXECUTE format('DROP POLICY IF EXISTS "Allow read for authenticated users" ON public.%I', t);
         EXECUTE format('DROP POLICY IF EXISTS "Allow full access for authenticated" ON public.%I', t);
         EXECUTE format('DROP POLICY IF EXISTS "Allow management for authenticated users" ON public.%I', t);
-        -- Política V5.0: Garantir CRUD total para utilizadores autenticados (Fix Erro Escrita)
+        
+        -- Política Global v5.0: CRUD total para utilizadores autenticados
         EXECUTE format('CREATE POLICY "Allow management for authenticated users" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
     END LOOP;
 END $$;
 `;
 
-    const seedingScript = `-- DADOS BASE (SEEDING INICIAL)
+    const seedingScript = `-- 🌱 DADOS BASE (SEEDING INICIAL)
+-- Categorias Base
 INSERT INTO ticket_categories (name, is_active) VALUES ('Avaria Hardware', true), ('Software / Configuração', true), ('Rede / Conectividade', true), ('Incidentes Segurança', true) ON CONFLICT (name) DO NOTHING;
-INSERT INTO teams (name, description, is_active) VALUES ('Triagem', 'Análise inicial de tickets', true) ON CONFLICT (name) DO NOTHING;
+
+-- Equipa de Triagem
+INSERT INTO teams (name, description, is_active) VALUES ('Triagem', 'Análise inicial de tickets e incidentes', true) ON CONFLICT (name) DO NOTHING;
+
+-- Estados Padrão
 INSERT INTO config_equipment_statuses (name, color) VALUES ('Operacional', '#22c55e'), ('Stock', '#3b82f6'), ('Garantia', '#eab308'), ('Abate', '#ef4444') ON CONFLICT (name) DO NOTHING;
+INSERT INTO config_ticket_statuses (name, color) VALUES ('Pedido', '#fbbf24'), ('Em progresso', '#60a5fa'), ('Finalizado', '#4ade80'), ('Cancelado', '#f87171') ON CONFLICT (name) DO NOTHING;
 `;
 
-    const patchScript = `-- PATCH / ALTERAÇÕES ATUAIS (MANTENÇÃO v5.0)
+    const patchScript = `-- ⚡ PATCH / ALTERAÇÕES DE MOMENTO (MANTENÇÃO v5.0)
+-- Utilize esta aba para executar alterações específicas sem rebentar o script de inicialização.
 
--- 1. [Performance] Índices para Mensagens
-CREATE INDEX IF NOT EXISTS idx_messages_lookup ON public.messages (receiver_id, read, sender_id);
+-- 1. [Performance] Índices para Mensagens e Canal Geral
+CREATE INDEX IF NOT EXISTS idx_messages_unread_lookup ON public.messages (receiver_id, read, sender_id);
 
--- 2. [Performance] Índices para Tickets
-CREATE INDEX IF NOT EXISTS idx_tickets_sort ON public.tickets (status, request_date DESC);
+-- 2. [Performance] Índices para Pesquisa de Equipamento
+CREATE INDEX IF NOT EXISTS idx_equipment_serial_search ON public.equipment (serial_number);
 
--- 3. [Fix] Garantir que a equipe Triagem tem ID estático se necessário
+-- 3. [Fix] Garantir que a equipe Triagem está ativa
 UPDATE teams SET is_active = true WHERE name = 'Triagem';
+
+-- 4. [Segurança] Log de Auditoria para Login
+-- INSERT INTO audit_log (action, resource_type, details) VALUES ('SYSTEM_BOOT', 'Core', 'AIManager Patch v5.0 aplicado.');
 `;
 
     return (
-        <Modal title="Configuração Avançada de Base de Dados" onClose={onClose} maxWidth="max-w-6xl">
+        <Modal title="Consola de Base de Dados (SQL)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
@@ -200,13 +214,13 @@ UPDATE teams SET is_active = true WHERE name = 'Triagem';
                     <button onClick={() => setActiveTab('functions')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'functions' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSearch /> Funções</button>
                     <button onClick={() => setActiveTab('security')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'security' ? 'border-red-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaShieldAlt /> Segurança</button>
                     <button onClick={() => setActiveTab('seeding')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'seeding' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaDatabase /> Seed</button>
-                    <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaTools /> Patch / Fixes</button>
+                    <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch / Fixes</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg text-xs text-blue-200">
-                        <h3 className="font-bold flex items-center gap-2 mb-1"><FaInfoCircle className="text-blue-400" /> Referência Técnica (Pedido 7)</h3>
-                        <p>Utilize a aba <strong>"Inicialização"</strong> para novas empresas e a aba <strong>"Patch / Fixes"</strong> para correções incrementais de performance e bugs detetados.</p>
+                        <h3 className="font-bold flex items-center gap-2 mb-1"><FaInfoCircle className="text-blue-400" /> Referência de Gestão (Pedido 7)</h3>
+                        <p>Copie os scripts abaixo e execute-os no <strong>SQL Editor</strong> do seu Supabase Dashboard.</p>
                     </div>
 
                     <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden group">

@@ -5,7 +5,7 @@ import { FaBullhorn } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 /**
- * CHAT WIDGET
+ * CHAT WIDGET - V3.7
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 2: FECHADO - NÃO ALTERAR SEM PEDIDO EXPLÍCITO.

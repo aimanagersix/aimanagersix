@@ -14,7 +14,7 @@ import TicketActivitiesModal from '../../components/TicketActivitiesModal';
 import RegulatoryNotificationModal from '../../components/RegulatoryNotificationModal';
 
 /**
- * TICKET MANAGER
+ * TICKET MANAGER - V3.7 (Auto-Triagem & Notificações)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1: FECHADO - NÃO ALTERAR SEM PEDIDO EXPLÍCITO.

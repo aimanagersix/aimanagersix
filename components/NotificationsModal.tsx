@@ -5,7 +5,7 @@ import { FaEye, FaBellSlash, FaTicketAlt, FaExclamationTriangle, FaShieldAlt, Fa
 import * as dataService from '../services/dataService';
 
 /**
- * NOTIFICATIONS MODAL
+ * NOTIFICATIONS MODAL - V3.7
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 3: FECHADO - NÃO ALTERAR SEM PEDIDO EXPLÍCITO.
@@ -103,7 +103,6 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose, expiri
                 });
                 notifySync();
             } catch (e) {
-                // Fixed: error(e) to console.error(e)
                 console.error(e);
             }
         }

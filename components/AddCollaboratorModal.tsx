@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
-import { Collaborator, Entidade, UserRole, CollaboratorStatus, ConfigItem, ContactTitle, CustomRole, Instituicao, JobTitle } from '../types';
+import { Collaborator, Entidade, CollaboratorStatus, CustomRole, Instituicao, JobTitle } from '../types';
 import { SpinnerIcon, FaSave } from './common/Icons';
-import { FaGlobe, FaMagic, FaCamera, FaTrash, FaKey, FaBriefcase, FaPlus, FaBirthdayCake, FaUserShield, FaBell, FaCalendarAlt } from 'react-icons/fa';
+import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaIdCard, FaMagic } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 const compressProfileImage = (file: File): Promise<File> => {
@@ -38,9 +38,26 @@ interface AddCollaboratorModalProps {
 
 const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, onSave, collaboratorToEdit, escolasDepartamentos: entidades, instituicoes, currentUser }) => {
     const [formData, setFormData] = useState<Partial<Collaborator>>({
-        numero_mecanografico: '', title: '', full_name: '', entidade_id: '', instituicao_id: '', email: '', nif: '',
-        telefone_interno: '', telemovel: '', date_of_birth: '', admission_date: '', address_line: '', postal_code: '',
-        city: '', locality: '', can_login: false, receives_notifications: true, role: 'Utilizador', status: CollaboratorStatus.Ativo
+        numero_mecanografico: '', 
+        title: '', 
+        full_name: '', 
+        entidade_id: '', 
+        instituicao_id: '', 
+        email: '', 
+        nif: '',
+        telefone_interno: '', 
+        telemovel: '', 
+        date_of_birth: '', 
+        admission_date: '', 
+        address_line: '', 
+        postal_code: '',
+        city: '', 
+        locality: '', 
+        can_login: false, 
+        receives_notifications: true, 
+        role: 'Utilizador', 
+        status: CollaboratorStatus.Ativo,
+        job_title_id: ''
     });
     
     const [password, setPassword] = useState('');
@@ -52,7 +69,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [selectedInstituicao, setSelectedInstituicao] = useState<string>('');
 
     useEffect(() => {
         const loadConfig = async () => {
@@ -66,11 +82,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     useEffect(() => {
         if (collaboratorToEdit) {
             setFormData({ 
-                ...collaboratorToEdit, 
-                address_line: collaboratorToEdit.address_line || (collaboratorToEdit as any).address || '' 
+                ...collaboratorToEdit,
+                address_line: collaboratorToEdit.address_line || (collaboratorToEdit as any).address || ''
             });
             setPhotoPreview(collaboratorToEdit.photo_url || null);
-            setSelectedInstituicao(collaboratorToEdit.instituicao_id || '');
         }
     }, [collaboratorToEdit]);
 
@@ -82,10 +97,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
         setIsSaving(true);
         try {
-            // Limpeza definitiva Pedido 7: Remover a chave 'address' se existir por acidente no objeto
-            const { address, ...payload } = formData as any;
-            
-            const saved = await onSave(payload, password || undefined);
+            const payload = { ...formData };
+            // Limpeza de campos vazios para UUIDs
+            if (!payload.instituicao_id) delete payload.instituicao_id;
+            if (!payload.entidade_id) delete payload.entidade_id;
+            if (!payload.job_title_id) delete payload.job_title_id;
+
+            const saved = await onSave(payload as any, password || undefined);
             if (photoFile && saved?.id) await dataService.uploadCollaboratorPhoto(saved.id, photoFile);
             onClose();
         } catch (err: any) { 
@@ -103,59 +121,146 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     };
 
     return (
-        <Modal title={collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador"} onClose={onClose} maxWidth="max-w-2xl">
-            <form onSubmit={handleSave} className="space-y-4 overflow-y-auto max-h-[80vh] p-1 pr-2 custom-scrollbar">
-                <div className="flex flex-col items-center mb-6">
+        <Modal title={collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador"} onClose={onClose} maxWidth="max-w-4xl">
+            <form onSubmit={handleSave} className="space-y-6 overflow-y-auto max-h-[80vh] p-1 pr-2 custom-scrollbar">
+                
+                {/* Header: Foto e Identificação Básica */}
+                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start bg-gray-900/30 p-6 rounded-xl border border-gray-700">
                     <div className="relative group">
-                        <div className="w-24 h-24 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center overflow-hidden">
-                            {isCompressing ? <SpinnerIcon className="h-8 w-8" /> : photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <span className="text-2xl font-bold text-gray-500">{formData.full_name?.charAt(0) || '?'}</span>}
+                        <div className="w-32 h-32 rounded-full bg-gray-700 border-4 border-gray-600 flex items-center justify-center overflow-hidden shadow-2xl">
+                            {isCompressing ? <SpinnerIcon className="h-8 w-8" /> : photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <span className="text-4xl font-bold text-gray-500">{formData.full_name?.charAt(0) || '?'}</span>}
                         </div>
-                        <label onClick={() => fileInputRef.current?.click()} className="absolute bottom-0 right-0 bg-brand-primary p-2 rounded-full text-white cursor-pointer hover:bg-brand-secondary shadow-lg"><FaCamera className="w-4 h-4" /></label>
+                        <label onClick={() => fileInputRef.current?.click()} className="absolute bottom-1 right-1 bg-brand-primary p-2 rounded-full text-white cursor-pointer hover:bg-brand-secondary shadow-lg transition-transform hover:scale-110"><FaCamera className="w-5 h-5" /></label>
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={async (e) => { if (e.target.files?.[0]) { setIsCompressing(true); const f = await compressProfileImage(e.target.files[0]); setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); setIsCompressing(false); } }} />
+                    </div>
+                    
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
+                            <div className="relative">
+                                <FaUserTie className="absolute left-3 top-3 text-gray-500" />
+                                <input type="text" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 pl-10 text-sm focus:border-brand-primary outline-none" placeholder="Nome Completo..." required />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email Corporativo</label>
+                            <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" placeholder="email@empresa.pt" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nº Mecanográfico</label>
+                            <div className="relative">
+                                <FaIdCard className="absolute left-3 top-3 text-gray-500" />
+                                <input type="text" value={formData.numero_mecanografico} onChange={e => setFormData({...formData, numero_mecanografico: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 pl-10 text-sm focus:border-brand-primary outline-none" placeholder="Ex: RH001" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="block text-xs font-medium text-gray-400 mb-1">Nome Completo</label><input type="text" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" required /></div>
-                    <div><label className="block text-xs font-medium text-gray-400 mb-1">Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" required /></div>
+                {/* Bloco: Estrutura Organizacional */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-800/20 p-6 rounded-xl border border-gray-700">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2"><FaBuilding/> Instituição</label>
+                        <select value={formData.instituicao_id} onChange={e => setFormData({...formData, instituicao_id: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
+                            <option value="">-- Selecione Instituição --</option>
+                            {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2"><FaMapMarkerAlt/> Entidade / Local</label>
+                        <select value={formData.entidade_id} onChange={e => setFormData({...formData, entidade_id: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
+                            <option value="">-- Selecione Entidade --</option>
+                            {entidades.filter(e => !formData.instituicao_id || e.instituicao_id === formData.instituicao_id).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2"><FaBriefcase/> Cargo / Função</label>
+                        <select value={formData.job_title_id} onChange={e => setFormData({...formData, job_title_id: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
+                            <option value="">-- Selecione Cargo --</option>
+                            {jobTitles.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
+                        </select>
+                    </div>
                 </div>
 
-                <div className="bg-gray-900/50 p-4 rounded border border-gray-600">
-                    <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Acesso ao Sistema</h4>
+                {/* Bloco: Dados Pessoais e Contactos */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" checked={formData.can_login} onChange={e => setFormData({...formData, can_login: e.target.checked})} className="h-4 w-4 rounded bg-gray-700 text-brand-primary" />
-                            <span className="ml-2 text-sm text-gray-300">Permitir Login</span>
+                        <h4 className="text-xs font-black text-brand-secondary uppercase tracking-widest border-b border-gray-700 pb-2">Informação de Contacto</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telemóvel</label>
+                                <input type="text" value={formData.telemovel} onChange={e => setFormData({...formData, telemovel: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" placeholder="9xxxxxxxx" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Extensão / Fixo</label>
+                                <input type="text" value={formData.telefone_interno} onChange={e => setFormData({...formData, telefone_interno: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" placeholder="Ext. 123" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Morada Completa</label>
+                            <input type="text" value={formData.address_line} onChange={e => setFormData({...formData, address_line: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm mb-2" placeholder="Rua, Número..." />
+                            <div className="grid grid-cols-2 gap-2">
+                                <input type="text" value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" placeholder="CP 0000-000" />
+                                <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" placeholder="Cidade" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h4 className="text-xs font-black text-brand-secondary uppercase tracking-widest border-b border-gray-700 pb-2">Datas e Compliance</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><FaCalendarAlt/> Nascimento</label>
+                                <input type="date" value={formData.date_of_birth} onChange={e => setFormData({...formData, date_of_birth: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><FaCalendarAlt/> Admissão</label>
+                                <input type="date" value={formData.admission_date} onChange={e => setFormData({...formData, admission_date: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">NIF</label>
+                            <input type="text" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" placeholder="Contribuinte (9 dígitos)" maxLength={9} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bloco: Acesso ao Sistema */}
+                <div className="bg-blue-900/10 p-6 rounded-xl border border-blue-900/30">
+                    <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Acesso e Permissões</h4>
+                    <div className="space-y-4">
+                        <label className="flex items-center cursor-pointer group">
+                            <input type="checkbox" checked={formData.can_login} onChange={e => setFormData({...formData, can_login: e.target.checked})} className="h-5 w-5 rounded bg-gray-700 text-brand-primary border-gray-600" />
+                            <span className="ml-3 text-sm text-gray-300 font-bold group-hover:text-white transition-colors">Ativar Login do Utilizador</span>
                         </label>
                         
                         {formData.can_login && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in pt-3 border-t border-gray-700">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in pt-4 border-t border-blue-900/20">
                                 <div>
-                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Perfil de Acesso</label>
-                                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm">
-                                        <option value="Utilizador">Utilizador</option>
-                                        <option value="Técnico">Técnico</option>
-                                        <option value="Admin">Admin</option>
+                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil de Acesso (Role)</label>
+                                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-bold text-brand-secondary">
+                                        <option value="Utilizador">Utilizador (Self-Service)</option>
+                                        <option value="Técnico">Técnico (Helpdesk)</option>
+                                        <option value="Admin">Administrador (Gestão)</option>
                                         {availableRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Password Temporária</label>
+                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Definir Password Temporária</label>
                                     <div className="flex gap-2">
                                         <input 
                                             type="text" 
                                             value={password} 
                                             onChange={e => setPassword(e.target.value)} 
-                                            className="flex-grow bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm font-mono" 
-                                            placeholder="Definir senha..." 
+                                            className="flex-grow bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-mono" 
+                                            placeholder="Senha inicial..." 
                                         />
                                         <button 
                                             type="button" 
                                             onClick={generatePassword} 
-                                            className="bg-gray-700 px-3 rounded text-white hover:bg-gray-600" 
-                                            title="Auto Gerar"
+                                            className="bg-gray-700 px-4 rounded text-white hover:bg-gray-600 transition-colors" 
+                                            title="Gerar Aleatória"
                                         >
-                                            <FaMagic size={12}/>
+                                            <FaMagic />
                                         </button>
                                     </div>
                                 </div>
@@ -164,10 +269,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded text-sm">Cancelar</button>
-                    <button type="submit" disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded font-bold hover:bg-brand-secondary flex items-center gap-2">
-                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : <FaSave />} Salvar
+                <div className="flex justify-end gap-4 pt-6 border-t border-gray-700">
+                    <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md font-bold hover:bg-gray-700 transition-colors">Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded-md font-black uppercase tracking-widest hover:bg-brand-secondary flex items-center gap-2 shadow-xl disabled:opacity-50">
+                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : <FaSave />} Gravar Registo
                     </button>
                 </div>
             </form>
